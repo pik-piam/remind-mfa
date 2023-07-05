@@ -1,0 +1,28 @@
+data_path: 'data'
+recalculate_data: False
+
+do_show_figs: True
+do_save_figs: True
+
+start_year: 1900
+end_year: 2101
+
+scrap_recovery_rate: 0.85
+max_scrap_share_production: 0.60
+
+constant_scrap_recovery_rate: True
+include_trade: True
+include_scrap_trade: True
+
+curve_strategy: Pauliuk # Options: Pauliuk, Pehl
+steel_data_source: Mueller # Options: Mueller
+lifetime_data_source: Wittig # Options: Wittig
+
+subcategories: ['Transport', 'Machinery', 'Construction', 'Product']
+categories: ['Transport', 'Machinery', 'Construction', 'Product','Total']
+
+distributions:
+  transportation: 20
+  machinery: 30
+  construction: 75
+  products: 15
