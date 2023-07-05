@@ -1,39 +1,33 @@
 [submodule "ODYM"]
 	path = ODYM
 	url = git@github.com:JakobBD/ODYM.git
-
-[submodule "Mueller"]
-	path = data/original/Mueller
-	url = git@gitlab.pik-potsdam.de:REMIND/inputdata/Mueller.git
-
-[submodule "James"]
-	path = data/original/James
-	url = git@gitlab.pik-potsdam.de:REMIND/inputdata/James.git
-
-[submodule "Pauliuk"]
-	path = data/original/Pauliuk
-	url = git@gitlab.pik-potsdam.de:REMIND/inputdata/Pauliuk.git
-
-[submodule "World_Steel"]
-	path = data/original/World_Steel
-	url = git@gitlab.pik-potsdam.de:REMIND/inputdata/World_Steel.git
-
-[submodule "World_Bank"]
-	path = data/original/World_Bank
-	url = git@gitlab.pik-potsdam.de:simson_data/world_bank.git
-
-[submodule "Wittig"]
-	path = data/original/Wittig
-	url = git@gitlab.pik-potsdam.de:simson_data/wittig.git
-
-[submodule "USGS"]
-	path = data/original/USGS
-	url = git@gitlab.pik-potsdam.de:simson_data/usgs.git
-
-[submodule "IMF"]
-	path = data/original/IMF
-	url = git@gitlab.pik-potsdam.de:simson_data/imf.git
-
 [submodule "UN"]
 	path = data/original/UN
 	url = git@gitlab.pik-potsdam.de:simson_data/un.git
+[submodule "data/original/imf"]
+	path = data/original/imf
+	url = git@gitlab.pik-potsdam.de:simson_data/imf.git
+[submodule "data/original/usgs"]
+	path = data/original/usgs
+	url = git@gitlab.pik-potsdam.de:simson_data/usgs.git
+[submodule "data/original/wittig"]
+	path = data/original/wittig
+	url = git@gitlab.pik-potsdam.de:simson_data/wittig.git
+[submodule "data/original/world_bank"]
+	path = data/original/world_bank
+	url = git@gitlab.pik-potsdam.de:simson_data/world_bank.git
+[submodule "data/original/un"]
+	path = data/original/un
+	url = git@gitlab.pik-potsdam.de:simson_data/un.git
+[submodule "data/original/Mueller"]
+	path = data/original/mueller
+	url = git@gitlab.pik-potsdam.de:simson_data/Mueller.git
+[submodule "data/original/Pauliuk"]
+	path = data/original/pauliuk_2013
+	url = git@gitlab.pik-potsdam.de:simson_data/Pauliuk.git
+[submodule "data/original/worldsteel"]
+	path = data/original/worldsteel
+	url = git@gitlab.pik-potsdam.de:simson_data/worldsteel.git
+[submodule "data/original/unifreiburg_ie_db"]
+	path = data/original/unifreiburg_ie_db
+	url = git@gitlab.pik-potsdam.de:simson_data/unifreiburg_ie_db.git
