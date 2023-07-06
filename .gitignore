@@ -2,3 +2,4 @@ data/output/*.png
 src/*/__pycache__
 data/models/*.p
 data/processed/*.csv
+.idea
