@@ -40,3 +40,6 @@
 [submodule "data/original/koch_leimbach"]
 	path = data/original/koch_leimbach
 	url = git@gitlab.pik-potsdam.de:simson_data/koch_leimbach.git
+[submodule "data/un"]
+	path = data/un
+	url = git@gitlab.pik-potsdam.de:simson_data/un.git
