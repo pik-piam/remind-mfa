@@ -16,27 +16,27 @@
 [submodule "data/original/world_bank"]
 	path = data/original/world_bank
 	url = git@gitlab.pik-potsdam.de:simson_data/world_bank.git
-[submodule "data/original/un"]
-	path = data/original/un
-	url = git@gitlab.pik-potsdam.de:simson_data/un.git
-[submodule "data/original/Mueller"]
-	path = data/original/Mueller
-	url = git@gitlab.pik-potsdam.de:simson_data/Mueller.git
-[submodule "data/original/Pauliuk"]
-	path = data/original/Pauliuk
-	url = git@gitlab.pik-potsdam.de:simson_data/Pauliuk.git
 [submodule "data/original/worldsteel"]
 	path = data/original/worldsteel
 	url = git@gitlab.pik-potsdam.de:simson_data/worldsteel.git
 [submodule "data/original/unifreiburg_ie_db"]
 	path = data/original/unifreiburg_ie_db
 	url = git@gitlab.pik-potsdam.de:simson_data/unifreiburg_ie_db.git
-[submodule "data/original/remind"]
-	path = data/original/remind
-	url = git@gitlab.pik-potsdam.de:simson_data/remind.git
 [submodule "data/original/oecd"]
 	path = data/original/oecd
 	url = git@gitlab.pik-potsdam.de:simson_data/oecd.git
 [submodule "data/original/koch_leimbach"]
 	path = data/original/koch_leimbach
 	url = git@gitlab.pik-potsdam.de:simson_data/koch_leimbach.git
+[submodule "data/original/Pauliuk"]
+	path = data/original/Pauliuk
+	url = git@gitlab.pik-potsdam.de:simson_data/Pauliuk.git
+[submodule "data/original/Mueller"]
+	path = data/original/Mueller
+	url = git@gitlab.pik-potsdam.de:simson_data/Mueller.git
+[submodule "data/original/un"]
+	path = data/original/un
+	url = git@gitlab.pik-potsdam.de:simson_data/un.git
+[submodule "data/original/remind"]
+	path = data/original/remind
+	url = git@gitlab.pik-potsdam.de:simson_data/remind.git
