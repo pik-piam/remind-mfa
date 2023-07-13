@@ -20,10 +20,10 @@
 	path = data/original/un
 	url = git@gitlab.pik-potsdam.de:simson_data/un.git
 [submodule "data/original/Mueller"]
-	path = data/original/mueller
+	path = data/original/Mueller
 	url = git@gitlab.pik-potsdam.de:simson_data/Mueller.git
 [submodule "data/original/Pauliuk"]
-	path = data/original/pauliuk_2013
+	path = data/original/Pauliuk
 	url = git@gitlab.pik-potsdam.de:simson_data/Pauliuk.git
 [submodule "data/original/worldsteel"]
 	path = data/original/worldsteel
