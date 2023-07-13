@@ -1,5 +1,5 @@
 data_path: '../../data'
-recalculate_data: True
+recalculate_data: False
 
 do_show_figs: True
 do_save_figs: True

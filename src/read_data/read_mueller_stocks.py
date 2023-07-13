@@ -184,7 +184,7 @@ def _get_stocks_with_area_sums(df_stocks_pc, df_areas, countries_considered):
 
 
 def _read_mueller_originial():
-    mueller_stock_path = os.path.join(cfg.data_path, 'original', 'mueller',
+    mueller_stock_path = os.path.join(cfg.data_path, 'original', 'Mueller',
                                       "Mueller_2013_CarbonEmissions_InfrastructureDevelopment_SI2.xlsx")
     df_stocks = pd.read_excel(mueller_stock_path,
                               engine='openpyxl',
@@ -196,7 +196,7 @@ def _read_mueller_originial():
 
 
 def _read_mueller_iso3_map():
-    mueller_iso3_path = os.path.join(cfg.data_path, 'original', 'mueller', 'Mueller_countries.csv')
+    mueller_iso3_path = os.path.join(cfg.data_path, 'original', 'Mueller', 'Mueller_countries.csv')
     df_iso3 = pd.read_csv(mueller_iso3_path)
 
     df_iso3 = df_iso3.rename(columns={
@@ -208,7 +208,7 @@ def _read_mueller_iso3_map():
 
 
 def _read_pauliuk_splits():
-    splits_path = os.path.join(cfg.data_path, 'original', 'pauliuk_2013', 'Supplementary_Table_23.xlsx')
+    splits_path = os.path.join(cfg.data_path, 'original', 'Pauliuk', 'Supplementary_Table_23.xlsx')
     df_splits = pd.read_excel(splits_path,
                               engine='openpyxl',
                               sheet_name='Supplementray_Table_23',
