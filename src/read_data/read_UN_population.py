@@ -85,7 +85,7 @@ def _get_1900_1949_percentages_of_1950_world_population(df_pop_1900):
 # -- READ RAW/ORIGINAL DATA FUNCTIONS --
 
 def _read_1900_world_pop():
-    pop_1900_path = os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_1900-1950.csv")
+    pop_1900_path = os.path.join(cfg.data_path, 'original', 'un', "UN_Population_1900-1950.csv")
     df_pop_1900 = pd.read_csv(pop_1900_path)
     df_pop_1900.set_index('year', inplace=True)
 
@@ -95,7 +95,7 @@ def _read_1900_world_pop():
 def _read_pop_1950_original():
     # load population data 1950-2021
 
-    pop_1950_path = os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_1950-2021.xlsx")
+    pop_1950_path = os.path.join(cfg.data_path, 'original', 'un', "UN_Population_1950-2021.xlsx")
     df_pop_1950 = pd.read_excel(pop_1950_path,
                                 engine='openpyxl',
                                 sheet_name='Estimates',
@@ -120,7 +120,7 @@ def _read_pop_1950_original():
 def _read_pop_2022_original():
     # population predictions 2022-2100
 
-    pop_2022_path = os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_2022-2100.xlsx")
+    pop_2022_path = os.path.join(cfg.data_path, 'original', 'un', "UN_Population_2022-2100.xlsx")
     df_pop_2022 = pd.read_excel(pop_2022_path,
                                 engine='openpyxl',
                                 sheet_name='Median',
