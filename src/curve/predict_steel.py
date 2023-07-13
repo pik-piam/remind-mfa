@@ -1,10 +1,11 @@
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.special import logit
-import yaml
 import statsmodels.api as sm
+import pandas as pd
 from math import e, log
-import os
+from src.read_data.read_REMIND_regions import get_region_to_countries_df
+from src.read_data.read_IMF_gdp import load_imf_gdp
 from src.tools.config import cfg
 
 
@@ -87,11 +88,23 @@ def predict_pehl(stock_data, pop_data, gdp_data):
     future_steel = curve(final_params, future_gdp)
     return np.append(stock_data, future_steel)
 
+def get_stock_prediction_pauliuk(df_stock):
+    df_regions = get_region_to_countries_df()
+    df_gdp = load_imf_gdp(country_specific=True, per_capita=True)
+    df_stock = pd.merge(df_regions, df_stock, on='country')
+    df_stock_new = df_stock.reindex(columns=list(range(1950,2101)))
+    for index, row in df_stock.iterrows():
+        region = row['region']
+        histdata = np.array(row[1:70])
+        newdata = predict_pauliuk(histdata,region)
+        df_stock_new.loc[index] = newdata
+
+    return df_stock_new
 
 def predict_pauliuk(histdata, region):
     """
     Predicts In-use steel stock per capita based on approach described by Pauliuk in the
-    'Steel Scrap Age' Supplementary Info. Assumes Sigmoid saturation curve and predifined saturation
+    'Steel Scrap Age' Supplementary Info. Assumes Sigmoid saturation curve and predefined saturation
     time and level assumptions for each region.
     :param histdata:
     :param region:

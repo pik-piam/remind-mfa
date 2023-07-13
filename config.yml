@@ -1,11 +1,11 @@
-data_path: 'data'
-recalculate_data: False
+data_path: '../../data'
+recalculate_data: True
 
 do_show_figs: True
 do_save_figs: True
 
 start_year: 1900
-end_year: 2101
+end_year: 2100
 
 scrap_recovery_rate: 0.85
 max_scrap_share_production: 0.60

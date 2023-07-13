@@ -1,31 +1,23 @@
 import csv
 import os
 from src.tools.config import cfg
+import pandas as pd
 
+def get_region_to_countries_df():
+    remind_data_path = os.path.join(cfg.data_path, 'original', 'remind', 'REMINDRegions.csv')
+    df = pd.read_csv(remind_data_path)
+    df.set_index('country', inplace=True)
+    return df
 
 def get_region_to_countries_dict():
-    with open(os.path.join(cfg.data_path, 'processed', 'REMINDRegions.csv')) as csv_file:
-        regions = csv.reader(csv_file, delimiter=',')
-        regions = list(regions)
-    region_dict = {}
-    with open(os.path.join(cfg.data_path, 'original', 'Mueller', 'Mueller_countries.csv')) as csv_file:
-        mueller_countries = csv.reader(csv_file, delimiter=',')
-        mueller_countries = list(mueller_countries)
-        mueller_iso = []
-        for mueller_line in mueller_countries:
-            mueller_iso.append(mueller_line[1])
-    for region in regions:
-        finalcountries = []
-        for country in region[1:]:
-            if country in mueller_iso:
-                finalcountries.append(country)
-        region_dict[region[0]] = finalcountries
-    return region_dict
-
+    df = get_region_to_countries_df()
+    gk = df.groupby('region')
+    regions_dict = gk['country'].apply(list).to_dict()
+    return regions_dict
 
 if __name__ == '__main__':
-    cfg.customize()
-    data = get_region_to_countries_dict()
-    for i in data.keys():
-        print(i)
-        print(data[i])
+    df = get_region_to_countries_df()
+    print(df)
+    regions_dict = get_region_to_countries_dict()
+    for region, countries in regions_dict.items():
+        print(f"{region}: {countries}")

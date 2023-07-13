@@ -1,147 +1,163 @@
-import csv
 import os
-import yaml
-import numpy as np
 import pandas as pd
-from src.read_data.read_REMIND_regions import get_region_to_countries_dict
+from numpy import nan
+from src.read_data.read_REMIND_regions import get_region_to_countries_df
 from src.tools.config import cfg
+from src.tools.tools import read_processed_data
 
 
-def load_un_pop():
-    if os.path.exists(os.path.join(cfg.data_path, 'processed', 'UN_pop.csv')) and not cfg.recalculate_data:
-        with open(os.path.join(cfg.data_path, 'processed', 'UN_pop.csv')) as csv_file:
-            regions = get_region_to_countries_dict()
-            pop_reader = csv.reader(csv_file, delimiter=',')
-            pop_reader = list(pop_reader)
-            pop_dict = {}
-            for region in regions.keys():
-                pop_dict[region] = {}
-            for country_dates in pop_reader:
-                region = country_dates[0]
-                if region == 'Total':
-                    date = np.zeros(201, dtype='f4')
-                    for i in range(201):
-                        date[i] = float(country_dates[i + 1])
-                    pop_dict['Total'] = date
-                    continue
-                country = country_dates[1]
-                date = np.zeros(201, dtype='f4')
-                for i in range(201):
-                    date[i] = float(country_dates[i + 2])
-                pop_dict[region][country] = date
+def load_un_pop(country_specific : bool):
+    if country_specific:
+        return _load_un_pop_countries()
+    else: # region specific
+        return _load_un_pop_regions()
 
-            return pop_dict
-
-    else:
-        pop_data = aggregate()
-        with open(os.path.join(cfg.data_path, 'processed', 'UN_pop.csv'), 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Total'] + list(pop_data['Total']))
-            for region in pop_data.keys():
-                if region == 'Total':
-                    continue
-                region_data = pop_data[region]
-                for country in region_data.keys():
-                    writer.writerow([region, country] + list(region_data[country]))
-        return pop_data
+# -- MAIN PUBLIC DATA LOADING FUNCTIONS --
 
 
-def aggregate():
-    regions = get_region_to_countries_dict()
-    pop_data = extend()
-    pop_dict = {}
-    world_pop = np.zeros(201, dtype='f4')
-    for region in regions.keys():
-        pop_dict[region] = {}
-        region_pop = np.zeros(201, dtype='f4')
-        for country in regions[region]:
-            pop_dict[region][country] = pop_data[country]
-            region_pop += pop_data[country]
-        pop_dict[region]['Total'] = region_pop
-        world_pop += region_pop
-    pop_dict['Total'] = world_pop
-
-    return pop_dict
+def _load_un_pop_regions():
+    pop_regions_path = os.path.join(cfg.data_path, 'processed', 'UN_pop_regions.csv')
+    if os.path.exists(pop_regions_path) and not cfg.recalculate_data:
+        df = read_processed_data(pop_regions_path)
+    else:  # recalculate and store
+        df = _group_country_data_to_regions()
+        df.to_csv(pop_regions_path)
+    return df
 
 
-def extend():
-    pop_dict = read_pop_originial()
-    lin_values = [1650, 1750, 1860, 2070, 2300, 2557]
-    for country in pop_dict.keys():
-        country_pop_past = np.zeros(50, dtype='f4')
-        country_pop_future = pop_dict[country]
-        last_value = country_pop_future[0]
-        country_pop_1950 = last_value
-        index = -1
-        for decade in range(5):
-            percent_new_aim = (lin_values[-1] - lin_values[-(decade + 2)]) / lin_values[-1]
-            new_aim = country_pop_1950 * (1 - percent_new_aim)
-            step = (last_value - new_aim) / 10
-            for year in range(1, 11):
-                new_value = last_value - step
-                last_value = new_value
-                country_pop_past[index] = new_value
-                index -= 1
-        pop_dict[country] = np.append(country_pop_past, country_pop_future)
-    return pop_dict
+def _load_un_pop_countries():
+    pop_countries_path = os.path.join(cfg.data_path, 'processed', 'UN_pop_countries.csv')
+    if os.path.exists(pop_countries_path) and not cfg.recalculate_data:
+        df = read_processed_data(pop_countries_path)
+    else:  # recalculate and store
+        df = _get_pop_countries()
+        df.to_csv(pop_countries_path)
+    return df
 
 
-def read_pop_originial():
-    # population 1950-2021
+# -- FORMATTING DATA FUNCTIONS --
 
-    with open(os.path.join(cfg.data_path, 'original', 'Mueller', 'Mueller_countries.csv')) as csv_file:
-        mueller_countries = csv.reader(csv_file, delimiter=',')
-        mueller_countries = list(mueller_countries)
-        mueller_iso = []
-        for i in mueller_countries:
-            mueller_iso.append(i[1])
 
-    pop_old = pd.read_excel(os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_1950-2021.xlsx"),
-                            engine='openpyxl', sheet_name='Estimates',
-                            usecols=['Unnamed: 2', 'Unnamed: 5', 'Unnamed: 10', 'Unnamed: 11'])
+def _get_pop_countries():
+    # load and merge current and future datasets
 
-    pop_old.to_csv()
+    df_pop_1900 = _read_1900_world_pop()
+    df_1950 = _read_pop_1950_original()
+    df_2022 = _read_pop_2022_original()
+    df = pd.merge(df_1950, df_2022, on='country')
+    df = df.set_index('country')
+    df = df.mul(1000)  # as data is given in thousands, multiply by 1000
 
+    # add past prediction
+
+    df_1900 = _get_pop_past_prediction(df, df_pop_1900)
+    df = pd.merge(df_1900, df, on='country')
+    return df
+
+
+def _get_pop_past_prediction(df, df_pop_1900):
+    df_percentages = _get_1900_1949_percentages_of_1950_world_population(df_pop_1900)
+    df_1950 = pd.DataFrame(df[1950])
+    df_1950 = df_1950.rename(columns={1950: 'percentages'})  # column needs to be renamed for dot product
+
+    df_1900 = df_1950.dot(df_percentages)
+    df_1900 = df_1900.astype('int')
+
+    return df_1900
+
+
+def _get_1900_1949_percentages_of_1950_world_population(df_pop_1900):
+    years = range(1900, 1951)
+    world_pop_1950 = df_pop_1900.loc[1950][0]
+    percentages = [df_pop_1900.loc[year][0] / world_pop_1950 if year in df_pop_1900.index else nan for year in years]
+    df_percentages = pd.DataFrame.from_dict({
+        'year': years,
+        'percentages': percentages
+    })
+    df_percentages.interpolate(inplace=True)
+    df_percentages.set_index('year', inplace=True)
+    df_percentages.drop(1950, inplace=True)
+    df_percentages = df_percentages.transpose()
+
+    return df_percentages
+
+
+# -- READ RAW/ORIGINAL DATA FUNCTIONS --
+
+def _read_1900_world_pop():
+    pop_1900_path = os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_1900-1950.csv")
+    df_pop_1900 = pd.read_csv(pop_1900_path)
+    df_pop_1900.set_index('year', inplace=True)
+
+    return df_pop_1900
+
+
+def _read_pop_1950_original():
+    # load population data 1950-2021
+
+    pop_1950_path = os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_1950-2021.xlsx")
+    df_pop_1950 = pd.read_excel(pop_1950_path,
+                                engine='openpyxl',
+                                sheet_name='Estimates',
+                                skiprows=16,
+                                usecols=['ISO3 Alpha-code', 'Year', 'Total Population, as of 1 January (thousands)'])
+    df_pop_1950.dropna(inplace=True)
+    df_pop_1950.rename(columns={
+        'ISO3 Alpha-code': 'country',
+        'Year': 'year',
+        'Total Population, as of 1 January (thousands)': 'population'
+    }, inplace=True)
+
+    # change to horizontal format
+    df_pop_1950 = df_pop_1950.pivot(index='country', columns='year', values='population')
+
+    # change year columns from float to int
+    df_pop_1950.columns = df_pop_1950.columns.astype(int)
+
+    return df_pop_1950
+
+
+def _read_pop_2022_original():
     # population predictions 2022-2100
 
-    pop_new = pd.read_excel(os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_2022-2100.xlsx"),
-                            engine='openpyxl', sheet_name='Median', usecols="C,F,K:CK")
+    pop_2022_path = os.path.join(cfg.data_path, 'original', 'UN', "UN_Population_2022-2100.xlsx")
+    df_pop_2022 = pd.read_excel(pop_2022_path,
+                                engine='openpyxl',
+                                sheet_name='Median',
+                                usecols="F,K:CK",
+                                skiprows=16)
 
-    pop_new.to_csv()
+    df_pop_2022.dropna(inplace=True)
+    df_pop_2022.rename(columns={'ISO3 Alpha-code': 'country'}, inplace=True)
 
-    pop_dict = {}
-    for i in mueller_iso:
-        pop_dict[i] = []
+    return df_pop_2022
 
-    for i in range(2, len(pop_old['Unnamed: 2'])):
-        iso = pop_old['Unnamed: 5'][i]
-        if iso in mueller_iso:
-            pop_dict[iso].append(str(1000 * float(pop_old['Unnamed: 11'][i])))
-    for i in range(2, len(pop_new['Unnamed: 2'])):
-        for j in range(79):
-            year_column_string = 'Unnamed: ' + str(j + 10)
-            country_iso = pop_new['Unnamed: 5'][i]
-            if country_iso in mueller_iso:
-                pop_dict[country_iso].append(str(1000 * float(pop_new[year_column_string][i])))
 
-    for country in mueller_iso:
-        if len(pop_dict[country]) < 151:
-            pop_dict.pop(country, None)
+# -- HELP FUNCTIONS --
 
-    # make np.arrays
-    for iso in pop_dict.keys():
-        pop_dict[iso] = np.array(pop_dict[iso], dtype='f4')
+def _group_country_data_to_regions():
+    """
+    Function needs to be seperately implemented (next to tools.py grouping function
+    to avoid circular import error.
+    """
+    df_by_country = _load_un_pop_countries()
+    regions = get_region_to_countries_df()
+    df = pd.merge(regions, df_by_country, on='country')
+    df = df.groupby('region').sum(numeric_only=False)
 
-    return pop_dict
+    return df
+
+
+# -- TEST FILE FUNCTION --
+
+def _test():
+    regions = _load_un_pop_regions()
+    countries = _load_un_pop_countries()
+    print("Regions: ")
+    print(regions)
+    print("\nCountries: ")
+    print(countries)
 
 
 if __name__ == "__main__":
-    cfg.customize()
-    data = load_un_pop()
-    for r in data.keys():
-        if r == 'Total':
-            continue
-        for c in data[r].keys():
-            # print(data[r][c][:5])
-            print(r + c)
-            continue
+    _test()
