@@ -1,80 +1,130 @@
+import os
 import pandas as pd
-from src.read_data.read_UN_population import load_un_pop
-from src.read_data.read_mueller_country_codes import load_country_names_and_codes
-from src.tools.tools import Years
 from src.tools.config import cfg
+from src.curve.predict_steel import get_stock_prediction_pauliuk_for_pauliuk
+from src.tools.tools import read_processed_data
+from src.tools.tools import transform_per_capita
+from src.tools.tools import group_country_data_to_regions
 
 
-def load_pauliuk_to_dfs(years: Years):
-
-    # TODO:
-    # - print countries that are in remind, but not in Pauliuk
-    # - correct country summing; drop regions that are not in list (REF?)
-
-    pop_dict = load_un_pop()
-
-    df_pauliuk = load_stocks()
-    df_all = add_country_codes(df_pauliuk)
-    df_all = add_regions_and_pop(df_all, pop_dict, years)
-
-    df_global, df_regional = aggregate_countries(df_all)
-
-    for df in [df_global, df_regional]:
-        df['stock_pc'] = df['stock'] / df['population']
-
-    return df_global, df_regional
+def load_pauliuk_stocks(country_specific=False, per_capita=True):
+    if country_specific:
+        df_country = _load_pauliuk_steel_countries()
+        if not per_capita:
+            df_country = transform_per_capita(df_country, total_from_per_capita=True, country_specific=True)
+        return df_country
+    else:  # region specific
+        df_region = _load_pauliuk_steel_regions()
+        if not per_capita:
+            df_region = transform_per_capita(df_region, total_from_per_capita=True, country_specific=False)
+        return df_region
 
 
-def load_stocks():
-    # load steel stocks
-    df_pauliuk = pd.read_excel(
-        io=cfg.data_path + '/original/Pauliuk/2_IUS_steel_200R.xlsx',
-        engine='openpyxl',
-        sheet_name='Data',
-        usecols=['aspect 3 : time', 'aspect 5 : region', 'value'])
+# -- MAIN DATA LOADING FUNCTIONS --
 
+
+def _load_pauliuk_steel_regions():
+    steel_regions_path = os.path.join(cfg.data_path, 'processed', 'pauliuk_steel_regions.csv')
+    if os.path.exists(steel_regions_path) and not cfg.recalculate_data:
+        df = read_processed_data(steel_regions_path)
+        df = df.reset_index()
+        df = df.set_index(['region', 'category'])
+    else:  # recalculate and store
+        df_by_country = _load_pauliuk_steel_countries()
+        df = group_country_data_to_regions(df_by_country, is_per_capita=True, group_by_subcategories=True)
+        df.to_csv(steel_regions_path)
+    return df
+
+
+def _load_pauliuk_steel_countries():
+    pauliuk_steel_countries_path = os.path.join(cfg.data_path, 'processed', 'pauliuk_steel_countries.csv')
+    if os.path.exists(pauliuk_steel_countries_path) and not cfg.recalculate_data:
+        df = read_processed_data(pauliuk_steel_countries_path)
+        df = df.reset_index()
+        df = df.set_index(['country', 'category'])
+    else:  # recalculate and store
+        df = _get_pauliuk_stocks()
+        df.to_csv(pauliuk_steel_countries_path)
+    return df
+
+
+# -- DATA ASSEMBLY FUNCTIONS --
+
+def _get_pauliuk_stocks():
+    df_current = get_current_pauliuk_stocks()
+    df = get_stock_prediction_pauliuk_for_pauliuk(df_current)
+    return df
+
+
+def get_current_pauliuk_stocks():
+    df_original = read_pauliuk_original()
+    df_original = clean_pauliuk(df_original)
+    df_iso3_map = read_pauliuk_iso3_map()
+    df_original = _normalize_pauliuk_original(df_original, df_iso3_map)
+
+    return df_original
+
+
+def _normalize_pauliuk_original(df_original, df_iso3_map):
+    df_original = df_original.pivot(index=['country_name', 'category'], columns='year', values='stock')
+    df_original = df_original.reset_index()
+    df = pd.merge(df_iso3_map, df_original, on='country_name')
+    df = df.drop(columns='country_name')
+    df = df.set_index(['country', 'category'])
+
+    return df
+
+
+def clean_pauliuk(df_pauliuk):
     # clean up
-    df_pauliuk = df_pauliuk.rename(columns={'aspect 3 : time': 'Year',
-                                            'aspect 5 : region': 'country',
+    df_pauliuk = df_pauliuk.rename(columns={'aspect 3 : time': 'year',
+                                            'aspect 4 : commodity': 'category_description',
+                                            'aspect 5 : region': 'country_name',
                                             'value': 'stock'})
-    df_pauliuk['country'] = df_pauliuk['country'].replace('United States', 'USA')
     df_pauliuk['stock'] = df_pauliuk['stock'] * 1000.
+    df_cat_names = pd.DataFrame.from_dict({
+        'category_description': ['vehicles and other transport equipment',
+                                 'industrial machinery',
+                                 'buildings - construction - infrastructure',
+                                 'appliances - packaging - other'],
+        'category': cfg.subcategories
+    })
+
+    df_pauliuk = pd.merge(df_cat_names, df_pauliuk, on='category_description')
+    df_pauliuk = df_pauliuk.drop(columns=['category_description'])
     return df_pauliuk
 
 
-def add_country_codes(df_pauliuk: pd.DataFrame):
-    country_names_and_codes = load_country_names_and_codes()
-    df_all = pd.merge(df_pauliuk, country_names_and_codes, how='left', on='country')
+def read_pauliuk_original():
+    pauliuk_data_path = os.path.join(cfg.data_path, 'original', 'unifreiburg_ie_db',
+                                     '2_IUS_steel_200R_4Categories.xlsx')
+    df_pauliuk = pd.read_excel(
+        io=pauliuk_data_path,
+        engine='openpyxl',
+        sheet_name='Data',
+        usecols=['aspect 3 : time', 'aspect 4 : commodity', 'aspect 5 : region', 'value'])
 
-    # debug output: If a country is not in Mueller, then the ccode is NaN in that row
-    pauliuk_countries_not_in_mueller = df_all['country'][df_all['ccode'].isna()].unique()
-    print("Countries found in Pauliuk, but not in Mueller:\n",
-          pauliuk_countries_not_in_mueller)
-    return df_all
-
-
-def add_regions_and_pop(df_all: pd.DataFrame, pop_dict: dict, years: Years):
-    population = pd.concat([
-        pd.DataFrame.from_dict({
-            'ccode': [ccode for _ in years.ids],
-            'region': [region for _ in years.ids],
-            'population': pop[years.ids],
-            'Year': years.calendar})
-        for region, ccodes in pop_dict.items() if region != 'Total'
-        for ccode, pop in ccodes.items() if ccode != 'Total'])
-    df_all = pd.merge(df_all, population, how='left', on=['ccode', 'Year'])
-    return df_all
+    return df_pauliuk
 
 
-def aggregate_countries(df_all: pd.DataFrame):
-    # sum over countries
-    df_regional = df_all \
-        .groupby(['region', 'Year'], as_index=False) \
-        .aggregate({'stock': 'sum', 'population': 'sum'}) \
-        .reset_index()
-    df_global = df_regional \
-        .groupby('Year') \
-        .aggregate({'stock': 'sum', 'population': 'sum'})
-    # add region
-    df_global['region'] = 'World'
-    return df_global, df_regional
+def read_pauliuk_iso3_map():
+    pauliuk_iso3_path = os.path.join(cfg.data_path, 'original', 'unifreiburg_ie_db', 'Pauliuk_countries.csv')
+    df_iso3 = pd.read_csv(pauliuk_iso3_path)
+
+    df_iso3 = df_iso3.rename(columns={
+        'country': 'country_name',
+        'iso3c': 'country'
+    })
+
+    return df_iso3
+
+
+# -- TEST FILE FUNCTION --
+
+def _test():
+    df = _get_pauliuk_stocks()
+    print(df)
+
+
+if __name__ == "__main__":
+    _test()

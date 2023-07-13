@@ -88,20 +88,38 @@ def predict_pehl(stock_data, pop_data, gdp_data):
     future_steel = curve(final_params, future_gdp)
     return np.append(stock_data, future_steel)
 
-def get_stock_prediction_pauliuk(df_stock):
+def get_stock_prediction_pauliuk_for_pauliuk(df_stock):
+    df_regions = get_region_to_countries_df()
+    df_gdp = load_imf_gdp(country_specific=True, per_capita=True)
+    df_stock = df_stock.reset_index()
+    df_stock = pd.merge(df_regions, df_stock, on='country')
+    df_stock = df_stock.set_index(['country', 'category'])
+    df_stock_new = df_stock.reindex(columns=list(range(1900,2101)))
+    for index, row in df_stock.iterrows():
+        region = row['region']
+        category = index[1]
+        histdata = np.array(row[1:110])
+        newdata = predict_pauliuk(histdata,region, category)
+        df_stock_new.loc[index] = newdata
+
+    return df_stock_new
+
+
+def get_stock_prediction_pauliuk_for_mueller(df_stock):
     df_regions = get_region_to_countries_df()
     df_gdp = load_imf_gdp(country_specific=True, per_capita=True)
     df_stock = pd.merge(df_regions, df_stock, on='country')
     df_stock_new = df_stock.reindex(columns=list(range(1950,2101)))
     for index, row in df_stock.iterrows():
         region = row['region']
-        histdata = np.array(row[1:70])
+        histdata = np.array(row[1:60])
         newdata = predict_pauliuk(histdata,region)
         df_stock_new.loc[index] = newdata
-
     return df_stock_new
 
-def predict_pauliuk(histdata, region):
+
+
+def predict_pauliuk(histdata, region, category='Total'):
     """
     Predicts In-use steel stock per capita based on approach described by Pauliuk in the
     'Steel Scrap Age' Supplementary Info. Assumes Sigmoid saturation curve and predefined saturation
@@ -111,21 +129,22 @@ def predict_pauliuk(histdata, region):
     :return: Steel data for the years 1900-2100, so BOTH present and past.
     """
     saturation_params = {
-        'LAM': [13.3, 2100],
-        'OAS': [13.7, 2150],
-        'SSA': [13.7, 2150],
-        'EUR': [12.8, 2030],
-        'NEU': [12.8, 2030],
-        'MEA': [13.7, 2100],
-        'REF': [12.8, 2030],
-        'CAZ': [13.3, 2030],
-        'CHA': [13.7, 2050],
-        'IND': [13.7, 2150],
-        'JPN': [14.7, 2020],
-        'USA': [13.3, 2030]}
+        'LAM': [1.5, 1.6, 10, 0.6, 13.3, 2100],
+        'OAS': [1.5, 1.6, 10, 0.6, 13.7, 2150],
+        'SSA': [1.5, 1.6, 10, 0.6, 13.7, 2150],
+        'EUR': [1.3, 0.9, 10, 0.6, 12.8, 2030],
+        'NEU': [1.3, 0.9, 10, 0.6, 12.8, 2030],
+        'MEA': [1.5, 1.6, 10, 0.6, 13.7, 2100],
+        'REF': [1.5, 0.9, 10, 0.6, 12.8, 2030],
+        'CAZ': [1.5, 1.6, 9.5, 0.7, 13.3, 2020],
+        'CHA': [1.5, 1.6, 10, 0.6, 13.7, 2050],
+        'IND': [1.5, 1.6, 10, 0.6, 13.7, 2150],
+        'JPN': [1, 0.9, 12, 0.8, 14.7, 2020],
+        'USA': [1.5, 1.6, 9.5, 0.7, 13.3, 2020]}
 
-    satlevel = saturation_params[region][0]
-    sattime = saturation_params[region][1]
+    satlevel_index = cfg.categories.index(category)
+    satlevel = saturation_params[region][satlevel_index]
+    sattime = saturation_params[region][-1]
     t0 = 2008
     s0 = histdata[-1]
 

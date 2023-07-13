@@ -7,7 +7,7 @@ from src.tools.tools import transform_per_capita
 from src.tools.tools import fill_missing_values_linear
 from src.tools.tools import read_processed_data
 from src.tools.config import cfg
-from src.curve.predict_steel import get_stock_prediction_pauliuk
+from src.curve.predict_steel import get_stock_prediction_pauliuk_for_mueller
 
 
 def load_mueller_stocks(country_specific=False, per_capita=True):
@@ -56,7 +56,7 @@ def _load_mueller_steel_countries():
 
 def _get_mueller_stocks():
     df_current = _get_current_mueller_stocks()
-    df = get_stock_prediction_pauliuk(df_current)
+    df = get_stock_prediction_pauliuk_for_mueller(df_current)
     df_past = get_past_according_to_gdppc_estimates(df)
     df = df_past.merge(df, on='country')
     df = fill_missing_values_linear(df)
@@ -68,7 +68,7 @@ def _get_mueller_stocks():
 
 def _get_current_mueller_stocks():
     df_mueller = _read_mueller_originial()
-    df_iso3_map = _read_mueller_iso3_map()
+    df_iso3_map = read_mueller_iso3_map()
 
     df = pd.merge(df_iso3_map, df_mueller, left_on='country_name', right_on='Country')
     df = df.drop(columns=['country_name', 'Country'])
@@ -98,7 +98,7 @@ def _normalize_sector_splits(df_splits):
 
     # add iso3 codes, clean up
 
-    df_iso3c = _read_mueller_iso3_map()
+    df_iso3c = read_mueller_iso3_map()
     df_splits = pd.merge(df_iso3c, df_splits, left_on='country_name', right_on='Country name')
     df_splits = df_splits.drop(columns=['country_name', 'Country name'])
     df_splits = df_splits.set_index('country')
@@ -195,7 +195,7 @@ def _read_mueller_originial():
     return df_stocks
 
 
-def _read_mueller_iso3_map():
+def read_mueller_iso3_map():
     mueller_iso3_path = os.path.join(cfg.data_path, 'original', 'Mueller', 'Mueller_countries.csv')
     df_iso3 = pd.read_csv(mueller_iso3_path)
 
@@ -221,7 +221,6 @@ def _read_pauliuk_splits():
 # -- TEST FILE FUNCTION --
 
 def _test():
-
     countries = _load_mueller_steel_countries()
     print("\nCountries: ")
     print(countries)
