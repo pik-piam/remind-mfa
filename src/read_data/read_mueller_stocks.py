@@ -2,10 +2,8 @@ import os
 import pandas as pd
 from src.read_data.read_IMF_gdp import get_past_according_to_gdppc_estimates
 from src.read_data.read_IMF_gdp import load_imf_gdp
-from src.tools.tools import group_country_data_to_regions
-from src.tools.tools import transform_per_capita
-from src.tools.tools import fill_missing_values_linear
-from src.tools.tools import read_processed_data
+from src.tools.tools import group_country_data_to_regions, transform_per_capita, fill_missing_values_linear, \
+    read_processed_data, get_steel_category_total
 from src.tools.config import cfg
 from src.curve.predict_steel import get_stock_prediction_pauliuk_for_mueller
 
@@ -144,7 +142,7 @@ def _normalize_mueller_stocks(df_stocks_pc, df_areas):
     return df_stocks_pc
 
 
-def _get_areas_to_normalize(df_iso3_map : pd.DataFrame):
+def _get_areas_to_normalize(df_iso3_map: pd.DataFrame):
     areas_to_normalize = ['Belgium-Luxembourg', 'Czechoslovakia', 'Fmr USSR',
                           'Fmr Yugoslavia', 'Neth Antilles', 'So. African Customs Union']
     df_areas = pd.DataFrame.from_dict({
@@ -160,7 +158,7 @@ def _get_areas_to_normalize(df_iso3_map : pd.DataFrame):
 # -- GROUPING CALCULATION FUNCTIONS --
 
 
-def _get_gdp_shares_in_areas(df_gdp : pd.DataFrame, years_considered : list):
+def _get_gdp_shares_in_areas(df_gdp: pd.DataFrame, years_considered: list):
     gk_gdp = df_gdp.groupby('area')
     df_gdp_sums = gk_gdp[years_considered].transform('sum', numeric_only=True)
     df_gdp[years_considered] = df_gdp[years_considered] / df_gdp_sums
@@ -221,6 +219,12 @@ def _read_pauliuk_splits():
 # -- TEST FILE FUNCTION --
 
 def _test():
+    regions = _load_mueller_steel_regions()
+    totals = get_steel_category_total(regions)
+    print(regions)
+    print(totals)
+    return
+
     countries = _load_mueller_steel_countries()
     print("\nCountries: ")
     print(countries)

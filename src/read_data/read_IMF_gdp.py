@@ -1,10 +1,8 @@
 import os
 import pandas as pd
 from src.tools.config import cfg
-from src.tools.tools import fill_missing_values_linear
-from src.tools.tools import group_country_data_to_regions
-from src.tools.tools import transform_per_capita
-from src.tools.tools import read_processed_data
+from src.tools.tools import fill_missing_values_linear, group_country_data_to_regions, transform_per_capita, \
+    read_processed_data
 from src.read_data.read_REMIND_regions import get_region_to_countries_df
 
 
@@ -148,6 +146,7 @@ def _test():
     regions = _load_imf_gdp_pc_regions()
     print("Regions: ")
     print(regions)
+
 
 if __name__ == "__main__":
     _test()

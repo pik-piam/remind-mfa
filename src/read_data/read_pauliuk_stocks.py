@@ -2,9 +2,10 @@ import os
 import pandas as pd
 from src.tools.config import cfg
 from src.curve.predict_steel import get_stock_prediction_pauliuk_for_pauliuk
-from src.tools.tools import read_processed_data
-from src.tools.tools import transform_per_capita
-from src.tools.tools import group_country_data_to_regions
+from src.tools.tools import read_processed_data, transform_per_capita, group_country_data_to_regions, \
+    get_steel_category_total
+from src.read_data.read_mueller_stocks import _normalize_mueller_stocks, _get_areas_to_normalize
+from src.read_data.read_IMF_gdp import load_imf_gdp
 
 
 def load_pauliuk_stocks(country_specific=False, per_capita=True):
@@ -61,8 +62,25 @@ def get_current_pauliuk_stocks():
     df_original = clean_pauliuk(df_original)
     df_iso3_map = read_pauliuk_iso3_map()
     df_original = _normalize_pauliuk_original(df_original, df_iso3_map)
+    # df_original = _normalize_pauliuk_joint_areas(df_original)
+
+    df_original = transform_per_capita(df_original, total_from_per_capita=False, country_specific=True)
 
     return df_original
+
+
+def _normalize_pauliuk_joint_areas(df_stocks):
+    """#TODO"""
+    df_iso3_map = read_pauliuk_iso3_map()
+    df_areas_to_normalize = _get_areas_to_normalize(df_iso3_map)
+    df_gdp = load_imf_gdp(country_specific=True, per_capita=False)
+    years_considered = list(range(1950, 2009))
+    df_stocks = df_stocks.reset_index()
+    df_stocks = df_stocks.set_index('country')
+    df_stocks = _normalize_mueller_stocks(df_stocks, df_areas_to_normalize, df_gdp, years_considered)
+    df_stocks = df_stocks.reset_index()
+    df_stocks = df_stocks.set_index(['country', 'category'])
+    return df_stocks
 
 
 def _normalize_pauliuk_original(df_original, df_iso3_map):
@@ -81,7 +99,7 @@ def clean_pauliuk(df_pauliuk):
                                             'aspect 4 : commodity': 'category_description',
                                             'aspect 5 : region': 'country_name',
                                             'value': 'stock'})
-    df_pauliuk['stock'] = df_pauliuk['stock'] * 1000.
+    df_pauliuk['stock'] = df_pauliuk['stock'] * 1000.  # convert grom Giga grams to tons
     df_cat_names = pd.DataFrame.from_dict({
         'category_description': ['vehicles and other transport equipment',
                                  'industrial machinery',
@@ -122,7 +140,7 @@ def read_pauliuk_iso3_map():
 # -- TEST FILE FUNCTION --
 
 def _test():
-    df = _get_pauliuk_stocks()
+    df = load_pauliuk_stocks()
     print(df)
 
 
