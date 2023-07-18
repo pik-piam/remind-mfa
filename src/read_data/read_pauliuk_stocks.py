@@ -52,19 +52,19 @@ def _load_pauliuk_steel_countries():
 # -- DATA ASSEMBLY FUNCTIONS --
 
 def _get_pauliuk_stocks():
-    df_current = get_current_pauliuk_stocks()
+    df_current = get_current_pauliuk_stocks(perCapita=True)
     df = get_stock_prediction_pauliuk_for_pauliuk(df_current)
     return df
 
 
-def get_current_pauliuk_stocks():
-    df_original = read_pauliuk_original()
+def get_current_pauliuk_stocks(perCapita=False):
+    df_original = read_pauliuk_categories_original()
     df_original = clean_pauliuk(df_original)
     df_iso3_map = read_pauliuk_iso3_map()
-    df_original = _normalize_pauliuk_original(df_original, df_iso3_map)
+    df_original = _reformat_pauliuk(df_original, df_iso3_map)
     # df_original = _normalize_pauliuk_joint_areas(df_original)
-
-    df_original = transform_per_capita(df_original, total_from_per_capita=False, country_specific=True)
+    if perCapita:
+        df_original = transform_per_capita(df_original, total_from_per_capita=False, country_specific=True)
 
     return df_original
 
@@ -83,7 +83,7 @@ def _normalize_pauliuk_joint_areas(df_stocks):
     return df_stocks
 
 
-def _normalize_pauliuk_original(df_original, df_iso3_map):
+def _reformat_pauliuk(df_original, df_iso3_map):
     df_original = df_original.pivot(index=['country_name', 'category'], columns='year', values='stock')
     df_original = df_original.reset_index()
     df = pd.merge(df_iso3_map, df_original, on='country_name')
@@ -113,7 +113,7 @@ def clean_pauliuk(df_pauliuk):
     return df_pauliuk
 
 
-def read_pauliuk_original():
+def read_pauliuk_categories_original():
     pauliuk_data_path = os.path.join(cfg.data_path, 'original', 'unifreiburg_ie_db',
                                      '2_IUS_steel_200R_4Categories.xlsx')
     df_pauliuk = pd.read_excel(
@@ -123,6 +123,31 @@ def read_pauliuk_original():
         usecols=['aspect 3 : time', 'aspect 4 : commodity', 'aspect 5 : region', 'value'])
 
     return df_pauliuk
+
+def read_pauliuk_all_categories_original():
+    pauliuk_data_path = os.path.join(cfg.data_path, 'original', 'unifreiburg_ie_db',
+                                     '2_IUS_steel_200R.xlsx')
+    df_pauliuk = pd.read_excel(
+        io=pauliuk_data_path,
+        engine='openpyxl',
+        sheet_name='Data',
+        usecols=['aspect 3 : time', 'aspect 5 : region', 'value'])
+
+    # clean up
+    df_pauliuk = df_pauliuk.rename(columns={'aspect 3 : time': 'year',
+                                            'aspect 5 : region': 'country_name',
+                                            'value': 'stock'})
+    df_pauliuk['stock'] = df_pauliuk['stock'] * 1000.  # convert grom Giga grams to tons
+
+    # reformat
+    df_iso3_map = read_pauliuk_iso3_map()
+    df_pauliuk = df_pauliuk.pivot(index=['country_name'], columns='year', values='stock')
+    df_pauliuk = df_pauliuk.reset_index()
+    df = pd.merge(df_iso3_map, df_pauliuk, on='country_name')
+    df = df.drop(columns='country_name')
+    df = df.set_index(['country'])
+
+    return df
 
 
 def read_pauliuk_iso3_map():

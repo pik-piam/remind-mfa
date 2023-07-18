@@ -64,15 +64,17 @@ def _get_mueller_stocks():
     return df_subcategories
 
 
-def _get_current_mueller_stocks():
+def _get_current_mueller_stocks(normalize=True):
     df_mueller = _read_mueller_originial()
     df_iso3_map = read_mueller_iso3_map()
 
     df = pd.merge(df_iso3_map, df_mueller, left_on='country_name', right_on='Country')
     df = df.drop(columns=['country_name', 'Country'])
     df = df.set_index('country')
-    df_areas_to_normalize = _get_areas_to_normalize(df_iso3_map)
-    df = _normalize_mueller_stocks(df, df_areas_to_normalize)
+
+    if normalize:
+        df_areas_to_normalize = _get_areas_to_normalize(df_iso3_map)
+        df = _normalize_mueller_stocks(df, df_areas_to_normalize)
 
     return df
 

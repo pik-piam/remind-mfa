@@ -1,4 +1,4 @@
-data_path: '../../../data'
+data_path: 'data'
 recalculate_data: False
 
 do_show_figs: True

@@ -39,7 +39,7 @@ class Config():
             'products': 15
         }
 
-    def customize(self, fpath=os.path.join('..','..','..','config.yml')):
+    def customize(self, fpath='config.yml'):
         with open(fpath, 'r') as f:
             config_dict = yaml.safe_load(f)
         for prm_name, prm_value in config_dict.items():

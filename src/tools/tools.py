@@ -49,6 +49,7 @@ def fill_missing_values_linear(df):
 def transform_per_capita(df, total_from_per_capita, country_specific):
     # un_pop files need to be imported here to avoid circular import error
     from src.read_data.read_UN_population import load_un_pop
+    df = df.copy()
     if country_specific:
         df_pop = load_un_pop(country_specific=True)
     else:  # region specific
@@ -59,6 +60,7 @@ def transform_per_capita(df, total_from_per_capita, country_specific):
         df.loc[:, columns_to_use] *= df_pop.loc[:, columns_to_use]
     else:  # get per capita from total data
         df.loc[:, columns_to_use] /= df_pop.loc[:, columns_to_use]
+
     return df
 
 
