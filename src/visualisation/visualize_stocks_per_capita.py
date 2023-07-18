@@ -85,26 +85,6 @@ def make_stocks_fig(df: pd.DataFrame, x_variable: str, data_source: str, is_per_
     show_and_save(file_name)
 
 
-"""def make_stocks_fig(df: pd.DataFrame, x_data_list, x_data_type: str, title: str, fname: str):
-    plt.figure()
-    x_data_idx = 0
-    for index, row in df.iterrows():
-        region = index
-        # avoid eur, ref Pauliuk TODO adapt!
-        if title in ["Regional stock over GDP (UniFreiburg Paper)", 'Regional stock over Time (UniFreiburg Paper)']:
-            if region in ['EUR', 'REF']:
-                x_data_idx += 1
-                continue
-        stock_data = np.array(row[start_year - 1900:end_year + 1 - 1900])
-        x_data = x_data_list[x_data_idx]
-        x_data_idx += 1
-        plt.scatter(x_data, stock_data,
-                    color=REGION_COLORS[region], label=region)
-    plt.xlabel(x_data_type)
-    plt.ylabel("Steel stock pC (t)")
-    plt.title(title)
-    plt.legend(loc='upper left')
-    show_and_save(fname)"""
 
 
 if __name__ == "__main__":
