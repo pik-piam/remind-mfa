@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from src.read_data.read_REMIND_regions import get_region_to_countries_df
+#from src.read_data.load_data import load_regions
 from src.tools.config import cfg
 
 
@@ -18,6 +18,7 @@ def read_processed_data(path):
     df = _csv_read_change_years_to_int(df)
 
     return df
+
 
 
 def _csv_read_change_years_to_int(df):
@@ -50,10 +51,7 @@ def transform_per_capita(df, total_from_per_capita, country_specific):
     # un_pop files need to be imported here to avoid circular import error
     from src.read_data.read_UN_population import load_un_pop
     df = df.copy()
-    if country_specific:
-        df_pop = load_un_pop(country_specific=True)
-    else:  # region specific
-        df_pop = load_un_pop(country_specific=False)
+    df_pop = load_un_pop(country_specific=country_specific)
     columns_to_use = df.columns.intersection(df_pop.columns)
 
     if total_from_per_capita:
@@ -68,8 +66,9 @@ def group_country_data_to_regions(df_by_country, is_per_capita, group_by_subcate
     if is_per_capita:
         df_by_country = transform_per_capita(df_by_country, total_from_per_capita=True, country_specific=True)
     df_by_country = df_by_country.reset_index()
-    regions = get_region_to_countries_df()
-    df = pd.merge(regions, df_by_country, on='country')
+    from src.read_data.load_data import load_regions
+    df_regions = load_regions()
+    df = pd.merge(df_regions, df_by_country, on='country')
     if not group_by_subcategories:
         df = df.groupby('region').sum(numeric_only=False)
 

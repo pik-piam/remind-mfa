@@ -8,8 +8,8 @@ import src.read_data.read_WorldSteel_trade as trade_data
 REGIONS = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
 main_model = mfa_all_regions.load()
 gdp_dict = gdp_data.load()
-price_dict = price_data.load()
-trade_dict = trade_data.load()
+price_dict = price_data.load_usgs_prices()
+trade_dict = trade_data.load_world_steel_trade()
 
 plt.plot(gdp_dict['Total'][34:110], price_dict['Steel'][34:110],'b.')
 plt.plot(gdp_dict['Total'][34:110], price_dict['Scrap'][34:110],'r.')

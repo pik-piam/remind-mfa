@@ -4,8 +4,8 @@ from scipy.special import logit
 import statsmodels.api as sm
 import pandas as pd
 from math import e, log
-from src.read_data.read_REMIND_regions import get_region_to_countries_df
-from src.read_data.read_IMF_gdp import load_imf_gdp
+from src.read_data.read_REMIND_regions import get_REMIND_regions
+from src.read_data.load_data import load_gdp
 from src.tools.config import cfg
 
 
@@ -89,8 +89,8 @@ def predict_pehl(stock_data, pop_data, gdp_data):
     return np.append(stock_data, future_steel)
 
 def get_stock_prediction_pauliuk_for_pauliuk(df_stock):
-    df_regions = get_region_to_countries_df()
-    df_gdp = load_imf_gdp(country_specific=True, per_capita=True)
+    df_regions = get_REMIND_regions()
+    df_gdp = load_gdp(country_specific=True, per_capita=True)
     df_stock = df_stock.reset_index()
     df_stock = pd.merge(df_regions, df_stock, on='country')
     df_stock = df_stock.set_index(['country', 'category'])
@@ -106,7 +106,7 @@ def get_stock_prediction_pauliuk_for_pauliuk(df_stock):
 
 
 def get_stock_prediction_pauliuk_for_mueller(df_stock):
-    df_regions = get_region_to_countries_df()
+    df_regions = get_REMIND_regions()
     df_gdp = load_imf_gdp(country_specific=True, per_capita=True)
     df_stock = pd.merge(df_regions, df_stock, on='country')
     df_stock_new = df_stock.reindex(columns=list(range(1950,2101)))

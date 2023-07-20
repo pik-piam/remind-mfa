@@ -52,8 +52,11 @@ def add_gdppc(df_global: pd.DataFrame, df_regional: pd.DataFrame,
 
 def make_stocks_figs_all(data_source : str, is_per_capita : bool, df_stocks: pd.DataFrame, df_gdp: pd.DataFrame = None, do_time_plot : bool = True):
     if df_gdp is not None:
-        df = pd.concat([df_stocks, df_gdp], keys=['Steel','GDP'], names=['type'])
-        make_stocks_fig(df, x_variable='GDP', data_source = data_source, is_per_capita=is_per_capita)
+        gdp_variable_name = 'GDP'
+        if is_per_capita:
+            gdp_variable_name+="pC"
+        df = pd.concat([df_stocks, df_gdp], keys=['Steel',gdp_variable_name], names=['type'])
+        make_stocks_fig(df, x_variable=gdp_variable_name, data_source = data_source, is_per_capita=is_per_capita)
     if do_time_plot:
         years = list(df_stocks.columns)
         df_time = pd.DataFrame([years] * len(df_stocks),
@@ -76,8 +79,8 @@ def make_stocks_fig(df: pd.DataFrame, x_variable: str, data_source: str, is_per_
         plt.scatter(x_data, steel_data, label=region)
 
     x_label = 'Time (y)'
-    if x_variable=='GDP':
-        x_label = f"GDP{' pC' if is_per_capita else ''} (USD 2008)"
+    if x_variable in ['GDP', 'GDPpC']:
+        x_label = f"{x_variable} (USD 2008)"
     plt.xlabel(x_label)
     plt.ylabel(f"Steel stock{' pC' if is_per_capita else ''} (t)")
     plt.title(title)

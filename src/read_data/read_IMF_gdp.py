@@ -1,52 +1,11 @@
 import os
 import pandas as pd
 from src.tools.config import cfg
-from src.tools.tools import fill_missing_values_linear, group_country_data_to_regions, transform_per_capita, \
-    read_processed_data
-from src.read_data.read_REMIND_regions import get_region_to_countries_df
+from src.tools.tools import fill_missing_values_linear, transform_per_capita
+from src.read_data.read_REMIND_regions import get_REMIND_regions
 
 
-def load_imf_gdp(country_specific=False, per_capita=True):
-    if country_specific:
-        df_country = _load_imf_gdp_pc_countries()
-        if not per_capita:
-            df_country = transform_per_capita(df_country, total_from_per_capita=True, country_specific=True)
-        return df_country
-    else:  # region specific
-        df_region = _load_imf_gdp_pc_regions()
-        if not per_capita:
-            df_region = transform_per_capita(df_region, total_from_per_capita=True, country_specific=False)
-        return df_region
-
-
-# -- MAIN DATA LOADING FUNCTIONS --
-
-
-def _load_imf_gdp_pc_regions():
-    gdp_regions_path = os.path.join(cfg.data_path, 'processed', 'imf_gdp_regions.csv')
-    if os.path.exists(gdp_regions_path) and not cfg.recalculate_data:
-        df = read_processed_data(gdp_regions_path)
-    else:  # recalculate and store
-        df_by_country = _load_imf_gdp_pc_countries()
-        df = group_country_data_to_regions(df_by_country, is_per_capita=True)
-        df.to_csv(gdp_regions_path)
-    return df
-
-
-def _load_imf_gdp_pc_countries():
-    gdp_countries_path = os.path.join(cfg.data_path, 'processed', 'imf_gdp_countries.csv')
-    if os.path.exists(gdp_countries_path) and not cfg.recalculate_data:
-        df = read_processed_data(gdp_countries_path)
-    else:  # recalculate and store
-        df = _get_imf_countries()
-        df.to_csv(gdp_countries_path)
-    return df
-
-
-# -- FORMATING DATA FUNCTIONS --
-
-
-def _get_imf_countries():
+def get_imf_gdp_countries():
     df_current = _read_imf_original()
     df_future = _get_future_gdp_pc()
     df_past = get_past_according_to_gdppc_estimates(df_current)
@@ -54,6 +13,9 @@ def _get_imf_countries():
     df = df.merge(df_future, on='country')
     df = fill_missing_values_linear(df)
     return df
+
+
+# -- FORMATING DATA FUNCTIONS --
 
 
 def get_past_according_to_gdppc_estimates(df_current):
@@ -65,7 +27,7 @@ def get_past_according_to_gdppc_estimates(df_current):
 
 
 def _get_past_percentages_by_country(df_region_percentages):
-    regions = get_region_to_countries_df()
+    regions = get_REMIND_regions()
     df = pd.merge(regions.reset_index(), df_region_percentages, on='region')
     df = df.set_index('country')
     df = df.drop('region', axis=1)

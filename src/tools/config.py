@@ -1,6 +1,5 @@
 import yaml
 import numpy as np
-import os
 
 
 class Config():
@@ -25,12 +24,18 @@ class Config():
         self.include_trade = True
         self.include_scrap_trade = True
 
-        self.curve_strategy = 'Pauliuk'  # Options = Pauliuk, Pehl
-        self.steel_data_source = 'Mueller'  # Options = Mueller
-        self.lifetime_data_source = 'Wittig'  # Options = Wittig
+        self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl
+
+        self.steel_data_source = 'Mueller'  # Options: Mueller
+        self.pop_data_source = 'UN'  # Options: UN
+        self.gdp_data_source = 'IMF'  # Options: IMF
+        self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
+        self.price_data_source = 'USGS'  # Options: USGS
+        self.region_data_source = 'REMIND'  # Options: REMIND
+        self.lifetime_data_source = 'Wittig'  # Options: Wittig
 
         self.subcategories = ['Transport', 'Machinery', 'Construction', 'Product']
-        self.categories = ['Transport', 'Machinery', 'Construction', 'Product','Total']
+        self.categories = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']
 
         self.distributions = {
             'transportation': 20,
@@ -58,4 +63,3 @@ class Config():
 
 
 cfg = Config()
-cfg.customize()

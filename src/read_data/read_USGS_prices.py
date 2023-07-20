@@ -5,7 +5,7 @@ import pandas as pd
 from src.tools.config import cfg
 
 
-def load():
+def load_usgs_prices():
     if os.path.exists(os.path.join(cfg.data_path, 'processed', 'USGS_price.csv')) and not cfg.recalculate_data:
         with open(os.path.join(cfg.data_path, 'processed', 'USGS_price.csv')) as csv_file:
             price_reader = csv.reader(csv_file, delimiter=',')
@@ -78,5 +78,5 @@ def read_usgs_original():
 
 if __name__ == "__main__":
     cfg.customize()
-    data = load()
+    data = load_usgs_prices()
     print(data)

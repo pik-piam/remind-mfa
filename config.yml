@@ -15,8 +15,15 @@ include_trade: True
 include_scrap_trade: True
 
 curve_strategy: Pauliuk # Options: Pauliuk, Pehl
-steel_data_source: Mueller # Options: Mueller
+
+steel_data_source: Mueller # Options: Mueller, IEDatabase
+pop_data_source: UN # Options: UN
+gdp_data_source: IMF # Options: IMF
+trade_data_source: WorldSteel # Options: WorldSteel
+price_data_source: USGS # Options: USGS
+region_data_source: REMIND # Options: REMIND
 lifetime_data_source: Wittig # Options: Wittig
+
 
 subcategories: ['Transport', 'Machinery', 'Construction', 'Product']
 categories: ['Transport', 'Machinery', 'Construction', 'Product','Total']

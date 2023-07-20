@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from numpy import nan
-from src.read_data.read_REMIND_regions import get_region_to_countries_df
+from src.read_data.read_REMIND_regions import get_REMIND_regions
 from src.tools.config import cfg
 from src.tools.tools import read_processed_data
 
@@ -141,7 +141,7 @@ def _group_country_data_to_regions():
     to avoid circular import error.
     """
     df_by_country = _load_un_pop_countries()
-    regions = get_region_to_countries_df()
+    regions = get_REMIND_regions()
     df = pd.merge(regions, df_by_country, on='country')
     df = df.groupby('region').sum(numeric_only=False)
 

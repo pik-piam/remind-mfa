@@ -1,58 +1,12 @@
 import os
 import pandas as pd
 from src.read_data.read_IMF_gdp import get_past_according_to_gdppc_estimates
-from src.read_data.read_IMF_gdp import load_imf_gdp
-from src.tools.tools import group_country_data_to_regions, transform_per_capita, fill_missing_values_linear, \
-    read_processed_data, get_steel_category_total
+from src.tools.tools import transform_per_capita, fill_missing_values_linear
 from src.tools.config import cfg
 from src.curve.predict_steel import get_stock_prediction_pauliuk_for_mueller
 
 
-def load_mueller_stocks(country_specific=False, per_capita=True):
-    if country_specific:
-        df_country = _load_mueller_steel_countries()
-        if not per_capita:
-            df_country = transform_per_capita(df_country, total_from_per_capita=True, country_specific=True)
-        return df_country
-    else:  # region specific
-        df_region = _load_mueller_steel_regions()
-        if not per_capita:
-            df_region = transform_per_capita(df_region, total_from_per_capita=True, country_specific=False)
-        return df_region
-
-
-# -- MAIN DATA LOADING FUNCTIONS --
-
-
-def _load_mueller_steel_regions():
-    steel_regions_path = os.path.join(cfg.data_path, 'processed', 'mueller_steel_regions.csv')
-    if os.path.exists(steel_regions_path) and not cfg.recalculate_data:
-        df = read_processed_data(steel_regions_path)
-        df = df.reset_index()
-        df = df.set_index(['region', 'category'])
-    else:  # recalculate and store
-        df_by_country = _load_mueller_steel_countries()
-        df = group_country_data_to_regions(df_by_country, is_per_capita=True, group_by_subcategories=True)
-        df.to_csv(steel_regions_path)
-    return df
-
-
-def _load_mueller_steel_countries():
-    steel_countries_path = os.path.join(cfg.data_path, 'processed', 'mueller_steel_countries.csv')
-    if os.path.exists(steel_countries_path) and not cfg.recalculate_data:
-        df = read_processed_data(steel_countries_path)
-        df = df.reset_index()
-        df = df.set_index(['country', 'category'])
-    else:  # recalculate and store
-        df = _get_mueller_stocks()
-        df.to_csv(steel_countries_path)
-    return df
-
-
-# -- DATA ASSEMBLY FUNCTIONS --
-
-
-def _get_mueller_stocks():
+def get_mueller_country_stocks():
     df_current = _get_current_mueller_stocks()
     df = get_stock_prediction_pauliuk_for_mueller(df_current)
     df_past = get_past_according_to_gdppc_estimates(df)
@@ -62,6 +16,9 @@ def _get_mueller_stocks():
     df_subcategories = _get_stock_by_subcategory(df)
 
     return df_subcategories
+
+
+# -- DATA ASSEMBLY FUNCTIONS --
 
 
 def _get_current_mueller_stocks(normalize=True):
@@ -221,19 +178,8 @@ def _read_pauliuk_splits():
 # -- TEST FILE FUNCTION --
 
 def _test():
-    regions = _load_mueller_steel_regions()
-    totals = get_steel_category_total(regions)
-    print(regions)
-    print(totals)
-    return
-
-    countries = _load_mueller_steel_countries()
-    print("\nCountries: ")
-    print(countries)
-
-    regions = _load_mueller_steel_regions()
-    print("Regions: ")
-    print(regions)
+    df = get_mueller_country_stocks()
+    print(df)
 
 
 if __name__ == "__main__":

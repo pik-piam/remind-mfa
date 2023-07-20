@@ -54,7 +54,7 @@ def create_model():
     dsm_dict = dynamic_stock_models.load()
     trade_dict = None
     if cfg.include_trade:
-        trade_dict = worldsteel_trade.load()
+        trade_dict = worldsteel_trade.load_world_steel_trade()
 
     # compute stocks and flows
     for region_idx, region in enumerate(REGIONS):

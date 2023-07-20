@@ -6,7 +6,7 @@ from src.model.load_DSMs import load as load_dsms
 from src.tools.config import cfg
 
 
-def load():
+def load_world_steel_trade():
     categories = ['Trade', 'Imports', 'Exports', 'Scrap_Trade', 'Scrap_Imports', 'Scrap_Exports']
     if os.path.exists(os.path.join(cfg.data_path, 'processed', 'WorldSteel_trade.csv')) and not cfg.recalculate_data:
         with open(os.path.join(cfg.data_path, 'processed', 'WorldSteel_trade.csv')) as csv_file:
@@ -264,5 +264,5 @@ def read_worldsteel_original():
 
 if __name__ == "__main__":
     cfg.customize()
-    data = load()
+    data = load_world_steel_trade()
     # print(data)
