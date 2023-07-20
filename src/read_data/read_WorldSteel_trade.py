@@ -263,6 +263,5 @@ def read_worldsteel_original():
 
 
 if __name__ == "__main__":
-    cfg.customize()
     data = load_world_steel_trade()
     # print(data)

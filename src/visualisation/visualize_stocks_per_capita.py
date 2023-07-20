@@ -88,11 +88,7 @@ def make_stocks_fig(df: pd.DataFrame, x_variable: str, data_source: str, is_per_
     show_and_save(file_name)
 
 
-
-
 if __name__ == "__main__":
-    cfg.customize()
-
     gdppc_regions = load_imf_gdp(per_capita=True, country_specific=False)
 
     start_year = 1900

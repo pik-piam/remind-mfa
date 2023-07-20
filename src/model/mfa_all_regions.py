@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+import sys
 import pickle
 import csv
 import src.read_data.read_REMIND_regions as remind
@@ -348,5 +349,8 @@ def main():
 
 
 if __name__ == "__main__":
-    cfg.customize()
+    # overwrite config with valus given in a config file,
+    # if the path to this file is passed as the last argument of the function call.
+    if sys.argv[-1].endswith('.yml'):
+        cfg.customize(sys.argv[-1])
     main()
