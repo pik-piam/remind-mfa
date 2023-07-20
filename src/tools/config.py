@@ -44,7 +44,7 @@ class Config():
             'products': 15
         }
 
-    def customize(self, fpath='config.yml'):
+    def customize(self, fpath: str):
         with open(fpath, 'r') as f:
             config_dict = yaml.safe_load(f)
         for prm_name, prm_value in config_dict.items():
@@ -52,6 +52,10 @@ class Config():
                 raise Exception(f'There is no default for the parameter {prm_name} in the config.yml. '
                                 'Maybe you misspelled it or didnt add it to the defaults?')
             setattr(self, prm_name, prm_value)
+
+    def generate_yml(self, fpath: str = 'config.yml'):
+        with open(fpath, 'w') as f:
+            yaml.dump(self.__dict__, f, sort_keys=False)
 
     @property
     def n_years(self):
@@ -63,3 +67,6 @@ class Config():
 
 
 cfg = Config()
+
+if __name__ == '__main__':
+    cfg.generate_yml()
