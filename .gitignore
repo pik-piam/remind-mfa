@@ -4,4 +4,4 @@ data/models/*.p
 data/processed/*.csv
 .idea
 ~$*
-config.yml
+*.yml

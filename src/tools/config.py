@@ -1,3 +1,4 @@
+import os
 import yaml
 import numpy as np
 
@@ -49,11 +50,12 @@ class Config():
             config_dict = yaml.safe_load(f)
         for prm_name, prm_value in config_dict.items():
             if prm_name not in self.__dict__:
-                raise Exception(f'There is no default for the parameter {prm_name} in the config.yml. '
-                                'Maybe you misspelled it or didnt add it to the defaults?')
+                raise Exception(f'The custom parameter {prm_name} given in the file {os.path.basename(fpath)} '
+                                'is not registered in the default config definition. '
+                                'Maybe you misspelled it or did not add it to the defaults?')
             setattr(self, prm_name, prm_value)
 
-    def generate_yml(self, fpath: str = 'config.yml'):
+    def generate_yml(self, fpath: str = 'custom_config.yml'):
         with open(fpath, 'w') as f:
             yaml.dump(self.__dict__, f, sort_keys=False)
 
