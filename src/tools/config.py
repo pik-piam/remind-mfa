@@ -4,10 +4,12 @@ import numpy as np
 
 class Config():
 
-    def __init__(self):
+    def __init__(self, config_path='config.yml'):
         """
         Initialize with defaults
         """
+        self.confi_dict = None
+        self.customize(config_path)
         self.data_path = 'data'
         self.recalculate_data = False
 
@@ -46,12 +48,14 @@ class Config():
 
     def customize(self, fpath='config.yml'):
         with open(fpath, 'r') as f:
-            config_dict = yaml.safe_load(f)
+            self.config_dict = yaml.safe_load(f)
+
+
         for prm_name, prm_value in config_dict.items():
             if prm_name not in self.__dict__:
                 raise Exception(f'There is no default for the parameter {prm_name} in the config.yml. '
                                 'Maybe you misspelled it or didnt add it to the defaults?')
-            setattr(self, prm_name, prm_value)
+            setattr(self, '_'+prm_name, prm_value)
 
     @property
     def n_years(self):
@@ -61,5 +65,10 @@ class Config():
     def years(self):
         return np.arange(self.start_year, self.end_year + 1)
 
+    @property
+    def scrap_recovery_rate(self):
+        return self.config_dict['scrap_recovery_rate']
+
 
 cfg = Config()
+cfg.y
