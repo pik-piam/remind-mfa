@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from src.model.load_DSMs import load as load_dsms
 from src.tools.config import cfg
+from src.tools.split_data_into_subregions import split_areas_by_gdp
 
 
 def load_world_steel_trade():
@@ -261,18 +262,44 @@ def read_worldsteel_original():
 
     return trade_dict
 
+def get_worldsteel_production_and_use():
+    df_production, df_use = _read_worldsteel_original_production_and_use()
+    df_iso3_map = _read_worldsteel_iso3_map()
+
+    prod = set(df_production['country_name'])
+    use = set(df_use['country_name'])
+    iso = set(df_iso3_map['country_name'])
+
+    print(prod.difference(iso))
+    print(use.difference(iso))
+
+    df_production = pd.merge(df_iso3_map, df_production, on='country_name')
+
+    areas_to_normalize = ['Czechoslovakia']
+    split_areas_by_gdp(df_production, areas_to_normalize, df_iso3_map)
+
+    #return df_production, df_use
+    return None, None
+
+
+def _read_worldsteel_iso3_map():
+    iso3_map_path = os.path.join(cfg.data_path, 'original', 'worldsteel', 'WorldSteel_countries.csv')
+    df = pd.read_csv(iso3_map_path)
+    return df
+
 def _read_worldsteel_original_production_and_use():
     df_production = pd.read_excel(os.path.join(cfg.data_path, 'original', 'worldsteel',
                                                 "Steel_Statistical_Yearbook_combined.ods"),
                                    sheet_name='Total Production of Crude Steel', engine='odf', usecols='A:AC')
+    df_production = df_production.rename(columns={'country':'country_name'})
     df_use = pd.read_excel(os.path.join(cfg.data_path, 'original', 'worldsteel',
                                          "Steel_Statistical_Yearbook_combined.ods"),
                             sheet_name='Apparent Steel Use (Crude Steel Equivalent)', engine='odf', usecols='A:AC')
-
+    df_use = df_use.rename(columns={'country': 'country_name'})
     return df_production, df_use
 
 if __name__ == "__main__":
-    production, use = _read_worldsteel_original_production_and_use()
+    production, use = get_worldsteel_production_and_use()
     print(production)
     print(use)
     # print(data)
