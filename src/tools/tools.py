@@ -43,7 +43,7 @@ def _csv_read_change_years_to_int(df):
 def fill_missing_values_linear(df):
     df = df.apply(pd.to_numeric)
     df = df.reindex(columns=cfg.years)
-    df = df.interpolate(axis=1)
+    df = df.interpolate(axis=1, limit_direction='both')
     return df
 
 

@@ -178,7 +178,8 @@ def _read_pauliuk_splits():
 # -- TEST FILE FUNCTION --
 
 def _test():
-    df = get_mueller_country_stocks()
+    from src.read_data.load_data import load_stocks
+    df = load_stocks('Mueller', country_specific=True, per_capita=True)
     print(df)
 
 

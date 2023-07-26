@@ -151,12 +151,9 @@ def _group_country_data_to_regions():
 # -- TEST FILE FUNCTION --
 
 def _test():
-    regions = _load_un_pop_regions()
-    countries = _load_un_pop_countries()
-    print("Regions: ")
-    print(regions)
-    print("\nCountries: ")
-    print(countries)
+    from src.read_data.load_data import load_pop
+    df = load_pop('UN', country_specific=False)
+    print(df)
 
 
 if __name__ == "__main__":

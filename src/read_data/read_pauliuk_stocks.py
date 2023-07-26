@@ -124,7 +124,8 @@ def read_pauliuk_iso3_map():
 # -- TEST FILE FUNCTION --
 
 def _test():
-    df = load_pauliuk_stocks()
+    from src.read_data.load_data import load_stocks
+    df = load_stocks('IEDatabase', country_specific=False, per_capita=False)
     print(df)
 
 

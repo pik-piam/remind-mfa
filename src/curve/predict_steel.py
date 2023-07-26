@@ -90,7 +90,7 @@ def predict_pehl(stock_data, pop_data, gdp_data):
 
 def get_stock_prediction_pauliuk_for_pauliuk(df_stock):
     df_regions = get_REMIND_regions()
-    df_gdp = load_gdp(country_specific=True, per_capita=True)
+    df_gdp = load_gdp(country_specific=True, is_per_capita=True)
     df_stock = df_stock.reset_index()
     df_stock = pd.merge(df_regions, df_stock, on='country')
     df_stock = df_stock.set_index(['country', 'category'])
@@ -107,7 +107,6 @@ def get_stock_prediction_pauliuk_for_pauliuk(df_stock):
 
 def get_stock_prediction_pauliuk_for_mueller(df_stock):
     df_regions = get_REMIND_regions()
-    df_gdp = load_imf_gdp(country_specific=True, per_capita=True)
     df_stock = pd.merge(df_regions, df_stock, on='country')
     df_stock_new = df_stock.reindex(columns=list(range(1950,2101)))
     for index, row in df_stock.iterrows():

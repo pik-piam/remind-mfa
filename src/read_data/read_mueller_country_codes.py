@@ -1,5 +1,4 @@
 import pandas as pd
-import csv
 import os
 from src.tools.config import cfg
 

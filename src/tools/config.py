@@ -31,7 +31,8 @@ class Config():
         self.pop_data_source = 'UN'  # Options: UN
         self.gdp_data_source = 'IMF'  # Options: IMF
         self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
-        self.price_data_source = 'USGS'  # Options: USGS
+        self.steel_price_data_source = 'USGS'  # Options: USGS
+        self.scrap_price_data_source = 'USGS'  # Options: USGS
         self.region_data_source = 'REMIND'  # Options: REMIND
         self.lifetime_data_source = 'Wittig'  # Options: Wittig
 

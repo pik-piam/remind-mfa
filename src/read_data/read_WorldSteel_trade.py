@@ -261,7 +261,18 @@ def read_worldsteel_original():
 
     return trade_dict
 
+def _read_worldsteel_original_production_and_use():
+    df_production = pd.read_excel(os.path.join(cfg.data_path, 'original', 'worldsteel',
+                                                "Steel_Statistical_Yearbook_combined.ods"),
+                                   sheet_name='Total Production of Crude Steel', engine='odf', usecols='A:AC')
+    df_use = pd.read_excel(os.path.join(cfg.data_path, 'original', 'worldsteel',
+                                         "Steel_Statistical_Yearbook_combined.ods"),
+                            sheet_name='Apparent Steel Use (Crude Steel Equivalent)', engine='odf', usecols='A:AC')
+
+    return df_production, df_use
 
 if __name__ == "__main__":
-    data = load_world_steel_trade()
+    production, use = _read_worldsteel_original_production_and_use()
+    print(production)
+    print(use)
     # print(data)

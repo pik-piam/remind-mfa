@@ -102,12 +102,9 @@ def _read_imf_original():
 # -- TEST FILE FUNCTION --
 
 def _test():
-    countries = _load_imf_gdp_pc_countries()
-    print("\nCountries: ")
-    print(countries)
-    regions = _load_imf_gdp_pc_regions()
-    print("Regions: ")
-    print(regions)
+    from src.read_data.load_data import load_gdp
+    df = load_gdp('IMF', country_specific=False, is_per_capita=False)
+    print(df)
 
 
 if __name__ == "__main__":

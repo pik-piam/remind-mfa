@@ -10,16 +10,6 @@ def get_REMIND_regions():
     return df
 
 
-def get_region_to_countries_dict():
-    df = get_REMIND_regions()
-    gk = df.groupby('region')
-    regions_dict = gk['country'].apply(list).to_dict()
-    return regions_dict
-
-
 if __name__ == '__main__':
     df = get_REMIND_regions()
     print(df)
-    regions_dict = get_region_to_countries_dict()
-    for region, countries in regions_dict.items():
-        print(f"{region}: {countries}")
