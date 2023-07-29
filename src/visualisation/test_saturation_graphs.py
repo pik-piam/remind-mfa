@@ -1,7 +1,7 @@
 import pandas as pd
 from src.read_data.read_mueller_stocks import _get_current_mueller_stocks
 from src.read_data.read_IMF_gdp import load_imf_gdp
-from src.read_data.read_pauliuk_stocks import read_pauliuk_all_categories_original
+from src.read_data.read_pauliuk_stocks import _read_pauliuk_aggregated_original
 from src.visualisation.visualize_stocks_per_capita import make_stocks_figs_all
 from src.tools.tools import transform_per_capita
 
@@ -18,7 +18,7 @@ def main():
     df_gdp_total = load_imf_gdp(country_specific=True, per_capita=False)
     df_gdp_pc = load_imf_gdp(country_specific=True, per_capita=True)
     df_mueller_pc = _get_current_mueller_stocks()
-    df_pauliuk_total = read_pauliuk_all_categories_original()
+    df_pauliuk_total = _read_pauliuk_aggregated_original()
     df_pauliuk_pc = transform_per_capita(df_pauliuk_total, total_from_per_capita=False, country_specific=True)
 
     make_graphs('Mueller', df_mueller_pc, df_gdp_pc, is_per_capita=True)

@@ -22,8 +22,7 @@ def load_pop(pop_source=None, country_specific=False):
     if pop_source is None:
         pop_source = cfg.pop_data_source
     if pop_source == 'UN':
-        from src.read_data.read_UN_population import load_un_pop
-        return load_un_pop(country_specific=country_specific)
+        return _load_un_pop()
     else:
         raise ValueError(f'{pop_source} is not a valid population data source.')
 
@@ -43,7 +42,7 @@ def load_regions(region_source=None):
     if region_source == 'REMIND':
         return get_REMIND_regions()
     else:
-        raise ValueError(f'{region_source} is not a valid GDP data source.')
+        raise ValueError(f'{region_source} is not a valid region data source.')
 
 
 def load_steel_prices(steel_price_source=None):
@@ -52,7 +51,7 @@ def load_steel_prices(steel_price_source=None):
     if steel_price_source == 'USGS':
         return _load_usgs_steel_prices()
     else:
-        raise ValueError(f'{steel_price_source} is not a valid price data source.')
+        raise ValueError(f'{steel_price_source} is not a valid steel price data source.')
 
 
 def load_scrap_prices(scrap_price_source=None):
@@ -61,15 +60,14 @@ def load_scrap_prices(scrap_price_source=None):
     if scrap_price_source == 'USGS':
         return _load_usgs_scrap_prices()
     else:
-        raise ValueError(f'{scrap_price_source} is not a valid price data source.')
+        raise ValueError(f'{scrap_price_source} is not a valid scrap price data source.')
 
 
-def load_trade(trade_source=None):
-    from src.read_data.read_WorldSteel_trade import load_world_steel_trade
+def load_trade(trade_source=None, country_specific=False):
     if trade_source is None:
         trade_source = cfg.trade_data_source
-    if trade_source == 'UN':
-        return load_world_steel_trade()
+    if trade_source == 'WorldSteel':
+        return _load_worldsteel_trade_factor(country_specific)
     else:
         raise ValueError(f'{trade_source} is not a valid trade data source.')
 
@@ -105,6 +103,15 @@ def _data_loader(file_base_name, recalculate_function, country_specific, is_per_
 
 
 # -- SPECIFIC DATA LOADING FUNCTIONS BY DATA TYPE AND SOURCE --
+
+
+def _load_un_pop(country_specific):
+    from src.read_data.read_UN_population import get_pop_countries
+    df = _data_loader(file_base_name='mueller_stocks',
+                      recalculate_function=get_pop_countries,
+                      country_specific=country_specific,
+                      is_per_capita=False)
+    return df
 
 
 def _load_mueller_stocks(country_specific, is_per_capita):
@@ -150,6 +157,16 @@ def _load_usgs_scrap_prices():
     df = _data_loader(file_base_name='usgs_scrap_prices',
                       recalculate_function=get_usgs_scrap_prices,
                       country_specific=None,
+                      is_per_capita=False)
+
+    return df
+
+
+def _load_worldsteel_trade_factor(country_specific):
+    from src.read_data.read_WorldSteel_trade import get_worldsteel_country_trade_factor
+    df = _data_loader(file_base_name='worldsteel_trade_factor',
+                      recalculate_function=get_worldsteel_country_trade_factor,
+                      country_specific=country_specific,
                       is_per_capita=False)
 
     return df

@@ -3,42 +3,9 @@ import pandas as pd
 from numpy import nan
 from src.read_data.read_REMIND_regions import get_REMIND_regions
 from src.tools.config import cfg
-from src.tools.tools import read_processed_data
 
 
-def load_un_pop(country_specific : bool):
-    if country_specific:
-        return _load_un_pop_countries()
-    else: # region specific
-        return _load_un_pop_regions()
-
-# -- MAIN PUBLIC DATA LOADING FUNCTIONS --
-
-
-def _load_un_pop_regions():
-    pop_regions_path = os.path.join(cfg.data_path, 'processed', 'UN_pop_regions.csv')
-    if os.path.exists(pop_regions_path) and not cfg.recalculate_data:
-        df = read_processed_data(pop_regions_path)
-    else:  # recalculate and store
-        df = _group_country_data_to_regions()
-        df.to_csv(pop_regions_path)
-    return df
-
-
-def _load_un_pop_countries():
-    pop_countries_path = os.path.join(cfg.data_path, 'processed', 'UN_pop_countries.csv')
-    if os.path.exists(pop_countries_path) and not cfg.recalculate_data:
-        df = read_processed_data(pop_countries_path)
-    else:  # recalculate and store
-        df = _get_pop_countries()
-        df.to_csv(pop_countries_path)
-    return df
-
-
-# -- FORMATTING DATA FUNCTIONS --
-
-
-def _get_pop_countries():
+def get_pop_countries():
     # load and merge current and future datasets
 
     df_pop_1900 = _read_1900_world_pop()
@@ -53,6 +20,9 @@ def _get_pop_countries():
     df_1900 = _get_pop_past_prediction(df, df_pop_1900)
     df = pd.merge(df_1900, df, on='country')
     return df
+
+
+# -- FORMATTING DATA FUNCTIONS --
 
 
 def _get_pop_past_prediction(df, df_pop_1900):
