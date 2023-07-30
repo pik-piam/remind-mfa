@@ -3,10 +3,13 @@ import src.read_data.read_mueller_stocks as mueller
 import src.read_data.read_UN_population as pop
 import numpy as np
 import pickle
+import pandas as pd
 import src.read_data.read_REMIND_regions as remind
+from src.read_data.load_data import load_lifetimes
 from src.tools.config import cfg
 import csv
 import os
+from src.read_data.load_data import load_stocks, load_lifetimes
 
 
 def load():
@@ -39,12 +42,35 @@ def load():
         return models
 
 
+def get_dsm_data(stock_data):
+    mean, std_dev = load_lifetimes()
+    dsms = [_create_dsm(stocks, mean[i], std_dev[i]) for i, stocks in enumerate(stock_data)]
+    stocks = np.array([dsm.s for dsm in dsms]).transpose()
+    inflows = np.array([dsm.i for dsm in dsms]).transpose()
+    outflows = np.array([dsm.o for dsm in dsms]).transpose()
+
+    return stocks, inflows, outflows
+
+
+def _create_dsm(stocks, lifetime, st_dev):
+    time = np.array(range(cfg.n_years))
+    steel_stock_dsm = dsm.DynamicStockModel(t=time,
+                                            s=stocks,
+                                            lt={'Type': 'Normal', 'Mean': [lifetime],
+                                                'StdDev': [st_dev]})
+
+    steel_stock_dsm.compute_stock_driven_model()
+    steel_stock_dsm.compute_outflow_total()
+    steel_stock_dsm.compute_stock_change()
+
+    return steel_stock_dsm
+
 def initiate_models():
     """
-    Calculates the dynamic stock models of all regions for all subcategories.
+    Calculates the dynamic stock models of all regions for all using_categories.
     Can choose which dataset to use based on parameters in config file.
     Steel and population datasets need to be complete, so a total needs to be available for all years past and future
-    (1900-2100) and for steel also for the respective subcategories. Additionally, lifetime (and it's SD)
+    (1900-2100) and for steel also for the respective using_categories. Additionally, lifetime (and it's SD)
     values are used to calculate outflow from steel stock.
     :return: dict[region][category]=dynamic_stock_model
     :return:
@@ -105,7 +131,7 @@ def main():
     """
     Recalculates dynamic stock models from steel and population data for all REMIND regions.
     Both datasets need to be complete, so a total needs to be available for all years past and future
-    (1900-2100) and for steel also for the respective subcategories. Additionally, lifetime (and it's SD)
+    (1900-2100) and for steel also for the respective using_categories. Additionally, lifetime (and it's SD)
     values are used to calculate outflow from steel stock.
     :return: dict[region][category]=dynamic_stock_model
     """

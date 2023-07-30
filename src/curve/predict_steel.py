@@ -141,7 +141,7 @@ def predict_pauliuk(histdata, region, category='Total'):
         'JPN': [1, 0.9, 12, 0.8, 14.7, 2020],
         'USA': [1.5, 1.6, 9.5, 0.7, 13.3, 2020]}
 
-    satlevel_index = cfg.categories.index(category)
+    satlevel_index = cfg.categories_with_total.index(category)
     satlevel = saturation_params[region][satlevel_index]
     sattime = saturation_params[region][-1]
     t0 = 2008

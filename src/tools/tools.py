@@ -1,13 +1,12 @@
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-#from src.read_data.load_data import load_regions
 from src.tools.config import cfg
 
 
 def show_and_save(filename_base: str = None):
     if cfg.do_save_figs:
-        plt.savefig(cfg.data_path+f"/output/{filename_base}.png")
+        plt.savefig(cfg.data_path + f"/output/{filename_base}.png")
     if cfg.do_show_figs:
         plt.show()
 
@@ -18,7 +17,6 @@ def read_processed_data(path):
     df = _csv_read_change_years_to_int(df)
 
     return df
-
 
 
 def _csv_read_change_years_to_int(df):
@@ -49,9 +47,9 @@ def fill_missing_values_linear(df):
 
 def transform_per_capita(df, total_from_per_capita, country_specific):
     # un_pop files need to be imported here to avoid circular import error
-    from src.read_data.read_UN_population import load_un_pop
+    from src.read_data.load_data import load_pop
     df = df.copy()
-    df_pop = load_un_pop(country_specific=country_specific)
+    df_pop = load_pop(country_specific=country_specific)
     columns_to_use = df.columns.intersection(df_pop.columns)
 
     if total_from_per_capita:
@@ -62,24 +60,24 @@ def transform_per_capita(df, total_from_per_capita, country_specific):
     return df
 
 
-def group_country_data_to_regions(df_by_country, is_per_capita, group_by_subcategories=False):
+def group_country_data_to_regions(df_by_country, is_per_capita, data_split_into_categories=False):
     if is_per_capita:
         df_by_country = transform_per_capita(df_by_country, total_from_per_capita=True, country_specific=True)
     df_by_country = df_by_country.reset_index()
     from src.read_data.load_data import load_regions
     df_regions = load_regions()
     df = pd.merge(df_regions, df_by_country, on='country')
-    if not group_by_subcategories:
-        df = df.groupby('region').sum(numeric_only=False)
-
-    else:  # group_by_subcategories
-        df = df.groupby(['region', 'category']).sum(numeric_only=False)
+    grouping_factor = 'region'
+    if data_split_into_categories:
+        grouping_factor = ['region', 'category']
+    df = df.groupby(grouping_factor).sum(numeric_only=False)
     df = df.drop(columns=['country'])
 
     if is_per_capita:
         df = transform_per_capita(df, total_from_per_capita=False, country_specific=False)
 
     return df
+
 
 def get_steel_category_total(df_stock, region_data=True):
     scope = 'region'
@@ -92,6 +90,12 @@ def get_steel_category_total(df_stock, region_data=True):
     return df_stock_totals
 
 
+def get_np_from_df(df : pd.DataFrame, data_split_into_categories):
+    df = df.sort_index()
+    np = df.to_numpy()
+    if data_split_into_categories:
+        np = np.reshape(df.index.levshape + np.shape[-1:])
+    return np
 
 class Years:
 

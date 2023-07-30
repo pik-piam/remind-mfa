@@ -4,17 +4,13 @@ import os
 import sys
 import pickle
 import csv
-import src.read_data.read_REMIND_regions as remind
-import src.model.load_DSMs as dynamic_stock_models
-import src.read_data.read_WorldSteel_trade as worldsteel_trade
 from src.tools.config import cfg
 from ODYM.odym.modules import ODYM_Classes as msc  # import the ODYM class file
-
+from src.read_data.load_data import load_stocks, load_trade
+from src.model.load_DSMs import get_dsm_data
+from src.tools.tools import get_np_from_df
 
 #  constants
-USING_CATEGORIES = ['Transport', 'Machinery', 'Construction', 'Products']
-RECYCLING_CATEGORIES = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Dis', 'NotCol']
-REGIONS = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
 
 # Indices
 ENV_PID = 0
@@ -26,7 +22,7 @@ RECYCLE_PID = 5
 WASTE_PID = 6
 
 
-def load_dmfa_systems() -> msc.MFAsystem:
+def load_simson_model(country_specific=False) -> msc.MFAsystem:
     """
     Loads dictionary of DMFA systems either from file or by recalculating it.
     :param recalculate: bool
@@ -34,38 +30,51 @@ def load_dmfa_systems() -> msc.MFAsystem:
     """
     # load data and dynamic stock models
 
-    file_path = os.path.join(cfg.data_path, 'models', "main_model.p")
+    file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
+    file_name = f'main_model_{file_name_end}.p'
+    file_path = os.path.join(cfg.data_path, 'models', file_name)
     do_load_existing = os.path.exists(file_path) and not cfg.recalculate_data
     if do_load_existing:
         model = pickle.load(open(file_path, "rb"))
     else:
-        model = create_model()
+        model = create_model(country_specific)
         pickle.dump(model, open(file_path, "wb"))
     return model
 
 
-def create_model():
-    """
-    Creates dictionary of DMFA systems based on region names.
-    :return: Dictionary of DMFA systems.
-    """
+def create_model(country_specific):
+    df_stocks = load_stocks(country_specific=country_specific, per_capita=True)
+    areas = list(df_stocks.index.unique(level=0))
+    stocks_data = get_np_from_df(df_stocks, data_split_into_categories=True)
+    main_model = set_up_model(areas)
 
-    # initiate model, load data
-    main_model = initiate_model()
-    dsm_dict = dynamic_stock_models.load()
-    trade_dict = None
+    # Initiate model
+    initiate_processes(main_model)
+    initiate_parameters(main_model)
+    initiate_flows(main_model)
+    initiate_stocks(main_model)
+    main_model.Initialize_FlowValues()
+    main_model.Initialize_StockValues()
+    check_consistency(main_model)
+
+    # Load model
+
+    np_trade = None
     if cfg.include_trade:
-        trade_dict = worldsteel_trade.load_world_steel_trade_factor()
+        df_trade = load_trade()
+        np_trade = get_np_from_df(df_trade, data_split_into_categories=False)
 
     # compute stocks and flows
-    for region_idx, region in enumerate(REGIONS):
-        main_model = compute_flows(main_model, region_idx, dsm_dict[region], trade_dict[region])
-        main_model = compute_stocks(main_model, region_idx, dsm_dict[region])
+    for area_idx, area in enumerate(areas):
+        print(f'Compute {area} ({area_idx + 1}/{len(areas)}).')
+        stocks, inflows, outflows = get_dsm_data(stocks_data[area_idx])
+        main_model = compute_area_flows(main_model, area_idx, inflows, outflows, np)
+        main_model = compute_area_stocks(main_model, area_idx, stocks, inflows, outflows)
 
     return main_model
 
 
-def initiate_model():
+def set_up_model(regions):
     """
         Main part of the model! Computes an ODYM DMFA System based on a dynamic
         stock model and trade data. Processes, Flows and Stocks are defined,
@@ -78,15 +87,15 @@ def initiate_model():
     # define MFA system
 
     model_classification = {'Time': msc.Classification(Name='Time', Dimension='Time', ID=1,
-                                                       Items=list(np.arange(cfg.start_year, cfg.end_year))),
+                                                       Items=cfg.years),
                             'Element': msc.Classification(Name='Elements', Dimension='Element', ID=2, Items=['Fe']),
-                            'Region': msc.Classification(Name='Regions', Dimension='Region', ID=3, Items=REGIONS),
+                            'Region': msc.Classification(Name='Regions', Dimension='Region', ID=3, Items=regions),
                             'Good': msc.Classification(Name='Goods', Dimension='Material', ID=4,
-                                                       Items=USING_CATEGORIES),
+                                                       Items=cfg.using_categories),
                             'Waste': msc.Classification(Name='Waste types', Dimension='Material', ID=5,
-                                                        Items=RECYCLING_CATEGORIES)}
-    model_time_start = int(min(model_classification['Time'].Items))
-    model_time_end = int(max(model_classification['Time'].Items))
+                                                        Items=cfg.recycling_categories)}
+    model_time_start = cfg.start_year
+    model_time_end = cfg.end_year
     index_table = pd.DataFrame({'Aspect': ['Time', 'Element', 'Region', 'Good', 'Waste'],
                                 'Description': ['Model aspect "Time"', 'Model aspect "Element"',
                                                 'Model aspect "Region"', 'Model aspect "Good"',
@@ -99,7 +108,7 @@ def initiate_model():
 
     main_model = msc.MFAsystem(Name='World Steel Economy',
                                Geogr_Scope='World',
-                               Unit='kt',
+                               Unit='t',
                                ProcessList=[],
                                FlowDict={},
                                StockDict={},
@@ -109,10 +118,10 @@ def initiate_model():
                                IndexTable=index_table,
                                Elements=index_table.loc['Element'].Classification.Items)
 
-    # Define and initialize processes, parameters, flows and stocks
+    return main_model
 
-    # Processes
 
+def initiate_processes(main_model):
     main_model.ProcessList = []
 
     def add_process(name, p_id):
@@ -126,10 +135,8 @@ def initiate_model():
     add_process('Recycling', RECYCLE_PID)
     add_process('Waste', WASTE_PID)
 
-    # Parameters
 
-    # load parameter data
-
+def initiate_parameters(main_model):
     parameter_dict = {}
 
     use_recycling_params = [[], [], [], []]
@@ -154,8 +161,8 @@ def initiate_model():
 
     main_model.ParameterDict = parameter_dict
 
-    # Flows
 
+def initiate_flows(main_model):
     def add_flow(name, from_id, to_id, indices):
         flow = msc.Flow(Name=name, P_Start=from_id, P_End=to_id, Indices=indices, Values=None)
         main_model.FlowDict['F_' + str(from_id) + '_' + str(to_id)] = flow
@@ -177,6 +184,8 @@ def initiate_model():
         add_flow('Scrap_Imports', ENV_PID, SCRAP_PID, 't,e,r')
         add_flow('Scrap_Exports', SCRAP_PID, ENV_PID, 't,e,r')
 
+
+def initiate_stocks(main_model):
     # Stocks
 
     def add_stock(p_id, name, indices, add_change_stock=True):
@@ -193,19 +202,15 @@ def initiate_model():
     add_stock(SCRAP_PID, 'Usable_Scrap', 't,e,r')
     add_stock(WASTE_PID, 'Waste', 't,e,r')
 
-    # initialize, optional: perform consistency check
 
-    main_model.Initialize_FlowValues()
-    main_model.Initialize_StockValues()
+def check_consistency(main_model):
     consistency = main_model.Consistency_Check()
     for consistencyCheck in consistency:
         if not consistencyCheck:
             raise RuntimeError("A consitency check failed: " + str(consistency))
 
-    return main_model
 
-
-def compute_flows(main_model, region_idx, region_dsm, region_trade):
+def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, region_trade):
     """
     load data, calculate values, implement MFA solution from chosen model
     :param main_model:
@@ -221,46 +226,39 @@ def compute_flows(main_model, region_idx, region_dsm, region_trade):
         return main_model.FlowDict['F_' + str(from_id) + '_' + str(to_id)]
 
     fin_use_flow = get_flow(FIN_PID, USE_PID)
-    for UID, using_category in enumerate(USING_CATEGORIES):
-        values = region_dsm[using_category].i
-        fin_use_flow.Values[:, 0, region_idx, UID] = values
-    total_inflow_in_use_stock = np.sum(fin_use_flow.Values[:, 0, region_idx, :], axis=1)
+    fin_use_flow.Values[:, 0, area_idx, :] = area_inflows
+    total_inflow_in_use_stock = np.sum(fin_use_flow.Values[:, 0, area_idx, :], axis=1)
 
     if not cfg.include_trade:
-        get_flow(PROD_PID, FIN_PID).Values[:, 0, region_idx] = total_inflow_in_use_stock
+        get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] = total_inflow_in_use_stock
 
-    category_outflow = []
-    for UID, using_category in enumerate(USING_CATEGORIES):
-        category_outflow.append(region_dsm[using_category].o)
+    get_flow(USE_PID, RECYCLE_PID).Values[:, 0, area_idx, :, :] = np.einsum('tg,gw->tgw', area_outflows,
+                                                                            params['End-Use_Distribution'].Values)
 
-    get_flow(USE_PID, RECYCLE_PID).Values[:, 0, region_idx, :, :] = np.einsum('gt,gw->tgw', np.array(category_outflow),
-                                                                              params['End-Use_Distribution'].Values)
-
-    recycling_inflow = np.sum(get_flow(USE_PID, RECYCLE_PID).Values[:, 0, region_idx, :, :], axis=1)
-    get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, region_idx, :] = np.einsum('tw,w->tw', recycling_inflow, params[
+    recycling_inflow = np.sum(get_flow(USE_PID, RECYCLE_PID).Values[:, 0, area_idx, :, :], axis=1)
+    get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :] = np.einsum('tw,w->tw', recycling_inflow, params[
         'Recycling-Waste_Distribution'].Values)
-    get_flow(RECYCLE_PID, WASTE_PID).Values[:, 0, region_idx, :] = np.einsum('tw,w->tw', recycling_inflow, 1 - params[
+    get_flow(RECYCLE_PID, WASTE_PID).Values[:, 0, area_idx, :] = np.einsum('tw,w->tw', recycling_inflow, 1 - params[
         'Recycling-Waste_Distribution'].Values)
 
     total_production = total_inflow_in_use_stock
     if cfg.include_trade:
         imports = region_trade['Imports']
         exports = region_trade['Exports']
-        get_flow(ENV_PID, FIN_PID).Values[:, 0, region_idx] = imports
-        get_flow(FIN_PID, ENV_PID).Values[:, 0, region_idx] = exports
-        total_production+= - imports + exports
-        get_flow(PROD_PID, FIN_PID).Values[:, 0, region_idx] = total_production
+        get_flow(ENV_PID, FIN_PID).Values[:, 0, area_idx] = imports
+        get_flow(FIN_PID, ENV_PID).Values[:, 0, area_idx] = exports
+        total_production += - imports + exports
+        get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] = total_production
 
-    max_scrap_share_production = get_flow(PROD_PID, FIN_PID).Values[:, 0, region_idx]
-        * cfg.max_scrap_share_production
-    inflow_usable_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, region_idx, :], axis=1)
+    max_scrap_share_production = get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] * cfg.max_scrap_share_production
+    inflow_usable_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :], axis=1)
 
     if cfg.include_scrap_trade:
         scrap_imports = region_trade['Scrap_Imports']
         scrap_exports = region_trade['Scrap_Exports']
-        get_flow(ENV_PID, SCRAP_PID).Values[:, 0, region_idx] = scrap_imports
-        get_flow(SCRAP_PID, ENV_PID).Values[:, 0, region_idx] = scrap_exports
-        inflow_usable_scrap += scrap_imports-scrap_exports
+        get_flow(ENV_PID, SCRAP_PID).Values[:, 0, area_idx] = scrap_imports
+        get_flow(SCRAP_PID, ENV_PID).Values[:, 0, area_idx] = scrap_exports
+        inflow_usable_scrap += scrap_imports - scrap_exports
 
     recyclable = np.zeros(cfg.n_years)
     usable_scrap_stock = 0
@@ -278,13 +276,13 @@ def compute_flows(main_model, region_idx, region_dsm, region_trade):
                 recyclable[i] = available_from_inflow + usable_scrap_stock
                 usable_scrap_stock = 0
 
-    get_flow(SCRAP_PID, PROD_PID).Values[:, 0, region_idx] = recyclable
-    get_flow(ENV_PID, PROD_PID).Values[:, 0, region_idx] = total_production - recyclable
+    get_flow(SCRAP_PID, PROD_PID).Values[:, 0, area_idx] = recyclable
+    get_flow(ENV_PID, PROD_PID).Values[:, 0, area_idx] = total_production - recyclable
 
     return main_model
 
 
-def compute_stocks(main_model, region_idx, region_dsm):
+def compute_area_stocks(main_model, area_idx, area_stocks, area_inflows, area_outflows):
     # Stocks
     # In-use stocks
     def get_flow(from_id, to_id):
@@ -297,22 +295,20 @@ def compute_stocks(main_model, region_idx, region_dsm):
         return main_model.StockDict['dS_' + str(p_id)]
 
     def calculate_stock_values_from_stock_change(p_id):
-        stock_values = main_model.StockDict['dS_' + str(p_id)].Values[:, 0, region_idx].cumsum(axis=0)
-        main_model.StockDict['S_' + str(p_id)].Values[:, 0, region_idx] = stock_values
+        stock_values = main_model.StockDict['dS_' + str(p_id)].Values[:, 0, area_idx].cumsum(axis=0)
+        main_model.StockDict['S_' + str(p_id)].Values[:, 0, area_idx] = stock_values
 
     in_use_stock = get_stock(USE_PID)
     in_use_stock_change = get_stock_change(USE_PID)
-    for UID, category in enumerate(USING_CATEGORIES):
-        category_model = region_dsm[category]
-        in_use_stock.Values[:, 0, region_idx, UID] = category_model.s
-        in_use_stock_change.Values[:, 0, region_idx, UID] = category_model.i - category_model.o
+    in_use_stock.Values[:, 0, area_idx, :] = area_stocks
+    in_use_stock_change.Values[:, 0, area_idx, :] = area_inflows - area_outflows
 
-    inflow_waste = np.sum(get_flow(RECYCLE_PID, WASTE_PID).Values[:, 0, region_idx, :], axis=1)
-    get_stock_change(WASTE_PID).Values[:, 0, region_idx] = inflow_waste
+    inflow_waste = np.sum(get_flow(RECYCLE_PID, WASTE_PID).Values[:, 0, area_idx, :], axis=1)
+    get_stock_change(WASTE_PID).Values[:, 0, area_idx] = inflow_waste
     calculate_stock_values_from_stock_change(WASTE_PID)
-    inflow_usable_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, region_idx, :], axis=1)
-    recyclable = get_flow(SCRAP_PID, PROD_PID).Values[:, 0, region_idx]
-    get_stock_change(SCRAP_PID).Values[:, 0, region_idx] = inflow_usable_scrap - recyclable
+    inflow_usable_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :], axis=1)
+    recyclable = get_flow(SCRAP_PID, PROD_PID).Values[:, 0, area_idx]
+    get_stock_change(SCRAP_PID).Values[:, 0, area_idx] = inflow_usable_scrap - recyclable
     calculate_stock_values_from_stock_change(SCRAP_PID)
 
     return main_model
@@ -326,7 +322,7 @@ def mass_balance_plausible(balance):
     """
 
     for val in np.abs(balance).sum(axis=0).sum(axis=1):
-        if val > 1000: # account for a ton accuracy
+        if val > 1000:  # account for a ton accuracy
             print(list(np.abs(balance).sum(axis=0)))
             return False
     return True
@@ -339,7 +335,7 @@ def main():
     Prints success statements otherwise
     :return: None
     """
-    main_model = load_dmfa_systems()
+    main_model = load_simson_model(country_specific=True)
     bal = main_model.MassBalance()
     if mass_balance_plausible(bal):
         print("Success - Model loaded and checked. \nBalance: " + str(list(np.abs(bal).sum(axis=0).sum(axis=1))))
@@ -349,7 +345,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # overwrite config with valus given in a config file,
+    # overwrite config with values given in a config file,
     # if the path to this file is passed as the last argument of the function call.
     if sys.argv[-1].endswith('.yml'):
         cfg.customize(sys.argv[-1])

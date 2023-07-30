@@ -22,8 +22,8 @@ class Config():
         self.max_scrap_share_production = 0.60
 
         self.constant_scrap_recovery_rate = True
-        self.include_trade = True
-        self.include_scrap_trade = True
+        self.include_trade = False
+        self.include_scrap_trade = False
 
         self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl
 
@@ -33,11 +33,12 @@ class Config():
         self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
         self.steel_price_data_source = 'USGS'  # Options: USGS
         self.scrap_price_data_source = 'USGS'  # Options: USGS
-        self.region_data_source = 'REMIND'  # Options: REMIND
+        self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
         self.lifetime_data_source = 'Wittig'  # Options: Wittig
 
-        self.subcategories = ['Transport', 'Machinery', 'Construction', 'Product']
-        self.categories = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']
+        self.using_categories = ['Transport', 'Machinery', 'Construction', 'Product']
+        self.recycling_categories = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Dis', 'NotCol']
+        self.categories_with_total = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']
 
         self.distributions = {
             'transportation': 20,
@@ -62,7 +63,7 @@ class Config():
 
     @property
     def n_years(self):
-        return self.end_year - self.start_year
+        return self.end_year - self.start_year + 1
 
     @property
     def years(self):
