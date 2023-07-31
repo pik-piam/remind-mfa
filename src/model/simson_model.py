@@ -7,8 +7,8 @@ import csv
 from ODYM.odym.modules import ODYM_Classes as msc  # import the ODYM class file
 from src.tools.config import cfg
 from src.read_data.load_data import load_stocks, load_trade
-from src.model.model_tools import get_dsm_data, get_trade_factors
-from src.tools.tools import get_np_from_df
+from src.model.model_tools import get_trade_factors, get_dsm_data
+from src.model.load_dsms import load_dsms
 
 #  constants
 
@@ -48,12 +48,13 @@ def create_model(country_specific):
     if cfg.include_trade:
         trade_factor, scrap_trade_factor = get_trade_factors()
     main_model = set_up_model(areas)
+    dsms = load_dsms(country_specific)
 
     # Load model
     initiate_model(main_model)
 
     # compute stocks and flows
-    compute_model(main_model, areas, df_stocks, trade_factor, scrap_trade_factor, country_specific)
+    compute_model(main_model, dsms, areas, trade_factor, scrap_trade_factor, country_specific)
 
     return main_model
 
@@ -68,11 +69,10 @@ def initiate_model(main_model):
     check_consistency(main_model)
 
 
-def compute_model(main_model, areas, df_stocks, trade_factors, scrap_trade_factors):
-    stocks_data = get_np_from_df(df_stocks, data_split_into_categories=True)
+def compute_model(main_model, dsms, areas, trade_factors, scrap_trade_factors):
     for area_idx, area in enumerate(areas):
         print(f'Compute {area} ({area_idx + 1}/{len(areas)}).')
-        stocks, inflows, outflows = get_dsm_data(stocks_data[area_idx])
+        stocks, inflows, outflows = get_dsm_data(dsms[area_idx])
         main_model = compute_area_flows(main_model, area_idx, inflows, outflows,
                                         trade_factors, scrap_trade_factors)
         main_model = compute_area_stocks(main_model, area_idx, stocks, inflows, outflows)
