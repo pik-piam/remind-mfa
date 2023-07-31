@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import src.model.mfa_all_regions as mfa_all_regions
+import src.model.simson_model as mfa_all_regions
 import src.read_data.read_IMF_gdp as gdp_data
 import src.read_data.read_USGS_prices as price_data
 import src.read_data.read_WorldSteel_trade as trade_data

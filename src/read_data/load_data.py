@@ -73,7 +73,11 @@ def load_trade(trade_source=None, country_specific=False):
     if trade_source is None:
         trade_source = cfg.trade_data_source
     if trade_source == 'WorldSteel':
-        return _load_worldsteel_trade_factor(country_specific)
+        df_use = _load_worldsteel_use(country_specific=country_specific)
+        df_production = _load_worldsteel_production(country_specific=country_specific)
+        df_scrap_imports = _load_worldsteel_scrap_imports(country_specific=country_specific)
+        df_scrap_exports = _load_worldsteel_scrap_exports(country_specific=country_specific)
+        return df_use, df_production, df_scrap_imports, df_scrap_exports
     else:
         raise ValueError(f'{trade_source} is not a valid trade data source.')
 
@@ -200,6 +204,49 @@ def _load_worldsteel_trade_factor(country_specific):
     from src.read_data.read_WorldSteel_trade import get_worldsteel_country_trade_factor
     df = _data_loader(file_base_name='worldsteel_trade_factor',
                       recalculate_function=get_worldsteel_country_trade_factor,
+                      country_specific=country_specific,
+                      data_stored_per_capita=False,
+                      return_per_capita=False)
+
+    return df
+
+
+def _load_worldsteel_use(country_specific):
+    from src.read_data.read_WorldSteel_trade import get_worldsteel_use
+    df = _data_loader(file_base_name='worldsteel_use',
+                      recalculate_function=get_worldsteel_use,
+                      country_specific=country_specific,
+                      data_stored_per_capita=False,
+                      return_per_capita=False)
+
+    return df
+
+def _load_worldsteel_production(country_specific):
+    from src.read_data.read_WorldSteel_trade import get_worldsteel_production
+    df = _data_loader(file_base_name='worldsteel_production',
+                      recalculate_function=get_worldsteel_production,
+                      country_specific=country_specific,
+                      data_stored_per_capita=False,
+                      return_per_capita=False)
+
+    return df
+
+
+def _load_worldsteel_scrap_imports(country_specific):
+    from src.read_data.read_WorldSteel_trade import get_worldsteel_scrap_imports
+    df = _data_loader(file_base_name='worldsteel_scrap_imports',
+                      recalculate_function=get_worldsteel_scrap_imports,
+                      country_specific=country_specific,
+                      data_stored_per_capita=False,
+                      return_per_capita=False)
+
+    return df
+
+
+def _load_worldsteel_scrap_exports(country_specific):
+    from src.read_data.read_WorldSteel_trade import get_worldsteel_scrap_exports
+    df = _data_loader(file_base_name='worldsteel_scrap_exports',
+                      recalculate_function=get_worldsteel_scrap_exports,
                       country_specific=country_specific,
                       data_stored_per_capita=False,
                       return_per_capita=False)

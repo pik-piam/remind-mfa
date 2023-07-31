@@ -1,46 +1,146 @@
-import csv
 import os
-import numpy as np
 import pandas as pd
-from src.model.load_DSMs import load as load_dsms
 from src.tools.config import cfg
 from src.tools.split_data_into_subregions import split_areas_by_gdp
 from src.tools.tools import fill_missing_values_linear
 
 
-def load_world_steel_trade_factor():
-    categories = ['Trade', 'Imports', 'Exports', 'Scrap_Trade', 'Scrap_Imports', 'Scrap_Exports']
-    if os.path.exists(os.path.join(cfg.data_path, 'processed', 'WorldSteel_trade.csv')) and not cfg.recalculate_data:
-        with open(os.path.join(cfg.data_path, 'processed', 'WorldSteel_trade.csv')) as csv_file:
-            trade_reader = csv.reader(csv_file, delimiter=',')
-            trade_reader = list(trade_reader)
-            trade_dict = {}
-            for region_dates in trade_reader:
-                region = region_dates[0]
-                if region not in trade_dict.keys():
-                    trade_dict[region] = {}
-                category = region_dates[1]
-                trade_data = region_dates[2:]
-                trade_values = np.zeros(201, dtype='f4')
-                for i in range(201):
-                    trade_values[i] = float(trade_data[i])
-                trade_dict[region][category] = trade_values
-            return trade_dict
-    else:
-        trade_data = load_all_trade()
-        with open(os.path.join(cfg.data_path, 'processed', 'WorldSteel_trade.csv'), 'w', newline='') as file:
-            writer = csv.writer(file)
-            for region in trade_data.keys():
-                for category in categories:
-                    writer.writerow([region, category] + list(trade_data[region][category]))
-        return trade_data
+def get_worldsteel_use():
+    df_use = _read_worldsteel_original_use()
+    df_iso3 = _read_worldsteel_iso3_map()
+    df_use = _clean_worldsteel_data(df_use, df_iso3,
+                                    ['Joint Serbia and Montenegro', 'South African C.U. (1)', 'Belgium-Luxembourg'])
+    return df_use
 
 
-def load_all_trade():
-    """
-    Add scrap trade.
-    :return:
-    """
+def get_worldsteel_production():
+    df_production = _read_worldsteel_original_production()
+    df_iso3 = _read_worldsteel_iso3_map()
+    df_production = _clean_worldsteel_data(df_production, df_iso3, ['Joint Serbia and Montenegro'])
+    return df_production
+
+
+def get_worldsteel_scrap_exports():
+    df_scrap_exports = _read_worldsteel_original_scrap_exports()
+    df_iso3 = _read_worldsteel_scrap_iso3_map()
+    df_scrap_exports = pd.merge(df_iso3, df_scrap_exports, on='country_name')
+    df_scrap_exports = df_scrap_exports.drop(columns=['country_name'])
+    df_scrap_exports = df_scrap_exports.set_index('country')
+
+    df_scrap_exports *= 1000
+
+    return df_scrap_exports
+
+
+def get_worldsteel_scrap_imports():
+    df_scrap_imports = _read_worldsteel_original_scrap_imports()
+    df_iso3 = _read_worldsteel_scrap_iso3_map()
+    df_scrap_imports = pd.merge(df_iso3, df_scrap_imports, on='country_name')
+    df_scrap_imports = df_scrap_imports.drop(columns=['country_name'])
+    df_scrap_imports = df_scrap_imports.set_index('country')
+
+    df_scrap_imports *= 1000
+
+    return df_scrap_imports
+
+
+def _clean_worldsteel_data(df: pd.DataFrame, df_iso3: pd.DataFrame, areas_to_split: list):
+    df = df.set_index('country_name')
+    df = _merge_worldsteel_serbia_montenegro(df)
+    df = pd.merge(df_iso3, df, left_on='country_name', right_index=True)
+    df = df.drop(columns=['country_name'])
+    df = df.set_index('country')
+    df = split_areas_by_gdp(areas_to_split, df, df_iso3)
+    df = df.replace('...', pd.NA)
+    df = fill_missing_values_linear(df)
+    return df
+
+
+def _merge_worldsteel_serbia_montenegro(df_original):
+    serbia_data = df_original.loc['Serbia']
+    montenegro_data = df_original.loc['Montenegro']
+    serbia_and_montenegro_data = df_original.loc['Serbia and Montenegro']
+    fryugoslavia_data = df_original.loc['F.R. Yugoslavia']
+
+    df_original = df_original.drop(index=['Serbia', 'Montenegro', 'Serbia and Montenegro', 'F.R. Yugoslavia'])
+
+    joint_data = serbia_data + montenegro_data
+    joint_data = joint_data.add(serbia_and_montenegro_data, fill_value=0)
+    joint_data = joint_data.add(fryugoslavia_data, fill_value=0)
+
+    df_original.loc['Joint Serbia and Montenegro'] = joint_data
+
+    return df_original
+
+
+def _read_worldsteel_original_scrap_exports():
+    scrap_path = os.path.join(cfg.data_path, 'original', 'worldsteel', 'Scrap_Trade_2018-2017.xlsx')
+    df_scrap_exports = pd.read_excel(
+        io=scrap_path,
+        engine='openpyxl',
+        sheet_name='Exports of Scrap')
+    return df_scrap_exports
+
+
+def _read_worldsteel_original_scrap_imports():
+    scrap_path = os.path.join(cfg.data_path, 'original', 'worldsteel', 'Scrap_Trade_2018-2017.xlsx')
+    df_scrap_imports = pd.read_excel(
+        io=scrap_path,
+        engine='openpyxl',
+        sheet_name='Imports of Scrap')
+    return df_scrap_imports
+
+
+def _read_worldsteel_iso3_map():
+    iso3_map_path = os.path.join(cfg.data_path, 'original', 'worldsteel', 'WorldSteel_countries.csv')
+    df = pd.read_csv(iso3_map_path)
+    return df
+
+
+def _read_worldsteel_scrap_iso3_map():
+    iso3_map_path = os.path.join(cfg.data_path, 'original', 'worldsteel', 'WorldSteel_scrap_countries.csv')
+    df = pd.read_csv(iso3_map_path)
+    return df
+
+
+def _read_worldsteel_original_production():
+    production_path = os.path.join(cfg.data_path, 'original', 'worldsteel', "Steel_Statistical_Yearbook_combined.ods")
+    df_production = pd.read_excel(production_path,
+                                  sheet_name='Total Production of Crude Steel',
+                                  engine='odf',
+                                  usecols='A:AC')
+    df_production = df_production.rename(columns={'country': 'country_name'})
+
+    return df_production
+
+
+def _read_worldsteel_original_use():
+    use_path = os.path.join(cfg.data_path, 'original', 'worldsteel',
+                            "Steel_Statistical_Yearbook_combined.ods")
+    df_use = pd.read_excel(use_path,
+                           sheet_name='Apparent Steel Use (Crude Steel Equivalent)',
+                           engine='odf',
+                           usecols='A:AC')
+    df_use = df_use.rename(columns={'country': 'country_name'})
+    return df_use
+
+
+def _test():
+    scrap_imports = get_worldsteel_scrap_imports()
+    scrap_exports = get_worldsteel_scrap_exports()
+    print(scrap_imports)
+    print(scrap_exports)
+
+    return
+
+
+if __name__ == "__main__":
+    _test()
+
+# Notes:
+
+
+"""def load_all_trade():
     trade_dict = load_normal_trade()
     dynamic_models = load_dsms()
 
@@ -72,7 +172,7 @@ def load_all_trade():
     for region in scrap_trade_params.keys():
         production = scrap_trade_params[region][0]
         exports = scrap_trade_params[region][2]
-        imports  = scrap_trade_params[region][3]
+        imports = scrap_trade_params[region][3]
         scrap_trade_share = (imports - exports) / production
         region_dsm_dict = dynamic_models[region]
         use = np.zeros(201, dtype='f4')
@@ -98,12 +198,6 @@ def load_all_trade():
 
 
 def load_normal_trade():
-    """
-    Load Trade data from the World Steel Association Yearbook. Calculate trade share in base year 2017
-    through production and use. Project that share onto past and future and then balance imports and exports
-    according to Michaja Pehl method. Data from yearbook is mapped onto REMIND regions.
-    :return: dict[region][Trade/Imports/Exports]=list for 1900-2100
-    """
     dynamic_models = load_dsms()
 
     # data according to Steel Statistical Yearbook, World Steel Association for 2017, region data adapted to fit remind
@@ -160,24 +254,9 @@ def load_normal_trade():
         region_dict['Exports'] = np.abs(np.minimum(0, new_trade))
         trade_dict[region] = region_dict
     return trade_dict
+    
+    
 
-
-def read_worldsteel_original():
-    """
-    Read data from Steel statistical yearbook, calculate Imports, Exports and Trade Share form Production and Use.
-    TODO Unfisnished, need to decide how to implement trade
-    :return:
-    """
-    with open(os.path.join(cfg.data_path, 'original', 'World_Steel', 'WorldSteel_countries.csv')) as csv_file:
-        iso_countries = csv.reader(csv_file, delimiter=',')
-        iso_countries = list(iso_countries)
-    production_raw = pd.read_excel(os.path.join(cfg.data_path, 'original', 'World_Steel',
-                                                "Steel_Statistical_Yearbook_combined.xlsx"),
-                                   sheet_name='Total Production of Crude Steel', engine='openpyxl', usecols='A:AC')
-    use_raw = pd.read_excel(os.path.join(cfg.data_path, 'original', 'World_Steel',
-                                         "Steel_Statistical_Yearbook_combined.xlsx"),
-                            sheet_name='Apparent Steel Use (Crude Steel', engine='openpyxl', usecols='A:AC')
-    trade_dict = {}
 
     # read production data
     for r in range(0, len(production_raw['country'])):
@@ -261,75 +340,5 @@ def read_worldsteel_original():
     print(totalimports - totalexports)
     print(len(trade_dict.keys()))
 
-    return trade_dict
-
-
-def get_worldsteel_country_trade_factor():
-    df_production = _read_worldsteel_original_production()
-    df_use = _read_worldsteel_original_use()
-    df_iso3 = _read_worldsteel_iso3_map()
-
-    df_production = _clean_worldsteel_data(df_production, df_iso3, ['Joint Serbia and Montenegro'])
-    df_use = _clean_worldsteel_data(df_use, df_iso3, ['Joint Serbia and Montenegro', 'South African C.U. (1)', 'Belgium-Luxembourg'])
-
-    df_trade = df_use.sub(df_production, fill_value=0)
-    df_trade_factor = df_trade.div(df_use, fill_value=1)
-
-    return df_trade_factor
-
-
-def _clean_worldsteel_data(df : pd.DataFrame, df_iso3 : pd.DataFrame, areas_to_split : list):
-    df = df.set_index('country_name')
-    df = _merge_worldsteel_serbia_montenegro(df)
-    df = pd.merge(df_iso3, df, left_on='country_name', right_index=True)
-    df = df.drop(columns=['country_name'])
-    df = df.set_index('country')
-    df = split_areas_by_gdp(areas_to_split, df, df_iso3)
-    df = df.replace('...', pd.NA)
-    df = fill_missing_values_linear(df)
-    return df
-
-def _merge_worldsteel_serbia_montenegro(df_original):
-    serbia_data = df_original.loc['Serbia']
-    montenegro_data = df_original.loc['Montenegro']
-    serbia_and_montenegro_data = df_original.loc['Serbia and Montenegro']
-    fryugoslavia_data = df_original.loc['F.R. Yugoslavia']
-
-    df_original = df_original.drop(index=['Serbia', 'Montenegro', 'Serbia and Montenegro', 'F.R. Yugoslavia'])
-
-    joint_data = serbia_data + montenegro_data
-    joint_data = joint_data.add(serbia_and_montenegro_data, fill_value=0)
-    joint_data = joint_data.add(fryugoslavia_data, fill_value=0)
-
-    df_original.loc['Joint Serbia and Montenegro'] = joint_data
-
-    return df_original
-
-
-
-def _read_worldsteel_iso3_map():
-    iso3_map_path = os.path.join(cfg.data_path, 'original', 'worldsteel', 'WorldSteel_countries.csv')
-    df = pd.read_csv(iso3_map_path)
-    return df
-
-def _read_worldsteel_original_production():
-    df_production = pd.read_excel(os.path.join(cfg.data_path, 'original', 'worldsteel',
-                                                "Steel_Statistical_Yearbook_combined.ods"),
-                                   sheet_name='Total Production of Crude Steel', engine='odf', usecols='A:AC')
-    df_production = df_production.rename(columns={'country':'country_name'})
-
-    return df_production
-
-
-def _read_worldsteel_original_use():
-    df_use = pd.read_excel(os.path.join(cfg.data_path, 'original', 'worldsteel',
-                                         "Steel_Statistical_Yearbook_combined.ods"),
-                            sheet_name='Apparent Steel Use (Crude Steel Equivalent)', engine='odf', usecols='A:AC')
-    df_use = df_use.rename(columns={'country': 'country_name'})
-    return df_use
-
-
-if __name__ == "__main__":
-    from src.read_data.load_data import load_trade
-    df_trade_factor = load_trade(country_specific=False)
-    print(df_trade_factor)
+    return trade_dict    
+    """

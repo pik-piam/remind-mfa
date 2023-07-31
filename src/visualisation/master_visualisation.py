@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from src.model.mfa_all_regions import load_simson_model
-import src.model.load_DSMs as dynamic_stock_models
+from src.model.simson_model import load_simson_model
+import src.model.model_tools as dynamic_stock_models
 from src.read_data.load_data import load_regions
 
 REGIONS = list(load_regions()['region'].unique())

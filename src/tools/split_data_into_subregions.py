@@ -3,7 +3,7 @@ from src.read_data.load_data import load_gdp
 
 def split_areas_by_gdp(areas_to_split: list, df: pd.DataFrame, df_iso3_map: pd.DataFrame, data_is_by_category=False):
     df_areas = _get_df_areas_to_normalize(df_iso3_map, areas_to_split)
-    df_gdp = load_gdp(country_specific=True, is_per_capita=False)
+    df_gdp = load_gdp(country_specific=True, per_capita=False)
     df_area_gdp_share = _get_gdp_shares_in_areas(df_gdp, df_areas)
     index = df.index
     if data_is_by_category:

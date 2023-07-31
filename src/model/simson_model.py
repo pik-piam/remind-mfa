@@ -4,10 +4,10 @@ import os
 import sys
 import pickle
 import csv
-from src.tools.config import cfg
 from ODYM.odym.modules import ODYM_Classes as msc  # import the ODYM class file
+from src.tools.config import cfg
 from src.read_data.load_data import load_stocks, load_trade
-from src.model.load_DSMs import get_dsm_data
+from src.model.model_tools import get_dsm_data, get_trade_factors
 from src.tools.tools import get_np_from_df
 
 #  constants
@@ -23,12 +23,10 @@ WASTE_PID = 6
 
 
 def load_simson_model(country_specific=False) -> msc.MFAsystem:
-    """
-    Loads dictionary of DMFA systems either from file or by recalculating it.
-    :param recalculate: bool
-    :return: dict[region]=MFA_system
-    """
-    # load data and dynamic stock models
+    if country_specific and (cfg.include_trade or cfg.include_scrap_trade):
+        raise ValueError("Can't include trade for country specific resolution: missing data.")
+    if cfg.include_scrap_trade and not cfg.include_trade:
+        raise ValueError("Can't include scrap trade without including trade too.")
 
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_model_{file_name_end}.p'
@@ -43,12 +41,24 @@ def load_simson_model(country_specific=False) -> msc.MFAsystem:
 
 
 def create_model(country_specific):
+    # load data
     df_stocks = load_stocks(country_specific=country_specific, per_capita=True)
     areas = list(df_stocks.index.unique(level=0))
-    stocks_data = get_np_from_df(df_stocks, data_split_into_categories=True)
+    trade_factor, scrap_trade_factor = None, None
+    if cfg.include_trade:
+        trade_factor, scrap_trade_factor = get_trade_factors()
     main_model = set_up_model(areas)
 
-    # Initiate model
+    # Load model
+    initiate_model(main_model)
+
+    # compute stocks and flows
+    compute_model(main_model, areas, df_stocks, trade_factor, scrap_trade_factor, country_specific)
+
+    return main_model
+
+
+def initiate_model(main_model):
     initiate_processes(main_model)
     initiate_parameters(main_model)
     initiate_flows(main_model)
@@ -57,34 +67,18 @@ def create_model(country_specific):
     main_model.Initialize_StockValues()
     check_consistency(main_model)
 
-    # Load model
 
-    np_trade = None
-    if cfg.include_trade:
-        df_trade = load_trade()
-        np_trade = get_np_from_df(df_trade, data_split_into_categories=False)
-
-    # compute stocks and flows
+def compute_model(main_model, areas, df_stocks, trade_factors, scrap_trade_factors):
+    stocks_data = get_np_from_df(df_stocks, data_split_into_categories=True)
     for area_idx, area in enumerate(areas):
         print(f'Compute {area} ({area_idx + 1}/{len(areas)}).')
         stocks, inflows, outflows = get_dsm_data(stocks_data[area_idx])
-        main_model = compute_area_flows(main_model, area_idx, inflows, outflows, np)
+        main_model = compute_area_flows(main_model, area_idx, inflows, outflows,
+                                        trade_factors, scrap_trade_factors)
         main_model = compute_area_stocks(main_model, area_idx, stocks, inflows, outflows)
-
-    return main_model
 
 
 def set_up_model(regions):
-    """
-        Main part of the model! Computes an ODYM DMFA System based on a dynamic
-        stock model and trade data. Processes, Flows and Stocks are defined,
-        initiated and calculated based on parameters from the config file.
-        :param model_dict: dynamic stock model
-        :param region: region name (str)
-        :return: DMFAsystem
-        """
-
-    # define MFA system
 
     model_classification = {'Time': msc.Classification(Name='Time', Dimension='Time', ID=1,
                                                        Items=cfg.years),
@@ -207,19 +201,10 @@ def check_consistency(main_model):
     consistency = main_model.Consistency_Check()
     for consistencyCheck in consistency:
         if not consistencyCheck:
-            raise RuntimeError("A consitency check failed: " + str(consistency))
+            raise RuntimeError("A consistency check failed: " + str(consistency))
 
 
-def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, region_trade):
-    """
-    load data, calculate values, implement MFA solution from chosen model
-    :param main_model:
-    :param regions:
-    :return:
-    """
-
-    # Flows
-
+def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade_factor, scrap_trade_factor):
     params = main_model.ParameterDict
 
     def get_flow(from_id, to_id):
@@ -243,8 +228,8 @@ def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, region
 
     total_production = total_inflow_in_use_stock
     if cfg.include_trade:
-        imports = region_trade['Imports']
-        exports = region_trade['Exports']
+        imports = trade_factor['Imports']
+        exports = trade_factor['Exports']
         get_flow(ENV_PID, FIN_PID).Values[:, 0, area_idx] = imports
         get_flow(FIN_PID, ENV_PID).Values[:, 0, area_idx] = exports
         total_production += - imports + exports
@@ -254,8 +239,8 @@ def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, region
     inflow_usable_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :], axis=1)
 
     if cfg.include_scrap_trade:
-        scrap_imports = region_trade['Scrap_Imports']
-        scrap_exports = region_trade['Scrap_Exports']
+        scrap_imports = scrap_trade_factor['Scrap_Imports']
+        scrap_exports = scrap_trade_factor['Scrap_Exports']
         get_flow(ENV_PID, SCRAP_PID).Values[:, 0, area_idx] = scrap_imports
         get_flow(SCRAP_PID, ENV_PID).Values[:, 0, area_idx] = scrap_exports
         inflow_usable_scrap += scrap_imports - scrap_exports
@@ -283,8 +268,6 @@ def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, region
 
 
 def compute_area_stocks(main_model, area_idx, area_stocks, area_inflows, area_outflows):
-    # Stocks
-    # In-use stocks
     def get_flow(from_id, to_id):
         return main_model.FlowDict['F_' + str(from_id) + '_' + str(to_id)]
 
@@ -335,7 +318,7 @@ def main():
     Prints success statements otherwise
     :return: None
     """
-    main_model = load_simson_model(country_specific=True)
+    main_model = load_simson_model(country_specific=False)
     bal = main_model.MassBalance()
     if mass_balance_plausible(bal):
         print("Success - Model loaded and checked. \nBalance: " + str(list(np.abs(bal).sum(axis=0).sum(axis=1))))
