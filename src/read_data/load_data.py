@@ -1,9 +1,7 @@
 import os
-
 import pandas as pd
-
 from src.tools.config import cfg
-from src.tools.tools import read_processed_data, group_country_data_to_regions, transform_per_capita, get_np_from_df
+from src.tools.tools import read_processed_data, group_country_data_to_regions, transform_per_capita
 
 
 # -- MAIN DATA LOADING FUNCTIONS BY DATA TYPE --
@@ -42,11 +40,11 @@ def load_regions(region_source=None):
     if region_source is None:
         region_source = cfg.region_data_source
     if region_source == 'REMIND':
-        return _load_REMIND_regions()
+        return _load_remind_regions()
     elif region_source == 'Pauliuk':
         return _load_pauliuk_regions()
     elif region_source == 'REMIND_EU':
-        return _load_REMIND_EU_regions()
+        return _load_remind_eu_regions()
     else:
         raise ValueError(f'{region_source} is not a valid region data source.')
 
@@ -82,12 +80,12 @@ def load_trade(trade_source=None, country_specific=False):
         raise ValueError(f'{trade_source} is not a valid trade data source.')
 
 
-def load_lifetimes(lifetime_source = None):
+def load_lifetimes(lifetime_source=None):
     if lifetime_source is None:
         lifetime_source = cfg.lifetime_data_source
-    if lifetime_source=='Wittig':
+    if lifetime_source == 'Wittig':
         lifetime_path = os.path.join(cfg.data_path, 'original', 'Wittig', 'Wittig_lifetimes.csv')
-    elif lifetime_source=='Pauliuk':
+    elif lifetime_source == 'Pauliuk':
         lifetime_path = os.path.join(cfg.data_path, 'original', 'Pauliuk', 'Pauliuk_lifetimes.csv')
     else:
         raise ValueError(f'{lifetime_source} is not a valid lifetime data source.')
@@ -116,7 +114,7 @@ def _data_loader(file_base_name, recalculate_function, country_specific,
     else:  # recalculate and store
         if country_specific or country_specific is None:
             df = recalculate_function()
-        else: # region specific
+        else:  # region specific
             df = _data_loader(file_base_name, recalculate_function, country_specific=True,
                               data_stored_per_capita=data_stored_per_capita,
                               return_per_capita=return_per_capita,
@@ -178,6 +176,7 @@ def _load_imf_gdp(country_specific, per_capita):
                       return_per_capita=per_capita)
     return df
 
+
 def _load_usgs_steel_prices():
     from src.read_data.read_USGS_prices import get_usgs_steel_prices
     df = _data_loader(file_base_name='usgs_steel_prices',
@@ -200,17 +199,6 @@ def _load_usgs_scrap_prices():
     return df
 
 
-def _load_worldsteel_trade_factor(country_specific):
-    from src.read_data.read_WorldSteel_trade import get_worldsteel_country_trade_factor
-    df = _data_loader(file_base_name='worldsteel_trade_factor',
-                      recalculate_function=get_worldsteel_country_trade_factor,
-                      country_specific=country_specific,
-                      data_stored_per_capita=False,
-                      return_per_capita=False)
-
-    return df
-
-
 def _load_worldsteel_use(country_specific):
     from src.read_data.read_WorldSteel_trade import get_worldsteel_use
     df = _data_loader(file_base_name='worldsteel_use',
@@ -220,6 +208,7 @@ def _load_worldsteel_use(country_specific):
                       return_per_capita=False)
 
     return df
+
 
 def _load_worldsteel_production(country_specific):
     from src.read_data.read_WorldSteel_trade import get_worldsteel_production
@@ -259,11 +248,11 @@ def _load_pauliuk_regions():
     return get_pauliuk_regions()
 
 
-def _load_REMIND_regions():
+def _load_remind_regions():
     from src.read_data.read_REMIND_regions import get_REMIND_regions
     return get_REMIND_regions()
 
-def _load_REMIND_EU_regions():
+
+def _load_remind_eu_regions():
     from src.read_data.read_REMIND_regions import get_REMIND_EU_regions
     return get_REMIND_EU_regions()
-
