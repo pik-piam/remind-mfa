@@ -33,7 +33,7 @@ class Config():
         self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
         self.steel_price_data_source = 'USGS'  # Options: USGS
         self.scrap_price_data_source = 'USGS'  # Options: USGS
-        self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
+        self.region_data_source = 'Pauliuk'  # Options: REMIND, Pauliuk, REMIND_EU
         self.lifetime_data_source = 'Wittig'  # Options: Wittig
 
         self.using_categories = ['Transport', 'Machinery', 'Construction', 'Product']

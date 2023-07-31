@@ -171,7 +171,7 @@ def main():
     default.
     :return:
     """
-    regions_to_use = ['EUR','MEA','CHA', 'USA']
+    regions_to_use = ['NAM', 'WEU', 'CIS']
     main_model = load_simson_model()
 
     # Options: ['LAM','OAS','SSA','EUR','NEU','MEA','REF','CAZ','CHA','IND','JPN','USA']

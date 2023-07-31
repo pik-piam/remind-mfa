@@ -54,7 +54,7 @@ def create_model(country_specific):
     initiate_model(main_model)
 
     # compute stocks and flows
-    compute_model(main_model, dsms, areas, trade_factor, scrap_trade_factor, country_specific)
+    compute_model(main_model, dsms, areas, trade_factor, scrap_trade_factor)
 
     return main_model
 
