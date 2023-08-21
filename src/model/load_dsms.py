@@ -38,12 +38,12 @@ def _create_dsm(stocks, lifetime, st_dev):
     steel_stock_dsm.compute_stock_driven_model()
     steel_stock_dsm.compute_outflow_total()
     steel_stock_dsm.compute_stock_change()
-    _check_steel_stock_dsm(steel_stock_dsm)
+    check_steel_stock_dsm(steel_stock_dsm)
 
     return steel_stock_dsm
 
 
-def _check_steel_stock_dsm(steel_stock_dsm):
+def check_steel_stock_dsm(steel_stock_dsm):
     balance = steel_stock_dsm.check_stock_balance()
     balance = np.abs(balance).sum()
     if balance > 1:  # 1 tonne accuracy

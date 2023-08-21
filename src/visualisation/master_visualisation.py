@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from src.model.simson_model import load_simson_model
 import src.model.model_tools as dynamic_stock_models
-from src.read_data.load_data import load_regions
+from src.read_data.load_data import load_regions, load_steel_prices
 
 REGIONS = list(load_regions()['region'].unique())
 
@@ -71,7 +71,7 @@ def show_net_trade(main_model, regions_to_use):
     plt.plot(range(1901, 2101), net_trade)
     plt.xlabel("Time (y)")
     plt.ylabel("Trade (t)")
-    plt.title("Total trade of new steel (Imports+Exports) in tonnes")
+    plt.title("Total trade_all_areas of new steel (Imports+Exports) in tonnes")
     plt.legend(["All regions"])
     plt.show()
 
@@ -167,11 +167,11 @@ def main():
     """
     Creates matplotlib graphs of the changeable functions/variables for the changeable regions.
     To select which functions are required, just change Boolean values (True/False -> 1/0) and
-    add required regions to region list. For net trade currently all regions are selected as a
+    add required regions to region list. For net trade_all_areas currently all regions are selected as a
     default.
     :return:
     """
-    regions_to_use = ['NAM', 'WEU', 'CIS']
+    regions_to_use = ['EUR','NEU','MEA']
     main_model = load_simson_model()
 
     # Options: ['LAM','OAS','SSA','EUR','NEU','MEA','REF','CAZ','CHA','IND','JPN','USA']

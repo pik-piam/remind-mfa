@@ -1,26 +1,5 @@
 import numpy as np
-from ODYM.odym.modules import dynamic_stock_model as dsm  # import the dynamic stock model library
-from src.tools.config import cfg
-from src.read_data.load_data import load_stocks, load_lifetimes, load_trade
 from src.tools.tools import get_np_from_df
-
-
-def get_trade(use_inflows):
-    return
-
-
-def get_trade_factors():
-    df_use, df_production, df_scrap_imports, df_scrap_exports = load_trade(country_specific=False)
-
-    np_trade_factor = _calc_trade_factor(df_use, df_production, df_production)
-    np_scrap_trade_factor = _calc_trade_factor(df_scrap_imports, df_scrap_exports, df_production)
-
-    return np_trade_factor, np_scrap_trade_factor
-
-
-def balance_trade(trade_factor, use):
-    trade = trade_factor * use
-
 
 
 def _calc_trade_factor(df_add, df_sub, df_div):

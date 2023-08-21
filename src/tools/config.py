@@ -22,8 +22,7 @@ class Config():
         self.max_scrap_share_production = 0.60
 
         self.constant_scrap_recovery_rate = True
-        self.include_trade = False
-        self.include_scrap_trade = False
+        self.include_trade = True
 
         self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl
 
@@ -33,7 +32,7 @@ class Config():
         self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
         self.steel_price_data_source = 'USGS'  # Options: USGS
         self.scrap_price_data_source = 'USGS'  # Options: USGS
-        self.region_data_source = 'Pauliuk'  # Options: REMIND, Pauliuk, REMIND_EU
+        self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
         self.lifetime_data_source = 'Wittig'  # Options: Wittig
 
         self.using_categories = ['Transport', 'Machinery', 'Construction', 'Product']
@@ -46,6 +45,18 @@ class Config():
             'construction': 75,
             'products': 15
         }
+
+        # econ model configurations
+        self.econ_base_year = 2008
+        self.percent_steel_price_change_2100 = -90 # e.g. 50 indicates a 50 % increase of the steel
+                                                  # price between self.econ_base_year and self.end_year
+        self.elasticity_steel = -0.2
+        self.elasticity_scrap_recovery_rate = -1
+        self.elasticity_dissassembly = -0.8
+
+        self.initial_recovery_rate = 0.85
+        self.initial_scrap_share_production = 0.6
+        
 
     def customize(self, fpath: str):
         with open(fpath, 'r') as f:

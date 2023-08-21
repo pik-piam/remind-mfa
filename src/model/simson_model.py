@@ -6,9 +6,10 @@ import pickle
 import csv
 from ODYM.odym.modules import ODYM_Classes as msc  # import the ODYM class file
 from src.tools.config import cfg
-from src.read_data.load_data import load_stocks, load_trade
-from src.model.model_tools import get_trade_factors, get_dsm_data
+from src.read_data.load_data import load_stocks
+from src.model.model_tools import get_dsm_data
 from src.model.load_dsms import load_dsms
+from src.model.calc_trade import get_all_trade
 
 #  constants
 
@@ -22,16 +23,11 @@ RECYCLE_PID = 5
 WASTE_PID = 6
 
 
-def load_simson_model(country_specific=False) -> msc.MFAsystem:
-    if country_specific and (cfg.include_trade or cfg.include_scrap_trade):
-        raise ValueError("Can't include trade for country specific resolution: missing data.")
-    if cfg.include_scrap_trade and not cfg.include_trade:
-        raise ValueError("Can't include scrap trade without including trade too.")
-
+def load_simson_model(country_specific=False, recalculate = cfg.recalculate_data) -> msc.MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_model_{file_name_end}.p'
     file_path = os.path.join(cfg.data_path, 'models', file_name)
-    do_load_existing = os.path.exists(file_path) and not cfg.recalculate_data
+    do_load_existing = os.path.exists(file_path) and not recalculate
     if do_load_existing:
         model = pickle.load(open(file_path, "rb"))
     else:
@@ -44,9 +40,7 @@ def create_model(country_specific):
     # load data
     df_stocks = load_stocks(country_specific=country_specific, per_capita=True)
     areas = list(df_stocks.index.unique(level=0))
-    trade_factor, scrap_trade_factor = None, None
-    if cfg.include_trade:
-        trade_factor, scrap_trade_factor = get_trade_factors()
+    trade_all_areas, scrap_trade_all_areas = get_all_trade(country_specific=country_specific)
     main_model = set_up_model(areas)
     dsms = load_dsms(country_specific)
 
@@ -54,7 +48,7 @@ def create_model(country_specific):
     initiate_model(main_model)
 
     # compute stocks and flows
-    compute_model(main_model, dsms, areas, trade_factor, scrap_trade_factor)
+    compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_areas)
 
     return main_model
 
@@ -69,12 +63,12 @@ def initiate_model(main_model):
     check_consistency(main_model)
 
 
-def compute_model(main_model, dsms, areas, trade_factors, scrap_trade_factors):
+def compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_areas):
     for area_idx, area in enumerate(areas):
         print(f'Compute {area} ({area_idx + 1}/{len(areas)}).')
         stocks, inflows, outflows = get_dsm_data(dsms[area_idx])
         main_model = compute_area_flows(main_model, area_idx, inflows, outflows,
-                                        trade_factors, scrap_trade_factors)
+                                        trade_all_areas[area_idx], scrap_trade_all_areas[area_idx])
         main_model = compute_area_stocks(main_model, area_idx, stocks, inflows, outflows)
 
 
@@ -173,8 +167,6 @@ def initiate_flows(main_model):
     if cfg.include_trade:
         add_flow('Imports', ENV_PID, FIN_PID, 't,e,r')
         add_flow('Exports', FIN_PID, ENV_PID, 't,e,r')
-
-    if cfg.include_scrap_trade:
         add_flow('Scrap_Imports', ENV_PID, SCRAP_PID, 't,e,r')
         add_flow('Scrap_Exports', SCRAP_PID, ENV_PID, 't,e,r')
 
@@ -204,7 +196,7 @@ def check_consistency(main_model):
             raise RuntimeError("A consistency check failed: " + str(consistency))
 
 
-def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade_factor, scrap_trade_factor):
+def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade, scrap_trade):
     params = main_model.ParameterDict
 
     def get_flow(from_id, to_id):
@@ -228,27 +220,27 @@ def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade_
 
     total_production = total_inflow_in_use_stock
     if cfg.include_trade:
-        imports = trade_factor['Imports']
-        exports = trade_factor['Exports']
+        imports = np.maximum(trade, 0)
+        exports = -np.minimum(trade, 0)
         get_flow(ENV_PID, FIN_PID).Values[:, 0, area_idx] = imports
         get_flow(FIN_PID, ENV_PID).Values[:, 0, area_idx] = exports
         total_production += - imports + exports
         get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] = total_production
 
     max_scrap_share_production = get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] * cfg.max_scrap_share_production
-    inflow_usable_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :], axis=1)
+    available_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :], axis=1)
 
-    if cfg.include_scrap_trade:
-        scrap_imports = scrap_trade_factor['Scrap_Imports']
-        scrap_exports = scrap_trade_factor['Scrap_Exports']
+    if cfg.include_trade:
+        scrap_imports = np.maximum(scrap_trade, 0)
+        scrap_exports = -np.minimum(scrap_trade, 0)
         get_flow(ENV_PID, SCRAP_PID).Values[:, 0, area_idx] = scrap_imports
         get_flow(SCRAP_PID, ENV_PID).Values[:, 0, area_idx] = scrap_exports
-        inflow_usable_scrap += scrap_imports - scrap_exports
+        available_scrap += scrap_imports - scrap_exports
 
     recyclable = np.zeros(cfg.n_years)
     usable_scrap_stock = 0
     for i in range(cfg.n_years):
-        available_from_inflow = inflow_usable_scrap[i]
+        available_from_inflow = available_scrap[i]
         max_scrap = max_scrap_share_production[i]
         if available_from_inflow > max_scrap:
             recyclable[i] = max_scrap
@@ -297,12 +289,14 @@ def compute_area_stocks(main_model, area_idx, area_stocks, area_inflows, area_ou
     return main_model
 
 
-def mass_balance_plausible(balance):
+def mass_balance_plausible(main_model):
     """
     Checks if a given mass balance is plausible.
     :param balance: Mass Balance from Dyn_MFA_System.
     :return: True if the mass balance for all processes is below 1kg (0.001 t) of steel, False otherwise.
     """
+
+    balance = main_model.MassBalance()
 
     for val in np.abs(balance).sum(axis=0).sum(axis=1):
         if val > 1000:  # account for a ton accuracy
@@ -313,14 +307,14 @@ def mass_balance_plausible(balance):
 
 def main():
     """
-    Recalculates the DMFA dict based on the dynamic stock models and trade data.
+    Recalculates the DMFA dict based on the dynamic stock models and trade_all_areas data.
     Checks the Mass Balance and raises a runtime error if the mass balance is too big.
     Prints success statements otherwise
     :return: None
     """
-    main_model = load_simson_model(country_specific=False)
+    main_model = load_simson_model(country_specific=True, recalculate=True)
     bal = main_model.MassBalance()
-    if mass_balance_plausible(bal):
+    if mass_balance_plausible(main_model):
         print("Success - Model loaded and checked. \nBalance: " + str(list(np.abs(bal).sum(axis=0).sum(axis=1))))
     else:
         raise RuntimeError(
