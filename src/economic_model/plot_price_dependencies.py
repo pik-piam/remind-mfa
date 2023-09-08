@@ -25,10 +25,10 @@ plt.show()
 import numpy as np
 from matplotlib import pyplot as plt
 
-ela = -1.
+ela = -1.2
 r0 = 0.85
 p0 = 1.
-r_free = 0.
+r_free = 0.50
 
 
 def r(p):

@@ -1,10 +1,26 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from src.model.simson_model import load_simson_model
+from src.economic_model.simson_econ_model import load_simson_econ_model
 import src.model.model_tools as dynamic_stock_models
-from src.read_data.load_data import load_regions, load_steel_prices
+from src.read_data.load_data import load_regions
 
 REGIONS = list(load_regions()['region'].unique())
+REGIONS.sort()
+
+
+def show_total_production(main_model, regions_to_use):
+    for region in regions_to_use:
+        region_id = REGIONS.index(region)
+        data = np.sum(main_model.FlowDict['F_2_4'].Values[1:, 0, region_id, :], axis=1)
+        plt.plot(range(1901, 2101), data)
+        # year 1900 is excluded due to dynamic stock model construction
+    plt.legend(regions_to_use)
+    plt.xlabel("Time (y)")
+    plt.ylabel("Per capita steel production (t)")
+    plt.title("Per capita steel production in tonnes")
+    plt.show()
+
 
 def show_primary_stock(main_model, regions_to_use):
     for region in regions_to_use:
@@ -136,8 +152,11 @@ def show_use_dsms(main_model, regions):
     plt.show()
 
 
-def master_viz(main_model, primary_stock, scrap_share, waste_stock, inflow_categories, net_trade, production, use,
+def master_viz(main_model, total_production, primary_stock, scrap_share, waste_stock, inflow_categories, net_trade,
+               production, use,
                use_dsms, regions=REGIONS):
+    if total_production:
+        show_total_production(main_model, regions)
     if primary_stock:
         show_primary_stock(main_model, regions)
     if scrap_share:
@@ -171,20 +190,28 @@ def main():
     default.
     :return:
     """
-    regions_to_use = ['EUR','NEU','MEA']
-    main_model = load_simson_model()
+    do_use_econ_model = False
+    regions_to_use = ['LAM', 'EUR', 'USA']
+
+    main_model = None
+    if do_use_econ_model:
+        main_model = load_simson_econ_model()
+    else:
+        main_model = load_simson_model()
 
     # Options: ['LAM','OAS','SSA','EUR','NEU','MEA','REF','CAZ','CHA','IND','JPN','USA']
-    show_primary_steel_production = True
-    show_scrap_share_in_production = True
-    show_waste_stock = True
-    show_inflow_by_categories = True
+    show_total_production = True
+    show_primary_steel_production = False
+    show_scrap_share_in_production = False
+    show_waste_stock = False
+    show_inflow_by_categories = False
     show_net_trade = False
     production = False
     use = False
     use_dsms = False
 
-    master_viz(main_model, show_primary_steel_production, show_scrap_share_in_production, show_waste_stock,
+    master_viz(main_model, show_total_production, show_primary_steel_production, show_scrap_share_in_production,
+               show_waste_stock,
                show_inflow_by_categories, show_net_trade, production, use, use_dsms, regions_to_use)
 
 

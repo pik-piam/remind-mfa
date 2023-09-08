@@ -48,14 +48,19 @@ class Config():
 
         # econ model configurations
         self.econ_base_year = 2008
-        self.percent_steel_price_change_2100 = -90 # e.g. 50 indicates a 50 % increase of the steel
+        self.percent_steel_price_change_2100 = 50 # e.g. 50 indicates a 50 % increase of the steel
                                                   # price between self.econ_base_year and self.end_year
+        self.percent_scrap_price_change_2100 = -90
+
         self.elasticity_steel = -0.2
         self.elasticity_scrap_recovery_rate = -1
         self.elasticity_dissassembly = -0.8
 
         self.initial_recovery_rate = 0.85
         self.initial_scrap_share_production = 0.6
+
+        self.r_free_diss = 0.5
+        self.r_free_recov = 0
         
 
     def customize(self, fpath: str):

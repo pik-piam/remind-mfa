@@ -13,7 +13,7 @@ from src.model.calc_trade import get_all_trade
 
 #  constants
 
-# Indices
+#  Indices
 ENV_PID = 0
 PROD_PID = 1
 FIN_PID = 2
@@ -23,7 +23,7 @@ RECYCLE_PID = 5
 WASTE_PID = 6
 
 
-def load_simson_model(country_specific=False, recalculate = cfg.recalculate_data) -> msc.MFAsystem:
+def load_simson_model(country_specific=False, recalculate=cfg.recalculate_data) -> msc.MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_model_{file_name_end}.p'
     file_path = os.path.join(cfg.data_path, 'models', file_name)
@@ -50,6 +50,9 @@ def create_model(country_specific):
     # compute stocks and flows
     compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_areas)
 
+    # check model
+    mass_balance_plausible(main_model)
+
     return main_model
 
 
@@ -73,7 +76,6 @@ def compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_area
 
 
 def set_up_model(regions):
-
     model_classification = {'Time': msc.Classification(Name='Time', Dimension='Time', ID=1,
                                                        Items=cfg.years),
                             'Element': msc.Classification(Name='Elements', Dimension='Element', ID=2, Items=['Fe']),
@@ -225,6 +227,8 @@ def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade,
         get_flow(ENV_PID, FIN_PID).Values[:, 0, area_idx] = imports
         get_flow(FIN_PID, ENV_PID).Values[:, 0, area_idx] = exports
         total_production += - imports + exports
+        # total_production = np.maximum(0, total_production) TODO: irgendwas ist hier falsch, es sollte keine
+        # TODO Diskrepanzen beim Trade geben können... außerdem müsste eigentlich der trade factor dann 100% sein...
         get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] = total_production
 
     max_scrap_share_production = get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] * cfg.max_scrap_share_production
@@ -281,9 +285,15 @@ def compute_area_stocks(main_model, area_idx, area_stocks, area_inflows, area_ou
     inflow_waste = np.sum(get_flow(RECYCLE_PID, WASTE_PID).Values[:, 0, area_idx, :], axis=1)
     get_stock_change(WASTE_PID).Values[:, 0, area_idx] = inflow_waste
     calculate_stock_values_from_stock_change(WASTE_PID)
+
     inflow_usable_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :], axis=1)
     recyclable = get_flow(SCRAP_PID, PROD_PID).Values[:, 0, area_idx]
-    get_stock_change(SCRAP_PID).Values[:, 0, area_idx] = inflow_usable_scrap - recyclable
+    scrap_stock_change = inflow_usable_scrap - recyclable
+    if cfg.include_trade:
+        scrap_imports = get_flow(ENV_PID, SCRAP_PID).Values[:, 0, area_idx]
+        scrap_exports = get_flow(SCRAP_PID, ENV_PID).Values[:, 0, area_idx]
+        scrap_stock_change += scrap_imports - scrap_exports
+    get_stock_change(SCRAP_PID).Values[:, 0, area_idx] = scrap_stock_change
     calculate_stock_values_from_stock_change(SCRAP_PID)
 
     return main_model
@@ -292,16 +302,15 @@ def compute_area_stocks(main_model, area_idx, area_stocks, area_inflows, area_ou
 def mass_balance_plausible(main_model):
     """
     Checks if a given mass balance is plausible.
-    :param balance: Mass Balance from Dyn_MFA_System.
-    :return: True if the mass balance for all processes is below 1kg (0.001 t) of steel, False otherwise.
+    :return: True if the mass balance for all processes is below 1kg (0.001 t) of steel, False otherwise. TODO checkUNIT
     """
 
     balance = main_model.MassBalance()
-
     for val in np.abs(balance).sum(axis=0).sum(axis=1):
-        if val > 1000:  # account for a ton accuracy
-            print(list(np.abs(balance).sum(axis=0)))
-            return False
+        if val > 10:
+            raise RuntimeError(
+                "Error, Mass Balance summary below\n" + str(np.abs(balance).sum(axis=0).sum(axis=1)))
+    print("Success - Model loaded and checked. \nBalance: " + str(list(np.abs(balance).sum(axis=0).sum(axis=1))))
     return True
 
 
@@ -312,13 +321,7 @@ def main():
     Prints success statements otherwise
     :return: None
     """
-    main_model = load_simson_model(country_specific=True, recalculate=True)
-    bal = main_model.MassBalance()
-    if mass_balance_plausible(main_model):
-        print("Success - Model loaded and checked. \nBalance: " + str(list(np.abs(bal).sum(axis=0).sum(axis=1))))
-    else:
-        raise RuntimeError(
-            "Error, Mass Balance summary below\n" + str(np.abs(bal).sum(axis=0).sum(axis=1)))
+    load_simson_model(country_specific=False, recalculate=True)
 
 
 if __name__ == "__main__":
