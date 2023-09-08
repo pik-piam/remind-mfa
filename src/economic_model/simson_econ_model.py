@@ -27,19 +27,17 @@ def load_simson_econ_model(country_specific=False, recalculate=cfg.recalculate_d
 
 
 def create_economic_model(country_specific):
+    #  load data
     years_to_adapt = np.arange(cfg.econ_base_year + 1, cfg.end_year + 1)
-    n_years_to_adapt = len(years_to_adapt)
-
-    # load data
-    p_steel = get_steel_prices(n_years_to_adapt)
-    p_scrap = get_scrap_prices(n_years_to_adapt)
+    p_steel = get_steel_prices()
+    p_scrap = get_scrap_prices()
     base_model = load_simson_model(country_specific=country_specific)
 
-    a_recov = 1 / (((1 - cfg.initial_recovery_rate) / (1 - cfg.r_free_recov)) ** (
-            1 / cfg.elasticity_scrap_recovery_rate) - 1)
-    a_diss = 1 / (((1 - cfg.initial_scrap_share_production) / (1 - cfg.r_free_diss)) ** (
-            1 / cfg.elasticity_dissassembly) - 1)
+    #  adabt base model
+    _iterate_through_base_model(years_to_adapt, base_model, p_steel, p_scrap)
 
+
+def _iterate_through_base_model(years_to_adapt, base_model, p_steel, p_scrap):
     # iterate through years
     for i, year in enumerate(years_to_adapt):
         year_idx = year - cfg.start_year
@@ -62,8 +60,8 @@ def create_economic_model(country_specific):
                                        s_0_se=s_0_se,
                                        q_0_st=q_0_st,
                                        q_eol=q_eol,
-                                       a_recov=a_recov,
-                                       a_diss=a_diss)
+                                       a_recov=cfg.a_recov,
+                                       a_diss=cfg.a_diss)
         print(f'{year} calculated.')
         #  break  # TODO: DELETE
     if not mass_balance_plausible(base_model):
@@ -102,6 +100,18 @@ def _adapt_model_flows_one_year(model, year_index, q_st, q_sest, q_prst):
     _get_flow_values(model, SCRAP_PID, PROD_PID)[year_index, 0, :] = q_sest
     _get_flow_values(model, PROD_PID, FIN_PID)[year_index, 0, :] = q_st
 
+    fin_use_flow = _get_flow_values(model, FIN_PID, USE_PID)
+    use_recycle_flow = _get_flow_values(model, USE_PID, RECYCLE_PID)
+
+    fin_use_flow[year_index, 0, :, :] = _calc_fin_use_flow(q_st, model, year_index)
+
+    _calc_in_use(model, fin_use_flow, use_recycle_flow)
+    _calc_recycling_outflow(model, use_recycle_flow)
+    _calc_waste_stock(model)
+    _calc_scrap_stock(model)
+
+
+def _calc_fin_use_flow(q_st, model, year_index):
     if cfg.include_trade:
         steel_trade_imports = _get_flow_values(model, ENV_PID, FIN_PID)[year_index, 0, :]
         steel_trade_exports = _get_flow_values(model, FIN_PID, ENV_PID)[year_index, 0, :]
@@ -110,13 +120,13 @@ def _adapt_model_flows_one_year(model, year_index, q_st, q_sest, q_prst):
     old_inflow_using = _get_flow_values(model, FIN_PID, USE_PID)[year_index, 0, :, :]
     using_cat_percentages = old_inflow_using.transpose() / old_inflow_using.sum(axis=1)
     using_cat_percentages = using_cat_percentages.transpose()
-    inflows_using = np.einsum('r,rg->rg', q_st, using_cat_percentages)
-    fin_use_flow = _get_flow_values(model, FIN_PID, USE_PID)
-    fin_use_flow[year_index, 0, :, :] = inflows_using
+    return np.einsum('r,rg->rg', q_st, using_cat_percentages)
+
+
+def _calc_in_use(model, fin_use_flow, use_recycle_flow):
     mean, std_dev = load_lifetimes()
     in_use_stock = _get_stock_values(model, USE_PID)
     in_use_stock_change = _get_stock_change_values(model, USE_PID)
-    use_recycle_flow = _get_flow_values(model, USE_PID, RECYCLE_PID)
     end_use_distribution = model.ParameterDict['End-Use_Distribution'].Values
     for region_idx in range(fin_use_flow.shape[2]):
         for good_idx in range(fin_use_flow.shape[3]):
@@ -132,7 +142,10 @@ def _adapt_model_flows_one_year(model, year_index, q_st, q_sest, q_prst):
             use_recycle_flow[:, 0, region_idx, good_idx, :] = np.einsum('t,w->tw',
                                                                         outflows,
                                                                         end_use_distribution[good_idx, :])
+    return
 
+
+def _calc_recycling_outflow(model, use_recycle_flow):
     recyling_inflow = np.sum(use_recycle_flow[:, 0, :, :, :], axis=2)
     recycling_waste_distribution = model.ParameterDict['Recycling-Waste_Distribution'].Values
     _get_flow_values(model, RECYCLE_PID, SCRAP_PID)[:, 0, :, :] = np.einsum('trw,w->trw',
@@ -142,10 +155,14 @@ def _adapt_model_flows_one_year(model, year_index, q_st, q_sest, q_prst):
                                                                             recyling_inflow,
                                                                             1 - recycling_waste_distribution)
 
+
+def _calc_waste_stock(model):
     inflow_waste = np.sum(_get_flow_values(model, RECYCLE_PID, WASTE_PID)[:, 0, :, :], axis=2)
     _get_stock_change_values(model, WASTE_PID)[:, 0, :] = inflow_waste
     _calculate_stock_values_from_stock_change(model, WASTE_PID)
 
+
+def _calc_scrap_stock(model):
     inflow_usable_scrap = np.sum(_get_flow_values(model, RECYCLE_PID, SCRAP_PID)[:, 0, :, :], axis=2)
     recyclable = _get_flow_values(model, SCRAP_PID, PROD_PID)[:, 0, :]
     scrap_stock_change = inflow_usable_scrap - recyclable
@@ -210,7 +227,7 @@ def _solve_for_scrap_share_in_production(p_sest, q_st_array, q_eol_array, e_reco
         return s_se
 
     def manual_find_s_se():
-        s_se_candidates = np.arange(0, x_upper_limit+0.0001, 0.0001) # check condition
+        s_se_candidates = np.arange(0, x_upper_limit + 0.0001, 0.0001)  # check condition
         for s_se_candidate in s_se_candidates:
             if f(s_se_candidate) > 0:
                 return s_se_candidate
@@ -224,7 +241,7 @@ def _solve_for_scrap_share_in_production(p_sest, q_st_array, q_eol_array, e_reco
         q_st = q_st_array[region_idx]
         q_eol = q_eol_array[region_idx]
         x_upper_limit = 1
-        if q_st <= 0 or q_eol <= 0.001: # TODO CHeck condition
+        if q_st <= 0 or q_eol <= 0.001:  # TODO CHeck condition
             s_se_array[region_idx] = 0
             continue
         elif q_st > q_eol:

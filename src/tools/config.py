@@ -85,6 +85,13 @@ class Config():
     def years(self):
         return np.arange(self.start_year, self.end_year + 1)
 
+    @property
+    def a_recov(self):
+        return 1 / (((1 - self.initial_recovery_rate) / (1 - self.r_free_recov)) ** (1 / self.elasticity_scrap_recovery_rate) - 1)
+    @property
+    def a_diss(self):
+        1 / (((1 - cfg.initial_scrap_share_production) / (1 - cfg.r_free_diss)) ** (1 / cfg.elasticity_dissassembly) - 1)
+
 
 cfg = Config()
 
