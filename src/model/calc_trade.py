@@ -1,11 +1,10 @@
 import numpy as np
 from src.read_data.load_data import load_trade_factor, load_scrap_trade_factor
 from src.tools.tools import get_np_from_df
-from src.model.load_dsms import load_dsms
 
 
-def get_all_trade(country_specific):
-    model_use = _get_model_use(country_specific)
+def get_all_trade(country_specific, dsms):
+    model_use = _get_model_use(country_specific, dsms)
     trade = _get_trade(country_specific, model_use)
     scrap_trade = _get_scrap_trade(country_specific, model_use, trade)
 
@@ -37,8 +36,7 @@ def _balance_trade(trade):
     return balanced_trade
 
 
-def _get_model_use(country_specific):
-    dsms = load_dsms(country_specific=country_specific)
+def _get_model_use(country_specific, dsms):
     inflows_by_category = np.array(
         [np.array([dsm.i for dsm in dsms_by_category]).transpose() for dsms_by_category in dsms])
     model_use = inflows_by_category.sum(axis=2)

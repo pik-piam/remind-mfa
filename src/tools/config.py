@@ -50,12 +50,13 @@ class Config():
         self.econ_base_year = 2008
         self.percent_steel_price_change_2100 = 50 # e.g. 50 indicates a 50 % increase of the steel
                                                   # price between self.econ_base_year and self.end_year
-        self.percent_scrap_price_change_2100 = -90
 
         self.elasticity_steel = -0.2
         self.elasticity_scrap_recovery_rate = -1
         self.elasticity_dissassembly = -0.8
 
+
+        # TODO Unused? /adapt
         self.initial_recovery_rate = 0.85
         self.initial_scrap_share_production = 0.6
 
@@ -87,10 +88,10 @@ class Config():
 
     @property
     def a_recov(self):
-        return 1 / (((1 - self.initial_recovery_rate) / (1 - self.r_free_recov)) ** (1 / self.elasticity_scrap_recovery_rate) - 1)
+        return  1 / (((1 - self.initial_recovery_rate) / (1 - self.r_free_recov)) ** (1 / self.elasticity_scrap_recovery_rate) - 1)
     @property
     def a_diss(self):
-        1 / (((1 - cfg.initial_scrap_share_production) / (1 - cfg.r_free_diss)) ** (1 / cfg.elasticity_dissassembly) - 1)
+        return 1 / (((1 - self.initial_scrap_share_production) / (1 - self.r_free_diss)) ** (1 / self.elasticity_dissassembly) - 1)
 
 
 cfg = Config()

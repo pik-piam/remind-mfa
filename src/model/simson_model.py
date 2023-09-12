@@ -7,7 +7,7 @@ import csv
 from ODYM.odym.modules import ODYM_Classes as msc  # import the ODYM class file
 from src.tools.config import cfg
 from src.read_data.load_data import load_stocks
-from src.model.model_tools import get_dsm_data
+from src.model.model_tools import get_dsm_data, get_stock_data_country_specific_areas
 from src.model.load_dsms import load_dsms
 from src.model.calc_trade import get_all_trade
 
@@ -36,19 +36,25 @@ def load_simson_model(country_specific=False, recalculate=cfg.recalculate_data) 
     return model
 
 
-def create_model(country_specific):
-    # load data
-    df_stocks = load_stocks(country_specific=country_specific, per_capita=True)
-    areas = list(df_stocks.index.unique(level=0))
-    trade_all_areas, scrap_trade_all_areas = get_all_trade(country_specific=country_specific)
-    main_model = set_up_model(areas)
+def create_base_model(country_specific):
     dsms = load_dsms(country_specific)
+    create_model(country_specific, dsms)
+
+
+def create_model(country_specific, dsms, max_scrap_share_in_production=None):
+    if max_scrap_share_in_production is None:
+        n_regions = len(dsms)
+        max_scrap_share_in_production = np.ones([n_regions, cfg.n_years]) * cfg.max_scrap_share_production
+    # load data
+    areas = get_stock_data_country_specific_areas(country_specific)
+    trade_all_areas, scrap_trade_all_areas = get_all_trade(country_specific=country_specific, dsms=dsms)
+    main_model = set_up_model(areas)
 
     # Load model
     initiate_model(main_model)
 
     # compute stocks and flows
-    compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_areas)
+    compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_areas, max_scrap_share_in_production)
 
     # check model
     mass_balance_plausible(main_model)
@@ -66,12 +72,13 @@ def initiate_model(main_model):
     check_consistency(main_model)
 
 
-def compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_areas):
+def compute_model(main_model, dsms, areas, trade_all_areas, scrap_trade_all_areas, max_scrap_share_in_production):
     for area_idx, area in enumerate(areas):
         print(f'Compute {area} ({area_idx + 1}/{len(areas)}).')
         stocks, inflows, outflows = get_dsm_data(dsms[area_idx])
         main_model = compute_area_flows(main_model, area_idx, inflows, outflows,
-                                        trade_all_areas[area_idx], scrap_trade_all_areas[area_idx])
+                                        trade_all_areas[area_idx], scrap_trade_all_areas[area_idx],
+                                        max_scrap_share_in_production[area_idx])
         main_model = compute_area_stocks(main_model, area_idx, stocks, inflows, outflows)
 
 
@@ -198,7 +205,8 @@ def check_consistency(main_model):
             raise RuntimeError("A consistency check failed: " + str(consistency))
 
 
-def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade, scrap_trade):
+def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade, scrap_trade,
+                       max_scrap_share_in_production):
     params = main_model.ParameterDict
 
     def get_flow(from_id, to_id):
@@ -231,7 +239,7 @@ def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade,
         # TODO Diskrepanzen beim Trade geben können... außerdem müsste eigentlich der trade factor dann 100% sein...
         get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] = total_production
 
-    max_scrap_share_production = get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] * cfg.max_scrap_share_production
+    max_scrap_in_production = get_flow(PROD_PID, FIN_PID).Values[:, 0, area_idx] * max_scrap_share_in_production
     available_scrap = np.sum(get_flow(RECYCLE_PID, SCRAP_PID).Values[:, 0, area_idx, :], axis=1)
 
     if cfg.include_trade:
@@ -245,7 +253,7 @@ def compute_area_flows(main_model, area_idx, area_inflows, area_outflows, trade,
     usable_scrap_stock = 0
     for i in range(cfg.n_years):
         available_from_inflow = available_scrap[i]
-        max_scrap = max_scrap_share_production[i]
+        max_scrap = max_scrap_in_production[i]
         if available_from_inflow > max_scrap:
             recyclable[i] = max_scrap
             usable_scrap_stock += available_from_inflow - max_scrap
