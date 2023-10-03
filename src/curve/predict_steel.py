@@ -1,15 +1,13 @@
-import numpy as np
 from scipy.optimize import least_squares
-from scipy.special import logit
-import statsmodels.api as sm
-import pandas as pd
 from math import e, log
+import numpy as np
+import pandas as pd
 from src.read_data.read_REMIND_regions import get_REMIND_regions
-from src.read_data.load_data import load_gdp
+from src.read_data.load_data import load_gdp, load_stocks, load_pop
 from src.tools.config import cfg
 
 
-def predict(stock, pop, gdp, region):
+def predict(df_stocks, country_specific):
     """
     Calculates In-use steel stock per capita data based on GDP pC using approach given in
     config file (e.g. Pauliuk or Pehl).
@@ -17,89 +15,110 @@ def predict(stock, pop, gdp, region):
     :return: Steel data for the years 1900-2100, so BOTH present and past using prediction
     approach given in config file.
     """
-
+    if country_specific:
+        raise RuntimeError('Prediction strategy not defined for country_specific level.')
     strategy = cfg.curve_strategy
+    pop_source = 'KC-Lutz' if cfg.include_scenarios else cfg.pop_data_source
+    gdp_source = 'Koch-Leimbach' if cfg.include_scenarios else cfg.gdp_data_source
+    df_pop = load_pop(pop_source, country_specific=country_specific)
+    pop = df_pop.to_numpy()
+    pop = pop.reshape(int(pop.shape[0] / 5), 5, pop.shape[-1])
+
+    df_gdp = load_gdp(gdp_source=gdp_source, country_specific=country_specific, per_capita=True)
+    gdp = df_gdp.to_numpy()
+    gdp = gdp.reshape(int(gdp.shape[0] / 5), 5, gdp.shape[-1])
+
+    stocks = df_stocks.to_numpy()
+    stocks = stocks.reshape(int(stocks.shape[0] / 4), 4, stocks.shape[-1])
+
     if strategy == "Pehl":
-        return predict_pehl(stock, pop, gdp)
+        stocks_per_capita = predict_pehl(stocks, gdp)
     elif strategy == "Pauliuk":
-        return predict_pauliuk(stock, region)
+        stocks_per_capita = predict_pauliuk(stocks, region=None, category='None??')  # TODO: Implement
 
-    return None
+    stocks = np.einsum('trcs,rst->trcs', stocks_per_capita, pop)
+
+    return stocks
 
 
-def predict_pehl(stock_data, pop_data, gdp_data):
-    """
-    Predicts steel based on approach by Michaja Pehl: assuming Sigmoid Saturation curve
-    and fitting the curve to available data.
-    TODO Approach from EDGE-Industry doesn't seem to be working the same for similar Python functions, UNUSABLE data!
-    :param stock_data:
-    :param pop_data:
-    :param gdp_data:
-    :return: Steel data for the years 1900-2100, so BOTH present and past.
-    """
-    # params are the parameters asym, xmid and scal in a list
-    # make first guess of params via quantile and linear regression according to EDGEIndustry, Pehl
-    asym_estimate = 1.1 * calc_quantile(stock_data, pop_data[:len(stock_data)], 0.99)
-    x = []
-    y = []
-    for i, stock in enumerate(stock_data):
-        if asym_estimate >= stock > 0:
-            x_value = stock / asym_estimate
-            # prepare adjustment
-            if x_value == 0.0:
-                x_value = 0.025
-            if x_value == 1.0:
-                x_value = 0.975
-            x.append(x_value)
-            y.append(gdp_data[i])
-    x = np.array(x)
-    if len(x) == 0:  # all data was smaller than 0, future is assumed to be zero
-        return np.append(stock_data, np.zeros(92))
-    y = np.array(y)
-    x = logit(x)
-    x = sm.add_constant(x)
-    model = sm.OLS(y, x).fit()
-    model.predict(x)
-    coefficients = model.params
-    x_mid_estimate = -coefficients[0] / coefficients[1]
-    scal_estimate = 1 / coefficients[1]
+def predict_pehl(stock_data, gdp_data):
+    stock_data = stock_data[:, :, :109]
+    gdp_data_future = gdp_data[:, :, 109:]
+    gdp_data = gdp_data[:, 0, :109]  # up until 2009 all scenarios are the same
 
-    # optimize via non linear least squared regression
-    def stock(params, gdp_pc):
-        asym = params[0]
-        x_mid = params[1]
-        scal = params[2]
-        return asym / (1 + np.exp((x_mid - gdp_pc) / scal))
+    initial_params = _calc_initial_params(stock_data, gdp_data)
+    x_0 = gdp_data[:, 108]
+    y_0 = stock_data[:, :, 108]
+    params = _calc_individual_params(initial_params, stock_data, x_0, y_0)
+    params = np.repeat(params[:, :, :, np.newaxis], 5, axis=3)
+    gdp_data_future = np.repeat(gdp_data_future[:, np.newaxis, :, :], 4, axis=1)
+    gdp_data_future = np.moveaxis(gdp_data_future, -1, 0)
+    new_stocks = _pehl_stock_curve(params, gdp_data_future)
 
-    def curve(params, gdp_pc):
-        result = np.zeros(len(gdp_pc), dtype='f4')
-        for idx, date in enumerate(gdp_pc):
-            result[idx] = stock(params, date)
-        return result
+    stock_data = np.moveaxis(stock_data, 2, 0)
+    stock_data = np.repeat(stock_data[:, :, :, np.newaxis], 5, axis=3)
+    stocks = np.append(stock_data, new_stocks, axis=0)
 
-    def func(params):
-        return stock(params, gdp_data[:59]) - stock_data
+    return stocks
 
-    # params_estimate=[asym_estimate,x_mid_estimate,scal_estimate] 50000000
-    params_estimate = [asym_estimate, x_mid_estimate, scal_estimate]
-    final_params = least_squares(func, params_estimate).x
 
-    future_gdp = gdp_data[-92:]
-    future_steel = curve(final_params, future_gdp)
-    return np.append(stock_data, future_steel)
+def _calc_individual_params(general_params, stock_data, x_0, y_0):
+    initial_a_sym = general_params[0] * 1.1
+    high_stock = np.quantile(stock_data, 0.99, axis=2) * 1.1
+    a_sym = np.maximum(initial_a_sym, high_stock)
+    scal = np.tile(general_params[2], a_sym.shape[0]).reshape(a_sym.shape)
+    x_mid = ((np.log(a_sym / y_0 - 1) * scal).transpose() + x_0).transpose()
+    final_params = np.array([a_sym, x_mid, scal])
+    return final_params
+
+
+def _calc_initial_params(stock_data, gdp_data):
+    def func(params, gdp, stocks):
+        return _pehl_stock_curve(params, gdp) - stocks
+
+    high_stock = np.quantile(stock_data, 0.99, axis=(0, 2))
+    low_stock = np.quantile(stock_data, 0.01, axis=(0, 2))
+    high_gdp = np.quantile(gdp_data, 0.99)
+    low_gdp = np.quantile(gdp_data, 0.01)
+    a_sym_estimate = 1.1 * high_stock
+    x_mid_estimate = np.array((high_gdp - low_gdp) / 2).repeat(4)
+    scal_estimate = (high_gdp - low_gdp) / (high_stock - low_stock)
+    param_estimate = np.array([a_sym_estimate, x_mid_estimate, scal_estimate])
+    final_params = np.array(
+        [least_squares(func, param_estimate[:, i], args=(gdp_data.flatten(), stock_data[:, i, :].flatten())).x for i in
+         range(4)])  # scenario doesn't matter as all are the same until the beginning of the century
+
+    return final_params.transpose()
+
+
+def _pehl_stock_curve(params, gdp_pc):
+    asym = params[0]
+    x_mid = params[1]
+    scal = params[2]
+
+    return asym / (1 + np.exp((x_mid - gdp_pc) / scal))
+
+
+def _pehl_prime(params, gdp_pc):
+    a_sym = params[0]
+    x_mid = params[1]
+    scal = params[2]
+    x = np.exp((x_mid - gdp_pc) / scal)
+    pehl_prime = a_sym * x / (scal * (1 + x))
+    return pehl_prime
+
 
 def get_stock_prediction_pauliuk_for_pauliuk(df_stock):
     df_regions = get_REMIND_regions()
-    df_gdp = load_gdp(country_specific=True, is_per_capita=True)
     df_stock = df_stock.reset_index()
     df_stock = pd.merge(df_regions, df_stock, on='country')
     df_stock = df_stock.set_index(['country', 'category'])
-    df_stock_new = df_stock.reindex(columns=list(range(1900,2101)))
+    df_stock_new = df_stock.reindex(columns=list(range(1900, 2101)))
     for index, row in df_stock.iterrows():
         region = row['region']
         category = index[1]
         histdata = np.array(row[1:110])
-        newdata = predict_pauliuk(histdata,region, category)
+        newdata = predict_pauliuk(histdata, region, category)
         df_stock_new.loc[index] = newdata
 
     return df_stock_new
@@ -108,25 +127,17 @@ def get_stock_prediction_pauliuk_for_pauliuk(df_stock):
 def get_stock_prediction_pauliuk_for_mueller(df_stock):
     df_regions = get_REMIND_regions()
     df_stock = pd.merge(df_regions, df_stock, on='country')
-    df_stock_new = df_stock.reindex(columns=list(range(1950,2101)))
+    df_stock_new = df_stock.reindex(columns=list(range(1950, 2101)))
     for index, row in df_stock.iterrows():
         region = row['region']
         histdata = np.array(row[1:60])
-        newdata = predict_pauliuk(histdata,region)
+        newdata = predict_pauliuk(histdata, region, category='None???')
         df_stock_new.loc[index] = newdata
     return df_stock_new
 
 
+def predict_pauliuk(histdata, region, category):
 
-def predict_pauliuk(histdata, region, category='Total'):
-    """
-    Predicts In-use steel stock per capita based on approach described by Pauliuk in the
-    'Steel Scrap Age' Supplementary Info. Assumes Sigmoid saturation curve and predefined saturation
-    time and level assumptions for each region.
-    :param histdata:
-    :param region:
-    :return: Steel data for the years 1900-2100, so BOTH present and past.
-    """
     saturation_params = {
         'LAM': [1.5, 1.6, 10, 0.6, 13.3, 2100],
         'OAS': [1.5, 1.6, 10, 0.6, 13.7, 2150],
@@ -196,104 +207,9 @@ def main():
     Optionally creates plot to show curve for Germany.
     :return:
     """
-    import src.read_data.read_mueller_stocks as mueller
-    import src.read_data.read_UN_population as un
-    import src.read_data.read_IMF_gdp as imf
-    steel = mueller.normalize_mueller()['DEU']
-    pop = un.load()['EUR']['DEU']
-    gdp = imf.load()['EUR']['DEU']
-
-    prediction = predict(steel, pop[50:], gdp[50:], 'EUR')
-
-    print(prediction)
-
-    """plt.plot(range(1950,2101),prediction)
-    plt.title("Steel Stock pC Germany over Time")
-    plt.show()
-
-    plt.plot(gdp[50:], prediction,'b.')
-    plt.title("Steel Stock pC Germany over GDP")
-    plt.show()"""
+    df_stocks = load_stocks('Mueller', False, True)
+    predict(df_stocks=df_stocks, country_specific=False)
 
 
 if __name__ == "__main__":
     main()
-
-
-# quantile functions from nudomarinero @ https://github.com/nudomarinero/wquantiles/blob/master/wquantiles.py
-def quantile_1d(data, weights, quantile):
-    """
-    Compute the weighted quantile of a 1D numpy array.
-
-    Parameters
-    ----------
-    data : ndarray
-        Input array (one dimension).
-    weights : ndarray
-        Array with the weights of the same size of `data`.
-    quantile : float
-        Quantile to compute. It must have a value between 0 and 1.
-
-    Returns
-    -------
-    quantile_1D : float
-        The output value.
-    """
-    # Check the data
-    if not isinstance(data, np.matrix):
-        data = np.asarray(data)
-    if not isinstance(weights, np.matrix):
-        weights = np.asarray(weights)
-    nd = data.ndim
-    if nd != 1:
-        raise TypeError("data must be a one dimensional array")
-    ndw = weights.ndim
-    if ndw != 1:
-        raise TypeError("weights must be a one dimensional array")
-    if data.shape != weights.shape:
-        raise TypeError("the length of data and weights must be the same")
-    if (quantile > 1.) or (quantile < 0.):
-        raise ValueError("quantile must have a value between 0. and 1.")
-    # Sort the data
-    ind_sorted = np.argsort(data)
-    sorted_data = data[ind_sorted]
-    sorted_weights = weights[ind_sorted]
-    # Compute the auxiliary arrays
-    sn = np.cumsum(sorted_weights)
-    # TODO: Check that the weights do not sum zero
-    # assert Sn != 0, "The sum of the weights must not be zero"
-    pn = (sn - 0.5 * sorted_weights) / sn[-1]
-    # Get the value of the weighted median
-    return np.interp(quantile, pn, sorted_data)
-
-
-def calc_quantile(data, weights, quantile):
-    """
-    Weighted quantile of an array with respect to the last axis.
-
-    Parameters
-    ----------
-    data : ndarray
-        Input array.
-    weights : ndarray
-        Array with the weights. It must have the same size of the last
-        axis of `data`.
-    quantile : float
-        Quantile to compute. It must have a value between 0 and 1.
-
-    Returns
-    -------
-    quantile : float
-        The output value.
-    """
-    # TODO: Allow to specify the axis
-    nd = data.ndim
-    if nd == 0:
-        TypeError("data must have at least one dimension")
-    elif nd == 1:
-        return quantile_1d(data, weights, quantile)
-    elif nd > 1:
-        n = data.shape
-        imr = data.reshape((np.prod(n[:-1]), n[-1]))
-        result = np.apply_along_axis(quantile_1d, -1, imr, weights, quantile)
-        return result.reshape(n[:-1])

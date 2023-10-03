@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from ODYM.odym.modules import dynamic_stock_model as dsm  # import the dynamic stock model library
 from src.tools.config import cfg
-from src.model.model_tools import get_np_from_df
+from src.curve.predict_steel import predict
 from src.read_data.load_data import load_stocks, load_lifetimes
 
 
@@ -22,11 +22,19 @@ def load_dsms(country_specific):
 
 def _get_dsms(country_specific):
     df_stocks = load_stocks(country_specific=country_specific, per_capita=True)
+    stocks_data = predict(df_stocks, country_specific=country_specific)
     area_names = list(df_stocks.index.get_level_values(0).unique())
-    stocks_data = get_np_from_df(df_stocks, data_split_into_categories=True)
     mean, std_dev = load_lifetimes()
-    dsms = [[_create_dsm(stocks, mean[i], std_dev[i]) for i, stocks in enumerate(stocks_data[area_idx])] for area_idx, area_name in enumerate(area_names)]
+
+    # TODO jot down: discuss with Pauliuk idea of improving ODYM dsms for multiple dimensions
+    # dsms = [_create_dsm(stocks_data[:,:,cat_idx,:], mean[cat_idx], std_dev[cat_idx])
+    # for cat_idx in range(stocks_data.shape[2])]
+
+    dsms = [[[_create_dsm(stocks_data[:, area_idx, cat_idx, scenario_idx], mean[cat_idx], std_dev[cat_idx]) for
+              scenario_idx in range(stocks_data.shape[3])] for cat_idx in range(stocks_data.shape[2])] for
+            area_idx, area_name in enumerate(area_names)]
     return dsms
+
 
 def _create_dsm(stocks, lifetime, st_dev):
     time = np.array(range(cfg.n_years))
@@ -57,6 +65,5 @@ def _test():
     print(dsms)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     _test()
-

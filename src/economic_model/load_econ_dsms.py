@@ -5,29 +5,30 @@ from src.tools.config import cfg
 
 def load_econ_dsms(country_specific, p_st, p_0_st):
     dsms = load_dsms(country_specific)
-    factor = (p_st/p_0_st)**cfg.elasticity_steel
-    for category_dsms in dsms:
-        for old_category_dsm in category_dsms:
-            old_category_dsm.i[cfg.econ_base_year-cfg.start_year+1:]*=factor
-            new_category_dsm = DSM_Inflow = dsm.DynamicStockModel(t = old_category_dsm.t,
-                                                                  i = old_category_dsm.i,
-                                                                  lt = old_category_dsm.lt)
-            new_category_dsm.compute_s_c_inflow_driven()
-            new_category_dsm.compute_o_c_from_s_c()
-            new_category_dsm.compute_stock_total()
-            new_category_dsm.compute_outflow_total()
-            new_category_dsm.compute_stock_change()
-            old_category_dsm.i=new_category_dsm.i
-            old_category_dsm.o = new_category_dsm.o
-            old_category_dsm.o_c = new_category_dsm.o_c
-            old_category_dsm.s = new_category_dsm.s
-            old_category_dsm.s_c = new_category_dsm.s_c
+    factor = (p_st / p_0_st) ** cfg.elasticity_steel
+    for region_dsms in dsms:
+        for category_dsms in region_dsms:
+            for scenario_dsm in category_dsms:
+                scenario_dsm.i[cfg.econ_base_year - cfg.start_year + 1:] *= factor
+                new_scenarion_dsm = dsm.DynamicStockModel(t=scenario_dsm.t,
+                                                          i=scenario_dsm.i,
+                                                          lt=scenario_dsm.lt)
+                new_scenarion_dsm.compute_s_c_inflow_driven()
+                new_scenarion_dsm.compute_o_c_from_s_c()
+                new_scenarion_dsm.compute_stock_total()
+                new_scenarion_dsm.compute_outflow_total()
+                new_scenarion_dsm.compute_stock_change()
+                scenario_dsm.i = new_scenarion_dsm.i
+                scenario_dsm.o = new_scenarion_dsm.o
+                scenario_dsm.o_c = new_scenarion_dsm.o_c
+                scenario_dsm.s = new_scenarion_dsm.s
+                scenario_dsm.s_c = new_scenarion_dsm.s_c
     return dsms
 
 
 def _test():
-    orig_dsms = load_econ_dsms(country_specific=False, p_st=10, p_0_st=5)
+    load_econ_dsms(country_specific=False, p_st=10, p_0_st=5)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     _test()

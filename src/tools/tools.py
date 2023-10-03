@@ -49,7 +49,13 @@ def transform_per_capita(df, total_from_per_capita, country_specific):
     # un_pop files need to be imported here to avoid circular import error
     from src.read_data.load_data import load_pop
     df = df.copy()
-    df_pop = load_pop(country_specific=country_specific)
+    df = df.sort_index()
+    pop_source = cfg.pop_data_source
+    if isinstance(df.index, pd.MultiIndex):
+        if df.index.names[1] == 'SSP':
+            pop_source = 'KC-Lutz'
+
+    df_pop = load_pop(pop_source=pop_source, country_specific=country_specific)
     columns_to_use = df.columns.intersection(df_pop.columns)
 
     if total_from_per_capita:
@@ -61,15 +67,17 @@ def transform_per_capita(df, total_from_per_capita, country_specific):
 
 
 def group_country_data_to_regions(df_by_country, is_per_capita, data_split_into_categories=False):
+    grouping_factor = 'region'
+    if data_split_into_categories:
+        country_index = df_by_country.index
+        category_name = country_index.names[1]
+        grouping_factor = ['region', category_name]
     if is_per_capita:
         df_by_country = transform_per_capita(df_by_country, total_from_per_capita=True, country_specific=True)
     df_by_country = df_by_country.reset_index()
     from src.read_data.load_data import load_regions
     df_regions = load_regions()
     df = pd.merge(df_regions, df_by_country, on='country')
-    grouping_factor = 'region'
-    if data_split_into_categories:
-        grouping_factor = ['region', 'category']
     df = df.groupby(grouping_factor).sum(numeric_only=False)
     df = df.drop(columns=['country'])
 
@@ -90,12 +98,13 @@ def get_steel_category_total(df_stock, region_data=True):
     return df_stock_totals
 
 
-def get_np_from_df(df : pd.DataFrame, data_split_into_categories):
+def get_np_from_df(df: pd.DataFrame, data_split_into_categories):
     df = df.sort_index()
-    np = df.to_numpy()
+    np_array = df.to_numpy()
     if data_split_into_categories:
-        np = np.reshape(df.index.levshape + np.shape[-1:])
-    return np
+        np_array = np.reshape(df.index.levshape + np_array.shape[-1:])
+    return np_array
+
 
 class Years:
 

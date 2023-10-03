@@ -1,9 +1,10 @@
 import os
 import pickle
 from scipy.optimize import newton
+import warnings
+import numpy as np
 from ODYM.odym.modules import ODYM_Classes as msc
 from ODYM.odym.modules import dynamic_stock_model as dsm
-import numpy as np
 from src.model.simson_model import load_simson_model, ENV_PID, PROD_PID, FIN_PID, SCRAP_PID, USE_PID, RECYCLE_PID, \
     WASTE_PID
 from src.tools.config import cfg
@@ -31,8 +32,10 @@ def create_economic_model(country_specific):
     p_0_scrap = get_base_scrap_price()
     base_model = load_simson_model(country_specific=country_specific)
     dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0])
-    scrap_share = _calc_scrap_share(base_model, dsms, country_specific, p_steel, p_0_scrap)
-    econ_model = create_model(country_specific=country_specific, dsms=dsms, max_scrap_share_in_production=scrap_share)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        scrap_share = _calc_scrap_share(base_model, dsms, country_specific, p_steel, p_0_scrap)
+    econ_model = create_model(country_specific=country_specific, dsms=dsms, scrap_share_in_production=scrap_share)
     return econ_model
 
 
@@ -42,7 +45,7 @@ def _calc_scrap_share(base_model, dsms, country_specific, p_st, p_0_scrap):
     q_eol = _calc_q_eol(dsms, country_specific)
     e_recov = cfg.elasticity_scrap_recovery_rate
     p_0_steel = p_st[0]
-    p_0_diss = p_0_steel - p_0_scrap  # TODO : Check formula, add exog(EAF)??
+    p_0_diss = p_0_steel - p_0_scrap - cfg.exog_eaf_USD98
     e_diss = cfg.elasticity_dissassembly
     q_0_st = _get_flow_values(base_model, PROD_PID, FIN_PID)[cfg.econ_base_year - cfg.start_year + 1:, 0, :]
     q_0_sest = _get_flow_values(base_model, SCRAP_PID, PROD_PID)[cfg.econ_base_year - cfg.start_year + 1:, 0, :]
@@ -51,55 +54,76 @@ def _calc_scrap_share(base_model, dsms, country_specific, p_st, p_0_scrap):
     a_recov = cfg.a_recov
     a_diss = cfg.a_diss
 
-    alpha = -(p_sest + p_0_scrap * a_recov + p_0_diss * a_diss)
+    # TODO these conditions shouldn't be necessary... why does this arise? why is INITIAL recovery rate often
+    #  zero/sometimes suddenly?
+    q_st[q_st < 0] = 0
+    q_eol[q_eol < 0] = 0
+    s_0_se[s_0_se < 0] = 0
+    s_0_se[s_0_se > 1] = 1
+    r_0_recov[r_0_recov < 0] = 0
+    r_0_recov[r_0_recov > 1] = 1
+    alpha = -(p_sest - cfg.exog_eaf_USD98 + p_0_scrap * a_recov + p_0_diss * a_diss)
     beta = (1 + a_recov) * p_0_scrap / (1 - r_0_recov) ** (1 / e_recov)
     gamma = (1 + a_diss) * p_0_diss / (1 - s_0_se) ** (1 / e_diss)
     alpha = np.array([alpha] * beta.shape[1]).transpose()
+    alpha = np.repeat(alpha[:, :, np.newaxis], gamma.shape[-1], axis=2)
     c = q_st / q_eol
     f_inverse = 1 / e_recov
     e_inverse = 1 / e_diss
 
     def f(x):
-        return alpha + (1 - x * q_st / q_eol) ** (1 / e_recov) * beta + (1 - x) ** (1 / e_diss) * gamma
+        return alpha + (1 - x * c) ** f_inverse * beta + (1 - x) ** e_inverse * gamma
 
     def f_prime(x):
         return -beta * c * f_inverse * (1 - x * c) ** (f_inverse - 1) - gamma * e_inverse * (1 - x) ** (e_inverse - 1)
 
-    def f_prime2(x):
-        return beta * c ** 2 * f_inverse * (f_inverse - 1) * (1 - x * c) ** (f_inverse - 2) + gamma * e_inverse * (
-                e_inverse - 1) * (1 - x) ** (e_inverse - 2)
-
     x_upper_limit = _calc_x_upper_limit(q_st, q_eol)
+    s_se = x_upper_limit.copy()
+    s_se[s_0_se == 1] = 1
+    s_se[q_eol == 0] = 0
 
-    s_se = newton(f, x_upper_limit / 2, fprime=f_prime, fprime2=f_prime2)
+    s_se_mask = (q_eol > 0) & (q_st > 0) & (s_0_se < 1) & (r_0_recov < 0.9998)
+    x_0 = _calc_x_0(f, x_upper_limit, s_se_mask)
+    root = newton(f, x_0, fprime=f_prime)
+    s_se[s_se_mask] = root[s_se_mask]
+
+    _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask)
+
+    return s_se
 
 
-    s_se_relevant = (q_st <= 0) | (q_eol <= 0.001)
-    s_se = s_se * s_se_relevant
-
-    print('Check: ')
-    print(s_se.shape)
-    check = (s_se>=0) & (s_se<=x_upper_limit)
-    for line in check:
-        print(line)
+def _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask):
+    check = ((s_se >= 0) & (s_se <= x_upper_limit)) | np.logical_not(s_se_mask)
+    if not np.all(check):
+        raise RuntimeError(
+            f'Calculation of scrap share in production failed. '
+            f'{((s_se >= 0) & (s_se <= x_upper_limit)) | np.logical_not(s_se_mask)}')
 
 
-    s_se = s_se.transpose()
-    base_s_se = np.ones([s_se.shape[0], cfg.n_years]) * cfg.max_scrap_share_production
-    base_s_se[:, cfg.econ_base_year - cfg.start_year + 1:] = s_se
-    return base_s_se
+def _calc_x_0(f, x_upper_limit, s_se_mask):
+    factor = np.ones(x_upper_limit.shape) * 0.5
+    test = f(x_upper_limit * factor)
+    negative_check = test < 0
+    while np.any(negative_check):
+        factor[negative_check] += 1
+        factor[negative_check] /= 2
+        test = f(x_upper_limit * factor)
+        negative_check = (test < 0) & s_se_mask
+    return x_upper_limit * factor
 
 
 def _calc_x_upper_limit(q_st, q_eol):
-    q_st_bigger = q_st > q_eol
-    x_upper_limit = q_st_bigger * q_eol / q_st
-    ones = np.logical_not(q_st_bigger) * np.ones(q_st.shape)
-    return x_upper_limit + ones
+    x_upper_limit = np.divide(q_eol, q_st, out=np.zeros_like(q_eol), where=q_st != 0)
+    x_upper_limit[x_upper_limit > 1] = 1
+    return x_upper_limit
 
 
 def _calc_q_st(dsms):
-    q_st = np.array([[category_dsm.i for category_dsm in category_dsms] for category_dsms in dsms])
-    return np.sum(q_st.transpose(), axis=1)[cfg.econ_base_year - cfg.start_year + 1:]
+    inflows = np.array(
+        [[[scenario_dsm.i for scenario_dsm in category_dsm] for category_dsm in region_dsm] for region_dsm in dsms])
+    q_st = np.moveaxis(inflows, -1, 0)
+    q_st = np.sum(q_st, axis=2)
+    return q_st[cfg.econ_base_year - cfg.start_year + 1:]
 
 
 def _calc_q_eol(dsms, country_specific):

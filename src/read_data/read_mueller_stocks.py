@@ -3,19 +3,19 @@ import pandas as pd
 from src.read_data.read_IMF_gdp import get_past_according_to_gdppc_estimates
 from src.tools.tools import transform_per_capita, fill_missing_values_linear
 from src.tools.config import cfg
-from src.curve.predict_steel import get_stock_prediction_pauliuk_for_mueller
+from src.read_data.load_data import load_gdp
 
 
 def get_mueller_country_stocks():
     df_current = _get_current_mueller_stocks()
-    df = get_stock_prediction_pauliuk_for_mueller(df_current)
-    df_past = get_past_according_to_gdppc_estimates(df)
-    df = df_past.merge(df, on='country')
+    df_past = get_past_according_to_gdppc_estimates(df_current)
+    df = df_past.merge(df_current, on='country')
     df = fill_missing_values_linear(df)
 
-    df_subcategories = _get_stock_by_subcategory(df)
+    df = _get_stock_by_subcategory(df)
+    # df = predict(df) TODO : Decide whether to predict Mueller
 
-    return df_subcategories
+    return df
 
 
 # -- DATA ASSEMBLY FUNCTIONS --
@@ -86,7 +86,7 @@ def _normalize_sector_splits_add_missing_countries(df_splits):
 def _normalize_mueller_stocks(df_stocks_pc, df_areas):
     # parameters + data
     years_considered = list(range(1950, 2009))
-    df_gdp = load_imf_gdp(country_specific=True, per_capita=False)
+    df_gdp = load_gdp(country_specific=True, per_capita=False)
     df_gdp = df_gdp[years_considered]
     countries_considered = df_areas.index
 

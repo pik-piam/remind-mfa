@@ -10,10 +10,16 @@ def _calc_trade_factor(df_add, df_sub, df_div):
     return np_trade_factor
 
 
-def get_dsm_data(dsms_by_category):
-    stocks = np.array([dsm.s for dsm in dsms_by_category]).transpose()
-    inflows = np.array([dsm.i for dsm in dsms_by_category]).transpose()
-    outflows = np.array([dsm.o for dsm in dsms_by_category]).transpose()
+def get_dsm_data(dsms):
+    stocks = np.array([[[dsm_scenario.s for dsm_scenario in dsms_category] for dsms_category in dsms_region]
+                       for dsms_region in dsms])
+    inflows = np.array([[[dsm_scenario.i for dsm_scenario in dsms_category] for dsms_category in dsms_region]
+                        for dsms_region in dsms])
+    outflows = np.array([[[dsm_scenario.o for dsm_scenario in dsms_category] for dsms_category in dsms_region]
+                         for dsms_region in dsms])
+    stocks = np.moveaxis(stocks, -1, 0)
+    inflows = np.moveaxis(inflows, -1, 0)
+    outflows = np.moveaxis(outflows, -1, 0)
 
     return stocks, inflows, outflows
 

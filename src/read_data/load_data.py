@@ -23,6 +23,8 @@ def load_pop(pop_source=None, country_specific=False):
         pop_source = cfg.pop_data_source
     if pop_source == 'UN':
         return _load_un_pop(country_specific=country_specific)
+    elif pop_source == 'KC-Lutz':
+        return _load_kc_lutz_pop(country_specific=country_specific)
     else:
         raise ValueError(f'{pop_source} is not a valid population data source.')
 
@@ -32,6 +34,8 @@ def load_gdp(gdp_source=None, country_specific=False, per_capita=True):
         gdp_source = cfg.gdp_data_source
     if gdp_source == 'IMF':
         return _load_imf_gdp(country_specific=country_specific, per_capita=per_capita)
+    elif gdp_source == 'Koch-Leimbach':
+        return _load_koch_leimbach_gdp(country_specific=country_specific, per_capita=per_capita)
     else:
         raise ValueError(f'{gdp_source} is not a valid GDP data source.')
 
@@ -136,6 +140,8 @@ def _data_loader(file_base_name, recalculate_function, country_specific,
         if not data_stored_per_capita and return_per_capita:
             df = transform_per_capita(df, total_from_per_capita=False, country_specific=country_specific)
 
+    df = df.sort_index()
+
     return df
 
 
@@ -149,6 +155,18 @@ def _load_un_pop(country_specific):
                       country_specific=country_specific,
                       data_stored_per_capita=False,
                       return_per_capita=False)
+    return df
+
+
+def _load_kc_lutz_pop(country_specific):
+    from src.read_data.read_kc_lutz_population import get_kc_lutz_pop_countries
+    df = _data_loader(file_base_name='KC_Lutz_pop',
+                      recalculate_function=get_kc_lutz_pop_countries,
+                      country_specific=country_specific,
+                      data_stored_per_capita=False,
+                      return_per_capita=False,
+                      data_split_into_categories=True)
+
     return df
 
 
@@ -181,6 +199,17 @@ def _load_imf_gdp(country_specific, per_capita):
                       country_specific=country_specific,
                       data_stored_per_capita=True,
                       return_per_capita=per_capita)
+    return df
+
+
+def _load_koch_leimbach_gdp(country_specific, per_capita):
+    from src.read_data.read_koch_leimbach_gdp import get_koch_leimbach_gdp_countries
+    df = _data_loader(file_base_name='koch_leimbach_gdp',
+                      recalculate_function=get_koch_leimbach_gdp_countries,
+                      country_specific=country_specific,
+                      data_stored_per_capita=False,
+                      return_per_capita=per_capita,
+                      data_split_into_categories=True)
     return df
 
 
@@ -226,7 +255,6 @@ def _load_worldsteel_scrap_trade_factor(country_specific):
                       return_per_capita=True)
 
     return df
-
 
 
 def _load_pauliuk_regions():

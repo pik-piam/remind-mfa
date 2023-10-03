@@ -3,7 +3,7 @@ import yaml
 import numpy as np
 
 
-class Config():
+class Config:
 
     def __init__(self):
         """
@@ -11,6 +11,7 @@ class Config():
         """
         self.data_path = 'data'
         self.recalculate_data = False
+        self.include_scenarios = True
 
         self.do_show_figs = True
         self.do_save_figs = True
@@ -24,11 +25,11 @@ class Config():
         self.constant_scrap_recovery_rate = True
         self.include_trade = True
 
-        self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl
+        self.curve_strategy = 'Pehl'  # Options: Pauliuk, Pehl
 
         self.steel_data_source = 'Mueller'  # Options: Mueller
-        self.pop_data_source = 'UN'  # Options: UN
-        self.gdp_data_source = 'IMF'  # Options: IMF
+        self.pop_data_source = 'UN'  # Options: UN, KC-Lutz (only for scenarios)
+        self.gdp_data_source = 'IMF'  # Options: IMF, Koch-Leimbach (only for scenarios)
         self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
         self.steel_price_data_source = 'USGS'  # Options: USGS
         self.scrap_price_data_source = 'USGS'  # Options: USGS
@@ -38,6 +39,7 @@ class Config():
         self.using_categories = ['Transport', 'Machinery', 'Construction', 'Product']
         self.recycling_categories = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Dis', 'NotCol']
         self.categories_with_total = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']
+        self.scenarios = ['SSP1', 'SSP2', 'SSP3', 'SSP4', 'SSP5']
 
         self.distributions = {
             'transportation': 20,
@@ -48,13 +50,12 @@ class Config():
 
         # econ model configurations
         self.econ_base_year = 2008
-        self.percent_steel_price_change_2100 = 50 # e.g. 50 indicates a 50 % increase of the steel
-                                                  # price between self.econ_base_year and self.end_year
+        self.percent_steel_price_change_2100 = 50  # e.g. 50 indicates a 50 % increase of the steel
+        # price between self.econ_base_year and self.end_year
 
         self.elasticity_steel = -0.2
         self.elasticity_scrap_recovery_rate = -1
         self.elasticity_dissassembly = -0.8
-
 
         # TODO Unused? /adapt
         self.initial_recovery_rate = 0.85
@@ -62,7 +63,8 @@ class Config():
 
         self.r_free_diss = 0.5
         self.r_free_recov = 0
-        
+
+        self.exog_eaf_USD98 = 76
 
     def customize(self, fpath: str):
         with open(fpath, 'r') as f:
@@ -88,10 +90,13 @@ class Config():
 
     @property
     def a_recov(self):
-        return  1 / (((1 - self.initial_recovery_rate) / (1 - self.r_free_recov)) ** (1 / self.elasticity_scrap_recovery_rate) - 1)
+        return 1 / (((1 - self.initial_recovery_rate) / (1 - self.r_free_recov)) ** (
+                    1 / self.elasticity_scrap_recovery_rate) - 1)
+
     @property
     def a_diss(self):
-        return 1 / (((1 - self.initial_scrap_share_production) / (1 - self.r_free_diss)) ** (1 / self.elasticity_dissassembly) - 1)
+        return 1 / (((1 - self.initial_scrap_share_production) / (1 - self.r_free_diss)) ** (
+                    1 / self.elasticity_dissassembly) - 1)
 
 
 cfg = Config()
