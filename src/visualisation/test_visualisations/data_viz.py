@@ -67,10 +67,8 @@ for country in countries:
         datadic[country][category]=np.divide(countrydic[category]*1000,countrydic["Population"][:109]) # calculates the per capita TONNES for the given category
 
 # possible prediction test
-#if country=="Germany":
+# if country=="Germany":
 #    test_country_predictions(country)
-
-# TODO DELETE doesn't have France and Netherlands (due to weird data), should consider whether to use outliers
 countries = ['Albania','Austria','Bulgaria', 'Denmark', 'Finland','Czechoslovakia','Belgium-Luxembourg','Fmr Yugoslavia',
             'Germany', 'Greece', 'Hungary', 'Iceland', 'Ireland', 'Italy', 'Norway', 'Malta',
              'Poland','Portugal', 'Romania','Spain','Sweden','Switzerland', 'United Kingdom']

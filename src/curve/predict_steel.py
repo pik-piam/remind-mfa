@@ -67,8 +67,10 @@ def _calc_individual_params(general_params, stock_data, x_0, y_0):
     high_stock = np.quantile(stock_data, 0.99, axis=2) * 1.1
     a_sym = np.maximum(initial_a_sym, high_stock)
     scal = np.tile(general_params[2], a_sym.shape[0]).reshape(a_sym.shape)
-    x_mid = ((np.log(a_sym / y_0 - 1) * scal).transpose() + x_0).transpose()
+    x_mid = ((np.log(a_sym / y_0 - 1) * scal).transpose() + x_0).transpose() * 0.99
+    # make sure curve starts definitely higher than current stock
     final_params = np.array([a_sym, x_mid, scal])
+
     return final_params
 
 

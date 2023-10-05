@@ -57,8 +57,7 @@ class Config:
         self.elasticity_scrap_recovery_rate = -1
         self.elasticity_dissassembly = -0.8
 
-        # TODO Unused? /adapt
-        self.initial_recovery_rate = 0.85
+        # Initial recovery rate for all 6 scrap categories are defined in the Wittig matrix
         self.initial_scrap_share_production = 0.6
 
         self.r_free_diss = 0.5
@@ -97,6 +96,10 @@ class Config:
     def a_diss(self):
         return 1 / (((1 - self.initial_scrap_share_production) / (1 - self.r_free_diss)) ** (
                     1 / self.elasticity_dissassembly) - 1)
+
+    @property
+    def econ_start_index(self):
+        return self.econ_base_year - self.start_year + 1
 
 
 cfg = Config()

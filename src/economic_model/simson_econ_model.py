@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from ODYM.odym.modules import ODYM_Classes as msc
 from ODYM.odym.modules import dynamic_stock_model as dsm
-from src.model.simson_model import load_simson_model, ENV_PID, PROD_PID, FIN_PID, SCRAP_PID, USE_PID, RECYCLE_PID, \
+from src.model.simson_model import load_simson_model, ENV_PID, PROD_PID, FIN_PID, RECYCLE_PID, USE_PID, EOL_PID, \
     WASTE_PID
 from src.tools.config import cfg
 from src.model.simson_model import create_model
@@ -30,38 +30,31 @@ def create_economic_model(country_specific):
     #  load data
     p_steel = get_steel_prices()
     p_0_scrap = get_base_scrap_price()
-    base_model = load_simson_model(country_specific=country_specific)
     dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0])
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        scrap_share = _calc_scrap_share(base_model, dsms, country_specific, p_steel, p_0_scrap)
-    econ_model = create_model(country_specific=country_specific, dsms=dsms, scrap_share_in_production=scrap_share)
+        scrap_share = _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap)
+    econ_model, balance_message = create_model(country_specific=country_specific, dsms=dsms, scrap_share_in_production=scrap_share)
+    print(balance_message)
     return econ_model
 
 
-def _calc_scrap_share(base_model, dsms, country_specific, p_st, p_0_scrap):
+def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
+    interim_model, balance_message = create_model(country_specific=country_specific, dsms=dsms)
     p_sest = p_st
     q_st = _calc_q_st(dsms)
-    q_eol = _calc_q_eol(dsms, country_specific)
+    q_eol = _calc_q_eol(interim_model)
     e_recov = cfg.elasticity_scrap_recovery_rate
     p_0_steel = p_st[0]
     p_0_diss = p_0_steel - p_0_scrap - cfg.exog_eaf_USD98
     e_diss = cfg.elasticity_dissassembly
-    q_0_st = _get_flow_values(base_model, PROD_PID, FIN_PID)[cfg.econ_base_year - cfg.start_year + 1:, 0, :]
-    q_0_sest = _get_flow_values(base_model, SCRAP_PID, PROD_PID)[cfg.econ_base_year - cfg.start_year + 1:, 0, :]
+    q_0_st = _get_flow_values(interim_model, PROD_PID, FIN_PID)[cfg.econ_start_index:, 0, :]
+    q_0_sest = _get_flow_values(interim_model, RECYCLE_PID, PROD_PID)[cfg.econ_start_index:, 0, :]
     s_0_se = q_0_sest / q_0_st
     r_0_recov = q_0_sest / q_eol
     a_recov = cfg.a_recov
     a_diss = cfg.a_diss
 
-    # TODO these conditions shouldn't be necessary... why does this arise? why is INITIAL recovery rate often
-    #  zero/sometimes suddenly?
-    q_st[q_st < 0] = 0
-    q_eol[q_eol < 0] = 0
-    s_0_se[s_0_se < 0] = 0
-    s_0_se[s_0_se > 1] = 1
-    r_0_recov[r_0_recov < 0] = 0
-    r_0_recov[r_0_recov > 1] = 1
     alpha = -(p_sest - cfg.exog_eaf_USD98 + p_0_scrap * a_recov + p_0_diss * a_diss)
     beta = (1 + a_recov) * p_0_scrap / (1 - r_0_recov) ** (1 / e_recov)
     gamma = (1 + a_diss) * p_0_diss / (1 - s_0_se) ** (1 / e_diss)
@@ -123,16 +116,16 @@ def _calc_q_st(dsms):
         [[[scenario_dsm.i for scenario_dsm in category_dsm] for category_dsm in region_dsm] for region_dsm in dsms])
     q_st = np.moveaxis(inflows, -1, 0)
     q_st = np.sum(q_st, axis=2)
-    return q_st[cfg.econ_base_year - cfg.start_year + 1:]
+    return q_st[cfg.econ_start_index:]
 
 
-def _calc_q_eol(dsms, country_specific):
-    interim_model = create_model(country_specific=country_specific, dsms=dsms)
-    scrap_inflow = _get_flow_values(interim_model, RECYCLE_PID, SCRAP_PID)
-    scrap_exports = _get_flow_values(interim_model, SCRAP_PID, ENV_PID)
-    scrap_imports = _get_flow_values(interim_model, ENV_PID, SCRAP_PID)
+def _calc_q_eol(interim_model):
+    scrap_inflow = _get_flow_values(interim_model, USE_PID, EOL_PID)
+    scrap_exports = _get_flow_values(interim_model, EOL_PID, ENV_PID)
+    scrap_imports = _get_flow_values(interim_model, ENV_PID, EOL_PID)
     q_eol = np.sum(scrap_inflow, axis=3) + scrap_imports - scrap_exports
-    return q_eol[cfg.econ_base_year - cfg.start_year + 1:, 0, :]
+    q_eol = np.sum(q_eol, axis=3)
+    return q_eol[cfg.econ_start_index:, 0, :]
 
 
 def _get_flow_values(model, from_id, to_id):

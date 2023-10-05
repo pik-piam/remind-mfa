@@ -26,10 +26,6 @@ def _get_dsms(country_specific):
     area_names = list(df_stocks.index.get_level_values(0).unique())
     mean, std_dev = load_lifetimes()
 
-    # TODO jot down: discuss with Pauliuk idea of improving ODYM dsms for multiple dimensions
-    # dsms = [_create_dsm(stocks_data[:,:,cat_idx,:], mean[cat_idx], std_dev[cat_idx])
-    # for cat_idx in range(stocks_data.shape[2])]
-
     dsms = [[[_create_dsm(stocks_data[:, area_idx, cat_idx, scenario_idx], mean[cat_idx], std_dev[cat_idx]) for
               scenario_idx in range(stocks_data.shape[3])] for cat_idx in range(stocks_data.shape[2])] for
             area_idx, area_name in enumerate(area_names)]

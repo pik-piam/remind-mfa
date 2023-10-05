@@ -28,8 +28,8 @@ def get_worldsteel_scrap_trade_factor():
     df_scrap_imports = df_scrap_imports[df_scrap_imports.index.isin(df_production.index)]
     df_scrap_exports = df_scrap_exports[df_scrap_exports.index.isin(df_production.index)]
 
-    df_production = df_production.where(df_production!=0, 1) # TODO : discuss, does this make sense?
-
+    df_production2 = df_production.copy()
+    df_production = df_production.where(df_production!=0, 1)
     df_scrap_trade_factor = _calc_trade_factor(df_scrap_imports, df_scrap_exports, df_production)
     df_scrap_trade_factor = _add_missing_countries_trade_factor(df_scrap_trade_factor)
 
@@ -53,8 +53,7 @@ def _calc_trade_factor(df_minuend, df_subtrahend, df_quotient):
     df_trade_factor = df_trade_diff.div(df_quotient, fill_value=0)
 
     # neglect where more is prouced/imported than used/produced
-    # TODO : Include or not ??
-    # df_trade_factor = df_trade_factor.where(df_trade_factor < 1, 1)
+    df_trade_factor = df_trade_factor.where(df_trade_factor < 1, 1)
 
     return df_trade_factor
 

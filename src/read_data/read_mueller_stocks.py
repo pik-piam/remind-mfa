@@ -13,8 +13,7 @@ def get_mueller_country_stocks():
     df = fill_missing_values_linear(df)
 
     df = _get_stock_by_subcategory(df)
-    # df = predict(df) TODO : Decide whether to predict Mueller
-
+    df[df<0]=0
     return df
 
 
