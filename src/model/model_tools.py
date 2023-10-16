@@ -1,5 +1,6 @@
 import numpy as np
 from src.tools.tools import get_np_from_df
+from src.tools.config import cfg
 from src.read_data.load_data import load_stocks
 
 
@@ -8,6 +9,18 @@ def _calc_trade_factor(df_add, df_sub, df_div):
     df_trade_factor = df_trade.div(df_div, fill_value=1)
     np_trade_factor = get_np_from_df(df_trade_factor, data_split_into_categories=False)
     return np_trade_factor
+
+
+def calc_change_timeline(factor, base_year, get_timeline_from_baseyear=False):
+    n_years = cfg.end_year - base_year + 1
+    base_year_timeline = np.linspace(0, factor, n_years)
+
+    if get_timeline_from_baseyear:
+        return base_year_timeline
+
+    timeline = np.zeros([cfg.n_years] + list(factor.shape)[:])
+    timeline[base_year - cfg.start_year:, :] = base_year_timeline
+    return timeline
 
 
 def get_dsm_data(dsms):

@@ -102,7 +102,7 @@ def get_np_from_df(df: pd.DataFrame, data_split_into_categories):
     df = df.sort_index()
     np_array = df.to_numpy()
     if data_split_into_categories:
-        np_array = np.reshape(df.index.levshape + np_array.shape[-1:])
+        np_array = np_array.reshape(df.index.levshape + np_array.shape[-1:])
     return np_array
 
 

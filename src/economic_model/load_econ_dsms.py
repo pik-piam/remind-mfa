@@ -8,8 +8,8 @@ def load_econ_dsms(country_specific, p_st, p_0_st):
     factor = (p_st / p_0_st) ** cfg.elasticity_steel
     for region_dsms in dsms:
         for category_dsms in region_dsms:
-            for scenario_dsm in category_dsms:
-                scenario_dsm.i[cfg.econ_base_year - cfg.start_year + 1:] *= factor
+            for scenario_idx, scenario_dsm in enumerate(category_dsms):
+                scenario_dsm.i[cfg.econ_base_year - cfg.start_year + 1:] *= factor[:, scenario_idx]
                 new_scenarion_dsm = dsm.DynamicStockModel(t=scenario_dsm.t,
                                                           i=scenario_dsm.i,
                                                           lt=scenario_dsm.lt)

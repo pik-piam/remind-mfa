@@ -19,14 +19,7 @@ class Config:
         self.start_year = 1900
         self.end_year = 2100
 
-        self.scrap_recovery_rate = 0.85
-        self.max_scrap_share_production = 0.60
-
-        self.constant_scrap_recovery_rate = True
-        self.include_trade = True
-
         self.curve_strategy = 'Pehl'  # Options: Pauliuk, Pehl
-
         self.steel_data_source = 'Mueller'  # Options: Mueller
         self.pop_data_source = 'UN'  # Options: UN, KC-Lutz (only for scenarios)
         self.gdp_data_source = 'IMF'  # Options: IMF, Koch-Leimbach (only for scenarios)
@@ -34,10 +27,10 @@ class Config:
         self.steel_price_data_source = 'USGS'  # Options: USGS
         self.scrap_price_data_source = 'USGS'  # Options: USGS
         self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
-        self.lifetime_data_source = 'Wittig'  # Options: Wittig
+        self.lifetime_data_source = 'Pauliuk'  # Options: Wittig, Pauliuk
 
         self.using_categories = ['Transport', 'Machinery', 'Construction', 'Product']
-        self.recycling_categories = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Dis', 'NotCol']
+        self.recycling_categories = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Form', 'Fabr', 'Dis', 'NotCol']
         self.categories_with_total = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']
         self.scenarios = ['SSP1', 'SSP2', 'SSP3', 'SSP4', 'SSP5']
 
@@ -47,23 +40,40 @@ class Config:
             'construction': 75,
             'products': 15
         }
+        self.exog_eaf_USD98 = 76
 
-        # econ model configurations
-        self.econ_base_year = 2008
-        self.percent_steel_price_change_2100 = 50  # e.g. 50 indicates a 50 % increase of the steel
-        # price between self.econ_base_year and self.end_year
+        self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
+
+        self.scrap_recovery_rate = 0.85
+        self.max_scrap_share_production_base_model = 0.60
+        self.scrap_in_BOF_rate = 0.22
+        self.forming_yield = 0.937246
+
+        self.include_reuse = True
+        self.reuse_base_year = 2023
+        self.reuse_rate_by_category = 0.05  # can be either expressed as float value for all categories or list with individual values
+        self.reuse_rate_by_scenario = [0.2,0.1,0.0,0.0,0.0]
+
+        self.include_inflow_change = True
+        self.inflow_change_base_year = 2023
+        self.inflow_change_by_scenario = [-0.2, 0, 0.1, 0.2, 0.3]
+        self.inflow_change_by_category = [-0.2, 0, 0, 0]
 
         self.elasticity_steel = -0.2
         self.elasticity_scrap_recovery_rate = -1
         self.elasticity_dissassembly = -0.8
 
-        # Initial recovery rate for all 6 scrap categories are defined in the Wittig matrix
+        # econ model configurations
+        self.econ_base_year = 2008
+        self.steel_price_change_by_scenario = [0.5, 0.1, 0.2, 0, -0.3]
+        # e.g. 0.5 or [50,10,20,0,-30] for all scenarios. 50 e.g. indicates a 50 % increase of the steel
+
+        self.initial_recovery_rate = 0.85
         self.initial_scrap_share_production = 0.6
 
         self.r_free_diss = 0.5
         self.r_free_recov = 0
 
-        self.exog_eaf_USD98 = 76
 
     def customize(self, fpath: str):
         with open(fpath, 'r') as f:
@@ -100,6 +110,33 @@ class Config:
     @property
     def econ_start_index(self):
         return self.econ_base_year - self.start_year + 1
+
+
+    @property
+    def price_change_factor(self):
+        if isinstance(self.steel_price_change_by_scenario, float):
+            self.steel_price_change_by_scenario = [self.steel_price_change_by_scenario]
+        return np.array(self.steel_price_change_by_scenario)
+
+    @property
+    def inflow_change_factor(self):
+        if isinstance(self.inflow_change_by_category, float):
+            self.inflow_change_by_category = [self.inflow_change_by_category]
+        if isinstance(self.inflow_change_by_scenario, float):
+            self.inflow_change_by_scenario = [self.inflow_change_by_scenario]
+        return np.einsum('g,s->gs',
+                         np.array(self.inflow_change_by_category),
+                         np.array(self.inflow_change_by_scenario))
+
+    @property
+    def reuse_factor(self):
+        if isinstance(self.reuse_rate_by_category, float):
+            self.reuse_rate_by_category = [self.reuse_rate_by_category]
+        if isinstance(self.reuse_rate_by_scenario, float):
+            self.reuse_rate_by_scenario = [self.reuse_rate_by_scenario]
+        return np.einsum('g,s->gs',
+                         np.array(self.reuse_rate_by_category),
+                         np.array(self.reuse_rate_by_scenario))
 
 
 cfg = Config()

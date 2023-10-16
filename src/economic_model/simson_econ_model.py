@@ -5,10 +5,9 @@ import warnings
 import numpy as np
 from ODYM.odym.modules import ODYM_Classes as msc
 from ODYM.odym.modules import dynamic_stock_model as dsm
-from src.model.simson_model import load_simson_model, ENV_PID, PROD_PID, FIN_PID, RECYCLE_PID, USE_PID, EOL_PID, \
+from src.model.simson_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, USE_PID, SCRAP_PID, \
     WASTE_PID
 from src.tools.config import cfg
-from src.model.simson_model import create_model
 from src.economic_model.econ_model_tools import get_steel_prices, get_base_scrap_price
 from src.economic_model.load_econ_dsms import load_econ_dsms
 
@@ -48,8 +47,10 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
     p_0_steel = p_st[0]
     p_0_diss = p_0_steel - p_0_scrap - cfg.exog_eaf_USD98
     e_diss = cfg.elasticity_dissassembly
-    q_0_st = _get_flow_values(interim_model, PROD_PID, FIN_PID)[cfg.econ_start_index:, 0, :]
-    q_0_sest = _get_flow_values(interim_model, RECYCLE_PID, PROD_PID)[cfg.econ_start_index:, 0, :]
+    q_0_bof = _get_flow_values(interim_model, BOF_PID, FORM_PID)[cfg.econ_start_index:, 0]
+    q_0_eaf = _get_flow_values(interim_model, EAF_PID, FORM_PID)[cfg.econ_start_index:, 0]
+    q_0_st = q_0_bof + q_0_eaf
+    q_0_sest = _get_flow_values(interim_model, SCRAP_PID, RECYCLE_PID)[cfg.econ_start_index:, 0]
     s_0_se = q_0_sest / q_0_st
     r_0_recov = q_0_sest / q_eol
     a_recov = cfg.a_recov
@@ -58,14 +59,13 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
     alpha = -(p_sest - cfg.exog_eaf_USD98 + p_0_scrap * a_recov + p_0_diss * a_diss)
     beta = (1 + a_recov) * p_0_scrap / (1 - r_0_recov) ** (1 / e_recov)
     gamma = (1 + a_diss) * p_0_diss / (1 - s_0_se) ** (1 / e_diss)
-    alpha = np.array([alpha] * beta.shape[1]).transpose()
-    alpha = np.repeat(alpha[:, :, np.newaxis], gamma.shape[-1], axis=2)
+
     c = q_st / q_eol
     f_inverse = 1 / e_recov
     e_inverse = 1 / e_diss
 
     def f(x):
-        return alpha + (1 - x * c) ** f_inverse * beta + (1 - x) ** e_inverse * gamma
+        return np.expand_dims(alpha, axis=1) + (1 - x * c) ** f_inverse * beta + (1 - x) ** e_inverse * gamma
 
     def f_prime(x):
         return -beta * c * f_inverse * (1 - x * c) ** (f_inverse - 1) - gamma * e_inverse * (1 - x) ** (e_inverse - 1)
@@ -90,7 +90,7 @@ def _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask):
     if not np.all(check):
         raise RuntimeError(
             f'Calculation of scrap share in production failed. '
-            f'{((s_se >= 0) & (s_se <= x_upper_limit)) | np.logical_not(s_se_mask)}')
+            f'{check}')
 
 
 def _calc_x_0(f, x_upper_limit, s_se_mask):
@@ -120,12 +120,16 @@ def _calc_q_st(dsms):
 
 
 def _calc_q_eol(interim_model):
-    scrap_inflow = _get_flow_values(interim_model, USE_PID, EOL_PID)
-    scrap_exports = _get_flow_values(interim_model, EOL_PID, ENV_PID)
-    scrap_imports = _get_flow_values(interim_model, ENV_PID, EOL_PID)
-    q_eol = np.sum(scrap_inflow, axis=3) + scrap_imports - scrap_exports
+    form_scrap_inflow = _get_flow_values(interim_model, FORM_PID, SCRAP_PID)
+    fabr_scrap_inflow = _get_flow_values(interim_model, FABR_PID, SCRAP_PID)
+    eol_scrap_inflow = _get_flow_values(interim_model, USE_PID, SCRAP_PID)
+    scrap_exports = _get_flow_values(interim_model, SCRAP_PID, ENV_PID)
+    scrap_imports = _get_flow_values(interim_model, ENV_PID, SCRAP_PID)
+
+    scrap_inflow = np.sum(eol_scrap_inflow, axis=3) + form_scrap_inflow + fabr_scrap_inflow
+    q_eol = scrap_inflow + scrap_imports - scrap_exports
     q_eol = np.sum(q_eol, axis=3)
-    return q_eol[cfg.econ_start_index:, 0, :]
+    return q_eol[cfg.econ_start_index:, 0]
 
 
 def _get_flow_values(model, from_id, to_id):

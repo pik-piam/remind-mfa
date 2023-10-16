@@ -7,8 +7,8 @@ from src.tools.split_data_into_subregions import split_areas_by_gdp
 
 
 def get_pauliuk_country_stocks():
-    df_current = _get_current_pauliuk_stocks(perCapita=True)
-    df = get_stock_prediction_pauliuk_for_pauliuk(df_current)
+    df = _get_current_pauliuk_stocks(perCapita=True)
+    #df = get_stock_prediction_pauliuk_for_pauliuk(df)
     return df
 
 
