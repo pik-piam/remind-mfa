@@ -40,3 +40,6 @@
 [submodule "data/original/remind"]
 	path = data/original/remind
 	url = git@gitlab.pik-potsdam.de:simson_data/remind.git
+[submodule "data/original/kc-lutz"]
+    path = data/original/kc-lutz
+    url = git@gitlab.pik-potsdam.de:simson_data/kc-lutz.git
