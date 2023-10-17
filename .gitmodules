@@ -43,3 +43,6 @@
 [submodule "data/original/kc-lutz"]
 	path = data/original/kc-lutz
 	url = git@gitlab.pik-potsdam.de:simson_data/kc-lutz.git
+[submodule "data/original/cullen"]
+	path = data/original/cullen
+	url = git@gitlab.pik-potsdam.de:simson_data/cullen.git
