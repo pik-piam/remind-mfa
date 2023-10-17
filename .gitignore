@@ -2,6 +2,7 @@ data/output/*.png
 src/*/__pycache__
 data/models/*.p
 data/processed/*.csv
+src/visualisation/test_visualisations/*
 .idea
 ~$*
 *.yml
