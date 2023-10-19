@@ -27,13 +27,12 @@ def _get_dsms(country_specific):
     area_names = list(df_stocks.index.get_level_values(0).unique())
     mean, std_dev = load_lifetimes()
 
-    if cfg.include_inflow_change:
-        a = cfg.inflow_change_factor
-        inflow_change_timeline = 1 + calc_change_timeline(cfg.inflow_change_factor, cfg.inflow_change_base_year)
+    if cfg.do_change_inflow:
+        inflow_change_timeline = calc_change_timeline(cfg.inflow_change_factor, cfg.inflow_change_base_year)
 
     dsms = [[[_create_dsm(stocks_data[:, area_idx, cat_idx, scenario_idx],
-              mean[cat_idx], std_dev[cat_idx],
-              inflow_change_timeline[:,cat_idx, scenario_idx] if cfg.include_inflow_change else None)
+                          mean[cat_idx], std_dev[cat_idx],
+              inflow_change_timeline[:,cat_idx, scenario_idx] if cfg.do_change_inflow else None)
               for scenario_idx in range(stocks_data.shape[3])]
               for cat_idx in range(stocks_data.shape[2])]
               for area_idx, area_name in enumerate(area_names)]

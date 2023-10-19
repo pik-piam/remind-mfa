@@ -20,16 +20,16 @@ def load_simson_econ_model(country_specific=False, recalculate=cfg.recalculate_d
     if do_load_existing:
         model = pickle.load(open(file_path, "rb"))
     else:
-        model = create_economic_model(country_specific)
+        model = create_economic_model(country_specific, recalculate)
         pickle.dump(model, open(file_path, "wb"))
     return model
 
 
-def create_economic_model(country_specific):
+def create_economic_model(country_specific, recalculate):
     #  load data
     p_steel = get_steel_prices()
     p_0_scrap = get_base_scrap_price()
-    dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0])
+    dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0], recalculate=recalculate)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         scrap_share = _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap)
@@ -53,8 +53,8 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
     q_0_sest = _get_flow_values(interim_model, SCRAP_PID, RECYCLE_PID)[cfg.econ_start_index:, 0]
     s_0_se = q_0_sest / q_0_st
     r_0_recov = q_0_sest / q_eol
-    a_recov = cfg.a_recov
-    a_diss = cfg.a_diss
+    a_recov = _get_a_recov(r_0_recov)
+    a_diss = _get_a_diss(s_0_se)
 
     alpha = -(p_sest - cfg.exog_eaf_USD98 + p_0_scrap * a_recov + p_0_diss * a_diss)
     beta = (1 + a_recov) * p_0_scrap / (1 - r_0_recov) ** (1 / e_recov)
@@ -83,6 +83,14 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
     _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask)
 
     return s_se
+
+def _get_a_recov(initial_recovery_rate):
+    return 1 / (((1 - initial_recovery_rate) / (1 - cfg.r_free_recov)) ** (
+                1 / cfg.elasticity_scrap_recovery_rate) - 1)
+
+def _get_a_diss(initial_scrap_share_production):
+    return 1 / (((1 - initial_scrap_share_production) / (1 - cfg.r_free_diss)) ** (
+                1 / cfg.elasticity_dissassembly) - 1)
 
 
 def _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask):

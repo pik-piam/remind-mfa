@@ -32,13 +32,13 @@ def load_simson_model(country_specific=False, recalculate=cfg.recalculate_data) 
     if do_load_existing:
         model = pickle.load(open(file_path, "rb"))
     else:
-        model = create_base_model(country_specific)
+        model = create_base_model(country_specific, recalculate)
         pickle.dump(model, open(file_path, "wb"))
     return model
 
 
-def create_base_model(country_specific):
-    dsms = load_dsms(country_specific)
+def create_base_model(country_specific, recalculate):
+    dsms = load_dsms(country_specific, recalculate)
     model, balance_message = create_model(country_specific, dsms)
     print(balance_message)
     return model
@@ -223,8 +223,9 @@ def compute_flows(model, country_specific,
     use_eol_distribution, eol_recycle_distribution, fabrication_yield = _get_params(model)
 
     reuse = None
-    if cfg.include_reuse:
-        reuse_factor_timeline = calc_change_timeline(cfg.reuse_factor, cfg.reuse_base_year)
+    if cfg.do_change_reuse:
+        # one is substracted as one was added to multiply scenario and category reuse changes
+        reuse_factor_timeline = calc_change_timeline(cfg.reuse_factor, cfg.reuse_change_base_year) - 1
         reuse = np.einsum('trgs,tgs->trgs', outflows, reuse_factor_timeline)
         inflows -= reuse
         outflows -= reuse

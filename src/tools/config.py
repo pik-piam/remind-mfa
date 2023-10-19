@@ -1,4 +1,4 @@
-import os
+from os.path import join
 import yaml
 import numpy as np
 
@@ -34,58 +34,57 @@ class Config:
         self.categories_with_total = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']
         self.scenarios = ['SSP1', 'SSP2', 'SSP3', 'SSP4', 'SSP5']
 
-        self.distributions = {
-            'transportation': 20,
-            'machinery': 30,
-            'construction': 75,
-            'products': 15
-        }
         self.exog_eaf_USD98 = 76
+
+        # ADAPTABLE PARAMETER
 
         self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
 
-        self.scrap_recovery_rate = 0.85
+        self.simulation_name = 'SIMSON_Test_1'
+        self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
+
         self.max_scrap_share_production_base_model = 0.60
         self.scrap_in_BOF_rate = 0.22
         self.forming_yield = 0.937246
 
-        self.include_reuse = True
-        self.reuse_base_year = 2023
-        self.reuse_rate_by_category = 0.05  # can be either expressed as float value for all categories or list with individual values
-        self.reuse_rate_by_scenario = [0.2,0.1,0.0,0.0,0.0]
-
-        self.include_inflow_change = True
-        self.inflow_change_base_year = 2023
-        self.inflow_change_by_scenario = [-0.2, 0, 0.1, 0.2, 0.3]
-        self.inflow_change_by_category = [-0.2, 0, 0, 0]
+        # econ model configurations
+        self.do_model_economy = True
+        self.econ_base_year = 2008
 
         self.elasticity_steel = -0.2
         self.elasticity_scrap_recovery_rate = -1
         self.elasticity_dissassembly = -0.8
 
-        # econ model configurations
-        self.econ_base_year = 2008
+        self.r_free_recov = 0
+        self.r_free_diss = 0.5
+
         self.steel_price_change_by_scenario = [0.5, 0.1, 0.2, 0, -0.3]
         # e.g. 0.5 or [50,10,20,0,-30] for all scenarios. 50 e.g. indicates a 50 % increase of the steel
 
-        self.initial_recovery_rate = 0.85
-        self.initial_scrap_share_production = 0.6
+        self.do_change_inflow = True
+        self.inflow_change_base_year = 2023
+        self.inflow_change_by_scenario = [-0.2, 0, 0.1, 0.2, 0.3]
+        self.inflow_change_by_category = [-0.2, 0, 0, 0]
 
-        self.r_free_diss = 0.5
-        self.r_free_recov = 0
+        self.do_change_reuse = True
+        self.reuse_change_base_year = 2023
+        self.reuse_change_by_category = [0, 0.2, 0, 0]
+        self.reuse_change_by_scenario = 0
+        # can be either expressed as float value for all categories or list with individual values
 
 
-    def customize(self, fpath: str):
-        with open(fpath, 'r') as f:
-            config_dict = yaml.safe_load(f)
+    def customize(self, config_dict: dict):
+        name = config_dict['simulation_name']
         for prm_name, prm_value in config_dict.items():
             if prm_name not in self.__dict__:
-                raise Exception(f'The custom parameter {prm_name} given in the file {os.path.basename(fpath)} '
+                raise Exception(f'The custom parameter {prm_name} given in the configuration {name} '
                                 'is not registered in the default config definition. '
                                 'Maybe you misspelled it or did not add it to the defaults?')
             setattr(self, prm_name, prm_value)
+        return(self)
 
-    def generate_yml(self, fpath: str = 'custom_config.yml'):
+
+    def generate_yml(self, fpath: str = 'yaml_test_1.yml'):
         with open(fpath, 'w') as f:
             yaml.dump(self.__dict__, f, sort_keys=False)
 
@@ -111,32 +110,61 @@ class Config:
     def econ_start_index(self):
         return self.econ_base_year - self.start_year + 1
 
+    def _price_change_list(self):
+        if isinstance(self.steel_price_change_by_scenario, list):
+            return self.steel_price_change_by_scenario
+        else:
+            return [self.steel_price_change_by_scenario] * len(cfg.scenarios)
 
     @property
     def price_change_factor(self):
-        if isinstance(self.steel_price_change_by_scenario, float):
-            self.steel_price_change_by_scenario = [self.steel_price_change_by_scenario]
-        return np.array(self.steel_price_change_by_scenario)
+        return 1 + np.array(self._price_change_list())
+
+
+    def _inflow_change_category_list(self):
+        if isinstance(self.inflow_change_by_category, list):
+            return self.inflow_change_by_category
+        else:
+            return [self.inflow_change_by_category] * len(self.using_categories)
+
+
+    def _inflow_change_scenario_list(self):
+        if isinstance(self.inflow_change_by_scenario, list):
+            return self.inflow_change_by_scenario
+        else:
+            return [self.inflow_change_by_scenario] * len(self.scenarios)
+
 
     @property
     def inflow_change_factor(self):
-        if isinstance(self.inflow_change_by_category, float):
-            self.inflow_change_by_category = [self.inflow_change_by_category]
-        if isinstance(self.inflow_change_by_scenario, float):
-            self.inflow_change_by_scenario = [self.inflow_change_by_scenario]
+        a = self._inflow_change_scenario_list()
+        b = self._inflow_change_category_list()
         return np.einsum('g,s->gs',
-                         np.array(self.inflow_change_by_category),
-                         np.array(self.inflow_change_by_scenario))
+                         1 + np.array(self._inflow_change_category_list()),
+                         1 + np.array(self._inflow_change_scenario_list()))
+
+
+    def _reuse_change_category_list(self):
+        if isinstance(self.reuse_change_by_category, list):
+            return self.reuse_change_by_category
+        else:
+            return [self.reuse_change_by_category] * len(self.using_categories)
+
+
+    def _reuse_change_scenario_list(self):
+        if isinstance(self.reuse_change_by_scenario, list):
+            return self.reuse_change_by_scenario
+        else:
+            return [self.reuse_change_by_scenario] * len(self.scenarios)
+
 
     @property
     def reuse_factor(self):
-        if isinstance(self.reuse_rate_by_category, float):
-            self.reuse_rate_by_category = [self.reuse_rate_by_category]
-        if isinstance(self.reuse_rate_by_scenario, float):
-            self.reuse_rate_by_scenario = [self.reuse_rate_by_scenario]
-        return np.einsum('g,s->gs',
-                         np.array(self.reuse_rate_by_category),
-                         np.array(self.reuse_rate_by_scenario))
+        factor =  np.einsum('g,s->gs',
+                         1 + np.array(self._reuse_change_category_list()),
+                         1 + np.array(self._inflow_change_scenario_list()))
+        return np.maximum(1, factor)
+        # Reuse factor needs to be at least one, as it is deducted by one later and needs to be positive
 
 
 cfg = Config()

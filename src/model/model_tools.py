@@ -13,7 +13,7 @@ def _calc_trade_factor(df_add, df_sub, df_div):
 
 def calc_change_timeline(factor, base_year, get_timeline_from_baseyear=False):
     n_years = cfg.end_year - base_year + 1
-    base_year_timeline = np.linspace(0, factor, n_years)
+    base_year_timeline = np.linspace(1, factor, n_years)
 
     if get_timeline_from_baseyear:
         return base_year_timeline
