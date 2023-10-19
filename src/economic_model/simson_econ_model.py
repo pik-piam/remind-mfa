@@ -56,7 +56,8 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
     a_recov = _get_a_recov(r_0_recov)
     a_diss = _get_a_diss(s_0_se)
 
-    alpha = -(p_sest - cfg.exog_eaf_USD98 + p_0_scrap * a_recov + p_0_diss * a_diss)
+    alpha_prep = p_sest - cfg.exog_eaf_USD98
+    alpha = -(np.expand_dims(alpha_prep, axis=1) + p_0_scrap * a_recov + p_0_diss * a_diss)
     beta = (1 + a_recov) * p_0_scrap / (1 - r_0_recov) ** (1 / e_recov)
     gamma = (1 + a_diss) * p_0_diss / (1 - s_0_se) ** (1 / e_diss)
 
@@ -65,7 +66,7 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
     e_inverse = 1 / e_diss
 
     def f(x):
-        return np.expand_dims(alpha, axis=1) + (1 - x * c) ** f_inverse * beta + (1 - x) ** e_inverse * gamma
+        return alpha + (1 - x * c) ** f_inverse * beta + (1 - x) ** e_inverse * gamma
 
     def f_prime(x):
         return -beta * c * f_inverse * (1 - x * c) ** (f_inverse - 1) - gamma * e_inverse * (1 - x) ** (e_inverse - 1)

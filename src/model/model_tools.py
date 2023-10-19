@@ -18,7 +18,7 @@ def calc_change_timeline(factor, base_year, get_timeline_from_baseyear=False):
     if get_timeline_from_baseyear:
         return base_year_timeline
 
-    timeline = np.zeros([cfg.n_years] + list(factor.shape)[:])
+    timeline = np.ones([cfg.n_years] + list(factor.shape)[:])
     timeline[base_year - cfg.start_year:, :] = base_year_timeline
     return timeline
 
