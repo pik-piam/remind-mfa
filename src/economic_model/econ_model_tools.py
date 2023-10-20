@@ -7,7 +7,7 @@ from src.model.model_tools import calc_change_timeline
 def get_steel_prices():
     df_steel_prices = load_steel_prices()
     base_year_price = df_steel_prices.loc['Steel Price', cfg.econ_base_year]
-    price_change_timeline = calc_change_timeline(cfg.price_change_factor, cfg.econ_base_year+1,
+    price_change_timeline = 1 + calc_change_timeline(cfg.price_change_factor, cfg.econ_base_year + 1,
                                                      get_timeline_from_baseyear=True)
     return base_year_price * price_change_timeline
 
@@ -26,5 +26,5 @@ def _test():
     print(scrap_prices)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     _test()

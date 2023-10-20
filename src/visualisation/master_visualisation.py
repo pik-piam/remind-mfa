@@ -1,12 +1,46 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from src.model.simson_model import load_simson_model
+from src.model.simson_model import load_simson_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, USE_PID, \
+    SCRAP_PID, RECYCLE_PID, WASTE_PID
 from src.economic_model.simson_econ_model import load_simson_econ_model
 import src.model.model_tools as dynamic_stock_models
-from src.read_data.load_data import load_regions
+from src.read_data.load_data import load_regions, load_region_names_list
+from src.tools.config import cfg
 
 REGIONS = list(load_regions()['region'].unique())
 REGIONS.sort()
+
+
+def get_scrap_share_china_plt(main_model):
+    region_id = 1
+    for scenario_idx, scenario in enumerate(cfg.scenarios):
+        scrap = main_model.FlowDict[f'F_{SCRAP_PID}_{RECYCLE_PID}'].Values[50:, 0, region_id, scenario_idx]
+        bof_production = main_model.FlowDict[f'F_{BOF_PID}_{FORM_PID}'].Values[50:, 0, region_id, scenario_idx]
+        eaf_production = main_model.FlowDict[f'F_{EAF_PID}_{FORM_PID}'].Values[50:, 0, region_id, scenario_idx]
+        production = bof_production + eaf_production
+        scrap_share = np.divide(scrap, production, out=np.zeros_like(scrap), where=production!=0)
+        # year 1900 is excluded due to dynamic stock model construction
+        plt.plot(range(1950, 2101), scrap_share)
+    plt.legend(cfg.scenarios)
+    plt.xlabel("Time (y)")
+    plt.ylabel("Scrap/Production (%)")
+    plt.title("China Scrap share of production percent by scenario")
+    return plt
+
+
+def get_production_plt(main_model):
+    scenario_idx = 2
+    regions = load_region_names_list()
+    for region_id, region in enumerate(regions):
+        bof_production = main_model.FlowDict[f'F_{BOF_PID}_{FORM_PID}'].Values[50:, 0, region_id, scenario_idx]
+        eaf_production = main_model.FlowDict[f'F_{EAF_PID}_{FORM_PID}'].Values[50:, 0, region_id, scenario_idx]
+        production = bof_production + eaf_production
+        plt.plot(range(1950,2101), production)
+    plt.legend(regions)
+    plt.xlabel("Time (y)")
+    plt.ylabel("Production t")
+    plt.title("Steel production across regions")
+    return plt
 
 
 def show_total_production(main_model, regions_to_use):

@@ -96,11 +96,12 @@ def _load_excel_original():
                        skiprows=2)
     return df
 
+
 def _test():
     dicts = load_excel_dicts()
     for dict in dicts:
         print(dict['simulation_name'])
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     _test()

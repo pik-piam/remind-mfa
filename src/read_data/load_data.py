@@ -53,6 +53,13 @@ def load_regions(region_source=None):
         raise ValueError(f'{region_source} is not a valid region data source.')
 
 
+def load_region_names_list():
+    df_regions = load_regions()
+    regions_list = list(df_regions[df_regions.columns[0]].unique())
+    regions_list.sort()
+    return regions_list
+
+
 def load_steel_prices(steel_price_source=None):
     if steel_price_source is None:
         steel_price_source = cfg.steel_price_data_source

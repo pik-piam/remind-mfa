@@ -8,8 +8,7 @@ from ODYM.odym.modules import ODYM_Classes as msc
 from src.tools.config import cfg
 from src.model.model_tools import get_dsm_data, get_stock_data_country_specific_areas, calc_change_timeline
 from src.model.load_dsms import load_dsms
-from src.model.calc_trade import get_trade, get_scrap_trade, _recalculate_scrap_trade_based_on_scrap_availability
-
+from src.model.calc_trade import get_trade, get_scrap_trade
 
 #  constants
 
@@ -47,7 +46,8 @@ def create_base_model(country_specific, recalculate):
 def create_model(country_specific, dsms, scrap_share_in_production=None):
     n_regions = len(dsms)
     n_scenarions = len(dsms[0][0])
-    max_scrap_share_in_production = np.ones([cfg.n_years, n_regions, n_scenarions]) * cfg.max_scrap_share_production_base_model
+    max_scrap_share_in_production = np.ones(
+        [cfg.n_years, n_regions, n_scenarions]) * cfg.max_scrap_share_production_base_model
     if scrap_share_in_production is not None:
         max_scrap_share_in_production[cfg.econ_start_index:, :] = scrap_share_in_production
     # load data
@@ -170,34 +170,34 @@ def initiate_flows(main_model):
         flow = msc.Flow(Name=name, P_Start=from_id, P_End=to_id, Indices=indices, Values=None)
         main_model.FlowDict['F_' + str(from_id) + '_' + str(to_id)] = flow
 
-    init_flow('Iron Ore Production - BF/BOF Production', ENV_PID, BOF_PID, 't,e,r,s')
-    init_flow('Recycling - BF/BOF Production', RECYCLE_PID, BOF_PID, 't,e,r,s')
-    init_flow('BF/BOF Production - Forming', BOF_PID, FORM_PID, 't,e,r,s')
-    init_flow('Recycling - EAF Production', RECYCLE_PID, EAF_PID, 't,e,r,s')
-    init_flow('EAF Production - Forming', EAF_PID, FORM_PID, 't,e,r,s')
+    init_flow('iron_bof_production', ENV_PID, BOF_PID, 't,e,r,s')
+    init_flow('recycling_bof_production', RECYCLE_PID, BOF_PID, 't,e,r,s')
+    init_flow('bof_production_forming', BOF_PID, FORM_PID, 't,e,r,s')
+    init_flow('recycling_eaf_production', RECYCLE_PID, EAF_PID, 't,e,r,s')
+    init_flow('eaf_production_forming', EAF_PID, FORM_PID, 't,e,r,s')
 
-    init_flow('Forming - Fabrication', FORM_PID, FABR_PID, 't,e,r,s')
-    init_flow('Forming - Scrap', FORM_PID, SCRAP_PID, 't,e,r,w,s')
-    init_flow('Fabrication - Using', FABR_PID, USE_PID, 't,e,r,g,s')
-    init_flow('Fabrication - Scrap', FABR_PID, SCRAP_PID, 't,e,r,w,s')
+    init_flow('forming_fabrication', FORM_PID, FABR_PID, 't,e,r,s')
+    init_flow('forming_scrap', FORM_PID, SCRAP_PID, 't,e,r,w,s')
+    init_flow('fabrication_using', FABR_PID, USE_PID, 't,e,r,g,s')
+    init_flow('fabrication_scrap', FABR_PID, SCRAP_PID, 't,e,r,w,s')
 
-    init_flow('Using - Reuse', USE_PID, USE_PID, 't,e,r,g,s')
-    init_flow('Using - Scrap', USE_PID, SCRAP_PID, 't,e,r,g,w,s')
-    init_flow('Using - Environment', USE_PID, ENV_PID, 't,e,r,g,w,s')
-    init_flow('Scrap - Recyling', SCRAP_PID, RECYCLE_PID, 't,e,r,s')
-    init_flow('Scrap - Scrap Waste', SCRAP_PID, WASTE_PID, 't,e,r,s')
+    init_flow('using_reuse', USE_PID, USE_PID, 't,e,r,g,s')
+    init_flow('using_scrap', USE_PID, SCRAP_PID, 't,e,r,g,w,s')
+    init_flow('using_environment', USE_PID, ENV_PID, 't,e,r,g,w,s')
+    init_flow('scrap_recycling', SCRAP_PID, RECYCLE_PID, 't,e,r,s')
+    init_flow('scrap_waste', SCRAP_PID, WASTE_PID, 't,e,r,s')
 
-    init_flow('Imports', ENV_PID, FABR_PID, 't,e,r,s')
-    init_flow('Exports', FABR_PID, ENV_PID, 't,e,r,s')
-    init_flow('Scrap_Imports', ENV_PID, SCRAP_PID, 't,e,r,w,s')
-    init_flow('Scrap_Exports', SCRAP_PID, ENV_PID, 't,e,r,w,s')
+    init_flow('imports', ENV_PID, FABR_PID, 't,e,r,s')
+    init_flow('exports', FABR_PID, ENV_PID, 't,e,r,s')
+    init_flow('scrap_imports', ENV_PID, SCRAP_PID, 't,e,r,w,s')
+    init_flow('scrap_exports', SCRAP_PID, ENV_PID, 't,e,r,w,s')
 
 
 def initiate_stocks(main_model):
     # Stocks
 
     def add_stock(p_id, name, indices, add_change_stock=True):
-        name = name + '_Stock'
+        name = name + '_stock'
         main_model.StockDict['S_' + str(p_id)] = msc.Stock(Name=name, P_Res=p_id, Type=0, Indices=indices,
                                                            Values=None)
         if add_change_stock:
@@ -206,8 +206,8 @@ def initiate_stocks(main_model):
                 P_Res=p_id, Type=1,
                 Indices=indices, Values=None)
 
-    add_stock(USE_PID, 'In-Use', 't,e,r,g,s')
-    add_stock(WASTE_PID, 'Waste', 't,e,r,s')
+    add_stock(USE_PID, 'in_use', 't,e,r,g,s')
+    add_stock(WASTE_PID, 'waste', 't,e,r,s')
 
 
 def check_consistency(main_model):
@@ -219,7 +219,6 @@ def check_consistency(main_model):
 
 def compute_flows(model, country_specific,
                   inflows, outflows, max_scrap_share_in_production):
-
     use_eol_distribution, eol_recycle_distribution, fabrication_yield = _get_params(model)
 
     reuse = None
@@ -258,8 +257,8 @@ def compute_flows(model, country_specific,
     scrap_imports, scrap_exports = get_scrap_trade(country_specific=country_specific, production=production.transpose(),
                                                    available_scrap_by_category=available_scrap)
     # TODO: Delete, this omits scrap trade
-    #scrap_imports[:] = 0
-    #scrap_exports[:] = 0
+    # scrap_imports[:] = 0
+    # scrap_exports[:] = 0
     total_scrap = available_scrap + scrap_imports - scrap_exports
 
     max_scrap_in_production = production * max_scrap_share_in_production
@@ -268,7 +267,7 @@ def compute_flows(model, country_specific,
     scrap_in_production = np.minimum(recyclable_scrap, max_scrap_in_production)
 
     scrap_share = np.divide(scrap_in_production, production,
-                            out=np.zeros_like(scrap_in_production), where=production!=0)
+                            out=np.zeros_like(scrap_in_production), where=production != 0)
     eaf_share_production = _calc_eaf_share_production(scrap_share)
     eaf_production = production * eaf_share_production
     bof_production = production - eaf_production
@@ -304,7 +303,7 @@ def edit_flows(model, iron_production, scrap_in_bof, bof_production, eaf_product
     get_flow(FABR_PID, USE_PID)[:, 0] = inflows
     get_flow(FABR_PID, SCRAP_PID)[:, 0, :, cfg.recycling_categories.index('Fabr')] = fabrication_scrap
     if reuse is not None:
-        get_flow(USE_PID, USE_PID)[:,0] = reuse
+        get_flow(USE_PID, USE_PID)[:, 0] = reuse
     get_flow(USE_PID, SCRAP_PID)[:, 0] = use_eol
     get_flow(USE_PID, ENV_PID)[:, 0] = use_env
     get_flow(ENV_PID, SCRAP_PID)[:, 0] = scrap_imports
@@ -328,7 +327,7 @@ def get_flow(model, from_id, to_id):
 
 def _calc_eaf_share_production(scrap_share):
     eaf_share_production = (scrap_share - cfg.scrap_in_BOF_rate) / (1 - cfg.scrap_in_BOF_rate)
-    eaf_share_production[eaf_share_production<=0] = 0
+    eaf_share_production[eaf_share_production <= 0] = 0
     return eaf_share_production
 
 

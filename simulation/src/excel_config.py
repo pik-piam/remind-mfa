@@ -51,7 +51,6 @@ class Excel_Config(Config):
         self.reuse_change_construction = 0.2
         self.reuse_change_products = 0
 
-
     def _price_change_list(self):
         if self.do_change_price_by_scenario:
             return [
@@ -63,7 +62,6 @@ class Excel_Config(Config):
             ]
         else:
             return [self.steel_price_change_all_scenarios]
-
 
     def _inflow_change_category_list(self):
         if self.do_change_inflow_by_category:

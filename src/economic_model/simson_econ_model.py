@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 from ODYM.odym.modules import ODYM_Classes as msc
 from ODYM.odym.modules import dynamic_stock_model as dsm
-from src.model.simson_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, USE_PID, SCRAP_PID, \
-    WASTE_PID
+from src.model.simson_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, USE_PID, \
+    SCRAP_PID
 from src.tools.config import cfg
 from src.economic_model.econ_model_tools import get_steel_prices, get_base_scrap_price
 from src.economic_model.load_econ_dsms import load_econ_dsms
@@ -33,7 +33,9 @@ def create_economic_model(country_specific, recalculate):
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         scrap_share = _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap)
-    econ_model, balance_message = create_model(country_specific=country_specific, dsms=dsms, scrap_share_in_production=scrap_share)
+    econ_model, balance_message = create_model(country_specific=country_specific,
+                                               dsms=dsms,
+                                               scrap_share_in_production=scrap_share)
     print(balance_message)
     return econ_model
 
@@ -85,13 +87,18 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
 
     return s_se
 
+
 def _get_a_recov(initial_recovery_rate):
-    return 1 / (((1 - initial_recovery_rate) / (1 - cfg.r_free_recov)) ** (
-                1 / cfg.elasticity_scrap_recovery_rate) - 1)
+    a_recov = 1 / (((1 - initial_recovery_rate) / (1 - cfg.r_free_recov)) ** (
+            1 / cfg.elasticity_scrap_recovery_rate) - 1)
+    return np.maximum(0, a_recov)  # a needs to be positive, rule out cases where r_free > r_0_recov
+
 
 def _get_a_diss(initial_scrap_share_production):
-    return 1 / (((1 - initial_scrap_share_production) / (1 - cfg.r_free_diss)) ** (
-                1 / cfg.elasticity_dissassembly) - 1)
+    a_diss = 1 / (((1 - initial_scrap_share_production) / (1 - cfg.r_free_diss)) **
+                  (1 / cfg.elasticity_dissassembly) - 1)
+    return np.maximum(0, a_diss)  # a needs to be positive, rule out cases where r_free > s_0_se
+    # TODO check for both a's if not rather make r_free always at least as small as initial rate
 
 
 def _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask):

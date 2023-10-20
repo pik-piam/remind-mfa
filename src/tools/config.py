@@ -56,22 +56,21 @@ class Config:
         self.elasticity_dissassembly = -0.8
 
         self.r_free_recov = 0
-        self.r_free_diss = 0.5
+        self.r_free_diss = 0
 
         self.steel_price_change_by_scenario = [0.5, 0.1, 0.2, 0, -0.3]
         # e.g. 0.5 or [50,10,20,0,-30] for all scenarios. 50 e.g. indicates a 50 % increase of the steel
 
-        self.do_change_inflow = True
+        self.do_change_inflow = False
         self.inflow_change_base_year = 2023
         self.inflow_change_by_scenario = [-0.2, 0, 0.1, 0.2, 0.3]
         self.inflow_change_by_category = [-0.2, 0, 0, 0]
 
-        self.do_change_reuse = True
+        self.do_change_reuse = False
         self.reuse_change_base_year = 2023
         self.reuse_change_by_category = [0, 0.2, 0, 0]
         self.reuse_change_by_scenario = 0
         # can be either expressed as float value for all categories or list with individual values
-
 
     def customize(self, config_dict: dict):
         name = config_dict['simulation_name']
@@ -81,10 +80,9 @@ class Config:
                                 'is not registered in the default config definition. '
                                 'Maybe you misspelled it or did not add it to the defaults?')
             setattr(self, prm_name, prm_value)
-        return(self)
+        return self
 
-
-    def generate_yml(self, fpath: str = 'yaml_test_1.yml'):
+    def generate_yml(self, fpath: str = 'yaml_test.yml'):
         with open(fpath, 'w') as f:
             yaml.dump(self.__dict__, f, sort_keys=False)
 
@@ -95,16 +93,6 @@ class Config:
     @property
     def years(self):
         return np.arange(self.start_year, self.end_year + 1)
-
-    @property
-    def a_recov(self):
-        return 1 / (((1 - self.initial_recovery_rate) / (1 - self.r_free_recov)) ** (
-                    1 / self.elasticity_scrap_recovery_rate) - 1)
-
-    @property
-    def a_diss(self):
-        return 1 / (((1 - self.initial_scrap_share_production) / (1 - self.r_free_diss)) ** (
-                    1 / self.elasticity_dissassembly) - 1)
 
     @property
     def econ_start_index(self):
@@ -120,13 +108,11 @@ class Config:
     def price_change_factor(self):
         return 1 + np.array(self._price_change_list())
 
-
     def _inflow_change_category_list(self):
         if isinstance(self.inflow_change_by_category, list):
             return self.inflow_change_by_category
         else:
             return [self.inflow_change_by_category] * len(self.using_categories)
-
 
     def _inflow_change_scenario_list(self):
         if isinstance(self.inflow_change_by_scenario, list):
@@ -134,15 +120,11 @@ class Config:
         else:
             return [self.inflow_change_by_scenario] * len(self.scenarios)
 
-
     @property
     def inflow_change_factor(self):
-        a = self._inflow_change_scenario_list()
-        b = self._inflow_change_category_list()
         return np.einsum('g,s->gs',
                          1 + np.array(self._inflow_change_category_list()),
                          1 + np.array(self._inflow_change_scenario_list()))
-
 
     def _reuse_change_category_list(self):
         if isinstance(self.reuse_change_by_category, list):
@@ -150,19 +132,17 @@ class Config:
         else:
             return [self.reuse_change_by_category] * len(self.using_categories)
 
-
     def _reuse_change_scenario_list(self):
         if isinstance(self.reuse_change_by_scenario, list):
             return self.reuse_change_by_scenario
         else:
             return [self.reuse_change_by_scenario] * len(self.scenarios)
 
-
     @property
     def reuse_factor(self):
-        factor =  np.einsum('g,s->gs',
-                         1 + np.array(self._reuse_change_category_list()),
-                         1 + np.array(self._inflow_change_scenario_list()))
+        factor = np.einsum('g,s->gs',
+                           1 + np.array(self._reuse_change_category_list()),
+                           1 + np.array(self._inflow_change_scenario_list()))
         return np.maximum(1, factor)
         # Reuse factor needs to be at least one, as it is deducted by one later and needs to be positive
 
