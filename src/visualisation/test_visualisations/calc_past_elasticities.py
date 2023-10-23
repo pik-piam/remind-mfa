@@ -1,10 +1,10 @@
 import numpy as np
-from src.model.simson_model import load_simson_model
+from src.model.simson_base_model import load_simson_base_model
 from src.read_data.load_data import load_steel_prices, load_stocks
 import matplotlib.pyplot as plt
 
 def _test():
-    model = load_simson_model(country_specific=False)
+    model = load_simson_base_model(country_specific=False)
     inflow = model.FlowDict['F_2_4'].Values[50:109,0,:,:,0]
     inflow = np.sum(inflow,axis=2)
     prices = load_steel_prices().to_numpy()[0,50:109]

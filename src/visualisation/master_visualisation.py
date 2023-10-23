@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from src.model.simson_model import load_simson_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, USE_PID, \
+from src.model.simson_base_model import load_simson_base_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, USE_PID, \
     SCRAP_PID, RECYCLE_PID, WASTE_PID
 from src.economic_model.simson_econ_model import load_simson_econ_model
 import src.model.model_tools as dynamic_stock_models
@@ -231,7 +231,7 @@ def main():
     if do_use_econ_model:
         main_model = load_simson_econ_model()
     else:
-        main_model = load_simson_model()
+        main_model = load_simson_base_model()
 
     # Options: ['LAM','OAS','SSA','EUR','NEU','MEA','REF','CAZ','CHA','IND','JPN','USA']
     show_total_production = True

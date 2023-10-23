@@ -1,31 +1,31 @@
 import os
 import pandas as pd
 import pickle
+from datetime import datetime
 from simulation.src.load_excel_dicts import load_excel_dicts
 from simulation.src.load_yaml_dicts import load_yaml_dicts
+from src.model.run_simson import run_simson
 from src.tools.config import cfg
-from src.model.simson_model import load_simson_model
-from src.economic_model.simson_econ_model import load_simson_econ_model
 from src.read_data.load_data import load_region_names_list
 from src.visualisation.master_visualisation import get_scrap_share_china_plt, get_production_plt
 
 
 def run_simulations():
-    dicts = _load_dicts()
-    for dict in dicts:
-        _run_and_save_simulation(dict)
+    config_dicts = _load_config_dicts()
+    for config_dict in config_dicts:
+        _run_and_save_simulation(config_dict)
 
 
-def _run_and_save_simulation(dict):
-    sim_name = dict['simulation_name']
-    cfg.customize(dict)
-    # todo change false
-    model = load_simson_econ_model(recalculate=True) if cfg.do_model_economy else load_simson_model(recalculate=True)
+def _run_and_save_simulation(config_dict):
+    sim_name = config_dict['simulation_name']
+    model = run_simson(config_dict)
     _save_simulation(sim_name, model)
 
 
 def _save_simulation(sim_name, model):
-    sim_path = os.path.join('simulation', 'data', sim_name)
+    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+    sim_folder_name = f'{sim_name}_{timestamp}'
+    sim_path = os.path.join('simulation', 'output', sim_folder_name)
     sim_path, data_path, figure_path = _create_simulation_folder_structure(sim_path)
     _save_simulation_model(sim_path, sim_name, model)
     _save_simulation_data(sim_name, model, data_path)
@@ -103,7 +103,11 @@ def _create_simulation_folder_structure(sim_path):
 
 
 def _check_sim_path(sim_path):
-    # folder numbering to index folders
+    """
+    If folder name already exists, index the folder names.
+    Should be unnecessary when using second-specific timestamps
+    in foldernames.
+    """
     while os.path.exists(sim_path):
         pound_location = sim_path.rfind('#')
         if pound_location != -1 and sim_path[-1] != '#':
@@ -116,7 +120,7 @@ def _check_sim_path(sim_path):
 
     return sim_path
 
-def _load_dicts():
+def _load_config_dicts():
     return load_excel_dicts() + load_yaml_dicts()
 
 

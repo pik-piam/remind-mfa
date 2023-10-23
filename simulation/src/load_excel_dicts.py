@@ -1,6 +1,6 @@
 from os.path import join
 import pandas as pd
-from simulation.src.excel_config import Excel_Config
+from src.tools.config import cfg
 
 
 def load_excel_dicts():
@@ -11,6 +11,7 @@ def load_excel_dicts():
 
 
 def _adapt_dicts_config_format(dicts):
+    in_use_categories = [x.lower() for x in cfg.using_categories]
     dict_keys_to_delete = ['steel_price_change_ssp1', 'steel_price_change_ssp2', 'steel_price_change_ssp3',
                            'steel_price_change_ssp4', 'steel_price_change_ssp5', 'do_change_steel_price_by_scenario',
                            'steel_price_change_all_scenarios', 'inflow_change_ssp1', 'inflow_change_ssp2',
@@ -23,43 +24,20 @@ def _adapt_dicts_config_format(dicts):
                            'reuse_change_transport', 'reuse_change_machinery', 'reuse_change_construction',
                            'reuse_change_products', 'do_change_reuse_by_category', 'reuse_change_all_categories']
     for dict in dicts:
-        dict['steel_price_change_by_scenario'] = [
-            dict['steel_price_change_ssp1'],
-            dict['steel_price_change_ssp2'],
-            dict['steel_price_change_ssp3'],
-            dict['steel_price_change_ssp4'],
-            dict['steel_price_change_ssp5'],
-        ] if dict['do_change_steel_price_by_scenario'] else dict['steel_price_change_all_scenarios']
+        dict['steel_price_change_by_scenario'] = [dict[f'steel_price_change_ssp{i}'] for i in range(1,6)] \
+            if dict['do_change_steel_price_by_scenario'] else dict['steel_price_change_all_scenarios']
 
-        dict['inflow_change_by_scenario'] = [
-            dict['inflow_change_ssp1'],
-            dict['inflow_change_ssp2'],
-            dict['inflow_change_ssp3'],
-            dict['inflow_change_ssp4'],
-            dict['inflow_change_ssp5'],
-        ] if dict['do_change_inflow_by_scenario'] else dict['inflow_change_all_scenarios']
+        dict['inflow_change_by_scenario'] = [dict[f'inflow_change_ssp{i}'] for i in range(1,6)] \
+            if dict['do_change_inflow_by_scenario'] else dict['inflow_change_all_scenarios']
 
-        dict['inflow_change_by_category'] = [
-            dict['inflow_change_transport'],
-            dict['inflow_change_machinery'],
-            dict['inflow_change_construction'],
-            dict['inflow_change_products']
-        ] if dict['do_change_inflow_by_category'] else dict['inflow_change_all_categories']
+        dict['inflow_change_by_category'] = [dict[f'inflow_change_{cat}'] for cat in in_use_categories]\
+            if dict['do_change_inflow_by_category'] else dict['inflow_change_all_categories']
 
-        dict['reuse_change_by_scenario'] = [
-            dict['reuse_change_ssp1'],
-            dict['reuse_change_ssp2'],
-            dict['reuse_change_ssp3'],
-            dict['reuse_change_ssp4'],
-            dict['reuse_change_ssp5'],
-        ] if dict['do_change_reuse_by_scenario'] else dict['reuse_change_all_scenarios']
+        dict['reuse_change_by_scenario'] = [dict[f'reuse_change_ssp{i}'] for i in range(1,6)] \
+            if dict['do_change_reuse_by_scenario'] else dict['reuse_change_all_scenarios']
 
-        dict['reuse_change_by_category'] = [
-            dict['reuse_change_transport'],
-            dict['reuse_change_machinery'],
-            dict['reuse_change_construction'],
-            dict['reuse_change_products']
-        ] if dict['do_change_reuse_by_category'] else dict['reuse_change_all_categories']
+        dict['reuse_change_by_category'] = [dict[f'reuse_change_{cat}'] for cat in in_use_categories] \
+            if dict['do_change_reuse_by_category'] else dict['reuse_change_all_categories']
 
         for key in dict_keys_to_delete:
             del dict[key]

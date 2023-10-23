@@ -5,14 +5,14 @@ import warnings
 import numpy as np
 from ODYM.odym.modules import ODYM_Classes as msc
 from ODYM.odym.modules import dynamic_stock_model as dsm
-from src.model.simson_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, USE_PID, \
+from src.model.simson_base_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, USE_PID, \
     SCRAP_PID
 from src.tools.config import cfg
 from src.economic_model.econ_model_tools import get_steel_prices, get_base_scrap_price
 from src.economic_model.load_econ_dsms import load_econ_dsms
 
 
-def load_simson_econ_model(country_specific=False, recalculate=cfg.recalculate_data) -> msc.MFAsystem:
+def load_simson_econ_model(recalculate, recalculate_dsms, country_specific=False) -> msc.MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_economic_model_{file_name_end}.p'
     file_path = os.path.join(cfg.data_path, 'models', file_name)
@@ -20,16 +20,17 @@ def load_simson_econ_model(country_specific=False, recalculate=cfg.recalculate_d
     if do_load_existing:
         model = pickle.load(open(file_path, "rb"))
     else:
-        model = create_economic_model(country_specific, recalculate)
+        model = create_economic_model(country_specific, recalculate_dsms)
         pickle.dump(model, open(file_path, "wb"))
     return model
 
 
-def create_economic_model(country_specific, recalculate):
+def create_economic_model(country_specific, recalculate_dsms):
     #  load data
     p_steel = get_steel_prices()
     p_0_scrap = get_base_scrap_price()
-    dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0], recalculate=recalculate)
+    dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0],
+                          recalculate=recalculate_dsms)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         scrap_share = _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap)

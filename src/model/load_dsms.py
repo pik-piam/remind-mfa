@@ -4,7 +4,7 @@ import numpy as np
 from ODYM.odym.modules import dynamic_stock_model as dsm  # import the dynamic stock model library
 from src.tools.config import cfg
 from src.model.model_tools import calc_change_timeline
-from src.curve.predict_steel import predict
+from src.saturation_curve.predict_steel import predict
 from src.read_data.load_data import load_stocks, load_lifetimes
 
 

@@ -27,7 +27,7 @@ def predict(histdata,satlevel,sattime):
     if(gradient<0.00001): # minimum value (there shouldn't be a negative gradient), value can be changed
         gradient=0.00001
 
-    # calculate parameters for sigmoid curve
+    # calculate parameters for sigmoid saturation_curve
 
     A = satlevel
     B = sattime - 2008

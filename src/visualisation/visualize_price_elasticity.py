@@ -1,5 +1,5 @@
 import numpy as np
-from src.model.simson_model import load_simson_model
+from src.model.simson_base_model import load_simson_base_model
 from src.read_data.load_data import load_steel_prices
 import matplotlib.pyplot as plt
 
@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 def main():
     df_prices = load_steel_prices()
-    model = load_simson_model()
+    model = load_simson_base_model()
     inflow = model.FlowDict['F_2_4'].Values[1:, :, -1, :]  # 2 -> EUR
     prices = df_prices.to_numpy()
     prices = prices.transpose()

@@ -3,7 +3,10 @@ src/*/__pycache__
 data/models/*.p
 data/processed/*.csv
 src/visualisation/test_visualisations/*
-simulation/data/*
+simulation/output/*
+situation/interface/yaml/*
+ODYM/*
 .idea
 ~$*
 *.yml
+*.yaml

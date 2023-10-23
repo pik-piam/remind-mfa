@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from src.tools.config import cfg
-from src.curve.predict_steel import get_stock_prediction_pauliuk_for_pauliuk
+from src.saturation_curve.predict_steel import get_stock_prediction_pauliuk_for_pauliuk
 from src.tools.tools import transform_per_capita
 from src.tools.split_data_into_subregions import split_areas_by_gdp
 

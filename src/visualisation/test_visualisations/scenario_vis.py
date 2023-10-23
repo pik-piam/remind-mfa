@@ -4,7 +4,7 @@ from src.tools.config import cfg
 from src.economic_model.simson_econ_model import load_simson_econ_model
 from src.read_data.load_data import load_gdp, load_pop, load_stocks
 from src.tools.tools import get_np_from_df
-from src.curve.predict_steel import predict
+from src.saturation_curve.predict_steel import predict
 from src.model.load_dsms import load_dsms
 from src.model.model_tools import get_dsm_data
 

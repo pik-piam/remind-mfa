@@ -11,7 +11,7 @@ def predict(df_stocks, country_specific):
     """
     Calculates In-use steel stock per capita data based on GDP pC using approach given in
     config file (e.g. Pauliuk or Pehl).
-    Optionally creates plot to show curve for Germany.
+    Optionally creates plot to show saturation_curve for Germany.
     :return: Steel data for the years 1900-2100, so BOTH present and past using prediction
     approach given in config file.
     """
@@ -68,7 +68,7 @@ def _calc_individual_params(general_params, stock_data, x_0, y_0):
     a_sym = np.maximum(initial_a_sym, high_stock)
     scal = np.tile(general_params[2], a_sym.shape[0]).reshape(a_sym.shape)
     x_mid = ((np.log(a_sym / y_0 - 1) * scal).transpose() + x_0).transpose() * 0.99
-    # make sure curve starts definitely higher than current stock
+    # make sure saturation_curve starts definitely higher than current stock
     final_params = np.array([a_sym, x_mid, scal])
 
     return final_params
@@ -174,7 +174,7 @@ def predict_pauliuk(histdata, region, category):
     if last < 0:
         s0 = 0
 
-    # calculate parameters for sigmoid curve
+    # calculate parameters for sigmoid saturation_curve
 
     a = satlevel
     b = sattime - t0
@@ -206,7 +206,7 @@ def predict_pauliuk(histdata, region, category):
 def main():
     """
     Calculates StockpC/GDPpC function based on approach given in config file (e.g. Pauliuk or Pehl).
-    Optionally creates plot to show curve for Germany.
+    Optionally creates plot to show saturation_curve for Germany.
     :return:
     """
     df_stocks = load_stocks('Mueller', False, True)

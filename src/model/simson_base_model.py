@@ -10,7 +10,7 @@ from src.model.model_tools import get_dsm_data, get_stock_data_country_specific_
 from src.model.load_dsms import load_dsms
 from src.model.calc_trade import get_trade, get_scrap_trade
 
-#  constants
+#  constants: ODYM process IDs
 
 ENV_PID = 0
 BOF_PID = 1
@@ -23,7 +23,7 @@ RECYCLE_PID = 7
 WASTE_PID = 8
 
 
-def load_simson_model(country_specific=False, recalculate=cfg.recalculate_data) -> msc.MFAsystem:
+def load_simson_base_model(country_specific=False, recalculate=False, recalculate_dsms=False) -> msc.MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_model_{file_name_end}.p'
     file_path = os.path.join(cfg.data_path, 'models', file_name)
@@ -31,13 +31,13 @@ def load_simson_model(country_specific=False, recalculate=cfg.recalculate_data) 
     if do_load_existing:
         model = pickle.load(open(file_path, "rb"))
     else:
-        model = create_base_model(country_specific, recalculate)
+        model = create_base_model(country_specific, recalculate_dsms)
         pickle.dump(model, open(file_path, "wb"))
     return model
 
 
-def create_base_model(country_specific, recalculate):
-    dsms = load_dsms(country_specific, recalculate)
+def create_base_model(country_specific, recalculate_dsms):
+    dsms = load_dsms(country_specific, recalculate_dsms)
     model, balance_message = create_model(country_specific, dsms)
     print(balance_message)
     return model
@@ -378,7 +378,7 @@ def main():
     Prints success statements otherwise
     :return: None
     """
-    load_simson_model(country_specific=False, recalculate=True)
+    load_simson_base_model(country_specific=False, recalculate=True)
 
 
 if __name__ == "__main__":
