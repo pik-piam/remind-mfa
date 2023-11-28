@@ -44,7 +44,7 @@ def _test():
     plt.xlabel('Years (y)')
     plt.ylabel('Crude Steel (kT)')
     plt.legend(loc="upper left")
-    plt.title('Comparison of World Steel worldwide production vs Model worldwide inflow In-Use')
+    plt.title('Comparison of World Steel worldwide scaler vs Model worldwide inflow In-Use')
     plt.show()
 
     ws_data = ws_data[:-1]

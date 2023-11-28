@@ -4,7 +4,7 @@ from src.tools.config import cfg
 from src.economic_model.simson_econ_model import load_simson_econ_model
 from src.read_data.load_data import load_gdp, load_pop, load_stocks
 from src.tools.tools import get_np_from_df
-from src.saturation_curve.predict_steel import predict
+from src.model.calc_steel_stocks import get_np_steel_stocks_with_prediction
 from src.model.load_dsms import load_dsms
 from src.model.model_tools import get_dsm_data
 
@@ -23,7 +23,7 @@ def _test_dsm_scenarios_vis():
 
 def _test_stocks_scenario():
     df_stocks = load_stocks(country_specific=False)
-    stocks = predict(df_stocks, country_specific=False)
+    stocks = get_np_steel_stocks_with_prediction(df_stocks, country_specific=False)
 
     for i in range(5):
         stock = stocks[1:, :, :, i]
@@ -40,7 +40,7 @@ def _test_stocks_scenario():
 
 def _test_stocks_per_capita_scenario():
     df_stocks = load_stocks(country_specific=False, per_capita=True)
-    stocks = predict(df_stocks, country_specific=False)
+    stocks = get_np_steel_stocks_with_prediction(df_stocks, country_specific=False)
 
     df_pop = load_pop('KC-Lutz', country_specific=False)
     regions = list(df_pop.index.get_level_values(0).unique())

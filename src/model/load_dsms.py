@@ -4,8 +4,8 @@ import numpy as np
 from ODYM.odym.modules import dynamic_stock_model as dsm  # import the dynamic stock model library
 from src.tools.config import cfg
 from src.model.model_tools import calc_change_timeline
-from src.saturation_curve.predict_steel import predict
-from src.read_data.load_data import load_stocks, load_lifetimes
+from src.model.calc_steel_stocks import get_np_steel_stocks_with_prediction
+from src.read_data.load_data import load_lifetimes, load_region_names_list
 
 
 def load_dsms(country_specific, recalculate=cfg.recalculate_data):
@@ -22,9 +22,9 @@ def load_dsms(country_specific, recalculate=cfg.recalculate_data):
 
 
 def _get_dsms(country_specific):
-    df_stocks = load_stocks(country_specific=country_specific, per_capita=True)
-    stocks_data = predict(df_stocks, country_specific=country_specific)
-    area_names = list(df_stocks.index.get_level_values(0).unique())
+    stocks_data = get_np_steel_stocks_with_prediction(country_specific=country_specific,
+                                                      get_per_capita=True)
+    area_names = load_region_names_list()
     mean, std_dev = load_lifetimes()
 
     if cfg.do_change_inflow:
@@ -33,8 +33,8 @@ def _get_dsms(country_specific):
     dsms = [[[_create_dsm(stocks_data[:, area_idx, cat_idx, scenario_idx],
                           mean[cat_idx], std_dev[cat_idx],
               inflow_change_timeline[:,cat_idx, scenario_idx] if cfg.do_change_inflow else None)
-              for scenario_idx in range(stocks_data.shape[3])]
-              for cat_idx in range(stocks_data.shape[2])]
+              for scenario_idx in range(cfg.n_scenarios)]
+              for cat_idx in range(cfg.n_use_categories)]
               for area_idx, area_name in enumerate(area_names)]
     return dsms
 

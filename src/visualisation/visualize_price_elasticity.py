@@ -14,8 +14,8 @@ def main():
     inflow = np.sum(inflow, axis=2)
     plt.plot(prices[1:], inflow, 'ro')
     plt.xlabel("Prices (98 USD)")
-    plt.ylabel("Steel demand (t/pc)")
-    plt.title("USA steel demand over steel price")
+    plt.ylabel("Steel scaler (t/pc)")
+    plt.title("USA steel scaler over steel price")
     plt.show()
 
 if __name__=='__main__':

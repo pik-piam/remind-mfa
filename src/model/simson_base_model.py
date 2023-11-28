@@ -4,13 +4,14 @@ import os
 import sys
 import pickle
 import csv
-from ODYM.odym.modules import ODYM_Classes as msc
+from ODYM.odym.modules.ODYM_Classes import MFAsystem, Classification, Process, Parameter
+from src.odym_extension.SimDiGraph_MFAsystem import SimDiGraph_MFAsystem
 from src.tools.config import cfg
 from src.model.model_tools import get_dsm_data, get_stock_data_country_specific_areas, calc_change_timeline
 from src.model.load_dsms import load_dsms
-from src.model.calc_trade import get_trade, get_scrap_trade
+from src.model.calc_trade import get_trade, get_scrap_trade, get_indirect_trade
 
-#  constants: ODYM process IDs
+#  constants: MFA System process IDs
 
 ENV_PID = 0
 BOF_PID = 1
@@ -21,9 +22,10 @@ USE_PID = 5
 SCRAP_PID = 6
 RECYCLE_PID = 7
 WASTE_PID = 8
+DISNOTCOL_PID = 9
 
 
-def load_simson_base_model(country_specific=False, recalculate=False, recalculate_dsms=False) -> msc.MFAsystem:
+def load_simson_base_model(country_specific=False, recalculate=False, recalculate_dsms=False) -> MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_model_{file_name_end}.p'
     file_path = os.path.join(cfg.data_path, 'models', file_name)
@@ -79,16 +81,16 @@ def initiate_model(main_model):
 
 
 def set_up_model(regions):
-    model_classification = {'Time': msc.Classification(Name='Time', Dimension='Time', ID=1,
-                                                       Items=cfg.years),
-                            'Element': msc.Classification(Name='Elements', Dimension='Element', ID=2, Items=['Fe']),
-                            'Region': msc.Classification(Name='Regions', Dimension='Region', ID=3, Items=regions),
-                            'Good': msc.Classification(Name='Goods', Dimension='Material', ID=4,
-                                                       Items=cfg.using_categories),
-                            'Waste': msc.Classification(Name='Waste types', Dimension='Material', ID=5,
-                                                        Items=cfg.recycling_categories),
-                            'Scenario': msc.Classification(Name='Scenario', Dimension='Scenario', ID=6,
-                                                           Items=cfg.scenarios)}
+    model_classification = {'Time': Classification(Name='Time', Dimension='Time', ID=1,
+                                                   Items=cfg.years),
+                            'Element': Classification(Name='Elements', Dimension='Element', ID=2, Items=['Fe']),
+                            'Region': Classification(Name='Regions', Dimension='Region', ID=3, Items=regions),
+                            'Good': Classification(Name='Goods', Dimension='Material', ID=4,
+                                                   Items=cfg.using_categories),
+                            'Waste': Classification(Name='Waste types', Dimension='Material', ID=5,
+                                                    Items=cfg.recycling_categories),
+                            'Scenario': Classification(Name='Scenario', Dimension='Scenario', ID=6,
+                                                       Items=cfg.scenarios)}
     model_time_start = cfg.start_year
     model_time_end = cfg.end_year
     index_table = pd.DataFrame({'Aspect': ['Time', 'Element', 'Region', 'Good', 'Waste', 'Scenario'],
@@ -101,17 +103,17 @@ def set_up_model(regions):
                                 'IndexLetter': ['t', 'e', 'r', 'g', 'w', 's']})
     index_table.set_index('Aspect', inplace=True)
 
-    main_model = msc.MFAsystem(Name='World Steel Economy',
-                               Geogr_Scope='World',
-                               Unit='t',
-                               ProcessList=[],
-                               FlowDict={},
-                               StockDict={},
-                               ParameterDict={},
-                               Time_Start=model_time_start,
-                               Time_End=model_time_end,
-                               IndexTable=index_table,
-                               Elements=index_table.loc['Element'].Classification.Items)
+    main_model = SimDiGraph_MFAsystem(Name='World Steel Economy',
+                                      Geogr_Scope='World',
+                                      Unit='t',
+                                      ProcessList=[],
+                                      FlowDict={},
+                                      StockDict={},
+                                      ParameterDict={},
+                                      Time_Start=model_time_start,
+                                      Time_End=model_time_end,
+                                      IndexTable=index_table,
+                                      Elements=index_table.loc['Element'].Classification.Items)
 
     return main_model
 
@@ -120,7 +122,7 @@ def initiate_processes(main_model):
     main_model.ProcessList = []
 
     def add_process(name, p_id):
-        main_model.ProcessList.append(msc.Process(Name=name, ID=p_id))
+        main_model.ProcessList.append(Process(Name=name, ID=p_id))
 
     add_process('Primary Production / Environment', ENV_PID)
     add_process('BF/BOF Production', BOF_PID)
@@ -131,6 +133,7 @@ def initiate_processes(main_model):
     add_process('End of Life', SCRAP_PID)
     add_process('Recycling', RECYCLE_PID)
     add_process('Waste', WASTE_PID)
+    add_process('Dissipative/Not collectable', DISNOTCOL_PID)
 
 
 def initiate_parameters(main_model):
@@ -149,76 +152,79 @@ def initiate_parameters(main_model):
         cullen_list = list(cullen_reader)
         fabrication_yield = [float(line[1]) for line in cullen_list[1:]]
 
-    parameter_dict['Fabrication_Yield'] = msc.Parameter(Name='Fabrication_Yield', ID=0,
-                                                        P_Res=FABR_PID, MetaData=None, Indices='g',
-                                                        Values=np.array(fabrication_yield), Unit='1')
+    parameter_dict['Fabrication_Yield'] = Parameter(Name='Fabrication_Yield', ID=0,
+                                                    P_Res=FABR_PID, MetaData=None, Indices='g',
+                                                    Values=np.array(fabrication_yield), Unit='1')
 
-    parameter_dict['Use-EOL_Distribution'] = msc.Parameter(Name='End-of-Life_Distribution', ID=1, P_Res=USE_PID,
-                                                           MetaData=None, Indices='gw',
-                                                           Values=np.array(use_recycling_params).transpose(), Unit='1')
+    parameter_dict['Use-EOL_Distribution'] = Parameter(Name='End-of-Life_Distribution', ID=1, P_Res=USE_PID,
+                                                       MetaData=None, Indices='gw',
+                                                       Values=np.array(use_recycling_params).transpose(), Unit='1')
 
-    parameter_dict['EOL-Recycle_Distribution'] = msc.Parameter(Name='EOL-Recycle_Distribution', ID=2,
-                                                               P_Res=SCRAP_PID,
-                                                               MetaData=None, Indices='w',
-                                                               Values=np.array(recycling_usable_params), Unit='1')
+    parameter_dict['EOL-Recycle_Distribution'] = Parameter(Name='EOL-Recycle_Distribution', ID=2,
+                                                           P_Res=SCRAP_PID,
+                                                           MetaData=None, Indices='w',
+                                                           Values=np.array(recycling_usable_params), Unit='1')
 
     main_model.ParameterDict = parameter_dict
 
 
 def initiate_flows(main_model):
-    def init_flow(name, from_id, to_id, indices):
-        flow = msc.Flow(Name=name, P_Start=from_id, P_End=to_id, Indices=indices, Values=None)
-        main_model.FlowDict['F_' + str(from_id) + '_' + str(to_id)] = flow
+    main_model.init_flow('iron_bof_production', ENV_PID, BOF_PID, 't,e,r,s')
+    main_model.init_flow('recycling_bof_production', RECYCLE_PID, BOF_PID, 't,e,r,s')
+    main_model.init_flow('bof_production_forming', BOF_PID, FORM_PID, 't,e,r,s')
+    main_model.init_flow('recycling_eaf_production', RECYCLE_PID, EAF_PID, 't,e,r,s')
+    main_model.init_flow('eaf_production_forming', EAF_PID, FORM_PID, 't,e,r,s')
 
-    init_flow('iron_bof_production', ENV_PID, BOF_PID, 't,e,r,s')
-    init_flow('recycling_bof_production', RECYCLE_PID, BOF_PID, 't,e,r,s')
-    init_flow('bof_production_forming', BOF_PID, FORM_PID, 't,e,r,s')
-    init_flow('recycling_eaf_production', RECYCLE_PID, EAF_PID, 't,e,r,s')
-    init_flow('eaf_production_forming', EAF_PID, FORM_PID, 't,e,r,s')
+    main_model.init_flow('forming_fabrication', FORM_PID, FABR_PID, 't,e,r,s')
+    main_model.init_flow('forming_scrap', FORM_PID, SCRAP_PID, 't,e,r,w,s')
+    main_model.init_flow('fabrication_using', FABR_PID, USE_PID, 't,e,r,g,s')
+    main_model.init_flow('fabrication_scrap', FABR_PID, SCRAP_PID, 't,e,r,w,s')
 
-    init_flow('forming_fabrication', FORM_PID, FABR_PID, 't,e,r,s')
-    init_flow('forming_scrap', FORM_PID, SCRAP_PID, 't,e,r,w,s')
-    init_flow('fabrication_using', FABR_PID, USE_PID, 't,e,r,g,s')
-    init_flow('fabrication_scrap', FABR_PID, SCRAP_PID, 't,e,r,w,s')
+    main_model.init_flow('using_reuse', USE_PID, USE_PID, 't,e,r,g,s')
+    main_model.init_flow('using_scrap', USE_PID, SCRAP_PID, 't,e,r,g,w,s')
+    main_model.init_flow('using_disnotcol', USE_PID, DISNOTCOL_PID, 't,e,r,g,w,s')
+    main_model.init_flow('scrap_recycling', SCRAP_PID, RECYCLE_PID, 't,e,r,s')
+    main_model.init_flow('scrap_waste', SCRAP_PID, WASTE_PID, 't,e,r,s')
 
-    init_flow('using_reuse', USE_PID, USE_PID, 't,e,r,g,s')
-    init_flow('using_scrap', USE_PID, SCRAP_PID, 't,e,r,g,w,s')
-    init_flow('using_environment', USE_PID, ENV_PID, 't,e,r,g,w,s')
-    init_flow('scrap_recycling', SCRAP_PID, RECYCLE_PID, 't,e,r,s')
-    init_flow('scrap_waste', SCRAP_PID, WASTE_PID, 't,e,r,s')
-
-    init_flow('imports', ENV_PID, FABR_PID, 't,e,r,s')
-    init_flow('exports', FABR_PID, ENV_PID, 't,e,r,s')
-    init_flow('scrap_imports', ENV_PID, SCRAP_PID, 't,e,r,w,s')
-    init_flow('scrap_exports', SCRAP_PID, ENV_PID, 't,e,r,w,s')
+    main_model.init_flow('imports', ENV_PID, FORM_PID, 't,e,r,s')
+    main_model.init_flow('exports', FORM_PID, ENV_PID, 't,e,r,s')
+    main_model.init_flow('scrap_imports', ENV_PID, SCRAP_PID, 't,e,r,w,s')
+    main_model.init_flow('scrap_exports', SCRAP_PID, ENV_PID, 't,e,r,w,s')
+    main_model.init_flow('indirect_imports', ENV_PID, USE_PID, 't,e,r,g,s')
+    main_model.init_flow('indirect_exports', USE_PID, ENV_PID, 't,e,r,g,s')
 
 
 def initiate_stocks(main_model):
-    # Stocks
-
-    def add_stock(p_id, name, indices, add_change_stock=True):
-        name = name + '_stock'
-        main_model.StockDict['S_' + str(p_id)] = msc.Stock(Name=name, P_Res=p_id, Type=0, Indices=indices,
-                                                           Values=None)
-        if add_change_stock:
-            main_model.StockDict['dS_' + str(p_id)] = msc.Stock(
-                Name=name + "_change",
-                P_Res=p_id, Type=1,
-                Indices=indices, Values=None)
-
-    add_stock(USE_PID, 'in_use', 't,e,r,g,s')
-    add_stock(WASTE_PID, 'waste', 't,e,r,s')
+    main_model.add_stock(USE_PID, 'in_use', 't,e,r,g,s')
+    main_model.add_stock(WASTE_PID, 'waste', 't,e,r,s')
+    main_model.add_stock(DISNOTCOL_PID, 'dissipative/not_collectable', 't,e,r,w,s')
 
 
-def check_consistency(main_model):
+def check_consistency(main_model: MFAsystem):
+    """
+    Uses ODYM consistency checks to see if model dimensions and structure are well
+    defined. Raises RuntimeError if not.
+
+    :param main_model: The MFA System
+    :return:
+    """
     consistency = main_model.Consistency_Check()
     for consistencyCheck in consistency:
         if not consistencyCheck:
             raise RuntimeError("A consistency check failed: " + str(consistency))
 
 
-def compute_flows(model, country_specific,
-                  inflows, outflows, max_scrap_share_in_production):
+def compute_flows(model: MFAsystem, country_specific: bool,
+                  inflows: np.ndarray, outflows: np.ndarray, max_scrap_share_in_production: np.ndarray):
+    """
+
+    :param model: The MFA system
+    :param country_specific:
+    :param inflows:
+    :param outflows:
+    :param max_scrap_share_in_production:
+    :return:
+    """
     use_eol_distribution, eol_recycle_distribution, fabrication_yield = _get_params(model)
 
     reuse = None
@@ -229,19 +235,30 @@ def compute_flows(model, country_specific,
         inflows -= reuse
         outflows -= reuse
 
+    total_demand = np.sum(inflows, axis=2)
+
+    indirect_imports, indirect_exports = get_indirect_trade(country_specific=country_specific,
+                                                            scaler=total_demand,
+                                                            inflows=inflows,
+                                                            outflows=outflows)
+    production_inflows = inflows - indirect_imports
+    eol_outflows = outflows - indirect_exports
+
+    production_demand = np.sum(production_inflows, axis=2)
+
     inverse_fabrication_yield = 1 / fabrication_yield
-    fabrication_by_category = np.einsum('trgs,g->trgs', inflows, inverse_fabrication_yield)
+    fabrication_by_category = np.einsum('trgs,g->trgs', production_inflows, inverse_fabrication_yield)
     fabrication = np.sum(fabrication_by_category, axis=2)
-    demand = np.sum(inflows, axis=2)
-    fabrication_scrap = fabrication - demand
+    fabrication_scrap = fabrication - production_demand
 
-    imports, exports = get_trade(country_specific=country_specific, fabrication_demand=fabrication.transpose())
+    imports, exports = get_trade(country_specific=country_specific, scaler=total_demand)
 
-    forming_fabrication = fabrication - imports + exports
-    production = forming_fabrication * (1 / cfg.forming_yield)
-    forming_scrap = production - forming_fabrication
+    forming_fabrication = fabrication
+    production_plus_trade = forming_fabrication * (1 / cfg.forming_yield)
+    production = production_plus_trade + exports - imports
+    forming_scrap = production_plus_trade - forming_fabrication
 
-    outflows_by_waste = np.einsum('trgs,gw->trgws', outflows, use_eol_distribution)
+    outflows_by_waste = np.einsum('trgs,gw->trgws', eol_outflows, use_eol_distribution)
     use_eol = np.zeros_like(outflows_by_waste)
     use_env = np.zeros_like(outflows_by_waste)
 
@@ -254,11 +271,9 @@ def compute_flows(model, country_specific,
     available_scrap[:, :, cfg.recycling_categories.index('Form'), :] = forming_scrap
     available_scrap[:, :, cfg.recycling_categories.index('Fabr'), :] = fabrication_scrap
 
-    scrap_imports, scrap_exports = get_scrap_trade(country_specific=country_specific, production=production.transpose(),
+    scrap_imports, scrap_exports = get_scrap_trade(country_specific=country_specific, scaler=production,
                                                    available_scrap_by_category=available_scrap)
-    # TODO: Delete, this omits scrap trade
-    # scrap_imports[:] = 0
-    # scrap_exports[:] = 0
+
     total_scrap = available_scrap + scrap_imports - scrap_exports
 
     max_scrap_in_production = production * max_scrap_share_in_production
@@ -279,37 +294,36 @@ def compute_flows(model, country_specific,
     waste = np.sum(total_scrap, axis=2) - scrap_in_production
 
     edit_flows(model, iron_production, scrap_in_bof, bof_production, eaf_production, forming_fabrication, forming_scrap,
-               imports, exports, inflows, reuse, fabrication_scrap, use_eol, use_env, scrap_imports, scrap_exports,
-               scrap_in_production, waste)
+               imports, exports, production_inflows, reuse, fabrication_scrap, use_eol, use_env, scrap_imports,
+               scrap_exports, scrap_in_production, waste, indirect_imports, indirect_exports)
 
     return model
 
 
 def edit_flows(model, iron_production, scrap_in_bof, bof_production, eaf_production, forming_fabrication, forming_scrap,
-               imports, exports, inflows, reuse, fabrication_scrap, use_eol, use_env, scrap_imports, scrap_exports,
-               scrap_in_production, waste):
-    def get_flow(from_id, to_id):
-        return model.FlowDict['F_' + str(from_id) + '_' + str(to_id)].Values
-
-    get_flow(ENV_PID, BOF_PID)[:, 0] = iron_production
-    get_flow(RECYCLE_PID, BOF_PID)[:, 0] = scrap_in_bof
-    get_flow(BOF_PID, FORM_PID)[:, 0] = bof_production
-    get_flow(RECYCLE_PID, EAF_PID)[:, 0] = eaf_production
-    get_flow(EAF_PID, FORM_PID)[:, 0] = eaf_production
-    get_flow(FORM_PID, FABR_PID)[:, 0] = forming_fabrication
-    get_flow(FORM_PID, SCRAP_PID)[:, 0, :, cfg.recycling_categories.index('Form')] = forming_scrap
-    get_flow(ENV_PID, FABR_PID)[:, 0] = imports
-    get_flow(FABR_PID, ENV_PID)[:, 0] = exports
-    get_flow(FABR_PID, USE_PID)[:, 0] = inflows
-    get_flow(FABR_PID, SCRAP_PID)[:, 0, :, cfg.recycling_categories.index('Fabr')] = fabrication_scrap
+               imports, exports, production_inflows, reuse, fabrication_scrap, use_eol, use_env, scrap_imports,
+               scrap_exports, scrap_in_production, waste, indirect_imports, indirect_exports):
+    model.get_flowV(ENV_PID, BOF_PID)[:, 0] = iron_production
+    model.get_flowV(RECYCLE_PID, BOF_PID)[:, 0] = scrap_in_bof
+    model.get_flowV(BOF_PID, FORM_PID)[:, 0] = bof_production
+    model.get_flowV(RECYCLE_PID, EAF_PID)[:, 0] = eaf_production
+    model.get_flowV(EAF_PID, FORM_PID)[:, 0] = eaf_production
+    model.get_flowV(FORM_PID, FABR_PID)[:, 0] = forming_fabrication
+    model.get_flowV(FORM_PID, SCRAP_PID)[:, 0, :, cfg.recycling_categories.index('Form')] = forming_scrap
+    model.get_flowV(ENV_PID, FORM_PID)[:, 0] = imports
+    model.get_flowV(FORM_PID, ENV_PID)[:, 0] = exports
+    model.get_flowV(FABR_PID, USE_PID)[:, 0] = production_inflows
+    model.get_flowV(ENV_PID, USE_PID)[:, 0] = indirect_imports
+    model.get_flowV(USE_PID, ENV_PID)[:, 0] = indirect_exports
+    model.get_flowV(FABR_PID, SCRAP_PID)[:, 0, :, cfg.recycling_categories.index('Fabr')] = fabrication_scrap
     if reuse is not None:
-        get_flow(USE_PID, USE_PID)[:, 0] = reuse
-    get_flow(USE_PID, SCRAP_PID)[:, 0] = use_eol
-    get_flow(USE_PID, ENV_PID)[:, 0] = use_env
-    get_flow(ENV_PID, SCRAP_PID)[:, 0] = scrap_imports
-    get_flow(SCRAP_PID, ENV_PID)[:, 0] = scrap_exports
-    get_flow(SCRAP_PID, RECYCLE_PID)[:, 0] = scrap_in_production
-    get_flow(SCRAP_PID, WASTE_PID)[:, 0] = waste
+        model.get_flowV(USE_PID, USE_PID)[:, 0] = reuse
+    model.get_flowV(USE_PID, SCRAP_PID)[:, 0] = use_eol
+    model.get_flowV(USE_PID, DISNOTCOL_PID)[:, 0] = use_env
+    model.get_flowV(ENV_PID, SCRAP_PID)[:, 0] = scrap_imports
+    model.get_flowV(SCRAP_PID, ENV_PID)[:, 0] = scrap_exports
+    model.get_flowV(SCRAP_PID, RECYCLE_PID)[:, 0] = scrap_in_production
+    model.get_flowV(SCRAP_PID, WASTE_PID)[:, 0] = waste
 
 
 def _get_params(model):
@@ -321,40 +335,28 @@ def _get_params(model):
     return use_eol_distribution, eol_recycle_distribution, fabrication_yield
 
 
-def get_flow(model, from_id, to_id):
-    return model.FlowDict['F_' + str(from_id) + '_' + str(to_id)].Values
-
-
 def _calc_eaf_share_production(scrap_share):
     eaf_share_production = (scrap_share - cfg.scrap_in_BOF_rate) / (1 - cfg.scrap_in_BOF_rate)
     eaf_share_production[eaf_share_production <= 0] = 0
     return eaf_share_production
 
 
-def compute_stocks(main_model, stocks, inflows, outflows):
-    def get_flow(from_id, to_id):
-        return main_model.FlowDict['F_' + str(from_id) + '_' + str(to_id)].Values
-
-    def get_stock(p_id):
-        return main_model.StockDict['S_' + str(p_id)].Values
-
-    def get_stock_change(p_id):
-        return main_model.StockDict['dS_' + str(p_id)].Values
-
-    def calculate_stock_values_from_stock_change(p_id):
-        stock_values = get_stock_change(p_id).cumsum(axis=0)
-        get_stock(p_id)[:] = stock_values
-
-    in_use_stock = get_stock(USE_PID)
-    in_use_stock_change = get_stock_change(USE_PID)
+def compute_stocks(model, stocks, inflows, outflows):
+    in_use_stock = model.get_stockV(USE_PID)
+    in_use_stock_change = model.get_stock_changeV(USE_PID)
     in_use_stock[:, 0, :, :] = stocks
     in_use_stock_change[:, 0, :, :] = inflows - outflows
 
-    inflow_waste = get_flow(SCRAP_PID, WASTE_PID)
-    get_stock_change(WASTE_PID)[:] = inflow_waste
-    calculate_stock_values_from_stock_change(WASTE_PID)
+    inflow_waste = model.get_flowV(SCRAP_PID, WASTE_PID)
+    model.get_stock_changeV(WASTE_PID)[:] = inflow_waste
+    model.calculate_stock_values_from_stock_change(WASTE_PID)
 
-    return main_model
+    inflow_disnotcol = model.get_flowV(USE_PID, DISNOTCOL_PID)
+    inflow_disnotcol = np.sum(inflow_disnotcol, axis=3)
+    model.get_stock_changeV(DISNOTCOL_PID)[:] = inflow_disnotcol
+    model.calculate_stock_values_from_stock_change(DISNOTCOL_PID)
+
+    return model
 
 
 def mass_balance_plausible(main_model):

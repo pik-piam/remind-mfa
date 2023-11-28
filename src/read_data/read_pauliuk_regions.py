@@ -11,5 +11,7 @@ def get_pauliuk_regions():
 
 
 if __name__ == '__main__':
-    df = get_pauliuk_regions()
+    from src.read_data.load_data import load_regions
+    df = load_regions(region_source='Pauliuk')
     print(df)
+    print(df['region'].unique())

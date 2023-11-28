@@ -2,10 +2,13 @@ data/output/*.png
 src/*/__pycache__
 data/models/*.p
 data/processed/*.csv
+data/original/*
 src/visualisation/test_visualisations/*
 simulation/output/*
 situation/interface/yaml/*
 ODYM/*
+docs/*
+docs
 .idea
 ~$*
 *.yml

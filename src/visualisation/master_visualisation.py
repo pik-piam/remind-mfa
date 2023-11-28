@@ -24,7 +24,7 @@ def get_scrap_share_china_plt(main_model):
     plt.legend(cfg.scenarios)
     plt.xlabel("Time (y)")
     plt.ylabel("Scrap/Production (%)")
-    plt.title("China Scrap share of production percent by scenario")
+    plt.title("China Scrap share of scaler percent by scenario")
     return plt
 
 
@@ -39,7 +39,7 @@ def get_production_plt(main_model):
     plt.legend(regions)
     plt.xlabel("Time (y)")
     plt.ylabel("Production t")
-    plt.title("Steel production across regions")
+    plt.title("Steel scaler across regions")
     return plt
 
 
@@ -51,8 +51,8 @@ def show_total_production(main_model, regions_to_use):
         # year 1900 is excluded due to dynamic stock model construction
     plt.legend(regions_to_use)
     plt.xlabel("Time (y)")
-    plt.ylabel("Per capita steel production (t)")
-    plt.title("Per capita steel production in tonnes")
+    plt.ylabel("Per capita steel scaler (t)")
+    plt.title("Per capita steel scaler in tonnes")
     plt.show()
 
 
@@ -63,8 +63,8 @@ def show_primary_stock(main_model, regions_to_use):
         # year 1900 is excluded due to dynamic stock model construction
     plt.legend(regions_to_use)
     plt.xlabel("Time (y)")
-    plt.ylabel("Primary per capita steel production (t)")
-    plt.title("Primary per capita steel production in tonnes")
+    plt.ylabel("Primary per capita steel scaler (t)")
+    plt.title("Primary per capita steel scaler in tonnes")
     plt.show()
 
 
@@ -78,7 +78,7 @@ def show_scrap_share_production(main_model, regions_to_use):
     plt.legend(regions_to_use)
     plt.xlabel("Time (y)")
     plt.ylabel("Scrap/Production (%)")
-    plt.title("Scrap share of production percent")
+    plt.title("Scrap share of scaler percent")
     plt.show()
 
 

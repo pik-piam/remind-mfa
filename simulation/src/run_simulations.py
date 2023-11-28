@@ -65,7 +65,7 @@ def _save_simulation_figures(model, sim_name, figure_path):
     plt_china_scrap_share_scenarios.savefig(scrap_share_fig_path)
 
     plt_production = get_production_plt(model)
-    production_fig_path = _get_fig_path(figure_path, sim_name, 'production')
+    production_fig_path = _get_fig_path(figure_path, sim_name, 'scaler')
     plt_production.savefig(production_fig_path)
 
 

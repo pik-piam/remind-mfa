@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 from src.tools.config import cfg
-from src.saturation_curve.predict_steel import get_stock_prediction_pauliuk_for_pauliuk
 from src.tools.tools import transform_per_capita
 from src.tools.split_data_into_subregions import split_areas_by_gdp
 
@@ -112,21 +111,9 @@ def _read_pauliuk_iso3_map():
 
 def _test():
     from src.read_data.load_data import load_stocks
-    df = load_stocks('IEDatabase', country_specific=True, per_capita=True)
+    df = load_stocks('IEDatabase', country_specific=False, per_capita=True, recalculate=True)
     print(df)
 
 
-def _test2():
-    df_cat = _read_pauliuk_categories_original()
-    df_cat = _clean_pauliuk(df_cat)
-    df_iso = _read_pauliuk_iso3_map()
-    df_cat = _reformat_pauliuk(df_cat, df_iso)
-    print(df_cat)
-    df_cat = df_cat.reset_index().groupby('country').sum()
-    df_agg = _read_pauliuk_aggregated_original()
-    print(df_cat)
-    print(df_agg)
-
-
 if __name__ == "__main__":
-    _test2()
+    _test()

@@ -10,7 +10,7 @@ def get_mueller_country_stocks():
     df_current = _get_current_mueller_stocks()
     df_past = get_past_according_to_gdppc_estimates(df_current)
     df = df_past.merge(df_current, on='country')
-    df = fill_missing_values_linear(df)
+    df = fill_missing_values_linear(df, start_year=1900, end_year=2008)
 
     df = _get_stock_by_subcategory(df)
     df[df<0]=0
@@ -39,7 +39,7 @@ def _get_stock_by_subcategory(df_stocks):
     df_splits = _read_pauliuk_splits()
     df_splits = _normalize_sector_splits(df_splits)
     df_stocks = pd.merge(df_splits, df_stocks, on='country')
-    df_stocks[cfg.years] = df_stocks[cfg.years].multiply(df_stocks['split_value'], axis='index')
+    df_stocks.iloc[:,3:] = df_stocks.iloc[:,3:].multiply(df_stocks['split_value'], axis='index')
     df_stocks = df_stocks.drop(columns=['split_value'])
     df_stocks = df_stocks.set_index(['country', 'category'])
 
@@ -178,7 +178,7 @@ def _read_pauliuk_splits():
 
 def _test():
     from src.read_data.load_data import load_stocks
-    df = load_stocks('Mueller', country_specific=True, per_capita=True)
+    df = load_stocks('Mueller', country_specific=False, per_capita=True, recalculate=True)
     print(df)
 
 

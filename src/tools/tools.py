@@ -14,12 +14,12 @@ def show_and_save(filename_base: str = None):
 def read_processed_data(path):
     df = pd.read_csv(path)
     df = df.set_index(list(df.columns)[0])
-    df = _csv_read_change_years_to_int(df)
+    df = _make_year_column_names_integers(df)
 
     return df
 
 
-def _csv_read_change_years_to_int(df):
+def _make_year_column_names_integers(df):
     columns = df.columns
     start_year_idx = 0
     str_columns = []
@@ -31,16 +31,17 @@ def _csv_read_change_years_to_int(df):
             str_columns.append(columns[start_year_idx])
             start_year_idx += 1
             if start_year_idx > 10:
-                raise RuntimeError('Problem reading csv file: year columns seem to be formatted wrongly.')
+                raise RuntimeError('Problem reading csv file: year columns seem to be formated wrongly.')
     end_year = int(columns[-1])
     new_columns = list(range(start_year, end_year + 1))
     df.columns = pd.Index(str_columns + new_columns)
     return df
 
 
-def fill_missing_values_linear(df):
+def fill_missing_values_linear(df, start_year=cfg.start_year, end_year=cfg.end_year):
+    years = np.arange(start_year, end_year + 1)
     df = df.apply(pd.to_numeric)
-    df = df.reindex(columns=cfg.years)
+    df = df.reindex(columns=years)
     df = df.interpolate(axis=1, limit_direction='both')
     return df
 
@@ -67,6 +68,8 @@ def transform_per_capita(df, total_from_per_capita, country_specific):
 
 
 def group_country_data_to_regions(df_by_country, is_per_capita, data_split_into_categories=False):
+    from src.read_data.load_data import load_regions
+
     grouping_factor = 'region'
     if data_split_into_categories:
         country_index = df_by_country.index
@@ -75,9 +78,15 @@ def group_country_data_to_regions(df_by_country, is_per_capita, data_split_into_
     if is_per_capita:
         df_by_country = transform_per_capita(df_by_country, total_from_per_capita=True, country_specific=True)
     df_by_country = df_by_country.reset_index()
-    from src.read_data.load_data import load_regions
+
     df_regions = load_regions()
     df = pd.merge(df_regions, df_by_country, on='country')
+
+    # TODO DELETE
+    """print('\n\nyiahhahiahodfhoiIOHIOBHojb\n\n')
+    print(df.columns.difference(df.select_dtypes(include='number').columns))
+    print(list(df.loc[:,1971]))"""
+
     df = df.groupby(grouping_factor).sum(numeric_only=False)
     df = df.drop(columns=['country'])
 
