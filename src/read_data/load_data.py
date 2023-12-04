@@ -119,8 +119,13 @@ def load_indirect_trade_2001_2019(country_specific, indirect_trade_source=None, 
                                                                           recalculate=recalculate)
         return df_indirect_imports, df_indirect_exports
     else:
-        raise ValueError(f'{scrap_trade_source} is not a valid (apparent) scrap trade source.')
+        raise ValueError(f'{indirect_trade_source} is not a valid (apparent) scrap trade source.')
     return
+
+
+def load_indirect_trade_category_quantities(country_specific, recalculate=False):
+    df = _load_worldsteel_indirect_trade_category_quantities(country_specific, recalculate)
+    return df
 
 
 def load_lifetimes(lifetime_source=None):
@@ -145,14 +150,14 @@ def load_lifetimes(lifetime_source=None):
 
 def _data_loader(file_base_name, recalculate_function, country_specific,
                  data_stored_per_capita, return_per_capita, data_split_into_categories=False,
-                 recalculate=False):
+                 recalculate=False, is_yearly_data=True):
     file_name_end = '_countries' if country_specific else f'_{cfg.region_data_source}_regions'
     if country_specific is None:
         file_name_end = ""
     file_name = f"{file_base_name}{file_name_end}.csv"
     file_path = os.path.join(cfg.data_path, 'processed', file_name)
     if os.path.exists(file_path) and not recalculate:
-        df = read_processed_data(file_path)
+        df = read_processed_data(file_path, is_yearly_data)
         df = df.reset_index()
         indices = list(df.select_dtypes(include='object'))  # select all columns that aren't numbers
         df = df.set_index(indices)
@@ -341,6 +346,21 @@ def _load_worldsteel_indirect_exports_2001_2019(country_specific, recalculate):
                       return_per_capita=False,
                       recalculate=recalculate)
     return df
+
+
+def _load_worldsteel_indirect_trade_category_quantities(country_specific, recalculate):
+    from src.read_data.read_WorldSteel_indirect_category_shares import \
+        get_worldsteel_net_indirect_trade_category_quantities_2013
+    df = _data_loader(file_base_name='worldsteel_indirect_trade_category_quantities',
+                      recalculate_function=get_worldsteel_net_indirect_trade_category_quantities_2013,
+                      country_specific=country_specific,
+                      data_stored_per_capita=False,
+                      return_per_capita=False,
+                      recalculate=recalculate,
+                      is_yearly_data=False)
+
+    return df
+
 
 
 def _load_pauliuk_regions():

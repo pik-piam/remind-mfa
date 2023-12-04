@@ -1,6 +1,7 @@
 import numpy as np
 from src.saturation_curve.pauliuk_prediction import predict_pauliuk
 from src.saturation_curve.pehl_prediction import predict_pehl
+from src.saturation_curve.duerrwaechter_prediction import predict_duerrwaechter
 from src.read_data.load_data import load_gdp, load_stocks, load_pop
 from src.tools.config import cfg
 from src.tools.tools import get_np_from_df
@@ -36,15 +37,17 @@ def get_np_steel_stocks_with_prediction(country_specific, get_per_capita=False,
 
     df_stocks = load_stocks(country_specific=False, per_capita=True)
     stocks = get_np_from_df(df_stocks, data_split_into_categories=True)
-    stocks = np.moveaxis(stocks, -1, 0)  # change into SIMSON index format trg
+    stocks = np.moveaxis(stocks, -1, 0)  # change into SIMSON index format 'trg'
     print(f'Stocks shape: {stocks.shape}')
     if strategy == "Pehl":
         stocks = predict_pehl(stocks, gdp)
     elif strategy == "Pauliuk":
         stocks = predict_pauliuk(stocks)
+    elif strategy == "Duerrwaechter":
+        stocks = predict_duerrwaechter(stocks, gdp)
     else:
         raise RuntimeError(f"Prediction strategy {strategy} is not defined. "
-                           f"It needs to be either 'Pauliuk' or 'Pehl'.")
+                           f"It needs to be either 'Pauliuk', 'Pehl' or 'Duerrwaechter'.")
 
     if len(stocks.shape)!=4:
         # scenario dimension is missing

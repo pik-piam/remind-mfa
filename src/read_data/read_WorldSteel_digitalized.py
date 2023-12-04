@@ -9,7 +9,7 @@ def get_worldsteel_original(yearbook_filenames, database_filename, skiprows, nro
     df = pd.DataFrame()
 
     for filename in yearbook_filenames:
-        df_decade = _read_worldsteel_yearbook_data(filename)
+        df_decade = read_worldsteel_yearbook_data(filename)
         df_decade = map_iso3_codes(df_decade)
         df = pd.merge(df, df_decade, left_index=True, right_index=True, how='outer')
 
@@ -35,7 +35,7 @@ def read_worldsteel_database_file(filename, skiprows, nrows, usecols):
     return df
 
 
-def _read_worldsteel_yearbook_data(filename : str):
+def read_worldsteel_yearbook_data(filename : str):
     path = os.path.join(WS_DIGITALIZED_PATH, filename)
     df = pd.read_excel(path)
 

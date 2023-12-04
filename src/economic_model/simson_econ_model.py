@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 from ODYM.odym.modules import ODYM_Classes as msc
 from ODYM.odym.modules import dynamic_stock_model as dsm
-from src.model.simson_base_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, USE_PID, \
-    SCRAP_PID
+from src.model.simson_base_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, \
+    USE_PID, SCRAP_PID
 from src.tools.config import cfg
 from src.economic_model.econ_model_tools import get_steel_prices, get_base_scrap_price
 from src.economic_model.load_econ_dsms import load_econ_dsms

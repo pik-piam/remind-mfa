@@ -9,7 +9,9 @@ from src.odym_extension.SimDiGraph_MFAsystem import SimDiGraph_MFAsystem
 from src.tools.config import cfg
 from src.model.model_tools import get_dsm_data, get_stock_data_country_specific_areas, calc_change_timeline
 from src.model.load_dsms import load_dsms
-from src.model.calc_trade import get_trade, get_scrap_trade, get_indirect_trade
+from src.calc_trade.calc_trade import get_trade
+from src.calc_trade.calc_scrap_trade import get_scrap_trade
+from src.calc_trade.calc_indirect_trade import get_indirect_trade
 
 #  constants: MFA System process IDs
 
@@ -241,24 +243,23 @@ def compute_flows(model: MFAsystem, country_specific: bool,
                                                             scaler=total_demand,
                                                             inflows=inflows,
                                                             outflows=outflows)
-    production_inflows = inflows - indirect_imports
-    eol_outflows = outflows - indirect_exports
+    direct_inflows = inflows - indirect_imports + indirect_exports
 
-    production_demand = np.sum(production_inflows, axis=2)
+    direct_demand = np.sum(direct_inflows, axis=2)
 
     inverse_fabrication_yield = 1 / fabrication_yield
-    fabrication_by_category = np.einsum('trgs,g->trgs', production_inflows, inverse_fabrication_yield)
+    fabrication_by_category = np.einsum('trgs,g->trgs', direct_inflows, inverse_fabrication_yield)
     fabrication = np.sum(fabrication_by_category, axis=2)
-    fabrication_scrap = fabrication - production_demand
+    fabrication_scrap = fabrication - direct_demand
 
     imports, exports = get_trade(country_specific=country_specific, scaler=total_demand)
 
     forming_fabrication = fabrication
     production_plus_trade = forming_fabrication * (1 / cfg.forming_yield)
-    production = production_plus_trade + exports - imports
     forming_scrap = production_plus_trade - forming_fabrication
+    production = production_plus_trade + exports - imports
 
-    outflows_by_waste = np.einsum('trgs,gw->trgws', eol_outflows, use_eol_distribution)
+    outflows_by_waste = np.einsum('trgs,gw->trgws', outflows, use_eol_distribution)
     use_eol = np.zeros_like(outflows_by_waste)
     use_env = np.zeros_like(outflows_by_waste)
 
@@ -294,7 +295,7 @@ def compute_flows(model: MFAsystem, country_specific: bool,
     waste = np.sum(total_scrap, axis=2) - scrap_in_production
 
     edit_flows(model, iron_production, scrap_in_bof, bof_production, eaf_production, forming_fabrication, forming_scrap,
-               imports, exports, production_inflows, reuse, fabrication_scrap, use_eol, use_env, scrap_imports,
+               imports, exports, direct_inflows, reuse, fabrication_scrap, use_eol, use_env, scrap_imports,
                scrap_exports, scrap_in_production, waste, indirect_imports, indirect_exports)
 
     return model

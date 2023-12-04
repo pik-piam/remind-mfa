@@ -11,11 +11,11 @@ def show_and_save(filename_base: str = None):
         plt.show()
 
 
-def read_processed_data(path):
+def read_processed_data(path, is_yearly_data=True):
     df = pd.read_csv(path)
     df = df.set_index(list(df.columns)[0])
-    df = _make_year_column_names_integers(df)
-
+    if is_yearly_data:
+        df = _make_year_column_names_integers(df)
     return df
 
 
