@@ -1,5 +1,6 @@
 from src.read_data.read_WorldSteel_digitalized import get_worldsteel_original
 
+
 def get_world_steel_scrap_exports_1970_2022():
     yearbook_scrap_import_filenames = ['scrap_exports_70s.xlsx',
                                        'scrap_exports_80s.xlsx',

@@ -59,7 +59,7 @@ def _read_koch_leimbach_original():
 
 def _test():
     from src.read_data.load_data import load_gdp
-    df = load_gdp('Koch-Leimbach', country_specific=True, per_capita=True)
+    df = load_gdp('Koch-Leimbach', country_specific=False, per_capita=True, recalculate=True)
     print(df)
 
 

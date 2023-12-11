@@ -1,5 +1,4 @@
 import numpy as np
-from src.tools.tools import get_np_from_df
 from src.tools.config import cfg
 from src.read_data.load_data import load_stocks
 

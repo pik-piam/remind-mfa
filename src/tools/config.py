@@ -18,7 +18,7 @@ class Config:
         """
         self.data_path = 'data'
         self.recalculate_data = False
-        self.include_gdp_and_pop_scenarios_in_prediction = False
+        self.include_gdp_and_pop_scenarios_in_prediction = True
 
         self.do_show_figs = True
         self.do_save_figs = True
@@ -27,7 +27,7 @@ class Config:
         self.end_year = 2100
 
         self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl
-        self.steel_data_source = 'Mueller'  # Options: Mueller, IEDatabase
+        self.steel_data_source = 'IEDatabase'  # Options: Mueller, IEDatabase
         self.pop_data_source = 'UN'  # Options: UN, KC-Lutz (only for scenarios)
         self.gdp_data_source = 'IMF'  # Options: IMF, Koch-Leimbach (only for scenarios)
         self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
@@ -35,13 +35,13 @@ class Config:
         self.scrap_price_data_source = 'USGS'  # Options: USGS
         self.production_data_source = 'WorldSteel'  # Options: WorldSteel
         self.use_data_source = 'WorldSteel'  # Options: WorldSteel
-        self.scrap_trade_data_source = 'WorldSteel' # Options: WorldSteel
+        self.scrap_trade_data_source = 'WorldSteel'  # Options: WorldSteel
         self.indirect_trade_source = 'WorldSteel'  # Options: WorldSteel
-        self.lifetime_data_source = 'Pauliuk'  # Options: Wittig, Pauliuk
+        self.lifetime_data_source = 'Wittig'  # Options: Wittig, Pauliuk
 
         self.using_categories = ['Transport', 'Machinery', 'Construction', 'Product']
         self.recycling_categories = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Form', 'Fabr', 'Dis', 'NotCol']
-        self.categories_with_total = ['Transport', 'Machinery', 'Construction', 'Product', 'Total'] # TODO Delete?
+        self.categories_with_total = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']  # TODO Delete?
         self.scenarios = ['SSP1', 'SSP2', 'SSP3', 'SSP4', 'SSP5']
 
         self.n_use_categories = len(self.using_categories)
@@ -49,7 +49,7 @@ class Config:
         self.n_scenarios = len(self.scenarios)
 
         self.exog_eaf_USD98 = 76
-
+        self.default_lifetime_sd_pct_of_mean = 0.3
         # ADAPTABLE PARAMETERS
 
         self.simulation_name = 'SIMSON_Test_1'

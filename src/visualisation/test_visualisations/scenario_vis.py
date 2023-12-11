@@ -4,7 +4,7 @@ from src.tools.config import cfg
 from src.economic_model.simson_econ_model import load_simson_econ_model
 from src.read_data.load_data import load_gdp, load_pop, load_stocks
 from src.tools.tools import get_np_from_df
-from src.model.calc_steel_stocks import get_np_steel_stocks_with_prediction
+from src.predict.calc_steel_stocks import get_np_steel_stocks_with_prediction
 from src.model.load_dsms import load_dsms
 from src.model.model_tools import get_dsm_data
 
@@ -28,7 +28,7 @@ def _test_stocks_scenario():
     for i in range(5):
         stock = stocks[1:, :, :, i]
         stock = np.sum(stock, axis=1)
-        #stock = stock[:,-1] select just US instead of sum above
+        # stock = stock[:,-1] select just US instead of sum above
         stock = np.sum(stock, axis=1)
         plt.plot(np.arange(1901, 2101), stock)
     plt.legend(cfg.scenarios)
@@ -47,12 +47,12 @@ def _test_stocks_per_capita_scenario():
     df_pop = df_pop.sort_index()
     pop = df_pop.to_numpy()
     pop = pop.reshape(int(pop.shape[0] / 5), 5, pop.shape[-1])
-    pop = np.moveaxis(pop,2,0)
+    pop = np.moveaxis(pop, 2, 0)
     stocks = np.sum(stocks, axis=2)
-    stocks_per_capita = stocks/pop
+    stocks_per_capita = stocks / pop
     stocks_per_capita1 = stocks_per_capita[1:]
-    #stocks_per_capita2 = np.sum(stocks_per_capita1, axis=1)/12
-    stocks_per_capita2 = stocks_per_capita1[:,-1,:] # USA
+    # stocks_per_capita2 = np.sum(stocks_per_capita1, axis=1)/12
+    stocks_per_capita2 = stocks_per_capita1[:, -1, :]  # USA
 
     for stock_per_capita in stocks_per_capita2.transpose():
         plt.plot(np.arange(1901, 2101), stock_per_capita)
@@ -99,7 +99,7 @@ def _test_gdp_scenarios():
     regions = list(df_gdp.index.get_level_values(0).unique())
     df_gdp = df_gdp.sort_index()
     gdp = df_gdp.to_numpy()
-    gdp = gdp.reshape(int(gdp.shape[0]/5),5,gdp.shape[-1])
+    gdp = gdp.reshape(int(gdp.shape[0] / 5), 5, gdp.shape[-1])
 
     for r, region_gdp in enumerate(gdp):
         for scenario_gdp in region_gdp:
@@ -110,12 +110,13 @@ def _test_gdp_scenarios():
         plt.title(f"GDPpC of region: {regions[r]}")
         plt.show()
 
+
 def _test_pop_scenarios():
     df_pop = load_pop('KC-Lutz', country_specific=False)
     regions = list(df_pop.index.get_level_values(0).unique())
     df_pop = df_pop.sort_index()
     pop = df_pop.to_numpy()
-    pop = pop.reshape(int(pop.shape[0]/5),5,pop.shape[-1])
+    pop = pop.reshape(int(pop.shape[0] / 5), 5, pop.shape[-1])
 
     for r, region_pop in enumerate(pop):
         for scenario_pop in region_pop:
@@ -127,12 +128,11 @@ def _test_pop_scenarios():
         plt.show()
 
 
-
 if __name__ == '__main__':
-    #_test_dsm_scenarios_vis()
-    #_test_data_scenario_vis()
-    #_test_stocks_scenario()
-    #_test_stocks_per_capita_scenario()
-    #_test_scenario_vis()
+    # _test_dsm_scenarios_vis()
+    # _test_data_scenario_vis()
+    # _test_stocks_scenario()
+    # _test_stocks_per_capita_scenario()
+    # _test_scenario_vis()
     _test_gdp_scenarios()
-    #_test_pop_scenarios()
+    # _test_pop_scenarios()

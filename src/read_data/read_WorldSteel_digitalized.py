@@ -5,6 +5,7 @@ from src.tools.country_mapping import map_iso3_codes, split_joint_country_data, 
 
 WS_DIGITALIZED_PATH = os.path.join(cfg.data_path, 'original', 'worldsteel', 'WS_digitalized')
 
+
 def get_worldsteel_original(yearbook_filenames, database_filename, skiprows, nrows, usecols):
     df = pd.DataFrame()
 
@@ -35,7 +36,7 @@ def read_worldsteel_database_file(filename, skiprows, nrows, usecols):
     return df
 
 
-def read_worldsteel_yearbook_data(filename : str):
+def read_worldsteel_yearbook_data(filename: str):
     path = os.path.join(WS_DIGITALIZED_PATH, filename)
     df = pd.read_excel(path)
 

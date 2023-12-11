@@ -1,6 +1,6 @@
 import numpy as np
 from src.calc_trade.calc_trade_tools import get_trade_category_percentages, \
-    expand_trade_to_past_and_future, get_imports_and_exports_from_net_trade, get_trade_test_data
+    expand_trade_to_past_and_future, get_imports_and_exports_from_net_trade, get_trade_test_data, visualize_trade
 from src.tools.tools import get_np_from_df
 from src.read_data.load_data import load_scrap_trade_1971_2022
 
@@ -86,6 +86,7 @@ def _test():
     scrap_trade = scrap_imports - scrap_exports
 
     print(f'Scrap trade is loaded with shape: {scrap_trade.shape}')
+    visualize_trade(scrap_trade, steel_type='scrap')
 
 
 if __name__=='__main__':

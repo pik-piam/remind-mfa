@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 from numpy import nan
-from src.read_data.read_REMIND_regions import get_REMIND_regions
 from src.tools.config import cfg
 
 
@@ -15,7 +14,7 @@ def get_pop_countries():
     df = df.set_index('country')
     df = df.mul(1000)  # as data is given in thousands, multiply by 1000
 
-    # add past prediction
+    # add past predict
 
     df_1900 = _get_pop_past_prediction(df, df_pop_1900)
     df = pd.merge(df_1900, df, on='country')
@@ -101,21 +100,6 @@ def _read_pop_2022_original():
     df_pop_2022.rename(columns={'ISO3 Alpha-code': 'country'}, inplace=True)
 
     return df_pop_2022
-
-
-# -- HELP FUNCTIONS --
-
-def _group_country_data_to_regions():
-    """
-    Function needs to be seperately implemented (next to tools.py grouping function
-    to avoid circular import error.
-    """
-    df_by_country = _load_un_pop_countries()
-    regions = get_REMIND_regions()
-    df = pd.merge(regions, df_by_country, on='country')
-    df = df.groupby('region').sum(numeric_only=False)
-
-    return df
 
 
 # -- TEST FILE FUNCTION --

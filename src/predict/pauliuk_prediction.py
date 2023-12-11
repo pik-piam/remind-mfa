@@ -5,10 +5,11 @@ import pandas as pd
 from scipy.optimize import newton
 from src.tools.config import cfg
 from src.tools.tools import get_np_from_df
+from src.predict.prediction_tools import split_future_stocks_to_base_year_categories
 
 
-def predict_pauliuk(stock_data, do_subcategory_predictions=True):
-    stocks = stock_data.copy()
+def predict_pauliuk(stocks, do_subcategory_predictions=False):
+    past_stocks_by_category = stocks.copy()
     saturation_params = _read_pauliuk_sat_level_times()
     t_0 = 2008
     t_s = saturation_params[:, -1]
@@ -27,25 +28,21 @@ def predict_pauliuk(stock_data, do_subcategory_predictions=True):
     future_stocks = _calc_pauliuk_stock_curve(s_hat, s_0, t_0, c, d, do_subcategory_predictions)
 
     if np.any(np.iscomplex(future_stocks)):
-        raise RuntimeError('Something went wrong in calculation of future stocks during Pauliuk prediction.'
-                           'An imaginary number arose.')
+        raise RuntimeError(
+            'Something went wrong in calculation of future stocks during Pauliuk predict. '
+            'An imaginary number arose.')
 
     if not do_subcategory_predictions:
-        # Summarised category data needs to split into categoriy data according to 2008 shares.
-        stocks_base_year = stock_data[-1]
-        base_year_category_pctgs = stocks_base_year / np.expand_dims(np.sum(stocks_base_year, axis=-1),axis=1)
-        future_stocks = np.einsum('tr,rs->trs', future_stocks, base_year_category_pctgs)
+        future_stocks = split_future_stocks_to_base_year_categories(past_stocks_by_category, future_stocks)
 
-
-
-    stocks = np.concatenate([stock_data, future_stocks], axis=0)
+    stocks = np.concatenate([past_stocks_by_category, future_stocks], axis=0)
 
     return stocks
 
 
 def _calc_pauliuk_stock_curve(s_hat, s_0, t_0, c, d, do_subcategory_predictions):
-
     cat_letter = 'g' if do_subcategory_predictions else ''
+
     def S(t):
         term_a = np.einsum(f'r{cat_letter},t->tr{cat_letter}', d, t)
 
@@ -68,7 +65,7 @@ def _calc_cd_pauliuk(stocks, S_hat, S_0, t_s, t_0, do_subcategory_predictions):
     l = np.log(l_divident / l_divisor)
 
     gradient_t_0 = np.gradient(stocks, axis=0)[-1]
-    gradient_t_0[gradient_t_0<=0] = 0.001  # gradient needs to be greater than zero to work with the stock curve.
+    gradient_t_0[gradient_t_0 <= 0] = 0.001  # gradient needs to be greater than zero to work with the stock curve.
     # Even Mueller data might have in specific subcategories a negative gradient because of different population
     # develpoment in the countries of a region that has countries with various country-category-splits.
 
@@ -92,6 +89,7 @@ def _calc_cd_pauliuk(stocks, S_hat, S_0, t_s, t_0, do_subcategory_predictions):
         return v ** d * np.log(v) + m
 
     d = newton(f, x0=2 * q, fprime=f_prime)
+
     c = h / d
 
     return c, d
@@ -101,14 +99,21 @@ def _read_pauliuk_sat_level_times():
     directory = os.path.join(cfg.data_path, 'original', 'Pauliuk')
     if cfg.region_data_source == 'REMIND':
         f_name = 'pauliuk_sat_levels_times_REMIND.csv'
-    elif cfg.region_data_source== 'Pauliuk':
+    elif cfg.region_data_source == 'Pauliuk':
         f_name = 'pauliuk_sat_levels_times.csv'
     else:
-        raise RuntimeError(f"Pauliuk stock prediction not defined for region aggregation '{cfg.region_data_source}'. "
-                           f"It needs to be either 'REMIND' or 'Pauliuk'.")
+        raise RuntimeError(
+            f"Pauliuk stock predict not defined for region aggregation '{cfg.region_data_source}'. "
+            f"It needs to be either 'REMIND' or 'Pauliuk'.")
     path = os.path.join(directory, f_name)
     df_sat_levels_times = pd.read_csv(path)
     df_sat_levels_times = df_sat_levels_times.set_index('region')
     df_sat_levels_times = df_sat_levels_times[sorted(df_sat_levels_times.columns)]
     sat_levels_times = get_np_from_df(df_sat_levels_times, data_split_into_categories=False)
     return sat_levels_times
+
+
+if __name__ == "__main__":
+    from src.predict.calc_steel_stocks import test
+
+    test(strategy='Pauliuk', do_visualize=True)

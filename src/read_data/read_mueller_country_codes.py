@@ -9,6 +9,7 @@ def load_country_names_and_codes():
 
     return df
 
+
 if __name__ == '__main__':
     df = load_country_names_and_codes()
     print(df)

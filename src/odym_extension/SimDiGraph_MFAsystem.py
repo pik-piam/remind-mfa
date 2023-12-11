@@ -1,6 +1,7 @@
 import numpy as np
 from ODYM.odym.modules.ODYM_Classes import MFAsystem, Flow, Stock
 
+
 class SimDiGraph_MFAsystem(MFAsystem):
     """
     An adoption of the ODYM MFA system where flows are defined by their start and end processes rather than

@@ -31,7 +31,7 @@ def _calc_individual_params(general_params, stock_data, x_0, y_0):
     a_sym = np.maximum(initial_a_sym, high_stock)
     scal = np.tile(general_params[2], a_sym.shape[0]).reshape(a_sym.shape)
     x_mid = ((np.log(a_sym / y_0 - 1) * scal).transpose() + x_0).transpose() * 0.99
-    # make sure saturation_curve starts definitely higher than current stock
+    # make sure predict starts definitely higher than current stock
     final_params = np.array([a_sym, x_mid, scal])
 
     return final_params
@@ -49,11 +49,12 @@ def _calc_initial_params(stock_data, gdp_data):
     x_mid_estimate = (high_gdp - low_gdp) / 2
 
     x_mid_estimate = np.broadcast_to(np.expand_dims(x_mid_estimate, axis=1), a_sym_estimate.shape)
-    scal_estimate = np.einsum('r,rg->rg',(high_gdp - low_gdp), 1/(high_stock - low_stock))
+    scal_estimate = np.einsum('r,rg->rg', (high_gdp - low_gdp), 1 / (high_stock - low_stock))
 
     param_estimate = np.array([a_sym_estimate, x_mid_estimate, scal_estimate])
     final_params = np.array(
-        [least_squares(func, param_estimate[:, :, i].flatten(), args=(gdp_data.flatten(), stock_data[:, :, i].flatten())).x for i in
+        [least_squares(func, param_estimate[:, :, i].flatten(),
+                       args=(gdp_data.flatten(), stock_data[:, :, i].flatten())).x for i in
          range(cfg.n_use_categories)])  # scenario doesn't matter as all are the same until the beginning of the century
 
     return final_params.transpose()
@@ -74,3 +75,9 @@ def _pehl_prime(params, gdp_pc):
     x = np.exp((x_mid - gdp_pc) / scal)
     pehl_prime = a_sym * x / (scal * (1 + x))
     return pehl_prime
+
+
+if __name__ == "__main__":
+    from src.predict.calc_steel_stocks import test
+
+    test(strategy='Pehl', do_visualize=True)

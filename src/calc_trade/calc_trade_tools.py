@@ -1,5 +1,7 @@
 import numpy as np
 from src.tools.config import cfg
+from matplotlib import pyplot as plt
+from src.read_data.load_data import load_region_names_list
 
 
 def get_trade_category_percentages(trade_data, category_axis):
@@ -42,7 +44,6 @@ def expand_trade_to_past_and_future(trade, scaler, first_available_year, last_av
     # calc data before and after available data according to scaler
     before_trade = _scale_trade_via_trade_factor(do_before=True)
     after_trade = _scale_trade_via_trade_factor(do_before=False)
-
     # concatenate pieces
     trade = np.concatenate((before_trade, trade, after_trade), axis=0)
 
@@ -52,7 +53,7 @@ def expand_trade_to_past_and_future(trade, scaler, first_available_year, last_av
 def get_imports_and_exports_from_net_trade(net_trade):
     imports = np.maximum(net_trade, 0)
     exports = np.minimum(net_trade, 0)
-    exports[exports < 0] *= -1
+    exports[exports < 0] *= -1  # to ensure non negative zeros
     return imports, exports
 
 
@@ -78,3 +79,22 @@ def get_trade_test_data(country_specific):
                                          axis=2)
 
     return production, demand, available_scrap_by_category
+
+
+def visualize_trade(trade, steel_type):
+    # only use SSP2 data
+    trade = np.moveaxis(trade, -1, 0)
+    trade = trade[1]
+    # sum over all axis except time (so sum over category data if it exists)
+    while(len(trade.shape)>2):
+        trade = np.sum(trade, axis=-1)
+
+    regions = load_region_names_list()
+    years = cfg.years
+    for i, region in enumerate(regions):
+        plt.plot(years, trade[:,i])
+    plt.legend(regions)
+    plt.title(f'Development of {steel_type} trade of steel across world regions.')
+    plt.xlabel('Time (y)')
+    plt.ylabel('Steel (t)')
+    plt.show()

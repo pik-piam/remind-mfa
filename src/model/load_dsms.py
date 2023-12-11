@@ -4,7 +4,7 @@ import numpy as np
 from ODYM.odym.modules import dynamic_stock_model as dsm  # import the dynamic stock model library
 from src.tools.config import cfg
 from src.model.model_tools import calc_change_timeline
-from src.model.calc_steel_stocks import get_np_steel_stocks_with_prediction
+from src.predict.calc_steel_stocks import get_np_steel_stocks_with_prediction
 from src.read_data.load_data import load_lifetimes, load_region_names_list
 
 
@@ -32,10 +32,10 @@ def _get_dsms(country_specific):
 
     dsms = [[[_create_dsm(stocks_data[:, area_idx, cat_idx, scenario_idx],
                           mean[cat_idx], std_dev[cat_idx],
-              inflow_change_timeline[:,cat_idx, scenario_idx] if cfg.do_change_inflow else None)
+                          inflow_change_timeline[:, cat_idx, scenario_idx] if cfg.do_change_inflow else None)
               for scenario_idx in range(cfg.n_scenarios)]
-              for cat_idx in range(cfg.n_use_categories)]
-              for area_idx, area_name in enumerate(area_names)]
+             for cat_idx in range(cfg.n_use_categories)]
+            for area_idx, area_name in enumerate(area_names)]
     return dsms
 
 
@@ -53,7 +53,7 @@ def _create_dsm(stocks, lifetime, st_dev, inflow_change=None):
 
     if inflow_change is not None:
         inflows = steel_stock_dsm.i
-        inflows = np.einsum('t,t->t', inflows, inflow_change)
+        inflows = np.einsum('t,t->t', inflows, inflow_change)  # TODO just normal multiplication?
         steel_stock_dsm = dsm.DynamicStockModel(t=time,
                                                 i=inflows,
                                                 lt={'Type': 'Normal', 'Mean': [lifetime],
@@ -76,7 +76,7 @@ def check_steel_stock_dsm(steel_stock_dsm):
 
 
 def _test():
-    dsms = load_dsms(False, recalculate=True)
+    dsms = load_dsms(country_specific=False, recalculate=True)
     print(dsms)
 
 

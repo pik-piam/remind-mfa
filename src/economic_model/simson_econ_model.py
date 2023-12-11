@@ -32,6 +32,7 @@ def create_economic_model(country_specific, recalculate_dsms):
     dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0],
                           recalculate=recalculate_dsms)
     with warnings.catch_warnings():
+        # TODO really necessary? -> check what's the problem
         warnings.simplefilter('ignore')
         scrap_share = _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap)
     econ_model, balance_message = create_model(country_specific=country_specific,
@@ -50,10 +51,10 @@ def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
     p_0_steel = p_st[0]
     p_0_diss = p_0_steel - p_0_scrap - cfg.exog_eaf_USD98
     e_diss = cfg.elasticity_dissassembly
-    q_0_bof = _get_flow_values(interim_model, BOF_PID, FORM_PID)[cfg.econ_start_index:, 0]
-    q_0_eaf = _get_flow_values(interim_model, EAF_PID, FORM_PID)[cfg.econ_start_index:, 0]
+    q_0_bof = interim_model.get_flowV(BOF_PID, FORM_PID)[cfg.econ_start_index:, 0]
+    q_0_eaf = interim_model.get_flowV(EAF_PID, FORM_PID)[cfg.econ_start_index:, 0]
     q_0_st = q_0_bof + q_0_eaf
-    q_0_sest = _get_flow_values(interim_model, SCRAP_PID, RECYCLE_PID)[cfg.econ_start_index:, 0]
+    q_0_sest = interim_model.get_flowV(SCRAP_PID, RECYCLE_PID)[cfg.econ_start_index:, 0]
     s_0_se = q_0_sest / q_0_st
     r_0_recov = q_0_sest / q_eol
     a_recov = _get_a_recov(r_0_recov)
@@ -137,20 +138,16 @@ def _calc_q_st(dsms):
 
 
 def _calc_q_eol(interim_model):
-    form_scrap_inflow = _get_flow_values(interim_model, FORM_PID, SCRAP_PID)
-    fabr_scrap_inflow = _get_flow_values(interim_model, FABR_PID, SCRAP_PID)
-    eol_scrap_inflow = _get_flow_values(interim_model, USE_PID, SCRAP_PID)
-    scrap_exports = _get_flow_values(interim_model, SCRAP_PID, ENV_PID)
-    scrap_imports = _get_flow_values(interim_model, ENV_PID, SCRAP_PID)
+    form_scrap_inflow = interim_model.get_flowV(FORM_PID, SCRAP_PID)
+    fabr_scrap_inflow = interim_model.get_flowV(FABR_PID, SCRAP_PID)
+    eol_scrap_inflow = interim_model.get_flowV(USE_PID, SCRAP_PID)
+    scrap_exports = interim_model.get_flowV(SCRAP_PID, ENV_PID)
+    scrap_imports = interim_model.get_flowV(ENV_PID, SCRAP_PID)
 
     scrap_inflow = np.sum(eol_scrap_inflow, axis=3) + form_scrap_inflow + fabr_scrap_inflow
     q_eol = scrap_inflow + scrap_imports - scrap_exports
     q_eol = np.sum(q_eol, axis=3)
     return q_eol[cfg.econ_start_index:, 0]
-
-
-def _get_flow_values(model, from_id, to_id):
-    return model.FlowDict['F_' + str(from_id) + '_' + str(to_id)].Values
 
 
 def _create_dsm(inflow, lifetime, st_dev):
@@ -164,7 +161,7 @@ def _create_dsm(inflow, lifetime, st_dev):
 
 
 def _test():
-    load_simson_econ_model(country_specific=False, recalculate=True)
+    load_simson_econ_model(country_specific=False, recalculate_dsms=False, recalculate=True)
 
 
 if __name__ == '__main__':

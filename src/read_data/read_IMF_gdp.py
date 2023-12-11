@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from src.tools.config import cfg
 from src.tools.tools import fill_missing_values_linear, transform_per_capita
-from src.read_data.read_REMIND_regions import get_REMIND_regions
+from src.read_data.read_REMIND_regions import get_remind_regions
 
 
 def get_imf_gdp_countries():
@@ -27,7 +27,7 @@ def get_past_according_to_gdppc_estimates(df_current):
 
 
 def _get_past_percentages_by_country(df_region_percentages):
-    regions = get_REMIND_regions()
+    regions = get_remind_regions()
     df = pd.merge(regions.reset_index(), df_region_percentages, on='region')
     df = df.set_index('country')
     df = df.drop('region', axis=1)

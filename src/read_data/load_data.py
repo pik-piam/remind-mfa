@@ -35,7 +35,9 @@ def load_gdp(gdp_source=None, country_specific=False, per_capita=True, recalcula
     if gdp_source == 'IMF':
         return _load_imf_gdp(country_specific=country_specific, per_capita=per_capita, recalculate=recalculate)
     elif gdp_source == 'Koch-Leimbach':
-        return _load_koch_leimbach_gdp(country_specific=country_specific, per_capita=per_capita, recalculate=recalculate)
+        return _load_koch_leimbach_gdp(country_specific=country_specific,
+                                       per_capita=per_capita,
+                                       recalculate=recalculate)
     else:
         raise ValueError(f'{gdp_source} is not a valid GDP data source.')
 
@@ -120,7 +122,6 @@ def load_indirect_trade_2001_2019(country_specific, indirect_trade_source=None, 
         return df_indirect_imports, df_indirect_exports
     else:
         raise ValueError(f'{indirect_trade_source} is not a valid (apparent) scrap trade source.')
-    return
 
 
 def load_indirect_trade_category_quantities(country_specific, recalculate=False):
@@ -132,6 +133,27 @@ def load_lifetimes(lifetime_source=None):
     # TODO make real lifetime load functions with recalculate!
     if lifetime_source is None:
         lifetime_source = cfg.lifetime_data_source
+    if lifetime_source == 'Wittig':
+        lifetime_path = os.path.join(cfg.data_path, 'original', 'Wittig', 'Wittig_lifetimes.csv')
+    elif lifetime_source == 'Pauliuk':
+        lifetime_path = os.path.join(cfg.data_path, 'original', 'Pauliuk', 'Pauliuk_lifetimes.csv')
+    else:
+        raise ValueError(f'{lifetime_source} is not a valid lifetime data source.')
+    df = pd.read_csv(lifetime_path)
+    df = df.set_index('category')
+    mean = df['Mean'].to_numpy()
+    std_dev = df['Standard Deviation'].to_numpy()
+    return mean, std_dev
+
+
+def load_lifetimes_beta(lifetime_source=None):
+    # TODO Finish different lifetime load functions, replace
+    if lifetime_source is None:
+        lifetime_source = cfg.lifetime_data_source
+    if lifetime_source == 'Pauliuk_c':
+        from src.read_data.read_pauliuk_lifetimes_approach_c import get_pauliuk_lifetimes_approach_c
+        df = get_pauliuk_lifetimes_approach_c()
+        return
     if lifetime_source == 'Wittig':
         lifetime_path = os.path.join(cfg.data_path, 'original', 'Wittig', 'Wittig_lifetimes.csv')
     elif lifetime_source == 'Pauliuk':
@@ -167,9 +189,10 @@ def _data_loader(file_base_name, recalculate_function, country_specific,
         else:  # region specific
             df = _data_loader(file_base_name, recalculate_function, country_specific=True,
                               data_stored_per_capita=data_stored_per_capita,
-                              return_per_capita=return_per_capita,
+                              return_per_capita=data_stored_per_capita,
                               data_split_into_categories=data_split_into_categories,
-                              recalculate=recalculate)
+                              recalculate=recalculate,
+                              is_yearly_data=is_yearly_data)
             df = group_country_data_to_regions(df, is_per_capita=data_stored_per_capita,
                                                data_split_into_categories=data_split_into_categories)
         df.to_csv(file_path)
@@ -362,17 +385,16 @@ def _load_worldsteel_indirect_trade_category_quantities(country_specific, recalc
     return df
 
 
-
 def _load_pauliuk_regions():
     from src.read_data.read_pauliuk_regions import get_pauliuk_regions
     return get_pauliuk_regions()
 
 
 def _load_remind_regions():
-    from src.read_data.read_REMIND_regions import get_REMIND_regions
-    return get_REMIND_regions()
+    from src.read_data.read_REMIND_regions import get_remind_regions
+    return get_remind_regions()
 
 
 def _load_remind_eu_regions():
-    from src.read_data.read_REMIND_regions import get_REMIND_EU_regions
-    return get_REMIND_EU_regions()
+    from src.read_data.read_REMIND_regions import get_remind_eu_regions
+    return get_remind_eu_regions()

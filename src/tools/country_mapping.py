@@ -6,18 +6,10 @@ from src.tools.config import cfg
 from src.read_data.load_data import load_gdp
 
 
-def _read_iso3_csv(filename: str) -> pd.DataFrame:
-    """
-    Reads any file containing iso3 name maps from the iso3 codes directory in data/original as a Data Frame.
-
-    :param filename: Just the filename (with or without '.csv' extension)
-    :return: The iso3 name map as a pd.DataFrame
-    """
-    if filename[-4:] != '.csv':
-        filename = f'{filename}.csv'
-    iso3_csv_path = os.path.join(cfg.data_path, 'original', 'iso3_codes', filename)
-    df = pd.read_csv(iso3_csv_path)
-
+def map_split_join_iso3(df, country_name_column: str = 'country_name') -> pd.DataFrame:
+    df = map_iso3_codes(df, country_name_column)
+    df = split_joint_country_data(df)
+    df = join_split_country_data(df)
     return df
 
 
@@ -35,6 +27,21 @@ def map_iso3_codes(df: pd.DataFrame, country_name_column: str = 'country_name') 
     df = pd.merge(df_iso3, df, left_on='country_name', right_on=country_name_column)
     df = df.drop(columns=['country_name', country_name_column])
     df = df.set_index('country')
+
+    return df
+
+
+def _read_iso3_csv(filename: str) -> pd.DataFrame:
+    """
+    Reads any file containing iso3 name maps from the iso3 codes directory in data/original as a Data Frame.
+
+    :param filename: Just the filename (with or without '.csv' extension)
+    :return: The iso3 name map as a pd.DataFrame
+    """
+    if filename[-4:] != '.csv':
+        filename = f'{filename}.csv'
+    iso3_csv_path = os.path.join(cfg.data_path, 'original', 'iso3_codes', filename)
+    df = pd.read_csv(iso3_csv_path)
 
     return df
 
@@ -117,7 +124,23 @@ def split_joint_country_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def join_split_country_data(df : pd.DataFrame) -> pd.DataFrame:
+def split_joint_country_data_for_parameters(df):
+    # prepare new countries data
+    df_new_countries = pd.merge(df_split_map, df, left_on='joint_country_name', right_on='country')
+    df_new_countries = df_new_countries.drop(columns=['joint_country_name'])
+    df_new_countries = df_new_countries.set_index('country')
+
+    # delete old country data
+    df = df[~df.index.isin(df_split_map['joint_country_name'])]
+
+    # append new countries data
+    df = pd.concat([df, df_new_countries])
+    df = df.sort_index()
+
+    return df
+
+
+def join_split_country_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Joins formerly split country data in DataFrame into now merged country by adding all parts together.
     These areas need to be mapped in iso3_countries_to_join.csv in data/original/iso3_codes.
