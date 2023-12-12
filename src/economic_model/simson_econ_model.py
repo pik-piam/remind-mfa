@@ -3,8 +3,8 @@ import pickle
 from scipy.optimize import newton
 import warnings
 import numpy as np
-from ODYM.odym.modules import ODYM_Classes as msc
 from ODYM.odym.modules import dynamic_stock_model as dsm
+from src.odym_extension.SimDiGraph_MFAsystem import SimDiGraph_MFAsystem
 from src.model.simson_base_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, \
     USE_PID, SCRAP_PID
 from src.tools.config import cfg
@@ -12,7 +12,7 @@ from src.economic_model.econ_model_tools import get_steel_prices, get_base_scrap
 from src.economic_model.load_econ_dsms import load_econ_dsms
 
 
-def load_simson_econ_model(recalculate, recalculate_dsms, country_specific=False) -> msc.MFAsystem:
+def load_simson_econ_model(recalculate=False, recalculate_dsms=False, country_specific=False) -> SimDiGraph_MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_economic_model_{file_name_end}.p'
     file_path = os.path.join(cfg.data_path, 'models', file_name)

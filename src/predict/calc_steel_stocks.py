@@ -21,7 +21,7 @@ def get_np_steel_stocks_with_prediction(country_specific, get_per_capita=False,
     if country_specific:
         raise RuntimeError('Prediction strategy not defined for country_specific level.')  # TODO decide
 
-    pop = _get_np_pop_data(country_specific, include_gdp_and_pop_scenarios)
+    pop = get_np_pop_data(country_specific, include_gdp_and_pop_scenarios)
     gdp = _get_np_gdp_data(country_specific, include_gdp_and_pop_scenarios)
     stocks = _get_np_old_stocks_data(country_specific)
 
@@ -52,7 +52,7 @@ def _get_np_old_stocks_data(country_specific):
     return stocks
 
 
-def _get_np_pop_data(country_specific, include_gdp_and_pop_scenarios):
+def get_np_pop_data(country_specific, include_gdp_and_pop_scenarios):
     pop_source = 'KC-Lutz' if include_gdp_and_pop_scenarios else cfg.pop_data_source
     df_pop = load_pop(pop_source, country_specific=country_specific)
     pop = df_pop.to_numpy()

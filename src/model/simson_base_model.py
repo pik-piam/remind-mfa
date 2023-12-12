@@ -9,6 +9,7 @@ from src.odym_extension.SimDiGraph_MFAsystem import SimDiGraph_MFAsystem
 from src.tools.config import cfg
 from src.model.model_tools import get_dsm_data, get_stock_data_country_specific_areas, calc_change_timeline
 from src.model.load_dsms import load_dsms
+from src.model.load_params import get_cullen_fabrication_yield, get_wittig_distributions
 from src.calc_trade.calc_trade import get_trade
 from src.calc_trade.calc_scrap_trade import get_scrap_trade
 from src.calc_trade.calc_indirect_trade import get_indirect_trade
@@ -27,7 +28,7 @@ WASTE_PID = 8
 DISNOTCOL_PID = 9
 
 
-def load_simson_base_model(country_specific=False, recalculate=False, recalculate_dsms=False) -> MFAsystem:
+def load_simson_base_model(country_specific=False, recalculate=False, recalculate_dsms=False) -> SimDiGraph_MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
     file_name = f'main_model_{file_name_end}.p'
     file_path = os.path.join(cfg.data_path, 'models', file_name)
@@ -49,11 +50,7 @@ def create_base_model(country_specific, recalculate_dsms):
 
 def create_model(country_specific, dsms, scrap_share_in_production=None):
     n_regions = len(dsms)
-    n_scenarions = len(dsms[0][0])
-    max_scrap_share_in_production = np.ones(
-        [cfg.n_years, n_regions, n_scenarions]) * cfg.max_scrap_share_production_base_model
-    if scrap_share_in_production is not None:
-        max_scrap_share_in_production[cfg.econ_start_index:, :] = scrap_share_in_production
+    max_scrap_share_in_production = _calc_max_scrap_share(scrap_share_in_production, n_regions)
     # load data
     areas = get_stock_data_country_specific_areas(country_specific)
     main_model = set_up_model(areas)
@@ -88,7 +85,7 @@ def set_up_model(regions):
                             'Element': Classification(Name='Elements', Dimension='Element', ID=2, Items=['Fe']),
                             'Region': Classification(Name='Regions', Dimension='Region', ID=3, Items=regions),
                             'Good': Classification(Name='Goods', Dimension='Material', ID=4,
-                                                   Items=cfg.using_categories),
+                                                   Items=cfg.in_use_categories),
                             'Waste': Classification(Name='Waste types', Dimension='Material', ID=5,
                                                     Items=cfg.recycling_categories),
                             'Scenario': Classification(Name='Scenario', Dimension='Scenario', ID=6,
@@ -141,18 +138,8 @@ def initiate_processes(main_model):
 def initiate_parameters(main_model):
     parameter_dict = {}
 
-    wittig_path = os.path.join(cfg.data_path, 'original', 'Wittig', 'Wittig_matrix.csv')
-    with open(wittig_path) as csv_file:
-        wittig_reader = csv.reader(csv_file, delimiter=',')
-        wittig_list = list(wittig_reader)
-        use_recycling_params = [[float(num) for num in line[1:-1]] for line in wittig_list[1:]]
-        recycling_usable_params = [float(line[-1]) for line in wittig_list[1:]]
-
-    cullen_path = os.path.join(cfg.data_path, 'original', 'cullen', 'cullen_fabrication_yield_matrix.csv')
-    with open(cullen_path) as csv_file:
-        cullen_reader = csv.reader(csv_file, delimiter=',')
-        cullen_list = list(cullen_reader)
-        fabrication_yield = [float(line[1]) for line in cullen_list[1:]]
+    use_recycling_params, recycling_usable_params = get_wittig_distributions()
+    fabrication_yield = get_cullen_fabrication_yield()
 
     parameter_dict['Fabrication_Yield'] = Parameter(Name='Fabrication_Yield', ID=0,
                                                     P_Res=FABR_PID, MetaData=None, Indices='g',
@@ -171,29 +158,29 @@ def initiate_parameters(main_model):
 
 
 def initiate_flows(main_model):
-    main_model.init_flow('iron_bof_production', ENV_PID, BOF_PID, 't,e,r,s')
-    main_model.init_flow('recycling_bof_production', RECYCLE_PID, BOF_PID, 't,e,r,s')
-    main_model.init_flow('bof_production_forming', BOF_PID, FORM_PID, 't,e,r,s')
-    main_model.init_flow('recycling_eaf_production', RECYCLE_PID, EAF_PID, 't,e,r,s')
-    main_model.init_flow('eaf_production_forming', EAF_PID, FORM_PID, 't,e,r,s')
+    main_model.init_flow('Iron production - BOF production', ENV_PID, BOF_PID, 't,e,r,s')
+    main_model.init_flow('Recycling - BOF production', RECYCLE_PID, BOF_PID, 't,e,r,s')
+    main_model.init_flow('BOF production - Forming', BOF_PID, FORM_PID, 't,e,r,s')
+    main_model.init_flow('Recycling - EAF production', RECYCLE_PID, EAF_PID, 't,e,r,s')
+    main_model.init_flow('EAF production - Forming', EAF_PID, FORM_PID, 't,e,r,s')
 
-    main_model.init_flow('forming_fabrication', FORM_PID, FABR_PID, 't,e,r,s')
-    main_model.init_flow('forming_scrap', FORM_PID, SCRAP_PID, 't,e,r,w,s')
-    main_model.init_flow('fabrication_using', FABR_PID, USE_PID, 't,e,r,g,s')
-    main_model.init_flow('fabrication_scrap', FABR_PID, SCRAP_PID, 't,e,r,w,s')
+    main_model.init_flow('Forming - Fabrication', FORM_PID, FABR_PID, 't,e,r,s')
+    main_model.init_flow('Forming - Scrap', FORM_PID, SCRAP_PID, 't,e,r,w,s')
+    main_model.init_flow('Fabrication - In-Use', FABR_PID, USE_PID, 't,e,r,g,s')
+    main_model.init_flow('Fabrication - Scrap', FABR_PID, SCRAP_PID, 't,e,r,w,s')
 
-    main_model.init_flow('using_reuse', USE_PID, USE_PID, 't,e,r,g,s')
-    main_model.init_flow('using_scrap', USE_PID, SCRAP_PID, 't,e,r,g,w,s')
-    main_model.init_flow('using_disnotcol', USE_PID, DISNOTCOL_PID, 't,e,r,g,w,s')
-    main_model.init_flow('scrap_recycling', SCRAP_PID, RECYCLE_PID, 't,e,r,s')
-    main_model.init_flow('scrap_waste', SCRAP_PID, WASTE_PID, 't,e,r,s')
+    main_model.init_flow('In-Use - Reuse', USE_PID, USE_PID, 't,e,r,g,s')
+    main_model.init_flow('In-Use - Scrap', USE_PID, SCRAP_PID, 't,e,r,g,w,s')
+    main_model.init_flow('In-Use - Dis./Not col.', USE_PID, DISNOTCOL_PID, 't,e,r,g,w,s')
+    main_model.init_flow('Scrap - Recycling', SCRAP_PID, RECYCLE_PID, 't,e,r,s')
+    main_model.init_flow('Scrap - Waste', SCRAP_PID, WASTE_PID, 't,e,r,s')
 
-    main_model.init_flow('imports', ENV_PID, FORM_PID, 't,e,r,s')
-    main_model.init_flow('exports', FORM_PID, ENV_PID, 't,e,r,s')
-    main_model.init_flow('scrap_imports', ENV_PID, SCRAP_PID, 't,e,r,w,s')
-    main_model.init_flow('scrap_exports', SCRAP_PID, ENV_PID, 't,e,r,w,s')
-    main_model.init_flow('indirect_imports', ENV_PID, USE_PID, 't,e,r,g,s')
-    main_model.init_flow('indirect_exports', USE_PID, ENV_PID, 't,e,r,g,s')
+    main_model.init_flow('Crude Imports', ENV_PID, FORM_PID, 't,e,r,s')
+    main_model.init_flow('Crude Exports', FORM_PID, ENV_PID, 't,e,r,s')
+    main_model.init_flow('Scrap Imports', ENV_PID, SCRAP_PID, 't,e,r,w,s')
+    main_model.init_flow('Scrap Exports', SCRAP_PID, ENV_PID, 't,e,r,w,s')
+    main_model.init_flow('Indirect Imports', ENV_PID, USE_PID, 't,e,r,g,s')
+    main_model.init_flow('Indirect Exports', USE_PID, ENV_PID, 't,e,r,g,s')
 
 
 def initiate_stocks(main_model):
@@ -340,6 +327,14 @@ def _calc_eaf_share_production(scrap_share):
     eaf_share_production = (scrap_share - cfg.scrap_in_BOF_rate) / (1 - cfg.scrap_in_BOF_rate)
     eaf_share_production[eaf_share_production <= 0] = 0
     return eaf_share_production
+
+
+def _calc_max_scrap_share(scrap_share_in_production, n_regions):
+    max_scrap_share_in_production = np.ones(
+        [cfg.n_years, n_regions, cfg.n_scenarios]) * cfg.max_scrap_share_production_base_model
+    if scrap_share_in_production is not None:
+        max_scrap_share_in_production[cfg.econ_start_index:, :] = scrap_share_in_production
+    return max_scrap_share_in_production
 
 
 def compute_stocks(model, stocks, inflows, outflows):

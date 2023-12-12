@@ -11,7 +11,7 @@ def load_excel_dicts():
 
 
 def _adapt_dicts_config_format(dicts):
-    in_use_categories = [x.lower() for x in cfg.using_categories]
+    in_use_categories = [x.lower() for x in cfg.in_use_categories]
     dict_keys_to_delete = ['steel_price_change_ssp1', 'steel_price_change_ssp2', 'steel_price_change_ssp3',
                            'steel_price_change_ssp4', 'steel_price_change_ssp5', 'do_change_steel_price_by_scenario',
                            'steel_price_change_all_scenarios', 'inflow_change_ssp1', 'inflow_change_ssp2',
@@ -24,16 +24,16 @@ def _adapt_dicts_config_format(dicts):
                            'reuse_change_transport', 'reuse_change_machinery', 'reuse_change_construction',
                            'reuse_change_products', 'do_change_reuse_by_category', 'reuse_change_all_categories']
     for dict in dicts:
-        dict['steel_price_change_by_scenario'] = [dict[f'steel_price_change_ssp{i}'] for i in range(1,6)] \
+        dict['steel_price_change_by_scenario'] = [dict[f'steel_price_change_ssp{i}'] for i in range(1, 6)] \
             if dict['do_change_steel_price_by_scenario'] else dict['steel_price_change_all_scenarios']
 
-        dict['inflow_change_by_scenario'] = [dict[f'inflow_change_ssp{i}'] for i in range(1,6)] \
+        dict['inflow_change_by_scenario'] = [dict[f'inflow_change_ssp{i}'] for i in range(1, 6)] \
             if dict['do_change_inflow_by_scenario'] else dict['inflow_change_all_scenarios']
 
-        dict['inflow_change_by_category'] = [dict[f'inflow_change_{cat}'] for cat in in_use_categories]\
+        dict['inflow_change_by_category'] = [dict[f'inflow_change_{cat}'] for cat in in_use_categories] \
             if dict['do_change_inflow_by_category'] else dict['inflow_change_all_categories']
 
-        dict['reuse_change_by_scenario'] = [dict[f'reuse_change_ssp{i}'] for i in range(1,6)] \
+        dict['reuse_change_by_scenario'] = [dict[f'reuse_change_ssp{i}'] for i in range(1, 6)] \
             if dict['do_change_reuse_by_scenario'] else dict['reuse_change_all_scenarios']
 
         dict['reuse_change_by_category'] = [dict[f'reuse_change_{cat}'] for cat in in_use_categories] \

@@ -7,7 +7,7 @@ from simulation.src.load_yaml_dicts import load_yaml_dicts
 from src.model.run_simson import run_simson
 from src.tools.config import cfg
 from src.read_data.load_data import load_region_names_list
-from src.visualisation.master_visualisation import get_scrap_share_china_plt, get_production_plt
+from src.visualisation.test_visualisations.master_visualisation import get_scrap_share_china_plt, get_production_plt
 
 
 def run_simulations():
@@ -81,7 +81,7 @@ def _get_multi_index_from_indices(flow_or_stock_indices):
             multi_index_array.append(load_region_names_list())
             multi_index_names.append('Region')
         elif char == 'g':
-            multi_index_array.append(cfg.using_categories)
+            multi_index_array.append(cfg.in_use_categories)
             multi_index_names.append('In-Use category')
         elif char == 'w':
             multi_index_array.append(cfg.recycling_categories)
@@ -119,6 +119,7 @@ def _check_sim_path(sim_path):
             sim_path += '#2'
 
     return sim_path
+
 
 def _load_config_dicts():
     return load_excel_dicts() + load_yaml_dicts()

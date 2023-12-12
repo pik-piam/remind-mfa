@@ -26,7 +26,7 @@ class Config:
         self.start_year = 1900
         self.end_year = 2100
 
-        self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl
+        self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl, Duerrwaechter
         self.steel_data_source = 'IEDatabase'  # Options: Mueller, IEDatabase
         self.pop_data_source = 'UN'  # Options: UN, KC-Lutz (only for scenarios)
         self.gdp_data_source = 'IMF'  # Options: IMF, Koch-Leimbach (only for scenarios)
@@ -39,12 +39,11 @@ class Config:
         self.indirect_trade_source = 'WorldSteel'  # Options: WorldSteel
         self.lifetime_data_source = 'Wittig'  # Options: Wittig, Pauliuk
 
-        self.using_categories = ['Transport', 'Machinery', 'Construction', 'Product']
+        self.in_use_categories = ['Transport', 'Machinery', 'Construction', 'Products']
         self.recycling_categories = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Form', 'Fabr', 'Dis', 'NotCol']
-        self.categories_with_total = ['Transport', 'Machinery', 'Construction', 'Product', 'Total']  # TODO Delete?
         self.scenarios = ['SSP1', 'SSP2', 'SSP3', 'SSP4', 'SSP5']
 
-        self.n_use_categories = len(self.using_categories)
+        self.n_use_categories = len(self.in_use_categories)
         self.n_recycle_categories = len(self.recycling_categories)
         self.n_scenarios = len(self.scenarios)
 
@@ -141,7 +140,7 @@ class Config:
         if isinstance(self.inflow_change_by_category, list):
             return self.inflow_change_by_category
         else:
-            return [self.inflow_change_by_category] * len(self.using_categories)
+            return [self.inflow_change_by_category] * len(self.in_use_categories)
 
     def _inflow_change_scenario_list(self):
         if isinstance(self.inflow_change_by_scenario, list):
@@ -159,7 +158,7 @@ class Config:
         if isinstance(self.reuse_change_by_category, list):
             return self.reuse_change_by_category
         else:
-            return [self.reuse_change_by_category] * len(self.using_categories)
+            return [self.reuse_change_by_category] * len(self.in_use_categories)
 
     def _reuse_change_scenario_list(self) -> list:
         if isinstance(self.reuse_change_by_scenario, list):

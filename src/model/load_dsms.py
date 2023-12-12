@@ -1,7 +1,7 @@
 import os
 import pickle
 import numpy as np
-from ODYM.odym.modules import dynamic_stock_model as dsm  # import the dynamic stock model library
+from src.odym_extension.MultiDim_DynamicStockModel import MultiDim_DynamicStockModel
 from src.tools.config import cfg
 from src.model.model_tools import calc_change_timeline
 from src.predict.calc_steel_stocks import get_np_steel_stocks_with_prediction
@@ -41,38 +41,23 @@ def _get_dsms(country_specific):
 
 def _create_dsm(stocks, lifetime, st_dev, inflow_change=None):
     time = np.array(range(cfg.n_years))
-    steel_stock_dsm = dsm.DynamicStockModel(t=time,
-                                            s=stocks,
-                                            lt={'Type': 'Normal', 'Mean': [lifetime],
-                                                'StdDev': [st_dev]})
+    steel_stock_dsm = MultiDim_DynamicStockModel(t=time,
+                                                 s=stocks,
+                                                 lt={'Type': 'Normal', 'Mean': [lifetime],
+                                                     'StdDev': [st_dev]})
 
-    steel_stock_dsm.compute_stock_driven_model()
-    steel_stock_dsm.compute_outflow_total()
-    steel_stock_dsm.compute_stock_change()
-    check_steel_stock_dsm(steel_stock_dsm)
+    steel_stock_dsm.compute_all_stock_driven()
 
     if inflow_change is not None:
         inflows = steel_stock_dsm.i
         inflows = np.einsum('t,t->t', inflows, inflow_change)  # TODO just normal multiplication?
-        steel_stock_dsm = dsm.DynamicStockModel(t=time,
-                                                i=inflows,
-                                                lt={'Type': 'Normal', 'Mean': [lifetime],
-                                                    'StdDev': [st_dev]})
-        steel_stock_dsm.compute_s_c_inflow_driven()
-        steel_stock_dsm.compute_o_c_from_s_c()
-        steel_stock_dsm.compute_stock_total()
-        steel_stock_dsm.compute_outflow_total()
+        steel_stock_dsm = MultiDim_DynamicStockModel(t=time,
+                                                     i=inflows,
+                                                     lt={'Type': 'Normal', 'Mean': [lifetime],
+                                                         'StdDev': [st_dev]})
+        steel_stock_dsm.compute_all_inflow_driven()
 
     return steel_stock_dsm
-
-
-def check_steel_stock_dsm(steel_stock_dsm):
-    balance = steel_stock_dsm.check_stock_balance()
-    balance = np.abs(balance).sum()
-    if balance > 1:  # 1 tonne accuracy
-        raise RuntimeError("Stock balance for dynamic stock model is too high: " + str(balance))
-    elif balance > 0.001:
-        print("Stock balance for model dynamic stock model is noteworthy: " + str(balance))
 
 
 def _test():

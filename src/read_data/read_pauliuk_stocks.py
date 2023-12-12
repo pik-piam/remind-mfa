@@ -49,7 +49,7 @@ def _clean_pauliuk(df_pauliuk):
                                  'industrial machinery',
                                  'buildings - construction - infrastructure',
                                  'appliances - packaging - other'],
-        'category': cfg.using_categories
+        'category': cfg.in_use_categories
     })
 
     df_pauliuk = pd.merge(df_cat_names, df_pauliuk, on='category_description')
