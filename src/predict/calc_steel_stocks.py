@@ -62,9 +62,9 @@ def get_np_pop_data(country_specific, include_gdp_and_pop_scenarios):
     return pop
 
 
-def _get_np_gdp_data(country_specific, include_gdp_and_pop_scenarios):
+def _get_np_gdp_data(country_specific, include_gdp_and_pop_scenarios, per_capita=True):
     gdp_source = 'Koch-Leimbach' if include_gdp_and_pop_scenarios else cfg.gdp_data_source
-    df_gdp = load_gdp(gdp_source=gdp_source, country_specific=country_specific, per_capita=True)
+    df_gdp = load_gdp(gdp_source=gdp_source, country_specific=country_specific, per_capita=per_capita)
     gdp = df_gdp.to_numpy()
     gdp = gdp.transpose()
 

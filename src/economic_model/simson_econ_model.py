@@ -1,9 +1,7 @@
 import os
 import pickle
 from scipy.optimize import newton
-import warnings
 import numpy as np
-from ODYM.odym.modules import dynamic_stock_model as dsm
 from src.odym_extension.SimDiGraph_MFAsystem import SimDiGraph_MFAsystem
 from src.model.simson_base_model import create_model, ENV_PID, BOF_PID, EAF_PID, FORM_PID, FABR_PID, RECYCLE_PID, \
     USE_PID, SCRAP_PID
@@ -31,10 +29,7 @@ def create_economic_model(country_specific, recalculate_dsms):
     p_0_scrap = get_base_scrap_price()
     dsms = load_econ_dsms(country_specific=country_specific, p_st=p_steel, p_0_st=p_steel[0],
                           recalculate=recalculate_dsms)
-    with warnings.catch_warnings():
-        # TODO really necessary? -> check what's the problem
-        warnings.simplefilter('ignore')
-        scrap_share = _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap)
+    scrap_share = _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap)
     econ_model, balance_message = create_model(country_specific=country_specific,
                                                dsms=dsms,
                                                scrap_share_in_production=scrap_share)
@@ -42,52 +37,123 @@ def create_economic_model(country_specific, recalculate_dsms):
     return econ_model
 
 
-def _calc_scrap_share(dsms, country_specific, p_st, p_0_scrap):
+def _calc_scrap_share(dsms, country_specific, p_steel, p_0_scrap):
     interim_model, balance_message = create_model(country_specific=country_specific, dsms=dsms)
-    p_sest = p_st
-    q_st = _calc_q_st(dsms)
+    q_st = _calc_q_st(interim_model)
     q_eol = _calc_q_eol(interim_model)
-    e_recov = cfg.elasticity_scrap_recovery_rate
-    p_0_steel = p_st[0]
+    p_0_steel = p_steel[0]
     p_0_diss = p_0_steel - p_0_scrap - cfg.exog_eaf_USD98
+    e_recov = cfg.elasticity_scrap_recovery_rate
     e_diss = cfg.elasticity_dissassembly
+    q_0_st, q_0_sest, s_0_se, r_0_recov = get_initial_values(interim_model, q_eol)
+    a_scrap = _get_a_recov(r_0_recov)
+    a_dis = _get_a_diss(s_0_se)
+
+    q = q_st / q_eol
+
+    alpha = _calc_alpha(p_steel, p_0_scrap, p_0_diss, a_scrap, a_dis)
+    beta = _calc_beta_gamma(p_0_scrap, a_scrap, r_0_recov, e_recov)
+    gamma = _calc_beta_gamma(p_0_diss, a_dis, s_0_se, e_diss)
+
+    x_upper_limit = _calc_x_upper_limit(q_st, q_eol)
+
+    scrap_share = _solve_for_scrap_share(alpha, beta, gamma, q, e_recov, e_diss, x_upper_limit)
+
+    return scrap_share
+
+
+def _solve_for_scrap_share(alpha, beta, gamma, q, e_recov, e_dis, x_upper_limit):
+    def f(x):
+        term_2 = beta * (1 - q * x) ** (1 / e_recov)
+        term_3 = gamma * (1 - x) ** (1 / e_dis)
+        return alpha + term_2 + term_3
+
+    def f_prime(x):
+        term_1 = beta * q * (1 / e_recov) * (1 - q * x) ** (1 / e_recov - 1)
+        term_2 = gamma * (1 / e_dis) * (1 - x) ** (1 / e_dis - 1)
+        result = - term_1 - term_2
+        if not np.all(result > 0):
+            raise RuntimeError('\nF_prime should be always positive in the chosen x intervall. \n'
+                               'There has been an error.')
+        return result
+
+    x_0 = _calc_x_0(f, x_upper_limit)
+    scrap_share = newton(f, x_0, fprime=f_prime)
+
+    if np.any(scrap_share < 0) or np.any(scrap_share > 1):
+        _raise_error_wrong_values('Final scrap share')
+
+    return scrap_share
+
+
+def _calc_x_0(f, x_upper_limit):
+    factor = np.ones(x_upper_limit.shape) * 0.5
+    test = f(x_upper_limit * factor)
+    negative_check = test < 0
+    while np.any(negative_check):
+        factor[negative_check] += 1
+        factor[negative_check] /= 2
+        test = f(factor * x_upper_limit)
+        negative_check = test < 0
+    return factor * x_upper_limit
+
+
+def _calc_alpha(p_steel, p_0_scrap, p_0_diss, a_scrap, a_dis):
+    m = p_0_scrap * a_scrap
+    n = p_0_diss * a_dis
+
+    # expand p_steel across all regions
+    p_steel = np.expand_dims(p_steel, axis=1)
+
+    alpha = cfg.exog_eaf_USD98 - p_steel - m - n
+    return alpha
+
+
+def _calc_beta_gamma(p_0, a, values_0, e_values):
+    dividend = p_0 * (1 + a)
+    divisor = (1 - values_0) ** (1 / e_values)
+
+    result = dividend / divisor
+    if not np.all(result >= 0):
+        raise RuntimeError('\nBoth beta and gamma need to be all positive, which is not the case. '
+                           ''
+                           '\nThere must have been some mistake in the data or when loading the values.')
+    return result
+
+
+def get_initial_values(interim_model, q_eol):
     q_0_bof = interim_model.get_flowV(BOF_PID, FORM_PID)[cfg.econ_start_index:, 0]
     q_0_eaf = interim_model.get_flowV(EAF_PID, FORM_PID)[cfg.econ_start_index:, 0]
     q_0_st = q_0_bof + q_0_eaf
+
     q_0_sest = interim_model.get_flowV(SCRAP_PID, RECYCLE_PID)[cfg.econ_start_index:, 0]
     s_0_se = q_0_sest / q_0_st
     r_0_recov = q_0_sest / q_eol
-    a_recov = _get_a_recov(r_0_recov)
-    a_diss = _get_a_diss(s_0_se)
 
-    alpha_prep = p_sest - cfg.exog_eaf_USD98
-    alpha = -(np.expand_dims(alpha_prep, axis=1) + p_0_scrap * a_recov + p_0_diss * a_diss)
-    beta = (1 + a_recov) * p_0_scrap / (1 - r_0_recov) ** (1 / e_recov)
-    gamma = (1 + a_diss) * p_0_diss / (1 - s_0_se) ** (1 / e_diss)
+    if np.any(q_0_bof <= 0):
+        _raise_error_wrong_values('Initial BOF production')
 
-    c = q_st / q_eol
-    f_inverse = 1 / e_recov
-    e_inverse = 1 / e_diss
+    if np.any(q_0_eaf <= 0):
+        _raise_error_wrong_values('Initial EAF production')
 
-    def f(x):
-        return alpha + (1 - x * c) ** f_inverse * beta + (1 - x) ** e_inverse * gamma
+    if np.any(q_0_st <= 0):
+        _raise_error_wrong_values('Initial demand')
+    if np.any(q_0_sest <= 0):
+        _raise_error_wrong_values('Initial quantity of secondary steel in production')
+    if np.any(q_eol <= 0):
+        _raise_error_wrong_values('Initial quantity of end of life steel')
+    if np.any(s_0_se < 0) or np.any(s_0_se > 1):
+        _raise_error_wrong_values('Initial scrap share in production')
+    if np.any(r_0_recov < 0) or np.any(r_0_recov > 1):
+        _raise_error_wrong_values('Initial scrap recovery rate')
 
-    def f_prime(x):
-        return -beta * c * f_inverse * (1 - x * c) ** (f_inverse - 1) - gamma * e_inverse * (1 - x) ** (e_inverse - 1)
+    return q_0_st, q_0_sest, s_0_se, r_0_recov
 
-    x_upper_limit = _calc_x_upper_limit(q_st, q_eol)
-    s_se = x_upper_limit.copy()
-    s_se[s_0_se == 1] = 1
-    s_se[q_eol == 0] = 0
 
-    s_se_mask = (q_eol > 0) & (q_st > 0) & (s_0_se < 1) & (r_0_recov < 0.9998)
-    x_0 = _calc_x_0(f, x_upper_limit, s_se_mask)
-    root = newton(f, x_0, fprime=f_prime)
-    s_se[s_se_mask] = root[s_se_mask]
-
-    _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask)
-
-    return s_se
+def _raise_error_wrong_values(data_type: str):
+    error_message = f'{data_type} appears to have fault values. \n' \
+                    f'\tPotential mistake in base or interim model.'
+    raise RuntimeError(error_message)
 
 
 def _get_a_recov(initial_recovery_rate):
@@ -103,38 +169,17 @@ def _get_a_diss(initial_scrap_share_production):
     # TODO check for both a's if not rather make r_free always at least as small as initial rate
 
 
-def _check_scrap_share_calculation(s_se, x_upper_limit, s_se_mask):
-    check = ((s_se >= 0) & (s_se <= x_upper_limit)) | np.logical_not(s_se_mask)
-    if not np.all(check):
-        raise RuntimeError(
-            f'Calculation of scrap share in production failed. '
-            f'{check}')
-
-
-def _calc_x_0(f, x_upper_limit, s_se_mask):
-    factor = np.ones(x_upper_limit.shape) * 0.5
-    test = f(x_upper_limit * factor)
-    negative_check = test < 0
-    while np.any(negative_check):
-        factor[negative_check] += 1
-        factor[negative_check] /= 2
-        test = f(x_upper_limit * factor)
-        negative_check = (test < 0) & s_se_mask
-    return x_upper_limit * factor
-
-
 def _calc_x_upper_limit(q_st, q_eol):
     x_upper_limit = np.divide(q_eol, q_st, out=np.zeros_like(q_eol), where=q_st != 0)
     x_upper_limit[x_upper_limit > 1] = 1
     return x_upper_limit
 
 
-def _calc_q_st(dsms):
-    inflows = np.array(
-        [[[scenario_dsm.i for scenario_dsm in category_dsm] for category_dsm in region_dsm] for region_dsm in dsms])
-    q_st = np.moveaxis(inflows, -1, 0)
+def _calc_q_st(interim_model):
+    q_st = interim_model.get_flowV(FABR_PID, USE_PID)
+    q_st = q_st[cfg.econ_start_index:, 0]
     q_st = np.sum(q_st, axis=2)
-    return q_st[cfg.econ_start_index:]
+    return q_st
 
 
 def _calc_q_eol(interim_model):
@@ -150,18 +195,8 @@ def _calc_q_eol(interim_model):
     return q_eol[cfg.econ_start_index:, 0]
 
 
-def _create_dsm(inflow, lifetime, st_dev):
-    time = np.array(range(cfg.n_years))
-    steel_stock_dsm = dsm.DynamicStockModel(t=time,
-                                            i=inflow,
-                                            lt={'Type': 'Normal', 'Mean': [lifetime],
-                                                'StdDev': [st_dev]})
-
-    return steel_stock_dsm
-
-
 def _test():
-    load_simson_econ_model(country_specific=False, recalculate_dsms=False, recalculate=True)
+    load_simson_econ_model(country_specific=False, recalculate_dsms=True, recalculate=True)
 
 
 if __name__ == '__main__':

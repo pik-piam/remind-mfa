@@ -23,7 +23,7 @@ def load_dsms(country_specific, recalculate=cfg.recalculate_data):
 
 def _get_dsms(country_specific):
     stocks_data = get_np_steel_stocks_with_prediction(country_specific=country_specific,
-                                                      get_per_capita=True)
+                                                      get_per_capita=False)
     area_names = load_region_names_list()
     mean, std_dev = load_lifetimes()
 

@@ -9,24 +9,24 @@ from src.predict.calc_steel_stocks import get_np_pop_data
 
 # MAIN PARAMETERS
 
-do_flow_not_stock = False
-flow_origin_process = FABR_PID
+do_flow_not_stock = True
+flow_origin_process = ENV_PID
 flow_destination_process = USE_PID
 stock_process = USE_PID
-dimension = 'good'  # Options (depending on flow): 'region', 'scenario', 'good', 'waste'
+dimension = 'region'  # Options (depending on flow): 'region', 'scenario', 'good', 'waste'
 
 default_scenario = 'SSP2'  # If dimension is not 'scenario', only data from this scenario is considered.
-default_region = 'World'  # If dimension is not 'region', only data from this region is considered.
+default_region = 'EUR'  # If dimension is not 'region', only data from this region is considered.
 # 'World' denotes the entire world data, hence a sum is given for all world regions.
 # Default region must be in region names list of 'region_data_source'.
 
 # SPECIFIC PARAMETERS
 
-do_load_econ_model = True
-region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
+do_load_econ_model = False
+region_data_source = 'Pauliuk'  # Options: REMIND, Pauliuk, REMIND_EU
 steel_data_source = 'IEDatabase'  # Options: Mueller, IEDatabase
 curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl, Duerrwaechter
-per_capita = True
+per_capita = False
 ignore_1900 = True
 
 limit_regions = False
