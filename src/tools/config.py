@@ -52,7 +52,7 @@ class Config:
         # ADAPTABLE PARAMETERS
 
         self.simulation_name = 'SIMSON_Test_1'
-        self.region_data_source = 'Pauliuk'  # Options: REMIND, Pauliuk, REMIND_EU
+        self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
 
         self.max_scrap_share_production_base_model = 0.60
         self.scrap_in_BOF_rate = 0.22

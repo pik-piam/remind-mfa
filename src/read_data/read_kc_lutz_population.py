@@ -27,7 +27,7 @@ def _read_kc_lutz_pop_original():
     """
     GDP predictions by country according to: https://doi.org/10.1016/j.ecolecon.2023.107751
     """
-    kc_lutz_path = os.path.join(cfg.data_path, 'original', 'kc_lutz', 'population.csv')
+    kc_lutz_path = os.path.join(cfg.data_path, 'original', 'kc-lutz', 'population.csv')
     df = pd.read_csv(kc_lutz_path,
                      skiprows=4,
                      nrows=20418,
@@ -58,7 +58,7 @@ def _read_kc_lutz_pop_original():
 
 def _test():
     from src.read_data.load_data import load_pop
-    df = load_pop('KC-Lutz', country_specific=False)
+    df = load_pop('KC-Lutz', country_specific=False, recalculate=True)
     print(df)
 
 

@@ -6,6 +6,8 @@ from src.tools.config import cfg
 
 
 def predict_duerrwaechter(stocks, gdp_data):
+    print(stocks.shape)
+    print(gdp_data.shape)
     past_stocks_by_category = stocks.copy()
     stocks = np.sum(stocks, axis=2)
 
@@ -37,7 +39,10 @@ def predict_duerrwaechter(stocks, gdp_data):
     return stocks
 
 
-def _calc_global_a_b(stocks, gdp):
+def _calc_global_a_b(stocks, gdp, visualise=True):
+    print(stocks.shape)
+    print(gdp.shape)
+
     def f(params):
         return _duerrwaechter_stock_curve(gdp.flatten(), params[0], params[1]) - stocks.flatten()
 
@@ -46,12 +51,38 @@ def _calc_global_a_b(stocks, gdp):
     A_0 = stocks.flatten()[x_h] * (1 + predicted_highest_stock_development)
     b_0 = -np.log(predicted_highest_stock_development / (1 + predicted_highest_stock_development)) / x_h
     params = [A_0, b_0]
+
     result = least_squares(f, params).x
 
     a = result[0]
     b = result[1]
 
+    if visualise:
+        _test_plot_global_a_b(stocks, gdp, a, b)
+
     return a, b
+
+
+def _test_plot_global_a_b(stocks, gdp, a, b):
+    from matplotlib import pyplot as plt
+    from src.read_data.load_data import load_region_names_list
+    regions = load_region_names_list()
+
+    for i, region in enumerate(regions):
+        plt.plot(gdp[:, i], stocks[:, i], '.')
+
+    test_gdp = np.arange(0, 60000, 100)
+    test_stock = _duerrwaechter_stock_curve(test_gdp, a, b)
+    test_a = np.ones_like(test_gdp) * a
+    plt.plot(test_gdp, test_stock, '--')
+    plt.plot(test_gdp, test_a)
+    plt.xlabel('GDP ($ 2008)')
+    plt.ylabel('Steel stocks per capita (t)')
+    plt.title(f'Stocks over GDP with witted Duerrwächter curve, global a={a}')
+    plt.legend(regions)
+    plt.show()
+    print(stocks.shape)
+    print(gdp.shape)
 
 
 def _duerrwaechter_stock_curve(gdp, a, b):

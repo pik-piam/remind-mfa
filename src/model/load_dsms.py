@@ -50,7 +50,7 @@ def _create_dsm(stocks, lifetime, st_dev, inflow_change=None):
 
     if inflow_change is not None:
         inflows = steel_stock_dsm.i
-        inflows = np.einsum('t,t->t', inflows, inflow_change)  # TODO just normal multiplication?
+        inflows = inflows * inflow_change
         steel_stock_dsm = MultiDim_DynamicStockModel(t=time,
                                                      i=inflows,
                                                      lt={'Type': 'Normal', 'Mean': [lifetime],

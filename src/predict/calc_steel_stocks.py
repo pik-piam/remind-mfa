@@ -19,7 +19,7 @@ def get_np_steel_stocks_with_prediction(country_specific, get_per_capita=False,
     approach given in config file.
     """
     if country_specific:
-        raise RuntimeError('Prediction strategy not defined for country_specific level.')  # TODO decide
+        raise RuntimeError('Prediction strategy not defined for country_specific level.')
 
     pop = get_np_pop_data(country_specific, include_gdp_and_pop_scenarios)
     gdp = _get_np_gdp_data(country_specific, include_gdp_and_pop_scenarios)
@@ -40,8 +40,11 @@ def get_np_steel_stocks_with_prediction(country_specific, get_per_capita=False,
         stocks = copy_stocks_across_scenarios(stocks)
 
     if not get_per_capita:
-        pop = np.expand_dims(pop, axis=2)  # Include category axis in pop data.
-        stocks = stocks * pop
+        stock_dims = 'trcs'
+        pop_dims = 'tr'
+        if include_gdp_and_pop_scenarios:
+            pop_dims += 's'
+        stocks = np.einsum(f'{stock_dims},{pop_dims}->{stock_dims}', stocks, pop)
     return stocks
 
 

@@ -20,8 +20,8 @@ def predict_pauliuk(stocks, do_subcategory_predictions=False):
         stocks = np.sum(stocks, axis=2)
     s_0 = stocks[-1]
 
-    # For now if 99% of chosen saturation level is lower than current level, choose saturation of 2% higher than
-    # current level instead. TODO This needs to be changed, either with different data or other logic.
+    # If 99% of chosen saturation level is lower than current level, choose saturation of 2% higher than
+    # current level instead. This is necessary for the 'c,d' calculation logic.
     s_hat = np.where(s_hat * 0.99 < s_0, 1.02 * s_0, s_hat)
     c, d = _calc_cd_pauliuk(stocks, s_hat, s_0, t_s, t_0, do_subcategory_predictions)
 

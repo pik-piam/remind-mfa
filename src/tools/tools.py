@@ -82,11 +82,6 @@ def group_country_data_to_regions(df_by_country, is_per_capita, data_split_into_
     df_regions = load_regions()
     df = pd.merge(df_regions, df_by_country, on='country')
 
-    # TODO DELETE
-    """print('\n\nyiahhahiahodfhoiIOHIOBHojb\n\n')
-    print(df.columns.difference(df.select_dtypes(include='number').columns))
-    print(list(df.loc[:,1971]))"""
-
     df = df.groupby(grouping_factor).sum(numeric_only=False)
     df = df.drop(columns=['country'])
 

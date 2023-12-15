@@ -43,34 +43,5 @@ def _test():
     visualize_trade(trade, steel_type='crude')
 
 
-def _visualize_trade_demand_correlation(trade, demand):
-    # TODO delete / decide
-    import numpy as np
-    print(trade[:, :, 1].shape)
-    print(demand.shape)
-    r = np.array([np.corrcoef(trade[:, i, 1], demand[:, i, 1])[0, 1] for i in range(12)])
-    print(np.mean(r))
-    print(r)
-    print(r.shape)
-    present_trade = trade[70:121, :3, 1]
-    present_demand = demand[70:121, :3, 1]
-    years = range(1970, 2021)
-    regions = ['CAZ trade', 'CAZ demand', 'CHA trade', 'CHA demand', 'EUR trade', 'EUR demand']
-    colors = ['r', 'g', 'b']
-    from matplotlib import pyplot as plt
-    fig, ax1 = plt.subplots()
-    ax1.set_xlabel('Time (y)')
-    ax1.set_ylabel('Steel traded (t)')
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('Steel demand (t)')
-    for i in range(3):
-        ax1.plot(years, present_trade[:, i], color=colors[i])
-        ax2.plot(years, present_demand[:, i], '--', color=colors[i])
-    plt.legend(regions)
-    fig.tight_layout()
-    plt.title('Steel demand/trade correlation?')
-    plt.show()
-
-
 if __name__ == '__main__':
     _test()

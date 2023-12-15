@@ -25,7 +25,7 @@ def _get_net_scrap_trade_1971_2022(country_specific):
     scrap_imports = get_np_from_df(df_scrap_imports, data_split_into_categories=False)
     scrap_exports = get_np_from_df(df_scrap_exports, data_split_into_categories=False)
 
-    net_scrap_trade_1971_2022 = scrap_imports - scrap_exports  # TODO: what if different countries
+    net_scrap_trade_1971_2022 = scrap_imports - scrap_exports
     net_scrap_trade_1971_2022 = net_scrap_trade_1971_2022.transpose()
 
     return net_scrap_trade_1971_2022
@@ -89,5 +89,5 @@ def _test():
     visualize_trade(scrap_trade, steel_type='scrap')
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     _test()

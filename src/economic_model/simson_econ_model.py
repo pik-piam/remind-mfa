@@ -159,14 +159,23 @@ def _raise_error_wrong_values(data_type: str):
 def _get_a_recov(initial_recovery_rate):
     a_recov = 1 / (((1 - initial_recovery_rate) / (1 - cfg.r_free_recov)) ** (
             1 / cfg.elasticity_scrap_recovery_rate) - 1)
+    if np.any(a_recov < 0):
+        _warn_too_high_r_free('scrap recovery rate')
     return np.maximum(0, a_recov)  # a needs to be positive, rule out cases where r_free > r_0_recov
 
 
 def _get_a_diss(initial_scrap_share_production):
     a_diss = 1 / (((1 - initial_scrap_share_production) / (1 - cfg.r_free_diss)) **
                   (1 / cfg.elasticity_dissassembly) - 1)
+    if np.any(a_diss < 0):
+        _warn_too_high_r_free('scrap share in production')
     return np.maximum(0, a_diss)  # a needs to be positive, rule out cases where r_free > s_0_se
-    # TODO check for both a's if not rather make r_free always at least as small as initial rate
+
+
+def _warn_too_high_r_free(type: str):
+    message = f'R_free was partly higher than initial {type}. Hence a of {type} was made positive, indirectly ' \
+              f'changing r_free to be equal to the initial {type} in cases where it was greater.'
+    raise RuntimeWarning(message)
 
 
 def _calc_x_upper_limit(q_st, q_eol):
