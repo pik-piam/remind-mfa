@@ -17,7 +17,7 @@ class Config:
         modified through :py:func:`src.tools.config.Config#customize` method.
         """
         self.data_path = 'data'
-        self.recalculate_data = False
+        self.recalculate_data = True
         self.include_gdp_and_pop_scenarios_in_prediction = True
 
         self.do_show_figs = True
@@ -26,62 +26,29 @@ class Config:
         self.start_year = 1900
         self.end_year = 2100
 
-        self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl, Duerrwaechter
-        self.steel_data_source = 'IEDatabase'  # Options: Mueller, IEDatabase
+        # self.curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl, Duerrwaechter
         self.pop_data_source = 'UN'  # Options: UN, KC-Lutz (only for scenarios)
         self.gdp_data_source = 'IMF'  # Options: IMF, Koch-Leimbach (only for scenarios)
-        self.trade_data_source = 'WorldSteel'  # Options: WorldSteel
-        self.steel_price_data_source = 'USGS'  # Options: USGS
-        self.scrap_price_data_source = 'USGS'  # Options: USGS
-        self.production_data_source = 'WorldSteel'  # Options: WorldSteel
-        self.use_data_source = 'WorldSteel'  # Options: WorldSteel
-        self.scrap_trade_data_source = 'WorldSteel'  # Options: WorldSteel
-        self.indirect_trade_source = 'WorldSteel'  # Options: WorldSteel
-        self.lifetime_data_source = 'Wittig'  # Options: Wittig, Pauliuk
+        # self.production_data_source = 'WorldSteel'  # Options: WorldSteel
+        # self.use_data_source = 'WorldSteel'  # Options: WorldSteel
+        # self.lifetime_data_source = 'Wittig'  # Options: Wittig, Pauliuk
 
-        self.in_use_categories = ['Transport', 'Machinery', 'Construction', 'Products']
-        self.recycling_categories = ['CD', 'MSW', 'WEEE', 'ELV', 'IEW', 'INEW', 'Form', 'Fabr', 'Dis', 'NotCol']
-        self.scenarios = ['SSP1', 'SSP2', 'SSP3', 'SSP4', 'SSP5']
+        # self.elements = ['HDPE', 'LDPE', 'PP', 'PS', 'PVC', 'PET', 'PUR', 'Other']
+        self.elements = ['PE', 'PP', 'PS', 'PVC', 'PET', 'PUR', 'Other']
+        # self.in_use_categories = ['Packaging', 'Transportation', 'Building and Construction', 'Electrical/Electronic', 'Consumer and Institutional Products', 'Industrial Machinery', 'Other']
+        self.in_use_categories = ['Transportation', 'Packaging', 'Building and Construction', 'Other Uses']
+        self.scenarios = ['SSP2']
 
+        self.n_elements = len(self.elements)
         self.n_use_categories = len(self.in_use_categories)
-        self.n_recycle_categories = len(self.recycling_categories)
         self.n_scenarios = len(self.scenarios)
 
-        self.exog_eaf_USD98 = 76
         self.default_lifetime_sd_pct_of_mean = 0.3
         # ADAPTABLE PARAMETERS
 
         self.simulation_name = 'SIMSON_Test_1'
-        self.region_data_source = 'REMIND'  # Options: REMIND, Pauliuk, REMIND_EU
+        self.region_data_source = 'REMIND'  # Options: REMIND, World, REMIND_EU
 
-        self.max_scrap_share_production_base_model = 0.60
-        self.scrap_in_BOF_rate = 0.22
-        self.forming_yield = 0.937246
-
-        # econ model configurations
-        self.do_model_economy = True
-        self.econ_base_year = 2008
-
-        self.elasticity_steel = -0.2
-        self.elasticity_scrap_recovery_rate = -1
-        self.elasticity_dissassembly = -0.8
-
-        self.r_free_recov = 0
-        self.r_free_diss = 0
-
-        self.steel_price_change_by_scenario = [0.5, 0.1, 0.2, 0, -0.3]
-        # e.g. 0.5 or [50,10,20,0,-30] for all scenarios. 50 e.g. indicates a 50 % increase of the steel
-
-        self.do_change_inflow = False
-        self.inflow_change_base_year = 2023
-        self.inflow_change_by_scenario = [-0.2, 0, 0.1, 0.2, 0.3]
-        self.inflow_change_by_category = [-0.2, 0, 0, 0]
-
-        self.do_change_reuse = False
-        self.reuse_change_base_year = 2023
-        self.reuse_change_by_category = [0, 0.2, 0, 0]
-        self.reuse_change_by_scenario = 0
-        # can be either expressed as float value for all categories or list with individual values
 
     def customize(self, config_dict: dict):
         """

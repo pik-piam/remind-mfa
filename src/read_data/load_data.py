@@ -45,46 +45,29 @@ def load_gdp(gdp_source=None, country_specific=False, per_capita=True, recalcula
 def load_regions(region_source=None, recalculate=False):
     if region_source is None:
         region_source = cfg.region_data_source
-    if region_source == 'REMIND':
-        return _load_remind_regions()
-    elif region_source == 'Pauliuk':
-        return _load_pauliuk_regions()
+    if region_source == 'World':
+        regions = pd.DataFrame.from_dict({'region': ['World']})
+    elif region_source == 'REMIND':
+        regions = _load_remind_regions()
     elif region_source == 'REMIND_EU':
-        return _load_remind_eu_regions()
+        regions = _load_remind_eu_regions()
     else:
         raise ValueError(f'{region_source} is not a valid region data source.')
+    return regions
 
 
 def load_region_names_list():
     df_regions = load_regions()
-    regions_list = list(df_regions[df_regions.columns[0]].unique())
+    regions_list = list(df_regions['region'].unique())
     regions_list.sort()
     return regions_list
-
-
-def load_steel_prices(steel_price_source=None, recalculate=False):
-    if steel_price_source is None:
-        steel_price_source = cfg.steel_price_data_source
-    if steel_price_source == 'USGS':
-        return _load_usgs_steel_prices(recalculate=recalculate)
-    else:
-        raise ValueError(f'{steel_price_source} is not a valid steel price data source.')
-
-
-def load_scrap_prices(scrap_price_source=None, recalculate=False):
-    if scrap_price_source is None:
-        scrap_price_source = cfg.scrap_price_data_source
-    if scrap_price_source == 'USGS':
-        return _load_usgs_scrap_prices(recalculate=recalculate)
-    else:
-        raise ValueError(f'{scrap_price_source} is not a valid scrap price data source.')
 
 
 def load_production(country_specific, production_source=None, recalculate=False):
     if production_source is None:
         production_source = cfg.production_data_source
-    if production_source == 'WorldSteel':
-        return _load_worldsteel_production(country_specific=country_specific, recalculate=recalculate)
+    if production_source == 'geyer':
+        return _load_geyer_production(country_specific=country_specific, recalculate=recalculate)
     else:
         raise ValueError(f'{production_source} is not a valid production data source.')
 
@@ -398,3 +381,8 @@ def _load_remind_regions():
 def _load_remind_eu_regions():
     from src.read_data.read_REMIND_regions import get_remind_eu_regions
     return get_remind_eu_regions()
+
+if __name__ == '__main__':
+    # regions = load_regions(region_source='World', recalculate=True)
+    regions = load_regions(region_source='REMIND', recalculate=True)
+    print(regions)

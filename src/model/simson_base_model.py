@@ -376,7 +376,7 @@ def main():
     Prints success statements otherwise
     :return: None
     """
-    load_simson_base_model(country_specific=False, recalculate=True)
+    load_simson_base_model(country_specific=False, recalculate=True, recalculate_dsms=True)
 
 
 if __name__ == "__main__":
