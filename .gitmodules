@@ -49,3 +49,6 @@
 [submodule "data/original/iso3_codes"]
 	path = data/original/iso3_codes
 	url = git@gitlab.pik-potsdam.de:simson_data/iso3_codes.git
+[submodule "data/original/geyer"]
+	path = data/original/geyer
+	url = git@gitlab.pik-potsdam.de:simson_data/geyer.git
