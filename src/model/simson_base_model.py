@@ -16,17 +16,11 @@ from src.calc_trade.calc_indirect_trade import get_indirect_trade
 
 #  constants: MFA System process IDs
 
-ENV_PID = 0
-BOF_PID = 1
-EAF_PID = 2
-FORM_PID = 3
-FABR_PID = 4
-USE_PID = 5
-SCRAP_PID = 6
-RECYCLE_PID = 7
-WASTE_PID = 8
-DISNOTCOL_PID = 9
-
+PRIM_PID = 0
+USE_PID = 1
+EOL_PID = 2
+MECH_RECYCLE_PID = 3
+INCINERATION_PID = 4
 
 def load_simson_base_model(country_specific=False, recalculate=False, recalculate_dsms=False) -> SimDiGraph_MFAsystem:
     file_name_end = 'countries' if country_specific else f'{cfg.region_data_source}_regions'
@@ -80,6 +74,7 @@ def initiate_model(main_model):
 
 
 def set_up_model(regions):
+    #why not using 'material' and 'element' dimensions?
     model_classification = {'Time': Classification(Name='Time', Dimension='Time', ID=1,
                                                    Items=cfg.years),
                             'Element': Classification(Name='Elements', Dimension='Element', ID=2, Items=['Fe']),
@@ -123,17 +118,11 @@ def initiate_processes(main_model):
     def add_process(name, p_id):
         main_model.ProcessList.append(Process(Name=name, ID=p_id))
 
-    add_process('Primary Production / Environment', ENV_PID)
-    add_process('BF/BOF Production', BOF_PID)
-    add_process('EAF Production', EAF_PID)
-    add_process('Forming', FORM_PID)
-    add_process('Fabrication', FABR_PID)
-    add_process('Using', USE_PID)
-    add_process('End of Life', SCRAP_PID)
-    add_process('Recycling', RECYCLE_PID)
-    add_process('Waste', WASTE_PID)
-    add_process('Dissipative/Not collectable', DISNOTCOL_PID)
-
+    add_process('Primary Production', PRIM_PID)
+    add_process('Mechanical recycling', MECH_RECYCLE_PID)
+    add_process('Use phase', USE_PID)
+    add_process('End of life', EOL_PID)
+    add_process('Incineration', INCINERATION_PID)
 
 def initiate_parameters(main_model):
     parameter_dict = {}
@@ -158,36 +147,18 @@ def initiate_parameters(main_model):
 
 
 def initiate_flows(main_model):
-    main_model.init_flow('Iron production - BOF production', ENV_PID, BOF_PID, 't,e,r,s')
-    main_model.init_flow('Recycling - BOF production', RECYCLE_PID, BOF_PID, 't,e,r,s')
-    main_model.init_flow('BOF production - Forming', BOF_PID, FORM_PID, 't,e,r,s')
-    main_model.init_flow('Recycling - EAF production', RECYCLE_PID, EAF_PID, 't,e,r,s')
-    main_model.init_flow('EAF production - Forming', EAF_PID, FORM_PID, 't,e,r,s')
+    #fix me: gotta decide on the indexes to use. I think it should be material and element
+    main_model.init_flow('Primary production - In-Use', PRIM_PID, USE_PID, 't,e,r,s')
+    
+    main_model.init_flow('Mechanical recycling - In-Use', MECH_RECYCLE_PID, USE_PID, 't,e,r,s')
+    # to decribe technical limit of recycling for now:
+    main_model.init_flow('Mechanical recycling - Incineration', MECH_RECYCLE_PID, INCINERATION_PID, 't,e,r,s')
 
-    main_model.init_flow('Forming - Fabrication', FORM_PID, FABR_PID, 't,e,r,s')
-    main_model.init_flow('Forming - Scrap', FORM_PID, SCRAP_PID, 't,e,r,w,s')
-    main_model.init_flow('Fabrication - In-Use', FABR_PID, USE_PID, 't,e,r,g,s')
-    main_model.init_flow('Fabrication - Scrap', FABR_PID, SCRAP_PID, 't,e,r,w,s')
-
-    main_model.init_flow('In-Use - Reuse', USE_PID, USE_PID, 't,e,r,g,s')
-    main_model.init_flow('In-Use - Scrap', USE_PID, SCRAP_PID, 't,e,r,g,w,s')
-    main_model.init_flow('In-Use - Dis./Not col.', USE_PID, DISNOTCOL_PID, 't,e,r,g,w,s')
-    main_model.init_flow('Scrap - Recycling', SCRAP_PID, RECYCLE_PID, 't,e,r,s')
-    main_model.init_flow('Scrap - Waste', SCRAP_PID, WASTE_PID, 't,e,r,s')
-
-    main_model.init_flow('Crude Imports', ENV_PID, FORM_PID, 't,e,r,s')
-    main_model.init_flow('Crude Exports', FORM_PID, ENV_PID, 't,e,r,s')
-    main_model.init_flow('Scrap Imports', ENV_PID, SCRAP_PID, 't,e,r,w,s')
-    main_model.init_flow('Scrap Exports', SCRAP_PID, ENV_PID, 't,e,r,w,s')
-    main_model.init_flow('Indirect Imports', ENV_PID, USE_PID, 't,e,r,g,s')
-    main_model.init_flow('Indirect Exports', USE_PID, ENV_PID, 't,e,r,g,s')
-
+    main_model.init_flow('In-Use - Incineration', USE_PID, INCINERATION_PID, 't,e,r,s')
+    main_model.init_flow('In-Use - Recycling', USE_PID, MECH_RECYCLE_PID, 't,e,r,s')
 
 def initiate_stocks(main_model):
     main_model.add_stock(USE_PID, 'in_use', 't,e,r,g,s')
-    main_model.add_stock(WASTE_PID, 'waste', 't,e,r,s')
-    main_model.add_stock(DISNOTCOL_PID, 'dissipative/not_collectable', 't,e,r,w,s')
-
 
 def check_consistency(main_model: MFAsystem):
     """
