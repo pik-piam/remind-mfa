@@ -3,7 +3,7 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 from src.economic_model.simson_econ_model import load_simson_econ_model, _get_flow_values
-from src.model.simson_base_model import BOF_PID, EAF_PID, FORM_PID, FABR_PID, USE_PID
+from src.model.simson_model import BOF_PID, EAF_PID, FORM_PID, FABR_PID, USE_PID
 from src.tools.config import cfg
 
 def _test():

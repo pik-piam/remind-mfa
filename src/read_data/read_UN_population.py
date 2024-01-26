@@ -18,10 +18,15 @@ def get_pop_countries():
 
     df_1900 = _get_pop_past_prediction(df, df_pop_1900)
     df = pd.merge(df_1900, df, on='country')
+
+    # output so far is a df with index 'region' and years as columns. Transform to standard form
+    df = df \
+        .filter(cfg.years) \
+        .reset_index() \
+        .melt(id_vars='country', var_name='Time', value_name='value')
+    df['Time'] = df['Time'].astype(int)  # change years to integers
+    df['value'] = df['value'].astype(float)  # change years to integers
     return df
-
-
-# -- FORMATTING DATA FUNCTIONS --
 
 
 def _get_pop_past_prediction(df, df_pop_1900):
@@ -106,7 +111,7 @@ def _read_pop_2022_original():
 
 def _test():
     from src.read_data.load_data import load_pop
-    df = load_pop('UN', country_specific=False)
+    df = get_pop_countries()
     print(df)
 
 

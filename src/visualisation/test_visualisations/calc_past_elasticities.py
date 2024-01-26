@@ -1,5 +1,5 @@
 import numpy as np
-from src.model.simson_base_model import load_simson_base_model
+from src.model.simson_model import load_simson_base_model
 from src.read_data.load_data import load_steel_prices, load_stocks
 import matplotlib.pyplot as plt
 

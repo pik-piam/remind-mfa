@@ -1,67 +1,82 @@
 import os
 import pickle
 import numpy as np
-from src.odym_extension.MultiDim_DynamicStockModel import MultiDim_DynamicStockModel
+from src.odym_extension.SimsonDynamicStockModel import SimsonDynamicStockModel
 from src.tools.config import cfg
-from src.model.model_tools import calc_change_timeline
-from src.predict.calc_steel_stocks import get_np_steel_stocks_with_prediction
-from src.read_data.load_data import load_lifetimes, load_region_names_list
+from src.tools.tools import load_or_recalculate, get_dsm_data
+from src.predict.predict import predict_stocks
+from src.read_data.load_data import load_data, setup
+from src.visualisation.visualize import visualize_future_production
 
 
-def load_dsms(country_specific, recalculate=cfg.recalculate_data):
-    file_name_end = '_countries' if country_specific else f'_{cfg.region_data_source}_regions'
-    file_name = f"dsms_{file_name_end}.p"
-    file_path = os.path.join(cfg.data_path, 'models', file_name)
-    if os.path.exists(file_path) and not recalculate:
-        dsms = pickle.load(open(file_path, "rb"))
-        return dsms
-    else:
-        dsms = _get_dsms(country_specific)
-        pickle.dump(dsms, open(file_path, "wb"))
-        return dsms
-
-
-def _get_dsms(country_specific):
-    stocks_data = get_np_steel_stocks_with_prediction(country_specific=country_specific,
-                                                      get_per_capita=False)
-    area_names = load_region_names_list()
-    mean, std_dev = load_lifetimes()
-
-    if cfg.do_change_inflow:
-        inflow_change_timeline = calc_change_timeline(cfg.inflow_change_factor, cfg.inflow_change_base_year)
-
-    dsms = [[[_create_dsm(stocks_data[:, area_idx, cat_idx, scenario_idx],
-                          mean[cat_idx], std_dev[cat_idx],
-                          inflow_change_timeline[:, cat_idx, scenario_idx] if cfg.do_change_inflow else None)
-              for scenario_idx in range(cfg.n_scenarios)]
-             for cat_idx in range(cfg.n_use_categories)]
-            for area_idx, area_name in enumerate(area_names)]
+@load_or_recalculate
+def load_dsms():
+    dsms = _get_dsms()
     return dsms
 
 
-def _create_dsm(stocks, lifetime, st_dev, inflow_change=None):
-    time = np.array(range(cfg.n_years))
-    steel_stock_dsm = MultiDim_DynamicStockModel(t=time,
-                                                 s=stocks,
-                                                 lt={'Type': 'Normal', 'Mean': [lifetime],
-                                                     'StdDev': [st_dev]})
+def _get_dsms():
 
-    steel_stock_dsm.compute_all_stock_driven()
+    production = load_data('production')
 
-    if inflow_change is not None:
-        inflows = steel_stock_dsm.i
-        inflows = inflows * inflow_change
-        steel_stock_dsm = MultiDim_DynamicStockModel(t=time,
-                                                     i=inflows,
-                                                     lt={'Type': 'Normal', 'Mean': [lifetime],
-                                                         'StdDev': [st_dev]})
-        steel_stock_dsm.compute_all_inflow_driven()
+    lifetimes = load_data('lifetime')
 
-    return steel_stock_dsm
+    historic_dsms = load_historic_stocks(production, lifetimes)
 
+    historic_stocks = get_dsm_data(historic_dsms, lambda dsm: dsm.s)
+
+    stocks  = predict_stocks(historic_stocks)
+
+    dsms = _calc_future_dsms(stocks, lifetimes)
+
+    if cfg.do_visualize["future_production"]:
+        visualize_future_production(dsms, production)
+
+    return dsms
+
+
+@load_or_recalculate
+def load_historic_stocks(production, lifetimes):
+
+    historic_stocks = [[historic_stock_from_production(production[:, area_idx, cat_idx],
+                                                       lifetimes["mean"][cat_idx],
+                                                       lifetimes["std"][cat_idx])
+            for cat_idx in range(cfg.n_use_categories)]
+        for area_idx in range(cfg.n_regions)]
+    # move time dimension to front
+    return historic_stocks
+
+
+def historic_stock_from_production(production, lifetime, st_dev):
+    historic_dsm = SimsonDynamicStockModel(t=cfg.historic_years,
+                                              i=production,
+                                              lt={'Type': 'Normal',
+                                                  'Mean': [lifetime],
+                                                  'StdDev': [st_dev]})
+    historic_dsm.compute_all_inflow_driven()
+    return historic_dsm
+
+
+def _calc_future_dsms(stocks, lifetimes):
+    future_dsms = [[calc_dsm(stocks[:, area_idx, cat_idx],
+                             lifetimes["mean"][cat_idx],
+                             lifetimes["std"][cat_idx])
+            for cat_idx in range(cfg.n_use_categories)]
+        for area_idx in range(cfg.n_regions)]
+    return future_dsms
+
+def calc_dsm(stock, lifetime_mean, lifetime_std):
+    future_dsm = SimsonDynamicStockModel(t=cfg.years,
+                                               s=stock,
+                                               lt={'Type': 'Normal',
+                                                   'Mean': [lifetime_mean],
+                                                   'StdDev': [lifetime_std]})
+    future_dsm.compute_all_stock_driven()
+    return future_dsm
 
 def _test():
-    dsms = load_dsms(country_specific=False, recalculate=True)
+    setup()
+    dsms = load_dsms()
     print(dsms)
 
 

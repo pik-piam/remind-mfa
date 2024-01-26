@@ -1,18 +1,14 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from src.model.simson_base_model import load_simson_base_model, PRIM_PID, USE_PID, EOL_PID, MECH_RECYCLE_PID, INCINERATION_PID
+from src.model.simson_model import load_simson_base_model, PRIM_PID, USE_PID, EOL_PID, MECH_RECYCLE_PID, INCINERATION_PID
 from src.tools.config import cfg
-from src.read_data.load_data import load_region_names_list
-from src.economic_model.simson_econ_model import load_simson_econ_model
-from src.predict.calc_steel_stocks import get_np_pop_data
 
 # MAIN PARAMETERS
 
 do_flow_not_stock = True
-flow_origin_process = FABR_PID
 flow_destination_process = USE_PID
 stock_process = USE_PID
-dimension = 'region'  # Options (depending on flow): 'region', 'scenario', 'good', 'waste'
+dimension = 'Region'  # Options (depending on flow): 'region', 'scenario', 'good', 'waste'
 
 default_scenario = 'SSP2'  # If dimension is not 'scenario', only data from this scenario is considered.
 default_region = 'EUR'  # If dimension is not 'region', only data from this region is considered.
@@ -21,7 +17,6 @@ default_region = 'EUR'  # If dimension is not 'region', only data from this regi
 
 # SPECIFIC PARAMETERS
 
-do_load_econ_model = False
 region_data_source = 'Pauliuk'  # Options: REMIND, Pauliuk, REMIND_EU
 steel_data_source = 'IEDatabase'  # Options: Mueller, IEDatabase
 curve_strategy = 'Pauliuk'  # Options: Pauliuk, Pehl, Duerrwaechter
@@ -45,7 +40,7 @@ def visualise():
     model = _get_model_for_visualisation()
     flow_or_stock = _get_flow_or_stock(model)
     name = flow_or_stock.Name
-    regions = load_region_names_list()
+    regions = cfg.data.region_list
     legend = _get_legend(regions)
     used_labels = _get_used_labels(legend)
     values = _prepare_values(flow_or_stock, name, regions)
@@ -63,7 +58,7 @@ def visualise():
     plt.legend()
     flow_or_stock_string = 'flow' if do_flow_not_stock else 'stock'
     title = f"{name} {flow_or_stock_string} by '{dimension}'\n"
-    if not dimension == 'region':
+    if not dimension == 'Region':
         title += f"default region '{default_region}'"
     if not dimension == 'scenario':
         title += f", default scenario '{default_scenario}'"
@@ -99,7 +94,7 @@ def _prepare_values(flow, name, regions):
     if wanted_dim not in flow_dims:
         raise RuntimeError(
             f"Dimension '{dimension}' with index '{wanted_dim}' not in {name} flow indices ('{flow_dims}')."
-            f"\nChoose one of 'region', 'scenario', 'good' or 'waste' depending on flow indices.")
+            f"\nChoose one of 'Region', 'scenario', 'good' or 'waste' depending on flow indices.")
     flow_dims = flow_dims.replace(",", "")
     n_dims = len(flow_dims)
     dim_idx = flow_dims.index(wanted_dim)
@@ -143,9 +138,9 @@ def _prepare_values(flow, name, regions):
 
 
 def _transfer_flows_to_per_capita(values, flow_dims, include_gdp_and_pop_scenarios, regions):
-    pop = get_np_pop_data(country_specific=False, include_gdp_and_pop_scenarios=include_gdp_and_pop_scenarios)
+    pop = cfg.data.np_pop
     pop_dims = 'tr'
-    if not dimension == 'region':
+    if not dimension == 'Region':
         # use default region
         if default_region == 'World':
             pop = np.sum(pop, axis=1)
@@ -177,14 +172,11 @@ def _get_model_for_visualisation():
         cfg.curve_strategy = curve_strategy
         recalculate = True
 
-    if do_load_econ_model:
-        return load_simson_econ_model(recalculate=recalculate, recalculate_dsms=recalculate)
-    else:
-        return load_simson_base_model(recalculate=recalculate, recalculate_dsms=recalculate)
+    return load_simson_base_model(recalculate=recalculate, recalculate_dsms=recalculate)
 
 
 def _get_legend(regions):
-    if dimension == 'region':
+    if dimension == 'Rgion':
         return regions
     elif dimension == 'scenario':
         return cfg.scenarios
@@ -193,7 +185,7 @@ def _get_legend(regions):
     elif dimension == 'waste':
         return sorted(cfg.recycling_categories)
     else:
-        raise RuntimeError(f"Dimension {dimension} not accepted. Use 'region', 'scenario', 'good' or 'waste'.")
+        raise RuntimeError(f"Dimension {dimension} not accepted. Use 'Region', 'scenario', 'good' or 'waste'.")
 
 
 if __name__ == '__main__':

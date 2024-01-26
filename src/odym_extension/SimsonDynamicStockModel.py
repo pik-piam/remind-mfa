@@ -2,7 +2,7 @@ import numpy as np
 from ODYM.odym.modules.dynamic_stock_model import DynamicStockModel
 
 
-class MultiDim_DynamicStockModel(DynamicStockModel):
+class SimsonDynamicStockModel(DynamicStockModel):
     # TODO: unfinished - decide whether to implement Multiple dimension possibility
 
     def compute_all_stock_driven(self):
@@ -26,11 +26,3 @@ class MultiDim_DynamicStockModel(DynamicStockModel):
         elif balance > 0.001:
             print("Stock balance for model dynamic stock model is noteworthy: " + str(balance))
 
-
-def _test():
-    # TODO revise test
-    return
-
-
-if __name__ == '__main__':
-    _test()

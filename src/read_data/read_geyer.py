@@ -2,8 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 from src.tools.config import cfg
-from src.tools.tools import fill_missing_values_linear
-from src.read_data.load_data import load_pop
 
 
 def geyer_file_path():
@@ -12,93 +10,91 @@ def geyer_file_path():
 
 geyer_elements = ['HDPE', 'LDPE', 'PP', 'PS', 'PVC', 'PET', 'PUR', 'Other']
 geyer_in_use_categories = ['Packaging',
-                            'Transportation',
-                            'Building and Construction',
-                            'Electrical / Electronic',
-                            'Consumer & Institutional Products',
-                            'Industrial Machinery',
-                            'Other']
+                           'Transportation',
+                           'Building and Construction',
+                           'Electrical / Electronic',
+                           'Consumer & Institutional Products',
+                           'Industrial Machinery',
+                           'Other']
+aspect_name_mapping = {'Market Sector': 'Good',
+                       'Year': 'Time'}
 
-
-def _read_geyer_production():
+def get_geyer_production():
     df = pd.read_excel(geyer_file_path(),
                        sheet_name="S1")
+    df = df.rename(columns=aspect_name_mapping)
+    df = df.rename(columns={'Global Production (Mt)': 'value'})
+    df['value'] *= 1e6 # convert to tonnes
+    df['Region'] = 'World'
+
+    shares = get_geyer_shares()
+    sector_split = sector_shares(shares)
+    df = df.merge(sector_split,
+                  how='cross',
+                  suffixes=['_prod', '_share'])
+    df['value'] = df['value_prod'] * df['value_share']
+    df = df.drop(columns=['value_prod', 'value_share'])
     return df
 
 
-def _read_geyer_lifetimes():
+def get_geyer_lifetimes():
     df = pd.read_excel(geyer_file_path(),
                        sheet_name="S4")
-    shares = _read_geyer_shares(sectors=geyer_in_use_categories)
-    sector_weights = _sum_shares(shares, keep_by='Sector')
+    df = df.rename(columns=aspect_name_mapping)
+    shares = get_geyer_shares(sectors=geyer_in_use_categories)
+    sector_weights = sector_shares(shares)
     df = df \
         .rename(columns={'Mean (in years)': 'mean', 'Standard deviation': 'std'}) \
         .assign(**{'variance': lambda df: df['std']**2}) \
-        .merge(sector_weights, on='Market Sector', how='left') \
+        .merge(sector_weights, on='Good', how='left') \
         .rename(columns={'value': 'weight'}) \
         .assign(**{'weighted mean': lambda df: df['mean'] * df['weight'],
                    'weighted squared mean': lambda df: df['mean']**2 * df['weight'],
                    'weighted variance': lambda df: df['variance'] * df['weight']})
-    df = _sum_rows_by_mapping(df, 'Market Sector', _geyer_in_use_categories_mapping())
+    df = _sum_by_mapping(df, 'Good', _geyer_in_use_categories_mapping())
     df = df \
         .assign(**{'weighted mean': lambda df: df['weighted mean'] / df['weight'],
                    'weighted squared mean': lambda df: df['weighted squared mean'] / df['weight'],
                    'weighted variance': lambda df: df['weighted variance'] / df['weight']}) \
         .assign(**{'mean': lambda df: df['weighted mean'],
                    'variance': lambda df: (df['weighted variance'] + df['weighted squared mean'] - df['weighted mean']**2)}) \
-        .assign(**{'std': lambda df: np.sqrt(df['variance'])}) \
-        .filter(['Market Sector', 'mean', 'std'])
+        .assign(**{'std': lambda df: np.sqrt(df['variance'])})
+    df= df .filter(['Good', 'mean', 'std'])
     return df
 
-def _read_geyer_shares(elements: list = cfg.elements, sectors: list = cfg.in_use_categories):
-    df_raw = pd.read_excel(geyer_file_path(),
+def get_geyer_shares(elements: list = cfg.elements, sectors: list = cfg.in_use_categories):
+    df = pd.read_excel(geyer_file_path(),
                        sheet_name="S2")
-    df = _sum_rows_by_mapping(df_raw, 'Market Sector', _geyer_in_use_categories_mapping(sectors))
-    df = _transpose(df, 'Market Sector', 'Element')
-    df = _sum_rows_by_mapping(df, 'Element', _geyer_element_mapping(elements))
-    df = _transpose(df, 'Element', 'Market Sector')
+    df = df.rename(columns=aspect_name_mapping)
+    df = df.melt(id_vars='Good', var_name='Element', value_name='value')
+    df = _sum_by_mapping(df, 'Good', _geyer_in_use_categories_mapping(sectors))
+    df = _sum_by_mapping(df, 'Element', _geyer_element_mapping(elements))
     return df
 
 
-def _sum_shares(df, keep_by: str):
-    if keep_by=='Element':
-        df = _sum_and_transpose(df, 'Market Sector', 'Element')
-    elif keep_by=='Sector':
-        df = _transpose(df, 'Market Sector', 'Element')
-        df = _sum_and_transpose(df, 'Element', 'Market Sector')
-    else:
-        raise Exception('invalid argument')
-    return df
+def element_shares(shares: pd.DataFrame):
+    return shares \
+        .groupby('Element', as_index=False) \
+        .agg({'value': 'sum'})
 
 
-def _sum_and_transpose(df: pd.DataFrame, index_column: str, new_index_name: str):
-    df= df \
-        .drop(columns=index_column) \
-        .sum() \
-        .T \
-        .reset_index() \
-        .rename(columns={'index': new_index_name, 0: 'value'})
-    return df
+def sector_shares(shares: pd.DataFrame):
+    return shares \
+        .groupby('Good', as_index=False) \
+        .agg({'value': 'sum'})
 
-def _transpose(df: pd.DataFrame, index_column: str, new_index_name: str):
-    df = df \
-        .set_index(index_column) \
-        .T \
-        .reset_index()\
-        .rename(columns={'index': new_index_name})
-    return df
 
-def _sum_rows_by_mapping(df: pd.DataFrame, column_name: str, mapping: pd.DataFrame):
-    value_cols = np.setdiff1d(df.columns, column_name)
+def _sum_by_mapping(df: pd.DataFrame, column_name: str, mapping: pd.DataFrame):
     df = df \
         .merge(mapping,
                left_on=column_name,
                right_on='source',
-               how='left')
-    df = df[df['target'].notnull()]
+               how='inner')
+    index_cols = [c for c in cfg.aspects if c in df.columns and c != column_name] + ['target']
+    value_cols = [c for c in df.columns if c not in index_cols and c not in [column_name, 'source']]
     df = df \
-        .groupby('target') \
-        .agg({c: 'sum' for c in value_cols}) \
+        .groupby(by=index_cols) \
+        .agg({v: 'sum' for v in value_cols}) \
         .reset_index() \
         .rename(columns={'target': column_name})
 
@@ -137,5 +133,5 @@ def _get_mapping_df(source: list, target: list, mapping: dict):
 
 
 if __name__ == "__main__":
-    df = _read_geyer_lifetimes()
+    df = get_geyer_production()
     print(df)

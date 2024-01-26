@@ -3,7 +3,7 @@ import warnings
 import pandas as pd
 import numpy as np
 from src.tools.config import cfg
-from src.read_data.load_data import load_gdp
+# from src.read_data.load_data import load_gdp
 
 
 def map_split_join_iso3(df, country_name_column: str = 'country_name') -> pd.DataFrame:
@@ -165,19 +165,19 @@ def join_split_country_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _get_gdp_percentages_of_joint_areas():
-    """
-    Helper function if formerly joint countries need to be split by shares of total GDP.
-    :return:
-    """
-    df_gdp = load_gdp(country_specific=True, per_capita=False)
-    df_gdp = pd.merge(df_split_map, df_gdp, left_on='country', right_index=True)
-    gk_gdp = df_gdp.groupby('joint_country_name')
-    df_gdp_sums = gk_gdp.transform('sum', numeric_only=True)
-    df_gdp.iloc[:, 2:] = df_gdp.iloc[:, 2:] / df_gdp_sums
-    df_gdp = df_gdp.set_index(['country', 'joint_country_name'])
+# def _get_gdp_percentages_of_joint_areas():
+#     """
+#     Helper function if formerly joint countries need to be split by shares of total GDP.
+#     :return:
+#     """
+#     df_gdp = load_gdp(country_specific=True, per_capita=False)
+#     df_gdp = pd.merge(df_split_map, df_gdp, left_on='country', right_index=True)
+#     gk_gdp = df_gdp.groupby('joint_country_name')
+#     df_gdp_sums = gk_gdp.transform('sum', numeric_only=True)
+#     df_gdp.iloc[:, 2:] = df_gdp.iloc[:, 2:] / df_gdp_sums
+#     df_gdp = df_gdp.set_index(['country', 'joint_country_name'])
 
-    return df_gdp
+#     return df_gdp
 
 
 df_iso3 = _read_iso3_csv('iso3map')
