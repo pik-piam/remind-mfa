@@ -139,58 +139,6 @@ class Config:
     def n_regions(self):
         return self.data.region_list.shape[0]
 
-    # @property
-    # def econ_start_index(self):
-    #     return self.econ_base_year - self.start_year + 1
-
-    # def _price_change_list(self):
-    #     if isinstance(self.steel_price_change_by_scenario, list):
-    #         return self.steel_price_change_by_scenario
-    #     else:
-    #         return [self.steel_price_change_by_scenario] * len(cfg.scenarios)
-
-    # @property
-    # def price_change_factor(self):
-    #     return 1 + np.array(self._price_change_list())
-
-    # def _inflow_change_category_list(self):
-    #     if isinstance(self.inflow_change_by_category, list):
-    #         return self.inflow_change_by_category
-    #     else:
-    #         return [self.inflow_change_by_category] * len(self.in_use_categories)
-
-    # def _inflow_change_scenario_list(self):
-    #     if isinstance(self.inflow_change_by_scenario, list):
-    #         return self.inflow_change_by_scenario
-    #     else:
-    #         return [self.inflow_change_by_scenario] * len(self.scenarios)
-
-    # @property
-    # def inflow_change_factor(self) -> np.ndarray:
-    #     return np.einsum('g,s->gs',
-    #                      1 + np.array(self._inflow_change_category_list()),
-    #                      1 + np.array(self._inflow_change_scenario_list()))
-
-    # def _reuse_change_category_list(self) -> list:
-    #     if isinstance(self.reuse_change_by_category, list):
-    #         return self.reuse_change_by_category
-    #     else:
-    #         return [self.reuse_change_by_category] * len(self.in_use_categories)
-
-    # def _reuse_change_scenario_list(self) -> list:
-    #     if isinstance(self.reuse_change_by_scenario, list):
-    #         return self.reuse_change_by_scenario
-    #     else:
-    #         return [self.reuse_change_by_scenario] * len(self.scenarios)
-
-    # @property
-    # def reuse_factor(self) -> np.ndarray:
-    #     factor = np.einsum('g,s->gs',
-    #                        1 + np.array(self._reuse_change_category_list()),
-    #                        1 + np.array(self._inflow_change_scenario_list()))
-    #     return np.maximum(1, factor)
-    #     # Reuse factor needs to be at least one, as it is deducted by one later and needs to be positive
-
 
 class SetupDataContainer():
 
@@ -200,10 +148,6 @@ class SetupDataContainer():
 
         self.df_pop = None
         self.df_pop_countries = None
-
-        # self.df_gdp = None
-        # self.df_gdp_countries = None
-        # sdc_self.df_gdppc = None
 
         self.np_pop = None
         self.np_gdp = None
@@ -217,19 +161,8 @@ class SetupDataContainer():
             return attr
 
 
-# class SourceConfiguration():
-
-#     def __init__(self, read_func, regions, percapita=False, objtype='pd'):
-#         self.read_func  = read_func
-#         self.regions    = regions
-#         self.percapita  = percapita
-#         self.objtype    = objtype
-
-
 cfg = Config()
 
-# source_config_dict = {}
-# loaded_data = {}
 
 if __name__ == '__main__':
     cfg.generate_yml()
