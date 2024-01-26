@@ -6,7 +6,6 @@ import pickle
 from src.tools.config import cfg
 
 
-
 # decorator
 def load_or_recalculate(recalculate_function):
     def load_or_recalculate_wrapper(*args, **kwargs):
@@ -23,8 +22,6 @@ def load_or_recalculate(recalculate_function):
             pickle.dump(data, open(file_path, "wb"))
         return data
     return load_or_recalculate_wrapper
-
-
 
 
 def show_and_save(filename_base: str = None):
