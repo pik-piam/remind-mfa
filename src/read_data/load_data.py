@@ -1,12 +1,10 @@
 import numpy as np
 from src.tools.config import cfg
 from src.tools.tools import get_np_from_df, group_country_data_to_regions, transform_per_capita_df
-from src.read_data.read_UN_population import get_pop_countries
 from src.read_data.read_geyer import get_geyer_production, get_geyer_lifetimes, get_geyer_shares
 from src.tools.tools import get_np_from_df, group_country_data_to_regions, load_or_recalculate
-from src.read_data.read_REMIND_regions import get_remind_regions, get_remind_eu_regions
-from src.read_data.read_UN_population import get_pop_countries
-from src.read_data.read_remind_gdp import get_remind_gdp
+from src.read_data.read_remind import get_remind_regions, get_remind_eu_regions
+from src.read_data.read_remind import get_remind_gdp, get_remind_pop
 from src.read_data.read_dummy import get_dummy_mechanical_recycling_rates, get_dummy_mechanical_recycling_yields
 
 
@@ -96,8 +94,10 @@ def load_region_mapping(source = 'cfg'):
 def load_pop(source = 'cfg'):
     if source == 'cfg':
         source = cfg.data_sources['pop']
-    if source == 'UN':
-        pop = get_pop_countries()
+    # if source == 'UN':
+    #     pop = get_pop_countries()
+    if source == 'remind':
+        pop = get_remind_pop()
     return pop
 
 

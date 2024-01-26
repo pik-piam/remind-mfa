@@ -5,8 +5,33 @@ from src.tools.config import cfg
 from src.tools.tools import fill_missing_values_linear
 
 
+def get_remind_pop():
+    return get_remind_data('population.csv', 'pop')
+
+
 def get_remind_gdp():
-    df = _read_remind_gdp_raw()
+    return get_remind_data('gdp_ppp.csv', 'gdp')
+
+
+def get_remind_regions():
+    return get_remind_region_mapping('REMINDRegions.csv')
+
+
+def get_remind_eu_regions():
+    return get_remind_region_mapping('REMIND_EU_Regions.csv')
+
+
+def get_remind_region_mapping(filename):
+    remind_data_path = os.path.join(cfg.data_path, 'original', 'remind', filename)
+    df_remind = pd.read_csv(remind_data_path)
+    df_remind = df_remind \
+        .set_index('country') \
+        .rename(columns={'region': 'Region'})
+    return df_remind
+
+
+def get_remind_data(filename, data_type):
+    df = _read_remind_data_raw(filename, data_type)
     df = _extrapolate_past(df)
     df = fill_missing_values_linear(df)
     return df
@@ -26,29 +51,23 @@ def _extrapolate_past(df: pd.DataFrame):
     return df
 
 
-def _read_remind_gdp_raw():
-    """
-    GDP predictions by country according to: https://doi.org/10.1016/j.ecolecon.2023.107751
-    """
-    path = os.path.join(cfg.data_path, 'original', 'koch_leimbach', 'gdp_ppp.csv')
+def _read_remind_data_raw(filename, data_type):
+
+    path = os.path.join(cfg.data_path, 'original', 'remind', filename)
     df = pd.read_csv(path,
                      skiprows=4,
-                     usecols=['dummy', 'dummy.1', 'gdp_SSP1', 'gdp_SSP2', 'gdp_SSP3', 'gdp_SSP4', 'gdp_SSP5'])
+                     usecols=['dummy',
+                              'dummy.1',
+                              f'{data_type}_{cfg.scenario}'])
     df = df.rename(columns={
         'dummy': 'Time',
         'dummy.1': 'country',
-        'gdp_SSP1': 'SSP1',
-        'gdp_SSP2': 'SSP2',
-        'gdp_SSP3': 'SSP3',
-        'gdp_SSP4': 'SSP4',
-        'gdp_SSP5': 'SSP5',
+        f'{data_type}_{cfg.scenario}': 'value'
     })
 
     df['Time'] = df['Time'].str[1:].astype(int)  # change years to integers
 
-    df['value'] = 1000000*df[cfg.scenario]  # data is provided in million 2005 USD
-
-    df = df.drop(columns=['SSP1', 'SSP2', 'SSP3', 'SSP4', 'SSP5'])
+    df['value'] = 1e6 * df['value']  # gdp is provided in million 2005 USD, population in million people
 
     return df
 

@@ -23,8 +23,8 @@ class Config:
         # general config
         self.simulation_name = 'SIMSON_Test_1'
         self.try_reload = {
-            'setup': True,
-            'dsms': True#,
+            # 'setup': True,
+            # 'dsms': True#,
             # 'historic_stocks': True,
             # 'gdp': True
         }
@@ -36,7 +36,7 @@ class Config:
         # data sources
         self.data_path = 'data'
         self.data_sources = {
-            'pop': 'UN',  # Options: UN, KC-Lutz (only for scenarios)
+            'pop': 'remind',  # Options: UN, KC-Lutz (only for scenarios)
             'gdp': 'remind',  # Options: IMF, Koch-Leimbach (only for scenarios)
             'production': 'geyer',  # Options: geyer
             'lifetime': 'geyer',  # Options: geyer
