@@ -23,8 +23,8 @@ class Config:
         # general config
         self.simulation_name = 'SIMSON_Test_1'
         self.try_reload = {
-            # 'setup': True,
-            # 'dsms': True#,
+            'setup': True,
+            'dsms': True#,
             # 'historic_stocks': True,
             # 'gdp': True
         }

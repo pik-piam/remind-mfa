@@ -7,7 +7,8 @@ from src.read_data.load_data import load_data, setup
 from src.model.load_dsms import load_dsms
 
 #  model definition
-processes = ['Primary Production',
+processes = ['System Environment',
+             'Primary Production',
              'Fabrication',
              'Mechanical Recycling',
              'Use Phase',
@@ -17,7 +18,7 @@ processes = ['Primary Production',
 pid = {p: id for id, p in enumerate(processes)}
 
 stocks = [
-    Stock(Name='In-Use Stock', P_Res=pid['Use Phase'], Type=0, Indices='t,r,g', Values=None)
+    Stock(Name='In-Use Stock', P_Res=pid['Use Phase'], Type=0, Indices='t,e,r,g', Values=None)
 ]
 add_change = {'In-Use Stock': True}
 
@@ -28,13 +29,15 @@ stock_change_dict = {
 stock_dict.update(stock_change_dict)
 
 flows = [
-    Flow(Name='primary_production_output',         P_Start=pid['Primary Production'],   P_End=pid['Fabrication'],          Indices='t,e,r', Values=None),
-    Flow(Name='demand',                            P_Start=pid['Fabrication'],          P_End=pid['Use Phase'],            Indices='t,r,g', Values=None),
-    Flow(Name='outflow_by_element',                P_Start=pid['Use Phase'],            P_End=pid['End of Life'],          Indices='t,e,r', Values=None),
-    Flow(Name='waste_incineration',                P_Start=pid['End of Life'],          P_End=pid['Incineration'],         Indices='t,e,r', Values=None),
-    Flow(Name='mechanical_recycling_input',        P_Start=pid['End of Life'],          P_End=pid['Mechanical Recycling'], Indices='t,e,r', Values=None),
-    Flow(Name='mechanical_recycling_output',       P_Start=pid['Mechanical Recycling'], P_End=pid['Fabrication'],          Indices='t,e,r', Values=None),
-    Flow(Name='mechanical_recycling_incineration', P_Start=pid['Mechanical Recycling'], P_End=pid['Incineration'],         Indices='t,e,r', Values=None)
+    Flow(Name='primary_production_input',          P_Start=pid['System Environment'],   P_End=pid['Primary Production'],   Indices='t,e,r',   Values=None),
+    Flow(Name='primary_production_output',         P_Start=pid['Primary Production'],   P_End=pid['Fabrication'],          Indices='t,e,r',   Values=None),
+    Flow(Name='demand',                            P_Start=pid['Fabrication'],          P_End=pid['Use Phase'],            Indices='t,e,r',   Values=None),
+    Flow(Name='outflow_by_element',                P_Start=pid['Use Phase'],            P_End=pid['End of Life'],          Indices='t,e,r,g', Values=None),
+    Flow(Name='waste_incineration',                P_Start=pid['End of Life'],          P_End=pid['Incineration'],         Indices='t,e,r',   Values=None),
+    Flow(Name='mechanical_recycling_input',        P_Start=pid['End of Life'],          P_End=pid['Mechanical Recycling'], Indices='t,e,r',   Values=None),
+    Flow(Name='mechanical_recycling_output',       P_Start=pid['Mechanical Recycling'], P_End=pid['Fabrication'],          Indices='t,e,r',   Values=None),
+    Flow(Name='mechanical_recycling_incineration', P_Start=pid['Mechanical Recycling'], P_End=pid['Incineration'],         Indices='t,e,r',   Values=None),
+    Flow(Name='incineration_emissions',            P_Start=pid['Incineration'],         P_End=pid['System Environment'],   Indices='t,e,r',   Values=None)
 ]
 flow_dict = {flow.Name: flow for flow in flows}
 # incineration = waste_incineration + mechanical_recycling_incineration
@@ -42,8 +45,7 @@ flow_dict = {flow.Name: flow for flow in flows}
 # @load_or_recalculate #TODO
 def load_simson_mfa():
     dsms = load_dsms()
-    model, balance_message = create_model(dsms)
-    print(balance_message)
+    model = create_model(dsms)
     return model
 
 
@@ -61,16 +63,20 @@ def create_model(dsms):
 
     compute_stocks(main_model, stock_values, inflows, outflows)
 
-    balance_message = mass_balance_plausible(main_model)
+    mass_balance_plausible(main_model)
 
-    return main_model, balance_message
+    return main_model
 
 
 def initiate_model(main_model: MFAsystem):
+    # processes
     initiate_processes(main_model)
+    # parameters
     initiate_parameters(main_model)
+    # flows
     main_model.FlowDict = flow_dict
     main_model.Initialize_FlowValues()
+    # stocks
     main_model.StockDict = stock_dict
     main_model.Initialize_StockValues()
     check_consistency(main_model)
@@ -115,27 +121,27 @@ def set_up_model():
 
 
 def initiate_processes(main_model: MFAsystem):
-
     main_model.ProcessList = [Process(Name=name, ID=id) for name, id in pid.items()]
     return
-
 
 
 def initiate_parameters(main_model: MFAsystem):
 
     shares = load_data('good_and_element_shares')
+    share_of_goods = np.sum(shares, axis = 0, keepdims=True)
+    element_shares_in_goods = shares / share_of_goods
 
     recycling_rates = load_data('mechanical_recycling_rates')
 
     recycling_yields = load_data('mechanical_recycling_yields')
 
     main_model.ParameterDict = {
-        'Good_and_Element_Shares':    Parameter(Name='Good_and_Element_Shares',
+        'Element_Shares_in_Goods':     Parameter(Name='Element_Shares_in_Goods',
                                                 ID=0,
                                                 P_Res=pid['Fabrication'],
                                                 MetaData=None,
                                                 Indices='e,g',
-                                                Values=shares,
+                                                Values=element_shares_in_goods,
                                                 Unit='1'),
         'Mechanical_Recycling_Rate':  Parameter(Name='Mechanical_Recycling_Rate',
                                                 ID=1,
@@ -171,11 +177,11 @@ def check_consistency(main_model: MFAsystem):
 
 def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.ndarray):
 
-    good_and_element_shares, mechanical_recycling_rate, mechanical_recycling_yield = _get_params(model)
+    element_shares_in_goods, mechanical_recycling_rate, mechanical_recycling_yield = _get_params(model)
 
-    demand = np.einsum('trg,eg->ter', use_inflows, good_and_element_shares)
+    demand = np.einsum('trg,eg->ter', use_inflows, element_shares_in_goods)
 
-    outflow_by_element = np.einsum('trg,eg->terg', use_outflows, good_and_element_shares)
+    outflow_by_element = np.einsum('trg,eg->terg', use_outflows, element_shares_in_goods)
 
     mechanical_recycling_input = np.einsum('terg,eg->ter', outflow_by_element, mechanical_recycling_rate)
 
@@ -187,7 +193,9 @@ def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.nd
 
     primary_production_output = demand - mechanical_recycling_output
 
-    # incineration = waste_incineration + mechanical_recycling_incineration
+    primary_production_input = primary_production_output
+
+    incineration = waste_incineration + mechanical_recycling_incineration
 
     edit_flows(model,
                {'demand': demand,
@@ -196,31 +204,32 @@ def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.nd
                 'waste_incineration': waste_incineration,
                 'mechanical_recycling_output': mechanical_recycling_output,
                 'mechanical_recycling_incineration': mechanical_recycling_incineration,
-                'primary_production_output': primary_production_output})
+                'primary_production_output': primary_production_output,
+                'primary_production_input': primary_production_input,
+                'incineration_emissions': incineration})
 
     return model
 
 
 def edit_flows(model: MFAsystem, flow_dict):
     for flow_name, flow_value in flow_dict.items():
-        model.FlowDict[flow_name].Values = flow_value
+        model.FlowDict[flow_name].Values[...] = flow_value
 
 
 def _get_params(model: MFAsystem):
     params = model.ParameterDict
-    good_and_element_shares = params['Good_and_Element_Shares'].Values
+    element_shares_in_goods = params['Element_Shares_in_Goods'].Values
     mechanical_recycling_rate = params['Mechanical_Recycling_Rate'].Values
     mechanical_recycling_yield = params['Mechanical_Recycling_Yield'].Values
-    return good_and_element_shares, mechanical_recycling_rate, mechanical_recycling_yield
+    return element_shares_in_goods, mechanical_recycling_rate, mechanical_recycling_yield
 
 
 def compute_stocks(model: MFAsystem, stock_values, inflows, outflows):
-    model.StockDict['In-Use Stock'].Values = stock_values
-    model.StockDict['In-Use Stock Change'].Values = inflows - outflows
-
-    # inflow_waste = model.get_flowV(SCRAP_PID, WASTE_PID)
-    # model.get_stock_changeV(WASTE_PID)[...] = inflow_waste
-    # model.calculate_stock_values_from_stock_change(WASTE_PID)
+    element_shares_in_goods, _, _ = _get_params(model)
+    stocks_by_element = np.einsum('trg,eg->terg', stock_values, element_shares_in_goods)
+    model.StockDict['In-Use Stock'].Values = stocks_by_element
+    change_by_element = np.einsum('trg,eg->terg', inflows - outflows, element_shares_in_goods)
+    model.StockDict['In-Use Stock Change'].Values = change_by_element
 
     return model
 
@@ -231,12 +240,17 @@ def mass_balance_plausible(main_model: MFAsystem):
     :return: True if the mass balance for all processes is below 1t of steel, False otherwise.
     """
 
+    print("Checking mass balance...")
+    # returns array with dim [t, process, e]
     balance = main_model.MassBalance()
-    for val in np.abs(balance).sum(axis=0).sum(axis=1):
-        if val > 1:
-            raise RuntimeError(
-                "Error, Mass Balance summary below\n" + str(np.abs(balance).sum(axis=0).sum(axis=1)))
-    return f"Success - Model loaded and checked. \nBalance: {str(list(np.abs(balance).sum(axis=0).sum(axis=1)))}.\n"
+    error_sum_by_process = np.abs(balance).sum(axis=(0,2))
+    id_failed = error_sum_by_process > 1.
+    names_failed = [n for n, id in pid.items() if id_failed[id]]
+    if names_failed:
+            raise RuntimeError(f"Error, Mass Balance fails for processes {', '.join(names_failed)}")
+    else:
+        print("Success - Mass balance consistent!")
+    return
 
 
 if __name__ == "__main__":

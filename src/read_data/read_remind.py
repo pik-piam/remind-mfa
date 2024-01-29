@@ -14,11 +14,11 @@ def get_remind_gdp():
 
 
 def get_remind_regions():
-    return get_remind_region_mapping('REMINDRegions.csv')
+    return get_remind_region_mapping('remind_regions.csv')
 
 
 def get_remind_eu_regions():
-    return get_remind_region_mapping('REMIND_EU_Regions.csv')
+    return get_remind_region_mapping('remind_eu_regions.csv')
 
 
 def get_remind_region_mapping(filename):
