@@ -24,9 +24,9 @@ class Config:
         self.simulation_name = 'SIMSON_Test_1'
         self.try_reload = {
             'setup': True,
-            'dsms': True#,
-            # 'historic_stocks': True,
-            # 'gdp': True
+            'dsms': True,
+            'historic_stocks': True,
+            'gdp': True
         }
         self.include_gdp_and_pop_scenarios_in_prediction = True
 
@@ -48,7 +48,8 @@ class Config:
 
         self.do_visualize = {
             'stock_prediction': False,
-            'future_production': False
+            'future_production': False,
+            'sankey': True
         }
 
         # indices / scope
@@ -138,6 +139,9 @@ class Config:
     @property
     def n_regions(self):
         return self.data.region_list.shape[0]
+
+    def y_id(self, year):
+        return int(year) - self.start_year
 
 
 class SetupDataContainer():

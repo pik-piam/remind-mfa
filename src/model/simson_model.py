@@ -5,6 +5,7 @@ from src.tools.config import cfg
 from src.tools.tools import get_dsm_data
 from src.read_data.load_data import load_data, setup
 from src.model.load_dsms import load_dsms
+from src.visualisation.visualize import visualize_mfa_sankey
 
 #  model definition
 processes = ['System Environment',
@@ -46,6 +47,8 @@ flow_dict = {flow.Name: flow for flow in flows}
 def load_simson_mfa():
     dsms = load_dsms()
     model = create_model(dsms)
+    if cfg.do_visualize['sankey']:
+        visualize_mfa_sankey(model)
     return model
 
 
