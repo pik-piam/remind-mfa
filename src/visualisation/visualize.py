@@ -57,35 +57,105 @@ def visualize_stock_prediction(gdppc, stocks_pc, prediction):
 
     plt.show()
 
+display_names = {
+    'sysenv': 'System environment',
+    'virginfoss': 'Virgin production (fossil)',
+    'virginbio': 'Virgin production (biomass)',
+    'virgindaccu': 'Virgin production (daccu)',
+    'virginccu': 'Virgin production (ccu)',
+    'virgin': 'Virgin production (total)',
+    'fabrication': 'Fabrication',
+    'recl': 'Recycling (total)',
+    'reclmech': 'Mechanical recycling',
+    'reclchem': 'Chemical recycling',
+    'reclsolv': 'Solvent-based recycling',
+    'use': 'Use Phase',
+    'eol': 'End of Life',
+    'incineration': 'Incineration',
+    'landfill': 'Disposal',
+    'uncontrolled': 'Uncontrolled release',
+    'emission': 'Emissions',
+    'captured': 'Captured',
+    'atmosphere': 'Atmosphere'
+}
+
+
+def dn(st):
+    return display_names[st] if st in display_names else st
+
 
 def visualize_mfa_sankey(mfa: MFAsystem):
-    exclude_nodes = ['System Environment']
+    # exclude_nodes = ['sysenv', 'atmosphere', 'emission', 'captured']
+    exclude_nodes = ['sysenv']
     exclude_flows = []
-    year = 2020
+    year = 2050
+    region_id = 0
+    carbon_only = True
 
     nodes = [p for p in mfa.ProcessList if p.Name not in exclude_nodes]
+    ids_in_sankey = {p.ID: i for i, p in enumerate(nodes)}
     exclude_node_ids = [p.ID for p in mfa.ProcessList if p.Name in exclude_nodes]
-    flows = {fn: f for fn, f in mfa.FlowDict.items() if (fn not in exclude_flows
-                                                         and f.P_Start not in exclude_node_ids
-                                                         and f.P_End not in exclude_node_ids)}
-    id_mapping = {p.ID: i for i, p in enumerate(nodes)}
-    # colors = pl.colors.qualitative.Antique[:cfg.n_elements]
-    # colors = pl.colors.sample_colorscale('Viridis', cfg.n_elements + 1, colortype='rgb')
+    flows = {f for f in mfa.FlowDict.values() if (f.Name not in exclude_flows
+                                                  and f.P_Start not in exclude_node_ids
+                                                  and f.P_End not in exclude_node_ids)}
+    # colors = pl.colors.qualitative.Antique[:cfg.n_materials]
+    # colors = pl.colors.sample_colorscale('Viridis', cfg.n_materials + 1, colortype='rgb')
+    material_colors = [f'hsv({10 * i + 200},40,150)' for i in range(cfg.n_materials)]
+
+    # if carbon_only:
+    #     flow_values = [np.einsum(f"{f.Indices.replace(',', '')}->trm", f.Values)[cfg.y_id(year),0,i] for i in range(cfg.n_materials) for f in flows.values()]
+    # else:
+    #     flow_values = [np.einsum(f"{f.Indices.replace(',', '')}->term", f.Values)[cfg.y_id(year),0,0,i] for i in range(cfg.n_materials) for f in flows.values()]
+
+    link_dict = {"label": [], "source": [], "target": [], "color": [], "value": []}
+
+    def add_link(**kwargs):
+        for key, value in kwargs.items():
+            link_dict[key].append(value)
+
+    for f in flows:
+        source = ids_in_sankey[f.P_Start]
+        target = ids_in_sankey[f.P_End]
+        label = dn(f.Name)
+
+        id_orig = f.Indices.replace(',', '')
+        has_materials = 'm' in id_orig
+        id_target = f"ter{'m' if has_materials else ''}"
+        values = np.einsum(f"{id_orig}->{id_target}", f.Values)
+
+        if carbon_only:
+            values = values[:,0,...]
+        else:
+            values = np.sum(values, axis = 1)
+
+        values = values[cfg.y_id(year),region_id,...]
+
+        if has_materials:
+            for im, c in enumerate(material_colors):
+                add_link(label=label, source=source, target=target, color=c, value=values[im])
+        else:
+            add_link(label=label, source=source, target=target, color='hsl(230,20,70)', value=values)
+
+
+
+
+
+
 
     fig = go.Figure(go.Sankey(
         arrangement = "snap",
         node = {
-            "label": [p.Name for p in nodes],
+            "label": [dn(p.Name) for p in nodes],
             "color": ['gray' for p in nodes], # 'rgb(50, 50, 50)'
             # "x": [0.2, 0.1, 0.5, 0.7, 0.3, 0.5],
             # "y": [0.7, 0.5, 0.2, 0.4, 0.2, 0.3],
             'pad':10},  # 10 Pixels
-        link = {
-            "label": [fn for e in cfg.elements for fn in flows.keys()],
-            "source": [id_mapping[f.P_Start] for e in cfg.elements for f in flows.values()],
-            "target": [id_mapping[f.P_End] for e in cfg.elements for f in flows.values()],
-            # "color": [c for c in colors for f in flows],
-            "color": [f'hsv({10 * i + 200},40,150)' for i in range(cfg.n_elements) for f in flows],
-            "value": [np.einsum(f"{f.Indices.replace(',', '')}->ter", f.Values)[cfg.y_id(year),i,0] for i in range(cfg.n_elements) for f in flows.values()]}))
+        link = link_dict ))
+            # "label": [dn(fn) for e in cfg.materials for fn in flows.keys()],
+            # "source": [nodes.index(f.P_Start) for e in cfg.materials for f in flows.values()],
+            # "target": [nodes.index(f.P_End) for e in cfg.materials for f in flows.values()],
+            # # "color": [c for c in colors for f in flows],
+            # "color": [f'hsv({10 * i + 200},40,150)' for i in range(cfg.n_materials) for f in flows],
+            # "value": flow_values}))
 
     fig.show()

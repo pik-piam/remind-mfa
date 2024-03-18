@@ -41,10 +41,23 @@ class Config:
             'production': 'geyer',  # Options: geyer
             'lifetime': 'geyer',  # Options: geyer
             'regions': 'World',  # Options: REMIND, World, REMIND_EU
-            'good_and_element_shares': 'geyer',  # Options: geyer
-            'mechanical_recycling_rates': 'dummy',
-            'mechanical_recycling_yields': 'dummy'
+            'good_and_material_shares': 'geyer',  # Options: geyer
+            'mechanical_recycling_rate': 'excel',
+            'chemical_recycling_rate': 'excel',
+            'solvent_recycling_rate': 'excel',
+            'incineration_rate': 'excel',
+            'uncontrolled_losses_rate': 'excel',
+            'bio_production_rate': 'excel',
+            'daccu_production_rate': 'excel',
+            'mechanical_recycling_yield': 'excel',
+            'reclmech_loss_uncontrolled_rate': 'excel',
+            'material_shares_in_goods': 'excel',
+            'emission_capture_rate': 'excel',
+            'carbon_content_materials': 'excel'
         }
+
+        # model customization
+        self.curve_strategy = 'Duerrwaechter'  # Options: Duerrwaechter
 
         self.do_visualize = {
             'stock_prediction': False,
@@ -53,25 +66,24 @@ class Config:
         }
 
         # indices / scope
-        self.aspects = ['Time', 'Element', 'Region', 'Good']
+        self.aspects = ['Time', 'Element', 'Region', 'Material', 'Good']
         self.index_letters = {'Time': 't',
                               'Element': 'e',
                               'Region': 'r',
+                              'Material': 'm',
                               'Good': 'g'}
         self.start_year = 1950
         self.end_year = 2100
         self.last_historic_year = 2015
 
-        self.elements = sorted(['PE', 'PP', 'PS', 'PVC', 'PET', 'PUR', 'Other'])
+        self.elements = sorted(['C', 'Other Elements'])
+        self.materials = sorted(['PE', 'PP', 'PS', 'PVC', 'PET', 'PUR', 'Other'])
         self.in_use_categories = sorted(['Transportation', 'Packaging', 'Building and Construction', 'Other Uses'])
         self.scenario = 'SSP2'
 
         self.n_elements = len(self.elements)
+        self.n_materials = len(self.materials)
         self.n_use_categories = len(self.in_use_categories)
-
-        # model customization
-        self.curve_strategy = 'Duerrwaechter'  # Options: Duerrwaechter
-        self.default_lifetime_sd_pct_of_mean = 0.3
 
         # Init attributes
         self.data = SetupDataContainer()
@@ -93,6 +105,7 @@ class Config:
                                 'Maybe you misspelled it or did not add it to the defaults?')
             setattr(self, prm_name, prm_value)
         return self
+
 
     def generate_yml(self, filename: str = 'yaml_test.yml'):
         """

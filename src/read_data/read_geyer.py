@@ -8,7 +8,7 @@ def geyer_file_path():
     return os.path.join(cfg.data_path, 'original', 'geyer', 'supplementary_materials.xlsx')
 
 
-geyer_elements = ['HDPE', 'LDPE', 'PP', 'PS', 'PVC', 'PET', 'PUR', 'Other']
+geyer_materials = ['HDPE', 'LDPE', 'PP', 'PS', 'PVC', 'PET', 'PUR', 'Other']
 geyer_in_use_categories = ['Packaging',
                            'Transportation',
                            'Building and Construction',
@@ -62,19 +62,19 @@ def get_geyer_lifetimes():
     df= df .filter(['Good', 'mean', 'std'])
     return df
 
-def get_geyer_shares(elements: list = cfg.elements, sectors: list = cfg.in_use_categories):
+def get_geyer_shares(materials: list = cfg.materials, sectors: list = cfg.in_use_categories):
     df = pd.read_excel(geyer_file_path(),
                        sheet_name="S2")
     df = df.rename(columns=aspect_name_mapping)
-    df = df.melt(id_vars='Good', var_name='Element', value_name='value')
+    df = df.melt(id_vars='Good', var_name='Material', value_name='value')
     df = _sum_by_mapping(df, 'Good', _geyer_in_use_categories_mapping(sectors))
-    df = _sum_by_mapping(df, 'Element', _geyer_element_mapping(elements))
+    df = _sum_by_mapping(df, 'Material', _geyer_material_mapping(materials))
     return df
 
 
-def element_shares(shares: pd.DataFrame):
+def material_shares(shares: pd.DataFrame):
     return shares \
-        .groupby('Element', as_index=False) \
+        .groupby('Material', as_index=False) \
         .agg({'value': 'sum'})
 
 
@@ -101,11 +101,11 @@ def _sum_by_mapping(df: pd.DataFrame, column_name: str, mapping: pd.DataFrame):
     return df
 
 
-def _geyer_element_mapping(target_elements: list = cfg.elements):
+def _geyer_material_mapping(target_materials: list = cfg.materials):
     mapping = {'HDPE': 'PE',
                'LDPE': 'PE',
-               'Other': 'Other Elements'}
-    df = _get_mapping_df(geyer_elements, target_elements, mapping)
+               'Other': 'Other Materials'}
+    df = _get_mapping_df(geyer_materials, target_materials, mapping)
     return df
 
 

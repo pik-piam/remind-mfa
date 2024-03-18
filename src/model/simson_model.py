@@ -1,47 +1,99 @@
 import numpy as np
 import pandas as pd
 from ODYM.odym.modules.ODYM_Classes import MFAsystem, Classification, Process, Parameter, Flow, Stock
+from src.odym_extension.SimsonValueClasses import DictVariableCreator, PrmDef, FlowDef
 from src.tools.config import cfg
 from src.tools.tools import get_dsm_data
-from src.read_data.load_data import load_data, setup
+from src.read_data.load_data import setup
 from src.model.load_dsms import load_dsms
 from src.visualisation.visualize import visualize_mfa_sankey
 
 #  model definition
-processes = ['System Environment',
-             'Primary Production',
-             'Fabrication',
-             'Mechanical Recycling',
-             'Use Phase',
-             'End of Life',
-             'Incineration']
-
-pid = {p: id for id, p in enumerate(processes)}
+processes = ['sysenv',
+             'virginfoss',
+             'virginbio',
+             'virgindaccu',
+             'virginccu',
+             'virgin',
+             'fabrication',
+             'recl',
+             'reclmech',
+             'reclchem',
+             'reclsolv',
+             'use',
+             'eol',
+             'incineration',
+             'landfill',
+             'uncontrolled',
+             'emission',
+             'captured',
+             'atmosphere']
 
 stocks = [
-    Stock(Name='In-Use Stock', P_Res=pid['Use Phase'], Type=0, Indices='t,e,r,g', Values=None)
+    Stock(Name='in_use_stock',              P_Res=processes.index('use'),          Type=0, Indices='t,e,r,m,g', Values=None),
+    Stock(Name='in_use_stock_inflow',       P_Res=processes.index('use'),          Type=1, Indices='t,e,r,m,g', Values=None),
+    Stock(Name='in_use_stock_outflow',      P_Res=processes.index('use'),          Type=2, Indices='t,e,r,m,g', Values=None),
+    Stock(Name='atmospheric_stock',         P_Res=processes.index('atmosphere'),   Type=0, Indices='t,e,r',     Values=None),
+    Stock(Name='atmospheric_stock_inflow',  P_Res=processes.index('atmosphere'),   Type=1, Indices='t,e,r',     Values=None),
+    Stock(Name='atmospheric_stock_outflow', P_Res=processes.index('atmosphere'),   Type=2, Indices='t,e,r',     Values=None),
+    Stock(Name='landfill_stock',            P_Res=processes.index('landfill'),     Type=0, Indices='t,e,r,m',   Values=None),
+    Stock(Name='landfill_stock_inflow',     P_Res=processes.index('landfill'),     Type=1, Indices='t,e,r,m',   Values=None),
+    Stock(Name='uncontrolled_stock',        P_Res=processes.index('uncontrolled'), Type=0, Indices='t,e,r,m',   Values=None),
+    Stock(Name='uncontrolled_stock_inflow', P_Res=processes.index('uncontrolled'), Type=1, Indices='t,e,r,m',   Values=None)
 ]
-add_change = {'In-Use Stock': True}
 
-stock_dict = {stock.Name: stock for stock in stocks}
-stock_change_dict = {
-        name + ' Change': Stock(Name=name + ' Change', P_Res=stock.P_Res, Type=1, Indices=stock.Indices, Values=None)
-    for name, stock in stock_dict.items() if add_change[name]}
-stock_dict.update(stock_change_dict)
-
-flows = [
-    Flow(Name='primary_production_input',          P_Start=pid['System Environment'],   P_End=pid['Primary Production'],   Indices='t,e,r',   Values=None),
-    Flow(Name='primary_production_output',         P_Start=pid['Primary Production'],   P_End=pid['Fabrication'],          Indices='t,e,r',   Values=None),
-    Flow(Name='demand',                            P_Start=pid['Fabrication'],          P_End=pid['Use Phase'],            Indices='t,e,r',   Values=None),
-    Flow(Name='outflow_by_element',                P_Start=pid['Use Phase'],            P_End=pid['End of Life'],          Indices='t,e,r,g', Values=None),
-    Flow(Name='waste_incineration',                P_Start=pid['End of Life'],          P_End=pid['Incineration'],         Indices='t,e,r',   Values=None),
-    Flow(Name='mechanical_recycling_input',        P_Start=pid['End of Life'],          P_End=pid['Mechanical Recycling'], Indices='t,e,r',   Values=None),
-    Flow(Name='mechanical_recycling_output',       P_Start=pid['Mechanical Recycling'], P_End=pid['Fabrication'],          Indices='t,e,r',   Values=None),
-    Flow(Name='mechanical_recycling_incineration', P_Start=pid['Mechanical Recycling'], P_End=pid['Incineration'],         Indices='t,e,r',   Values=None),
-    Flow(Name='incineration_emissions',            P_Start=pid['Incineration'],         P_End=pid['System Environment'],   Indices='t,e,r',   Values=None)
+flow_defs = [
+    FlowDef(start='sysenv',       end='virginfoss',   indices='t,e,r,m'),
+    FlowDef(start='sysenv',       end='virginbio',    indices='t,e,r,m'),
+    FlowDef(start='sysenv',       end='virgindaccu',  indices='t,e,r,m'),
+    FlowDef(start='sysenv',       end='virginccu',    indices='t,e,r,m'),
+    FlowDef(start='atmosphere',   end='virginbio',    indices='t,e,r'),
+    FlowDef(start='atmosphere',   end='virgindaccu',  indices='t,e,r'),
+    FlowDef(start='virginfoss',   end='virgin',       indices='t,e,r,m'),
+    FlowDef(start='virginbio',    end='virgin',       indices='t,e,r,m'),
+    FlowDef(start='virgindaccu',  end='virgin',       indices='t,e,r,m'),
+    FlowDef(start='virginccu',    end='virgin',       indices='t,e,r,m'),
+    FlowDef(start='virgin',       end='fabrication',  indices='t,e,r,m'),
+    FlowDef(start='fabrication',  end='use',          indices='t,e,r,m,g'),
+    FlowDef(start='use',          end='eol',          indices='t,e,r,m,g'),
+    FlowDef(start='eol',          end='reclmech',     indices='t,e,r,m'),
+    FlowDef(start='eol',          end='reclchem',     indices='t,e,r,m'),
+    FlowDef(start='eol',          end='reclsolv',     indices='t,e,r,m'),
+    FlowDef(start='eol',          end='uncontrolled', indices='t,e,r,m'),
+    FlowDef(start='eol',          end='landfill',     indices='t,e,r,m'),
+    FlowDef(start='eol',          end='incineration', indices='t,e,r,m'),
+    FlowDef(start='reclmech',     end='recl',         indices='t,e,r,m'),
+    FlowDef(start='reclchem',     end='recl',         indices='t,e,r,m'),
+    FlowDef(start='reclsolv',     end='recl',         indices='t,e,r,m'),
+    FlowDef(start='recl',         end='fabrication',  indices='t,e,r,m'),
+    FlowDef(start='reclmech',     end='uncontrolled', indices='t,e,r,m'),
+    FlowDef(start='reclmech',     end='incineration', indices='t,e,r,m'),
+    FlowDef(start='incineration', end='emission',     indices='t,e,r'),
+    FlowDef(start='emission',     end='captured',     indices='t,e,r'),
+    FlowDef(start='emission',     end='atmosphere',   indices='t,e,r'),
+    FlowDef(start='captured',     end='virginccu',    indices='t,e,r')
 ]
-flow_dict = {flow.Name: flow for flow in flows}
-# incineration = waste_incineration + mechanical_recycling_incineration
+
+
+prm_defs = [
+    # EOL rates
+    PrmDef(name='mechanical_recycling_rate', process='eol', indices='t,m'),
+    PrmDef(name='chemical_recycling_rate', process='eol', indices='t,m'),
+    PrmDef(name='solvent_recycling_rate', process='eol', indices='t,m'),
+    PrmDef(name='incineration_rate', process='eol', indices='t,m'),
+    PrmDef(name='uncontrolled_losses_rate', process='eol', indices='t,m'),
+    # virgin production rates
+    PrmDef(name='bio_production_rate', process='virgin', indices='t,m'),
+    PrmDef(name='daccu_production_rate', process='virgin', indices='t,m'),
+    # recycling losses
+    PrmDef(name='mechanical_recycling_yield', process='reclmech', indices='t,m'),
+    PrmDef(name='reclmech_loss_uncontrolled_rate', process='reclmech', indices='t,m'),
+    # other
+    PrmDef(name='material_shares_in_goods', process='fabrication', indices='m,g', name_to_load='good_and_material_shares'),
+    PrmDef(name='emission_capture_rate', process='emission', indices='t'),
+    PrmDef(name='carbon_content_materials', process='use', indices='e,m'),
+]
+
 
 # @load_or_recalculate #TODO
 def load_simson_mfa():
@@ -56,15 +108,15 @@ def create_model(dsms):
 
     main_model = set_up_model()
 
-    stock_values = get_dsm_data(dsms, lambda dsm: dsm.s)
-    inflows = get_dsm_data(dsms, lambda dsm: dsm.i)
-    outflows = get_dsm_data(dsms, lambda dsm: dsm.o)
+    use_stock_values = get_dsm_data(dsms, lambda dsm: dsm.s)
+    use_stock_inflows = get_dsm_data(dsms, lambda dsm: dsm.i)
+    use_stock_outflows = get_dsm_data(dsms, lambda dsm: dsm.o)
 
     initiate_model(main_model)
 
-    compute_flows(main_model, inflows, outflows)
+    compute_flows(main_model, use_stock_inflows, use_stock_outflows)
 
-    compute_stocks(main_model, stock_values, inflows, outflows)
+    compute_stocks(main_model, use_stock_values)
 
     mass_balance_plausible(main_model)
 
@@ -72,16 +124,24 @@ def create_model(dsms):
 
 
 def initiate_model(main_model: MFAsystem):
+
     # processes
-    initiate_processes(main_model)
+    main_model.ProcessList = [Process(Name=name, ID=id) for id, name in enumerate(processes)]
+
     # parameters
-    initiate_parameters(main_model)
+    main_model.ParameterDict = dict(prm_def.to_prm(i, processes) for i, prm_def in enumerate(prm_defs))
+    # correct values
+    msg = main_model.ParameterDict['material_shares_in_goods']
+    msg.Values[...] = msg.Values / np.sum(msg.Values, axis=0, keepdims=True)
+
     # flows
-    main_model.FlowDict = flow_dict
+    main_model.FlowDict = dict(flow_def.to_flow(processes) for flow_def in flow_defs)
     main_model.Initialize_FlowValues()
+
     # stocks
-    main_model.StockDict = stock_dict
+    main_model.StockDict = {stock.Name: stock for stock in stocks}
     main_model.Initialize_StockValues()
+
     check_consistency(main_model)
 
 
@@ -89,10 +149,12 @@ def set_up_model():
 
     dimensions = {'Time': 'Time',
                   'Element': 'Element',
+                  'Material': 'Material',
                   'Region': 'Region',
                   'Good': 'Material'}
     items = {'Time': cfg.years,
              'Element': cfg.elements,
+             'Material': cfg.materials,
              'Region': cfg.data.region_list,
              'Good': cfg.in_use_categories}
 
@@ -101,6 +163,7 @@ def set_up_model():
                               Dimension=dimensions[aspect],
                               ID=id,
                               Items=items[aspect])
+
     index_table = pd.DataFrame({'Aspect': cfg.aspects,
                                 'Description': [f"Model aspect '{a}'" for a in cfg.aspects],
                                 'Dimension': [dimensions[a] for a in cfg.aspects],
@@ -123,46 +186,6 @@ def set_up_model():
     return main_model
 
 
-def initiate_processes(main_model: MFAsystem):
-    main_model.ProcessList = [Process(Name=name, ID=id) for name, id in pid.items()]
-    return
-
-
-def initiate_parameters(main_model: MFAsystem):
-
-    shares = load_data('good_and_element_shares')
-    share_of_goods = np.sum(shares, axis = 0, keepdims=True)
-    element_shares_in_goods = shares / share_of_goods
-
-    recycling_rates = load_data('mechanical_recycling_rates')
-
-    recycling_yields = load_data('mechanical_recycling_yields')
-
-    main_model.ParameterDict = {
-        'Element_Shares_in_Goods':     Parameter(Name='Element_Shares_in_Goods',
-                                                ID=0,
-                                                P_Res=pid['Fabrication'],
-                                                MetaData=None,
-                                                Indices='e,g',
-                                                Values=element_shares_in_goods,
-                                                Unit='1'),
-        'Mechanical_Recycling_Rate':  Parameter(Name='Mechanical_Recycling_Rate',
-                                                ID=1,
-                                                P_Res=pid['Use Phase'],
-                                                MetaData=None,
-                                                Indices='e,g',
-                                                Values=recycling_rates,
-                                                Unit='1'),
-        'Mechanical_Recycling_Yield': Parameter(Name='Mechanical_Recycling_Rate',
-                                                ID=2,
-                                                P_Res=pid['Mechanical Recycling'],
-                                                MetaData=None,
-                                                Indices='e',
-                                                Values=recycling_yields,
-                                                Unit='1')
-    }
-    return
-
 
 def check_consistency(main_model: MFAsystem):
     """
@@ -180,61 +203,79 @@ def check_consistency(main_model: MFAsystem):
 
 def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.ndarray):
 
-    element_shares_in_goods, mechanical_recycling_rate, mechanical_recycling_yield = _get_params(model)
+    prms = DictVariableCreator(model.ParameterDict)
+    f = DictVariableCreator(model.FlowDict)
 
-    demand = np.einsum('trg,eg->ter', use_inflows, element_shares_in_goods)
+    fabrication_2_use = np.einsum('trg,mg->trmg', use_inflows, prms.material_shares_in_goods)
+    f.fabrication_2_use = np.einsum('trmg,em->termg', fabrication_2_use, prms.carbon_content_materials)
 
-    outflow_by_element = np.einsum('trg,eg->terg', use_outflows, element_shares_in_goods)
+    use_2_eol = np.einsum('trg,mg->trmg', use_outflows, prms.material_shares_in_goods)
+    f.use_2_eol = np.einsum('trmg,em->termg', use_2_eol, prms.carbon_content_materials)
 
-    mechanical_recycling_input = np.einsum('terg,eg->ter', outflow_by_element, mechanical_recycling_rate)
+    f.eol_2_reclmech = np.einsum('termg,tm->term', f.use_2_eol, prms.mechanical_recycling_rate)
+    f.reclmech_2_recl = np.einsum('term,tm->term', f.eol_2_reclmech, prms.mechanical_recycling_yield)
+    f.reclmech_2_incineration = f.eol_2_reclmech - f.reclmech_2_recl
 
-    waste_incineration = np.sum(outflow_by_element, axis=3) - mechanical_recycling_input
+    f.eol_2_reclchem = np.einsum('termg,tm->term', f.use_2_eol, prms.chemical_recycling_rate)
+    f.reclchem_2_recl = f.eol_2_reclchem
 
-    mechanical_recycling_output = np.einsum('ter,e->ter', mechanical_recycling_input, mechanical_recycling_yield)
+    f.eol_2_reclsolv = np.einsum('termg,tm->term', f.use_2_eol, prms.solvent_recycling_rate)
+    f.reclsolv_2_recl = f.eol_2_reclsolv
 
-    mechanical_recycling_incineration = mechanical_recycling_input - mechanical_recycling_output
+    f.eol_2_incineration = np.einsum('termg,tm->term', f.use_2_eol, prms.incineration_rate)
+    f.eol_2_uncontrolled = np.einsum('termg,tm->term', f.use_2_eol, prms.uncontrolled_losses_rate)
 
-    primary_production_output = demand - mechanical_recycling_output
+    f.eol_2_landfill = np.einsum('termg->term', f.use_2_eol) - f.eol_2_reclmech - f.eol_2_reclchem - f.eol_2_reclsolv - f.eol_2_incineration - f.eol_2_uncontrolled
 
-    primary_production_input = primary_production_output
+    f.incineration_2_emission = np.einsum('term->ter', f.eol_2_incineration + f.reclmech_2_incineration)
 
-    incineration = waste_incineration + mechanical_recycling_incineration
+    f.emission_2_captured = np.einsum('ter,t->ter', f.incineration_2_emission, prms.emission_capture_rate)
+    f.emission_2_atmosphere = f.incineration_2_emission - f.emission_2_captured
+    f.captured_2_virginccu = f.emission_2_captured
 
-    edit_flows(model,
-               {'demand': demand,
-                'outflow_by_element': outflow_by_element,
-                'mechanical_recycling_input': mechanical_recycling_input,
-                'waste_incineration': waste_incineration,
-                'mechanical_recycling_output': mechanical_recycling_output,
-                'mechanical_recycling_incineration': mechanical_recycling_incineration,
-                'primary_production_output': primary_production_output,
-                'primary_production_input': primary_production_input,
-                'incineration_emissions': incineration})
+    f.recl_2_fabrication = f.reclmech_2_recl + f.reclchem_2_recl + f.reclsolv_2_recl
+    f.virgin_2_fabrication = np.einsum('termg->term', f.fabrication_2_use) - f.recl_2_fabrication
 
-    return model
+    f.virgindaccu_2_virgin = np.einsum('term,tm->term', f.virgin_2_fabrication, prms.daccu_production_rate)
+    f.virginbio_2_virgin = np.einsum('term,tm->term', f.virgin_2_fabrication, prms.bio_production_rate)
+
+    virgin_2_fabrication_total = np.einsum('term->ter', f.virgin_2_fabrication)
+    virgin_material_shares = np.einsum('term,ter->term', f.virgin_2_fabrication, 1. / virgin_2_fabrication_total)
+    captured_2_virginccu_by_mat = np.einsum('ter,term->term', f.captured_2_virginccu, virgin_material_shares)
+
+    #TODO: do not use indices
+    f.virginccu_2_virgin[:,0,:,:] = captured_2_virginccu_by_mat[:,0,:,:]
+    ratio_nonc_to_c = prms.carbon_content_materials[1,:] / prms.carbon_content_materials[0,:]
+    f.virginccu_2_virgin[:,1,:,:] = np.einsum('trm,m->trm', f.virginccu_2_virgin[:,0,:,:], ratio_nonc_to_c)
+
+    f.virginfoss_2_virgin = f.virgin_2_fabrication - f.virgindaccu_2_virgin - f.virginbio_2_virgin - f.virginccu_2_virgin
+
+    f.sysenv_2_virginfoss = f.virginfoss_2_virgin
+    f.atmosphere_2_virginbio = np.einsum('term->ter', f.virginbio_2_virgin)
+    f.atmosphere_2_virgindaccu = np.einsum('term->ter', f.virgindaccu_2_virgin)
+    f.sysenv_2_virginccu = f.virginccu_2_virgin - captured_2_virginccu_by_mat
+
+    # non-C atmosphere & captured has no meaning & is equivalent to sysenv
+
+    return
 
 
-def edit_flows(model: MFAsystem, flow_dict):
-    for flow_name, flow_value in flow_dict.items():
-        model.FlowDict[flow_name].Values[...] = flow_value
-
-
-def _get_params(model: MFAsystem):
-    params = model.ParameterDict
-    element_shares_in_goods = params['Element_Shares_in_Goods'].Values
-    mechanical_recycling_rate = params['Mechanical_Recycling_Rate'].Values
-    mechanical_recycling_yield = params['Mechanical_Recycling_Yield'].Values
-    return element_shares_in_goods, mechanical_recycling_rate, mechanical_recycling_yield
-
-
-def compute_stocks(model: MFAsystem, stock_values, inflows, outflows):
-    element_shares_in_goods, _, _ = _get_params(model)
-    stocks_by_element = np.einsum('trg,eg->terg', stock_values, element_shares_in_goods)
-    model.StockDict['In-Use Stock'].Values = stocks_by_element
-    change_by_element = np.einsum('trg,eg->terg', inflows - outflows, element_shares_in_goods)
-    model.StockDict['In-Use Stock Change'].Values = change_by_element
-
-    return model
+def compute_stocks(model: MFAsystem, stock_values):
+    prms = DictVariableCreator(model.ParameterDict)
+    stocks = DictVariableCreator(model.StockDict)
+    flows = DictVariableCreator(model.FlowDict)
+    stocks_by_material = np.einsum('trg,mg->trmg', stock_values, prms.material_shares_in_goods)
+    stocks.in_use_stock = np.einsum('trmg,em->termg', stocks_by_material, prms.carbon_content_materials)
+    stocks.in_use_stock_inflow = flows.fabrication_2_use
+    stocks.in_use_stock_outflow = flows.use_2_eol
+    stocks.landfill_stock_inflow = flows.eol_2_landfill
+    stocks.landfill_stock = stocks.landfill_stock_inflow.cumsum(axis=0)
+    stocks.uncontrolled_stock_inflow = flows.eol_2_uncontrolled + flows.reclmech_2_uncontrolled
+    stocks.uncontrolled_stock = stocks.uncontrolled_stock_inflow.cumsum(axis=0)
+    stocks.atmospheric_stock_inflow = flows.emission_2_atmosphere
+    stocks.atmospheric_stock_outflow = flows.atmosphere_2_virgindaccu + flows.atmosphere_2_virginbio
+    stocks.atmospheric_stock = stocks.atmospheric_stock_inflow.cumsum(axis=0) - stocks.atmospheric_stock_outflow.cumsum(axis=0)
+    return
 
 
 def mass_balance_plausible(main_model: MFAsystem):
@@ -248,7 +289,7 @@ def mass_balance_plausible(main_model: MFAsystem):
     balance = main_model.MassBalance()
     error_sum_by_process = np.abs(balance).sum(axis=(0,2))
     id_failed = error_sum_by_process > 1.
-    names_failed = [n for n, id in pid.items() if id_failed[id]]
+    names_failed = [n for id, n in enumerate(processes) if id_failed[id]]
     if names_failed:
             raise RuntimeError(f"Error, Mass Balance fails for processes {', '.join(names_failed)}")
     else:
@@ -259,3 +300,23 @@ def mass_balance_plausible(main_model: MFAsystem):
 if __name__ == "__main__":
     setup()
     load_simson_mfa()
+
+
+    # # incineration_output__from_polymers__material_shares:
+    #            CO2     other_gas
+    #   C        1       0
+    #   other_el 0       1
+
+    # # spec_incineration_atmosphere:
+    # C_out:
+    #             C_in    Other_el_in
+    #   CO2       0       0
+    #   other_gas 0       0
+    # other_el_out:
+    #             C_in    Other_el_in
+    #   CO2       32/12   0
+    #   other_gas 0       0
+    # incineration_output__from_polymers = np.einsum('term,ea->tera', incineration_input_polymers, incineration_output__from_polymers__material_shares)
+    # # this is needed to calculate the amount of CO2 generated, not just the amount of C
+    # incineration_output__from_atmosphere = np.einsum('tera,eEa->tEra', incineration_output__from_polymers, spec_incineration_atmosphere)
+    # incineration_output_total = incineration_output__from_polymers + incineration_output__from_atmosphere

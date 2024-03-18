@@ -5,7 +5,7 @@ from src.read_data.read_geyer import get_geyer_production, get_geyer_lifetimes, 
 from src.tools.tools import get_np_from_df, group_country_data_to_regions, load_or_recalculate
 from src.read_data.read_remind import get_remind_regions, get_remind_eu_regions
 from src.read_data.read_remind import get_remind_gdp, get_remind_pop
-from src.read_data.read_dummy import get_dummy_mechanical_recycling_rates, get_dummy_mechanical_recycling_yields
+from src.read_data.read_excel import *
 
 
 def load_data(type, source = 'cfg', regions = 'cfg', percapita = False, format = 'np'):
@@ -44,17 +44,53 @@ def get_reader_function(type, source):
         if source == 'geyer':
             read_function = get_geyer_lifetimes
             raw_regions = None
-    elif type == 'good_and_element_shares':
+    elif type == 'good_and_material_shares':
         if source == 'geyer':
             read_function = get_geyer_shares
             raw_regions = None
-    elif type == 'mechanical_recycling_rates':
-        if source == 'dummy':
-            read_function = get_dummy_mechanical_recycling_rates
+    elif type == 'daccu_production_rate':
+        if source == 'excel':
+            read_function = get_excel_daccu_production_rate
             raw_regions = None
-    elif type == 'mechanical_recycling_yields':
-        if source == 'dummy':
-            read_function = get_dummy_mechanical_recycling_yields
+    elif type == 'bio_production_rate':
+        if source == 'excel':
+            read_function = get_excel_bio_production_rate
+            raw_regions = None
+    elif type == 'uncontrolled_losses_rate':
+        if source == 'excel':
+            read_function = get_excel_uncontrolled_losses_rate
+            raw_regions = None
+    elif type == 'incineration_rate':
+        if source == 'excel':
+            read_function = get_excel_incineration_rate
+            raw_regions = None
+    elif type == 'mechanical_recycling_rate':
+        if source == 'excel':
+            read_function = get_excel_mechanical_recycling_rate
+            raw_regions = None
+    elif type == 'chemical_recycling_rate':
+        if source == 'excel':
+            read_function = get_excel_chemical_recycling_rate
+            raw_regions = None
+    elif type == 'solvent_recycling_rate':
+        if source == 'excel':
+            read_function = get_excel_solvent_recycling_rate
+            raw_regions = None
+    elif type == 'mechanical_recycling_yield':
+        if source == 'excel':
+            read_function = get_excel_mechanical_recycling_yield
+            raw_regions = None
+    elif type == 'reclmech_loss_uncontrolled_rate':
+        if source == 'excel':
+            read_function = get_excel_reclmech_loss_uncontrolled_rate
+            raw_regions = None
+    elif type == 'emission_capture_rate':
+        if source == 'excel':
+            read_function = get_excel_emission_capture_rate
+            raw_regions = None
+    elif type == 'carbon_content_materials':
+        if source == 'excel':
+            read_function = get_excel_carbon_content_materials
             raw_regions = None
     else:
         raise ValueError(f'No reader function known for type {type} and source {source}.')
