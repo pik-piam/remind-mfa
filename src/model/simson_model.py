@@ -214,7 +214,9 @@ def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.nd
 
     f.eol_2_reclmech = np.einsum('termg,tm->term', f.use_2_eol, prms.mechanical_recycling_rate)
     f.reclmech_2_recl = np.einsum('term,tm->term', f.eol_2_reclmech, prms.mechanical_recycling_yield)
-    f.reclmech_2_incineration = f.eol_2_reclmech - f.reclmech_2_recl
+    reclmech_loss = f.eol_2_reclmech - f.reclmech_2_recl
+    f.reclmech_2_uncontrolled = np.einsum('term,tm->term', reclmech_loss, prms.reclmech_loss_uncontrolled_rate)
+    f.reclmech_2_incineration = reclmech_loss - f.reclmech_2_uncontrolled
 
     f.eol_2_reclchem = np.einsum('termg,tm->term', f.use_2_eol, prms.chemical_recycling_rate)
     f.reclchem_2_recl = f.eol_2_reclchem
