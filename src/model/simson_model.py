@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
-from ODYM.odym.modules.ODYM_Classes import MFAsystem, Classification, Process, Parameter, Flow, Stock
+from ODYM.odym.modules.ODYM_Classes import Classification, Process, Stock
 from src.odym_extension.SimsonValueClasses import DictVariableCreator, PrmDef, FlowDef
+from src.odym_extension.SimsonMFASystem import SimsonMFASystem
 from src.tools.config import cfg
 from src.tools.tools import get_dsm_data
 from src.read_data.load_data import setup
@@ -123,7 +124,7 @@ def create_model(dsms):
     return main_model
 
 
-def initiate_model(main_model: MFAsystem):
+def initiate_model(main_model: SimsonMFASystem):
 
     # processes
     main_model.ProcessList = [Process(Name=name, ID=id) for id, name in enumerate(processes)]
@@ -171,7 +172,7 @@ def set_up_model():
                                 'IndexLetter': [cfg.index_letters[a] for a in cfg.aspects]})
     index_table.set_index('Aspect', inplace=True)
 
-    main_model = MFAsystem(Name='World Plastics Economy',
+    main_model = SimsonMFASystem(Name='World Plastics Economy',
                            Geogr_Scope='World',
                            Unit='t',
                            ProcessList=[],
@@ -187,7 +188,7 @@ def set_up_model():
 
 
 
-def check_consistency(main_model: MFAsystem):
+def check_consistency(main_model: SimsonMFASystem):
     """
     Uses ODYM consistency checks to see if model dimensions and structure are well
     defined. Raises RuntimeError if not.
@@ -201,7 +202,7 @@ def check_consistency(main_model: MFAsystem):
             raise RuntimeError("A consistency check failed: " + str(consistency))
 
 
-def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.ndarray):
+def compute_flows(model: SimsonMFASystem, use_inflows: np.ndarray, use_outflows: np.ndarray):
 
     prms = DictVariableCreator(model.ParameterDict)
     f = DictVariableCreator(model.FlowDict)
@@ -245,10 +246,9 @@ def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.nd
     virgin_material_shares = np.einsum('term,ter->term', f.virgin_2_fabrication, 1. / virgin_2_fabrication_total)
     captured_2_virginccu_by_mat = np.einsum('ter,term->term', f.captured_2_virginccu, virgin_material_shares)
 
-    #TODO: do not use indices
-    f.virginccu_2_virgin[:,0,:,:] = captured_2_virginccu_by_mat[:,0,:,:]
-    ratio_nonc_to_c = prms.carbon_content_materials[1,:] / prms.carbon_content_materials[0,:]
-    f.virginccu_2_virgin[:,1,:,:] = np.einsum('trm,m->trm', f.virginccu_2_virgin[:,0,:,:], ratio_nonc_to_c)
+    f.virginccu_2_virgin[model.slice_id('term', e='C')] = captured_2_virginccu_by_mat[model.slice_id('term', e='C')]
+    ratio_nonc_to_c = prms.carbon_content_materials[model.slice_id('em', e='Other Elements')] / prms.carbon_content_materials[model.slice_id('em', e='C')]
+    f.virginccu_2_virgin[model.slice_id('term', e='Other Elements')] = np.einsum('trm,m->trm', f.virginccu_2_virgin[model.slice_id('term', e='C')], ratio_nonc_to_c)
 
     f.virginfoss_2_virgin = f.virgin_2_fabrication - f.virgindaccu_2_virgin - f.virginbio_2_virgin - f.virginccu_2_virgin
 
@@ -262,7 +262,7 @@ def compute_flows(model: MFAsystem, use_inflows: np.ndarray, use_outflows: np.nd
     return
 
 
-def compute_stocks(model: MFAsystem, stock_values):
+def compute_stocks(model: SimsonMFASystem, stock_values):
     prms = DictVariableCreator(model.ParameterDict)
     stocks = DictVariableCreator(model.StockDict)
     flows = DictVariableCreator(model.FlowDict)
@@ -280,7 +280,7 @@ def compute_stocks(model: MFAsystem, stock_values):
     return
 
 
-def mass_balance_plausible(main_model: MFAsystem):
+def mass_balance_plausible(main_model: SimsonMFASystem):
     """
     Checks if a given mass balance is plausible.
     :return: True if the mass balance for all processes is below 1t of steel, False otherwise.

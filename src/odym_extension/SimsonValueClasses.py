@@ -42,10 +42,4 @@ class PrmDef:
 
 
 
-# do not use
-# def slice_id(mfa_obj, dim_name, elem_name):
-#     all_dims = mfa_obj.IndexLetters.split(',')
-#     ids_out = [slice() for _ in all_dims]
-#     ids_out[all_dims.index(dim_name)] = elem_name
-#     return ids_out
 
