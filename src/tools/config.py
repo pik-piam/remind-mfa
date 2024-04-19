@@ -88,6 +88,25 @@ class Config:
         # Init attributes
         self.data = SetupDataContainer()
 
+        # TODO: check interaction with self.data and clean up
+        self.odym_dimensions = {'Time': 'Time',
+                           'Element': 'Element',
+                           'Material': 'Material',
+                           'Region': 'Region',
+                           'Good': 'Material'}
+
+        self.items = None
+
+    def init_items_dict(self):
+        """"
+        only call after setup
+        """
+        self.items = {'Time': self.years,
+                      'Element': self.elements,
+                      'Material': self.materials,
+                      'Region': self.data.region_list,
+                      'Good': self.in_use_categories}
+
 
     def customize(self, config_dict: dict):
         """

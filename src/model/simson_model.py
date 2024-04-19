@@ -8,6 +8,7 @@ from src.tools.tools import get_dsm_data
 from src.read_data.load_data import setup
 from src.model.load_dsms import load_dsms
 from src.visualisation.visualize import visualize_mfa_sankey
+from src.export.export import export_to_dict
 
 #  model definition
 processes = ['sysenv',
@@ -100,8 +101,6 @@ prm_defs = [
 def load_simson_mfa():
     dsms = load_dsms()
     model = create_model(dsms)
-    if cfg.do_visualize['sankey']:
-        visualize_mfa_sankey(model)
     return model
 
 
@@ -148,26 +147,17 @@ def initiate_model(main_model: SimsonMFASystem):
 
 def set_up_model():
 
-    dimensions = {'Time': 'Time',
-                  'Element': 'Element',
-                  'Material': 'Material',
-                  'Region': 'Region',
-                  'Good': 'Material'}
-    items = {'Time': cfg.years,
-             'Element': cfg.elements,
-             'Material': cfg.materials,
-             'Region': cfg.data.region_list,
-             'Good': cfg.in_use_categories}
+    cfg.init_items_dict()
 
     def model_classification(id, aspect):
         return Classification(Name=aspect,
-                              Dimension=dimensions[aspect],
+                              Dimension=cfg.odym_dimensions[aspect],
                               ID=id,
-                              Items=items[aspect])
+                              Items=cfg.items[aspect])
 
     index_table = pd.DataFrame({'Aspect': cfg.aspects,
                                 'Description': [f"Model aspect '{a}'" for a in cfg.aspects],
-                                'Dimension': [dimensions[a] for a in cfg.aspects],
+                                'Dimension': [cfg.odym_dimensions[a] for a in cfg.aspects],
                                 'Classification': [model_classification(i + 1, a) for i, a in enumerate(cfg.aspects)],
                                 'IndexLetter': [cfg.index_letters[a] for a in cfg.aspects]})
     index_table.set_index('Aspect', inplace=True)
@@ -301,7 +291,10 @@ def mass_balance_plausible(main_model: SimsonMFASystem):
 
 if __name__ == "__main__":
     setup()
-    load_simson_mfa()
+    mfa = load_simson_mfa()
+    if cfg.do_visualize['sankey']:
+        visualize_mfa_sankey(mfa)
+    export_to_dict(mfa, 'data/output/mfa.pickle')
 
 
     # # incineration_output__from_polymers__material_shares:
