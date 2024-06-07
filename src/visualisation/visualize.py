@@ -91,6 +91,7 @@ def visualize_mfa_sankey(mfa: MFAsystem):
     year = 2050
     region_id = 0
     carbon_only = True
+    color_scheme = 'blueish'
 
     nodes = [p for p in mfa.ProcessList if p.Name not in exclude_nodes]
     ids_in_sankey = {p.ID: i for i, p in enumerate(nodes)}
@@ -98,9 +99,14 @@ def visualize_mfa_sankey(mfa: MFAsystem):
     flows = {f for f in mfa.FlowDict.values() if (f.Name not in exclude_flows
                                                   and f.P_Start not in exclude_node_ids
                                                   and f.P_End not in exclude_node_ids)}
-    # colors = pl.colors.qualitative.Antique[:cfg.n_materials]
-    # colors = pl.colors.sample_colorscale('Viridis', cfg.n_materials + 1, colortype='rgb')
-    material_colors = [f'hsv({10 * i + 200},40,150)' for i in range(cfg.n_materials)]
+    if color_scheme == 'antique':
+        material_colors = pl.colors.qualitative.Antique[:cfg.n_materials]
+    elif color_scheme == 'viridis':
+        material_colors = pl.colors.sample_colorscale('Viridis', cfg.n_materials + 1, colortype='rgb')
+    elif color_scheme == 'blueish':
+        material_colors = [f'hsv({10 * i + 200},40,150)' for i in range(cfg.n_materials)]
+    else:
+        raise Exception('invalid color scheme')
 
     # if carbon_only:
     #     flow_values = [np.einsum(f"{f.Indices.replace(',', '')}->trm", f.Values)[cfg.y_id(year),0,i] for i in range(cfg.n_materials) for f in flows.values()]
