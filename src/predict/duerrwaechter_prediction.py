@@ -9,10 +9,10 @@ from src.visualisation.visualize import visualize_stock_prediction
 
 def predict_duerrwaechter(historic_stocks_pc):
 
-    gdppc = load_data('gdp', percapita=True)
+    gdppc = load_data('gdppc')
 
     # individual fix for 2020 to avoid negative production
-    gdppc[2020-cfg.start_year,:] = (gdppc[2019-cfg.start_year,:] + gdppc[2021-cfg.start_year,:]) / 2.
+    gdppc[cfg.y_id(2020),:] = (gdppc[cfg.y_id(2019),:] + gdppc[cfg.y_id(2021),:]) / 2.
 
     pure_prediction = np.ndarray(shape=(cfg.n_years, cfg.n_regions, cfg.n_use_categories))
     prediction = np.ndarray(shape=(cfg.n_years, cfg.n_regions, cfg.n_use_categories))

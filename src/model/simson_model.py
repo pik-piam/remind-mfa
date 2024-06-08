@@ -5,7 +5,6 @@ from src.odym_extension.SimsonValueClasses import DictVariableCreator, PrmDef, F
 from src.odym_extension.SimsonMFASystem import SimsonMFASystem
 from src.tools.config import cfg
 from src.tools.tools import get_dsm_data
-from src.read_data.load_data import setup
 from src.model.load_dsms import load_dsms
 from src.visualisation.visualize import visualize_mfa_sankey
 from src.export.export import export_to_dict
@@ -97,7 +96,6 @@ prm_defs = [
 ]
 
 
-# @load_or_recalculate #TODO
 def load_simson_mfa():
     dsms = load_dsms()
     model = create_model(dsms)
@@ -146,8 +144,6 @@ def initiate_model(main_model: SimsonMFASystem):
 
 
 def set_up_model():
-
-    cfg.init_items_dict()
 
     def model_classification(id, aspect):
         return Classification(Name=aspect,
@@ -290,7 +286,6 @@ def mass_balance_plausible(main_model: SimsonMFASystem):
 
 
 if __name__ == "__main__":
-    setup()
     mfa = load_simson_mfa()
     if cfg.do_visualize['sankey']:
         visualize_mfa_sankey(mfa)

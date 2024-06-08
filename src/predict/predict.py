@@ -1,6 +1,7 @@
+import numpy as np
 from src.predict.duerrwaechter_prediction import predict_duerrwaechter
 from src.tools.config import cfg
-from src.tools.tools import transform_per_capita_np
+from src.read_data.load_data import load_data
 
 
 def predict_stocks(historic_stocks,
@@ -12,7 +13,11 @@ def predict_stocks(historic_stocks,
     :return: Steel data for the years 1900-2100, so BOTH present and past using predict
     approach given in config file.
     """
-    historic_stocks_pc = transform_per_capita_np(arr=historic_stocks, total_from_per_capita=False)
+
+    # transform to per capita
+    pop = load_data('population')
+    historic_pop = pop[:cfg.n_historic_years, :]
+    historic_stocks_pc = np.einsum(f'trc,tr->trc', historic_stocks, 1./historic_pop)
 
     if strategy == "Duerrwaechter":
         stocks_pc = predict_duerrwaechter(historic_stocks_pc)
@@ -20,7 +25,8 @@ def predict_stocks(historic_stocks,
         raise RuntimeError(f"Prediction strategy {strategy} is not defined. "
                            f"It needs to be 'Duerrwaechter'.")
 
-    stocks = transform_per_capita_np(arr=stocks_pc, total_from_per_capita=True)
+    # transform back to total stocks
+    stocks = np.einsum(f'trc,tr->trc', stocks_pc, pop)
 
     return stocks
 

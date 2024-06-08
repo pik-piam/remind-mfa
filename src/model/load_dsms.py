@@ -1,15 +1,11 @@
-import os
-import pickle
-import numpy as np
 from src.odym_extension.SimsonDynamicStockModel import SimsonDynamicStockModel
 from src.tools.config import cfg
-from src.tools.tools import load_or_recalculate, get_dsm_data
+from src.tools.tools import get_dsm_data
 from src.predict.predict import predict_stocks
-from src.read_data.load_data import load_data, setup
+from src.read_data.load_data import load_data
 from src.visualisation.visualize import visualize_future_production
 
 
-@load_or_recalculate
 def load_dsms():
     dsms = _get_dsms()
     return dsms
@@ -19,7 +15,8 @@ def _get_dsms():
 
     production = load_data('production')
 
-    lifetimes = load_data('lifetime')
+    lifetimes = {"mean": load_data('lifetime_mean'),
+                 "std": load_data('lifetime_std')}
 
     historic_dsms = load_historic_stocks(production, lifetimes)
 
@@ -35,7 +32,6 @@ def _get_dsms():
     return dsms
 
 
-@load_or_recalculate
 def load_historic_stocks(production, lifetimes):
 
     historic_stocks = [[historic_stock_from_production(production[:, area_idx, cat_idx],
@@ -75,7 +71,6 @@ def calc_dsm(stock, lifetime_mean, lifetime_std):
     return future_dsm
 
 def _test():
-    setup()
     dsms = load_dsms()
     print(dsms)
 
