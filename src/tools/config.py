@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import src.model.plastics_model_definition as plastics
 
 
 class Config:
@@ -33,6 +34,8 @@ class Config:
             'future_production': False,
             'sankey': True
         }
+
+        self.model_def = plastics
 
         # indices / scope
         self.aspects = ['Time', 'Element', 'Region', 'Material', 'Good']

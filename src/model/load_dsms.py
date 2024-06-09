@@ -7,11 +7,6 @@ from src.visualisation.visualize import visualize_future_production
 
 
 def load_dsms():
-    dsms = _get_dsms()
-    return dsms
-
-
-def _get_dsms():
 
     production = load_data('production')
 
@@ -45,10 +40,10 @@ def load_historic_stocks(production, lifetimes):
 
 def historic_stock_from_production(production, lifetime, st_dev):
     historic_dsm = SimsonDynamicStockModel(t=cfg.historic_years,
-                                              i=production,
-                                              lt={'Type': 'Normal',
-                                                  'Mean': [lifetime],
-                                                  'StdDev': [st_dev]})
+                                           i=production,
+                                           lt={'Type': 'Normal',
+                                               'Mean': [lifetime],
+                                               'StdDev': [st_dev]})
     historic_dsm.compute_all_inflow_driven()
     return historic_dsm
 
@@ -61,19 +56,17 @@ def _calc_future_dsms(stocks, lifetimes):
         for area_idx in range(cfg.n_regions)]
     return future_dsms
 
+
 def calc_dsm(stock, lifetime_mean, lifetime_std):
     future_dsm = SimsonDynamicStockModel(t=cfg.years,
-                                               s=stock,
-                                               lt={'Type': 'Normal',
-                                                   'Mean': [lifetime_mean],
-                                                   'StdDev': [lifetime_std]})
+                                         s=stock,
+                                         lt={'Type': 'Normal',
+                                             'Mean': [lifetime_mean],
+                                             'StdDev': [lifetime_std]})
     future_dsm.compute_all_stock_driven()
     return future_dsm
 
-def _test():
-    dsms = load_dsms()
-    print(dsms)
-
 
 if __name__ == '__main__':
-    _test()
+    dsms = load_dsms()
+    print(dsms)
