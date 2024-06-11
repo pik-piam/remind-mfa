@@ -45,7 +45,7 @@ def historic_stock_from_production(mfa, production, lifetime, st_dev):
                                            lt={'Type': 'Normal',
                                                'Mean': [lifetime],
                                                'StdDev': [st_dev]})
-    historic_dsm.compute_all_inflow_driven()
+    historic_dsm.compute_inflow_driven()
     return historic_dsm
 
 
@@ -65,7 +65,7 @@ def calc_dsm(mfa, stock, lifetime_mean, lifetime_std):
                                          lt={'Type': 'Normal',
                                              'Mean': [lifetime_mean],
                                              'StdDev': [lifetime_std]})
-    future_dsm.compute_all_stock_driven()
+    future_dsm.compute_stock_driven()
     return future_dsm
 
 
