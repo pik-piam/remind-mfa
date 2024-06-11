@@ -1,6 +1,3 @@
-[submodule "ODYM"]
-	path = ODYM
-	url = git@github.com:JakobBD/ODYM.git
 [submodule "geyer"]
 	path = data/original/geyer
 	url = git@gitlab.pik-potsdam.de:simson_data/geyer.git

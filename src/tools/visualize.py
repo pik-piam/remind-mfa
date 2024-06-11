@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 from src.tools.config import cfg
-from ODYM.odym.modules.ODYM_Classes import MFAsystem
+from src.new_odym.mfa_system import MFASystem
 import plotly.graph_objects as go
 import plotly as pl
 
@@ -84,7 +84,7 @@ def dn(st):
     return display_names[st] if st in display_names else st
 
 
-def visualize_mfa_sankey(mfa: MFAsystem):
+def visualize_mfa_sankey(mfa: MFASystem):
     # exclude_nodes = ['sysenv', 'atmosphere', 'emission', 'captured']
     exclude_nodes = ['sysenv']
     exclude_flows = []
@@ -93,25 +93,20 @@ def visualize_mfa_sankey(mfa: MFAsystem):
     carbon_only = True
     color_scheme = 'blueish'
 
-    nodes = [p for p in mfa.ProcessList if p.Name not in exclude_nodes]
-    ids_in_sankey = {p.ID: i for i, p in enumerate(nodes)}
-    exclude_node_ids = [p.ID for p in mfa.ProcessList if p.Name in exclude_nodes]
-    flows = {f for f in mfa.FlowDict.values() if (f.Name not in exclude_flows
-                                                  and f.P_Start not in exclude_node_ids
-                                                  and f.P_End not in exclude_node_ids)}
+    nodes = [p for p in mfa.processes.values() if p.name not in exclude_nodes]
+    ids_in_sankey = {p.id: i for i, p in enumerate(nodes)}
+    exclude_node_ids = [p.id for p in mfa.processes.values() if p.name in exclude_nodes]
+    flows = {f for f in mfa.flows.values() if (f.name not in exclude_flows
+                                               and f.from_process_id not in exclude_node_ids
+                                               and f.to_process_id not in exclude_node_ids)}
     if color_scheme == 'antique':
-        material_colors = pl.colors.qualitative.Antique[:cfg.n_materials]
+        material_colors = pl.colors.qualitative.Antique[:mfa.dims['Material'].len]
     elif color_scheme == 'viridis':
-        material_colors = pl.colors.sample_colorscale('Viridis', cfg.n_materials + 1, colortype='rgb')
+        material_colors = pl.colors.sample_colorscale('Viridis', mfa.dims['Material'].len + 1, colortype='rgb')
     elif color_scheme == 'blueish':
-        material_colors = [f'hsv({10 * i + 200},40,150)' for i in range(cfg.n_materials)]
+        material_colors = [f'hsv({10 * i + 200},40,150)' for i in range(mfa.dims['Material'].len)]
     else:
         raise Exception('invalid color scheme')
-
-    # if carbon_only:
-    #     flow_values = [np.einsum(f"{f.Indices.replace(',', '')}->trm", f.Values)[cfg.y_id(year),0,i] for i in range(cfg.n_materials) for f in flows.values()]
-    # else:
-    #     flow_values = [np.einsum(f"{f.Indices.replace(',', '')}->term", f.Values)[cfg.y_id(year),0,0,i] for i in range(cfg.n_materials) for f in flows.values()]
 
     link_dict = {"label": [], "source": [], "target": [], "color": [], "value": []}
 
@@ -120,21 +115,21 @@ def visualize_mfa_sankey(mfa: MFAsystem):
             link_dict[key].append(value)
 
     for f in flows:
-        source = ids_in_sankey[f.P_Start]
-        target = ids_in_sankey[f.P_End]
-        label = dn(f.Name)
+        source = ids_in_sankey[f.from_process_id]
+        target = ids_in_sankey[f.to_process_id]
+        label = dn(f.name)
 
-        id_orig = f.Indices.replace(',', '')
+        id_orig = f.dims.string
         has_materials = 'm' in id_orig
         id_target = f"ter{'m' if has_materials else ''}"
-        values = np.einsum(f"{id_orig}->{id_target}", f.Values)
+        values = np.einsum(f"{id_orig}->{id_target}", f.values)
 
         if carbon_only:
             values = values[:,0,...]
         else:
             values = np.sum(values, axis = 1)
 
-        values = values[cfg.y_id(year),region_id,...]
+        values = values[mfa.dims['Time'].index(year),region_id,...]
 
         if has_materials:
             for im, c in enumerate(material_colors):
@@ -143,25 +138,14 @@ def visualize_mfa_sankey(mfa: MFAsystem):
             add_link(label=label, source=source, target=target, color='hsl(230,20,70)', value=values)
 
 
-
-
-
-
-
     fig = go.Figure(go.Sankey(
         arrangement = "snap",
         node = {
-            "label": [dn(p.Name) for p in nodes],
+            "label": [dn(p.name) for p in nodes],
             "color": ['gray' for p in nodes], # 'rgb(50, 50, 50)'
             # "x": [0.2, 0.1, 0.5, 0.7, 0.3, 0.5],
             # "y": [0.7, 0.5, 0.2, 0.4, 0.2, 0.3],
             'pad':10},  # 10 Pixels
         link = link_dict ))
-            # "label": [dn(fn) for e in cfg.materials for fn in flows.keys()],
-            # "source": [nodes.index(f.P_Start) for e in cfg.materials for f in flows.values()],
-            # "target": [nodes.index(f.P_End) for e in cfg.materials for f in flows.values()],
-            # # "color": [c for c in colors for f in flows],
-            # "color": [f'hsv({10 * i + 200},40,150)' for i in range(cfg.n_materials) for f in flows],
-            # "value": flow_values}))
 
     fig.show()

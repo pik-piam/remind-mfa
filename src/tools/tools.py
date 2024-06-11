@@ -1,8 +1,6 @@
 from matplotlib import pyplot as plt
-import os
 import numpy as np
 import pandas as pd
-import pickle
 from src.tools.config import cfg
 
 
@@ -13,17 +11,17 @@ def show_and_save(filename_base: str = None):
         plt.show()
 
 
-def get_np_from_df(df_in: pd.DataFrame, return_index_letters = False):
+def get_np_from_df(df_in: pd.DataFrame, dims: tuple):
     df = df_in.copy()
-    aspects = [a for a in cfg.aspects if a in df.columns]
-    value_cols = np.setdiff1d(df.columns, aspects)
-    df.set_index(list(aspects), inplace=True)
-    df = df.sort_values(by=list(aspects))
+    dim_columns = [d for d in dims if d in df.columns]
+    value_cols = np.setdiff1d(df.columns, dim_columns)
+    df.set_index(dim_columns, inplace=True)
+    df = df.sort_values(by=dim_columns)
 
     # check for sparsity
     if df.index.has_duplicates:
         raise Exception("Double entry in df!")
-    shape_out = df.index.shape if len(aspects) == 1 else df.index.levshape
+    shape_out = df.index.shape if len(dim_columns) == 1 else df.index.levshape
     if np.prod(shape_out) != df.index.size:
         raise Exception("Dataframe is missing values!")
 
@@ -31,11 +29,7 @@ def get_np_from_df(df_in: pd.DataFrame, return_index_letters = False):
         out = {vc: df[vc].values.reshape(shape_out) for vc in value_cols}
     else:
         out = df["value"].values.reshape(shape_out)
-
-    if return_index_letters:
-        return out, ''.join(cfg.index_letters[a] for a in aspects)
-    else:
-        return out
+    return out
 
 
 def get_dsm_data(dsms, func):
