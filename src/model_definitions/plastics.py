@@ -105,8 +105,8 @@ class PlasticsMFASystem(MFASystem):
 
     def compute_flows(self, dsms):
 
-        use_inflows = get_dsm_data(dsms, lambda dsm: dsm.i)
-        use_outflows = get_dsm_data(dsms, lambda dsm: dsm.o)
+        use_inflows = get_dsm_data(dsms, lambda dsm: dsm.inflow)
+        use_outflows = get_dsm_data(dsms, lambda dsm: dsm.outflow)
 
         prms = ArrayValueOnlyDict(self.parameters)
         f = ArrayValueOnlyDict(self.flows)
@@ -169,7 +169,7 @@ class PlasticsMFASystem(MFASystem):
 
     def compute_stocks(self, dsms):
 
-        use_stock_values = get_dsm_data(dsms, lambda dsm: dsm.s)
+        use_stock_values = get_dsm_data(dsms, lambda dsm: dsm.stock)
 
         prms = ArrayValueOnlyDict(self.parameters)
         stocks = ArrayValueOnlyDict(self.stocks)

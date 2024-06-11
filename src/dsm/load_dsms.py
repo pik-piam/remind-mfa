@@ -15,7 +15,7 @@ def load_dsms(mfa):
 
     historic_dsms = load_historic_stocks(mfa, production, lifetimes)
 
-    historic_stocks = get_dsm_data(historic_dsms, lambda dsm: dsm.s)
+    historic_stocks = get_dsm_data(historic_dsms, lambda dsm: dsm.stock)
 
     stocks  = predict_stocks(mfa, historic_stocks)
 
@@ -41,8 +41,8 @@ def load_historic_stocks(mfa, production, lifetimes):
 
 def historic_stock_from_production(mfa, production, lifetime, st_dev):
     historic_dsm = DynamicStockModel(t=mfa.historic_years.items,
-                                           i=production,
-                                           lt={'Type': 'Normal',
+                                     inflow=production,
+                                     lifetime={'Type': 'Normal',
                                                'Mean': [lifetime],
                                                'StdDev': [st_dev]})
     historic_dsm.compute_inflow_driven()
@@ -61,8 +61,8 @@ def _calc_future_dsms(mfa, stocks, lifetimes):
 
 def calc_dsm(mfa, stock, lifetime_mean, lifetime_std):
     future_dsm = DynamicStockModel(t=mfa.years.items,
-                                         s=stock,
-                                         lt={'Type': 'Normal',
+                                   stock=stock,
+                                   lifetime={'Type': 'Normal',
                                              'Mean': [lifetime_mean],
                                              'StdDev': [lifetime_std]})
     future_dsm.compute_stock_driven()
