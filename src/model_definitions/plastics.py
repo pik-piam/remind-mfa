@@ -113,20 +113,20 @@ class PlasticsMFASystem(MFASystem):
         aux = MathOperationArrayDict([
             NamedDimArray('use_inflows',                  ('t','r','g'),     self.dims, use_inflows),
             NamedDimArray('use_outflows',                 ('t','r','g'),     self.dims, use_outflows),
-            NamedDimArray('fabrication => use',           ('t','r','m','g'), self.dims),
-            NamedDimArray('use => eol',                   ('t','r','m','g'), self.dims),
+            NamedDimArray('fabrication_2_use_all_el',     ('t','r','m','g'), self.dims),
+            NamedDimArray('use_2_eol_all_el',             ('t','r','m','g'), self.dims),
             NamedDimArray('reclmech_loss',                ('t','e','r','m'), self.dims),
-            NamedDimArray('virgin => fabrication_total',  ('t','e','r'),     self.dims),
+            NamedDimArray('virgin_2_fabr_all_mat',        ('t','e','r'),     self.dims),
             NamedDimArray('virgin_material_shares',       ('t','e','r','m'), self.dims),
-            NamedDimArray('captured => virginccu_by_mat', ('t','e','r','m'), self.dims),
+            NamedDimArray('captured_2_virginccu_by_mat',  ('t','e','r','m'), self.dims),
             NamedDimArray('ratio_nonc_to_c',              ('m',),            self.dims),
         ])
 
-        aux['fabrication => use']           = aux['use_inflows']              * prm['material_shares_in_goods']
-        flw['fabrication => use']           = aux['fabrication => use']       * prm['carbon_content_materials']
+        aux['fabrication_2_use_all_el']     = aux['use_inflows']              * prm['material_shares_in_goods']
+        flw['fabrication => use']           = aux['fabrication_2_use_all_el'] * prm['carbon_content_materials']
 
-        aux['use => eol']                   = aux['use_outflows']             * prm['material_shares_in_goods']
-        flw['use => eol']                   = aux['use => eol']               * prm['carbon_content_materials']
+        aux['use_2_eol_all_el']             = aux['use_outflows']             * prm['material_shares_in_goods']
+        flw['use => eol']                   = aux['use_2_eol_all_el']         * prm['carbon_content_materials']
 
         flw['eol => reclmech']              = flw['use => eol']               * prm['mechanical_recycling_rate']
         flw['reclmech => recl']             = flw['eol => reclmech']          * prm['mechanical_recycling_yield']
@@ -162,11 +162,11 @@ class PlasticsMFASystem(MFASystem):
         flw['virgindaccu => virgin']        = flw['virgin => fabrication']    * prm['daccu_production_rate']
         flw['virginbio => virgin']          = flw['virgin => fabrication']    * prm['bio_production_rate']
 
-        aux['virgin => fabrication_total']  = flw['virgin => fabrication']
-        aux['virgin_material_shares']       = flw['virgin => fabrication']    / aux['virgin => fabrication_total']
-        aux['captured => virginccu_by_mat'] = flw['captured => virginccu']    * aux['virgin_material_shares']
+        aux['virgin_2_fabr_all_mat']        = flw['virgin => fabrication']
+        aux['virgin_material_shares']       = flw['virgin => fabrication']    / aux['virgin_2_fabr_all_mat']
+        aux['captured_2_virginccu_by_mat']  = flw['captured => virginccu']    * aux['virgin_material_shares']
 
-        flw['virginccu => virgin', {'e': 'C'}]              = aux['captured => virginccu_by_mat', {'e': 'C'}]
+        flw['virginccu => virgin', {'e': 'C'}]              = aux['captured_2_virginccu_by_mat', {'e': 'C'}]
         aux['ratio_nonc_to_c']                              = prm['carbon_content_materials', {'e': 'Other Elements'}] / prm['carbon_content_materials', {'e': 'C'}]
         flw['virginccu => virgin', {'e': 'Other Elements'}] = flw['virginccu => virgin', {'e': 'C'}]                   * aux['ratio_nonc_to_c']
 
@@ -177,7 +177,7 @@ class PlasticsMFASystem(MFASystem):
         flw['sysenv => virginfoss']         = flw['virginfoss => virgin']
         flw['atmosphere => virginbio']      = flw['virginbio => virgin']
         flw['atmosphere => virgindaccu']    = flw['virgindaccu => virgin']
-        flw['sysenv => virginccu']          = flw['virginccu => virgin']      - aux['captured => virginccu_by_mat']
+        flw['sysenv => virginccu']          = flw['virginccu => virgin']      - aux['captured_2_virginccu_by_mat']
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
 

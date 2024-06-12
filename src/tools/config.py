@@ -8,6 +8,8 @@ class Config:
         self.do_show_figs = True
         self.do_save_figs = True
 
+        self.verbose = False
+
         # data sources
         self.data_path = 'data'
 
@@ -21,5 +23,6 @@ class Config:
         }
 
         self.model_class = 'plastics'
+
 
 cfg = Config()
