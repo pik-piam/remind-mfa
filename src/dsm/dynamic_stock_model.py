@@ -21,6 +21,9 @@ dependencies:
 
 Repository for this class, documentation, and tutorials: https://github.com/IndEcol/ODYM
 
+
+ADAPTED FOR USE IN SIMSON PROJECT
+
 """
 
 import numpy as np

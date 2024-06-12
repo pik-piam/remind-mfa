@@ -1,6 +1,6 @@
 import numpy as np
 from src.new_odym.mfa_system import EmptyModelDefinition, MFASystem
-from src.new_odym.named_dim_arrays import ArrayValueOnlyDict
+from src.new_odym.named_dim_arrays import NamedDimArray, MathOperationArrayDict
 from src.tools.tools import get_dsm_data
 
 class PlasticsModelDefinition(EmptyModelDefinition):
@@ -108,59 +108,76 @@ class PlasticsMFASystem(MFASystem):
         use_inflows = get_dsm_data(dsms, lambda dsm: dsm.inflow)
         use_outflows = get_dsm_data(dsms, lambda dsm: dsm.outflow)
 
-        prms = ArrayValueOnlyDict(self.parameters)
-        f = ArrayValueOnlyDict(self.flows)
-        loc = {}
+        prm = MathOperationArrayDict(self.parameters)
+        flw = MathOperationArrayDict(self.flows)
+        aux = MathOperationArrayDict([
+            NamedDimArray('use_inflows',                  ('t','r','g'),     self.dims, use_inflows),
+            NamedDimArray('use_outflows',                 ('t','r','g'),     self.dims, use_outflows),
+            NamedDimArray('fabrication => use',           ('t','r','m','g'), self.dims),
+            NamedDimArray('use => eol',                   ('t','r','m','g'), self.dims),
+            NamedDimArray('reclmech_loss',                ('t','e','r','m'), self.dims),
+            NamedDimArray('virgin => fabrication_total',  ('t','e','r'),     self.dims),
+            NamedDimArray('virgin_material_shares',       ('t','e','r','m'), self.dims),
+            NamedDimArray('captured => virginccu_by_mat', ('t','e','r','m'), self.dims),
+            NamedDimArray('ratio_nonc_to_c',              ('m',),            self.dims),
+        ])
 
-        loc['fabrication => use'] = np.einsum('trg,mg->trmg', use_inflows, prms['material_shares_in_goods'])
-        f['fabrication => use'] = np.einsum('trmg,em->termg', loc['fabrication => use'], prms['carbon_content_materials'])
+        aux['fabrication => use']           = aux['use_inflows']              * prm['material_shares_in_goods']
+        flw['fabrication => use']           = aux['fabrication => use']       * prm['carbon_content_materials']
 
-        loc['use => eol'] = np.einsum('trg,mg->trmg', use_outflows, prms['material_shares_in_goods'])
-        f['use => eol'] = np.einsum('trmg,em->termg', loc['use => eol'], prms['carbon_content_materials'])
+        aux['use => eol']                   = aux['use_outflows']             * prm['material_shares_in_goods']
+        flw['use => eol']                   = aux['use => eol']               * prm['carbon_content_materials']
 
-        f['eol => reclmech'] = np.einsum('termg,tm->term', f['use => eol'], prms['mechanical_recycling_rate'])
-        f['reclmech => recl'] = np.einsum('term,tm->term', f['eol => reclmech'], prms['mechanical_recycling_yield'])
-        loc['reclmech_loss'] = f['eol => reclmech'] - f['reclmech => recl']
-        f['reclmech => uncontrolled'] = np.einsum('term,tm->term', loc['reclmech_loss'], prms['reclmech_loss_uncontrolled_rate'])
-        f['reclmech => incineration'] = loc['reclmech_loss'] - f['reclmech => uncontrolled']
+        flw['eol => reclmech']              = flw['use => eol']               * prm['mechanical_recycling_rate']
+        flw['reclmech => recl']             = flw['eol => reclmech']          * prm['mechanical_recycling_yield']
+        aux['reclmech_loss']                = flw['eol => reclmech']          - flw['reclmech => recl']
+        flw['reclmech => uncontrolled']     = aux['reclmech_loss']            * prm['reclmech_loss_uncontrolled_rate']
+        flw['reclmech => incineration']     = aux['reclmech_loss']            - flw['reclmech => uncontrolled']
 
-        f['eol => reclchem'] = np.einsum('termg,tm->term', f['use => eol'], prms['chemical_recycling_rate'])
-        f['reclchem => recl'] = f['eol => reclchem']
+        flw['eol => reclchem']              = flw['use => eol']               * prm['chemical_recycling_rate']
+        flw['reclchem => recl']             = flw['eol => reclchem']
 
-        f['eol => reclsolv'] = np.einsum('termg,tm->term', f['use => eol'], prms['solvent_recycling_rate'])
-        f['reclsolv => recl'] = f['eol => reclsolv']
+        flw['eol => reclsolv']              = flw['use => eol']               * prm['solvent_recycling_rate']
+        flw['reclsolv => recl']             = flw['eol => reclsolv']
 
-        f['eol => incineration'] = np.einsum('termg,tm->term', f['use => eol'], prms['incineration_rate'])
-        f['eol => uncontrolled'] = np.einsum('termg,tm->term', f['use => eol'], prms['uncontrolled_losses_rate'])
+        flw['eol => incineration']          = flw['use => eol']               * prm['incineration_rate']
+        flw['eol => uncontrolled']          = flw['use => eol']               * prm['uncontrolled_losses_rate']
 
-        f['eol => landfill'] = np.einsum('termg->term', f['use => eol']) - f['eol => reclmech'] - f['eol => reclchem'] - f['eol => reclsolv'] - f['eol => incineration'] - f['eol => uncontrolled']
+        flw['eol => landfill']              = flw['use => eol']               - flw['eol => reclmech'] \
+                                                                              - flw['eol => reclchem'] \
+                                                                              - flw['eol => reclsolv'] \
+                                                                              - flw['eol => incineration'] \
+                                                                              - flw['eol => uncontrolled']
 
-        f['incineration => emission'] = np.einsum('term->ter', f['eol => incineration'] + f['reclmech => incineration'])
+        flw['incineration => emission']     = flw['eol => incineration']      + flw['reclmech => incineration']
 
-        f['emission => captured'] = np.einsum('ter,t->ter', f['incineration => emission'], prms['emission_capture_rate'])
-        f['emission => atmosphere'] = f['incineration => emission'] - f['emission => captured']
-        f['captured => virginccu'] = f['emission => captured']
+        flw['emission => captured']         = flw['incineration => emission'] * prm['emission_capture_rate']
+        flw['emission => atmosphere']       = flw['incineration => emission'] - flw['emission => captured']
+        flw['captured => virginccu']        = flw['emission => captured']
 
-        f['recl => fabrication'] = f['reclmech => recl'] + f['reclchem => recl'] + f['reclsolv => recl']
-        f['virgin => fabrication'] = np.einsum('termg->term', f['fabrication => use']) - f['recl => fabrication']
+        flw['recl => fabrication']          = flw['reclmech => recl']         + flw['reclchem => recl'] \
+                                                                              + flw['reclsolv => recl']
+        flw['virgin => fabrication']        = flw['fabrication => use']       - flw['recl => fabrication']
 
-        f['virgindaccu => virgin'] = np.einsum('term,tm->term', f['virgin => fabrication'], prms['daccu_production_rate'])
-        f['virginbio => virgin'] = np.einsum('term,tm->term', f['virgin => fabrication'], prms['bio_production_rate'])
+        flw['virgindaccu => virgin']        = flw['virgin => fabrication']    * prm['daccu_production_rate']
+        flw['virginbio => virgin']          = flw['virgin => fabrication']    * prm['bio_production_rate']
 
-        loc['virgin => fabrication_total'] = np.einsum('term->ter', f['virgin => fabrication'])
-        loc['virgin_material_shares'] = np.einsum('term,ter->term', f['virgin => fabrication'], 1. / loc['virgin => fabrication_total'])
-        loc['captured => virginccu_by_mat'] = np.einsum('ter,term->term', f['captured => virginccu'], loc['virgin_material_shares'])
+        aux['virgin => fabrication_total']  = flw['virgin => fabrication']
+        aux['virgin_material_shares']       = flw['virgin => fabrication']    / aux['virgin => fabrication_total']
+        aux['captured => virginccu_by_mat'] = flw['captured => virginccu']    * aux['virgin_material_shares']
 
-        f.slice('virginccu => virgin', e='C')[...] = loc['captured => virginccu_by_mat'][:,0,:,:]
-        loc['ratio_nonc_to_c'] = prms.slice('carbon_content_materials', e='Other Elements') / prms.slice('carbon_content_materials', e='C')
-        f.slice('virginccu => virgin', e='Other Elements')[...] = np.einsum('trm,m->trm', f.slice('virginccu => virgin', e='C'), loc['ratio_nonc_to_c'])
+        flw['virginccu => virgin', {'e': 'C'}]              = aux['captured => virginccu_by_mat', {'e': 'C'}]
+        aux['ratio_nonc_to_c']                              = prm['carbon_content_materials', {'e': 'Other Elements'}] / prm['carbon_content_materials', {'e': 'C'}]
+        flw['virginccu => virgin', {'e': 'Other Elements'}] = flw['virginccu => virgin', {'e': 'C'}]                   * aux['ratio_nonc_to_c']
 
-        f['virginfoss => virgin'] = f['virgin => fabrication'] - f['virgindaccu => virgin'] - f['virginbio => virgin'] - f['virginccu => virgin']
+        flw['virginfoss => virgin']         = flw['virgin => fabrication']    - flw['virgindaccu => virgin'] \
+                                                                              - flw['virginbio => virgin'] \
+                                                                              - flw['virginccu => virgin']
 
-        f['sysenv => virginfoss'] = f['virginfoss => virgin']
-        f['atmosphere => virginbio'] = np.einsum('term->ter', f['virginbio => virgin'])
-        f['atmosphere => virgindaccu'] = np.einsum('term->ter', f['virgindaccu => virgin'])
-        f['sysenv => virginccu'] = f['virginccu => virgin'] - loc['captured => virginccu_by_mat']
+        flw['sysenv => virginfoss']         = flw['virginfoss => virgin']
+        flw['atmosphere => virginbio']      = flw['virginbio => virgin']
+        flw['atmosphere => virgindaccu']    = flw['virgindaccu => virgin']
+        flw['sysenv => virginccu']          = flw['virginccu => virgin']      - aux['captured => virginccu_by_mat']
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
 
@@ -171,20 +188,23 @@ class PlasticsMFASystem(MFASystem):
 
         use_stock_values = get_dsm_data(dsms, lambda dsm: dsm.stock)
 
-        prms = ArrayValueOnlyDict(self.parameters)
-        stocks = ArrayValueOnlyDict(self.stocks)
-        flows = ArrayValueOnlyDict(self.flows)
-        loc = {}
+        prm = MathOperationArrayDict(self.parameters)
+        stk = MathOperationArrayDict(self.stocks)
+        flw = MathOperationArrayDict(self.flows)
+        aux = MathOperationArrayDict([
+            NamedDimArray('use_stock_values',   ('t','r','g'), self.dims, use_stock_values),
+            NamedDimArray('stocks_by_material', ('t','r','g'), self.dims),
+        ])
 
-        loc['stocks_by_material'] = np.einsum('trg,mg->trmg', use_stock_values, prms['material_shares_in_goods'])
-        stocks['in_use_stock'] = np.einsum('trmg,em->termg', loc['stocks_by_material'], prms['carbon_content_materials'])
-        stocks['in_use_stock_inflow'] = flows['fabrication => use']
-        stocks['in_use_stock_outflow'] = flows['use => eol']
-        stocks['landfill_stock_inflow'] = flows['eol => landfill']
-        stocks['landfill_stock'] = stocks['landfill_stock_inflow'].cumsum(axis=0)
-        stocks['uncontrolled_stock_inflow'] = flows['eol => uncontrolled'] + flows['reclmech => uncontrolled']
-        stocks['uncontrolled_stock'] = stocks['uncontrolled_stock_inflow'].cumsum(axis=0)
-        stocks['atmospheric_stock_inflow'] = flows['emission => atmosphere']
-        stocks['atmospheric_stock_outflow'] = flows['atmosphere => virgindaccu'] + flows['atmosphere => virginbio']
-        stocks['atmospheric_stock'] = stocks['atmospheric_stock_inflow'].cumsum(axis=0) - stocks['atmospheric_stock_outflow'].cumsum(axis=0)
+        aux['stocks_by_material']        = aux['use_stock_values'] * prm['material_shares_in_goods']
+        stk['in_use_stock']              = aux['stocks_by_material'] * prm['carbon_content_materials']
+        stk['in_use_stock_inflow']       = flw['fabrication => use']
+        stk['in_use_stock_outflow']      = flw['use => eol']
+        stk['landfill_stock_inflow']     = flw['eol => landfill']
+        stk['landfill_stock']            = stk['landfill_stock_inflow'].cumsum_time()
+        stk['uncontrolled_stock_inflow'] = flw['eol => uncontrolled'] + flw['reclmech => uncontrolled']
+        stk['uncontrolled_stock']        = stk['uncontrolled_stock_inflow'].cumsum_time()
+        stk['atmospheric_stock_inflow']  = flw['emission => atmosphere']
+        stk['atmospheric_stock_outflow'] = flw['atmosphere => virgindaccu'] + flw['atmosphere => virginbio']
+        stk['atmospheric_stock']         = stk['atmospheric_stock_inflow'].cumsum_time() - stk['atmospheric_stock_outflow'].cumsum_time()
         return

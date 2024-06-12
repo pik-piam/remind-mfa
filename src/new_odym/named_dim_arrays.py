@@ -1,22 +1,29 @@
 import os
 import numpy as np
-from src.tools.config import cfg
 import pandas as pd
+from copy import copy
+from src.tools.config import cfg
 from src.tools.tools import get_np_from_df
 from src.new_odym.dimensions import DimensionSet
 
 
 class NamedDimArray(object):
 
-    def __init__(self, name: str, dim_letters: tuple):
+    def __init__(self, name: str, dim_letters: tuple, parent_alldims: DimensionSet = None, values: np.ndarray = None):
         """ Basic initialisation of Obj."""
         self.name   = name # object name
         assert type(dim_letters) == tuple, "dim_letters must be a tuple"
         self._dim_letters = dim_letters
+
         self.dims = None
         self.values = None
 
-    def connect_to_dimensions(self, parent_alldims: DimensionSet):
+        if parent_alldims is not None:
+            self.attach_to_dimensions(parent_alldims)
+        if values is not None:
+            self.set_values(values)
+
+    def attach_to_dimensions(self, parent_alldims: DimensionSet):
         self.dims = parent_alldims.get_subset(self._dim_letters) # object name
         self.init_values()
 
@@ -53,16 +60,47 @@ class NamedDimArray(object):
     def shape(self):
         return self.dims.shape()
 
-    def sum(self, sum_over_dims: tuple = (), result_dims: tuple = ()):
-        #TODO: return a new NamedDimTensor instead of just the values
-        assert not sum_over_dims and result_dims, "You can't simultaneously specify dims to sum over and dims not to sum over"
+    def sum_values(self):
+        return np.sum(self.values)
 
-        if not sum_over_dims and not result_dims:
-            return np.sum(self.values)
-        elif sum_over_dims:
-            result_dims = (o for o in self.dims.letters if o not in sum_over_dims)
+    def sum_values_over(self, sum_over_dims: tuple = ()):
+        result_dims = (o for o in self.dims.letters if o not in sum_over_dims)
         return np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
 
+    def sum_values_to(self, result_dims: tuple = ()):
+        return np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
+
+    def __add__(self, other):
+        assert isinstance(other, NamedDimArray), "Can only add NamedDimArrays"
+        dims_out = tuple([d for d in self.dims.letters if d in other.dims.letters])
+        return NamedDimArray(f"( {self.name} + {other.name} )",
+                             dims_out,
+                             parent_alldims=self.dims,
+                             values=self.sum_values_to(dims_out) + other.sum_values_to(dims_out))
+
+    def __sub__(self, other):
+        assert isinstance(other, NamedDimArray), "Can only add NamedDimArrays"
+        dims_out = tuple([d for d in self.dims.letters if d in other.dims.letters])
+        return NamedDimArray(f"( {self.name} - {other.name} )",
+                             dims_out,
+                             parent_alldims=self.dims,
+                             values=self.sum_values_to(dims_out) - other.sum_values_to(dims_out))
+
+    def __mul__(self, other):
+        assert isinstance(other, NamedDimArray), "Can only multiply NamedDimArrays"
+        dims_out = DimensionSet(dimensions=list(set(self.dims).union(set(other.dims))))
+        return NamedDimArray(f"( {self.name} * {other.name} )",
+                             dims_out.letters,
+                             parent_alldims=dims_out,
+                             values=np.einsum(f"{self.dims.string},{other.dims.string}->{dims_out.string}", self.values, other.values))
+
+    def __truediv__(self, other):
+        assert isinstance(other, NamedDimArray), "Can only divide NamedDimArrays"
+        dims_out = DimensionSet(dimensions=list(set(self.dims).union(set(other.dims))))
+        return NamedDimArray(f"( {self.name} / {other.name} )",
+                             dims_out.letters,
+                             parent_alldims=dims_out,
+                             values=np.einsum(f"{self.dims.string},{other.dims.string}->{dims_out.string}", self.values, 1. / other.values))
 
 class Process():
 
@@ -79,7 +117,7 @@ class Flow(NamedDimArray):
         self._from_process_name = from_process
         self._to_process_name = to_process
 
-    def connect_to_processes(self, processes: dict):
+    def attach_to_processes(self, processes: dict):
         self.from_process = processes[self._from_process_name]
         self.to_process = processes[self._to_process_name]
         self.from_process_id = self.from_process.id
@@ -92,9 +130,14 @@ class Stock(NamedDimArray):
         self.type = stock_type
         self._process_name = process
 
-    def connect_to_process(self, processes: dict):
+    def attach_to_process(self, processes: dict):
         self.process = processes[self._process_name]
         self.process_id = self.process.id
+
+    def cumsum_time(self):
+        arr_out = copy(self)
+        arr_out.values = np.cumsum(self.values, axis=self.dims.index('t'))
+        return arr_out
 
 
 class Parameter(NamedDimArray):
@@ -105,7 +148,7 @@ class DataSetFromCSV(NamedDimArray):
 
     def __init__(self, name: str, dim_letters: tuple, parent_dims: DimensionSet):
         super().__init__(name, dim_letters)
-        self.connect_to_dimensions(parent_dims.get_subset(dim_letters))
+        self.attach_to_dimensions(parent_dims.get_subset(dim_letters))
         self._data = self.load_data()
 
     @property
@@ -113,16 +156,37 @@ class DataSetFromCSV(NamedDimArray):
         return self._data
 
 
-class ArrayValueOnlyDict():
+class MathOperationArrayDict():
 
-    def __init__(self, dict):
-        self.dict = dict
+    def __init__(self, input):
+        if isinstance(input, dict):
+            self.dict = input
+        elif isinstance(input, list):
+            self.dict = {obj.name: obj for obj in input}
 
-    def __getitem__(self, name):
-        return self.dict[name].values
+    def __getitem__(self, keys):
+        if not isinstance(keys, tuple):
+            key = keys
+            return self.dict[key]
+        else:
+            key = keys[0]
+            slice_dict = keys[1]
+            assert isinstance(slice_dict, dict), "Second argument must be a dictionary"
+            dims_out = tuple([d for d in self.dict[key].dims.letters if d not in slice_dict.keys()])
+            slice_str = ", ".join([f"{k}={v}" for k, v in slice_dict.items()])
+            return NamedDimArray(f"{self[key].name}[{slice_str}]",
+                                 dim_letters=dims_out,
+                                 parent_alldims=self.dict[key].dims,
+                                 values=self.dict[key].slice(**slice_dict))
 
-    def __setitem__(self, name, item):
-        self.dict[name].values[...] = item
-
-    def slice(self, name, **kwargs):
-        return self.dict[name].slice(**kwargs)
+    def __setitem__(self, keys, item):
+        assert isinstance(item, NamedDimArray), "Item on RHS of assignment must be a NamedDimArray"
+        if not isinstance(keys, tuple):
+            key = keys
+            self.dict[key].values[...] = item.sum_values_to(self.dict[key].dims.letters)
+        else:
+            key = keys[0]
+            slice_dict = keys[1]
+            assert isinstance(slice_dict, dict), "Second argument must be a dictionary"
+            dims_out = tuple([d for d in self.dict[key].dims.letters if d not in slice_dict.keys()])
+            self.dict[key].slice(**slice_dict)[...] = item.sum_values_to(dims_out)

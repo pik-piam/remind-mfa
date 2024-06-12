@@ -38,8 +38,12 @@ class Dimension(object):
 
 class DimensionSet(object):
 
-        def __init__(self, defdicts: list):
-            self._list = [Dimension(**defdict, do_load=True) for defdict in defdicts]
+        def __init__(self, defdicts: list=None, dimensions: list=None, do_load: bool = False):
+            assert bool(defdicts) != bool(dimensions), "Either defdicts or dimensions must be provided"
+            if dimensions is not None:
+                self._list = dimensions
+            elif defdicts is not None:
+                self._list = [Dimension(do_load=do_load, **defdict) for defdict in defdicts]
 
         @property
         def _dict(self):

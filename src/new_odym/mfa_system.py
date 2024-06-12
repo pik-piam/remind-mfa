@@ -47,7 +47,7 @@ class MFASystem():
         raise Exception("This is a dummy in the parent class: Please implement in subclass")
 
     def set_up_dimensions(self):
-        self.dims = DimensionSet(self.definition.dimensions)
+        self.dims = DimensionSet(defdicts=self.definition.dimensions, do_load=True)
         self.set_up_years()
         self.check_consistency()
 
@@ -76,19 +76,19 @@ class MFASystem():
         flow_list = [Flow(**fd) for fd in self.definition.flows]
         self.flows = {f.name: f for f in flow_list}
         for f in self.flows.values():
-            f.connect_to_dimensions(self.dims)
-            f.connect_to_processes(self.processes)
+            f.attach_to_dimensions(self.dims)
+            f.attach_to_processes(self.processes)
 
     def initialize_stocks(self):
         self.stocks = {sd['name']: Stock(**sd) for sd in self.definition.stocks}
         for s in self.stocks.values():
-            s.connect_to_dimensions(self.dims)
-            s.connect_to_process(self.processes)
+            s.attach_to_dimensions(self.dims)
+            s.attach_to_process(self.processes)
 
     def initialize_parameters(self):
         self.parameters = {prd['name']: Parameter(**prd) for prd in self.definition.parameters}
         for p in self.parameters.values():
-            p.connect_to_dimensions(self.dims)
+            p.attach_to_dimensions(self.dims)
             p.load_values()
             #TODO: calculate correct input parameter, such that this quickfix becomes obsolete
             if p.name == 'material_shares_in_goods':
@@ -109,12 +109,12 @@ class MFASystem():
         #element position 0 is the balance for the entire mass, the other are for the balance of the individual elements
 
         for flow in self.flows.values(): # Add all flows to mass balance
-            flow_value = flow.sum(result_dims = (self.dims['Time'].letter, self.dims['Element'].letter))
+            flow_value = flow.sum_values_to((self.dims['Time'].letter, self.dims['Element'].letter))
             balance[:,:,flow.from_process.id] -= flow_value # Subtract flow from start process
             balance[:,:,flow.to_process.id]   += flow_value # Add flow to end process
 
         for stock in self.stocks.values(): # Add all stock changes to the mass balance
-            stock_value = stock.sum(result_dims = (self.dims['Time'].letter, self.dims['Element'].letter))
+            stock_value = stock.sum_values_to((self.dims['Time'].letter, self.dims['Element'].letter))
             if  stock.type == 1:
                 balance[:,:,stock.process.id] -= stock_value # 1: net stock change or addition to stock
                 balance[:,:,0] += stock_value # add stock changes to process with number 0 ('system boundary, environment of system')
