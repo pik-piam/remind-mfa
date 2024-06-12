@@ -1,40 +1,42 @@
-import numpy as np
-from src.new_odym.mfa_system import EmptyModelDefinition, MFASystem
+from src.new_odym.mfa_system import MFASystem
 from src.new_odym.named_dim_arrays import NamedDimArray, MathOperationArrayDict
 from src.tools.tools import get_dsm_data
 
-class PlasticsModelDefinition(EmptyModelDefinition):
+class PlasticsMFASystem(MFASystem):
 
-    def __init__(self):
+    def fill_definition(self):
 
-        self.dimensions = [
+        self.definition.dimensions = [
             dict(name='Time',     dim_letter='t', dtype=int, filename='years'),
             dict(name='Element',  dim_letter='e', dtype=str, filename='elements'),
             dict(name='Region',   dim_letter='r', dtype=str, filename='regions'),
             dict(name='Material', dim_letter='m', dtype=str, filename='materials'),
-            dict(name='Good',     dim_letter='g', dtype=str, filename='in_use_categories')]
+            dict(name='Good',     dim_letter='g', dtype=str, filename='in_use_categories')
+        ]
 
-        self.processes = ['sysenv',
-                          'virginfoss',
-                          'virginbio',
-                          'virgindaccu',
-                          'virginccu',
-                          'virgin',
-                          'fabrication',
-                          'recl',
-                          'reclmech',
-                          'reclchem',
-                          'reclsolv',
-                          'use',
-                          'eol',
-                          'incineration',
-                          'landfill',
-                          'uncontrolled',
-                          'emission',
-                          'captured',
-                          'atmosphere']
+        self.definition.processes = [
+            'sysenv',
+            'virginfoss',
+            'virginbio',
+            'virgindaccu',
+            'virginccu',
+            'virgin',
+            'fabrication',
+            'recl',
+            'reclmech',
+            'reclchem',
+            'reclsolv',
+            'use',
+            'eol',
+            'incineration',
+            'landfill',
+            'uncontrolled',
+            'emission',
+            'captured',
+            'atmosphere'
+        ]
 
-        self.flows = [
+        self.definition.flows = [
             dict(from_process='sysenv',       to_process='virginfoss',   dim_letters=('t','e','r','m')),
             dict(from_process='sysenv',       to_process='virginbio',    dim_letters=('t','e','r','m')),
             dict(from_process='sysenv',       to_process='virgindaccu',  dim_letters=('t','e','r','m')),
@@ -66,7 +68,7 @@ class PlasticsModelDefinition(EmptyModelDefinition):
             dict(from_process='captured',     to_process='virginccu',    dim_letters=('t','e','r'))
         ]
 
-        self.stocks = [
+        self.definition.stocks = [
             dict(name='in_use_stock',              process='use',          stock_type=0, dim_letters=('t','e','r','m','g')),
             dict(name='in_use_stock_inflow',       process='use',          stock_type=1, dim_letters=('t','e','r','m','g')),
             dict(name='in_use_stock_outflow',      process='use',          stock_type=2, dim_letters=('t','e','r','m','g')),
@@ -79,7 +81,7 @@ class PlasticsModelDefinition(EmptyModelDefinition):
             dict(name='uncontrolled_stock_inflow', process='uncontrolled', stock_type=1, dim_letters=('t','e','r','m'))
         ]
 
-        self.parameters = [
+        self.definition.parameters = [
             # EOL rates
             dict(name='mechanical_recycling_rate',       dim_letters=('t','m')),
             dict(name='chemical_recycling_rate',         dim_letters=('t','m')),
@@ -97,11 +99,6 @@ class PlasticsModelDefinition(EmptyModelDefinition):
             dict(name='emission_capture_rate',           dim_letters=('t',)),
             dict(name='carbon_content_materials',        dim_letters=('e','m')),
         ]
-
-
-class PlasticsMFASystem(MFASystem):
-
-    definition = PlasticsModelDefinition()
 
     def compute_flows(self, dsms):
 

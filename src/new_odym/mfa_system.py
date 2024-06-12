@@ -3,37 +3,27 @@ from src.new_odym.named_dim_arrays import Flow, Stock, Parameter, Process
 from src.new_odym.dimensions import Dimension, DimensionSet
 
 
-class EmptyModelDefinition():
-
-    def __init__(self):
-        self.dimensions = None
-        self.processes = None
-        self.flows = None
-        self.stocks = None
-        self.parameters = None
-
-    def check_completeness(self):
-        assert self.dimensions
-        assert self.processes
-        assert self.flows
-        assert self.stocks
-        assert self.parameters
-
-
 class MFASystem():
 
     """
     Class with the definition and methods for a system in ODYM
     """
-    definition = EmptyModelDefinition()
 
     def __init__(self):
-
+        self.set_up_definition()
         self.set_up_dimensions()
         self.initialize_processes()
         self.initialize_flows()
         self.initialize_stocks()
         self.initialize_parameters()
+
+    def set_up_definition(self):
+        self.definition = MFADefinition()
+        self.fill_definition()
+        self.definition.check_complete()
+
+    def fill_definition(self):
+        raise Exception("This is a dummy in the parent class: Please implement in subclass")
 
     def compute(self, dsms):
         self.compute_flows(dsms)
@@ -141,3 +131,20 @@ class MFASystem():
         else:
             print("Success - Mass balance consistent!")
         return
+
+
+class MFADefinition():
+
+    def __init__(self):
+        self.dimensions = None
+        self.processes = None
+        self.flows = None
+        self.stocks = None
+        self.parameters = None
+
+    def check_complete(self):
+        assert self.dimensions
+        assert self.processes
+        assert self.flows
+        assert self.stocks
+        assert self.parameters
