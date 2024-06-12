@@ -33,9 +33,10 @@ def __version__():
 
 class DynamicStockModel(object):
 
-    def __init__(self, t=None, inflow=None, outflow=None, stock=None, lifetime=None, stock_by_cohort=None, outflow_by_cohort=None, name='DSM', pdf=None, sf=None):
+    def __init__(self, t, inflow=None, outflow=None, stock=None, lifetime=None, stock_by_cohort=None, outflow_by_cohort=None, pdf=None, sf=None):
         """ Init function. Assign the input data to the instance of the object."""
-        self.t = t
+        self.n_t = len(t)
+
         self.inflow = inflow
         self.stock = stock
         self.stock_by_cohort = stock_by_cohort
@@ -48,10 +49,9 @@ class DynamicStockModel(object):
                 # replicate this value to full length of the time vector
                 if key != 'Type':
                     if np.array(lifetime[key]).shape[0] == 1:
-                        lifetime[key] = np.tile(lifetime[key], len(t))
+                        lifetime[key] = np.tile(lifetime[key], self.n_t)
         self.lifetime = lifetime
 
-        self.name = name
         self.pdf = pdf
         self.sf  = sf
 
@@ -109,10 +109,10 @@ class DynamicStockModel(object):
         The method does nothing if the pdf alreay exists.
         """
         self.compute_sf() # computation of pdfs moved to this method: compute survival functions sf first, then calculate pdfs from sf.
-        self.pdf   = np.zeros((len(self.t), len(self.t)))
-        self.pdf[np.diag_indices(len(self.t))] = np.ones(len(self.t)) - self.sf.diagonal(0)
-        for m in range(0,len(self.t)):
-            self.pdf[np.arange(m+1,len(self.t)),m] = -1 * np.diff(self.sf[np.arange(m,len(self.t)),m])
+        self.pdf = np.zeros((self.n_t, self.n_t))
+        self.pdf[np.diag_indices(self.n_t)] = np.ones(self.n_t) - self.sf.diagonal(0)
+        for m in range(0,self.n_t):
+            self.pdf[np.arange(m+1,self.n_t),m] = -1 * np.diff(self.sf[np.arange(m,self.n_t),m])
         return self.pdf
 
 
@@ -126,50 +126,50 @@ class DynamicStockModel(object):
         The shape of the output sf array is NoofYears * NoofYears, and the meaning is years by age-cohorts.
         The method does nothing if the sf alreay exists. For example, sf could be assigned to the dynamic stock model from an exogenous computation to save time.
         """
-        self.sf = np.zeros((len(self.t), len(self.t)))
+        self.sf = np.zeros((self.n_t, self.n_t))
         # Perform specific computations and checks for each lifetime distribution:
 
         if self.lifetime['Type'] == 'Fixed': # fixed lifetime, age-cohort leaves the stock in the model year when the age specified as 'Mean' is reached.
-            for m in range(0, len(self.t)):  # cohort index
-                self.sf[m::,m] = np.multiply(1, (np.arange(0,len(self.t)-m) < self.lifetime['Mean'][m])) # converts bool to 0/1
+            for m in range(0, self.n_t):  # cohort index
+                self.sf[m::,m] = np.multiply(1, (np.arange(0,self.n_t-m) < self.lifetime['Mean'][m])) # converts bool to 0/1
             # Example: if Lt is 3.5 years fixed, product will still be there after 0, 1, 2, and 3 years, gone after 4 years.
 
         if self.lifetime['Type'] == 'Normal': # normally distributed lifetime with mean and standard deviation. Watch out for nonzero values
             # for negative ages, no correction or truncation done here. Cf. note below.
-            for m in range(0, len(self.t)):  # cohort index
+            for m in range(0, self.n_t):  # cohort index
                 if self.lifetime['Mean'][m] != 0:  # For products with lifetime of 0, sf == 0
-                    self.sf[m::,m] = scipy.stats.norm.sf(np.arange(0,len(self.t)-m), loc=self.lifetime['Mean'][m], scale=self.lifetime['StdDev'][m])
+                    self.sf[m::,m] = scipy.stats.norm.sf(np.arange(0,self.n_t-m), loc=self.lifetime['Mean'][m], scale=self.lifetime['StdDev'][m])
                     # NOTE: As normal distributions have nonzero pdf for negative ages, which are physically impossible,
                     # these outflow contributions can either be ignored (violates the mass balance) or
                     # allocated to the zeroth year of residence, the latter being implemented in the method compute compute_o_c_from_s_c.
                     # As alternative, use lognormal or folded normal distribution options.
 
         if self.lifetime['Type'] == 'FoldedNormal': # Folded normal distribution, cf. https://en.wikipedia.org/wiki/Folded_normal_distribution
-            for m in range(0, len(self.t)):  # cohort index
+            for m in range(0, self.n_t):  # cohort index
                 if self.lifetime['Mean'][m] != 0:  # For products with lifetime of 0, sf == 0
-                    self.sf[m::,m] = scipy.stats.foldnorm.sf(np.arange(0,len(self.t)-m), self.lifetime['Mean'][m]/self.lifetime['StdDev'][m], 0, scale=self.lifetime['StdDev'][m])
+                    self.sf[m::,m] = scipy.stats.foldnorm.sf(np.arange(0,self.n_t-m), self.lifetime['Mean'][m]/self.lifetime['StdDev'][m], 0, scale=self.lifetime['StdDev'][m])
                     # NOTE: call this option with the parameters of the normal distribution mu and sigma of curve BEFORE folding,
                     # curve after folding will have different mu and sigma.
 
         if self.lifetime['Type'] == 'LogNormal': # lognormal distribution
             # Here, the mean and stddev of the lognormal curve,
             # not those of the underlying normal distribution, need to be specified! conversion of parameters done here:
-            for m in range(0, len(self.t)):  # cohort index
+            for m in range(0, self.n_t):  # cohort index
                 if self.lifetime['Mean'][m] != 0:  # For products with lifetime of 0, sf == 0
                     # calculate parameter mu    of underlying normal distribution:
                     lt_ln = np.log(self.lifetime['Mean'][m] / np.sqrt(1 + self.lifetime['Mean'][m] * self.lifetime['Mean'][m] / (self.lifetime['StdDev'][m] * self.lifetime['StdDev'][m])))
                     # calculate parameter sigma of underlying normal distribution:
                     sg_ln = np.sqrt(np.log(1 + self.lifetime['Mean'][m] * self.lifetime['Mean'][m] / (self.lifetime['StdDev'][m] * self.lifetime['StdDev'][m])))
                     # compute survial function
-                    self.sf[m::,m] = scipy.stats.lognorm.sf(np.arange(0,len(self.t)-m), s=sg_ln, loc = 0, scale=np.exp(lt_ln))
+                    self.sf[m::,m] = scipy.stats.lognorm.sf(np.arange(0,self.n_t-m), s=sg_ln, loc = 0, scale=np.exp(lt_ln))
                     # values chosen according to description on
                     # https://docs.scipy.org/doc/scipy-0.13.0/reference/generated/scipy.stats.lognorm.html
                     # Same result as EXCEL function "=LOGNORM.VERT(x;LT_LN;SG_LN;TRUE)"
 
         if self.lifetime['Type'] == 'Weibull': # Weibull distribution with standard definition of scale and shape parameters
-            for m in range(0, len(self.t)):  # cohort index
+            for m in range(0, self.n_t):  # cohort index
                 if self.lifetime['Shape'][m] != 0:  # For products with lifetime of 0, sf == 0
-                    self.sf[m::,m] = scipy.stats.weibull_min.sf(np.arange(0,len(self.t)-m), c=self.lifetime['Shape'][m], loc = 0, scale=self.lifetime['Scale'][m])
+                    self.sf[m::,m] = scipy.stats.weibull_min.sf(np.arange(0,self.n_t-m), c=self.lifetime['Shape'][m], loc = 0, scale=self.lifetime['Scale'][m])
 
 
 
@@ -199,7 +199,7 @@ class DynamicStockModel(object):
         """Compute outflow by cohort from stock by cohort."""
         self.outflow_by_cohort = np.zeros(self.stock_by_cohort.shape)
         self.outflow_by_cohort[1::,:] = -1 * np.diff(self.stock_by_cohort,n=1,axis=0)
-        self.outflow_by_cohort[np.diag_indices(len(self.t))] = self.inflow - np.diag(self.stock_by_cohort) # allow for outflow in year 0 already
+        self.outflow_by_cohort[np.diag_indices(self.n_t)] = self.inflow - np.diag(self.stock_by_cohort) # allow for outflow in year 0 already
         return self.outflow_by_cohort
 
     def compute_i_from_s(self, initial_stock):
@@ -207,34 +207,17 @@ class DynamicStockModel(object):
            This method calculates the original inflow that generated this stock.
            Example:
         """
-        assert len(initial_stock) == len(self.t)
-        self.inflow = np.zeros(len(self.t))
+        assert len(initial_stock) == self.n_t
+        self.inflow = np.zeros(self.n_t)
         # construct the sf of a product of cohort tc surviving year t
         # using the lifetime distributions of the past age-cohorts
         self.compute_sf()
-        for cohort in range(0, len(self.t)):
+        for cohort in range(0, self.n_t):
             if self.sf[-1,cohort] != 0:
                 self.inflow[cohort] = initial_stock[cohort] / self.sf[-1,cohort]
             else:
                 self.inflow[cohort] = 0  # Not possible with given lifetime distribution
         return self.inflow
-
-    def compute_evolution_initialstock(self, initial_stock, switch_time):
-        """ Assume initial_stock is a vector that contains the age structure of the stock at time t0,
-        and it covers as many historic cohorts as there are elements in it.
-        This method then computes the future stock and outflow from the year switch_time onwards.
-        Only future years, i.e., years after switch_time, are computed.
-        NOTE: This method ignores and deletes previously calculated s_c and o_c.
-        The initial_stock is a vector of the age-cohort composition of the stock at switch_time, with length switch_time"""
-        self.stock_by_cohort = np.zeros((len(self.t), len(self.t)))
-        self.outflow_by_cohort = np.zeros((len(self.t), len(self.t)))
-        self.compute_sf()
-        # Extract and renormalize array describing fate of initial_stock:
-        shares_Left = self.sf[switch_time,0:switch_time].copy()
-        self.stock_by_cohort[switch_time,0:switch_time] = initial_stock # Add initial stock to s_c
-        self.stock_by_cohort[switch_time::,0:switch_time] = np.tile(initial_stock.transpose(),(len(self.t)-switch_time,1)) * self.sf[switch_time::,0:switch_time] / np.tile(shares_Left,(len(self.t)-switch_time,1))
-        return self.stock_by_cohort
-
 
 
     """
@@ -251,9 +234,9 @@ class DynamicStockModel(object):
         """ With given total stock and lifetime distribution,
             the method builds the stock by cohort and the inflow.
         """
-        self.stock_by_cohort = np.zeros((len(self.t), len(self.t)))
-        self.outflow_by_cohort = np.zeros((len(self.t), len(self.t)))
-        self.inflow = np.zeros(len(self.t))
+        self.stock_by_cohort = np.zeros((self.n_t, self.n_t))
+        self.outflow_by_cohort = np.zeros((self.n_t, self.n_t))
+        self.inflow = np.zeros(self.n_t)
         # construct the sf of a product of cohort tc remaining in the stock in year t
         self.compute_sf() # Computes sf if not present already.
         # First year:
@@ -262,7 +245,7 @@ class DynamicStockModel(object):
         self.stock_by_cohort[:, 0] = self.inflow[0] * self.sf[:, 0] # Future decay of age-cohort of year 0.
         self.outflow_by_cohort[0, 0] = self.inflow[0] - self.stock_by_cohort[0, 0]
         # all other years:
-        for m in range(1, len(self.t)):  # for all years m, starting in second year
+        for m in range(1, self.n_t):  # for all years m, starting in second year
             # 1) Compute outflow from previous age-cohorts up to m-1
             self.outflow_by_cohort[m, 0:m] = self.stock_by_cohort[m-1, 0:m] - self.stock_by_cohort[m, 0:m] # outflow table is filled row-wise, for each year m.
             # 2) Determine inflow from mass balance:
