@@ -21,7 +21,7 @@ class Dimension(object):
 
     def load_items(self, dtype=str, filename: str = None):
         filename = filename if filename else self.name
-        path = os.path.join(cfg.data_path, 'transfer', 'aspects', f"{filename}.csv")
+        path = os.path.join(cfg.data_path, 'input', 'dimensions', f"{filename}.csv")
         data = np.loadtxt(path, dtype=dtype, delimiter=';').tolist()
         data = data if isinstance(data, list) else [data]
         self.set_items(data)

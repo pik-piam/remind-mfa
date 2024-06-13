@@ -35,7 +35,7 @@ class NamedDimArray(object):
         self.set_values(data)
 
     def load_data(self):
-        path = os.path.join(cfg.data_path, 'transfer', 'data', f"{self.name}.csv")
+        path = os.path.join(cfg.data_path, 'input', 'datasets', f"{self.name}.csv")
         data = pd.read_csv(path)
         data = get_np_from_df(data, self.dims.names)
         return data
