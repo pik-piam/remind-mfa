@@ -11,7 +11,7 @@ class Config:
         self.verbose = False
 
         # data sources
-        self.data_path = 'data'
+        self.data_path = 'data/plastics'
 
         # model customization
         self.curve_strategy = 'GDP_regression'
