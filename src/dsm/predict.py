@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
 from src.tools.config import cfg
-from src.new_odym.named_dim_arrays import DataSetFromCSV
+from src.new_odym.named_dim_arrays import NamedDimArray
 from src.tools.visualize import visualize_stock_prediction
 
 def predict_stocks(mfa,
@@ -16,7 +16,7 @@ def predict_stocks(mfa,
     """
 
     # transform to per capita
-    pop = DataSetFromCSV('population', ('t','r'), mfa.dims).array
+    pop = NamedDimArray('population', ('t','r'), parent_alldims=mfa.dims).load_data()
     historic_pop = pop[:mfa.historic_years.len, :]
     historic_stocks_pc = np.einsum(f'trc,tr->trc', historic_stocks, 1./historic_pop)
 
@@ -34,7 +34,7 @@ def predict_stocks(mfa,
 
 def gdp_regression(mfa, historic_stocks_pc):
 
-    gdppc = DataSetFromCSV('gdppc', ('t','r'), mfa.dims).array
+    gdppc = NamedDimArray('gdppc', ('t','r'), parent_alldims=mfa.dims).load_data()
 
     # individual fix for 2020 to avoid negative production
     gdppc[mfa.years.index(2020),:] = (gdppc[mfa.years.index(2019),:] + gdppc[mfa.years.index(2021),:]) / 2.

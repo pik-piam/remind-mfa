@@ -3,15 +3,15 @@ from src.tools.config import cfg
 from src.tools.tools import get_dsm_data
 from src.dsm.predict import predict_stocks
 from src.tools.visualize import visualize_future_production
-from src.new_odym.named_dim_arrays import DataSetFromCSV
+from src.new_odym.named_dim_arrays import NamedDimArray
 
 
 def load_dsms(mfa):
 
-    production = DataSetFromCSV('production', ('t','r','g'), mfa.dims).array
+    production = NamedDimArray('production', ('t','r','g'), parent_alldims=mfa.dims).load_data()
 
-    lifetimes = {"mean": DataSetFromCSV('lifetime_mean', ('g',), mfa.dims).array,
-                 "std": DataSetFromCSV('lifetime_std', ('g',), mfa.dims).array}
+    lifetimes = {"mean": NamedDimArray('lifetime_mean', ('g',), parent_alldims=mfa.dims).load_data(),
+                 "std": NamedDimArray('lifetime_std', ('g',), parent_alldims=mfa.dims).load_data()}
 
     historic_dsms = load_historic_stocks(mfa, production, lifetimes)
 

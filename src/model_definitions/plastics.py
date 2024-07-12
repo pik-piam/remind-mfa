@@ -105,8 +105,12 @@ class PlasticsMFASystem(MFASystem):
         use_inflows = get_dsm_data(dsms, lambda dsm: dsm.inflow)
         use_outflows = get_dsm_data(dsms, lambda dsm: dsm.outflow)
 
+        # MathOperationArrayDict objects enable a simple syntax, as demonstrated below.
+        # For details, see the MathOperationArrayDict class documentation
         prm = MathOperationArrayDict(self.parameters)
         flw = MathOperationArrayDict(self.flows)
+
+        # auxiliary arrays
         aux = MathOperationArrayDict([
             NamedDimArray('use_inflows',                  ('t','r','g'),     self.dims, use_inflows),
             NamedDimArray('use_outflows',                 ('t','r','g'),     self.dims, use_outflows),
@@ -185,9 +189,12 @@ class PlasticsMFASystem(MFASystem):
 
         use_stock_values = get_dsm_data(dsms, lambda dsm: dsm.stock)
 
+        # MathOperationArrayDict objects enable a simple syntax, as demonstrated below.
+        # For details, see the MathOperationArrayDict class documentation
         prm = MathOperationArrayDict(self.parameters)
         stk = MathOperationArrayDict(self.stocks)
         flw = MathOperationArrayDict(self.flows)
+        # auxiliary arrays
         aux = MathOperationArrayDict([
             NamedDimArray('use_stock_values',   ('t','r','g'), self.dims, use_stock_values),
             NamedDimArray('stocks_by_material', ('t','r','g'), self.dims),

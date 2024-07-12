@@ -1,10 +1,15 @@
-import os
-import numpy as np
 from copy import copy
-from src.tools.config import cfg
+from src.tools.read_data import read_data_to_list
 
 
 class Dimension(object):
+    """
+    One of multiple dimensions over which MFA arrays are defined.
+    Defined by a name, a letter for shorter addressing, and a list of items.
+    For example, the dimension 'Region' could have letter 'r' and a country list as items.
+    The list of items can be loaded from a csv file, or set directly,
+    for example if a subset of an existing dimension is formed.
+    """
 
     def __init__(self, name: str, dim_letter: str = None, do_load: bool = False, dtype: type = None, filename: str = None, items: list = None):
         self.name = name
@@ -21,9 +26,7 @@ class Dimension(object):
 
     def load_items(self, dtype=str, filename: str = None):
         filename = filename if filename else self.name
-        path = os.path.join(cfg.data_path, 'input', 'dimensions', f"{filename}.csv")
-        data = np.loadtxt(path, dtype=dtype, delimiter=';').tolist()
-        data = data if isinstance(data, list) else [data]
+        data = read_data_to_list("dimension", filename, dtype)
         self.set_items(data)
 
     @property
@@ -37,51 +40,60 @@ class Dimension(object):
 
 
 class DimensionSet(object):
+    """
+    A set of Dimension objects which MFA arrays are defined over.
+    The objects are stored in the internal _list, but can be accessed via __getitem__ with either the name or the letter.
+    """
 
-        def __init__(self, defdicts: list=None, dimensions: list=None, do_load: bool = False):
-            assert bool(defdicts) != bool(dimensions), "Either defdicts or dimensions must be provided"
-            if dimensions is not None:
-                self._list = dimensions
-            elif defdicts is not None:
-                self._list = [Dimension(do_load=do_load, **defdict) for defdict in defdicts]
+    def __init__(self, arg_dicts_for_dim_constructors: list=None, dimensions: list=None):
+        """
+        The entries of arg_dicts_for_dim_constructors serve as arguments of the constructor for each Dimension object.
+        Alternatively, a list of Dimension objects can be provided directly.
+        """
+        assert bool(arg_dicts_for_dim_constructors) != bool(dimensions), "Either defdicts or dimensions must be provided"
+        if dimensions is not None:
+            self._list = dimensions
+        elif arg_dicts_for_dim_constructors is not None:
+            self._list = [Dimension(**arg_dict) for arg_dict in arg_dicts_for_dim_constructors]
 
-        @property
-        def _dict(self):
-            """contains both mappings
-            letter --> dim object and
-            name --> dim object
-            """
-            return {dim.name: dim for dim in self._list} | {dim.letter: dim for dim in self._list}
+    @property
+    def _dict(self):
+        """
+        contains both mappings
+        letter --> dim object and
+        name --> dim object
+        """
+        return {dim.name: dim for dim in self._list} | {dim.letter: dim for dim in self._list}
 
-        def __getitem__(self, key):
-            return self._dict[key]
+    def __getitem__(self, key):
+        return self._dict[key]
 
-        def __iter__(self):
-            return iter(self._list)
+    def __iter__(self):
+        return iter(self._list)
 
-        def size(self, key: str):
-            return self._dict[key].len
+    def size(self, key: str):
+        return self._dict[key].len
 
-        def shape(self, keys: tuple = None):
-            keys = keys if keys else self.letters
-            return tuple(self.size(key) for key in keys)
+    def shape(self, keys: tuple = None):
+        keys = keys if keys else self.letters
+        return tuple(self.size(key) for key in keys)
 
-        def get_subset(self, dims: list):
-            subset = copy(self)
-            subset._list = [self._dict[dim_key] for dim_key in dims]
-            return subset
+    def get_subset(self, dims: list):
+        subset = copy(self)
+        subset._list = [self._dict[dim_key] for dim_key in dims]
+        return subset
 
-        @property
-        def names(self):
-            return tuple([dim.name for dim in self._list])
+    @property
+    def names(self):
+        return tuple([dim.name for dim in self._list])
 
-        @property
-        def letters(self):
-            return tuple([dim.letter for dim in self._list])
+    @property
+    def letters(self):
+        return tuple([dim.letter for dim in self._list])
 
-        @property
-        def string(self):
-            return "".join(self.letters)
+    @property
+    def string(self):
+        return "".join(self.letters)
 
-        def index(self, key):
-            return [d.letter for d in self._list].index(key)
+    def index(self, key):
+        return [d.letter for d in self._list].index(key)
