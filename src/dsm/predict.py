@@ -4,9 +4,7 @@ from src.tools.config import cfg
 from src.new_odym.named_dim_arrays import NamedDimArray
 from src.tools.visualize import visualize_stock_prediction
 
-def predict_stocks(mfa,
-                   historic_stocks,
-                   strategy=cfg.curve_strategy):
+def predict_stocks(mfa, historic_stocks):
     """
     Calculates In-use steel stock per capita data based on GDP pC using approach given in
     config file (e.g. Pauliuk or Pehl).
@@ -20,6 +18,7 @@ def predict_stocks(mfa,
     historic_pop = pop[:mfa.historic_years.len, :]
     historic_stocks_pc = np.einsum(f'trc,tr->trc', historic_stocks, 1./historic_pop)
 
+    strategy=cfg.curve_strategy
     if strategy == "GDP_regression":
         stocks_pc = gdp_regression(mfa, historic_stocks_pc)
     else:

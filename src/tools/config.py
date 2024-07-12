@@ -1,28 +1,44 @@
+import yaml
+
+
 class Config:
 
     def __init__(self):
+        """"
+        define possible parameters and initialize to None
+        """
 
-        # general config
-        self.simulation_name = 'SIMSON_Test_1'
+        self.model_class = None
 
-        self.do_show_figs = True
-        self.do_save_figs = True
+        self.do_show_figs = None
+        self.do_save_figs = None
 
-        self.verbose = False
+        self.verbose = None
 
-        # data sources
-        self.data_path = 'data/plastics'
+        self.data_path = None
 
-        # model customization
-        self.curve_strategy = 'GDP_regression'
+        self.curve_strategy = None
 
-        self.do_visualize = {
-            'stock_prediction': False,
-            'future_production': False,
-            'sankey': True
-        }
+        self.do_visualize = None
 
-        self.model_class = 'plastics'
+        self.is_set = False
+
+    def set_from_yml(self, filename):
+        with open(filename, 'r') as stream:
+            data = yaml.safe_load(stream)
+        for key, value in data.items():
+            if key not in self.__dict__:
+                raise ValueError(f"Parameter {key} from yml file not found in config container")
+            setattr(self, key, value)
+        self.is_set = True
+
+    def __getattribute__(self, name: str):
+        """
+        If any config value is accessed, check if config is set first
+        """
+        if not object.__getattribute__(self, 'is_set') and name not in ['__dict__', 'set_from_yml']:
+            raise ValueError("Config not set. Please use cfg.set_from_yml() at the beginning of your program.")
+        return object.__getattribute__(self, name)
 
 
 cfg = Config()

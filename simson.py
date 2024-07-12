@@ -23,7 +23,8 @@ def init_mfa():
 
 
 if __name__ == "__main__":
+    cfg.set_from_yml('config/plastics.yml')
     mfa = load_simson_mfa()
     if cfg.do_visualize['sankey']:
         visualize_mfa_sankey(mfa)
-    export_to_dict(mfa, 'data/output/mfa.pickle')
+    export_to_dict(mfa, 'data/plastics/output/mfa.pickle')

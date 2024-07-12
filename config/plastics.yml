@@ -1,0 +1,19 @@
+
+# general config
+model_class: 'plastics'
+
+do_show_figs: True
+do_save_figs: True
+
+verbose: False
+
+# data sources
+data_path: 'data/plastics'
+
+# model customization
+curve_strategy: 'GDP_regression'
+
+do_visualize:
+  'stock_prediction': False
+  'future_production': False
+  'sankey': True
