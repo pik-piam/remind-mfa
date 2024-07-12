@@ -50,8 +50,8 @@ class MFASystem():
     def set_up_dimensions(self):
         """
         Given the dimension definition in the subclass,
-        which includes file names for loading of a list of elements of each dimension,
-        this function loads a DimensionSet object, which includes loading of the elements along each dimension.
+        which includes file names for loading of a list of items along each dimension,
+        this function loads a DimensionSet object, which includes loading of the items along each dimension.
         The mandatory Time dimension gets additional special treatment, to handle past and future.
         """
         dim_constructor_args = [d | {'do_load': True} for d in self.definition.dimensions]
@@ -73,11 +73,12 @@ class MFASystem():
         self.i_future = np.arange(self.historic_years.len, self.dims['Time'].len)
 
     def check_consistency(self):
-        pass
-        #TODO:
-        # - all dimensions must have values
-        # - certain dimensions must be present (time, element, region)
-        # - Do we require a certain order?
+        for dim in self.dims._list:
+            assert dim.items, f"Items of dimension {dim.name} not loaded yet"
+            assert len(dim.letter) == 1, f"Dimension letter must be a single character, but is {dim.letter}"
+            assert len(dim.name) > 1, f"Dimension name must be longer than one character to be unambiguously distinguishable from dim letter, but is {dim.name}"
+        assert self.dims._list[0].name == 'Time', "First dimension must be Time"
+        assert self.dims._list[1].name == 'Element', "Second dimension must be Element"
 
     def initialize_processes(self):
         """Convert the process definition list to dict of Process objects, indexed by name."""
@@ -105,10 +106,6 @@ class MFASystem():
         for p in self.parameters.values():
             p.init_dimensions(self.dims)
             p.load_values()
-            #TODO: calculate correct input parameter, such that this quickfix becomes obsolete
-            if p.name == 'material_shares_in_goods':
-                # correct values
-                p.values[...] = p.values / np.sum(p.values, axis=0, keepdims=True)
 
     def get_mass_balance(self):
         """

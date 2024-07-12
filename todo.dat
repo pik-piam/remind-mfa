@@ -1,14 +1,7 @@
 - multi-dim dsm
 - odym:
-  - move plotting function into mfa object, clean up
+  - more general and cleaner plotting function
   - extend export function to csv export
 - get dimension letters vs whole names right (decide first which one to use - letters are shorter) (write conversion functions?)
-- rename dim_items to entries
 - a stock should contain stock, inflow and outflow. There should be functions to compute one from the other
-- introduce some assertions on dimensions:
-  - time and element should always be present
-  - time should always come first
-  - letters should have length one, names should always have length > 1  -> enables type guessing
 - add stdout / logging
-- remove some of the aux variables:
-- looots of documentation

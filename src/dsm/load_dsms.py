@@ -29,6 +29,7 @@ def load_dsms(mfa):
 
 def load_historic_stocks(mfa, production, lifetimes):
 
+    ## TODO: make loops independent of number and names of dimensions
     historic_stocks = [[historic_stock_from_production(mfa,
                                                        production[:, area_idx, cat_idx],
                                                        lifetimes["mean"][cat_idx],
@@ -50,6 +51,7 @@ def historic_stock_from_production(mfa, production, lifetime, st_dev):
 
 
 def _calc_future_dsms(mfa, stocks, lifetimes):
+    ## TODO: make loops independent of number and names of dimensions
     future_dsms = [[calc_dsm(mfa,
                              stocks[:, area_idx, cat_idx],
                              lifetimes["mean"][cat_idx],

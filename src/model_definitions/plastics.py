@@ -114,8 +114,6 @@ class PlasticsMFASystem(MFASystem):
         aux = MathOperationArrayDict([
             NamedDimArray('use_inflows',                  ('t','r','g'),     self.dims, use_inflows),
             NamedDimArray('use_outflows',                 ('t','r','g'),     self.dims, use_outflows),
-            NamedDimArray('fabrication_2_use_all_el',     ('t','r','m','g'), self.dims),
-            NamedDimArray('use_2_eol_all_el',             ('t','r','m','g'), self.dims),
             NamedDimArray('reclmech_loss',                ('t','e','r','m'), self.dims),
             NamedDimArray('virgin_2_fabr_all_mat',        ('t','e','r'),     self.dims),
             NamedDimArray('virgin_material_shares',       ('t','e','r','m'), self.dims),
@@ -123,11 +121,11 @@ class PlasticsMFASystem(MFASystem):
             NamedDimArray('ratio_nonc_to_c',              ('m',),            self.dims),
         ])
 
-        aux['fabrication_2_use_all_el']     = aux['use_inflows']              * prm['material_shares_in_goods']
-        flw['fabrication => use']           = aux['fabrication_2_use_all_el'] * prm['carbon_content_materials']
+        flw['fabrication => use']           = aux['use_inflows']              * prm['material_shares_in_goods'] \
+                                                                              * prm['carbon_content_materials']
 
-        aux['use_2_eol_all_el']             = aux['use_outflows']             * prm['material_shares_in_goods']
-        flw['use => eol']                   = aux['use_2_eol_all_el']         * prm['carbon_content_materials']
+        flw['use => eol']                   = aux['use_outflows']             * prm['material_shares_in_goods'] \
+                                                                              * prm['carbon_content_materials']
 
         flw['eol => reclmech']              = flw['use => eol']               * prm['mechanical_recycling_rate']
         flw['reclmech => recl']             = flw['eol => reclmech']          * prm['mechanical_recycling_yield']

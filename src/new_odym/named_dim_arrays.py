@@ -165,7 +165,8 @@ class Stock(NamedDimArray):
     """
     Stocks allow accumulation of material at a process, i.e. between two flows.
     A stock is connected to a process.
-    There are two types of stocks; One physical stock is represented in the model with two Stock objects, one of each kind
+    There are three types of stocks; One physical stock is represented in the model with three Stock objects, one of each kind
+    - type=0 refers to the accumulated stock
     - type=1 refers to the inflow to a stock OR the net inflow (i.e. inflow - outflow)
     - type=2 refers to the outflow from a stock
 
