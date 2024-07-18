@@ -60,14 +60,8 @@ class NamedDimArray(object):
         assert values.shape == self.values.shape, "Shape of 'values' input array does not match dimensions of NamedDimArray object"
         self.values[...] = values
 
-    def slice_id(self, **kwargs):
-        ids_out = [slice(None) for _ in self.dims.letters]
-        for dim_letter, item_name in kwargs.items():
-            ids_out[self.dims.index(dim_letter)] = self.dims[dim_letter].items.index(item_name)
-        return tuple(ids_out)
-
-    def values_slice(self, **kwargs):
-        return self.values[self.slice_id(**kwargs)]
+    def slice_obj(self, slice_dict: dict):
+        return NamedDimArraySlice(self, slice_dict)
 
     @property
     def shape(self):
@@ -115,6 +109,99 @@ class NamedDimArray(object):
                              parent_alldims=dims_out,
                              values=np.einsum(f"{self.dims.string},{other.dims.string}->{dims_out.string}", self.values, 1. / other.values))
 
+
+class NamedDimArraySlice():
+    """
+    A slice refers to a subset of the 'values' numpy array of a NamedDimArray object.
+    The subset is defined by specifying dimensions along which the array is sliced, and the names of the items of the subset along these dimensions.
+    This is done by passing a slice_dict dictionary of the form {'dim_letter': 'item_name'} to the class constructor.
+    Instead of a single 'item_name', a list of 'item_names' can be passed.
+    Definition examples:
+      slice_dict={'e': 'C'} gives you all values where the element is carbon,
+      slice_dict={'e': 'C', 'r': ['EUR', 'USA']} gives you all values where the element is carbon and the region is Europe or the USA.
+
+    This class manages returning a pointer to the sliced array and different other associated outputs.
+    Note that does not inherit from NamedDimArray, so it is not a NamedDimArray object itself.
+    However, one can use it to create a NamedDimArray object with the to_nda() method.
+    """
+
+    def __init__(self, named_dim_array: NamedDimArray, slice_dict: dict):
+        self.nda = named_dim_array
+        self.slice_dict = slice_dict
+        self.has_dim_with_several_items = any(isinstance(v, (tuple, list, np.ndarray)) for v in self.slice_dict.values())
+        self._init_ids()
+
+    @property
+    def ids(self):
+        """
+        Indices used for slicing the values array
+        """
+        return tuple(self._id_list)
+
+    @property
+    def values_pointer(self):
+        """
+        Pointer to the subset of the values array of the parent NamedDimArray object.
+        """
+        return self.nda.values[self.ids]
+
+    @property
+    def dim_letters(self):
+        """
+        Updated dimension letters, where sliced dimensions with only one item along that direction are removed.
+        """
+        all_letters = self.nda.dims.letters
+        # remove the dimensions along which there is only one item
+        letters_removed = [d for d, items in self.slice_dict.items() if isinstance(items, str)]
+        return tuple([d for d in all_letters if d not in letters_removed])
+
+    @property
+    def slice_str(self):
+        """
+        Formatted string of the slicing definition.
+        """
+        def item_str(item): f"{item}" if isinstance(item, str) else f"({item[0]},...)"
+        return ", ".join([f"{k}={item_str(v)}" for k, v in self.slice_dict.items()])
+
+    def to_nda(self):
+        """
+        Return a NamedDimArray object that is a slice of the original NamedDimArray object.
+        Attention: This creates a new NamedDimArray object, which is not linked to the original one.
+        """
+        assert not self.has_dim_with_several_items, "Cannot convert to NamedDimArray if there are dimensions with several items"
+        return NamedDimArray(f"{self.nda.name}[{self.slice_str}]",
+                             self.dim_letters,
+                             parent_alldims=self.nda.dims,
+                             values=self.values_pointer)
+
+    def _init_ids(self):
+        """
+        - Init the internal list of index slices to slice(None) (i.e. no slicing, keep all items along that dimension)
+        - For each dimension that is sliced, get the corresponding item IDs and set the index slice to these IDs.
+        """
+        self._id_list = [slice(None) for _ in self.nda.dims.letters]
+        for dim_letter, item_or_items in self.slice_dict.items():
+            item_ids_singledim = self._get_items_ids(dim_letter, item_or_items)
+            self._set_ids_singledim(dim_letter, item_ids_singledim)
+
+
+    def _get_items_ids(self, dim_letter, item_or_items):
+        """
+        Given either a single item name or a list of item names, return the corresponding item IDs, along one dimension 'dim_letter'.
+        """
+        if isinstance(item_or_items, str): # single item
+            return self._get_single_item_id(dim_letter, item_or_items)
+        elif isinstance(item_or_items, (tuple, list, np.ndarray)): # list of items
+            return [self._get_single_item_id(dim_letter, item) for item in item_or_items]
+
+    def _get_single_item_id(self, dim_letter, item_name):
+        return self.nda.dims[dim_letter].items.index(item_name)
+
+    def _set_ids_singledim(self, dim_letter, ids):
+        self._id_list[self.nda.dims.index(dim_letter)] = ids
+
+
+
 class Process():
     """
     Processes serve as nodes for the MFA system layout definition.
@@ -160,6 +247,7 @@ class Flow(NamedDimArray):
         self.to_process = processes[self._to_process_name]
         self.from_process_id = self.from_process.id
         self.to_process_id = self.to_process.id
+
 
 class Stock(NamedDimArray):
     """
@@ -254,12 +342,7 @@ class MathOperationArrayDict():
             key = keys[0]
             slice_dict = keys[1]
             assert isinstance(slice_dict, dict), "Second argument must be a dictionary"
-            dims_out = tuple([d for d in self._dict[key].dims.letters if d not in slice_dict.keys()])
-            slice_str = ", ".join([f"{k}={v}" for k, v in slice_dict.items()])
-            return NamedDimArray(f"{key}[{slice_str}]",
-                                 dim_letters=dims_out,
-                                 parent_alldims=self._dict[key].dims,
-                                 values=self._dict[key].values_slice(**slice_dict))
+            return self._dict[key].slice_obj(slice_dict).to_nda()
 
     def __setitem__(self, keys, item):
         """
@@ -277,8 +360,7 @@ class MathOperationArrayDict():
             key = keys[0]
             slice_dict = keys[1]
             assert isinstance(slice_dict, dict), "Second argument must be a dictionary"
-            dims_out = tuple([d for d in self._dict[key].dims.letters if d not in slice_dict.keys()])
-            slice_str = ", ".join([f"{k}={v}" for k, v in slice_dict.items()])
+            slice_obj = self._dict[key].slice_obj(slice_dict)
             if cfg.verbose:
-                print(f"Set   '{key}[{slice_str}]' = '{item.name}'")
-            self._dict[key].values_slice(**slice_dict)[...] = item.sum_values_to(dims_out)
+                print(f"Set   '{key}[{slice_obj.slice_str}]' = '{item.name}'")
+            slice_obj.values_pointer[...] = item.sum_values_to(slice_obj.dim_letters)

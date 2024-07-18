@@ -17,7 +17,7 @@ def load_dsms(mfa):
 
     historic_stocks = get_dsm_data(historic_dsms, lambda dsm: dsm.stock)
 
-    stocks  = predict_stocks(mfa, historic_stocks)
+    stocks = predict_stocks(mfa, historic_stocks)
 
     dsms = _calc_future_dsms(mfa, stocks, lifetimes)
 
