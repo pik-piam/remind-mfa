@@ -72,10 +72,10 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         ]
 
         self.definition.stocks = [
-            dict(name='in_use_stock',       process='use',          dim_letters=('t','e','r','m','g')),
-            dict(name='atmospheric_stock',  process='atmosphere',   dim_letters=('t','e','r')),
-            dict(name='landfill_stock',     process='landfill',     dim_letters=('t','e','r','m')),
-            dict(name='uncontrolled_stock', process='uncontrolled', dim_letters=('t','e','r','m')),
+            dict(name='in_use',       process='use',          dim_letters=('t','e','r','m','g')),
+            dict(name='atmospheric',  process='atmosphere',   dim_letters=('t','e','r')),
+            dict(name='landfill',     process='landfill',     dim_letters=('t','e','r','m')),
+            dict(name='uncontrolled', process='uncontrolled', dim_letters=('t','e','r','m')),
         ]
 
         self.definition.parameters = [
@@ -134,8 +134,8 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         # This way, the dimensions of the right-hand side of the assignment can be automatically reduced and re-ordered to the dimensions of the left-hand side.
         # For further details on the syntax, see the NamedDimArray documentation.
 
-        flw['fabrication => use'][...]           = stk['in_use_stock'].inflow
-        flw['use => eol'][...]                   = stk['in_use_stock'].outflow
+        flw['fabrication => use'][...]           = stk['in_use'].inflow
+        flw['use => eol'][...]                   = stk['in_use'].outflow
 
         flw['eol => reclmech'][...]              = flw['use => eol']               * prm['mechanical_recycling_rate']
         flw['reclmech => recl'][...]             = flw['eol => reclmech']          * prm['mechanical_recycling_yield']
@@ -201,13 +201,38 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
 
         # in-use stock is already computed in compute_in_use_stock
 
-        stk['landfill_stock'].inflow[...] = flw['eol => landfill']
-        stk['landfill_stock'].compute_stock()
+        stk['landfill'].inflow[...] = flw['eol => landfill']
+        stk['landfill'].compute_stock()
 
-        stk['uncontrolled_stock'].inflow[...] = flw['eol => uncontrolled'] + flw['reclmech => uncontrolled']
-        stk['uncontrolled_stock'].compute_stock()
+        stk['uncontrolled'].inflow[...] = flw['eol => uncontrolled'] + flw['reclmech => uncontrolled']
+        stk['uncontrolled'].compute_stock()
 
-        stk['atmospheric_stock'].inflow[...] = flw['emission => atmosphere']
-        stk['atmospheric_stock'].outflow[...] = flw['atmosphere => virgindaccu'] + flw['atmosphere => virginbio']
-        stk['atmospheric_stock'].compute_stock()
+        stk['atmospheric'].inflow[...] = flw['emission => atmosphere']
+        stk['atmospheric'].outflow[...] = flw['atmosphere => virgindaccu'] + flw['atmosphere => virginbio']
+        stk['atmospheric'].compute_stock()
         return
+
+    # Dictionary of variable names vs names displayed in figures.
+    # Used by visualization routines.
+    # Not required. If not present, the variable names are used.
+    display_names = {
+        'sysenv': 'System environment',
+        'virginfoss': 'Virgin production (fossil)',
+        'virginbio': 'Virgin production (biomass)',
+        'virgindaccu': 'Virgin production (daccu)',
+        'virginccu': 'Virgin production (ccu)',
+        'virgin': 'Virgin production (total)',
+        'fabrication': 'Fabrication',
+        'recl': 'Recycling (total)',
+        'reclmech': 'Mechanical recycling',
+        'reclchem': 'Chemical recycling',
+        'reclsolv': 'Solvent-based recycling',
+        'use': 'Use Phase',
+        'eol': 'End of Life',
+        'incineration': 'Incineration',
+        'landfill': 'Disposal',
+        'uncontrolled': 'Uncontrolled release',
+        'emission': 'Emissions',
+        'captured': 'Captured',
+        'atmosphere': 'Atmosphere'
+    }

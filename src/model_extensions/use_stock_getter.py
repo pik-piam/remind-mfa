@@ -2,6 +2,7 @@ from src.new_odym.mfa_system import MFASystem
 from src.new_odym.stocks_in_mfa import StockWithDSM
 from src.model_extensions.extrapolate_stock import extrapolate_stock
 from src.tools.config import cfg
+from src.tools.visualize import visualize_stock
 
 
 class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
@@ -46,11 +47,13 @@ class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
         pop = self.parameters['population']
         transform_t_thist  = self.get_subset_transformer(('t', 'h'))
         historic_pop       = self.get_new_array(dim_letters=('h','r'))
+        historic_gdppc     = self.get_new_array(dim_letters=('h','r'))
         historic_stocks_pc = self.get_new_array(dim_letters=('h','r','g'))
         stocks_pc          = self.get_new_array(dim_letters=('t','r','g'))
         stocks             = self.get_new_array(dim_letters=('t','r','g'))
 
         historic_pop[...] = pop * transform_t_thist
+        historic_gdppc[...] = self.parameters['gdppc'] * transform_t_thist
         historic_stocks_pc[...] = historic_stocks / historic_pop
 
         extrapolate_stock(historic_stocks_pc.values,
@@ -59,6 +62,9 @@ class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
 
         # transform back to total stocks
         stocks[...] = stocks_pc * pop
+
+        visualize_stock(self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
+
         return stocks
 
     def compute_future_demand(self, stock):
@@ -76,7 +82,7 @@ class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
         prm = self.parameters
-        self.stocks['in_use_stock'].stock[...]   = stk.stock   * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-        self.stocks['in_use_stock'].inflow[...]  = stk.inflow  * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-        self.stocks['in_use_stock'].outflow[...] = stk.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+        self.stocks['in_use'].stock[...]   = stk.stock   * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+        self.stocks['in_use'].inflow[...]  = stk.inflow  * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+        self.stocks['in_use'].outflow[...] = stk.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
         return

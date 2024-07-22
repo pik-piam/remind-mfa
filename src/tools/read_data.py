@@ -1,21 +1,20 @@
-import os
 import numpy as np
 import pandas as pd
-from src.tools.config import cfg
+from src.tools.paths import dimensions_path, datasets_path
 
 
 def read_data_to_df(type: str, name: str):
     if type == 'dataset':
-        path = os.path.join(cfg.data_path, 'input', 'datasets', f"{name}.csv")
+        path = datasets_path(f"{name}.csv")
     else:
         raise RuntimeError(f"Invalid type {type}.")
     data = pd.read_csv(path)
     return data
 
 
-def read_data_to_list(type: str, filename: str, dtype: type):
+def read_data_to_list(type: str, name: str, dtype: type):
     if type == 'dimension':
-        path = os.path.join(cfg.data_path, 'input', 'dimensions', f"{filename}.csv")
+        path = dimensions_path(f"{name}.csv")
     else:
         raise RuntimeError(f"Invalid type {type}.")
     data = np.loadtxt(path, dtype=dtype, delimiter=';').tolist()

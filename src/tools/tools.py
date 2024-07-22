@@ -4,13 +4,6 @@ import pandas as pd
 from src.tools.config import cfg
 
 
-def show_and_save(filename_base: str = None):
-    if cfg.do_save_figs:
-        plt.savefig(cfg.data_path + f"/output/{filename_base}.png")
-    if cfg.do_show_figs:
-        plt.show()
-
-
 def get_np_from_df(df_in: pd.DataFrame, dims: tuple):
     df = df_in.copy()
     dim_columns = [d for d in dims if d in df.columns]

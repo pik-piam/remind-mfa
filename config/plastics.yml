@@ -2,22 +2,28 @@
 # general config
 model_class: 'plastics'
 
-do_show_figs: True
-do_save_figs: True
-
 verbose: False
 
 # data sources
-data_path: 'data/plastics'
+input_data_path: 'data/plastics/input'
+output_path: 'data/plastics/output'
 
 # model customization
 curve_strategy: 'GDP_regression'
 ldf_type: 'Normal'
 
-do_visualize:
-  stock_prediction: False
-  future_production: False
-  sankey: True
+visualize:
+  stock:
+    do_visualize: True
+    # options: 'time', 'gdppc'
+    over: 'gdppc'
+    per_capita: False
+  production:
+    do_visualize: False
+  sankey:
+    do_visualize: True
+do_show_figs: True
+do_save_figs: False
 
 do_export:
   pickle: False

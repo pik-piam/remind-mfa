@@ -115,8 +115,24 @@ class NamedDimArray(object):
         values = np.tile(values, multiple)
         return values
 
+    def cast_to(self, target_dims: DimensionSet):
+        return NamedDimArray(dim_letters=target_dims.letters,
+                             parent_alldims=target_dims,
+                             values=self.cast_values_to(target_dims))
+
     def sum_values_to(self, result_dims: tuple = ()):
         return np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
+
+    def sum_nda_to(self, result_dims: tuple = ()):
+        return NamedDimArray(dim_letters=result_dims,
+                             parent_alldims=self.dims,
+                             values=self.sum_values_to(result_dims))
+
+    def sum_nda_over(self, sum_over_dims: tuple = ()):
+        result_dims = tuple([d for d in self.dims.letters if d not in sum_over_dims])
+        return NamedDimArray(dim_letters=result_dims,
+                             parent_alldims=self.dims,
+                             values=self.sum_values_over(sum_over_dims))
 
     def __add__(self, other):
         assert isinstance(other, NamedDimArray), "Can only add two NamedDimArrays"

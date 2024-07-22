@@ -190,6 +190,10 @@ class MFASystem():
             print("Success - Mass balance consistent!")
         return
 
+    # Dictionary to change the string that variables are displayed with in figures.
+    # This is a placeholder. Should be overwritten in the model subclass
+    display_names = {}
+
 
 class MFADefinition():
     """

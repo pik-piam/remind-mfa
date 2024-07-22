@@ -15,14 +15,14 @@ class Config:
 
         self.verbose = None
 
-        self.data_path = None
+        self.input_data_path = None
 
         self.curve_strategy = None
         self.ldf_type = None
 
-        self.do_visualize = None
-
+        self.visualize = None
         self.do_export = None
+        self.output_path = None
 
         self.is_set = False
 
