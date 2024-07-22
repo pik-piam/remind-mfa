@@ -1,5 +1,5 @@
 import pickle
 
-data = pickle.load(open('data/output/mfa.pickle', 'rb'))
+data = pickle.load(open('data/plastics/output/mfa.pickle', 'rb'))
 
 print(data)

@@ -22,6 +22,8 @@ class Config:
 
         self.do_visualize = None
 
+        self.do_export = None
+
         self.is_set = False
 
     def set_from_yml(self, filename):

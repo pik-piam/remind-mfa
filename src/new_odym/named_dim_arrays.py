@@ -10,8 +10,7 @@ Re-written for use in simson project
 """
 
 import numpy as np
-from copy import copy
-from src.tools.config import cfg
+import pandas as pd
 from src.tools.read_data import read_data_to_df
 from src.tools.tools import get_np_from_df
 from src.new_odym.dimensions import DimensionSet
@@ -174,6 +173,11 @@ class NamedDimArray(object):
             slice_obj = self.slice_obj(keys)
             slice_obj.values_pointer[...] = item.sum_values_to(slice_obj.dim_letters)
 
+    def to_df(self):
+        index = pd.MultiIndex.from_product([d.items for d in self.dims], names=self.dims.names)
+        df = index.to_frame(index=False)
+        df['value'] = self.values.flatten()
+        return df
 
 
 class NamedDimArraySlice():
