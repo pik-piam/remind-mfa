@@ -1,5 +1,17 @@
+"""
+Concepts based on:
+
+ODYM
+Copyright (c) 2018 Industrial Ecology
+author: Stefan Pauliuk, Uni Freiburg, Germany
+https://github.com/IndEcol/ODYM
+
+Re-written for use in simson project
+"""
+
 import numpy as np
-from src.new_odym.named_dim_arrays import Flow, Stock, Parameter, Process
+from src.new_odym.named_dim_arrays import Flow, Parameter, Process, NamedDimArray
+from src.new_odym.stocks_in_mfa import Stock, StockWithDSM
 from src.new_odym.dimensions import Dimension, DimensionSet
 
 
@@ -8,6 +20,10 @@ class MFASystem():
     An MFASystem class handles the definition, setup and calculation of a Material Flow Analysis system,
     which consists of a set of processes, flows, stocks defined over a set of dimensions.
     For the concrete definition of the system, a subclass of MFASystem must be implemented.
+
+    MFA flows, stocks and parameters are defined as instances of subclasses of NamedDimArray.
+    Dimensions are managed with the Dimension and DimensionSet classes.
+    Please refer to these classes for further information.
     """
 
     def __init__(self):
@@ -22,13 +38,11 @@ class MFASystem():
         self.initialize_stocks()
         self.initialize_parameters()
 
-    def compute(self, dsms):
+    def compute(self):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_flows(dsms)
-        self.compute_stocks(dsms)
-        self.check_mass_balance()
+        raise Exception("This is a dummy in the parent class: Please implement in subclass")
 
     def set_up_definition(self):
         """
@@ -39,12 +53,6 @@ class MFASystem():
         self.definition.check_complete()
 
     def fill_definition(self):
-        raise Exception("This is a dummy in the parent class: Please implement in subclass")
-
-    def compute_flows(self, dsms):
-        raise Exception("This is a dummy in the parent class: Please implement in subclass")
-
-    def compute_stocks(self, dsms):
         raise Exception("This is a dummy in the parent class: Please implement in subclass")
 
     def set_up_dimensions(self):
@@ -77,8 +85,8 @@ class MFASystem():
             assert dim.items, f"Items of dimension {dim.name} not loaded yet"
             assert len(dim.letter) == 1, f"Dimension letter must be a single character, but is {dim.letter}"
             assert len(dim.name) > 1, f"Dimension name must be longer than one character to be unambiguously distinguishable from dim letter, but is {dim.name}"
-        assert self.dims._list[0].name == 'Time', "First dimension must be Time"
-        assert self.dims._list[1].name == 'Element', "Second dimension must be Element"
+        # assert self.dims._list[0].name == 'Time', "First dimension must be Time"
+        # assert self.dims._list[1].name == 'Element', "Second dimension must be Element"
 
     def initialize_processes(self):
         """Convert the process definition list to dict of Process objects, indexed by name."""
@@ -99,6 +107,7 @@ class MFASystem():
         self.stocks = {sd['name']: Stock(**sd) for sd in self.definition.stocks}
         for s in self.stocks.values():
             s.init_dimensions(self.dims)
+            s.init_arrays()
             s.attach_to_process(self.processes)
 
     def initialize_parameters(self):
@@ -106,6 +115,30 @@ class MFASystem():
         for p in self.parameters.values():
             p.init_dimensions(self.dims)
             p.load_values()
+
+    def get_new_stock(self, with_dsm: bool=False, **kwargs):
+        if with_dsm:
+            return StockWithDSM(parent_alldims=self.dims, **kwargs)
+        else:
+            return Stock(parent_alldims=self.dims, **kwargs)
+
+    def get_new_array(self, **kwargs):
+        return NamedDimArray(parent_alldims=self.dims, **kwargs)
+
+    def get_subset_transformer(self, dim_letters: tuple):
+        """
+        Get a Parameter/NamedDimArray which transforms between two dimensions, one of which is a subset of the other.
+        """
+        assert len(dim_letters) == 2, "Only two dimensions are allowed"
+        dims = self.dims.get_subset(dim_letters)
+        assert set(dims[0].items).issubset(set(dims[1].items)) or set(dims[1].items).issubset(set(dims[0].items)), \
+            f"Dimensions '{dims[0].name}' and '{dims[1].name}' are not subset and superset or vice versa."
+        out = Parameter(name=f'transform_{dims[0].letter}_<->_{dims[1].letter}', parent_alldims=dims)
+        # set all values to 1 if first axis item equals second axis item
+        for i, item in enumerate(dims[0].items):
+            if item in dims[1].items:
+                out.values[i, dims[1].index(item)] = 1
+        return out
 
     def get_mass_balance(self):
         """
@@ -119,23 +152,23 @@ class MFASystem():
         The process with ID 0 is the system boundary. Its mass balance serves as a mass balance of the whole system.
         """
 
-        balance = np.zeros((self.dims['Time'].len, self.dims['Element'].len, len(self.processes)))
+        # start of with largest possible dimensionality;
+        # addition and subtraction will automatically reduce to the maximum shape, i.e. the dimensions contained in all flows to and from the process
+        balance = [self.get_new_array() for _ in self.processes]
 
         # Add flows to mass balance
         for flow in self.flows.values():
-            flow_value = flow.sum_values_to((self.dims['Time'].letter, self.dims['Element'].letter))
-            balance[:,:,flow.from_process.id] -= flow_value # Subtract flow from start process
-            balance[:,:,flow.to_process.id]   += flow_value # Add flow to end process
+            balance[flow.from_process_id] -= flow # Subtract flow from start process
+            balance[flow.to_process_id]   += flow # Add flow to end process
 
         # Add stock changes to the mass balance
         for stock in self.stocks.values():
-            stock_value = stock.sum_values_to((self.dims['Time'].letter, self.dims['Element'].letter))
-            if  stock.type == 1: # addition to stock; or net stock change
-                balance[:,:,stock.process.id] -= stock_value
-                balance[:,:,0] += stock_value # add stock changes to process with number 0 (system boundary) for mass balance of whole system
-            elif stock.type == 2: # removal/release from stock
-                balance[:,:,stock.process.id] += stock_value
-                balance[:,:,0] -= stock_value # add stock changes to process with number 0 (system boundary) for mass balance of whole system
+            if stock.process_id is None: # not connected to a process
+                continue
+            balance[stock.process_id] -= stock.inflow
+            balance[0] += stock.inflow # add stock changes to process with number 0 (system boundary) for mass balance of whole system
+            balance[stock.process_id] += stock.outflow
+            balance[0] -= stock.outflow # add stock changes to process with number 0 (system boundary) for mass balance of whole system
 
         return balance
 
@@ -148,7 +181,7 @@ class MFASystem():
         print("Checking mass balance...")
         # returns array with dim [t, process, e]
         balance = self.get_mass_balance()
-        error_sum_by_process = np.abs(balance).sum(axis=(0,1))
+        error_sum_by_process = np.array([np.abs(b.values).sum() for b in balance])
         id_failed = error_sum_by_process > 1.
         names_failed = [p.name for p in self.processes.values() if id_failed[p.id]]
         if names_failed:

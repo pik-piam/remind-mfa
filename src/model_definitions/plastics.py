@@ -1,17 +1,19 @@
 from src.new_odym.mfa_system import MFASystem
-from src.new_odym.named_dim_arrays import NamedDimArray, MathOperationArrayDict
-from src.tools.tools import get_dsm_data
+from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
+# from src.tools.visualize import visualize_stock_prediction
 
-class PlasticsMFASystem(MFASystem):
+
+class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
 
     def fill_definition(self):
 
         self.definition.dimensions = [
-            dict(name='Time',     dim_letter='t', dtype=int, filename='years'),
-            dict(name='Element',  dim_letter='e', dtype=str, filename='elements'),
-            dict(name='Region',   dim_letter='r', dtype=str, filename='regions'),
-            dict(name='Material', dim_letter='m', dtype=str, filename='materials'),
-            dict(name='Good',     dim_letter='g', dtype=str, filename='in_use_categories')
+            dict(name='Time',          dim_letter='t', dtype=int, filename='years'),
+            dict(name='Historic Time', dim_letter='h', dtype=int, filename='historic_years'),
+            dict(name='Element',       dim_letter='e', dtype=str, filename='elements'),
+            dict(name='Region',        dim_letter='r', dtype=str, filename='regions'),
+            dict(name='Material',      dim_letter='m', dtype=str, filename='materials'),
+            dict(name='Good',          dim_letter='g', dtype=str, filename='in_use_categories'),
         ]
 
         self.definition.processes = [
@@ -33,9 +35,10 @@ class PlasticsMFASystem(MFASystem):
             'uncontrolled',
             'emission',
             'captured',
-            'atmosphere'
+            'atmosphere',
         ]
 
+        # names are auto-generated, see Flow class documetation
         self.definition.flows = [
             dict(from_process='sysenv',       to_process='virginfoss',   dim_letters=('t','e','r','m')),
             dict(from_process='sysenv',       to_process='virginbio',    dim_letters=('t','e','r','m')),
@@ -65,20 +68,14 @@ class PlasticsMFASystem(MFASystem):
             dict(from_process='incineration', to_process='emission',     dim_letters=('t','e','r')),
             dict(from_process='emission',     to_process='captured',     dim_letters=('t','e','r')),
             dict(from_process='emission',     to_process='atmosphere',   dim_letters=('t','e','r')),
-            dict(from_process='captured',     to_process='virginccu',    dim_letters=('t','e','r'))
+            dict(from_process='captured',     to_process='virginccu',    dim_letters=('t','e','r')),
         ]
 
         self.definition.stocks = [
-            dict(name='in_use_stock',              process='use',          stock_type=0, dim_letters=('t','e','r','m','g')),
-            dict(name='in_use_stock_inflow',       process='use',          stock_type=1, dim_letters=('t','e','r','m','g')),
-            dict(name='in_use_stock_outflow',      process='use',          stock_type=2, dim_letters=('t','e','r','m','g')),
-            dict(name='atmospheric_stock',         process='atmosphere',   stock_type=0, dim_letters=('t','e','r')),
-            dict(name='atmospheric_stock_inflow',  process='atmosphere',   stock_type=1, dim_letters=('t','e','r')),
-            dict(name='atmospheric_stock_outflow', process='atmosphere',   stock_type=2, dim_letters=('t','e','r')),
-            dict(name='landfill_stock',            process='landfill',     stock_type=0, dim_letters=('t','e','r','m')),
-            dict(name='landfill_stock_inflow',     process='landfill',     stock_type=1, dim_letters=('t','e','r','m')),
-            dict(name='uncontrolled_stock',        process='uncontrolled', stock_type=0, dim_letters=('t','e','r','m')),
-            dict(name='uncontrolled_stock_inflow', process='uncontrolled', stock_type=1, dim_letters=('t','e','r','m'))
+            dict(name='in_use_stock',       process='use',          dim_letters=('t','e','r','m','g')),
+            dict(name='atmospheric_stock',  process='atmosphere',   dim_letters=('t','e','r')),
+            dict(name='landfill_stock',     process='landfill',     dim_letters=('t','e','r','m')),
+            dict(name='uncontrolled_stock', process='uncontrolled', dim_letters=('t','e','r','m')),
         ]
 
         self.definition.parameters = [
@@ -98,115 +95,119 @@ class PlasticsMFASystem(MFASystem):
             dict(name='material_shares_in_goods',        dim_letters=('m','g')),
             dict(name='emission_capture_rate',           dim_letters=('t',)),
             dict(name='carbon_content_materials',        dim_letters=('e','m')),
+            # for in-use stock
+            dict(name='production',                      dim_letters=('h','r','g')),
+            dict(name='lifetime_mean',                   dim_letters=('g',)),
+            dict(name='lifetime_std',                    dim_letters=('g',)),
+            dict(name='population',                      dim_letters=('t','r')),
+            dict(name='gdppc',                           dim_letters=('t','r')),
         ]
 
-    def compute_flows(self, dsms):
+    def compute(self):
+        """
+        Perform all computations for the MFA system.
+        """
+        self.compute_in_use_stock()
+        self.compute_flows()
+        self.compute_other_stocks()
+        self.check_mass_balance()
 
-        use_inflows = get_dsm_data(dsms, lambda dsm: dsm.inflow)
-        use_outflows = get_dsm_data(dsms, lambda dsm: dsm.outflow)
+    def compute_flows(self):
 
-        # MathOperationArrayDict objects enable a simple syntax, as demonstrated below.
-        # For details, see the MathOperationArrayDict class documentation
-        prm = MathOperationArrayDict(self.parameters)
-        flw = MathOperationArrayDict(self.flows)
+        # abbreviations for better readability
+        prm = self.parameters
+        flw = self.flows
+        stk = self.stocks
 
-        # auxiliary arrays
-        aux = MathOperationArrayDict([
-            NamedDimArray('use_inflows',                  ('t','r','g'),     self.dims, use_inflows),
-            NamedDimArray('use_outflows',                 ('t','r','g'),     self.dims, use_outflows),
-            NamedDimArray('reclmech_loss',                ('t','e','r','m'), self.dims),
-            NamedDimArray('virgin_2_fabr_all_mat',        ('t','e','r'),     self.dims),
-            NamedDimArray('virgin_material_shares',       ('t','e','r','m'), self.dims),
-            NamedDimArray('captured_2_virginccu_by_mat',  ('t','e','r','m'), self.dims),
-            NamedDimArray('ratio_nonc_to_c',              ('m',),            self.dims),
-        ])
+        # auxiliary arrays;
+        # It is important to initialize them to define their dimensions. See the NamedDimArray documentation for details.
+        # could also be single variables instead of dict, but this way the code looks more uniform
+        aux = {
+            'reclmech_loss':                self.get_new_array(dim_letters=('t','e','r','m')),
+            'virgin_2_fabr_all_mat':        self.get_new_array(dim_letters=('t','e','r')),
+            'virgin_material_shares':       self.get_new_array(dim_letters=('t','e','r','m')),
+            'captured_2_virginccu_by_mat':  self.get_new_array(dim_letters=('t','e','r','m')),
+            'ratio_nonc_to_c':              self.get_new_array(dim_letters=('m',)),
+        }
 
-        flw['fabrication => use']           = aux['use_inflows']              * prm['material_shares_in_goods'] \
-                                                                              * prm['carbon_content_materials']
+        # Slicing on the left-gand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the NamedDimArray object managing the dimensions.
+        # This way, the dimensions of the right-hand side of the assignment can be automatically reduced and re-ordered to the dimensions of the left-hand side.
+        # For further details on the syntax, see the NamedDimArray documentation.
 
-        flw['use => eol']                   = aux['use_outflows']             * prm['material_shares_in_goods'] \
-                                                                              * prm['carbon_content_materials']
+        flw['fabrication => use'][...]           = stk['in_use_stock'].inflow
+        flw['use => eol'][...]                   = stk['in_use_stock'].outflow
 
-        flw['eol => reclmech']              = flw['use => eol']               * prm['mechanical_recycling_rate']
-        flw['reclmech => recl']             = flw['eol => reclmech']          * prm['mechanical_recycling_yield']
-        aux['reclmech_loss']                = flw['eol => reclmech']          - flw['reclmech => recl']
-        flw['reclmech => uncontrolled']     = aux['reclmech_loss']            * prm['reclmech_loss_uncontrolled_rate']
-        flw['reclmech => incineration']     = aux['reclmech_loss']            - flw['reclmech => uncontrolled']
+        flw['eol => reclmech'][...]              = flw['use => eol']               * prm['mechanical_recycling_rate']
+        flw['reclmech => recl'][...]             = flw['eol => reclmech']          * prm['mechanical_recycling_yield']
+        aux['reclmech_loss'][...]                = flw['eol => reclmech']          - flw['reclmech => recl']
+        flw['reclmech => uncontrolled'][...]     = aux['reclmech_loss']            * prm['reclmech_loss_uncontrolled_rate']
+        flw['reclmech => incineration'][...]     = aux['reclmech_loss']            - flw['reclmech => uncontrolled']
 
-        flw['eol => reclchem']              = flw['use => eol']               * prm['chemical_recycling_rate']
-        flw['reclchem => recl']             = flw['eol => reclchem']
+        flw['eol => reclchem'][...]              = flw['use => eol']               * prm['chemical_recycling_rate']
+        flw['reclchem => recl'][...]             = flw['eol => reclchem']
 
-        flw['eol => reclsolv']              = flw['use => eol']               * prm['solvent_recycling_rate']
-        flw['reclsolv => recl']             = flw['eol => reclsolv']
+        flw['eol => reclsolv'][...]              = flw['use => eol']               * prm['solvent_recycling_rate']
+        flw['reclsolv => recl'][...]             = flw['eol => reclsolv']
 
-        flw['eol => incineration']          = flw['use => eol']               * prm['incineration_rate']
-        flw['eol => uncontrolled']          = flw['use => eol']               * prm['uncontrolled_losses_rate']
+        flw['eol => incineration'][...]          = flw['use => eol']               * prm['incineration_rate']
+        flw['eol => uncontrolled'][...]          = flw['use => eol']               * prm['uncontrolled_losses_rate']
 
-        flw['eol => landfill']              = flw['use => eol']               - flw['eol => reclmech'] \
-                                                                              - flw['eol => reclchem'] \
-                                                                              - flw['eol => reclsolv'] \
-                                                                              - flw['eol => incineration'] \
-                                                                              - flw['eol => uncontrolled']
+        flw['eol => landfill'][...]              = flw['use => eol']               - flw['eol => reclmech'] \
+                                                                                   - flw['eol => reclchem'] \
+                                                                                   - flw['eol => reclsolv'] \
+                                                                                   - flw['eol => incineration'] \
+                                                                                   - flw['eol => uncontrolled']
 
-        flw['incineration => emission']     = flw['eol => incineration']      + flw['reclmech => incineration']
+        flw['incineration => emission'][...]     = flw['eol => incineration']      + flw['reclmech => incineration']
 
-        flw['emission => captured']         = flw['incineration => emission'] * prm['emission_capture_rate']
-        flw['emission => atmosphere']       = flw['incineration => emission'] - flw['emission => captured']
-        flw['captured => virginccu']        = flw['emission => captured']
+        flw['emission => captured'][...]         = flw['incineration => emission'] * prm['emission_capture_rate']
+        flw['emission => atmosphere'][...]       = flw['incineration => emission'] - flw['emission => captured']
+        flw['captured => virginccu'][...]        = flw['emission => captured']
 
-        flw['recl => fabrication']          = flw['reclmech => recl']         + flw['reclchem => recl'] \
-                                                                              + flw['reclsolv => recl']
-        flw['virgin => fabrication']        = flw['fabrication => use']       - flw['recl => fabrication']
+        flw['recl => fabrication'][...]          = flw['reclmech => recl']         + flw['reclchem => recl'] \
+                                                                                   + flw['reclsolv => recl']
+        flw['virgin => fabrication'][...]        = flw['fabrication => use']       - flw['recl => fabrication']
 
-        flw['virgindaccu => virgin']        = flw['virgin => fabrication']    * prm['daccu_production_rate']
-        flw['virginbio => virgin']          = flw['virgin => fabrication']    * prm['bio_production_rate']
+        flw['virgindaccu => virgin'][...]        = flw['virgin => fabrication']    * prm['daccu_production_rate']
+        flw['virginbio => virgin'][...]          = flw['virgin => fabrication']    * prm['bio_production_rate']
 
-        aux['virgin_2_fabr_all_mat']        = flw['virgin => fabrication']
-        aux['virgin_material_shares']       = flw['virgin => fabrication']    / aux['virgin_2_fabr_all_mat']
-        aux['captured_2_virginccu_by_mat']  = flw['captured => virginccu']    * aux['virgin_material_shares']
+        aux['virgin_2_fabr_all_mat'][...]        = flw['virgin => fabrication']
+        aux['virgin_material_shares'][...]       = flw['virgin => fabrication']    / aux['virgin_2_fabr_all_mat']
+        aux['captured_2_virginccu_by_mat'][...]  = flw['captured => virginccu']    * aux['virgin_material_shares']
 
-        flw['virginccu => virgin', {'e': 'C'}]              = aux['captured_2_virginccu_by_mat', {'e': 'C'}]
-        aux['ratio_nonc_to_c']                              = prm['carbon_content_materials', {'e': 'Other Elements'}] / prm['carbon_content_materials', {'e': 'C'}]
-        flw['virginccu => virgin', {'e': 'Other Elements'}] = flw['virginccu => virgin', {'e': 'C'}]                   * aux['ratio_nonc_to_c']
+        # The { ... } syntax is used to slice the NamedDimArray object to a subset of its dimensions. See the NamedDimArray documentation for details.
+        flw['virginccu => virgin'][{'e': 'C'}]              = aux['captured_2_virginccu_by_mat'][{'e': 'C'}]
+        aux['ratio_nonc_to_c'][...]                         = prm['carbon_content_materials'][{'e': 'Other Elements'}] / prm['carbon_content_materials'][{'e': 'C'}]
+        flw['virginccu => virgin'][{'e': 'Other Elements'}] = flw['virginccu => virgin'][{'e': 'C'}]                   * aux['ratio_nonc_to_c']
 
-        flw['virginfoss => virgin']         = flw['virgin => fabrication']    - flw['virgindaccu => virgin'] \
-                                                                              - flw['virginbio => virgin'] \
-                                                                              - flw['virginccu => virgin']
+        flw['virginfoss => virgin'][...]         = flw['virgin => fabrication']    - flw['virgindaccu => virgin'] \
+                                                                                   - flw['virginbio => virgin'] \
+                                                                                   - flw['virginccu => virgin']
 
-        flw['sysenv => virginfoss']         = flw['virginfoss => virgin']
-        flw['atmosphere => virginbio']      = flw['virginbio => virgin']
-        flw['atmosphere => virgindaccu']    = flw['virgindaccu => virgin']
-        flw['sysenv => virginccu']          = flw['virginccu => virgin']      - aux['captured_2_virginccu_by_mat']
+        flw['sysenv => virginfoss'][...]         = flw['virginfoss => virgin']
+        flw['atmosphere => virginbio'][...]      = flw['virginbio => virgin']
+        flw['atmosphere => virgindaccu'][...]    = flw['virgindaccu => virgin']
+        flw['sysenv => virginccu'][...]          = flw['virginccu => virgin']      - aux['captured_2_virginccu_by_mat']
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
 
         return
 
 
-    def compute_stocks(self, dsms):
+    def compute_other_stocks(self):
 
-        use_stock_values = get_dsm_data(dsms, lambda dsm: dsm.stock)
+        stk = self.stocks
+        flw = self.flows
 
-        # MathOperationArrayDict objects enable a simple syntax, as demonstrated below.
-        # For details, see the MathOperationArrayDict class documentation
-        prm = MathOperationArrayDict(self.parameters)
-        stk = MathOperationArrayDict(self.stocks)
-        flw = MathOperationArrayDict(self.flows)
-        # auxiliary arrays
-        aux = MathOperationArrayDict([
-            NamedDimArray('use_stock_values',   ('t','r','g'), self.dims, use_stock_values),
-            NamedDimArray('stocks_by_material', ('t','r','g'), self.dims),
-        ])
+        # in-use stock is already computed in compute_in_use_stock
 
-        aux['stocks_by_material']        = aux['use_stock_values'] * prm['material_shares_in_goods']
-        stk['in_use_stock']              = aux['stocks_by_material'] * prm['carbon_content_materials']
-        stk['in_use_stock_inflow']       = flw['fabrication => use']
-        stk['in_use_stock_outflow']      = flw['use => eol']
-        stk['landfill_stock_inflow']     = flw['eol => landfill']
-        stk['landfill_stock']            = stk['landfill_stock_inflow'].cumsum_time()
-        stk['uncontrolled_stock_inflow'] = flw['eol => uncontrolled'] + flw['reclmech => uncontrolled']
-        stk['uncontrolled_stock']        = stk['uncontrolled_stock_inflow'].cumsum_time()
-        stk['atmospheric_stock_inflow']  = flw['emission => atmosphere']
-        stk['atmospheric_stock_outflow'] = flw['atmosphere => virgindaccu'] + flw['atmosphere => virginbio']
-        stk['atmospheric_stock']         = stk['atmospheric_stock_inflow'].cumsum_time() - stk['atmospheric_stock_outflow'].cumsum_time()
+        stk['landfill_stock'].inflow[...] = flw['eol => landfill']
+        stk['landfill_stock'].compute_stock()
+
+        stk['uncontrolled_stock'].inflow[...] = flw['eol => uncontrolled'] + flw['reclmech => uncontrolled']
+        stk['uncontrolled_stock'].compute_stock()
+
+        stk['atmospheric_stock'].inflow[...] = flw['emission => atmosphere']
+        stk['atmospheric_stock'].outflow[...] = flw['atmosphere => virgindaccu'] + flw['atmosphere => virginbio']
+        stk['atmospheric_stock'].compute_stock()
         return

@@ -1,7 +1,4 @@
-- multi-dim dsm
 - odym:
   - more general and cleaner plotting function
   - extend export function to csv export
-- get dimension letters vs whole names right (decide first which one to use - letters are shorter) (write conversion functions?)
-- a stock should contain stock, inflow and outflow. There should be functions to compute one from the other
 - add stdout / logging

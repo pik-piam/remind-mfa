@@ -12,6 +12,7 @@ data_path: 'data/plastics'
 
 # model customization
 curve_strategy: 'GDP_regression'
+ldf_type: 'Normal'
 
 do_visualize:
   'stock_prediction': False

@@ -18,6 +18,7 @@ class Config:
         self.data_path = None
 
         self.curve_strategy = None
+        self.ldf_type = None
 
         self.do_visualize = None
 

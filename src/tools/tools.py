@@ -30,9 +30,3 @@ def get_np_from_df(df_in: pd.DataFrame, dims: tuple):
     else:
         out = df["value"].values.reshape(shape_out)
     return out
-
-
-def get_dsm_data(dsms, func):
-    array_out = np.array([[func(dsm) for dsm in row] for row in dsms])
-    array_out = np.moveaxis(array_out, -1, 0)
-    return array_out

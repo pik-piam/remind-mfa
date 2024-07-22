@@ -1,3 +1,14 @@
+"""
+Concepts based on:
+
+ODYM
+Copyright (c) 2018 Industrial Ecology
+author: Stefan Pauliuk, Uni Freiburg, Germany
+https://github.com/IndEcol/ODYM
+
+Re-written for use in simson project
+"""
+
 from copy import copy
 from src.tools.read_data import read_data_to_list
 
@@ -59,14 +70,20 @@ class DimensionSet(object):
     @property
     def _dict(self):
         """
-        contains both mappings
+        contains mappings
+
         letter --> dim object and
         name --> dim object
         """
         return {dim.name: dim for dim in self._list} | {dim.letter: dim for dim in self._list}
 
     def __getitem__(self, key):
-        return self._dict[key]
+        if isinstance(key, str):
+            return self._dict[key]
+        elif isinstance(key, int):
+            return self._list[key]
+        else:
+            raise TypeError("Key must be string or int")
 
     def __iter__(self):
         return iter(self._list)
@@ -78,9 +95,13 @@ class DimensionSet(object):
         keys = keys if keys else self.letters
         return tuple(self.size(key) for key in keys)
 
-    def get_subset(self, dims: list):
+    def get_subset(self, dims: tuple = None):
+        """
+        returns a copy if dims are not given
+        """
         subset = copy(self)
-        subset._list = [self._dict[dim_key] for dim_key in dims]
+        if dims is not None:
+            subset._list = [self._dict[dim_key] for dim_key in dims]
         return subset
 
     @property
