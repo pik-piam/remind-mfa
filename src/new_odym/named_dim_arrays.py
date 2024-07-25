@@ -121,6 +121,12 @@ class NamedDimArray(object):
                              values=self.cast_values_to(target_dims))
 
     def sum_values_to(self, result_dims: tuple = ()):
+        try:
+            result = np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
+        except ValueError:
+            test = f"{self.dims.string}->{''.join(result_dims)}"
+            a=0
+            #TODO delete!
         return np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
 
     def sum_nda_to(self, result_dims: tuple = ()):
@@ -135,32 +141,88 @@ class NamedDimArray(object):
                              values=self.sum_values_over(sum_over_dims))
 
     def __add__(self, other):
-        assert isinstance(other, NamedDimArray), "Can only add two NamedDimArrays"
-        dims_out = tuple([d for d in self.dims.letters if d in other.dims.letters])
-        return NamedDimArray(dim_letters=dims_out,
-                             parent_alldims=self.dims,
-                             values=self.sum_values_to(dims_out) + other.sum_values_to(dims_out))
+        assert isinstance(other, (NamedDimArray, int, float)), "Can only add two NamedDimArrays " \
+                                                               "or NamedDimArrays with numbers."
+        if isinstance(other, NamedDimArray):
+            dims_out = DimensionSet(dimensions=list(set(self.dims).intersection(set(other.dims))))
+            return NamedDimArray(dim_letters=dims_out.letters,
+                                 parent_alldims=dims_out,
+                                 values=self.sum_values_to(dims_out.letters) + other.sum_values_to(dims_out.letters))
+        else:  # other is number
+            return NamedDimArray(dim_letters=self.dims.letters,
+                                 parent_alldims=self.dims,
+                                 values=self.values + other)
 
     def __sub__(self, other):
-        assert isinstance(other, NamedDimArray), "Can only add two NamedDimArrays"
-        dims_out = tuple([d for d in self.dims.letters if d in other.dims.letters])
-        return NamedDimArray(dim_letters=dims_out,
-                             parent_alldims=self.dims,
-                             values=self.sum_values_to(dims_out) - other.sum_values_to(dims_out))
+        assert isinstance(other, (NamedDimArray, int, float)), "Can only subtract two NamedDimArrays " \
+                                                               "or NamedDimArrays with numbers."
+        if isinstance(other, NamedDimArray):
+            dims_out = DimensionSet(dimensions=list(set(self.dims).intersection(set(other.dims))))
+            return NamedDimArray(dim_letters=dims_out.letters,
+                                 parent_alldims=dims_out,
+                                 values=self.sum_values_to(dims_out.letters) - other.sum_values_to(dims_out.letters))
+        else:  # other is number
+            return NamedDimArray(dim_letters=self.dims.letters,
+                                 parent_alldims=self.dims,
+                                 values=self.values - other)
 
     def __mul__(self, other):
-        assert isinstance(other, NamedDimArray), "Can only multiply two NamedDimArrays"
-        dims_out = DimensionSet(dimensions=list(set(self.dims).union(set(other.dims))))
-        return NamedDimArray(dim_letters=dims_out.letters,
-                             parent_alldims=dims_out,
-                             values=np.einsum(f"{self.dims.string},{other.dims.string}->{dims_out.string}", self.values, other.values))
+        assert isinstance(other, (NamedDimArray, int, float)), "Can only multiply two NamedDimArrays " \
+                                                               "or NamedDimArrays with numbers."
+        if isinstance(other, NamedDimArray):
+            dims_out = DimensionSet(dimensions=list(set(self.dims).union(set(other.dims))))
+            return NamedDimArray(dim_letters=dims_out.letters,
+                                 parent_alldims=dims_out,
+                                 values=np.einsum(f"{self.dims.string},{other.dims.string}->{dims_out.string}", self.values, other.values))
+        else:  # other is a number
+            return NamedDimArray(dim_letters=self.dims.letters,
+                                 parent_alldims=self.dims,
+                                 values=other * self.values)
 
     def __truediv__(self, other):
-        assert isinstance(other, NamedDimArray), "Can only divide two NamedDimArrays"
-        dims_out = DimensionSet(dimensions=list(set(self.dims).union(set(other.dims))))
-        return NamedDimArray(dim_letters=dims_out.letters,
-                             parent_alldims=dims_out,
-                             values=np.einsum(f"{self.dims.string},{other.dims.string}->{dims_out.string}", self.values, 1. / other.values))
+        assert isinstance(other, (NamedDimArray, int, float)), "Can only divide two NamedDimArrays " \
+                                                               "or NamedDimArrays with numbers."
+        if isinstance(other, NamedDimArray):
+            dims_out = DimensionSet(dimensions=list(set(self.dims).union(set(other.dims))))
+            divisor = np.divide(1,
+                                other.values,
+                                out=np.zeros_like(other.values),
+                                where=other.values!=0)
+            return NamedDimArray(dim_letters=dims_out.letters,
+                                 parent_alldims=dims_out,
+                                 values=np.einsum(f"{self.dims.string},{other.dims.string}->{dims_out.string}", self.values, divisor))
+        else:  # other is a number
+            return NamedDimArray(dim_letters=self.dims.letters,
+                                 parent_alldims=self.dims,
+                                 values=self.values/other)
+
+    def minimum(self, other):
+        assert isinstance(other, (NamedDimArray, int, float)), "Can only find maximum of two NamedDimArrays " \
+                                                               "or NamedDimArrays with numbers."
+        if isinstance(other, NamedDimArray):
+            dims_out = DimensionSet(dimensions=list(set(self.dims).intersection(set(other.dims))))
+            return NamedDimArray(dim_letters=dims_out.letters,
+                                 parent_alldims=dims_out,
+                                 values=np.minimum(self.sum_values_to(dims_out.letters), other.sum_values_to(dims_out.letters)))
+        else:  # other is number:
+            return NamedDimArray(dim_letters=self.dims.letters,
+                                 parent_alldims=self.dims,
+                                 values=np.minimum(self.values, other))
+
+
+    def maximum(self, other):
+        assert isinstance(other, (NamedDimArray, int, float)), "Can only find maximum of two NamedDimArrays " \
+                                                               "or NamedDimArrays with numbers."
+        if isinstance(other, NamedDimArray):
+            dims_out = DimensionSet(dimensions=list(set(self.dims).intersection(set(other.dims))))
+            return NamedDimArray(dim_letters=dims_out.letters,
+                                 parent_alldims=dims_out,
+                                 values=np.maximum(self.sum_values_to(dims_out.letters), other.sum_values_to(dims_out.letters)))
+        else:  # other is number:
+            return NamedDimArray(dim_letters=self.dims.letters,
+                                 parent_alldims=self.dims,
+                                 values=np.maximum(self.values, other))
+
 
     def __getitem__(self, keys):
         """
@@ -185,6 +247,8 @@ class NamedDimArray(object):
         assert isinstance(item, NamedDimArray), "Item on RHS of assignment must be a NamedDimArray"
         if isinstance(keys, type(Ellipsis)): # without slice
             self.values[...] = item.sum_values_to(self.dims.letters)
+        elif isinstance(keys, tuple):
+            self.values[keys] = item.values  # TODO check accuracy -> potentially sum some values
         elif isinstance(keys, dict): # with slice
             slice_obj = self.slice_obj(keys)
             slice_obj.values_pointer[...] = item.sum_values_to(slice_obj.dim_letters)

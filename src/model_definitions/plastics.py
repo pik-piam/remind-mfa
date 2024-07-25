@@ -130,7 +130,7 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             'ratio_nonc_to_c':              self.get_new_array(dim_letters=('m',)),
         }
 
-        # Slicing on the left-gand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the NamedDimArray object managing the dimensions.
+        # Slicing on the left-hand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the NamedDimArray object managing the dimensions.
         # This way, the dimensions of the right-hand side of the assignment can be automatically reduced and re-ordered to the dimensions of the left-hand side.
         # For further details on the syntax, see the NamedDimArray documentation.
 

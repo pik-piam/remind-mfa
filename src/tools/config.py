@@ -19,12 +19,20 @@ class Config:
 
         self.curve_strategy = None
         self.ldf_type = None
+        self.product_dimension_name = None
+        self.has_scenarios = None
 
         self.visualize = None
         self.do_export = None
         self.output_path = None
 
         self.is_set = False
+
+        # steel model specific configurations:
+        self.max_scrap_share_base_model = None
+        self.scrap_in_bof_rate = None
+        self.forming_losses = None
+        self.production_yield = None
 
     def set_from_yml(self, filename):
         with open(filename, 'r') as stream:

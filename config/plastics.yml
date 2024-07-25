@@ -11,6 +11,8 @@ output_path: 'data/plastics/output'
 # model customization
 curve_strategy: 'GDP_regression'
 ldf_type: 'Normal'
+product_dimension_name: 'Material'
+has_scenarios: False
 
 visualize:
   stock:

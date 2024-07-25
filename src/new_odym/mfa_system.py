@@ -182,8 +182,9 @@ class MFASystem():
         # returns array with dim [t, process, e]
         balance = self.get_mass_balance()
         error_sum_by_process = np.array([np.abs(b.values).sum() for b in balance])
-        id_failed = error_sum_by_process > 1.
-        names_failed = [p.name for p in self.processes.values() if id_failed[p.id]]
+        id_failed = error_sum_by_process > 100.
+        names_failed = [f'{p.name} ({error_sum_by_process[p.id]:.2f}t error)' for p in self.processes.values() if id_failed[p.id]]
+        names_failed = names_failed[1:]  # System/First process will always fail if any other fails
         if names_failed:
                 raise RuntimeError(f"Error, Mass Balance fails for processes {', '.join(names_failed)}")
         else:

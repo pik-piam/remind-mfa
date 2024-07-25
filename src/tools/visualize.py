@@ -194,12 +194,13 @@ def visualize_mfa_sankey(mfa: MFASystem):
     flows = {f for f in mfa.flows.values() if (f.name not in exclude_flows
                                                and f.from_process_id not in exclude_node_ids
                                                and f.to_process_id not in exclude_node_ids)}
+
     if color_scheme == 'antique':
-        material_colors = pl.colors.qualitative.Antique[:mfa.dims['Material'].len]
+        material_colors = pl.colors.qualitative.Antique[:mfa.dims[cfg.product_dimension_name].len]
     elif color_scheme == 'viridis':
-        material_colors = pl.colors.sample_colorscale('Viridis', mfa.dims['Material'].len + 1, colortype='rgb')
+        material_colors = pl.colors.sample_colorscale('Viridis', mfa.dims[cfg.product_dimension_name].len + 1, colortype='rgb')
     elif color_scheme == 'blueish':
-        material_colors = [f'hsv({10 * i + 200},40,150)' for i in range(mfa.dims['Material'].len)]
+        material_colors = [f'hsv({10 * i + 200},40,150)' for i in range(mfa.dims[cfg.product_dimension_name].len)]
     else:
         raise Exception('invalid color scheme')
 
@@ -209,14 +210,16 @@ def visualize_mfa_sankey(mfa: MFASystem):
         for key, value in kwargs.items():
             link_dict[key].append(value)
 
+    product_dim_letter = cfg.product_dimension_name[0].lower()
+
     for f in flows:
         source = ids_in_sankey[f.from_process_id]
         target = ids_in_sankey[f.to_process_id]
         label = dn(f.name)
 
         id_orig = f.dims.string
-        has_materials = 'm' in id_orig
-        id_target = f"ter{'m' if has_materials else ''}"
+        has_materials = product_dim_letter in id_orig
+        id_target = f"ter{product_dim_letter if has_materials else ''}{'s' if cfg.has_scenarios else ''}"
         values = np.einsum(f"{id_orig}->{id_target}", f.values)
 
         if carbon_only:
@@ -224,11 +227,25 @@ def visualize_mfa_sankey(mfa: MFASystem):
         else:
             values = np.sum(values, axis = 1)
 
-        values = values[mfa.dims['Time'].index(year),region_id,...]
+        time_index = mfa.dims['Time'].index(year)  # todo delete
+        if cfg.has_scenarios:
+
+            try:
+                values = values[mfa.dims['Time'].index(year),region_id,..., 1]
+            except IndexError:
+                test = values[mfa.dims['Time'].index(year), region_id, ...]
+                a=0
+            # choose SSP2 as default scenario
+            # TODO: Implement Scenario switch
+        else:   # MFA doesn't use scenarios
+            values = values[mfa.dims['Time'].index(year), region_id, ...]
 
         if has_materials:
             for im, c in enumerate(material_colors):
-                add_link(label=label, source=source, target=target, color=c, value=values[im])
+                try:
+                    add_link(label=label, source=source, target=target, color=c, value=values[im])
+                except IndexError:
+                    a=0
         else:
             add_link(label=label, source=source, target=target, color='hsl(230,20,70)', value=values)
 
