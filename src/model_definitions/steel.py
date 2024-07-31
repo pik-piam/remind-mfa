@@ -174,7 +174,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         aux['available_scrap'][...]                     = flw['recycling => scrap_market']      +   flw['fabrication_buffer => scrap_market']
         aux['scrap_in_production'][...]                 = aux['available_scrap'].minimum(aux['max_scrap_production'])  # using NumPy Minimum functionality
         flw['scrap_market => excess_scrap'][...]        = aux['available_scrap']                -   aux['scrap_in_production']
-        aux['scrap_share_production'][...]              = aux['scrap_in_production']            /   aux['production_inflow']
+        aux['scrap_share_production']['Fe'][...]        = aux['scrap_in_production']['Fe']      /   aux['production_inflow']['Fe']
         aux['eaf_share_production'][...]                = aux['scrap_share_production']         -   scp['scrap_in_bof_rate']
         aux['eaf_share_production'][...]                = aux['eaf_share_production']           /   (1 - scp['scrap_in_bof_rate'])
         aux['eaf_share_production'][...]                = aux['eaf_share_production'].minimum(1).maximum(0)
