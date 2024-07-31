@@ -107,9 +107,9 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         TODO: change!
         Also Copper dimension is currently missing'''
         prm = self.parameters
-        self.stocks['use'].stock[:,0,...] = prm['dsms_steel/stocks_base']
-        self.stocks['use'].inflow[:,0,...] = prm['dsms_steel/inflows_base']
-        self.stocks['use'].outflow[:,0,...] = prm['dsms_steel/outflows_base']
+        self.stocks['use'].stock['Fe'] = prm['dsms_steel/stocks_base']
+        self.stocks['use'].inflow['Fe'] = prm['dsms_steel/inflows_base']
+        self.stocks['use'].outflow['Fe'] = prm['dsms_steel/outflows_base']
 
     def compute_flows(self):
         # abbreviations for better readability

@@ -106,7 +106,7 @@ def dim_item_name_by_index(array: NamedDimArray, dim_name, i_item):
         return array.dims[dim_name].items[i_item]
 
 def sum_and_slice(array: NamedDimArray, slice_dict, summed_dims):
-    array = array.slice_obj(slice_dict).to_nda()
+    array = array.sub_array_handler(slice_dict).to_nda()
     if summed_dims is not None:
         array = array.sum_nda_over(summed_dims)
     return array
@@ -115,7 +115,7 @@ def list_of_slices(array, dim_to_slice, n_return_none=1):
     if array is None:
         return [None] * n_return_none
     elif dim_to_slice is not None:
-        arrays_tile = [array.slice_obj({array.dims[dim_to_slice].letter: item}).to_nda() for item in array.dims[dim_to_slice].items]
+        arrays_tile = [array.sub_array_handler({array.dims[dim_to_slice].letter: item}).to_nda() for item in array.dims[dim_to_slice].items]
     else:
         arrays_tile = [array]
     return arrays_tile

@@ -176,9 +176,9 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         aux['captured_2_virginccu_by_mat'][...]  = flw['captured => virginccu']    * aux['virgin_material_shares']
 
         # The { ... } syntax is used to slice the NamedDimArray object to a subset of its dimensions. See the NamedDimArray documentation for details.
-        flw['virginccu => virgin'][{'e': 'C'}]              = aux['captured_2_virginccu_by_mat'][{'e': 'C'}]
-        aux['ratio_nonc_to_c'][...]                         = prm['carbon_content_materials'][{'e': 'Other Elements'}] / prm['carbon_content_materials'][{'e': 'C'}]
-        flw['virginccu => virgin'][{'e': 'Other Elements'}] = flw['virginccu => virgin'][{'e': 'C'}]                   * aux['ratio_nonc_to_c']
+        flw['virginccu => virgin']['C']              = aux['captured_2_virginccu_by_mat']['C']
+        aux['ratio_nonc_to_c'][...]                  = prm['carbon_content_materials']['Other Elements'] / prm['carbon_content_materials']['C']
+        flw['virginccu => virgin']['Other Elements'] = flw['virginccu => virgin']['C']                   * aux['ratio_nonc_to_c']
 
         flw['virginfoss => virgin'][...]         = flw['virgin => fabrication']    - flw['virgindaccu => virgin'] \
                                                                                    - flw['virginbio => virgin'] \
