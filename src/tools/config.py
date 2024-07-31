@@ -28,11 +28,6 @@ class Config:
 
         self.is_set = False
 
-        # steel model specific configurations:
-        self.max_scrap_share_base_model = None
-        self.scrap_in_bof_rate = None
-        self.forming_losses = None
-        self.production_yield = None
 
     def set_from_yml(self, filename):
         with open(filename, 'r') as stream:

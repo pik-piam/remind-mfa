@@ -140,7 +140,7 @@ class MFASystem():
                 out.values[i, dims[1].index(item)] = 1
         return out
 
-    def get_mass_balance(self):
+    def get_mass_balance_percentage(self):
         """
         Determines a mass balance for each process of the MFA system.
 
@@ -154,23 +154,35 @@ class MFASystem():
 
         # start of with largest possible dimensionality;
         # addition and subtraction will automatically reduce to the maximum shape, i.e. the dimensions contained in all flows to and from the process
-        balance = [self.get_new_array() for _ in self.processes]
+        balance = [0. for _ in self.processes]
+        total = [0. for _ in self.processes]
 
         # Add flows to mass balance
-        for flow in self.flows.values():
+        for flow in self.flows.values():  # values refers here to the values of the flows dictionary which are the Flows themselves
+            #if np.any(flow.values<-0.1):
+            #    a=0
             balance[flow.from_process_id] -= flow # Subtract flow from start process
             balance[flow.to_process_id]   += flow # Add flow to end process
+            total[flow.from_process_id] += flow # Add flow to total of start process
+            total[flow.to_process_id] += flow # Add flow to total of end process
 
         # Add stock changes to the mass balance
         for stock in self.stocks.values():
             if stock.process_id is None: # not connected to a process
                 continue
             balance[stock.process_id] -= stock.inflow
-            balance[0] += stock.inflow # add stock changes to process with number 0 (system boundary) for mass balance of whole system
+            balance[0] += stock.inflow # subtract stock changes to process with number 0 (system boundary) for mass balance of whole system
             balance[stock.process_id] += stock.outflow
             balance[0] -= stock.outflow # add stock changes to process with number 0 (system boundary) for mass balance of whole system
 
-        return balance
+            total[flow.from_process_id] +=stock.inflow
+            total[flow.to_process_id] += stock.outflow
+
+        balance_percentages = [(b / (t + 1.e-9)).values for b, t in zip(balance, total)]
+
+
+        return balance_percentages
+
 
     def check_mass_balance(self):
         """
@@ -180,12 +192,10 @@ class MFASystem():
 
         print("Checking mass balance...")
         # returns array with dim [t, process, e]
-        balance = self.get_mass_balance()
-        error_sum_by_process = np.array([np.abs(b.values).sum() for b in balance])
-        id_failed = error_sum_by_process > 100.
-        names_failed = [f'{p.name} ({error_sum_by_process[p.id]:.2f}t error)' for p in self.processes.values() if id_failed[p.id]]
-        names_failed = names_failed[1:]  # System/First process will always fail if any other fails
-        if names_failed:
+        balance_percentages = self.get_mass_balance_percentage()  # assume no error if total sum is 0
+        id_failed = [np.any(balance_percentage > 0.1) for balance_percentage in balance_percentages]# error is bigger than 0.1 %
+        names_failed = [f'{p.name} ({np.max(balance_percentages[p.id])*100:.2f}% error)' for p in self.processes.values() if id_failed[p.id]]
+        if np.any(np.array(id_failed[1:])):
                 raise RuntimeError(f"Error, Mass Balance fails for processes {', '.join(names_failed)}")
         else:
             print("Success - Mass balance consistent!")
