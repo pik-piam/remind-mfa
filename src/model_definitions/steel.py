@@ -15,7 +15,6 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='Intermediate', dim_letter='i', dtype=str, filename='intermediate_products'),
             dict(name='Good', dim_letter='g', dtype=str, filename='goods_in_use'),
             dict(name='Scenario', dim_letter='s', dtype=str, filename='scenarios'),
-            dict(name='Production', dim_letter='p', dtype=str, filename='production'),
             dict(name='Historic Time', dim_letter='h', dtype=int, filename='historic_years'),
         ]
 
