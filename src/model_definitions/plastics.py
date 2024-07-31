@@ -103,6 +103,10 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='gdppc',                           dim_letters=('t','r')),
         ]
 
+        self.definition.scalar_parameters = []
+
+        return
+
     def compute(self):
         """
         Perform all computations for the MFA system.

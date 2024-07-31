@@ -10,13 +10,14 @@ Re-written for use in simson project
 """
 
 import numpy as np
+from abc import ABC, abstractmethod
 from src.new_odym.named_dim_arrays import Flow, Parameter, Process, NamedDimArray
 from src.new_odym.stocks_in_mfa import Stock, StockWithDSM
 from src.new_odym.dimensions import Dimension, DimensionSet
 from src.tools.read_data import read_scalar_data
 
 
-class MFASystem():
+class MFASystem(ABC):
     """
     An MFASystem class handles the definition, setup and calculation of a Material Flow Analysis system,
     which consists of a set of processes, flows, stocks defined over a set of dimensions.
@@ -40,11 +41,16 @@ class MFASystem():
         self.initialize_parameters()
         self.initialize_scalar_parameters()
 
+    @abstractmethod
+    def fill_definition(self):
+        pass
+
+    @abstractmethod
     def compute(self):
         """
         Perform all computations for the MFA system.
         """
-        raise Exception("This is a dummy in the parent class: Please implement in subclass")
+        pass
 
     def set_up_definition(self):
         """
@@ -53,9 +59,6 @@ class MFASystem():
         self.definition = MFADefinition()
         self.fill_definition()
         self.definition.check_complete()
-
-    def fill_definition(self):
-        raise Exception("This is a dummy in the parent class: Please implement in subclass")
 
     def set_up_dimensions(self):
         """
@@ -230,9 +233,9 @@ class MFADefinition():
         self.scalar_parameters = None
 
     def check_complete(self):
-        assert self.dimensions
-        assert self.processes
-        assert self.flows
-        assert self.stocks
-        assert self.parameters
-        assert self.scalar_parameters
+        assert self.dimensions is not None
+        assert self.processes is not None
+        assert self.flows is not None
+        assert self.stocks is not None
+        assert self.parameters is not None
+        assert self.scalar_parameters is not None
