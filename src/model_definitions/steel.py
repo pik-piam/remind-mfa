@@ -85,10 +85,14 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='cu_tolerances', dim_letters=('i',)),
             dict(name='good_to_intermediate_distribution', dim_letters=('g', 'i')),
 
+            dict(name='production', dim_letters=('h', 'r')),
+            dict(name='population', dim_letters=('t', 'r', 's')),
+            dict(name='gdppc', dim_letters=('t', 'r', 's')),
+
             # in use dynamic stock model
-            dict(name='dsms_steel/inflows_base', dim_letters=('t','r','g','s')),
-            dict(name='dsms_steel/stocks_base', dim_letters=('t', 'r', 'g', 's')),
-            dict(name='dsms_steel/outflows_base', dim_letters=('t', 'r', 'g', 's')),
+            #dict(name='dsms_steel/inflows_base', dim_letters=('t','r','g','s')),
+            #dict(name='dsms_steel/stocks_base', dim_letters=('t', 'r', 'g', 's')),
+            #dict(name='dsms_steel/outflows_base', dim_letters=('t', 'r', 'g', 's')),
         ]
 
         self.definition.scalar_parameters = [
@@ -108,6 +112,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         self.check_mass_balance()
 
 
+    """
     def compute_in_use_stock(self):
         '''Overwriting the inflow driven historic / stock driven future for now.
         TODO: change!
@@ -116,6 +121,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         self.stocks['use'].stock['Fe'] = prm['dsms_steel/stocks_base']
         self.stocks['use'].inflow['Fe'] = prm['dsms_steel/inflows_base']
         self.stocks['use'].outflow['Fe'] = prm['dsms_steel/outflows_base']
+        """
 
     def compute_flows(self):
         # abbreviations for better readability

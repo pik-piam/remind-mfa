@@ -1,0 +1,3 @@
+[submodule "datasets"]
+	path = data/steel/input/datasets
+	url = git@gitlab.pik-potsdam.de:simson_data/datasets.git
