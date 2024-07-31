@@ -11,7 +11,7 @@ Re-written for use in simson project
 
 import numpy as np
 import pandas as pd
-from src.tools.read_data import read_data_to_df, read_scalar_data_to_np
+from src.tools.read_data import read_data_to_df
 from src.tools.tools import get_np_from_df
 from src.new_odym.dimensions import DimensionSet
 
@@ -78,11 +78,8 @@ class NamedDimArray(object):
         self.set_values(data)
 
     def load_data(self):
-        if self.dims.string=='':  # data is scalar
-            data = read_scalar_data_to_np(name=self.name)
-        else:  # data is dimensional
-            data = read_data_to_df(type='dataset', name=self.name)
-            data = get_np_from_df(data, self.dims.names)
+        data = read_data_to_df(type='dataset', name=self.name)
+        data = get_np_from_df(data, self.dims.names)
         return data
 
     def set_values(self, values: np.ndarray):

@@ -13,6 +13,7 @@ import numpy as np
 from src.new_odym.named_dim_arrays import Flow, Parameter, Process, NamedDimArray
 from src.new_odym.stocks_in_mfa import Stock, StockWithDSM
 from src.new_odym.dimensions import Dimension, DimensionSet
+from src.tools.read_data import read_scalar_data
 
 
 class MFASystem():
@@ -37,6 +38,7 @@ class MFASystem():
         self.initialize_flows()
         self.initialize_stocks()
         self.initialize_parameters()
+        self.initialize_scalar_parameters()
 
     def compute(self):
         """
@@ -115,6 +117,10 @@ class MFASystem():
         for p in self.parameters.values():
             p.init_dimensions(self.dims)
             p.load_values()
+
+    def initialize_scalar_parameters(self):
+        self.scalar_parameters = {spd['name']: read_scalar_data(spd['name']) for spd in self.definition.scalar_parameters}
+
 
     def get_new_stock(self, with_dsm: bool=False, **kwargs):
         if with_dsm:
@@ -221,6 +227,7 @@ class MFADefinition():
         self.flows = None
         self.stocks = None
         self.parameters = None
+        self.scalar_parameters = None
 
     def check_complete(self):
         assert self.dimensions
@@ -228,3 +235,4 @@ class MFADefinition():
         assert self.flows
         assert self.stocks
         assert self.parameters
+        assert self.scalar_parameters

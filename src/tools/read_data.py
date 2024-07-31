@@ -13,11 +13,11 @@ def read_data_to_df(type: str, name: str):
     return data
 
 
-def read_scalar_data_to_np(name:str):
+def read_scalar_data(name:str):
     path = scalar_parameters_path()
     with open(path, 'r') as stream:
         parameters = yaml.safe_load(stream)
-    return np.array(parameters[name])
+    return parameters[name]
 
 
 def read_data_to_list(type: str, name: str, dtype: type):
