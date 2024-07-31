@@ -1,8 +1,8 @@
-from src.new_odym.mfa_system import MFASystem
-from src.new_odym.stocks_in_mfa import StockWithDSM
+from sodym.classes.mfa_system import MFASystem
+from sodym.classes.stocks_in_mfa import StockWithDSM
 from src.model_extensions.extrapolate_stock import extrapolate_stock
-from src.tools.config import cfg
-from src.tools.visualize import visualize_stock
+from src.model_extensions.custom_visualization import visualize_stock
+from sodym.tools.config import cfg
 
 
 class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
@@ -63,7 +63,7 @@ class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
         # transform back to total stocks
         stocks[...] = stocks_pc * pop
 
-        visualize_stock(self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
+        visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
 
         return stocks
 

@@ -1,4 +1,4 @@
-from src.tools.config import cfg
+from sodym.tools.config import cfg
 from src.model_definitions.plastics import PlasticsMFASystem
 from src.model_definitions.steel import SteelMFASystem
 

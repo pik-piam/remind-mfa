@@ -1,8 +1,8 @@
-from src.tools.config import cfg
+from sodym.tools.config import cfg
 from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
 
 
-# from src.tools.visualize import visualize_stock_prediction
+# from sodym.tools.visualize import visualize_stock_prediction
 
 
 class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):

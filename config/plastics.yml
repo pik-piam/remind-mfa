@@ -21,7 +21,7 @@ visualize:
     over: 'gdppc'
     per_capita: False
   production:
-    do_visualize: False
+    do_visualize: True
   sankey:
     do_visualize: True
 do_show_figs: True

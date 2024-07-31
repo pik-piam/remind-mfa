@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.optimize
-from src.tools.config import cfg
+from sodym.tools.config import cfg
 
 def extrapolate_stock(historic_stocks, gdppc, prediction_out):
     """

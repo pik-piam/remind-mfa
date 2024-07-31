@@ -1,6 +1,6 @@
-from src.new_odym.mfa_system import MFASystem
+from sodym.classes.mfa_system import MFASystem
 from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
-# from src.tools.visualize import visualize_stock_prediction
+# from sodym.tools.visualize import visualize_stock_prediction
 
 
 class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
