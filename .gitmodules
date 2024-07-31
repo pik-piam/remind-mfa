@@ -1,3 +1,0 @@
-[submodule "data/steel/input/datasets/dsms_steel"]
-	path = data/steel/input/datasets/dsms_steel
-	url = git@gitlab.pik-potsdam.de:simson_data/dsms_steel.git
