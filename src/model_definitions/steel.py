@@ -15,7 +15,6 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='Intermediate', dim_letter='i', dtype=str, filename='intermediate_products'),
             dict(name='Good', dim_letter='g', dtype=str, filename='goods_in_use'),
             dict(name='Scenario', dim_letter='s', dtype=str, filename='scenarios'),
-            dict(name='Production', dim_letter='p', dtype=str, filename='production'),
             dict(name='Historic Time', dim_letter='h', dtype=int, filename='historic_years'),
         ]
 
@@ -85,6 +84,10 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='external_copper_rate', dim_letters=('g',)),
             dict(name='cu_tolerances', dim_letters=('i',)),
             dict(name='good_to_intermediate_distribution', dim_letters=('g', 'i')),
+            dict(name='max_scrap_share_base_model', dim_letters=()),
+            dict(name='scrap_in_bof_rate', dim_letters=()),
+            dict(name='forming_losses', dim_letters=()),
+            dict(name='production_yield', dim_letters=()),
 
             # in use dynamic stock model
             dict(name='dsms_steel/inflows_base', dim_letters=('t','r','g','s')),
@@ -138,7 +141,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         # This way, the dimensions of the right-hand side of the assignment can be automatically reduced and re-ordered to the dimensions of the left-hand side.
         # For further details on the syntax, see the NamedDimArray documentation.
 
-        # UPPER CYCLE
+        # Pre-use
 
         flw['fabrication => use'][...]                  = stk['use'].inflow
         aux['total_fabrication'][...]                   = flw['fabrication => use']             /   prm['fabrication_yield']
@@ -147,10 +150,10 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         flw['forming => ip_market'][...]                = flw['ip_market => fabrication']
         aux['production'][...]                          = flw['forming => ip_market']           /   prm['forming_yield']
         aux['forming_outflow'][...]                     = aux['production']                     -   flw['forming => ip_market']
-        flw['forming => sysenv'][...]                   = aux['forming_outflow']                *   cfg.forming_losses
+        flw['forming => sysenv'][...]                   = aux['forming_outflow']                *   prm['forming_losses']
         flw['forming => fabrication_buffer'][...]       = aux['forming_outflow']                -   flw['forming => sysenv']
 
-        # LOWER CYCLE
+        # Post-use
 
         flw['use => outflow_buffer'][...]               = stk['use'].outflow
         flw['outflow_buffer => eol_market'][...]        = flw['use => outflow_buffer']          *   prm['recovery_rate']
@@ -162,23 +165,23 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
 
         # PRODUCTION
 
-        aux['max_scrap_production'][...]                = aux['production']                     *   cfg.max_scrap_share_base_model
+        aux['production_inflow'][...]                   = aux['production']                     /   prm['production_yield']
+        aux['max_scrap_production'][...]                = aux['production_inflow']              *   prm['max_scrap_share_base_model']
         aux['available_scrap'][...]                     = flw['recycling => scrap_market']      +   flw['fabrication_buffer => scrap_market']
         aux['scrap_in_production'][...]                 = aux['available_scrap'].minimum(aux['max_scrap_production'])  # using NumPy Minimum functionality
         flw['scrap_market => excess_scrap'][...]        = aux['available_scrap']                -   aux['scrap_in_production']
-        aux['production_inflow'][...]                   = aux['production']                     *   (1 / cfg.production_yield)
         aux['scrap_share_production'][...]              = aux['scrap_in_production']            /   aux['production_inflow']
-        aux['eaf_share_production'][...]                = aux['scrap_share_production']         -   cfg.scrap_in_bof_rate
-        aux['eaf_share_production'][...]                = aux['eaf_share_production']           /   (1- cfg.scrap_in_bof_rate)
+        aux['eaf_share_production'][...]                = aux['scrap_share_production']         -   prm['scrap_in_bof_rate']
+        aux['eaf_share_production'][...]                = aux['eaf_share_production']           /   (1 - prm['scrap_in_bof_rate'])
         aux['eaf_share_production'][...]                = aux['eaf_share_production'].minimum(1).maximum(0)
         flw['scrap_market => eaf_production'][...]      = aux['production_inflow']              *   aux['eaf_share_production']
         flw['scrap_market => bof_production'][...]      = aux['scrap_in_production']            -   flw['scrap_market => eaf_production']
         aux['bof_production_inflow'][...]               = aux['production_inflow']              -   flw['scrap_market => eaf_production']
         flw['sysenv => bof_production'][...]            = aux['bof_production_inflow']          -   flw['scrap_market => bof_production']
-        flw['bof_production => forming'][...]           = aux['bof_production_inflow']          *   cfg.production_yield
+        flw['bof_production => forming'][...]           = aux['bof_production_inflow']          *   prm['production_yield']
         flw['bof_production => sysenv'][...]            = aux['bof_production_inflow']          -   flw['bof_production => forming']
-        flw['eaf_production => forming'][...]           = flw['scrap_market => eaf_production'] * cfg.production_yield
-        flw['eaf_production => sysenv'][...]            = flw['scrap_market => eaf_production'] - flw['eaf_production => forming']
+        flw['eaf_production => forming'][...]           = flw['scrap_market => eaf_production'] *   prm['production_yield']
+        flw['eaf_production => sysenv'][...]            = flw['scrap_market => eaf_production'] -   flw['eaf_production => forming']
 
         return
 

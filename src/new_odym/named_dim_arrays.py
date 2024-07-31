@@ -11,7 +11,7 @@ Re-written for use in simson project
 
 import numpy as np
 import pandas as pd
-from src.tools.read_data import read_data_to_df
+from src.tools.read_data import read_data_to_df, read_scalar_data_to_np
 from src.tools.tools import get_np_from_df
 from src.new_odym.dimensions import DimensionSet
 
@@ -78,8 +78,11 @@ class NamedDimArray(object):
         self.set_values(data)
 
     def load_data(self):
-        data = read_data_to_df(type='dataset', name=self.name)
-        data = get_np_from_df(data, self.dims.names)
+        if self.dims.string=='':  # data is scalar
+            data = read_scalar_data_to_np(name=self.name)
+        else:  # data is dimensional
+            data = read_data_to_df(type='dataset', name=self.name)
+            data = get_np_from_df(data, self.dims.names)
         return data
 
     def set_values(self, values: np.ndarray):
@@ -117,12 +120,7 @@ class NamedDimArray(object):
                              values=self.cast_values_to(target_dims))
 
     def sum_values_to(self, result_dims: tuple = ()):
-        try:
-            result = np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
-        except ValueError:
-            test = f"{self.dims.string}->{''.join(result_dims)}"
-            a=0
-            #TODO delete!
+        result = np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
         return np.einsum(f"{self.dims.string}->{''.join(result_dims)}", self.values)
 
     def sum_nda_to(self, result_dims: tuple = ()):
@@ -191,6 +189,27 @@ class NamedDimArray(object):
         return NamedDimArray(dim_letters=dims_out.letters,
                              parent_alldims=dims_out,
                              values=np.maximum(self.sum_values_to(dims_out.letters), other.sum_values_to(dims_out.letters)))
+
+    def __neg__(self):
+        result = NamedDimArray(dim_letters=self.dims.letters,
+                               parent_alldims=self.dims,
+                               values=-self.values)
+        return result
+
+    def __radd__(self, other):
+        return self + other
+
+    def __rsub__(self, other):
+        return -self + other
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __rtruediv__(self, other):
+        inv_self = NamedDimArray(dim_letters=self.dims.letters,
+                                 parent_alldims=self.dims,
+                                 values=1/self.values)
+        return inv_self * other
 
     def __getitem__(self, keys):
         """
