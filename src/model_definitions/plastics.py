@@ -1,13 +1,13 @@
-from sodym.classes.mfa_system import MFASystem
+from sodym.classes.mfa_system import MFADefinition
 from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
 # from sodym.tools.visualize import visualize_stock_prediction
 
 
 class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
 
-    def fill_definition(self):
+    def set_up_definition(self):
 
-        self.definition.dimensions = [
+        dimensions = [
             dict(name='Time',          dim_letter='t', dtype=int, filename='years'),
             dict(name='Historic Time', dim_letter='h', dtype=int, filename='historic_years'),
             dict(name='Element',       dim_letter='e', dtype=str, filename='elements'),
@@ -16,7 +16,7 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='Good',          dim_letter='g', dtype=str, filename='in_use_categories'),
         ]
 
-        self.definition.processes = [
+        processes = [
             'sysenv',
             'virginfoss',
             'virginbio',
@@ -39,7 +39,7 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         ]
 
         # names are auto-generated, see Flow class documetation
-        self.definition.flows = [
+        flows = [
             dict(from_process='sysenv',       to_process='virginfoss',   dim_letters=('t','e','r','m')),
             dict(from_process='sysenv',       to_process='virginbio',    dim_letters=('t','e','r','m')),
             dict(from_process='sysenv',       to_process='virgindaccu',  dim_letters=('t','e','r','m')),
@@ -71,14 +71,14 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(from_process='captured',     to_process='virginccu',    dim_letters=('t','e','r')),
         ]
 
-        self.definition.stocks = [
+        stocks = [
             dict(name='in_use',       process='use',          dim_letters=('t','e','r','m','g')),
             dict(name='atmospheric',  process='atmosphere',   dim_letters=('t','e','r')),
             dict(name='landfill',     process='landfill',     dim_letters=('t','e','r','m')),
             dict(name='uncontrolled', process='uncontrolled', dim_letters=('t','e','r','m')),
         ]
 
-        self.definition.parameters = [
+        parameters = [
             # EOL rates
             dict(name='mechanical_recycling_rate',       dim_letters=('t','m')),
             dict(name='chemical_recycling_rate',         dim_letters=('t','m')),
@@ -103,9 +103,13 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='gdppc',                           dim_letters=('t','r')),
         ]
 
-        self.definition.scalar_parameters = []
-
-        return
+        self.definition = MFADefinition(
+            dimensions=dimensions,
+            processes=processes,
+            flows=flows,
+            stocks=stocks,
+            parameters=parameters,
+        )
 
     def compute(self):
         """

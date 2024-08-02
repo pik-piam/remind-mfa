@@ -1,4 +1,5 @@
 from sodym.tools.config import cfg
+from sodym.classes.mfa_system import MFADefinition
 from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
 
 
@@ -7,8 +8,8 @@ from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDriv
 
 class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
 
-    def fill_definition(self):
-        self.definition.dimensions = [
+    def set_up_definition(self):
+        dimensions = [
             dict(name='Time', dim_letter='t', dtype=int, filename='time_in_years'),
             dict(name='Element', dim_letter='e', dtype=str, filename='elements'),
             dict(name='Region', dim_letter='r', dtype=str, filename='regions'),
@@ -18,7 +19,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='Historic Time', dim_letter='h', dtype=int, filename='historic_years'),
         ]
 
-        self.definition.processes = [
+        processes = [
             'sysenv',
             'bof_production',
             'eaf_production',
@@ -39,7 +40,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         ]
 
         # names are auto-generated, see Flow class documetation
-        self.definition.flows = [
+        flows = [
             dict(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'e', 'r', 's')),
             dict(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'e', 'r', 's')),
             dict(from_process='bof_production', to_process='forming', dim_letters=('t', 'e', 'r', 's')),
@@ -69,7 +70,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(from_process='scrap_market', to_process='excess_scrap', dim_letters=('t', 'e', 'r', 's'))
         ]
 
-        self.definition.stocks = [
+        stocks = [
             dict(name='use', process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
             dict(name='outflow_buffer', process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g', 's')),
             dict(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g', 's')),
@@ -77,7 +78,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r', 's'))
         ]
 
-        self.definition.parameters = [
+        parameters = [
             dict(name='forming_yield', dim_letters=('i',)),
             dict(name='fabrication_yield', dim_letters=('g',)),
             dict(name='recovery_rate', dim_letters=('g',)),
@@ -95,12 +96,21 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             #dict(name='dsms_steel/outflows_base', dim_letters=('t', 'r', 'g', 's')),
         ]
 
-        self.definition.scalar_parameters = [
+        scalar_parameters = [
             dict(name='max_scrap_share_base_model'),
             dict(name='scrap_in_bof_rate'),
             dict(name='forming_losses'),
             dict(name='production_yield'),
         ]
+
+        self.definition = MFADefinition(
+            dimensions=dimensions,
+            processes=processes,
+            flows=flows,
+            stocks=stocks,
+            parameters=parameters,
+            scalar_parameters=scalar_parameters,
+        )
 
     def compute(self):
         """
