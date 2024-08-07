@@ -1,4 +1,7 @@
 from sodym.tools.config import cfg
+from sodym.classes.mfa_definition import (
+    MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition
+)
 from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
 
 
@@ -7,18 +10,18 @@ from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDriv
 
 class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
 
-    def fill_definition(self):
-        self.definition.dimensions = [
-            dict(name='Time', dim_letter='t', dtype=int, filename='time_in_years'),
-            dict(name='Element', dim_letter='e', dtype=str, filename='elements'),
-            dict(name='Region', dim_letter='r', dtype=str, filename='regions'),
-            dict(name='Intermediate', dim_letter='i', dtype=str, filename='intermediate_products'),
-            dict(name='Good', dim_letter='g', dtype=str, filename='goods_in_use'),
-            dict(name='Scenario', dim_letter='s', dtype=str, filename='scenarios'),
-            dict(name='Historic Time', dim_letter='h', dtype=int, filename='historic_years'),
+    def set_up_definition(self):
+        dimensions = [
+            DimensionDefinition(name='Time', dim_letter='t', dtype=int, filename='time_in_years'),
+            DimensionDefinition(name='Element', dim_letter='e', dtype=str, filename='elements'),
+            DimensionDefinition(name='Region', dim_letter='r', dtype=str, filename='regions'),
+            DimensionDefinition(name='Intermediate', dim_letter='i', dtype=str, filename='intermediate_products'),
+            DimensionDefinition(name='Good', dim_letter='g', dtype=str, filename='goods_in_use'),
+            DimensionDefinition(name='Scenario', dim_letter='s', dtype=str, filename='scenarios'),
+            DimensionDefinition(name='Historic Time', dim_letter='h', dtype=int, filename='historic_years'),
         ]
 
-        self.definition.processes = [
+        processes = [
             'sysenv',
             'bof_production',
             'eaf_production',
@@ -39,55 +42,55 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         ]
 
         # names are auto-generated, see Flow class documetation
-        self.definition.flows = [
-            dict(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='bof_production', to_process='forming', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='scrap_market', to_process='eaf_production', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='eaf_production', to_process='forming', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='eaf_production', to_process='sysenv', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='forming', to_process='ip_market', dim_letters=('t', 'e', 'r', 'i', 's')),
-            dict(from_process='forming', to_process='fabrication_buffer', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='forming', to_process='sysenv', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='ip_market', to_process='fabrication', dim_letters=('t', 'e', 'r', 'i', 's')),
-            dict(from_process='ip_market', to_process='ip_trade', dim_letters=('t', 'e', 'r', 'i', 's')),
-            dict(from_process='ip_trade', to_process='ip_market', dim_letters=('t', 'e', 'r', 'i', 's')),
-            dict(from_process='fabrication', to_process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='fabrication', to_process='fabrication_buffer', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='fabrication_buffer', to_process='scrap_market', dim_letters=('t', 'e', 'r', 's')),
-            dict(from_process='use', to_process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='use', to_process='indirect_trade', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='indirect_trade', to_process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='outflow_buffer', to_process='obsolete', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='outflow_buffer', to_process='eol_market', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='eol_market', to_process='recycling', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='eol_market', to_process='eol_trade', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='eol_trade', to_process='eol_market', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='sysenv', to_process='recycling', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='recycling', to_process='scrap_market', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(from_process='scrap_market', to_process='excess_scrap', dim_letters=('t', 'e', 'r', 's'))
+        flows = [
+            FlowDefinition(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='scrap_market', to_process='eaf_production', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='eaf_production', to_process='forming', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='eaf_production', to_process='sysenv', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='forming', to_process='ip_market', dim_letters=('t', 'e', 'r', 'i', 's')),
+            FlowDefinition(from_process='forming', to_process='fabrication_buffer', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='forming', to_process='sysenv', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='ip_market', to_process='fabrication', dim_letters=('t', 'e', 'r', 'i', 's')),
+            FlowDefinition(from_process='ip_market', to_process='ip_trade', dim_letters=('t', 'e', 'r', 'i', 's')),
+            FlowDefinition(from_process='ip_trade', to_process='ip_market', dim_letters=('t', 'e', 'r', 'i', 's')),
+            FlowDefinition(from_process='fabrication', to_process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='fabrication', to_process='fabrication_buffer', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='fabrication_buffer', to_process='scrap_market', dim_letters=('t', 'e', 'r', 's')),
+            FlowDefinition(from_process='use', to_process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='use', to_process='indirect_trade', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='indirect_trade', to_process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='outflow_buffer', to_process='obsolete', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='outflow_buffer', to_process='eol_market', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='eol_market', to_process='recycling', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='eol_market', to_process='eol_trade', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='eol_trade', to_process='eol_market', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='sysenv', to_process='recycling', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='recycling', to_process='scrap_market', dim_letters=('t', 'e', 'r', 'g', 's')),
+            FlowDefinition(from_process='scrap_market', to_process='excess_scrap', dim_letters=('t', 'e', 'r', 's'))
         ]
 
-        self.definition.stocks = [
-            dict(name='use', process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(name='outflow_buffer', process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g', 's')),
-            dict(name='fabrication_buffer', process='fabrication_buffer', dim_letters=('t', 'e', 'r', 's')),
-            dict(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r', 's'))
+        stocks = [
+            StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
+            StockDefinition(name='outflow_buffer', process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g', 's')),
+            StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g', 's')),
+            StockDefinition(name='fabrication_buffer', process='fabrication_buffer', dim_letters=('t', 'e', 'r', 's')),
+            StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r', 's'))
         ]
 
-        self.definition.parameters = [
-            dict(name='forming_yield', dim_letters=('i',)),
-            dict(name='fabrication_yield', dim_letters=('g',)),
-            dict(name='recovery_rate', dim_letters=('g',)),
-            dict(name='external_copper_rate', dim_letters=('g',)),
-            dict(name='cu_tolerances', dim_letters=('i',)),
-            dict(name='good_to_intermediate_distribution', dim_letters=('g', 'i')),
+        parameters = [
+            ParameterDefinition(name='forming_yield', dim_letters=('i',)),
+            ParameterDefinition(name='fabrication_yield', dim_letters=('g',)),
+            ParameterDefinition(name='recovery_rate', dim_letters=('g',)),
+            ParameterDefinition(name='external_copper_rate', dim_letters=('g',)),
+            ParameterDefinition(name='cu_tolerances', dim_letters=('i',)),
+            ParameterDefinition(name='good_to_intermediate_distribution', dim_letters=('g', 'i')),
 
-            dict(name='production', dim_letters=('h', 'r')),
-            dict(name='population', dim_letters=('t', 'r', 's')),
-            dict(name='gdppc', dim_letters=('t', 'r', 's')),
+            ParameterDefinition(name='production', dim_letters=('h', 'r')),
+            ParameterDefinition(name='population', dim_letters=('t', 'r', 's')),
+            ParameterDefinition(name='gdppc', dim_letters=('t', 'r', 's')),
 
             # in use dynamic stock model
             #dict(name='dsms_steel/inflows_base', dim_letters=('t','r','g','s')),
@@ -95,12 +98,21 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             #dict(name='dsms_steel/outflows_base', dim_letters=('t', 'r', 'g', 's')),
         ]
 
-        self.definition.scalar_parameters = [
+        scalar_parameters = [
             dict(name='max_scrap_share_base_model'),
             dict(name='scrap_in_bof_rate'),
             dict(name='forming_losses'),
             dict(name='production_yield'),
         ]
+
+        self.definition = MFADefinition(
+            dimensions=dimensions,
+            processes=processes,
+            flows=flows,
+            stocks=stocks,
+            parameters=parameters,
+            scalar_parameters=scalar_parameters,
+        )
 
     def compute(self):
         """
