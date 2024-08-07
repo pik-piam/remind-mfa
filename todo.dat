@@ -1,4 +1,0 @@
-- odym:
-  - more general and cleaner plotting function
-  - extend export function to csv export
-- add stdout / logging
