@@ -8,10 +8,11 @@ input_data_path: 'data/steel/input'
 output_path: 'data/steel/output'
 
 # model customization
-curve_strategy: 'GDP_regression'
-ldf_type: 'Normal'
-product_dimension_name: 'Good'
-has_scenarios: True
+model_customization:
+  curve_strategy: 'GDP_regression'
+  ldf_type: 'Normal'
+  product_dimension_name: 'Good'
+  has_scenarios: True
 
 visualize:
   stock:
