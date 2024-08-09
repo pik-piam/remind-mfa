@@ -1,11 +1,7 @@
-from sodym.tools.config import cfg
 from sodym.classes.mfa_definition import (
     MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition
 )
 from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
-
-
-# from sodym.tools.visualize import visualize_stock_prediction
 
 
 class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
@@ -150,7 +146,6 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             'production': self.get_new_array(dim_letters=('t', 'e', 'r', 'i', 's')),
             'forming_outflow': self.get_new_array(dim_letters=('t', 'e', 'r', 's')),
             'scrap_in_production': self.get_new_array(dim_letters=('t', 'e', 'r', 's')),
-            'production_inflow': self.get_new_array(dim_letters=('t','e','r','s')),
             'available_scrap': self.get_new_array(dim_letters=('t', 'e', 'r', 's')),
             'eaf_share_production': self.get_new_array(dim_letters=('t', 'e', 'r', 's')),
             'production_inflow': self.get_new_array(dim_letters=('t', 'e', 'r', 's')),

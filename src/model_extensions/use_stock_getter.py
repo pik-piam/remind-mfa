@@ -1,7 +1,6 @@
 from sodym.classes.mfa_system import MFASystem
 from sodym.classes.stocks_in_mfa import StockWithDSM
 from src.model_extensions.extrapolate_stock import extrapolate_stock
-from src.model_extensions.custom_visualization import visualize_stock
 
 
 class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
@@ -84,7 +83,7 @@ class InflowDrivenHistoric_StockDrivenFuture(MFASystem):
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
         prm = self.parameters
-        self.stocks['in_use'].stock[...]   = stk.stock   * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-        self.stocks['in_use'].inflow[...]  = stk.inflow  * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+        self.stocks['in_use'].stock[...]   = stk.stock * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+        self.stocks['in_use'].inflow[...]  = stk.inflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
         self.stocks['in_use'].outflow[...] = stk.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
         return

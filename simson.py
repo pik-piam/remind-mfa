@@ -3,12 +3,11 @@ import yaml
 
 from sodym.classes.data_reader import JakobsDataReader
 from sodym.classes.mfa_system import MFASystem
-from sodym.tools.visualize import visualize_mfa_sankey
-from sodym.tools.export import export
+from sodym.export.data_writer import DataWriter
 
 from src.model_definitions.plastics import PlasticsMFASystem
 from src.model_definitions.steel import SteelMFASystem
-from src.model_extensions.custom_visualization import visualize_production
+from src.model_extensions.custom_visualization import CustomDataVisualizer
 
 
 allowed_models = {
@@ -36,13 +35,24 @@ def init_mfa(model_name: str) -> MFASystem:
     return mfa
 
 
+def define_data_writer(model_name: str, mfa: MFASystem) -> DataWriter:
+    cfg = get_model_config(f'config/{model_name}.yml')
+    data_writer = CustomDataVisualizer(mfa=mfa, **cfg)
+    return data_writer
+
+
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    mfa = init_mfa(model_name='plastics')
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    model_name = 'plastics'
+    mfa = init_mfa(model_name=model_name)
     logging.info(f'{type(mfa).__name__} instance created.')
     mfa.compute()
     logging.info('Model computations completed.')
-
-    visualize_mfa_sankey(mfa)
-    visualize_production(mfa)
-    export(mfa)
+    dw = define_data_writer(model_name=model_name, mfa=mfa)
+    dw.export()
+    dw.visualize_results()

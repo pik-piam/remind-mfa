@@ -5,7 +5,6 @@ verbose: False
 
 # data sources
 input_data_path: 'data/steel/input'
-output_path: 'data/steel/output'
 
 # model customization
 model_customization:
@@ -14,19 +13,22 @@ model_customization:
   product_dimension_name: 'Good'
   has_scenarios: True
 
-visualize:
-  stock:
-    do_visualize: False
-    # options: 'time', 'gdppc'
-    over: 'gdppc'
-    per_capita: False
-  production:
-    do_visualize: False
-  sankey:
-    do_visualize: True
+# visualization
+stock:
+  do_visualize: False
+  # options: 'time', 'gdppc'
+  over: 'gdppc'
+  per_capita: False
+production:
+  do_visualize: False
+sankey:
+  do_visualize: True
+  color_scheme: 'blueish'
 do_show_figs: True
 do_save_figs: True
 
+# data export
+output_path: 'data/steel/output'
 do_export:
   pickle: True
   csv: True
