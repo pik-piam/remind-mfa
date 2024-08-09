@@ -35,11 +35,6 @@ def init_mfa(cfg: dict) -> MFASystem:
     return mfa
 
 
-def define_data_writer(cfg: dict, mfa: MFASystem) -> DataWriter:
-    data_writer = CustomDataVisualizer(mfa=mfa, **cfg)
-    return data_writer
-
-
 if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
@@ -53,6 +48,6 @@ if __name__ == '__main__':
     logging.info(f'{type(mfa).__name__} instance created.')
     mfa.compute()
     logging.info('Model computations completed.')
-    dw = define_data_writer(cfg=model_config, mfa=mfa)
-    dw.export()
-    dw.visualize_results()
+    dw = CustomDataVisualizer(**model_config)
+    dw.export_mfa(mfa=mfa)
+    dw.visualize_results(mfa=mfa)
