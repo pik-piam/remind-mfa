@@ -22,21 +22,20 @@ def get_model_config(filename):
     return {k: v for k, v in data.items()}
 
 
-def init_mfa(model_name: str) -> MFASystem:
+def init_mfa(cfg: dict) -> MFASystem:
     """
     Choose MFA subclass and return an initialized instance.
     """
+    model_name = cfg['model_class']
     if model_name not in allowed_models:
         raise ValueError(f"Model class {model_name} not supported.")
 
-    cfg = get_model_config(f'config/{model_name}.yml')
     data_reader = JakobsDataReader(input_data_path=cfg['input_data_path'])
     mfa = allowed_models[model_name](data_reader=data_reader, model_cfg=cfg['model_customization'])
     return mfa
 
 
-def define_data_writer(model_name: str, mfa: MFASystem) -> DataWriter:
-    cfg = get_model_config(f'config/{model_name}.yml')
+def define_data_writer(cfg: dict, mfa: MFASystem) -> DataWriter:
     data_writer = CustomDataVisualizer(mfa=mfa, **cfg)
     return data_writer
 
@@ -48,11 +47,12 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    model_name = 'plastics'
-    mfa = init_mfa(model_name=model_name)
+    cfg_file = 'config/plastics.yml'
+    model_config = get_model_config(cfg_file)
+    mfa = init_mfa(cfg=model_config)
     logging.info(f'{type(mfa).__name__} instance created.')
     mfa.compute()
     logging.info('Model computations completed.')
-    dw = define_data_writer(model_name=model_name, mfa=mfa)
+    dw = define_data_writer(cfg=model_config, mfa=mfa)
     dw.export()
     dw.visualize_results()
