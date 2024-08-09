@@ -1,13 +1,12 @@
 import logging
 import yaml
 
-from sodym.classes.data_reader import JakobsDataReader
 from sodym.classes.mfa_system import MFASystem
-from sodym.export.data_writer import DataWriter
 
 from src.model_definitions.plastics import PlasticsMFASystem
 from src.model_definitions.steel import SteelMFASystem
 from src.model_extensions.custom_visualization import CustomDataVisualizer
+from src.custom_data_reader import CustomDataReader
 
 
 allowed_models = {
@@ -30,7 +29,7 @@ def init_mfa(cfg: dict) -> MFASystem:
     if model_name not in allowed_models:
         raise ValueError(f"Model class {model_name} not supported.")
 
-    data_reader = JakobsDataReader(input_data_path=cfg['input_data_path'])
+    data_reader = CustomDataReader(input_data_path=cfg['input_data_path'])
     mfa = allowed_models[model_name](data_reader=data_reader, model_cfg=cfg['model_customization'])
     return mfa
 
