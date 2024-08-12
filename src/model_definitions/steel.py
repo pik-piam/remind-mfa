@@ -1,10 +1,10 @@
-from sodym.classes.mfa_definition import (
+from sodym import (
     MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition
 )
-from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
+from src.model_extensions.use_stock_getter import MFASystemWithComputedStocks
 
 
-class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
+class SteelMFASystem(MFASystemWithComputedStocks):
 
     def set_up_definition(self):
         dimensions = [
@@ -101,7 +101,7 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             dict(name='production_yield'),
         ]
 
-        self.definition = MFADefinition(
+        return MFADefinition(
             dimensions=dimensions,
             processes=processes,
             flows=flows,
@@ -114,7 +114,6 @@ class SteelMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_in_use_stock()
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()

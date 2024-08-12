@@ -1,10 +1,12 @@
-from sodym.classes.mfa_definition import (
-    MFADefinition, DimensionDefinition, FlowDefinition, StockDefinition, ParameterDefinition)
-from src.model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
+
+from sodym import (
+    MFADefinition, DimensionDefinition, FlowDefinition, StockDefinition, ParameterDefinition,
+)
 # from sodym.tools.visualize import visualize_stock_prediction
+from ..model_extensions.use_stock_getter import MFASystemWithComputedStocks
 
 
-class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
+class PlasticsMFASystem(MFASystemWithComputedStocks):
 
     def set_up_definition(self):
 
@@ -104,7 +106,7 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
             ParameterDefinition(name='gdppc',                           dim_letters=('t','r')),
         ]
 
-        self.definition = MFADefinition(
+        return MFADefinition(
             dimensions=dimensions,
             processes=processes,
             flows=flows,
@@ -116,7 +118,6 @@ class PlasticsMFASystem(InflowDrivenHistoric_StockDrivenFuture):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_in_use_stock()
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()

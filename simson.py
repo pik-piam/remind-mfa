@@ -1,7 +1,7 @@
 import logging
 import yaml
 
-from sodym.classes.mfa_system import MFASystem
+from sodym import MFASystem
 
 from src.model_definitions.plastics import PlasticsMFASystem
 from src.model_definitions.steel import SteelMFASystem
