@@ -4,10 +4,10 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from sodym import (
-    StockArray, Stock, DynamicStockModel,
+    StockArray, Stock, DynamicStockModel, FlowDrivenStock,
     MFASystem, DimensionSet, NamedDimArray, Process, Parameter
 )
-from sodym.stock_helper import create_dynamic_stock
+from sodym.stock_helper import create_dynamic_stock, make_empty_stock
 
 
 class InflowDrivenHistoric_StockDrivenFuture():
@@ -103,7 +103,7 @@ class InflowDrivenHistoric_StockDrivenFuture():
 
         #visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
 
-        return stocks
+        return StockArray(**dict(stocks))
 
     def extrapolate_stock(self, curve_strategy, historic_stocks, gdppc, prediction_out):
         """
@@ -171,7 +171,7 @@ class InflowDrivenHistoric_StockDrivenFuture():
         stock_extd = StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
         inflow = StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)
         outflow = StockArray(values=outflow.values, name='in_use_outflow', dims=stock_dims)
-        stock = Stock(
+        stock = FlowDrivenStock(
             stock=stock_extd, inflow=inflow, outflow=outflow, name='in_use', process_name='use',
             process=self.process,
         )
@@ -191,7 +191,7 @@ class MFASystemWithComputedStocks(MFASystem):
                 logging.info('Computing in use stocks')
                 stock = self.compute_in_use_stock(process=process)
             else:
-                stock = Stock.from_definition(stock_definition, dims=dims, process=process)
+                stock = make_empty_stock(stock_definition, dims=dims, process=process)
             stocks[stock.name] = stock
         return stocks
 
