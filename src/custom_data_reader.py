@@ -1,7 +1,9 @@
+import logging
 import os
+from typing import List
 
-from sodym.classes.data_reader import ExampleDataReader
-from sodym.classes.mfa_definition import DimensionDefinition
+from sodym.data_reader import ExampleDataReader
+from sodym import DimensionDefinition
 
 
 class CustomDataReader(ExampleDataReader):
@@ -32,3 +34,10 @@ class CustomDataReader(ExampleDataReader):
             self.input_data_path, 'dimensions', f'{dimension_filename}.csv'
         )
         return super().read_dimension(definition=definition)
+
+    def read_scalar_data(self, parameters: List[str]):
+        try:
+            return super().read_scalar_data(parameters)
+        except FileNotFoundError as file_missing:
+            logging.warn(file_missing)
+            return None
