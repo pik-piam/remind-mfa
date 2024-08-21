@@ -4,9 +4,10 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from sodym import (
-    StockDefinition, Process, Stock, DimensionSet, NamedDimArray, StockWithDSM, StockArray,
-    MFASystem,
+    StockArray, Stock, DynamicStockModel,
+    MFASystem, DimensionSet, NamedDimArray, Process, Parameter
 )
+from sodym.stock_helper import create_dynamic_stock
 
 
 class InflowDrivenHistoric_StockDrivenFuture():
@@ -20,7 +21,7 @@ class InflowDrivenHistoric_StockDrivenFuture():
     - good (g)
     """
     def __init__(
-            self, parameters, dims: DimensionSet, process: Process, ldf_type, curve_strategy,
+            self, parameters: Dict[str, Parameter], dims: DimensionSet, process: Process, ldf_type, curve_strategy,
         ) -> None:
         if process.name != 'use':
             raise ValueError("Only valid process is 'use'.")
@@ -29,16 +30,6 @@ class InflowDrivenHistoric_StockDrivenFuture():
         self.dims = dims
         self.ldf_type = ldf_type
         self.curve_strategy = curve_strategy
-
-    def get_new_stock(self, with_dsm: bool = False, **kwargs):
-        stock_definition = StockDefinition(**kwargs)
-        dims = self.dims.get_subset(stock_definition.dim_letters)
-        if with_dsm:
-            return StockWithDSM.from_definition(
-                stock_definition=stock_definition, dims=dims, process=self.process)
-        else:
-            return Stock.from_definition(
-                stock_definition=stock_definition, dims=dims, process=self.process)
 
     def get_new_array(self, **kwargs) -> NamedDimArray:
         dims = self.dims.get_subset(kwargs["dim_letters"]) if "dim_letters" in kwargs else self.dims
@@ -67,13 +58,17 @@ class InflowDrivenHistoric_StockDrivenFuture():
 
     def compute_historic_from_demand(self):
 
-        prm = self.parameters
-        hist_stk = self.get_new_stock(with_dsm=True, dim_letters=('h','r','g'))
-
-        hist_stk.inflow[...] = prm['production']
-        hist_stk.set_lifetime(self.ldf_type, prm['lifetime_mean'], prm['lifetime_std'])
-
-        hist_stk.compute_inflow_driven()
+        inflow = StockArray(
+            dims=self.dims.get_subset(('h', 'r', 'g')),
+            values=self.parameters['production'].values,
+            name='in_use_inflow'
+        )
+        hist_stk = create_dynamic_stock(
+            name='in_use', process=self.process, ldf_type=self.ldf_type,
+            inflow=inflow, lifetime_mean=self.parameters['lifetime_mean'],
+            lifetime_std=self.parameters['lifetime_std'],
+        )
+        hist_stk.compute()
 
         return hist_stk
 
@@ -156,18 +151,16 @@ class InflowDrivenHistoric_StockDrivenFuture():
         #     visualize_stock_prediction(gdppc, historic_stocks_pc, pure_prediction)
         return
 
-    def compute_future_demand(self, stock):
-        prm = self.parameters
-        stk = self.get_new_stock(with_dsm=True, dim_letters=('t','r','g'))
-
-        stk.stock[...] = stock
-        stk.set_lifetime(self.ldf_type, prm['lifetime_mean'], prm['lifetime_std'])
-
-        stk.compute_stock_driven()
-
+    def compute_future_demand(self, stock: StockArray):
+        stk = create_dynamic_stock(
+            name='in_use', process=self.process, ldf_type=self.ldf_type,
+            stock=stock, lifetime_mean=self.parameters['lifetime_mean'],
+            lifetime_std=self.parameters['lifetime_std'],
+        )
+        stk.compute()
         return stk
 
-    def prepare_stock_for_mfa(self, stk: StockWithDSM):
+    def prepare_stock_for_mfa(self, stk: DynamicStockModel):
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
         prm = self.parameters

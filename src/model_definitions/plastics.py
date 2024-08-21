@@ -212,14 +212,14 @@ class PlasticsMFASystem(MFASystemWithComputedStocks):
         # in-use stock is already computed in compute_in_use_stock
 
         stk['landfill'].inflow[...] = flw['eol => landfill']
-        stk['landfill'].compute_stock()
+        stk['landfill'].compute()
 
         stk['uncontrolled'].inflow[...] = flw['eol => uncontrolled'] + flw['reclmech => uncontrolled']
-        stk['uncontrolled'].compute_stock()
+        stk['uncontrolled'].compute()
 
         stk['atmospheric'].inflow[...] = flw['emission => atmosphere']
         stk['atmospheric'].outflow[...] = flw['atmosphere => virgindaccu'] + flw['atmosphere => virginbio']
-        stk['atmospheric'].compute_stock()
+        stk['atmospheric'].compute()
         return
 
     # Dictionary of variable names vs names displayed in figures.
