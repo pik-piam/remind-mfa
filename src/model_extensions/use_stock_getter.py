@@ -205,6 +205,6 @@ class MFASystemWithComputedStocks(MFASystem):
     def compute_in_use_stock(self, process):
         stock_computer = InflowDrivenHistoric_StockDrivenFuture(
             parameters=self.parameters, process=process, dims=self.dims,
-            ldf_type=self.ldf_type, curve_strategy=self.curve_strategy,
+            ldf_type=self.model_cfg['ldf_type'], curve_strategy=self.model_cfg['curve_strategy'],
         )
         return stock_computer.compute_in_use_stock()
