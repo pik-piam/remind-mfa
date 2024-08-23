@@ -66,7 +66,7 @@ class InflowDrivenHistoric_StockDrivenFuture():
         hist_stk = create_dynamic_stock(
             name='in_use', process=self.process, ldf_type=self.ldf_type,
             inflow=inflow, lifetime_mean=self.parameters['lifetime_mean'],
-            lifetime_std=self.parameters['lifetime_std'],
+            lifetime_std=self.parameters['lifetime_std'], time_letter='h',
         )
         hist_stk.compute()
 
