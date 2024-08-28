@@ -1,10 +1,57 @@
 from sodym import (
-    MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition
+    MFADefinition, MFASystem, DimensionDefinition, FlowDefinition, ParameterDefinition,
+    StockDefinition,
 )
-from src.model_extensions.use_stock_getter import MFASystemWithComputedStocks
+from ..model_extensions.inflow_driven_mfa import InflowDrivenHistoricMFA
+from src.custom_data_reader import CustomDataReader
+from src.model_extensions.custom_visualization import CustomDataVisualizer
 
 
-class SteelMFASystem(MFASystemWithComputedStocks):
+class SteelModel():
+
+    def __init__(self, cfg: dict):
+        self.cfg = cfg
+        self.definition = self.set_up_definition()
+        self.data_reader = CustomDataReader(input_data_path=self.cfg['input_data_path'])
+        self.data_writer = CustomDataVisualizer(**self.cfg)
+        self.mfa = StockDrivenSteelMFASystem.from_data_reader(
+            definition=self.definition,
+            data_reader=self.data_reader,
+            mfa_cfg=self.cfg['model_customization'],
+        )
+
+        stock_computer = InflowDrivenHistoricMFA(
+            parameters=self.mfa.parameters, processes={'use': self.mfa.processes['use']},
+            dims=self.mfa.dims.get_subset(('h', 'r', 'g')),
+            scalar_parameters=self.mfa.scalar_parameters, mfa_cfg=self.mfa.mfa_cfg,
+        )
+        self.mfa.stocks['in_use'] = stock_computer.compute_in_use_stock()
+
+    def run(self):
+        self.mfa.compute()
+        self.data_writer.export_mfa(mfa=self.mfa)
+        self.data_writer.visualize_results(mfa=self.mfa)
+
+    # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
+    display_names = {
+        'sysenv': 'System environment',
+        'bof_production': 'Production (BF/BOF)',
+        'eaf_production': 'Production (EAF)',
+        'forming': 'Forming',
+        'fabrication_buffer': 'Fabrication Buffer',
+        'ip_market': 'Intermediate product market',
+        'ip_trade': 'Intermediate product trade',
+        'fabrication': 'Fabrication',
+        'indirect_trade': 'Indirect trade',
+        'in_use': 'Use phase',
+        'outflow_buffer': 'Outflow buffer',
+        'obsolete': 'Obsolete stocks',
+        'eol_market': 'End of life product market',
+        'eol_trade': 'End of life trade',
+        'recycling': 'Recycling',
+        'scrap_market': 'Scrap market',
+        'excess_scrap': 'Excess scrap'
+    }
 
     def set_up_definition(self):
         dimensions = [
@@ -110,6 +157,9 @@ class SteelMFASystem(MFASystemWithComputedStocks):
             scalar_parameters=scalar_parameters,
         )
 
+
+class StockDrivenSteelMFASystem(MFASystem):
+
     def compute(self):
         """
         Perform all computations for the MFA system.
@@ -117,18 +167,6 @@ class SteelMFASystem(MFASystemWithComputedStocks):
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
-
-
-    """
-    def compute_in_use_stock(self):
-        '''Overwriting the inflow driven historic / stock driven future for now.
-        TODO: change!
-        Also Copper dimension is currently missing'''
-        prm = self.parameters
-        self.stocks['use'].stock['Fe'] = prm['dsms_steel/stocks_base']
-        self.stocks['use'].inflow['Fe'] = prm['dsms_steel/inflows_base']
-        self.stocks['use'].outflow['Fe'] = prm['dsms_steel/outflows_base']
-        """
 
     def compute_flows(self):
         # abbreviations for better readability
@@ -208,42 +246,17 @@ class SteelMFASystem(MFASystemWithComputedStocks):
         # in-use stock is already computed in compute_in_use_stock
 
         stk['obsolete'].inflow[...] = flw['outflow_buffer => obsolete']
-        stk['obsolete'].compute_stock()
+        stk['obsolete'].compute()
 
         stk['excess_scrap'].inflow[...] = flw['scrap_market => excess_scrap']
-        stk['excess_scrap'].compute_stock()
+        stk['excess_scrap'].compute()
 
         # TODO: Delay buffers?
 
         stk['outflow_buffer'].inflow[...] = flw['use => outflow_buffer']
         stk['outflow_buffer'].outflow[...] = flw['outflow_buffer => eol_market'] + flw['outflow_buffer => obsolete']
-        stk['outflow_buffer'].compute_stock()
+        stk['outflow_buffer'].compute()
 
         stk['fabrication_buffer'].inflow[...] = flw['forming => fabrication_buffer'] + flw['fabrication => fabrication_buffer']
         stk['fabrication_buffer'].outflow[...] = flw['fabrication_buffer => scrap_market']
-        stk['fabrication_buffer'].compute_stock()
-
-        return
-
-    # Dictionary of variable names vs names displayed in figures.
-    # Used by visualization routines.
-    # Not required. If not present, the variable names are used.
-    display_names = {
-        'sysenv': 'System environment',
-        'bof_production': 'Production (BF/BOF)',
-        'eaf_production': 'Production (EAF)',
-        'forming': 'Forming',
-        'fabrication_buffer': 'Fabrication Buffer',
-        'ip_market': 'Intermediate product market',
-        'ip_trade': 'Intermediate product trade',
-        'fabrication': 'Fabrication',
-        'indirect_trade': 'Indirect trade',
-        'in_use': 'Use phase',
-        'outflow_buffer': 'Outflow buffer',
-        'obsolete': 'Obsolete stocks',
-        'eol_market': 'End of life product market',
-        'eol_trade': 'End of life trade',
-        'recycling': 'Recycling',
-        'scrap_market': 'Scrap market',
-        'excess_scrap': 'Excess scrap'
-    }
+        stk['fabrication_buffer'].compute()

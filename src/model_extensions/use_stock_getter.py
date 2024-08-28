@@ -1,13 +1,12 @@
-import logging
 from typing import Dict
 import numpy as np
 from scipy.optimize import least_squares
 
 from sodym import (
-    StockArray, Stock, DynamicStockModel, FlowDrivenStock,
-    MFASystem, DimensionSet, NamedDimArray, Process, Parameter
+    StockArray, DynamicStockModel, FlowDrivenStock,
+    DimensionSet, NamedDimArray, Process, Parameter
 )
-from sodym.stock_helper import create_dynamic_stock, make_empty_stock
+from sodym.stock_helper import create_dynamic_stock
 
 
 class InflowDrivenHistoric_StockDrivenFuture():
@@ -176,28 +175,3 @@ class InflowDrivenHistoric_StockDrivenFuture():
             process=self.process,
         )
         return stock
-
-
-class MFASystemWithComputedStocks(MFASystem):
-    def initialize_stocks(self, processes: Dict[str, Process]) -> Dict[str, Stock]:
-        stocks = {}
-        for stock_definition in self.definition.stocks:
-            dims = self.dims.get_subset(stock_definition.dim_letters)
-            try:
-                process = processes[stock_definition.process_name]
-            except KeyError:
-                raise KeyError(f"Missing process required by stock definition {stock_definition}.")
-            if stock_definition.process_name == 'use':
-                logging.info('Computing in use stocks')
-                stock = self.compute_in_use_stock(process=process)
-            else:
-                stock = make_empty_stock(stock_definition, dims=dims, process=process)
-            stocks[stock.name] = stock
-        return stocks
-
-    def compute_in_use_stock(self, process):
-        stock_computer = InflowDrivenHistoric_StockDrivenFuture(
-            parameters=self.parameters, process=process, dims=self.dims,
-            ldf_type=self.model_cfg['ldf_type'], curve_strategy=self.model_cfg['curve_strategy'],
-        )
-        return stock_computer.compute_in_use_stock()

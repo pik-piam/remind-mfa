@@ -1,12 +1,61 @@
 
 from sodym import (
-    MFADefinition, DimensionDefinition, FlowDefinition, StockDefinition, ParameterDefinition,
+    MFADefinition, MFASystem, DimensionDefinition, FlowDefinition, StockDefinition,
+    ParameterDefinition,
 )
+
 # from sodym.tools.visualize import visualize_stock_prediction
-from ..model_extensions.use_stock_getter import MFASystemWithComputedStocks
+from ..model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
+from src.custom_data_reader import CustomDataReader
+from src.model_extensions.custom_visualization import CustomDataVisualizer
 
 
-class PlasticsMFASystem(MFASystemWithComputedStocks):
+
+class PlasticModel():
+
+    def __init__(self, cfg: dict):
+        self.cfg = cfg
+        self.definition = self.set_up_definition()
+        self.data_reader = CustomDataReader(input_data_path=self.cfg['input_data_path'])
+        self.data_writer = CustomDataVisualizer(**self.cfg)
+        self.mfa = PlasticsMFASystem.from_data_reader(
+            definition=self.definition,
+            data_reader=self.data_reader,
+            mfa_cfg=self.cfg['model_customization'],
+        )
+        stock_computer = InflowDrivenHistoric_StockDrivenFuture(
+            parameters=self.mfa.parameters, process=self.mfa.processes['use'], dims=self.mfa.dims,
+            ldf_type=self.mfa.mfa_cfg['ldf_type'], curve_strategy=self.mfa.mfa_cfg['curve_strategy'],
+        )
+        self.mfa.stocks['in_use'] = stock_computer.compute_in_use_stock()
+
+    def run(self):
+        self.mfa.compute()
+        self.data_writer.export_mfa(mfa=self.mfa)
+        self.data_writer.visualize_results(mfa=self.mfa)
+
+    # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
+    display_names = {
+        'sysenv': 'System environment',
+        'virginfoss': 'Virgin production (fossil)',
+        'virginbio': 'Virgin production (biomass)',
+        'virgindaccu': 'Virgin production (daccu)',
+        'virginccu': 'Virgin production (ccu)',
+        'virgin': 'Virgin production (total)',
+        'fabrication': 'Fabrication',
+        'recl': 'Recycling (total)',
+        'reclmech': 'Mechanical recycling',
+        'reclchem': 'Chemical recycling',
+        'reclsolv': 'Solvent-based recycling',
+        'use': 'Use Phase',
+        'eol': 'End of Life',
+        'incineration': 'Incineration',
+        'landfill': 'Disposal',
+        'uncontrolled': 'Uncontrolled release',
+        'emission': 'Emissions',
+        'captured': 'Captured',
+        'atmosphere': 'Atmosphere'
+    }
 
     def set_up_definition(self):
 
@@ -113,6 +162,9 @@ class PlasticsMFASystem(MFASystemWithComputedStocks):
             stocks=stocks,
             parameters=parameters,
         )
+
+
+class PlasticsMFASystem(MFASystem):
 
     def compute(self):
         """
@@ -221,28 +273,3 @@ class PlasticsMFASystem(MFASystemWithComputedStocks):
         stk['atmospheric'].outflow[...] = flw['atmosphere => virgindaccu'] + flw['atmosphere => virginbio']
         stk['atmospheric'].compute()
         return
-
-    # Dictionary of variable names vs names displayed in figures.
-    # Used by visualization routines.
-    # Not required. If not present, the variable names are used.
-    display_names = {
-        'sysenv': 'System environment',
-        'virginfoss': 'Virgin production (fossil)',
-        'virginbio': 'Virgin production (biomass)',
-        'virgindaccu': 'Virgin production (daccu)',
-        'virginccu': 'Virgin production (ccu)',
-        'virgin': 'Virgin production (total)',
-        'fabrication': 'Fabrication',
-        'recl': 'Recycling (total)',
-        'reclmech': 'Mechanical recycling',
-        'reclchem': 'Chemical recycling',
-        'reclsolv': 'Solvent-based recycling',
-        'use': 'Use Phase',
-        'eol': 'End of Life',
-        'incineration': 'Incineration',
-        'landfill': 'Disposal',
-        'uncontrolled': 'Uncontrolled release',
-        'emission': 'Emissions',
-        'captured': 'Captured',
-        'atmosphere': 'Atmosphere'
-    }

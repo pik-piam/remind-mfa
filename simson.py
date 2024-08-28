@@ -3,15 +3,13 @@ import yaml
 
 from sodym import MFASystem
 
-from src.model_definitions.plastics import PlasticsMFASystem
-from src.model_definitions.steel import SteelMFASystem
-from src.model_extensions.custom_visualization import CustomDataVisualizer
-from src.custom_data_reader import CustomDataReader
+from src.model_definitions.plastics import PlasticModel
+from src.model_definitions.steel import SteelModel
 
 
 allowed_models = {
-    'plastics': PlasticsMFASystem,
-    'steel': SteelMFASystem,
+    'plastics': PlasticModel,
+    'steel': SteelModel,
 }
 
 
@@ -29,8 +27,7 @@ def init_mfa(cfg: dict) -> MFASystem:
     if model_name not in allowed_models:
         raise ValueError(f"Model class {model_name} not supported.")
 
-    data_reader = CustomDataReader(input_data_path=cfg['input_data_path'])
-    mfa = allowed_models[model_name](data_reader=data_reader, model_cfg=cfg['model_customization'])
+    mfa = allowed_models[model_name](cfg=cfg)
     return mfa
 
 
@@ -45,8 +42,5 @@ if __name__ == '__main__':
     model_config = get_model_config(cfg_file)
     mfa = init_mfa(cfg=model_config)
     logging.info(f'{type(mfa).__name__} instance created.')
-    mfa.compute()
+    mfa.run()
     logging.info('Model computations completed.')
-    dw = CustomDataVisualizer(**model_config)
-    dw.export_mfa(mfa=mfa)
-    dw.visualize_results(mfa=mfa)
