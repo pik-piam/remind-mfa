@@ -3,8 +3,8 @@ import yaml
 
 from sodym import MFASystem
 
-from src.model_definitions.plastics import PlasticModel
-from src.model_definitions.steel import SteelModel
+from simson.plastics.plastic_model import PlasticModel
+from simson.steel.steel_model import SteelModel
 
 
 allowed_models = {
