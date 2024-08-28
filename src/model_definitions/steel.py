@@ -2,9 +2,12 @@ from sodym import (
     MFADefinition, MFASystem, DimensionDefinition, FlowDefinition, ParameterDefinition,
     StockDefinition,
 )
+from sodym.stock_helper import create_dynamic_stock
+
 from ..model_extensions.inflow_driven_mfa import InflowDrivenHistoricMFA
 from src.custom_data_reader import CustomDataReader
 from src.model_extensions.custom_visualization import CustomDataVisualizer
+from src.model_extensions.data_transformations import extrapolate_stock, prepare_stock_for_mfa
 
 
 class SteelModel():
@@ -20,14 +23,32 @@ class SteelModel():
             mfa_cfg=self.cfg['model_customization'],
         )
 
-        stock_computer = InflowDrivenHistoricMFA(
-            parameters=self.mfa.parameters, processes={'use': self.mfa.processes['use']},
+        self.historic_mfa = InflowDrivenHistoricMFA(
+            parameters=self.mfa.parameters,
+            processes={'use': self.mfa.processes['use']},
             dims=self.mfa.dims.get_subset(('h', 'r', 'g')),
-            scalar_parameters=self.mfa.scalar_parameters, mfa_cfg=self.mfa.mfa_cfg,
+            flows=self.mfa.flows,
+            stocks={'in_use': self.mfa.stocks['in_use']},
+            scalar_parameters=self.mfa.scalar_parameters,
+            mfa_cfg=self.mfa.mfa_cfg,
         )
-        self.mfa.stocks['in_use'] = stock_computer.compute_in_use_stock()
 
     def run(self):
+        self.historic_mfa.compute()
+        historic_in_use_stock = self.historic_mfa.stocks['in_use'].stock
+        in_use_stock = extrapolate_stock(
+            historic_in_use_stock, dims=self.mfa.dims, parameters=self.mfa.parameters,
+            curve_strategy=self.mfa.mfa_cfg['curve_strategy']
+        )
+        stk = create_dynamic_stock(
+            name='in_use', process=self.mfa.processes['use'], ldf_type=self.mfa.mfa_cfg['ldf_type'],
+            stock=in_use_stock, lifetime_mean=self.mfa.parameters['lifetime_mean'],
+            lifetime_std=self.mfa.parameters['lifetime_std'],
+        )
+        stk.compute()  # gives inflows and outflows corresponding to in-use stock
+        self.mfa.stocks['in_use'] = prepare_stock_for_mfa(
+            stk=stk, dims=self.mfa.dims, prm=self.mfa.parameters, use=self.mfa.processes['use']
+        )
         self.mfa.compute()
         self.data_writer.export_mfa(mfa=self.mfa)
         self.data_writer.visualize_results(mfa=self.mfa)
