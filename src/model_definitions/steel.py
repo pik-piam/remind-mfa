@@ -2,7 +2,7 @@ from sodym import (
     MFADefinition, MFASystem, DimensionDefinition, FlowDefinition, ParameterDefinition,
     StockDefinition,
 )
-from ..model_extensions.inflow_driven_mfa import InflowDrivenHistoricMFA
+from ..model_extensions.use_stock_getter import InflowDrivenHistoric_StockDrivenFuture
 from src.custom_data_reader import CustomDataReader
 from src.model_extensions.custom_visualization import CustomDataVisualizer
 
@@ -20,7 +20,7 @@ class SteelModel():
             mfa_cfg=self.cfg['model_customization'],
         )
 
-        stock_computer = InflowDrivenHistoricMFA(
+        stock_computer = InflowDrivenHistoric_StockDrivenFuture(
             parameters=self.mfa.parameters, processes={'use': self.mfa.processes['use']},
             dims=self.mfa.dims.get_subset(('h', 'r', 'g')),
             scalar_parameters=self.mfa.scalar_parameters, mfa_cfg=self.mfa.mfa_cfg,
