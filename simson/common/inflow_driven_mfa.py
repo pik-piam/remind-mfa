@@ -1,17 +1,10 @@
 import numpy as np
 from pydantic import field_validator
-from sodym import MFASystem, StockArray, DimensionSet
-from sodym.stock_helper import create_dynamic_stock
+from sodym import MFASystem, DimensionSet
 
 
 class InflowDrivenHistoricMFA(MFASystem):
     """Calculate in-use stock based on historic production data."""
-
-    @field_validator('mfa_cfg')
-    def dynamic_stock_info_exists(cls, d: dict):
-        if 'ldf_type' not in d:
-            raise ValueError(f'Missing ldf_type in {cls.__name__}')
-        return d
 
     @field_validator('parameters')
     def dynamic_stock_parameters_exist(cls, d: dict):
@@ -34,20 +27,5 @@ class InflowDrivenHistoricMFA(MFASystem):
             raise ValueError(f'{cls.__name__} requires the dimensions {required}.')
         return dimension_set
 
-    @property
-    def use(self):
-        return self.processes['use']
-
     def compute(self):
-        inflow = StockArray(
-            dims=self.dims.get_subset(('h', 'r', 'g')),
-            values=self.parameters['production'].values,
-            name='in_use_inflow'
-        )
-        hist_stk = create_dynamic_stock(
-            name='in_use', process=self.use, ldf_type=self.mfa_cfg['ldf_type'],
-            inflow=inflow, lifetime_mean=self.parameters['lifetime_mean'],
-            lifetime_std=self.parameters['lifetime_std'], time_letter='h',
-        )
-        hist_stk.compute()
-        self.stocks['in_use'] = hist_stk
+        self.stocks['in_use'].compute()

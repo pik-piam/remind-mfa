@@ -4,12 +4,17 @@ import yaml
 from sodym import MFASystem
 
 from simson.plastics.plastic_model import PlasticModel
+from simson.common.common_cfg import CommonCfg
 from simson.steel.steel_model import SteelModel
 
 
 allowed_models = {
     'plastics': PlasticModel,
     'steel': SteelModel,
+}
+configurations = {
+    'plastics': CommonCfg,
+    'steel': CommonCfg,
 }
 
 
@@ -20,13 +25,13 @@ def get_model_config(filename):
 
 
 def init_mfa(cfg: dict) -> MFASystem:
-    """
-    Choose MFA subclass and return an initialized instance.
+    """Choose MFA subclass and return an initialized instance.
     """
     model_name = cfg['model_class']
     if model_name not in allowed_models:
         raise ValueError(f"Model class {model_name} not supported.")
 
+    cfg = configurations[model_name](**cfg)
     mfa = allowed_models[model_name](cfg=cfg)
     return mfa
 

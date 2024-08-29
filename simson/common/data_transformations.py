@@ -105,13 +105,13 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out):
 
 
 def prepare_stock_for_mfa(
-        dims: DimensionSet, stk: DynamicStockModel, prm: dict[str, Parameter], use: Process
+        dims: DimensionSet, dsm: DynamicStockModel, prm: dict[str, Parameter], use: Process
     ):
     # We use an auxiliary stock for the prediction step to save dimensions and computation time
     # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
-    stock_extd = stk.stock * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    inflow = stk.inflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    outflow = stk.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+    stock_extd = dsm.stock * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+    inflow = dsm.inflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
+    outflow = dsm.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
     stock_dims = dims.get_subset(('t','r','g','m','e'))
     stock_extd = StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
     inflow = StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)

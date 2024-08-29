@@ -1,57 +1,100 @@
 from sodym import (
     MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition,
+    Process,
 )
-from sodym.stock_helper import create_dynamic_stock
+from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
+from sodym.flow_helper import make_empty_flows
 
-from ..common.inflow_driven_mfa import InflowDrivenHistoricMFA
+from simson.common.common_cfg import CommonCfg
+from simson.common.data_transformations import extrapolate_stock, prepare_stock_for_mfa
+from simson.common.inflow_driven_mfa import InflowDrivenHistoricMFA
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.custom_visualization import CustomDataVisualizer
-from simson.common.data_transformations import extrapolate_stock, prepare_stock_for_mfa
 from simson.steel.stock_driven_steel import StockDrivenSteelMFASystem
 
 
-class SteelModel():
+class SteelModel:
 
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: CommonCfg):
         self.cfg = cfg
         self.definition = self.set_up_definition()
-        self.data_reader = CustomDataReader(input_data_path=self.cfg['input_data_path'])
-        self.data_writer = CustomDataVisualizer(**self.cfg)
-        self.mfa = StockDrivenSteelMFASystem.from_data_reader(
-            definition=self.definition,
-            data_reader=self.data_reader,
-            mfa_cfg=self.cfg['model_customization'],
+        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path)
+        self.data_writer = CustomDataVisualizer(
+            **dict(self.cfg.visualization), output_path=self.cfg.output_path,
+            display_names=self.display_names
         )
 
-        self.historic_mfa = InflowDrivenHistoricMFA(
-            parameters=self.mfa.parameters,
-            processes={'use': self.mfa.processes['use']},
-            dims=self.mfa.dims.get_subset(('h', 'r', 'g')),
-            flows=self.mfa.flows,
-            stocks={'in_use': self.mfa.stocks['in_use']},
-            scalar_parameters=self.mfa.scalar_parameters,
-            mfa_cfg=self.mfa.mfa_cfg,
+        self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
+        # TODO: confirm all required data is being loaded
+        # loading the steel production data
+        # loading steel direct and indirect trade data (
+        # direct is for intermediate steel products, indirect for finished products like cars)
+        # loading steel sector splits for intermediate products, and indirect trade
+        self.parameters = self.data_reader.read_parameters(self.definition.parameters, dims=self.dims)
+        self.scalar_parameters = self.data_reader.read_scalar_data(self.definition.scalar_parameters)
+
+        self.processes = {
+            name: Process(name=name, id=id) for id, name in enumerate(self.definition.processes)
+        }
+
+    def make_historic_mfa(self) -> InflowDrivenHistoricMFA:
+        """
+        Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
+        subtracting Losses in steel forming from production by IP data
+        adding direct trade by IP to production by IP
+        transforming that to production by category via some distribution assumptions
+        subtracting losses in steel fabrication (transformation of IP to end use products)
+        adding indirect trade by category
+        This equals the inflow into the in use stock
+        via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
+        """
+        # TODO: return an InflowDrivenHistoricMFA instance (or instance of child class)
+        pass
+
+    def make_future_mfa(self, future_in_use_stock):
+        future_dims = self.dims.drop('h', inplace=False)
+        flows = make_empty_flows(
+            processes=self.processes,
+            flow_definitions=[f for f in self.definition.flows if 't' in f.dim_letters],
+            dims=future_dims
+        )
+        stocks = make_empty_stocks(
+            processes=self.processes,
+            stock_definitions=[s for s in self.definition.stocks if 't' in s.dim_letters],
+            dims=future_dims
+        )
+        stocks['in_use'] = future_in_use_stock
+        return StockDrivenSteelMFASystem(
+            dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
+            processes=self.processes, flows=flows, stocks=stocks,
+        )
+
+    def create_future_stock_from_historic(self, historic_in_use_stock):
+        # TODO: predict the In-Use stock according to saturation assumptions similar to Pauliuks 'Steel Scrap Age'. i.e. we need another different extrapolate_stock function
+        in_use_stock = extrapolate_stock(
+            historic_in_use_stock, dims=self.dims, parameters=self.parameters,
+            curve_strategy=self.cfg.model_customization.curve_strategy,
+        )
+        dsm = create_dynamic_stock(
+            name='in_use', process=self.processes['use'],
+            ldf_type=self.cfg.model_customization.ldf_type,
+            stock=in_use_stock, lifetime_mean=self.parameters['lifetime_mean'],
+            lifetime_std=self.parameters['lifetime_std'],
+        )
+        dsm.compute()  # gives inflows and outflows corresponding to in-use stock
+        return prepare_stock_for_mfa(
+            dsm=dsm, dims=self.dims, prm=self.parameters, use=self.processes['use']
         )
 
     def run(self):
-        self.historic_mfa.compute()
-        historic_in_use_stock = self.historic_mfa.stocks['in_use'].stock
-        in_use_stock = extrapolate_stock(
-            historic_in_use_stock, dims=self.mfa.dims, parameters=self.mfa.parameters,
-            curve_strategy=self.mfa.mfa_cfg['curve_strategy']
-        )
-        stk = create_dynamic_stock(
-            name='in_use', process=self.mfa.processes['use'], ldf_type=self.mfa.mfa_cfg['ldf_type'],
-            stock=in_use_stock, lifetime_mean=self.mfa.parameters['lifetime_mean'],
-            lifetime_std=self.mfa.parameters['lifetime_std'],
-        )
-        stk.compute()  # gives inflows and outflows corresponding to in-use stock
-        self.mfa.stocks['in_use'] = prepare_stock_for_mfa(
-            stk=stk, dims=self.mfa.dims, prm=self.mfa.parameters, use=self.mfa.processes['use']
-        )
-        self.mfa.compute()
-        self.data_writer.export_mfa(mfa=self.mfa)
-        self.data_writer.visualize_results(mfa=self.mfa)
+        historic_mfa = self.make_historic_mfa()
+        historic_mfa.compute()
+        historic_in_use_stock = historic_mfa.stocks['in_use'].stock
+        future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
+        mfa = self.make_future_mfa(future_in_use_stock)
+        mfa.compute()
+        self.data_writer.export_mfa(mfa=mfa)
+        self.data_writer.visualize_results(mfa=mfa)
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     display_names = {
@@ -137,6 +180,7 @@ class SteelModel():
         ]
 
         stocks = [
+            StockDefinition(name='use', process='use', dim_letters=('h', 'r', 'g')),
             StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g', 's')),
             StockDefinition(name='outflow_buffer', process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g', 's')),
             StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g', 's')),
