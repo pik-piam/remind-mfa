@@ -1,17 +1,20 @@
 import logging
 import yaml
 
-from sodym.classes.mfa_system import MFASystem
+from sodym import MFASystem
 
-from src.model_definitions.plastics import PlasticsMFASystem
-from src.model_definitions.steel import SteelMFASystem
-from src.model_extensions.custom_visualization import CustomDataVisualizer
-from src.custom_data_reader import CustomDataReader
+from simson.plastics.plastic_model import PlasticModel
+from simson.common.common_cfg import CommonCfg
+from simson.steel.steel_model import SteelModel
 
 
 allowed_models = {
-    'plastics': PlasticsMFASystem,
-    'steel': SteelMFASystem,
+    'plastics': PlasticModel,
+    'steel': SteelModel,
+}
+configurations = {
+    'plastics': CommonCfg,
+    'steel': CommonCfg,
 }
 
 
@@ -22,15 +25,14 @@ def get_model_config(filename):
 
 
 def init_mfa(cfg: dict) -> MFASystem:
-    """
-    Choose MFA subclass and return an initialized instance.
+    """Choose MFA subclass and return an initialized instance.
     """
     model_name = cfg['model_class']
     if model_name not in allowed_models:
         raise ValueError(f"Model class {model_name} not supported.")
 
-    data_reader = CustomDataReader(input_data_path=cfg['input_data_path'])
-    mfa = allowed_models[model_name](data_reader=data_reader, model_cfg=cfg['model_customization'])
+    cfg = configurations[model_name](**cfg)
+    mfa = allowed_models[model_name](cfg=cfg)
     return mfa
 
 
@@ -45,8 +47,5 @@ if __name__ == '__main__':
     model_config = get_model_config(cfg_file)
     mfa = init_mfa(cfg=model_config)
     logging.info(f'{type(mfa).__name__} instance created.')
-    mfa.compute()
+    mfa.run()
     logging.info('Model computations completed.')
-    dw = CustomDataVisualizer(**model_config)
-    dw.export_mfa(mfa=mfa)
-    dw.visualize_results(mfa=mfa)

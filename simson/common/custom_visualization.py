@@ -4,7 +4,7 @@ import os
 from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 
-from sodym.classes.mfa_system import MFASystem
+from sodym import MFASystem
 from sodym.export.data_writer import DataWriter
 from sodym.export.helper import ArrayPlotter
 
@@ -19,9 +19,9 @@ class CustomDataVisualizer(DataWriter):
     stock: dict = {'do_visualize': True}
 
     def export_mfa(self, mfa: MFASystem):
-        if self.do_export.get('pickle', False):
+        if self.do_export['pickle']:
             self.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path('mfa.pickle'))
-        if self.do_export.get('csv', False):
+        if self.do_export['csv']:
             dir_out = os.path.join(self.export_path(), 'flows')
             self.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
 

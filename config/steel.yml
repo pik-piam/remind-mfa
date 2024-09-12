@@ -14,18 +14,19 @@ model_customization:
   has_scenarios: True
 
 # visualization
-stock:
-  do_visualize: False
-  # options: 'time', 'gdppc'
-  over: 'gdppc'
-  per_capita: False
-production:
-  do_visualize: False
-sankey:
-  do_visualize: True
-  color_scheme: 'blueish'
-do_show_figs: True
-do_save_figs: True
+visualization:
+  stock:
+    do_visualize: False
+    # options: 'time', 'gdppc'
+    over: 'gdppc'
+    per_capita: False
+  production:
+    do_visualize: False
+  sankey:
+    do_visualize: True
+    color_scheme: 'blueish'
+  do_show_figs: True
+  do_save_figs: True
 
 # data export
 output_path: 'data/steel/output'
