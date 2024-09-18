@@ -8,12 +8,6 @@ from simson.common.common_cfg import CommonCfg
 
 class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
 
-    """def __init__(self, cfg:CommonCfg, **kwargs):
-        super(MFASystem, self).__init__(**kwargs)
-        self.cfg = cfg
-        print('Test')"""
-
-
     def compute(self):
         """
         Perform all computations for the MFA system.
