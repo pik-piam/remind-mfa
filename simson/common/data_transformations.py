@@ -108,8 +108,6 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
             else:
                 raise RuntimeError(f'Fitting function type needs to be either \n'
                                    f'sigmoid or exponential, not {fitting_function_type}.')
-            if not prms_out.success:
-                a=0
 
             assert prms_out.success
 
