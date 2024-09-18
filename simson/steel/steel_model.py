@@ -48,7 +48,7 @@ class SteelModel:
         self.data_writer.export_mfa(mfa=mfa)
         self.data_writer.visualize_results(mfa=mfa)
 
-    def make_historic_mfa(self) -> InflowDrivenHistoricMFA:
+    def make_historic_mfa(self) -> InflowDrivenHistoricSteelMFASystem:
         """
         Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
         subtracting Losses in steel forming from production by IP data
