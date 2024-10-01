@@ -100,6 +100,10 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
                 prms_out = least_squares(
                     exponential_fitting_function,
                     x0=np.array([400, 1]),
+                    # TODO These values are model dependent and shouldn't be hard coded here
+                    # TODO for now, these values are placeholders that work for the steel model but might produce
+                    # TODO unrealistic predictions.
+                    # TODO Possibly, the x0 guesses can be passed as a parameter to this function, see PR 8 discussion.
                     gtol=1.e-12
                 )
 
@@ -110,7 +114,6 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
                                    f'sigmoid or exponential, not {fitting_function_type}.')
 
             assert prms_out.success
-
 
 
         # def fitting_function(prms):

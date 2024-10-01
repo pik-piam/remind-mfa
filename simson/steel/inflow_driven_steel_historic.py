@@ -56,10 +56,12 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         """
         Estimate the fabrication by in-use-good according to the inflow of intermediate products
         and the good to intermediate product distribution.
-
-        See https://en.wikipedia.org/wiki/Overdetermined_system#Approximate_solutions
         """
 
+        # The following calculation is based on
+        # https://en.wikipedia.org/wiki/Overdetermined_system#Approximate_solutions
+        # gi_values represents 'A', hence the variable at_a is A transposed times A
+        # 'b' is the intermediate flow and x are the sector flows that we are trying to find out
 
         gi_values = gi_distribution.values.transpose()
         at_a = np.matmul(gi_values.transpose(), gi_values)
@@ -69,12 +71,6 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
 
         # don't allow negative sector flows
         sector_flow_values = np.maximum(0, sector_flow_values)
-
-        # i_test = np.sum(intermediate_flow.values, axis=2)
-        # g_test = np.sum(sector_flow_values, axis=2)
-        # test = np.average(np.abs(100*i_test/g_test-100))
-        # region_shares = np.einsum('rg,r->rg', np.sum(sector_flow_values,axis=0), 1/np.sum(sector_flow_values,axis=(0,2)))
-        # total_region_shares = np.average(region_shares, axis=0)
 
         sector_flows = self.get_new_array(dim_letters=('h','r','g'))
         sector_flows.values = sector_flow_values
