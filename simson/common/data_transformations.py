@@ -1,11 +1,12 @@
 from copy import copy
 import numpy as np
-from scipy.optimize import least_squares
 
 from sodym import (
     StockArray, DynamicStockModel, FlowDrivenStock,
     DimensionSet, NamedDimArray, Process, Parameter
 )
+
+from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation
 
 
 def get_new_array(dims: DimensionSet, **kwargs) -> NamedDimArray:
@@ -74,54 +75,24 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
         for i_good in range(shape_out[2]):
             regional_historic_good = historic_stocks_pc[:, i_region, i_good]
             regional_gdppc = gdppc[:, i_region]
-            pure_prediction[:, i_region, i_good] = one_gdp_regression(
-                regional_historic_good, regional_gdppc, fitting_function_type)
+            if fitting_function_type == 'sigmoid':
+                extrapolation = SigmoidalExtrapolation(
+                    data_to_extrapolate=regional_historic_good,
+                    extrapolate_from=regional_gdppc
+                )
+            elif fitting_function_type == 'exponential':
+                extrapolation = ExponentialExtrapolation(
+                    data_to_extrapolate=regional_historic_good,
+                    extrapolate_from=regional_gdppc
+                )
+            else:
+                raise ValueError('fitting_function_type must be either "sigmoid" or "exponential".')
+            pure_prediction[:, i_region, i_good] = extrapolation.predict()
 
     prediction_out[...] = pure_prediction - (
         pure_prediction[n_historic - 1, :, :] - historic_stocks_pc[n_historic - 1, :, :]
         )
     prediction_out[:n_historic,:,:] = historic_stocks_pc
-
-
-def one_gdp_regression(regional_historic_good, regional_gdppc, fitting_function_type):
-    n_historic = regional_historic_good.shape[0]
-
-    if fitting_function_type == 'sigmoid':
-        def sigmoid_fitting_function(prms):
-            return (
-                prms[0] / (1. + np.exp(prms[1]/regional_gdppc[:n_historic]))
-            ) - regional_historic_good
-
-        prms_out = least_squares(
-            sigmoid_fitting_function,
-            x0=np.array([2.*regional_gdppc[n_historic-1], regional_historic_good[-1]]),
-            gtol=1.e-12
-        )
-
-        prediction = prms_out.x[0] / (1. + np.exp(prms_out.x[1] / regional_gdppc))
-    elif fitting_function_type == 'exponential':
-        def exponential_fitting_function(prms):
-            return (
-                prms[0] * (1 - np.exp(-prms[1]*regional_gdppc[:n_historic]))
-            ) - regional_historic_good
-
-        prms_out = least_squares(
-            exponential_fitting_function,
-            x0=np.array([400, 1]),
-            # TODO These values are model dependent and shouldn't be hard coded here
-            # TODO for now, these values are placeholders that work for the steel model but might produce
-            # TODO unrealistic predictions.
-            # TODO Possibly, the x0 guesses can be passed as a parameter to this function, see PR 8 discussion.
-            gtol=1.e-12
-        )
-
-        prediction = (prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * regional_gdppc)))
-    else:
-        raise RuntimeError(f'Fitting function type needs to be either \n'
-                           f'sigmoid or exponential, not {fitting_function_type}.')
-
-    assert prms_out.success
-    return prediction
 
 
 def prepare_stock_for_mfa(
