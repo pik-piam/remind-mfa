@@ -37,7 +37,8 @@ class SigmoidalExtrapolation(Extrapolation):
 
 
 class ExponentialExtrapolation(Extrapolation):
-    initial_guess: np.ndarray = np.array([400, 1])
+    initial_guess: np.ndarray = np.array([400, 1])  # these values work well for stock predictions
+    # in the steel model, but should be passed on initialisation for other usecases.
 
     def fitting_function(self, prms):
         return (
