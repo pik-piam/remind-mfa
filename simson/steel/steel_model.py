@@ -61,7 +61,7 @@ class SteelModel:
         """
 
 
-        historic_dims = self.dims.get_subset(('h', 'r', 'i', 'g'))
+        historic_dims = self.dims.get_subset(('h', 'e', 'r', 'i', 'g'))
         flows = make_empty_flows(
             processes=self.processes,
             flow_definitions=[f for f in self.definition.flows if 'h' in f.dim_letters],
@@ -111,9 +111,7 @@ class SteelModel:
         stock=dsm.stock, inflow=dsm.inflow, outflow=dsm.outflow, name='in_use', process_name='use',
         process=self.processes['use'],
     )
-        """return prepare_stock_for_mfa(
-            dsm=dsm, dims=self.dims, prm=self.parameters, use=self.processes['use']
-        )"""
+
 
     def make_future_mfa(self, future_in_use_stock):
         future_dims = self.dims.drop('h', inplace=False)
@@ -127,7 +125,7 @@ class SteelModel:
             stock_definitions=[s for s in self.definition.stocks if 't' in s.dim_letters],
             dims=future_dims
         )
-        stocks['in_use'] = future_in_use_stock
+        stocks['use'] = future_in_use_stock
         return StockDrivenSteelMFASystem(
             dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
             processes=self.processes, flows=flows, stocks=stocks,
@@ -204,42 +202,43 @@ class SteelModel:
             # Future Flows
 
 
-            FlowDefinition(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t','r')),
-            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t','r',)),
-            FlowDefinition(from_process='scrap_market', to_process='eaf_production', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='eaf_production', to_process='forming', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='eaf_production', to_process='sysenv', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='forming', to_process='ip_market', dim_letters=('t', 'r', 'i')),
-            FlowDefinition(from_process='forming', to_process='fabrication_buffer', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='forming', to_process='sysenv', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='ip_market', to_process='fabrication', dim_letters=('t', 'r', 'i')),
-            FlowDefinition(from_process='ip_market', to_process='ip_trade', dim_letters=('t', 'r', 'i')),
-            FlowDefinition(from_process='ip_trade', to_process='ip_market', dim_letters=('t', 'r', 'i')),
-            FlowDefinition(from_process='fabrication', to_process='use', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='fabrication', to_process='fabrication_buffer', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='fabrication_buffer', to_process='scrap_market', dim_letters=('t', 'r')),
-            FlowDefinition(from_process='use', to_process='outflow_buffer', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='use', to_process='indirect_trade', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='indirect_trade', to_process='use', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='outflow_buffer', to_process='obsolete', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='outflow_buffer', to_process='eol_market', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='eol_market', to_process='recycling', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='eol_market', to_process='eol_trade', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='eol_trade', to_process='eol_market', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='sysenv', to_process='recycling', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='recycling', to_process='scrap_market', dim_letters=('t', 'r', 'g')),
-            FlowDefinition(from_process='scrap_market', to_process='excess_scrap', dim_letters=('t', 'r'))
+            FlowDefinition(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e','r')),
+            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e','r',)),
+            FlowDefinition(from_process='scrap_market', to_process='eaf_production', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='eaf_production', to_process='forming', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='eaf_production', to_process='sysenv', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='forming', to_process='ip_market', dim_letters=('t', 'e', 'r', 'i')),
+            FlowDefinition(from_process='forming', to_process='fabrication_buffer', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='forming', to_process='sysenv', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='ip_market', to_process='fabrication', dim_letters=('t', 'e', 'r', 'i')),
+            FlowDefinition(from_process='ip_market', to_process='ip_trade', dim_letters=('t', 'e', 'r', 'i')),
+            FlowDefinition(from_process='ip_trade', to_process='ip_market', dim_letters=('t', 'e', 'r', 'i')),
+            FlowDefinition(from_process='fabrication', to_process='use', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='fabrication', to_process='fabrication_buffer', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='fabrication_buffer', to_process='scrap_market', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='use', to_process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='use', to_process='indirect_trade', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='indirect_trade', to_process='use', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='outflow_buffer', to_process='obsolete', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='outflow_buffer', to_process='eol_market', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='eol_market', to_process='recycling', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='eol_market', to_process='eol_trade', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='eol_trade', to_process='eol_market', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='sysenv', to_process='recycling', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='recycling', to_process='scrap_market', dim_letters=('t', 'e', 'r', 'g')),
+            FlowDefinition(from_process='scrap_market', to_process='excess_scrap', dim_letters=('t', 'e', 'r'))
         ]
 
         stocks = [
             StockDefinition(name='in_use', process='use', dim_letters=('h', 'r', 'g')),
-            StockDefinition(name='use', process='use', dim_letters=('t', 'r', 'g')),
-            StockDefinition(name='outflow_buffer', process='outflow_buffer', dim_letters=('t', 'r', 'g')),
-            StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'r', 'g')),
-            StockDefinition(name='fabrication_buffer', process='fabrication_buffer', dim_letters=('t', 'r')),
-            StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'r'))
+
+            StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g')),
+            StockDefinition(name='outflow_buffer', process='outflow_buffer', dim_letters=('t', 'e', 'r', 'g')),
+            StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g')),
+            StockDefinition(name='fabrication_buffer', process='fabrication_buffer', dim_letters=('t', 'e', 'r')),
+            StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r'))
         ]
 
         parameters = [

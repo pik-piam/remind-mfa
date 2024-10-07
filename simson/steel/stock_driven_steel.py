@@ -22,16 +22,16 @@ class StockDrivenSteelMFASystem(MFASystem):
         # It is important to initialize them to define their dimensions. See the NamedDimArray documentation for details.
         # could also be single variables instead of dict, but this way the code looks more uniform
         aux = {
-            'total_fabrication': self.get_new_array(dim_letters=('t', 'r', 'g')),
-            'production': self.get_new_array(dim_letters=('t', 'r', 'i')),
-            'forming_outflow': self.get_new_array(dim_letters=('t', 'r')),
-            'scrap_in_production': self.get_new_array(dim_letters=('t', 'r')),
-            'available_scrap': self.get_new_array(dim_letters=('t', 'r')),
-            'eaf_share_production': self.get_new_array(dim_letters=('t', 'r')),
-            'production_inflow': self.get_new_array(dim_letters=('t', 'r')),
-            'max_scrap_production': self.get_new_array(dim_letters=('t', 'r')),
-            'scrap_share_production': self.get_new_array(dim_letters=('t', 'r')),
-            'bof_production_inflow': self.get_new_array(dim_letters=('t', 'r')),
+            'total_fabrication': self.get_new_array(dim_letters=('t', 'e', 'r', 'g')),
+            'production': self.get_new_array(dim_letters=('t', 'e', 'r', 'i')),
+            'forming_outflow': self.get_new_array(dim_letters=('t', 'e', 'r')),
+            'scrap_in_production': self.get_new_array(dim_letters=('t', 'e', 'r')),
+            'available_scrap': self.get_new_array(dim_letters=('t', 'e', 'r')),
+            'eaf_share_production': self.get_new_array(dim_letters=('t', 'e', 'r')),
+            'production_inflow': self.get_new_array(dim_letters=('t', 'e', 'r')),
+            'max_scrap_production': self.get_new_array(dim_letters=('t', 'e', 'r')),
+            'scrap_share_production': self.get_new_array(dim_letters=('t', 'e', 'r')),
+            'bof_production_inflow': self.get_new_array(dim_letters=('t', 'e', 'r')),
         }
 
         # Slicing on the left-hand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the NamedDimArray object managing the dimensions.
@@ -40,7 +40,7 @@ class StockDrivenSteelMFASystem(MFASystem):
 
         # Pre-use
 
-        flw['fabrication => use'][...]                  = stk['use'].inflow
+        flw['fabrication => use']['Fe'][...]            = stk['use'].inflow
         aux['total_fabrication'][...]                   = flw['fabrication => use']             /   prm['fabrication_yield']
         flw['fabrication => fabrication_buffer'][...]   = aux['total_fabrication']              -   flw['fabrication => use']
         flw['ip_market => fabrication'][...]            = aux['total_fabrication']              *   prm['good_to_intermediate_distribution']
@@ -52,7 +52,7 @@ class StockDrivenSteelMFASystem(MFASystem):
 
         # Post-use
 
-        flw['use => outflow_buffer'][...]               = stk['use'].outflow
+        flw['use => outflow_buffer']['Fe'][...]         = stk['use'].outflow
         flw['outflow_buffer => eol_market'][...]        = flw['use => outflow_buffer']          *   prm['recovery_rate']
         flw['outflow_buffer => obsolete'][...]          = flw['use => outflow_buffer']          -   flw['outflow_buffer => eol_market']
         flw['eol_market => recycling'][...]             = flw['outflow_buffer => eol_market']
