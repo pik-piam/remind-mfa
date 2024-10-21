@@ -6,7 +6,7 @@ from sodym import (
     DimensionSet, NamedDimArray, Process, Parameter
 )
 
-from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation
+from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation, LinearExtrapolation
 
 
 def get_new_array(dims: DimensionSet, **kwargs) -> NamedDimArray:
@@ -67,28 +67,21 @@ def extrapolate_stock(
 
 def scale_parameter_to_future(historic_parameter : NamedDimArray, scaler : NamedDimArray) -> NamedDimArray:
     """Scale parameter to future."""
+    n_historic = historic_parameter.shape[0]
     dims = historic_parameter.dims.union_with(scaler.dims)
 
-    scaling_year = historic_parameter.dims.dim_list[0].items[-1]
-    n_historic = historic_parameter.shape[0]
-
-    transform_t_thist = get_subset_transformer(dims=dims, dim_letters=('t', 'h'))
     future_parameter = get_new_array(dims, dim_letters=('t',) + historic_parameter.dims.letters[1:])
-    historic_scaler = get_new_array(dims=dims, dim_letters=('h',)+scaler.dims.letters[1:])
-    historic_share = get_new_array(dims=dims, dim_letters=historic_parameter.dims.letters)
+    future_parameter.values[:n_historic] = historic_parameter.values
 
-    historic_scaler[...] = scaler * transform_t_thist
-    historic_scaler[...] =  historic_scaler.maximum(1e-10)  # have a minimum value to avoid division by zero
+    # add missing dimensions to scaler values
+    scaler_values = scaler.values
+    for i, letter in enumerate(historic_parameter.dims.letters[1:],start=1):  # first dim is h which should not be ammended
+        if letter not in scaler.dims.letters:
+            scaler_values = np.expand_dims(scaler_values, axis=i)
 
-    historic_share[...] = historic_parameter / historic_scaler
-
-    scale_factor = (0.3* historic_share[...][scaling_year-1] +
-                    0.25 * historic_share[...][scaling_year-2] +
-                    0.2 * historic_share[...][scaling_year-3] +
-                    0.15 * historic_share[...][scaling_year-4] +
-                    0.1 * historic_share[...][scaling_year-5])
-
-    future_parameter[...] = scaler * scale_factor
+    extrapolation = LinearExtrapolation(data_to_extrapolate=historic_parameter.values,
+                                        extrapolate_from=scaler_values)
+    future_parameter.values = extrapolation.predict()
     future_parameter.values[:n_historic] = historic_parameter.values
 
     return Parameter(dims=future_parameter.dims, values=future_parameter.values)

@@ -20,6 +20,23 @@ class Extrapolation(BaseModel):
         pass
 
 
+class LinearExtrapolation(Extrapolation):
+
+
+
+    def predict(self):
+        divisor = np.maximum(self.extrapolate_from, 1e-10)[:self.n_historic]
+        share = self.data_to_extrapolate / divisor
+        scale_factor = (0.3 * share[-1] +
+                        0.25 * share[-2] +
+                        0.2 * share[-3] +
+                        0.15 * share[-4] +
+                        0.1 * share[-5])
+        prediction = self.extrapolate_from * scale_factor
+
+        return prediction
+
+
 class SigmoidalExtrapolation(Extrapolation):
 
     def initial_guess(self):
@@ -52,9 +69,7 @@ class ExponentialExtrapolation(Extrapolation):
         ) - self.data_to_extrapolate
 
     def predict(self):
-        # Todo: Decide whether to use bounds
-        # bounds = ([0., 0.], [30, np.inf])
-        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.e-12) #, bounds=bounds)
+        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.e-12)
         prediction = (prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.extrapolate_from)))
 
         return prediction
