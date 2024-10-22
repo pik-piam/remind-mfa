@@ -9,11 +9,6 @@ from sodym import (
 from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation, LinearExtrapolation
 
 
-def get_new_array(dims: DimensionSet, **kwargs) -> NamedDimArray:
-    dims = copy(dims).get_subset(kwargs["dim_letters"]) if "dim_letters" in kwargs else dims
-    return NamedDimArray(dims=dims, **kwargs)
-
-
 def get_subset_transformer(dims: DimensionSet, dim_letters: tuple):
     """Get a Parameter/NamedDimArray which transforms between two dimensions, one of which is a subset of the
     other."""
@@ -27,7 +22,7 @@ def get_subset_transformer(dims: DimensionSet, dim_letters: tuple):
     for i, item in enumerate(dims[0].items):
         if item in dims[1].items:
             out.values[i, dims[1].index(item)] = 1
-    return out    
+    return out
 
 
 def extrapolate_stock(
@@ -39,11 +34,11 @@ def extrapolate_stock(
     # transform to per capita
     pop = parameters['population']
     transform_t_thist  = get_subset_transformer(dims=dims, dim_letters=('t', 'h'))
-    historic_pop       = get_new_array(dims=dims, dim_letters=('h','r'))
-    historic_gdppc     = get_new_array(dims=dims, dim_letters=('h','r'))
-    historic_stocks_pc = get_new_array(dims=dims, dim_letters=('h','r','g'))
-    stocks_pc          = get_new_array(dims=dims, dim_letters=('t','r','g'))
-    stocks             = get_new_array(dims=dims, dim_letters=('t','r','g'))
+    historic_pop       = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
+    historic_gdppc     = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
+    historic_stocks_pc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r','g'))
+    stocks_pc          = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
+    stocks             = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
 
     historic_pop[...] = pop * transform_t_thist
     historic_gdppc[...] = parameters['gdppc'] * transform_t_thist
