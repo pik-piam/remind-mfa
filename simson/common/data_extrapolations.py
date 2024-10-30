@@ -1,7 +1,7 @@
 from abc import abstractmethod
 import numpy as np
-from pydantic import BaseModel, ConfigDict
-from typing import Union
+import sys
+from pydantic import BaseModel, ConfigDict, model_validator
 from scipy.optimize import least_squares
 
 
@@ -9,67 +9,85 @@ class Extrapolation(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     data_to_extrapolate: np.ndarray  # historical data, 1 dimensional (time)
-    extrapolate_from: Union[np.ndarray, list[np.ndarray]]  # predictor variable(s)
+    target_range: np.ndarray # predictor variable(s)
+
+    @model_validator(mode="after")
+    def validate_data(self):
+        assert self.data_to_extrapolate.ndim == 1, "Data to extrapolate must be 1-dimensional."
+        assert self.target_range.ndim == 1, "Target range must be 1-dimensional."
+        assert self.data_to_extrapolate.shape[0] < self.target_range.shape[0], (
+            "data_to_extrapolate must be smaller then target_range")
 
     @property
     def n_historic(self):
         return self.data_to_extrapolate.shape[0]
 
+    def extrapolate(self, historic_from_regression: bool = False):
+        regression = self.regress()
+        if not historic_from_regression:
+            regression[:self.n_historic] = self.data_to_extrapolate
+        return regression
+
     @abstractmethod
-    def predict(self):
+    def regress(self):
         pass
 
 
-class LinearExtrapolation(Extrapolation):
+class WeightedProportionalExtrapolation(Extrapolation):
+    """
+    Regression of a function of the form y = a * x, i.e. a linear scaling without offset.
+    For regression, the last n_last_points_to_match points are used. Their weights are linearly decreasing to zero.
+    """
 
+    n_last_points_to_match: int = 5
 
-
-    def predict(self):
-        divisor = np.maximum(self.extrapolate_from, 1e-10)[:self.n_historic]
-        share = self.data_to_extrapolate / divisor
-        scale_factor = (0.3 * share[-1] +
-                        0.25 * share[-2] +
-                        0.2 * share[-3] +
-                        0.15 * share[-4] +
-                        0.1 * share[-5])
-        prediction = self.extrapolate_from * scale_factor
-
-        return prediction
+    def regress(self):
+        """"
+        Formula a = sum_i (w_i x_i y_i) / sum_i (w_i x_i^2) is the result of the weighted least squares regression
+        a = argmin sum_i (w_i (a * x_i - y_i)^2).
+        """
+        regression_x = self.target_range[self.n_historic-self.n_last_points_to_match-1:self.n_historic]
+        regression_y = self.data_to_extrapolate[-self.n_last_points_to_match:]
+        regression_weights = np.arange(1, self.n_last_points_to_match + 1)
+        regression_weights = regression_weights / regression_weights.sum()
+        slope = np.sum(regression_x * regression_y * regression_weights) / np.sum(regression_x**2 * regression_weights)
+        regression = self.target_range * slope
+        return regression
 
 
 class SigmoidalExtrapolation(Extrapolation):
 
     def initial_guess(self):
-        return np.array([2.*self.extrapolate_from[self.n_historic-1], self.data_to_extrapolate[-1]])
+        return np.array([2.*self.target_range[self.n_historic-1], self.data_to_extrapolate[-1]])
 
     def fitting_function(self, prms):
         return (
-            prms[0] / (1. + np.exp(prms[1]/self.extrapolate_from[:self.n_historic]))
+            prms[0] / (1. + np.exp(prms[1]/self.target_range[:self.n_historic]))
         ) - self.data_to_extrapolate
 
-    def predict(self):
+    def regress(self):
         prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.e-12)
-        prediction = prms_out.x[0] / (1. + np.exp(prms_out.x[1] / self.extrapolate_from))
-        return prediction
+        regression = prms_out.x[0] / (1. + np.exp(prms_out.x[1] / self.target_range))
+        return regression
 
 
 class ExponentialExtrapolation(Extrapolation):
 
     def initial_guess(self):
         current_level = self.data_to_extrapolate[-1]
-        current_extrapolator = self.extrapolate_from[self.n_historic - 1]
-        initial_saturation_level = 2. * current_level if current_level != 0.0 else 1.0
+        current_extrapolator = self.target_range[self.n_historic - 1]
+        initial_saturation_level = 2. * current_level if np.max(np.abs(current_level)) > sys.float_info.epsilon else 1.0
         initial_stretch_factor = - np.log(1 -  current_level / initial_saturation_level) / current_extrapolator
 
         return np.array([initial_saturation_level, initial_stretch_factor])
 
     def fitting_function(self, prms):
         return (
-            prms[0] * (1 - np.exp(-prms[1]*self.extrapolate_from[:self.n_historic]))
+            prms[0] * (1 - np.exp(-prms[1]*self.target_range[:self.n_historic]))
         ) - self.data_to_extrapolate
 
-    def predict(self):
+    def regress(self):
         prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.e-12)
-        prediction = (prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.extrapolate_from)))
+        regression = (prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.target_range)))
 
-        return prediction
+        return regression

@@ -1,12 +1,12 @@
 from sodym import (
     MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition,
-    Process, FlowDrivenStock
+    Process, FlowDrivenStock, Stock, Parameter
 )
 from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
 from sodym.flow_helper import make_empty_flows
 
 from simson.common.common_cfg import CommonCfg
-from simson.common.data_transformations import extrapolate_stock, scale_parameter_to_future, split_parameter_to_sectors
+from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.custom_visualization import CustomDataVisualizer
 from simson.steel.stock_driven_steel import StockDrivenSteelMFASystem
@@ -111,47 +111,66 @@ class SteelModel:
         stock=dsm.stock, inflow=dsm.inflow, outflow=dsm.outflow, name='in_use', process_name='use',
         process=self.processes['use'],)
 
-    def extrapolate_trade_to_future(self, future_in_use_stock):
+    def extrapolate_trade_to_future(self, future_in_use_stock: Stock):
         """
         Scale trade flow to the future with new in-use stock inflow and outflow information.
         TODO: This could be here or within the stock driven MFA. -> Decide
         """
 
-        prm = self.parameters
-        inflow = future_in_use_stock.inflow
-        outflow = future_in_use_stock.outflow
+        trade_prm_names = [
+            'direct_imports',
+            'direct_exports',
+            'indirect_imports',
+            'indirect_exports',
+            'scrap_imports',
+            'scrap_exports'
+        ]
+        historic_trade = {name: self.parameters[name] for name in trade_prm_names}
+        product_demand = future_in_use_stock.inflow
+        eol_products = future_in_use_stock.outflow
+
+        future_trade = {name: Parameter(name=name, dims=prm.dims.replace('h', self.dims['t']))
+                        for name, prm in historic_trade.items()}
 
         # indirect trade
 
-        prm['indirect_imports'] = scale_parameter_to_future(historic_parameter=prm['indirect_imports'],
-                                                            scaler=inflow)
-        global_indirect_imports = prm['indirect_imports'].sum_nda_over(sum_over_dims='r')
-        prm['indirect_exports'] = scale_parameter_to_future(historic_parameter=prm['indirect_exports'],
-                                                            scaler=global_indirect_imports)
+        future_trade['indirect_imports'][...] = extrapolate_to_future(
+            historic_values=historic_trade['indirect_imports'],
+            scale_by=product_demand)
+
+        global_indirect_imports = historic_trade['indirect_imports'].sum_nda_over(sum_over_dims='r')
+        future_trade['indirect_exports'][...] = extrapolate_to_future(
+            historic_values=historic_trade['indirect_exports'],
+            scale_by=global_indirect_imports)
 
         # intermediate trade
 
-        sum_inflow = inflow.sum_nda_over(sum_over_dims='g')
-        prm['direct_imports'] = scale_parameter_to_future(historic_parameter=prm['direct_imports'],
-                                                          scaler=sum_inflow)
-        global_direct_imports = prm['direct_imports'].sum_nda_over(sum_over_dims='r')
-        prm['direct_exports'] = scale_parameter_to_future(historic_parameter=prm['direct_exports'],
-                                                          scaler=global_direct_imports)
+        total_product_demand = product_demand.sum_nda_over(sum_over_dims='g')
+        future_trade['direct_imports'][...] = extrapolate_to_future(
+            historic_values=historic_trade['direct_imports'],
+            scale_by=total_product_demand)
+
+        global_direct_imports = historic_trade['direct_imports'].sum_nda_over(sum_over_dims='r')
+        future_trade['direct_exports'][...] = extrapolate_to_future(
+            historic_values=historic_trade['direct_exports'],
+            scale_by=global_direct_imports)
 
         # scrap trade
 
-        sum_outflow = outflow.sum_nda_over(sum_over_dims='g')
-        prm['scrap_exports'] = scale_parameter_to_future(historic_parameter=prm['scrap_exports'],
-                                                            scaler=sum_outflow)
-        global_scrap_exports = prm['scrap_exports'].sum_nda_over(sum_over_dims='r')
-        prm['scrap_imports'] = scale_parameter_to_future(historic_parameter=prm['scrap_imports'],
-                                                            scaler=global_scrap_exports)
+        total_eol_products = eol_products.sum_nda_over(sum_over_dims='g')
+        total_scrap_exports = extrapolate_to_future(
+            historic_values=historic_trade['scrap_exports'],
+            scale_by=total_eol_products) # shouldn't this be total _collected_ scrap?
 
-        prm['scrap_exports'] = split_parameter_to_sectors(to_split=prm['scrap_exports'],
-                                                          split_by=outflow)
-        global_scrap_exports_split = prm['scrap_exports'].sum_nda_over(sum_over_dims='r')
-        prm['scrap_imports'] = split_parameter_to_sectors(to_split=prm['scrap_imports'],
-                                                          split_by=global_scrap_exports_split)
+        global_scrap_exports = historic_trade['scrap_exports'].sum_nda_over(sum_over_dims='r')
+        total_scrap_imports = extrapolate_to_future(
+            historic_values=historic_trade['scrap_imports'],
+            scale_by=global_scrap_exports)
+
+        future_trade['scrap_exports'][...] = total_scrap_exports * eol_products.get_shares_over('g')
+        future_trade['scrap_imports'][...] = total_scrap_imports * historic_trade['scrap_exports'].get_shares_over('g')
+
+        self.parameters.update(future_trade)
 
     def make_future_mfa(self, future_in_use_stock):
         future_dims = self.dims.drop('h', inplace=False)
