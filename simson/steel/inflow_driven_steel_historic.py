@@ -16,8 +16,6 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
     def compute_historic_flows(self):
         prm = self.parameters
         flw = self.flows
-        stk = self.stocks
-        scp = self.scalar_parameters
 
         aux = {
             'net_intermediate_trade': self.get_new_array(dim_letters=('h','r','i')),
