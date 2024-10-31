@@ -26,7 +26,7 @@ visualization:
     do_visualize: True
     slice_dict:
       t: 2050
-    split_flows_by: 'Material'
+    split_flows_by: 'Good'
     color_scheme: 'blueish'
     flow_color: 'hsl(230,20,70)'
     exclude_processes:

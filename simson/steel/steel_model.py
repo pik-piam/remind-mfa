@@ -129,7 +129,10 @@ class SteelModel:
         product_demand = future_in_use_stock.inflow
         eol_products = future_in_use_stock.outflow
 
-        future_trade = {name: Parameter(name=name, dims=prm.dims.replace('h', self.dims['t']))
+        future_trade = {name: Parameter(name=name,
+                                        dims=prm.dims.replace('h', self.dims['t']).expand_by([self.dims['g']])
+                                            if 'scrap' in name
+                                            else prm.dims.replace('h', self.dims['t']))
                         for name, prm in historic_trade.items()}
 
         # indirect trade
@@ -138,7 +141,7 @@ class SteelModel:
             historic_values=historic_trade['indirect_imports'],
             scale_by=product_demand)
 
-        global_indirect_imports = historic_trade['indirect_imports'].sum_nda_over(sum_over_dims='r')
+        global_indirect_imports = future_trade['indirect_imports'].sum_nda_over(sum_over_dims='r')
         future_trade['indirect_exports'][...] = extrapolate_to_future(
             historic_values=historic_trade['indirect_exports'],
             scale_by=global_indirect_imports)
@@ -150,7 +153,7 @@ class SteelModel:
             historic_values=historic_trade['direct_imports'],
             scale_by=total_product_demand)
 
-        global_direct_imports = historic_trade['direct_imports'].sum_nda_over(sum_over_dims='r')
+        global_direct_imports = future_trade['direct_imports'].sum_nda_over(sum_over_dims='r')
         future_trade['direct_exports'][...] = extrapolate_to_future(
             historic_values=historic_trade['direct_exports'],
             scale_by=global_direct_imports)
@@ -162,13 +165,13 @@ class SteelModel:
             historic_values=historic_trade['scrap_exports'],
             scale_by=total_eol_products) # shouldn't this be total _collected_ scrap?
 
-        global_scrap_exports = historic_trade['scrap_exports'].sum_nda_over(sum_over_dims='r')
+        global_scrap_exports = total_scrap_exports.sum_nda_over(sum_over_dims='r')
         total_scrap_imports = extrapolate_to_future(
             historic_values=historic_trade['scrap_imports'],
             scale_by=global_scrap_exports)
 
         future_trade['scrap_exports'][...] = total_scrap_exports * eol_products.get_shares_over('g')
-        future_trade['scrap_imports'][...] = total_scrap_imports * historic_trade['scrap_exports'].get_shares_over('g')
+        future_trade['scrap_imports'][...] = total_scrap_imports * future_trade['scrap_exports'].get_shares_over('g')
 
         self.parameters.update(future_trade)
 
