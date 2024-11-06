@@ -21,13 +21,13 @@ class CustomDataReader(ExampleDataReader):
         self.input_data_path = input_data_path
         scalar_data_yaml = os.path.join(input_data_path, 'scalar_parameters.yml')
         super().__init__(scalar_data_yaml, {}, {})
-    
+
     def read_parameter_values(self, parameter: str, dims):
         self.parameter_datasets[parameter] = os.path.join(
             self.input_data_path, 'datasets', f'{parameter}.csv'
         )
         return super().read_parameter_values(parameter=parameter, dims=dims)
-    
+
     def read_dimension(self, definition: DimensionDefinition):
         dimension_filename = self.dimension_map[definition.name]
         self.dimension_datasets[definition.name] = os.path.join(
