@@ -6,12 +6,12 @@ from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
 from sodym.flow_helper import make_empty_flows
 
 from simson.common.common_cfg import CommonCfg
-from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
+from simson.common.data_transformations import extrapolate_stock
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.custom_export import CustomDataExporter
 from simson.steel.stock_driven_steel import StockDrivenSteelMFASystem
 from simson.steel.inflow_driven_steel_historic import InflowDrivenHistoricSteelMFASystem
-from simson.steel.steel_trade_module import SteelTradeModule
+from simson.steel.steel_trade_model import SteelTradeModel
 
 
 class SteelModel:
@@ -39,15 +39,15 @@ class SteelModel:
         }
 
     def run(self):
-        trade_module = self.make_trade_module()
-        trade_module.balance_historic_trade()
-        historic_mfa = self.make_historic_mfa(trade_module)
+        trade_model = self.make_trade_model()
+        trade_model.balance_historic_trade()
+        historic_mfa = self.make_historic_mfa(trade_model)
         historic_mfa.compute()
         historic_in_use_stock = historic_mfa.stocks['in_use'].stock
         future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
-        trade_module.predict(future_in_use_stock)
-        trade_module.balance_future_trade()
-        mfa = self.make_future_mfa(future_in_use_stock, trade_module)
+        trade_model.predict(future_in_use_stock)
+        trade_model.balance_future_trade()
+        mfa = self.make_future_mfa(future_in_use_stock, trade_model)
         mfa.compute()
         self.data_writer.export_mfa(mfa=mfa)
         self.data_writer.visualize_results(mfa=mfa)
@@ -96,7 +96,7 @@ class SteelModel:
             dims=historic_dims,
             flows=flows,
             stocks=stocks,
-            trade_module=trade_module,
+            trade_data=trade_module.historic_trade,
         )
 
     def create_future_stock_from_historic(self, historic_in_use_stock):
@@ -117,7 +117,7 @@ class SteelModel:
         process=self.processes['use'],)
 
 
-    def make_trade_module(self):
+    def make_trade_model(self):
         """
         Create a trade module that stores and calculates the trade flows between regions and sectors.
         """
@@ -131,7 +131,7 @@ class SteelModel:
         ]
         trade_prms = {name: self.parameters[name] for name in trade_prm_names}
         self.parameters = {name : self.parameters[name] for name in self.parameters if name not in trade_prm_names}
-        return SteelTradeModule(dims=self.dims, trade_data=trade_prms)
+        return SteelTradeModel(dims=self.dims, trade_data=trade_prms)
 
     def make_future_mfa(self, future_in_use_stock, trade_module):
         future_dims = self.dims.drop('h', inplace=False)
@@ -148,7 +148,7 @@ class SteelModel:
         stocks['use'] = future_in_use_stock
         return StockDrivenSteelMFASystem(
             dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
-            processes=self.processes, flows=flows, stocks=stocks, trade_module=trade_module,
+            processes=self.processes, flows=flows, stocks=stocks, trade_data=trade_module.future_trade,
         )
 
 

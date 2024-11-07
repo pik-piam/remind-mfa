@@ -62,9 +62,21 @@ class WeightedProportionalExtrapolation(Extrapolation):
         """
         regression_x = self.target_range[self.n_historic-self.n_last_points_to_match:self.n_historic]
         regression_y = self.data_to_extrapolate[-self.n_last_points_to_match:]
+
+        # move last points axis to back for multiplication
+        regression_x = np.moveaxis(regression_x, 0, -1)
+        regression_y = np.moveaxis(regression_y, 0, -1)
+
+        # calculate weights
         regression_weights = np.arange(1, self.n_last_points_to_match + 1)
         regression_weights = regression_weights / regression_weights.sum()
-        slope = np.sum(regression_x.transpose() * regression_y.transpose() * regression_weights) / np.sum(regression_x.transpose()**2 * regression_weights)
+
+        # calculate slope
+        slope_dividend = np.sum(regression_x * regression_y * regression_weights, axis=-1)
+        slope_divisor = np.sum(regression_x**2 * regression_weights, axis=-1)
+        slope_divisor[slope_divisor==0] = sys.float_info.epsilon  # avoid division by zero, slope will be zero anyways
+        slope = slope_dividend / slope_divisor
+
         regression = self.target_range * slope
         return regression
 
