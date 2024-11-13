@@ -1,10 +1,10 @@
 from sodym import MFASystem
 from sodym.trade import Trade
-from typing import Dict
+from simson.steel.steel_trade_model import SteelTradeModel
 
 class StockDrivenSteelMFASystem(MFASystem):
 
-    trade_data : Dict[str, Trade]
+    trade_model : SteelTradeModel
 
     def compute(self):
         """
@@ -20,7 +20,7 @@ class StockDrivenSteelMFASystem(MFASystem):
         flw = self.flows
         stk = self.stocks
         scp = self.scalar_parameters
-        trd = self.trade_data
+        trd = self.trade_model
 
         # auxiliary arrays;
         # It is important to initialize them to define their dimensions. See the NamedDimArray documentation for details.
@@ -48,8 +48,8 @@ class StockDrivenSteelMFASystem(MFASystem):
         # Pre-use
 
 
-        flw['sysenv => use']['Fe'][...]                 = trd['Indirect']['Imports']
-        flw['use => sysenv']['Fe'][...]                 = trd['Indirect']['Exports']
+        flw['sysenv => use']['Fe'][...]                 = trd.indirect.imports
+        flw['use => sysenv']['Fe'][...]                 = trd.indirect.exports
 
         aux['net_indirect_trade'][...]                  = flw['sysenv => use']                  -   flw['use => sysenv']
         flw['fabrication => use']['Fe'][...]            = stk['use'].inflow                     -   aux['net_indirect_trade']['Fe']
@@ -58,8 +58,8 @@ class StockDrivenSteelMFASystem(MFASystem):
         flw['fabrication => scrap_market'][...]         = aux['total_fabrication']              -   flw['fabrication => use']
         flw['ip_market => fabrication'][...]            = aux['total_fabrication']              *   prm['good_to_intermediate_distribution']
 
-        flw['sysenv => ip_market']['Fe'][...]           = trd['Intermediate']['Imports']
-        flw['ip_market => sysenv']['Fe'][...]           = trd['Intermediate']['Exports']
+        flw['sysenv => ip_market']['Fe'][...]           = trd.intermediate.imports
+        flw['ip_market => sysenv']['Fe'][...]           = trd.intermediate.exports
         aux['net_direct_trade'][...]                    = flw['sysenv => ip_market']            -   flw['ip_market => sysenv']
 
         flw['forming => ip_market'][...]                = flw['ip_market => fabrication']       -   aux['net_direct_trade']
@@ -73,8 +73,8 @@ class StockDrivenSteelMFASystem(MFASystem):
         flw['use => eol_market']['Fe'][...]             = stk['use'].outflow                    *   prm['recovery_rate']
         flw['use => obsolete']['Fe'][...]               = stk['use'].outflow                    -   flw['use => eol_market']['Fe']
 
-        flw['sysenv => eol_market']['Fe'][...]          = trd['Scrap']['Imports']
-        flw['eol_market => sysenv']['Fe'][...]          = trd['Scrap']['Exports']
+        flw['sysenv => eol_market']['Fe'][...]          = trd.scrap.imports
+        flw['eol_market => sysenv']['Fe'][...]          = trd.scrap.exports
         aux['net_scrap_trade'][...]                     = flw['sysenv => eol_market']           -   flw['eol_market => sysenv']
 
         flw['eol_market => recycling'][...]             = flw['use => eol_market']              +   aux['net_scrap_trade']

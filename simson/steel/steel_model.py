@@ -45,14 +45,14 @@ class SteelModel:
         historic_mfa.compute()
         historic_in_use_stock = historic_mfa.stocks['in_use'].stock
         future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
-        trade_model.predict(future_in_use_stock)
+        trade_model = trade_model.predict(future_in_use_stock)
         trade_model.balance_future_trade()
         mfa = self.make_future_mfa(future_in_use_stock, trade_model)
         mfa.compute()
         self.data_writer.export_mfa(mfa=mfa)
         self.data_writer.visualize_results(mfa=mfa)
 
-    def make_historic_mfa(self,  trade_module) -> InflowDrivenHistoricSteelMFASystem:
+    def make_historic_mfa(self,  trade_model) -> InflowDrivenHistoricSteelMFASystem:
         """
         Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
         subtracting Losses in steel forming from production by IP data
@@ -96,7 +96,7 @@ class SteelModel:
             dims=historic_dims,
             flows=flows,
             stocks=stocks,
-            trade_data=trade_module.historic_trade,
+            trade_model=trade_model,
         )
 
     def create_future_stock_from_historic(self, historic_in_use_stock):
@@ -131,9 +131,9 @@ class SteelModel:
         ]
         trade_prms = {name: self.parameters[name] for name in trade_prm_names}
         self.parameters = {name : self.parameters[name] for name in self.parameters if name not in trade_prm_names}
-        return SteelTradeModel(dims=self.dims, trade_data=trade_prms)
+        return SteelTradeModel.create(dims=self.dims, trade_data=trade_prms)
 
-    def make_future_mfa(self, future_in_use_stock, trade_module):
+    def make_future_mfa(self, future_in_use_stock, trade_model):
         future_dims = self.dims.drop('h', inplace=False)
         flows = make_empty_flows(
             processes=self.processes,
@@ -148,7 +148,7 @@ class SteelModel:
         stocks['use'] = future_in_use_stock
         return StockDrivenSteelMFASystem(
             dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
-            processes=self.processes, flows=flows, stocks=stocks, trade_data=trade_module.future_trade,
+            processes=self.processes, flows=flows, stocks=stocks, trade_model=trade_model,
         )
 
 

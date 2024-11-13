@@ -3,9 +3,10 @@ import numpy as np
 from numpy.linalg import inv
 from simson.common.inflow_driven_mfa import InflowDrivenHistoricMFA
 from sodym.trade import Trade
+from simson.steel.steel_trade_model import SteelTradeModel
 
 class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
-    trade_data: Dict[str, Trade]
+    trade_model: SteelTradeModel
     def compute(self):
         """
         Perform all computations for the MFA system.
@@ -18,7 +19,7 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
     def compute_historic_flows(self):
         prm = self.parameters
         flw = self.flows
-        trd = self.trade_data
+        trd = self.trade_model
 
         aux = {
             'net_intermediate_trade': self.get_new_array(dim_letters=('h','r','i')),
@@ -31,8 +32,8 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         flw['forming => ip_market'][...]        = prm['production_by_intermediate']     *   prm['forming_yield']
         flw['forming => sysenv'][...]           = flw['sysenv => forming']              -   flw['forming => ip_market']
 
-        flw['ip_market => sysenv'][...]         = trd['Intermediate']['Exports']
-        flw['sysenv => ip_market'][...]         = trd['Intermediate']['Imports']
+        flw['ip_market => sysenv'][...]         = trd.intermediate.exports
+        flw['sysenv => ip_market'][...]         = trd.intermediate.imports
 
         aux['net_intermediate_trade'][...]      = flw['sysenv => ip_market']            -   flw['ip_market => sysenv']
         flw['ip_market => fabrication'][...]    = flw['forming => ip_market']           +   aux['net_intermediate_trade']
@@ -47,11 +48,11 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         flw['fabrication => sysenv'][...]       = aux['fabrication_error']              +   aux['fabrication_loss']
 
         # Recalculate indirect trade according to available inflow from fabrication
-        trd['Indirect']['Exports'][...]        = trd['Indirect']['Exports'].minimum(flw['fabrication => use'])
-        trd['Indirect'].balance(by='minimum')
+        trd.indirect.exports[...]        = trd.indirect.exports.minimum(flw['fabrication => use'])
+        trd.indirect.balance(by='minimum')
 
-        flw['sysenv => use'][...]               = trd['Indirect']['Imports']
-        flw['use => sysenv'][...]               = trd['Indirect']['Exports']
+        flw['sysenv => use'][...]               = trd.indirect.imports
+        flw['use => sysenv'][...]               = trd.indirect.exports
 
         return
 
