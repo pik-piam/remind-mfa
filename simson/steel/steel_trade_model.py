@@ -1,6 +1,6 @@
 import sys
 
-from sodym.trade import Trade, ScalingBalancedTrade, ExtrenumBalancedTrade
+from sodym.trade import Trade
 from sodym import Parameter
 from sodym.dimensions import DimensionSet
 from simson.common.data_transformations import extrapolate_to_future
@@ -20,12 +20,12 @@ class SteelTradeModel(PydanticBaseModel):
         intermediate = Trade(imports=trade_data['direct_imports'],
                              exports=trade_data['direct_exports'],
                              balancer=Trade.balance_by_extrenum)
-        indirect = ExtrenumBalancedTrade(imports=trade_data['indirect_imports'],
-                                         exports=trade_data['indirect_exports'],
-                                         balancer = Trade.balance_by_extrenum)
-        scrap = ExtrenumBalancedTrade(imports=trade_data['scrap_imports'],
-                                      exports=trade_data['scrap_exports'],
-                                      balancer=Trade.balance_by_extrenum)
+        indirect = Trade(imports=trade_data['indirect_imports'],
+                         exports=trade_data['indirect_exports'],
+                         balancer = Trade.balance_by_extrenum)
+        scrap = Trade(imports=trade_data['scrap_imports'],
+                      exports=trade_data['scrap_exports'],
+                      balancer=Trade.balance_by_extrenum)
 
         return cls(dims=dims, intermediate=intermediate, indirect=indirect,scrap=scrap)
 
@@ -58,9 +58,10 @@ class SteelTradeModel(PydanticBaseModel):
 
     def predict_indirect_trade(self, product_demand):
         new_dims = self.indirect.imports.dims.replace('h', self.dims['t'])
-        new_indirect_trade = ScalingBalancedTrade(dims=new_dims,
-                                                  imports=Parameter(name=self.indirect.imports.name, dims=new_dims),
-                                                  exports=Parameter(name=self.indirect.exports.name, dims=new_dims))
+        new_indirect_trade = Trade(dims=new_dims,
+                                   imports=Parameter(name=self.indirect.imports.name, dims=new_dims),
+                                   exports=Parameter(name=self.indirect.exports.name, dims=new_dims),
+                                   balancer=Trade.balance_by_scaling)
 
         new_indirect_trade.imports[...] = extrapolate_to_future(
             historic_values=self.indirect.imports,
@@ -75,9 +76,10 @@ class SteelTradeModel(PydanticBaseModel):
 
     def predict_intermediate_trade(self, product_demand):
         new_dims = self.intermediate.imports.dims.replace('h', self.dims['t'])
-        new_intermediate_trade = ScalingBalancedTrade(dims=new_dims,
-                                                      imports=Parameter(name=self.intermediate.imports.name, dims=new_dims),
-                                                      exports=Parameter(name=self.intermediate.exports.name, dims=new_dims))
+        new_intermediate_trade = Trade(dims=new_dims,
+                                       imports=Parameter(name=self.intermediate.imports.name, dims=new_dims),
+                                       exports=Parameter(name=self.intermediate.exports.name, dims=new_dims),
+                                       balancer = Trade.balance_by_scaling)
 
 
         total_product_demand = product_demand.sum_nda_over(sum_over_dims='g')
@@ -96,9 +98,10 @@ class SteelTradeModel(PydanticBaseModel):
         new_dims = self.scrap.imports.dims.replace('h', self.dims['t'])
         new_dims = new_dims.expand_by([self.dims['g']])
 
-        new_scrap_trade = ScalingBalancedTrade(dims=new_dims,
-                                                  imports=Parameter(name=self.scrap.imports.name, dims=new_dims),
-                                                  exports=Parameter(name=self.scrap.exports.name, dims=new_dims))
+        new_scrap_trade = Trade(dims=new_dims,
+                                imports=Parameter(name=self.scrap.imports.name, dims=new_dims),
+                                exports=Parameter(name=self.scrap.exports.name, dims=new_dims),
+                                balancer=Trade.balance_by_scaling)
 
         total_eol_products = eol_products.sum_nda_over(sum_over_dims='g')
         total_scrap_exports = extrapolate_to_future(
