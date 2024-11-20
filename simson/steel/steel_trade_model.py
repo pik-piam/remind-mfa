@@ -17,12 +17,15 @@ class SteelTradeModel(PydanticBaseModel):
     @classmethod
     def create(cls, dims: DimensionSet, trade_data: dict):
         """Create a new instance of the SteelTradeModel class."""
-        intermediate = ExtrenumBalancedTrade(imports=trade_data['direct_imports'],
-                                             exports=trade_data['direct_exports'])
+        intermediate = Trade(imports=trade_data['direct_imports'],
+                             exports=trade_data['direct_exports'],
+                             balancer=Trade.balance_by_extrenum)
         indirect = ExtrenumBalancedTrade(imports=trade_data['indirect_imports'],
-                                         exports=trade_data['indirect_exports'])
+                                         exports=trade_data['indirect_exports'],
+                                         balancer = Trade.balance_by_extrenum)
         scrap = ExtrenumBalancedTrade(imports=trade_data['scrap_imports'],
-                                      exports=trade_data['scrap_exports'])
+                                      exports=trade_data['scrap_exports'],
+                                      balancer=Trade.balance_by_extrenum)
 
         return cls(dims=dims, intermediate=intermediate, indirect=indirect,scrap=scrap)
 
@@ -48,14 +51,10 @@ class SteelTradeModel(PydanticBaseModel):
         product_demand = future_in_use_stock.inflow
         eol_products = future_in_use_stock.outflow
 
-        new_indirect_trade = self.predict_indirect_trade(product_demand)
-        new_intermediate_trade = self.predict_intermediate_trade(product_demand)
-        new_scrap_trade = self.predict_scrap_trade(eol_products)
-
         return SteelTradeModel(dims=self.dims,
-                               intermediate=new_intermediate_trade,
-                               indirect=new_indirect_trade,
-                               scrap=new_scrap_trade)
+                               intermediate=self.predict_intermediate_trade(product_demand),
+                               indirect=self.predict_indirect_trade(product_demand),
+                               scrap=self.predict_scrap_trade(eol_products))
 
     def predict_indirect_trade(self, product_demand):
         new_dims = self.indirect.imports.dims.replace('h', self.dims['t'])
