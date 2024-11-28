@@ -1,12 +1,11 @@
-from typing import Dict
 import numpy as np
 from numpy.linalg import inv
 from simson.common.inflow_driven_mfa import InflowDrivenHistoricMFA
-from sodym.trade import Trade
 from simson.steel.steel_trade_model import SteelTradeModel
 
 class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
     trade_model: SteelTradeModel
+
     def compute(self):
         """
         Perform all computations for the MFA system.

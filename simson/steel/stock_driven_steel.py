@@ -1,5 +1,4 @@
 from sodym import MFASystem
-from sodym.trade import Trade
 from simson.steel.steel_trade_model import SteelTradeModel
 
 class StockDrivenSteelMFASystem(MFASystem):
