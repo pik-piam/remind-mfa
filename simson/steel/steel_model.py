@@ -272,6 +272,13 @@ class SteelModel:
             ParameterDefinition(name='gdppc', dim_letters=('t', 'r')),
             ParameterDefinition(name='lifetime_mean', dim_letters=('r', 'g')),
             ParameterDefinition(name='lifetime_std', dim_letters=('r', 'g')),
+
+            ParameterDefinition(name='pigiron_production', dim_letters=('h', 'r')),
+            ParameterDefinition(name='pigiron_imports', dim_letters=('h', 'r')),
+            ParameterDefinition(name='pigiron_exports', dim_letters=('h', 'r')),
+            ParameterDefinition(name='dri_production', dim_letters=('h', 'r')),
+            ParameterDefinition(name='dri_imports', dim_letters=('h', 'r')),
+            ParameterDefinition(name='dri_exports', dim_letters=('h', 'r')),
         ]
 
         scalar_parameters = ['max_scrap_share_base_model','scrap_in_bof_rate','forming_losses','production_yield']

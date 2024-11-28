@@ -102,6 +102,47 @@ class StockDrivenSteelMFASystem(MFASystem):
         flw['eaf_production => forming'][...]           = flw['scrap_market => eaf_production'] *   scp['production_yield']
         flw['eaf_production => sysenv'][...]            = flw['scrap_market => eaf_production'] -   flw['eaf_production => forming']
 
+        # todo: delete
+        import numpy as np
+        production = prm['production'].values
+        total_production = aux['production_inflow'].values[:123,0]
+        dri = (prm['dri_production'] + prm['dri_imports'] - prm['dri_exports']).values
+        pigiron = (prm['pigiron_production'] + prm['pigiron_imports'] - prm['pigiron_exports']).values
+
+        scrap_demand = total_production - ((928.4-23.6)/948.4) * pigiron -dri
+        scrap_supply = aux['available_scrap'].values[:123,0]
+
+        error = np.abs(scrap_demand - scrap_supply)/production
+        average_error = np.average(error)
+
+        print(f'error: {average_error}')
+
+        import plotly.express as px
+        import pandas as pd
+        regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
+
+        for r, region in enumerate(regions):
+            #visualise scrap demand vs scrap supply
+            fig = px.line(x=range(1900,2023), y=[scrap_demand[:,r], scrap_supply[:,r]], title=f'{region} scrap demand vs supply')
+            fig.write_image(f"{region}_demand_vs_supply.png")
+        global_scrap_demand = np.sum(scrap_demand, axis=1)
+        global_scrap_supply = np.sum(scrap_supply, axis=1)
+        fig = px.line(x=range(1900,2023), y=[global_scrap_demand, global_scrap_supply], title='Global scrap demand vs supply')
+        fig.write_image("global_demand_vs_supply.png")
+
+        difference = scrap_demand - scrap_supply
+        df_difference = pd.DataFrame(difference, columns=regions)
+        df_difference['Time (y)'] = range(1900,2023)
+        fig = px.line(df_difference, x='Time (y)', y=regions,
+                     title='Old scrap demand - supply by region')
+        fig.show()
+
+        df_error = pd.DataFrame(error, columns=regions)
+        df_error['Time (y)'] = range(1900,2023)
+        fig = px.bar(df_error, x='Time (y)', y=regions, barmode='stack',
+                     title='Old scrap demand/supply error as share of production (in stacked %)')
+        fig.show()
+
         return
 
     def compute_other_stocks(self):
@@ -115,4 +156,3 @@ class StockDrivenSteelMFASystem(MFASystem):
 
         stk['excess_scrap'].inflow[...] = flw['scrap_market => excess_scrap']
         stk['excess_scrap'].compute()
-
