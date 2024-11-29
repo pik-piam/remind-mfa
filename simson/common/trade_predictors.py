@@ -24,12 +24,15 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
         "Trade data must have a historic time dimension."
 
     scale_second = 'Exports' if scale_first == 'Imports' else 'Imports'
-    future_dims = trade.imports.dims.replace('h', scaler.dims['t'])
 
     # predict via extrapolation
 
-    total_scaler = scaler.sum_nda_to(future_dims.intersect_with(scaler.dims).letters)
+    ## The scaler needs to be summed across dimensions that the historic trade doesn't have for the extrapolation
+    historic_dims_with_t_dimension = trade.imports.dims.replace('h', scaler.dims['t'])
+    total_scaler = scaler.sum_nda_to(historic_dims_with_t_dimension.intersect_with(scaler.dims).letters)
 
+    ## The extrapolate_to_future function uses the WeightedProportionalExtrapolation, basically a linear regression
+    ## so that the share of the historic trade in the scaler is kept constant
     future_scale_first = (
         extrapolate_to_future(historic_values=trade[scale_first],
                               scale_by=total_scaler))
@@ -39,6 +42,8 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
     future_scale_second = extrapolate_to_future(historic_values=trade[scale_second],
                                                 scale_by=global_scale_first)
     if adopt_scaler_dims:
+        ## If the scaler has more dimensions than the historic trade, the historic trade data is split into the missing
+        ## dimensions of the scaler, adapting the same sector split as the scaler.
         missing_dims = scaler.dims.difference_with(future_scale_first.dims)
         future_scale_first = future_scale_first * scaler.get_shares_over(missing_dims.letters)
         global_scale_first = future_scale_first.sum_nda_over(sum_over_dims='r')
@@ -46,7 +51,7 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
 
     # create future trade object
 
-    future_dims = scaler.dims if adopt_scaler_dims else future_dims
+    future_dims = scaler.dims if adopt_scaler_dims else historic_dims_with_t_dimension
     future_trade = Trade(dims=future_dims,
                          imports=Parameter(name=trade.imports.name, dims=future_dims),
                          exports=Parameter(name=trade.exports.name, dims=future_dims),

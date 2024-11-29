@@ -4,14 +4,13 @@ from pydantic import model_validator
 from sodym.named_dim_arrays import Parameter
 from typing import Optional, Callable
 
+
 class Trade(PydanticBaseModel):
     """ A TradeModule handles the storing and calculation of trade data for a given MFASystem."""
 
-    imports : Parameter
-    exports : Parameter
-    balancer : Optional[Callable] = None
-    predictor : Optional[Callable] = None
-
+    imports: Parameter
+    exports: Parameter
+    balancer: Optional[Callable] = None
 
     @model_validator(mode='after')
     def validate_region_dimension(self):
@@ -25,7 +24,6 @@ class Trade(PydanticBaseModel):
         assert self.imports.dims == self.exports.dims, "Imports and Exports must have the same dimensions."
 
         return self
-
 
     def balance(self, **kwargs):
         if self.balancer is not None:
@@ -56,4 +54,3 @@ class Trade(PydanticBaseModel):
             self.exports = value
         else:
             raise KeyError(f"Key {key} has to be either 'Imports' or 'Exports'.")
-
