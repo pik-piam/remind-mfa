@@ -19,11 +19,14 @@ def balance_by_extrenum(trade, by: str, inplace=False):
     import_factor = reference_trade / global_imports.maximum(sys.float_info.epsilon)
     export_factor = reference_trade / global_exports.maximum(sys.float_info.epsilon)
 
-    if not inplace:
-        trade = Trade(imports=trade.imports, exports=trade.exports, balancer=trade.balancer)
+    new_imports = trade.imports * import_factor
+    new_exports = trade.exports * export_factor
 
-    trade.imports = trade.imports * import_factor
-    trade.exports = trade.exports * export_factor
+    if not inplace:
+        return Trade(imports=new_imports, exports=new_exports, balancer=trade.balancer)
+
+    trade.imports = new_imports
+    trade.exports = new_exports
 
     return trade
 
@@ -37,11 +40,13 @@ def balance_by_scaling(trade, inplace=False):
     global_absolute_net_trade = global_absolute_net_trade.maximum(sys.float_info.epsilon)
 
     new_net_trade = net_trade * (1 - net_trade.sign() * global_net_trade / global_absolute_net_trade)
+    new_imports = new_net_trade.maximum(0)
+    new_exports = new_net_trade.minimum(0).abs()
 
     if not inplace:
-        trade = Trade(imports=trade.imports, exports=trade.exports, balancer=trade.balancer)
+        return Trade(imports=new_imports, exports=new_exports, balancer=trade.balancer)
 
-    trade.imports = new_net_trade.maximum(0)
-    trade.exports = new_net_trade.minimum(0).abs()
+    trade.imports = new_imports
+    trade.exports = new_exports
 
     return trade
