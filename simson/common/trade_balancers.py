@@ -1,5 +1,6 @@
 import sys
 from simson.common.trade import Trade
+from sodym import Parameter
 
 
 def balance_by_extrenum(trade, by: str, inplace=False):

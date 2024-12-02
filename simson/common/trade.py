@@ -1,17 +1,15 @@
-from trade_balancers import balance_by_extrenum, balance_by_scaling
-from pydantic.functional_validators import field_validator
-from pydantic import BaseModel as PydanticBaseModel, ValidationError
+from pydantic import BaseModel as PydanticBaseModel
 from pydantic import model_validator
-from sodym.named_dim_arrays import Parameter
+from sodym.named_dim_arrays import NamedDimArray
 from typing import Optional, Callable
 
 
 class Trade(PydanticBaseModel):
     """ A TradeModule handles the storing and calculation of trade data for a given MFASystem."""
 
-    imports: Parameter
-    exports: Parameter
-    balancer: Optional[Callable] = None
+    imports: NamedDimArray
+    exports: NamedDimArray
+    balancer: Optional[Callable] = None  # e.g. functions defined in trade_balancers.py
 
     @model_validator(mode='after')
     def validate_region_dimension(self):
@@ -25,14 +23,6 @@ class Trade(PydanticBaseModel):
         assert self.imports.dims == self.exports.dims, "Imports and Exports must have the same dimensions."
 
         return self
-
-    @field_validator('balancer')
-    @staticmethod
-    def check_balancer(v: Callable) -> Callable:
-        valid_balancers = [balance_by_extrenum, balance_by_scaling]
-        if v and (v not in valid_balancers):
-            raise ValidationError(f"Balancer must be one of {valid_balancers}.")
-        return v
 
     def balance(self, **kwargs):
         if self.balancer is not None:
