@@ -1,11 +1,9 @@
 from simson.common.data_transformations import extrapolate_to_future
 from simson.common.trade import Trade
-from simson.common.trade_balancers import balance_by_scaling
-from sodym import Parameter
+from sodym import Parameter, NamedDimArray
 
 
-def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims: bool = False, do_balance: bool = True,
-                             balancer=balance_by_scaling):
+def predict_by_extrapolation(trade: Trade, scaler: NamedDimArray, scale_first: str, adopt_scaler_dims: bool = False, balance_to: str = None):
     """
     Predict future trade values by extrapolating the trade data using a given scaler.
     :param trade: Trade object with historic trade data.
@@ -13,8 +11,7 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
     :param scale_first: str, either 'Imports' or 'Exports', indicating which trade values to scale first and
                         use as a scaler for the other trade values (scale_second).
     :param adopt_scaler_dims: bool, whether to adopt the dimensions of the scaler or use the ones of the trade data.
-    :param do_balance: bool, whether to balance the future trade data.
-    :param balancer: callable, function to balance the future trade data, here we use balance_by_scaling as a default.
+    :param balance_to: str, which method to use for balancing the future trade data. If None, no balancing is done.
     """
 
     # prepare prediction
@@ -54,15 +51,14 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
     future_dims = scaler.dims if adopt_scaler_dims else historic_dims_with_t_dimension
     future_trade = Trade(dims=future_dims,
                          imports=Parameter(name=trade.imports.name, dims=future_dims),
-                         exports=Parameter(name=trade.exports.name, dims=future_dims),
-                         balancer=balancer)
+                         exports=Parameter(name=trade.exports.name, dims=future_dims))
 
     future_trade[scale_first][...] = future_scale_first
     future_trade[scale_second][...] = future_scale_second
 
     # balance
 
-    if do_balance:
-        future_trade.balance()
+    if balance_to is not None:
+        future_trade.balance(to=balance_to, inplace=True)
 
     return future_trade
