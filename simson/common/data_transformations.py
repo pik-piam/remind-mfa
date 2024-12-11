@@ -1,4 +1,3 @@
-from copy import copy
 import numpy as np
 
 from sodym import (
@@ -12,16 +11,16 @@ from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolatio
 def extrapolate_stock(
         historic_stocks: StockArray, dims: DimensionSet,
         parameters: dict[str, Parameter], curve_strategy: str
-        ):
+):
     """Performs the per-capita transformation and the extrapolation."""
 
     # transform to per capita
     pop = parameters['population']
-    historic_pop       = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
-    historic_gdppc     = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
-    historic_stocks_pc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r','g'))
-    stocks_pc          = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
-    stocks             = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
+    historic_pop = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h', 'r'))
+    historic_gdppc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h', 'r'))
+    historic_stocks_pc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h', 'r', 'g'))
+    stocks_pc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t', 'r', 'g'))
+    stocks = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t', 'r', 'g'))
 
     historic_pop[...] = pop[{'t': dims['h']}]
     historic_gdppc[...] = parameters['gdppc'][{'t': dims['h']}]
@@ -39,12 +38,11 @@ def extrapolate_stock(
     # transform back to total stocks
     stocks[...] = stocks_pc * pop
 
-    #visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
+    # visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
     return StockArray(**dict(stocks))
 
 
-def extrapolate_to_future(historic_values : NamedDimArray, scale_by : NamedDimArray) -> NamedDimArray:
-
+def extrapolate_to_future(historic_values: NamedDimArray, scale_by: NamedDimArray) -> NamedDimArray:
     if not historic_values.dims.letters[0] == 'h':
         raise ValueError("First dimension of historic_parameter must be historic time.")
     if not scale_by.dims.letters[0] == 't':
@@ -91,20 +89,20 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
             pure_prediction[:, i_region, i_good] = extrapolation.regress()
 
     prediction_out[...] = pure_prediction - (
-        pure_prediction[n_historic - 1, :, :] - historic_stocks_pc[n_historic - 1, :, :]
-        )
-    prediction_out[:n_historic,:,:] = historic_stocks_pc
+            pure_prediction[n_historic - 1, :, :] - historic_stocks_pc[n_historic - 1, :, :]
+    )
+    prediction_out[:n_historic, :, :] = historic_stocks_pc
 
 
 def prepare_stock_for_mfa(
         dims: DimensionSet, dsm: DynamicStockModel, prm: dict[str, Parameter], use: Process
-    ):
+):
     # We use an auxiliary stock for the prediction step to save dimensions and computation time
     # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
     stock_extd = dsm.stock * prm['material_shares_in_goods'] * prm['carbon_content_materials']
     inflow = dsm.inflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
     outflow = dsm.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    stock_dims = dims.get_subset(('t','r','g','m','e'))
+    stock_dims = dims.get_subset(('t', 'r', 'g', 'm', 'e'))
     stock_extd = StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
     inflow = StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)
     outflow = StockArray(values=outflow.values, name='in_use_outflow', dims=stock_dims)
@@ -113,3 +111,15 @@ def prepare_stock_for_mfa(
         process=use,
     )
     return stock
+
+
+def transform_t_to_hist(ndarray: NamedDimArray, dims: DimensionSet):
+    """Transforms an array with time dimension to an array with historic time dimension."""
+    hist_dim = dims['h']
+    time_dim = dims['t']
+    assert time_dim.items[
+           :len(hist_dim.items)] == hist_dim.items, "Time dimension must start with historic time dimension."
+    new_dims = ndarray.dims.replace('t', hist_dim)
+    hist_array = NamedDimArray.from_dims_superset(dims_superset=new_dims, dim_letters=new_dims.letters)
+    hist_array.values = ndarray.values[:len(hist_dim.items)]
+    return hist_array

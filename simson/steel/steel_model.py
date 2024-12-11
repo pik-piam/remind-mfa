@@ -8,7 +8,7 @@ from sodym.flow_helper import make_empty_flows
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock
 from simson.common.custom_data_reader import CustomDataReader
-from simson.common.custom_export import CustomDataExporter
+from simson.steel.steel_export import SteelDataExporter
 from simson.steel.stock_driven_steel import StockDrivenSteelMFASystem
 from simson.steel.inflow_driven_steel_historic import InflowDrivenHistoricSteelMFASystem
 from simson.steel.steel_trade_model import SteelTradeModel
@@ -20,7 +20,7 @@ class SteelModel:
         self.cfg = cfg
         self.definition = self.set_up_definition()
         self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path)
-        self.data_writer = CustomDataExporter(
+        self.data_writer = SteelDataExporter(
             **dict(self.cfg.visualization), output_path=self.cfg.output_path,
             display_names=self.display_names
         )
@@ -52,7 +52,7 @@ class SteelModel:
         self.data_writer.export_mfa(mfa=mfa)
         self.data_writer.visualize_results(mfa=mfa)
 
-    def make_historic_mfa(self,  trade_model) -> InflowDrivenHistoricSteelMFASystem:
+    def make_historic_mfa(self, trade_model) -> InflowDrivenHistoricSteelMFASystem:
         """
         Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
         subtracting Losses in steel forming from production by IP data
@@ -63,7 +63,6 @@ class SteelModel:
         This equals the inflow into the in use stock
         via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
         """
-
 
         historic_dims = self.dims.get_subset(('h', 'e', 'r', 'i', 'g'))
         flows = make_empty_flows(
@@ -81,13 +80,13 @@ class SteelModel:
             'sysenv',
             'forming',
             'ip_market',
-            #'ip_trade', # todo decide whether to incorporate, depending on trade balancing
+            # 'ip_trade', # todo decide whether to incorporate, depending on trade balancing
             'fabrication',
-            #'indirect_trade', # todo decide whether to incorporate, depending on trade balancing
+            # 'indirect_trade', # todo decide whether to incorporate, depending on trade balancing
             'use'
         ]
 
-        processes = {p : self.processes[p] for p in historic_processes}
+        processes = {p: self.processes[p] for p in historic_processes}
         return InflowDrivenHistoricSteelMFASystem(
             cfg=self.cfg,
             parameters=self.parameters,
@@ -113,9 +112,8 @@ class SteelModel:
         )
         dsm.compute()  # gives inflows and outflows corresponding to in-use stock
         return FlowDrivenStock(
-        stock=dsm.stock, inflow=dsm.inflow, outflow=dsm.outflow, name='in_use', process_name='use',
-        process=self.processes['use'],)
-
+            stock=dsm.stock, inflow=dsm.inflow, outflow=dsm.outflow, name='in_use', process_name='use',
+            process=self.processes['use'], )
 
     def make_trade_model(self):
         """
@@ -130,27 +128,25 @@ class SteelModel:
             'scrap_exports'
         ]
         trade_prms = {name: self.parameters[name] for name in trade_prm_names}
-        self.parameters = {name : self.parameters[name] for name in self.parameters if name not in trade_prm_names}
+        self.parameters = {name: self.parameters[name] for name in self.parameters if name not in trade_prm_names}
         return SteelTradeModel.create(dims=self.dims, trade_data=trade_prms)
 
     def make_future_mfa(self, future_in_use_stock, trade_model):
-        future_dims = self.dims.drop('h', inplace=False)
         flows = make_empty_flows(
             processes=self.processes,
             flow_definitions=[f for f in self.definition.flows if 't' in f.dim_letters],
-            dims=future_dims
+            dims=self.dims
         )
         stocks = make_empty_stocks(
             processes=self.processes,
             stock_definitions=[s for s in self.definition.stocks if 't' in s.dim_letters],
-            dims=future_dims
+            dims=self.dims
         )
         stocks['use'] = future_in_use_stock
         return StockDrivenSteelMFASystem(
-            dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
+            dims=self.dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
             processes=self.processes, flows=flows, stocks=stocks, trade_model=trade_model,
         )
-
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     display_names = {
@@ -159,9 +155,9 @@ class SteelModel:
         'eaf_production': 'Production (EAF)',
         'forming': 'Forming',
         'ip_market': 'Intermediate product market',
-        #'ip_trade': 'Intermediate product trade',  # todo decide whether to incorporate, depending on trade balancing
+        # 'ip_trade': 'Intermediate product trade',  # todo decide whether to incorporate, depending on trade balancing
         'fabrication': 'Fabrication',
-        #'indirect_trade': 'Indirect trade', # todo decide whether to incorporate, depending on trade balancing
+        # 'indirect_trade': 'Indirect trade', # todo decide whether to incorporate, depending on trade balancing
         'in_use': 'Use phase',
         'obsolete': 'Obsolete stocks',
         'eol_market': 'End of life product market',
@@ -219,8 +215,8 @@ class SteelModel:
 
             FlowDefinition(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'e', 'r')),
-            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e','r')),
-            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e','r',)),
+            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e', 'r',)),
             FlowDefinition(from_process='scrap_market', to_process='eaf_production', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='eaf_production', to_process='forming', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='eaf_production', to_process='sysenv', dim_letters=('t', 'e', 'r')),
@@ -272,9 +268,17 @@ class SteelModel:
             ParameterDefinition(name='gdppc', dim_letters=('t', 'r')),
             ParameterDefinition(name='lifetime_mean', dim_letters=('r', 'g')),
             ParameterDefinition(name='lifetime_std', dim_letters=('r', 'g')),
+
+            ParameterDefinition(name='pigiron_production', dim_letters=('h', 'r')),
+            ParameterDefinition(name='pigiron_imports', dim_letters=('h', 'r')),
+            ParameterDefinition(name='pigiron_exports', dim_letters=('h', 'r')),
+            ParameterDefinition(name='pigiron_to_cast', dim_letters=('h', 'r')),
+            ParameterDefinition(name='dri_production', dim_letters=('h', 'r')),
+            ParameterDefinition(name='dri_imports', dim_letters=('h', 'r')),
+            ParameterDefinition(name='dri_exports', dim_letters=('h', 'r')),
         ]
 
-        scalar_parameters = ['max_scrap_share_base_model','scrap_in_bof_rate','forming_losses','production_yield']
+        scalar_parameters = ['max_scrap_share_base_model', 'scrap_in_bof_rate', 'forming_losses', 'production_yield']
 
         return MFADefinition(
             dimensions=dimensions,

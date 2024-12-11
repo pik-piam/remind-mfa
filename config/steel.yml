@@ -16,22 +16,22 @@ customization:
 # visualization
 visualization:
   stock:
-    do_visualize: False
+    do_visualize: True
     # options: 'time', 'gdppc'
     over: 'gdppc'
-    per_capita: False
+    per_capita: True
   production:
     do_visualize: False
   sankey:
-    do_visualize: True
+    do_visualize: False
     slice_dict:
       t: 2050
     split_flows_by: 'Good'
     color_scheme: 'blueish'
     flow_color: 'hsl(230,20,70)'
     exclude_processes:
-    - "sysenv"
-    exclude_flows: []
+      - "sysenv"
+    exclude_flows: [ ]
   do_show_figs: True
   do_save_figs: True
 

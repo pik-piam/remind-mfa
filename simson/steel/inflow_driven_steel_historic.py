@@ -3,6 +3,7 @@ from numpy.linalg import inv
 from simson.common.inflow_driven_mfa import InflowDrivenHistoricMFA
 from simson.steel.steel_trade_model import SteelTradeModel
 
+
 class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
     trade_model: SteelTradeModel
 
@@ -14,49 +15,96 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         self.compute_historic_in_use_stock()
         self.check_mass_balance()
 
-
     def compute_historic_flows(self):
         prm = self.parameters
         flw = self.flows
         trd = self.trade_model
 
         aux = {
-            'net_intermediate_trade': self.get_new_array(dim_letters=('h','r','i')),
-            'fabrication_by_sector': self.get_new_array(dim_letters=('h','r','g')),
-            'fabrication_loss': self.get_new_array(dim_letters=('h','r','g')),
-            'fabrication_error': self.get_new_array(dim_letters=('h','r'))
+            'net_intermediate_trade': self.get_new_array(dim_letters=('h', 'r', 'i')),
+            'fabrication_by_sector': self.get_new_array(dim_letters=('h', 'r', 'g')),
+            'fabrication_loss': self.get_new_array(dim_letters=('h', 'r', 'g')),
+            'fabrication_error': self.get_new_array(dim_letters=('h', 'r'))
         }
 
-        flw['sysenv => forming'][...]           = prm['production_by_intermediate']
-        flw['forming => ip_market'][...]        = prm['production_by_intermediate']     *   prm['forming_yield']
-        flw['forming => sysenv'][...]           = flw['sysenv => forming']              -   flw['forming => ip_market']
+        flw['sysenv => forming'][...] = prm['production_by_intermediate']
+        flw['forming => ip_market'][...] = prm['production_by_intermediate'] * prm['forming_yield']
+        flw['forming => sysenv'][...] = flw['sysenv => forming'] - flw['forming => ip_market']
 
-        flw['ip_market => sysenv'][...]         = trd.intermediate.exports
-        flw['sysenv => ip_market'][...]         = trd.intermediate.imports
+        flw['ip_market => sysenv'][...] = trd.intermediate.exports
+        flw['sysenv => ip_market'][...] = trd.intermediate.imports
 
-        aux['net_intermediate_trade'][...]      = flw['sysenv => ip_market']            -   flw['ip_market => sysenv']
-        flw['ip_market => fabrication'][...]    = flw['forming => ip_market']           +   aux['net_intermediate_trade']
+        aux['net_intermediate_trade'][...] = flw['sysenv => ip_market'] - flw['ip_market => sysenv']
+        flw['ip_market => fabrication'][...] = flw['forming => ip_market'] + aux['net_intermediate_trade']
 
-        aux['fabrication_by_sector'][...] = self._calc_sector_flows(flw['ip_market => fabrication'],
-                                                                    prm['good_to_intermediate_distribution'])
+        aux['fabrication_by_sector'][...] = self._calc_sector_flows_gdp_curve(flw['ip_market => fabrication'],
+                                                                              prm['gdppc'])
 
-        aux['fabrication_error']                = flw['ip_market => fabrication']       -   aux['fabrication_by_sector']
+        aux['fabrication_error'] = flw['ip_market => fabrication'] - aux['fabrication_by_sector']
 
-        flw['fabrication => use'][...]          = aux['fabrication_by_sector']          *   prm['fabrication_yield']
-        aux['fabrication_loss'][...]            = aux['fabrication_by_sector']          -   flw['fabrication => use']
-        flw['fabrication => sysenv'][...]       = aux['fabrication_error']              +   aux['fabrication_loss']
+        flw['fabrication => use'][...] = aux['fabrication_by_sector'] * prm['fabrication_yield']
+        aux['fabrication_loss'][...] = aux['fabrication_by_sector'] - flw['fabrication => use']
+        flw['fabrication => sysenv'][...] = aux['fabrication_error'] + aux['fabrication_loss']
 
         # Recalculate indirect trade according to available inflow from fabrication
-        trd.indirect.exports[...]        = trd.indirect.exports.minimum(flw['fabrication => use'])
+        trd.indirect.exports[...] = trd.indirect.exports.minimum(flw['fabrication => use'])
         trd.indirect.balance(by='minimum')
 
-        flw['sysenv => use'][...]               = trd.indirect.imports
-        flw['use => sysenv'][...]               = trd.indirect.exports
+        flw['sysenv => use'][...] = trd.indirect.imports
+        flw['use => sysenv'][...] = trd.indirect.exports
 
         return
 
+    def _calc_sector_flows_gdp_curve(self, intermediate_flow, gdppc):
+        # you have this already
+        names = ['Construction', 'Machinery', 'Products', 'Transport']
+        s_ind = np.array([0.47, 0.32, 0.10, 0.11])
+        s_usa = np.array([0.47, 0.10, 0.13, 0.30])
+        # please get exact values for this from your data
+        gdppc_ind = 2091
+        gdppc_usa = 43458
 
-    def _calc_sector_flows(self, intermediate_flow, gi_distribution):
+        # this is just the values we plot over
+        # this is the core of the calculation: sigmoid over gdppc
+        # -3 and +3 are x-values where the sigmoid has almost reached its limits (0 and 1)
+        def alpha(gdppc):
+            x = -3. + 6. * (np.log(gdppc) - np.log(gdppc_ind)) / (np.log(gdppc_usa) - np.log(gdppc_ind))
+            return 1. / (1. + np.exp(-x))
+
+        a = alpha(gdppc.values)
+        # stretch a such that it is 0 at gdppc_ind and 1 at gdppc_usa (actually overhsooting/extrpolating their values slightly)
+        a_ind = alpha(gdppc_ind)
+        a_usa = alpha(gdppc_usa)
+        a = (a - a_ind) / (a_usa - a_ind)
+
+        # s = a*s_usa + (1-a)*s_ind
+        # with correct numpy dimensions
+        s = a[:, :, np.newaxis] * s_usa + (1 - a[:, :, np.newaxis]) * s_ind
+        total_intermediate_flow = intermediate_flow.sum_nda_over('i')
+        sector_flow_values = np.einsum('hr,hrg->hrg', total_intermediate_flow.values, s[:123])
+        sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
+        sector_flows.values = sector_flow_values
+        # visualise  # TODO delete / change to array plotter!
+        visualise = False
+        if visualise:
+            regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
+            import plotly.express as px
+            import pandas as pd
+            for r, region in enumerate(regions):
+                df = pd.DataFrame(s[:123, r, :], columns=names)
+                df['year'] = range(1900, 2023)
+                fig = px.line(df, x='year', y=names, title=region)
+                fig.write_image(f"{region}_GDP_curve_sector_splits.png")
+            # global
+            global_values = s.sum(axis=1)
+            global_sector_shares = global_values / global_values.sum(axis=-1)[:, np.newaxis]
+            df = pd.DataFrame(global_sector_shares[:123, :], columns=names)
+            df['year'] = range(1900, 2023)
+            fig = px.line(df, x='year', y=names, title='Global')
+            fig.write_image(f"global_GDP_curve_sector_splits.png")
+        return sector_flows
+
+    def _calc_sector_flows_ig_distribtution(self, intermediate_flow, gi_distribution):  # TODO: Delete?
         """
         Estimate the fabrication by in-use-good according to the inflow of intermediate products
         and the good to intermediate product distribution.
@@ -71,12 +119,12 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         at_a = np.matmul(gi_values.transpose(), gi_values)
         inverse_at_a = inv(at_a)
         inverse_at_a_times_at = np.matmul(inverse_at_a, gi_values.transpose())
-        sector_flow_values = np.einsum('gi,hri->hrg',inverse_at_a_times_at, intermediate_flow.values)
+        sector_flow_values = np.einsum('gi,hri->hrg', inverse_at_a_times_at, intermediate_flow.values)
 
         # don't allow negative sector flows
         sector_flow_values = np.maximum(0, sector_flow_values)
 
-        sector_flows = self.get_new_array(dim_letters=('h','r','g'))
+        sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
         sector_flows.values = sector_flow_values
 
         return sector_flows

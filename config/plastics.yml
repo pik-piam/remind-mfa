@@ -1,4 +1,3 @@
-
 # general config
 model_class: 'plastics'
 
@@ -29,10 +28,10 @@ visualization:
     color_scheme: 'blueish'
     flow_color: 'hsl(230,20,70)'
     exclude_processes:
-    - "sysenv"
-    exclude_flows: []
+      - "sysenv"
+    exclude_flows: [ ]
   do_show_figs: True
-  do_save_figs: False
+  do_save_figs: True
 
 # data export
 output_path: 'data/plastics/output'
