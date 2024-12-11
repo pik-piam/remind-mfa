@@ -22,9 +22,7 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
 
         aux = {
             'net_intermediate_trade': self.get_new_array(dim_letters=('h', 'r', 'i')),
-            'fabrication_by_sector': self.get_new_array(dim_letters=('h', 'r', 'g')),
-            'fabrication_loss': self.get_new_array(dim_letters=('h', 'r', 'g')),
-            'fabrication_error': self.get_new_array(dim_letters=('h', 'r'))
+            'fabrication_inflow_by_sector': self.get_new_array(dim_letters=('h', 'r', 'g'))
         }
 
         flw['sysenv => forming'][...] = prm['production_by_intermediate']
@@ -37,14 +35,12 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         aux['net_intermediate_trade'][...] = flw['sysenv => ip_market'] - flw['ip_market => sysenv']
         flw['ip_market => fabrication'][...] = flw['forming => ip_market'] + aux['net_intermediate_trade']
 
-        aux['fabrication_by_sector'][...] = self._calc_sector_flows_gdp_curve(flw['ip_market => fabrication'],
-                                                                              prm['gdppc'])
+        aux['fabrication_inflow_by_sector'][...] = self._calc_sector_flows_gdp_curve(flw['ip_market => fabrication'],
+                                                                                     prm['gdppc'],
+                                                                                     prm['fabrication_yield'])
 
-        aux['fabrication_error'] = flw['ip_market => fabrication'] - aux['fabrication_by_sector']
-
-        flw['fabrication => use'][...] = aux['fabrication_by_sector'] * prm['fabrication_yield']
-        aux['fabrication_loss'][...] = aux['fabrication_by_sector'] - flw['fabrication => use']
-        flw['fabrication => sysenv'][...] = aux['fabrication_error'] + aux['fabrication_loss']
+        flw['fabrication => use'][...] = aux['fabrication_inflow_by_sector'] * prm['fabrication_yield']
+        flw['fabrication => sysenv'][...] = aux['fabrication_inflow_by_sector'] - flw['fabrication => use']
 
         # Recalculate indirect trade according to available inflow from fabrication
         trd.indirect.exports[...] = trd.indirect.exports.minimum(flw['fabrication => use'])
@@ -55,7 +51,7 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
 
         return
 
-    def _calc_sector_flows_gdp_curve(self, intermediate_flow, gdppc):
+    def _calc_sector_flows_gdp_curve(self, intermediate_flow, gdppc, fabrication_yield):
         # you have this already
         names = ['Construction', 'Machinery', 'Products', 'Transport']
         s_ind = np.array([0.47, 0.32, 0.10, 0.11])
@@ -79,29 +75,19 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
 
         # s = a*s_usa + (1-a)*s_ind
         # with correct numpy dimensions
-        s = a[:, :, np.newaxis] * s_usa + (1 - a[:, :, np.newaxis]) * s_ind
+        post_fabrication_sector_split = a[:, :, np.newaxis] * s_usa + (1 - a[:, :, np.newaxis]) * s_ind
+
+        c = np.einsum('trg,f->trgf', post_fabrication_sector_split, fabrication_yield.values)
+        d = np.einsum('trgf,trfg->trgf', c, 1 / c)
+        e = np.sum(d, axis=2)
+        pre_fabrication_sector_split = 1 / e
+
         total_intermediate_flow = intermediate_flow.sum_nda_over('i')
-        sector_flow_values = np.einsum('hr,hrg->hrg', total_intermediate_flow.values, s[:123])
+        sector_flow_values = np.einsum('hr,hrg->hrg', total_intermediate_flow.values,
+                                       pre_fabrication_sector_split[:123])
         sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
         sector_flows.values = sector_flow_values
-        # visualise  # TODO delete / change to array plotter!
-        visualise = False
-        if visualise:
-            regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
-            import plotly.express as px
-            import pandas as pd
-            for r, region in enumerate(regions):
-                df = pd.DataFrame(s[:123, r, :], columns=names)
-                df['year'] = range(1900, 2023)
-                fig = px.line(df, x='year', y=names, title=region)
-                fig.write_image(f"{region}_GDP_curve_sector_splits.png")
-            # global
-            global_values = s.sum(axis=1)
-            global_sector_shares = global_values / global_values.sum(axis=-1)[:, np.newaxis]
-            df = pd.DataFrame(global_sector_shares[:123, :], columns=names)
-            df['year'] = range(1900, 2023)
-            fig = px.line(df, x='year', y=names, title='Global')
-            fig.write_image(f"global_GDP_curve_sector_splits.png")
+
         return sector_flows
 
     def _calc_sector_flows_ig_distribtution(self, intermediate_flow, gi_distribution):  # TODO: Delete?

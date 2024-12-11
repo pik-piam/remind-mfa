@@ -17,7 +17,7 @@ visualization:
     do_visualize: True
     # options: 'time', 'gdppc'
     over: 'gdppc'
-    per_capita: False
+    per_capita: True
   production:
     do_visualize: True
   sankey:
