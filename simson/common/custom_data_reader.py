@@ -2,7 +2,7 @@ import logging
 import os
 from typing import List
 
-from sodym.data_reader import CompoundDataReader, CSVDimensionReader, CSVParameterReader, YamlScalarDataReader, EmptyScalarDataReader
+from sodym.data_reader import CompoundDataReader, CSVDimensionReader, CSVParameterReader
 from sodym.mfa_definition import MFADefinition
 
 
@@ -17,7 +17,7 @@ class CustomDataReader(CompoundDataReader):
         'Intermediate': 'intermediate_products',
         'Scenario': 'scenarios',
     }
-    def __init__(self, input_data_path, definition: MFADefinition, has_scalar_parameters: bool):
+    def __init__(self, input_data_path, definition: MFADefinition):
         self.input_data_path = input_data_path
 
         dimension_files = {}
@@ -35,10 +35,4 @@ class CustomDataReader(CompoundDataReader):
             )
         parameter_reader = CSVParameterReader(parameter_files)
 
-        if has_scalar_parameters:
-            scalar_data_yaml = os.path.join(input_data_path, 'scalar_parameters.yml')
-        else:
-            scalar_data_yaml = None
-        scalar_data_reader = YamlScalarDataReader(scalar_data_yaml)
-
-        super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader, scalar_data_reader=scalar_data_reader)
+        super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
