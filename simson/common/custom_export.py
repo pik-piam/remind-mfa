@@ -11,7 +11,6 @@ from sodym.export.sankey import PlotlySankeyPlotter
 
 
 class CustomDataExporter(PydanticBaseModel):
-
     output_path: str
     do_save_figs: bool = True
     do_show_figs: bool = True
@@ -54,12 +53,15 @@ class CustomDataExporter(PydanticBaseModel):
         if self.production['do_visualize']:
             self.visualize_production(mfa=mfa)
         if self.stock['do_visualize']:
-            logging.info('Stock visualization functionality unavailable')
-            #self.visualize_stock()
+            # Stock visualisation is currently only available for the SteelDataExporter
+            if self.__class__.__name__ == 'SteelDataExporter':
+                self.visualize_stock(mfa=mfa)
+            else:
+                logging.info('Stock visualization functionality unavailable')
         if self.sankey['do_visualize']:
             plotter = PlotlySankeyPlotter(
                 mfa=mfa,
-                display_names = self.display_names,
+                display_names=self.display_names,
                 **self.sankey)
             fig = plotter.plot()
             self._show_and_save_plotly(fig, name="sankey")
@@ -74,7 +76,7 @@ class CustomDataExporter(PydanticBaseModel):
         )
         fig = ap_modeled.plot()
         ap_historic = PlotlyArrayPlotter(
-            array = mfa.parameters['production']['World'],
+            array=mfa.parameters['production']['World'],
             intra_line_dim='Historic Time',
             subplot_dim='Good',
             line_label='Historic Production',

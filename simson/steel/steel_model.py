@@ -1,6 +1,6 @@
 from sodym import (
     MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition,
-    Process, FlowDrivenStock, Stock, Parameter
+    Process, FlowDrivenStock
 )
 from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
 from sodym.flow_helper import make_empty_flows
@@ -39,11 +39,13 @@ class SteelModel:
         }
 
     def run(self):
+        self.parameters['lifetime_std'][...] = self.parameters['lifetime_mean'] * 0.5  # TODO Decide; Delete
+
         trade_model = self.make_trade_model()
         trade_model.balance_historic_trade()
         historic_mfa = self.make_historic_mfa(trade_model)
         historic_mfa.compute()
-        historic_in_use_stock = historic_mfa.stocks['in_use'].stock
+        historic_in_use_stock = self.model_historic_stock(historic_mfa.stocks['in_use'])
         future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
         trade_model = trade_model.predict(future_in_use_stock)
         trade_model.balance_future_trade()
@@ -98,9 +100,25 @@ class SteelModel:
             trade_model=trade_model,
         )
 
+    def model_historic_stock(self, historic_in_use_stock):
+        """
+        Calculate stocks and outflow through dynamic stock model
+        """
+        prm = self.parameters
+        dsm = create_dynamic_stock(name='in_use', process=self.processes['use'],
+                                   inflow=historic_in_use_stock.inflow, ldf_type=self.cfg.customization.ldf_type,
+                                   lifetime_mean=prm['lifetime_mean'], lifetime_std=prm['lifetime_std'],
+                                   time_letter='h')
+
+        dsm.compute()
+        historic_in_use_stock.stock[...] = dsm.stock
+        historic_in_use_stock.outflow[...] = dsm.outflow
+
+        return historic_in_use_stock
+
     def create_future_stock_from_historic(self, historic_in_use_stock):
         in_use_stock = extrapolate_stock(
-            historic_in_use_stock, dims=self.dims, parameters=self.parameters,
+            historic_in_use_stock.stock, dims=self.dims, parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy,
         )
 
@@ -266,8 +284,8 @@ class SteelModel:
 
             ParameterDefinition(name='population', dim_letters=('t', 'r')),
             ParameterDefinition(name='gdppc', dim_letters=('t', 'r')),
-            ParameterDefinition(name='lifetime_mean', dim_letters=('r', 'g')),
-            ParameterDefinition(name='lifetime_std', dim_letters=('r', 'g')),
+            ParameterDefinition(name=f'lifetime_mean', dim_letters=('r', 'g')),
+            ParameterDefinition(name=f'lifetime_std', dim_letters=('r', 'g')),
 
             ParameterDefinition(name='pigiron_production', dim_letters=('h', 'r')),
             ParameterDefinition(name='pigiron_imports', dim_letters=('h', 'r')),

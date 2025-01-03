@@ -35,6 +35,18 @@ def init_mfa(cfg: dict) -> MFASystem:
     return mfa
 
 
+def recalculate_mfa(model_config):
+    mfa = init_mfa(cfg=model_config)
+    logging.info(f'{type(mfa).__name__} instance created.')
+    mfa.run()
+    logging.info('Model computations completed.')
+
+
+def visualize_mfa(model_config):
+    # TODO: Implement load of MFA to visualize without recalculating
+    pass
+
+
 def run_simson(cfg_file: str):
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
@@ -43,10 +55,7 @@ def run_simson(cfg_file: str):
     )
 
     model_config = get_model_config(cfg_file)
-    mfa = init_mfa(cfg=model_config)
-    logging.info(f'{type(mfa).__name__} instance created.')
-    mfa.run()
-    logging.info('Model computations completed.')
+    recalculate_mfa(model_config)
 
 
 if __name__ == '__main__':

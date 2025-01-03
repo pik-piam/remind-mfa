@@ -2,6 +2,7 @@ import numpy as np
 from numpy.linalg import inv
 from simson.common.inflow_driven_mfa import InflowDrivenHistoricMFA
 from simson.steel.steel_trade_model import SteelTradeModel
+from sodym.stock_helper import create_dynamic_stock
 
 
 class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
@@ -40,6 +41,10 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
                                                                                      prm['fabrication_yield'])
 
         flw['fabrication => use'][...] = aux['fabrication_inflow_by_sector'] * prm['fabrication_yield']
+
+        test = flw['fabrication => use'].values
+        test_spits = np.einsum('hrg,hr->hrg', test, 1 / np.sum(test, axis=2))
+
         flw['fabrication => sysenv'][...] = aux['fabrication_inflow_by_sector'] - flw['fabrication => use']
 
         # Recalculate indirect trade according to available inflow from fabrication
@@ -88,6 +93,11 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
         sector_flows.values = sector_flow_values
 
+        # todo delete below
+
+        test = np.einsum('hrg,g->hrg', sector_flows.values, fabrication_yield.values)
+        test_spits = np.einsum('hrg,hr->hrg', test, 1 / np.sum(test, axis=2))
+
         return sector_flows
 
     def _calc_sector_flows_ig_distribtution(self, intermediate_flow, gi_distribution):  # TODO: Delete?
@@ -118,6 +128,5 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
     def compute_historic_in_use_stock(self):
         flw = self.flows
         stk = self.stocks
-        stk['in_use'].inflow[...] = flw['fabrication => use'] + flw['sysenv => use'] - flw['use => sysenv']
 
-        stk['in_use'].compute()
+        stk['in_use'].inflow[...] = flw['fabrication => use'] + flw['sysenv => use'] - flw['use => sysenv']
