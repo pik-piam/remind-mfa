@@ -4,10 +4,10 @@ from matplotlib import pyplot as plt
 from pydantic import BaseModel as PydanticBaseModel
 import plotly.graph_objects as go
 
-from sodym import MFASystem
-from sodym.export.data_writer import export_mfa_flows_to_csv, export_mfa_stocks_to_csv, export_mfa_to_pickle
-from sodym.export.array_plotter import PlotlyArrayPlotter
-from sodym.export.sankey import PlotlySankeyPlotter
+from flodym import MFASystem
+from flodym.export.data_writer import export_mfa_flows_to_csv, export_mfa_stocks_to_csv, export_mfa_to_pickle
+from flodym.export.array_plotter import PlotlyArrayPlotter
+from flodym.export.sankey import PlotlySankeyPlotter
 
 
 class CustomDataExporter(PydanticBaseModel):

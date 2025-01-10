@@ -1,9 +1,9 @@
-from sodym import (
+from flodym import (
     MFADefinition, DimensionDefinition, FlowDefinition, StockDefinition, ParameterDefinition,
     Process, StockArray,
 )
-from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
-from sodym.flow_helper import make_empty_flows
+from flodym.stock_helper import create_dynamic_stock, make_empty_stocks
+from flodym.flow_helper import make_empty_flows
 
 from simson.common.data_transformations import extrapolate_stock, prepare_stock_for_mfa
 from simson.common.common_cfg import CommonCfg

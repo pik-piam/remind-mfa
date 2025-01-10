@@ -2,8 +2,8 @@ import logging
 import os
 from typing import List
 
-from sodym.data_reader import CompoundDataReader, CSVDimensionReader, CSVParameterReader
-from sodym.mfa_definition import MFADefinition
+from flodym.data_reader import CompoundDataReader, CSVDimensionReader, CSVParameterReader
+from flodym.mfa_definition import MFADefinition
 
 
 class CustomDataReader(CompoundDataReader):

@@ -1,4 +1,4 @@
-from sodym import MFASystem
+from flodym import MFASystem
 
 
 class StockDrivenSteelMFASystem(MFASystem):
@@ -18,7 +18,7 @@ class StockDrivenSteelMFASystem(MFASystem):
         stk = self.stocks
 
         # auxiliary arrays;
-        # It is important to initialize them to define their dimensions. See the NamedDimArray documentation for details.
+        # It is important to initialize them to define their dimensions. See the FlodymArray documentation for details.
         # could also be single variables instead of dict, but this way the code looks more uniform
         aux = {
             'net_indirect_trade' : self.get_new_array(dim_letters=('t', 'e', 'r', 'g')),
@@ -36,9 +36,9 @@ class StockDrivenSteelMFASystem(MFASystem):
             'bof_production_inflow': self.get_new_array(dim_letters=('t', 'e', 'r')),
         }
 
-        # Slicing on the left-hand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the NamedDimArray object managing the dimensions.
+        # Slicing on the left-hand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the FlodymArray object managing the dimensions.
         # This way, the dimensions of the right-hand side of the assignment can be automatically reduced and re-ordered to the dimensions of the left-hand side.
-        # For further details on the syntax, see the NamedDimArray documentation.
+        # For further details on the syntax, see the FlodymArray documentation.
 
         # Pre-use
 

@@ -1,6 +1,6 @@
 import numpy as np
 from pydantic import field_validator
-from sodym import MFASystem, DimensionSet
+from flodym import MFASystem, DimensionSet
 
 
 class InflowDrivenHistoricMFA(MFASystem):
