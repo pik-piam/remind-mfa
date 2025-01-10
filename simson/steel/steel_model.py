@@ -18,7 +18,7 @@ class SteelModel:
     def __init__(self, cfg: CommonCfg):
         self.cfg = cfg
         self.definition = self.set_up_definition()
-        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path)
+        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path, definition=self.definition)
         self.data_writer = CustomDataExporter(
             **dict(self.cfg.visualization), output_path=self.cfg.output_path,
             display_names=self.display_names
@@ -31,7 +31,6 @@ class SteelModel:
         # direct is for intermediate steel products, indirect for finished products like cars)
         # loading steel sector splits for intermediate products, and indirect trade
         self.parameters = self.data_reader.read_parameters(self.definition.parameters, dims=self.dims)
-        self.scalar_parameters = self.data_reader.read_scalar_data(self.definition.scalar_parameters)
 
         self.processes = {
             name: Process(name=name, id=id) for id, name in enumerate(self.definition.processes)
@@ -87,7 +86,6 @@ class SteelModel:
         return InflowDrivenHistoricSteelMFASystem(
             cfg=self.cfg,
             parameters=self.parameters,
-            scalar_parameters=self.scalar_parameters,
             processes=processes,
             dims=historic_dims,
             flows=flows,
@@ -189,7 +187,7 @@ class SteelModel:
         )
         stocks['use'] = future_in_use_stock
         return StockDrivenSteelMFASystem(
-            dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
+            dims=future_dims, parameters=self.parameters,
             processes=self.processes, flows=flows, stocks=stocks
         )
 
@@ -314,9 +312,12 @@ class SteelModel:
             ParameterDefinition(name='gdppc', dim_letters=('t', 'r')),
             ParameterDefinition(name='lifetime_mean', dim_letters=('r', 'g')),
             ParameterDefinition(name='lifetime_std', dim_letters=('r', 'g')),
-        ]
 
-        scalar_parameters = ['max_scrap_share_base_model','scrap_in_bof_rate','forming_losses','production_yield']
+            ParameterDefinition(name='max_scrap_share_base_model', dim_letters=()),
+            ParameterDefinition(name='scrap_in_bof_rate', dim_letters=()),
+            ParameterDefinition(name='forming_losses', dim_letters=()),
+            ParameterDefinition(name='production_yield', dim_letters=()),
+        ]
 
         return MFADefinition(
             dimensions=dimensions,
@@ -324,5 +325,4 @@ class SteelModel:
             flows=flows,
             stocks=stocks,
             parameters=parameters,
-            scalar_parameters=scalar_parameters,
         )

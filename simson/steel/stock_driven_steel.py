@@ -16,7 +16,6 @@ class StockDrivenSteelMFASystem(MFASystem):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
-        scp = self.scalar_parameters
 
         # auxiliary arrays;
         # It is important to initialize them to define their dimensions. See the NamedDimArray documentation for details.
@@ -61,7 +60,7 @@ class StockDrivenSteelMFASystem(MFASystem):
         flw['forming => ip_market'][...]                = flw['ip_market => fabrication']       -   aux['net_direct_trade']
         aux['production'][...]                          = flw['forming => ip_market']           /   prm['forming_yield']
         aux['forming_outflow'][...]                     = aux['production']                     -   flw['forming => ip_market']
-        flw['forming => sysenv'][...]                   = aux['forming_outflow']                *   scp['forming_losses']
+        flw['forming => sysenv'][...]                   = aux['forming_outflow']                *   prm['forming_losses']
         flw['forming => scrap_market'][...]             = aux['forming_outflow']                -   flw['forming => sysenv']
 
         # Post-use
@@ -79,23 +78,23 @@ class StockDrivenSteelMFASystem(MFASystem):
 
         # PRODUCTION
 
-        aux['production_inflow'][...]                   = aux['production']                     /   scp['production_yield']
-        aux['max_scrap_production'][...]                = aux['production_inflow']              *   scp['max_scrap_share_base_model']
+        aux['production_inflow'][...]                   = aux['production']                     /   prm['production_yield']
+        aux['max_scrap_production'][...]                = aux['production_inflow']              *   prm['max_scrap_share_base_model']
         aux['available_scrap'][...]                     = flw['recycling => scrap_market']      +   flw['forming => scrap_market']          +   flw['fabrication => scrap_market']
         aux['scrap_in_production'][...]                 = aux['available_scrap'].minimum(aux['max_scrap_production'])  # using NumPy Minimum functionality
         flw['scrap_market => excess_scrap'][...]        = aux['available_scrap']                -   aux['scrap_in_production']
         #  TODO include copper like this:aux['scrap_share_production']['Fe'][...]        = aux['scrap_in_production']['Fe']      /   aux['production_inflow']['Fe']
         aux['scrap_share_production'][...]              = aux['scrap_in_production']            /   aux['production_inflow']
-        aux['eaf_share_production'][...]                = aux['scrap_share_production']         -   scp['scrap_in_bof_rate']
-        aux['eaf_share_production'][...]                = aux['eaf_share_production']           /   (1 - scp['scrap_in_bof_rate'])
+        aux['eaf_share_production'][...]                = aux['scrap_share_production']         -   prm['scrap_in_bof_rate'].cast_to(aux['scrap_share_production'].dims)
+        aux['eaf_share_production'][...]                = aux['eaf_share_production']           /   (1 - prm['scrap_in_bof_rate'])
         aux['eaf_share_production'][...]                = aux['eaf_share_production'].minimum(1).maximum(0)
         flw['scrap_market => eaf_production'][...]      = aux['production_inflow']              *   aux['eaf_share_production']
         flw['scrap_market => bof_production'][...]      = aux['scrap_in_production']            -   flw['scrap_market => eaf_production']
         aux['bof_production_inflow'][...]               = aux['production_inflow']              -   flw['scrap_market => eaf_production']
         flw['sysenv => bof_production'][...]            = aux['bof_production_inflow']          -   flw['scrap_market => bof_production']
-        flw['bof_production => forming'][...]           = aux['bof_production_inflow']          *   scp['production_yield']
+        flw['bof_production => forming'][...]           = aux['bof_production_inflow']          *   prm['production_yield']
         flw['bof_production => sysenv'][...]            = aux['bof_production_inflow']          -   flw['bof_production => forming']
-        flw['eaf_production => forming'][...]           = flw['scrap_market => eaf_production'] *   scp['production_yield']
+        flw['eaf_production => forming'][...]           = flw['scrap_market => eaf_production'] *   prm['production_yield']
         flw['eaf_production => sysenv'][...]            = flw['scrap_market => eaf_production'] -   flw['eaf_production => forming']
 
         return

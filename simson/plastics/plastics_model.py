@@ -18,7 +18,7 @@ class PlasticsModel:
     def __init__(self, cfg: CommonCfg):
         self.cfg = cfg
         self.definition = self.set_up_definition()
-        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path)
+        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path, definition=self.definition)
         self.data_writer = CustomDataExporter(
             **dict(self.cfg.visualization), output_path=self.cfg.output_path,
             display_names=self.display_names
@@ -26,7 +26,6 @@ class PlasticsModel:
 
         self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
         self.parameters = self.data_reader.read_parameters(self.definition.parameters, dims=self.dims)
-        self.scalar_parameters = self.data_reader.read_scalar_data(self.definition.scalar_parameters)
         self.processes = {
             name: Process(name=name, id=id) for id, name in enumerate(self.definition.processes)
         }
@@ -51,7 +50,6 @@ class PlasticsModel:
         )
         return InflowDrivenHistoricMFA(
             parameters=self.parameters,
-            scalar_parameters=self.scalar_parameters,
             processes={'use': self.processes['use']},
             dims=historic_dims,
             flows={},
@@ -72,7 +70,7 @@ class PlasticsModel:
         )
         stocks['in_use'] = future_in_use_stock
         return PlasticsMFASystem(
-            dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
+            dims=future_dims, parameters=self.parameters,
             processes=self.processes, flows=flows, stocks=stocks,
         )
 
