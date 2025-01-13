@@ -66,7 +66,7 @@ class CustomDataExporter(PydanticBaseModel):
 
     def visualize_production(self, mfa: MFASystem):
         ap_modeled = PlotlyArrayPlotter(
-            array=mfa.stocks['in_use'].inflow['World'].sum_nda_over(('m', 'e')),
+            array=mfa.stocks['in_use'].inflow['World'].sum_over(('m', 'e')),
             intra_line_dim='Time',
             subplot_dim='Good',
             line_label='Modeled',
