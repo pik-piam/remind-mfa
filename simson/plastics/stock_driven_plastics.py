@@ -1,4 +1,4 @@
-from sodym import MFASystem
+from flodym import MFASystem
 
 
 class PlasticsMFASystem(MFASystem):
@@ -19,7 +19,7 @@ class PlasticsMFASystem(MFASystem):
         stk = self.stocks
 
         # auxiliary arrays;
-        # It is important to initialize them to define their dimensions. See the NamedDimArray documentation for details.
+        # It is important to initialize them to define their dimensions. See the FlodymArray documentation for details.
         # could also be single variables instead of dict, but this way the code looks more uniform
         aux = {
             'reclmech_loss':                self.get_new_array(dim_letters=('t','e','r','m')),
@@ -29,9 +29,9 @@ class PlasticsMFASystem(MFASystem):
             'ratio_nonc_to_c':              self.get_new_array(dim_letters=('m',)),
         }
 
-        # Slicing on the left-hand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the NamedDimArray object managing the dimensions.
+        # Slicing on the left-hand side of the assignment (foo[...] = bar) is used to assign only the values of the flows, not the FlodymArray object managing the dimensions.
         # This way, the dimensions of the right-hand side of the assignment can be automatically reduced and re-ordered to the dimensions of the left-hand side.
-        # For further details on the syntax, see the NamedDimArray documentation.
+        # For further details on the syntax, see the FlodymArray documentation.
 
         flw['fabrication => use'][...]           = stk['in_use'].inflow
         flw['use => eol'][...]                   = stk['in_use'].outflow
@@ -74,7 +74,7 @@ class PlasticsMFASystem(MFASystem):
         aux['virgin_material_shares'][...]       = flw['virgin => fabrication']    / aux['virgin_2_fabr_all_mat']
         aux['captured_2_virginccu_by_mat'][...]  = flw['captured => virginccu']    * aux['virgin_material_shares']
 
-        # The { ... } syntax is used to slice the NamedDimArray object to a subset of its dimensions. See the NamedDimArray documentation for details.
+        # The { ... } syntax is used to slice the FlodymArray object to a subset of its dimensions. See the FlodymArray documentation for details.
         flw['virginccu => virgin']['C']              = aux['captured_2_virginccu_by_mat']['C']
         aux['ratio_nonc_to_c'][...]                  = prm['carbon_content_materials']['Other Elements'] / prm['carbon_content_materials']['C']
         flw['virginccu => virgin']['Other Elements'] = flw['virginccu => virgin']['C']                   * aux['ratio_nonc_to_c']

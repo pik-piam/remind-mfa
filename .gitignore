@@ -4,3 +4,5 @@ config/
 *.pyo
 .idea
 .vscode
+uv.lock
+simson.egg-info

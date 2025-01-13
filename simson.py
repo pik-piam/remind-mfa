@@ -1,7 +1,7 @@
 import logging
 import yaml
 
-from sodym import MFASystem
+from flodym import MFASystem
 
 from simson.plastics.plastics_model import PlasticsModel
 from simson.common.common_cfg import CommonCfg

@@ -1,9 +1,9 @@
-from sodym import (
+from flodym import (
     MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition,
     Process, FlowDrivenStock, Stock, Parameter
 )
-from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
-from sodym.flow_helper import make_empty_flows
+from flodym.stock_helper import create_dynamic_stock, make_empty_stocks
+from flodym.flow_helper import make_empty_flows
 
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
@@ -139,31 +139,31 @@ class SteelModel:
             historic_values=historic_trade['indirect_imports'],
             scale_by=product_demand)
 
-        global_indirect_imports = future_trade['indirect_imports'].sum_nda_over(sum_over_dims='r')
+        global_indirect_imports = future_trade['indirect_imports'].sum_over(sum_over_dims='r')
         future_trade['indirect_exports'][...] = extrapolate_to_future(
             historic_values=historic_trade['indirect_exports'],
             scale_by=global_indirect_imports)
 
         # intermediate trade
 
-        total_product_demand = product_demand.sum_nda_over(sum_over_dims='g')
+        total_product_demand = product_demand.sum_over(sum_over_dims='g')
         future_trade['direct_imports'][...] = extrapolate_to_future(
             historic_values=historic_trade['direct_imports'],
             scale_by=total_product_demand)
 
-        global_direct_imports = future_trade['direct_imports'].sum_nda_over(sum_over_dims='r')
+        global_direct_imports = future_trade['direct_imports'].sum_over(sum_over_dims='r')
         future_trade['direct_exports'][...] = extrapolate_to_future(
             historic_values=historic_trade['direct_exports'],
             scale_by=global_direct_imports)
 
         # scrap trade
 
-        total_eol_products = eol_products.sum_nda_over(sum_over_dims='g')
+        total_eol_products = eol_products.sum_over(sum_over_dims='g')
         total_scrap_exports = extrapolate_to_future(
             historic_values=historic_trade['scrap_exports'],
             scale_by=total_eol_products) # shouldn't this be total _collected_ scrap?
 
-        global_scrap_exports = total_scrap_exports.sum_nda_over(sum_over_dims='r')
+        global_scrap_exports = total_scrap_exports.sum_over(sum_over_dims='r')
         total_scrap_imports = extrapolate_to_future(
             historic_values=historic_trade['scrap_imports'],
             scale_by=global_scrap_exports)

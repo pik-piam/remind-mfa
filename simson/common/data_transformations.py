@@ -1,9 +1,9 @@
 from copy import copy
 import numpy as np
 
-from sodym import (
+from flodym import (
     StockArray, DynamicStockModel, FlowDrivenStock,
-    DimensionSet, NamedDimArray, Process, Parameter
+    DimensionSet, FlodymArray, Process, Parameter
 )
 
 from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation, WeightedProportionalExtrapolation
@@ -17,11 +17,11 @@ def extrapolate_stock(
 
     # transform to per capita
     pop = parameters['population']
-    historic_pop       = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
-    historic_gdppc     = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
-    historic_stocks_pc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r','g'))
-    stocks_pc          = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
-    stocks             = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
+    historic_pop       = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
+    historic_gdppc     = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
+    historic_stocks_pc = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r','g'))
+    stocks_pc          = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
+    stocks             = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
 
     historic_pop[...] = pop[{'t': dims['h']}]
     historic_gdppc[...] = parameters['gdppc'][{'t': dims['h']}]
@@ -43,7 +43,7 @@ def extrapolate_stock(
     return StockArray(**dict(stocks))
 
 
-def extrapolate_to_future(historic_values : NamedDimArray, scale_by : NamedDimArray) -> NamedDimArray:
+def extrapolate_to_future(historic_values : FlodymArray, scale_by : FlodymArray) -> FlodymArray:
 
     if not historic_values.dims.letters[0] == 'h':
         raise ValueError("First dimension of historic_parameter must be historic time.")
@@ -55,7 +55,7 @@ def extrapolate_to_future(historic_values : NamedDimArray, scale_by : NamedDimAr
     all_dims = historic_values.dims.union_with(scale_by.dims)
 
     dim_letters_out = ('t',) + historic_values.dims.letters[1:]
-    extrapolated_values = NamedDimArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
+    extrapolated_values = FlodymArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
 
     scale_by = scale_by.cast_to(extrapolated_values.dims)
 
