@@ -1,6 +1,4 @@
-import logging
 import os
-from typing import List
 
 from flodym.data_reader import CompoundDataReader, CSVDimensionReader, CSVParameterReader
 from flodym.mfa_definition import MFADefinition

@@ -2,7 +2,7 @@ from copy import copy
 import numpy as np
 
 from flodym import (
-    StockArray, DynamicStockModel, FlowDrivenStock,
+    StockArray, DynamicStockModel, SimpleFlowDrivenStock,
     DimensionSet, FlodymArray, Process, Parameter
 )
 
@@ -17,11 +17,11 @@ def extrapolate_stock(
 
     # transform to per capita
     pop = parameters['population']
-    historic_pop       = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
-    historic_gdppc     = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r'))
-    historic_stocks_pc = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('h','r','g'))
-    stocks_pc          = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
-    stocks             = FlodymArray.from_dims_superset(dims_superset=dims, dim_letters=('t','r','g'))
+    historic_pop       = FlodymArray(dims=dims[('h','r')])
+    historic_gdppc     = FlodymArray(dims=dims[('h','r')])
+    historic_stocks_pc = FlodymArray(dims=dims[('h','r','g')])
+    stocks_pc          = FlodymArray(dims=dims[('t','r','g')])
+    stocks             = FlodymArray(dims=dims[('t','r','g')])
 
     historic_pop[...] = pop[{'t': dims['h']}]
     historic_gdppc[...] = parameters['gdppc'][{'t': dims['h']}]
@@ -94,22 +94,3 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
         pure_prediction[n_historic - 1, :, :] - historic_stocks_pc[n_historic - 1, :, :]
         )
     prediction_out[:n_historic,:,:] = historic_stocks_pc
-
-
-def prepare_stock_for_mfa(
-        dims: DimensionSet, dsm: DynamicStockModel, prm: dict[str, Parameter], use: Process
-    ):
-    # We use an auxiliary stock for the prediction step to save dimensions and computation time
-    # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
-    stock_extd = dsm.stock * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    inflow = dsm.inflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    outflow = dsm.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    stock_dims = dims.get_subset(('t','r','g','m','e'))
-    stock_extd = StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
-    inflow = StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)
-    outflow = StockArray(values=outflow.values, name='in_use_outflow', dims=stock_dims)
-    stock = FlowDrivenStock(
-        stock=stock_extd, inflow=inflow, outflow=outflow, name='in_use', process_name='use',
-        process=use,
-    )
-    return stock

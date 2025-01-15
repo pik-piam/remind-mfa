@@ -1,8 +1,9 @@
 import numpy as np
 from numpy.linalg import inv
-from simson.common.inflow_driven_mfa import InflowDrivenHistoricMFA
 
-class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
+from flodym import MFASystem
+
+class InflowDrivenHistoricSteelMFASystem(MFASystem):
 
     def compute(self):
         """
@@ -11,7 +12,6 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         self.compute_historic_flows()
         self.compute_historic_in_use_stock()
         self.check_mass_balance()
-
 
     def compute_historic_flows(self):
         prm = self.parameters
@@ -89,5 +89,4 @@ class InflowDrivenHistoricSteelMFASystem(InflowDrivenHistoricMFA):
         flw = self.flows
         stk = self.stocks
         stk['in_use'].inflow[...] = flw['fabrication => use'] + flw['sysenv => use'] - flw['use => sysenv']
-
         stk['in_use'].compute()

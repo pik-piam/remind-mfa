@@ -1,15 +1,54 @@
+from typing import Optional
+
 from flodym import MFASystem
+
+from simson.common.data_transformations import extrapolate_stock
+from simson.common.common_cfg import ModelCustomization
+
 
 
 class PlasticsMFASystem(MFASystem):
+
+    cfg: Optional[ModelCustomization] = None
 
     def compute(self):
         """
         Perform all computations for the MFA system.
         """
+        self.compute_historic_stock()
+        self.compute_in_use_dsm()
+        self.transfer_to_simple_stock()
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
+
+    def compute_historic_stock(self):
+        self.stocks['in_use_historic'].inflow[...]=self.parameters['production']
+        self.stocks['in_use_historic'].lifetime_model.set_prms(
+            mean=self.parameters['lifetime_mean'],
+            std=self.parameters['lifetime_std']
+        )
+        self.stocks['in_use_historic'].compute()
+
+    def compute_in_use_dsm(self):
+        in_use_stock = extrapolate_stock(
+            self.stocks['in_use_historic'].stock, dims=self.dims, parameters=self.parameters,
+            curve_strategy=self.cfg.customization.curve_strategy,
+        )
+        self.stocks['in_use_dsm'].stock[...] = in_use_stock
+        self.stocks['in_use_dsm'].lifetime_model.set_prms(
+            mean=self.parameters['lifetime_mean'],
+            std=self.parameters['lifetime_std']
+        )
+        self.stocks['in_use_dsm'].compute()
+
+    def transfer_to_simple_stock(self):
+        # We use an auxiliary stock for the prediction step to save dimensions and computation time
+        # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
+        split = self.parameters['material_shares_in_goods'] * self.parameters['carbon_content_materials']
+        self.stocks['in_use'].stock[...] = self.stocks['in_use_dsm'].stock * split
+        self.stocks['in_use'].inflow[...] = self.stocks['in_use_dsm'].inflow * split
+        self.stocks['in_use'].outflow[...] = self.stocks['in_use_dsm'].outflow * split
 
     def compute_flows(self):
 
