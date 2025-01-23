@@ -1,10 +1,6 @@
-from copy import copy
 import numpy as np
 
-from flodym import (
-    StockArray, DynamicStockModel, SimpleFlowDrivenStock,
-    DimensionSet, FlodymArray, Process, Parameter
-)
+from flodym import StockArray, DimensionSet, FlodymArray, Parameter
 
 from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation, WeightedProportionalExtrapolation
 

@@ -43,7 +43,7 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    cfg_file = 'config/steel.yml'
+    cfg_file = 'config/plastics.yml'
     model_config = get_model_config(cfg_file)
     mfa = init_mfa(cfg=model_config)
     logging.info(f'{type(mfa).__name__} instance created.')

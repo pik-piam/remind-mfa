@@ -33,6 +33,7 @@ class OneDimensionalExtrapolation(Extrapolation):
         assert self.target_range.ndim == 1, "Target range must be 1-dimensional."
         assert self.data_to_extrapolate.shape[0] < self.target_range.shape[0], (
             "data_to_extrapolate must be smaller then target_range")
+        return self
 
 
 class WeightedProportionalExtrapolation(Extrapolation):
@@ -43,7 +44,7 @@ class WeightedProportionalExtrapolation(Extrapolation):
 
     @model_validator(mode="after")
     def validate_data(self):
-        pass
+        return self
 
     n_last_points_to_match: int = 5
 
