@@ -1,9 +1,24 @@
 from pydantic import BaseModel as PydanticBaseModel
 
+from flodym import FixedLifetime, FoldedNormalLifetime, LogNormalLifetime, NormalLifetime, WeibullLifetime
+
 
 class ModelCustomization(PydanticBaseModel):
     curve_strategy: str
     ldf_type: str
+    _lifetime_model_class: type = None
+
+    @property
+    def lifetime_model(self):
+        lifetime_model_classes = {
+            "Fixed": FixedLifetime,
+            "Normal": NormalLifetime,
+            "FoldedNormal": FoldedNormalLifetime,
+            "LogNormal": LogNormalLifetime,
+            "Weibull": WeibullLifetime,
+        }
+        return lifetime_model_classes[self.ldf_type]
+
 
 
 class VisualizationCfg(PydanticBaseModel):
