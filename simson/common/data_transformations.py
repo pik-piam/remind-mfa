@@ -1,8 +1,9 @@
+from copy import copy
 import numpy as np
 
-from sodym import (
-    StockArray, DynamicStockModel, FlowDrivenStock,
-    DimensionSet, NamedDimArray, Process, Parameter
+from flodym import (
+    StockArray, DynamicStockModel,
+    DimensionSet, FlodymArray, Process, Parameter
 )
 
 from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation, WeightedProportionalExtrapolation
@@ -23,11 +24,11 @@ def extrapolate_stock(
 
     # transform to per capita
     pop = parameters['population']
-    historic_pop = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h', 'r'))
-    historic_gdppc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=('h', 'r'))
-    historic_stocks_pc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=historic_dim_letters)
-    stocks_pc = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=target_dim_letters)
-    stocks = NamedDimArray.from_dims_superset(dims_superset=dims, dim_letters=target_dim_letters)
+    historic_pop       = FlodymArray(dims=dims[('h','r')])
+    historic_gdppc     = FlodymArray(dims=dims[('h','r')])
+    historic_stocks_pc = FlodymArray(dims=dims[('h','r','g')])
+    stocks_pc          = FlodymArray(dims=dims[('t','r','g')])
+    stocks             = FlodymArray(dims=dims[('t','r','g')])
 
     historic_pop[...] = pop[{'t': dims['h']}]
     historic_gdppc[...] = parameters['gdppc'][{'t': dims['h']}]
@@ -45,46 +46,12 @@ def extrapolate_stock(
     # transform back to total stocks
     stocks[...] = stocks_pc * pop
 
-    # TODO Delete visualisations
-
-    from matplotlib import pyplot as plt
-    regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
-    years = np.arange(1900, 2023)
-    for r, region in enumerate(regions):
-        plt.plot(parameters['gdppc'].values[:123, r], historic_stocks_pc.values[:, r], label=f'{region}')
-    plt.legend()
-    plt.xlabel('GDP per capita')
-    plt.ylabel('Stock per capita')
-    plt.title('Historic stocks per capita over GDP')
-    plt.show()
-
-    for r, region in enumerate(regions):
-        plt.plot(years, historic_stocks_pc.values[:, r], label=f'{region}')
-    plt.legend()
-    plt.xlabel('Year')
-    plt.ylabel('Stock per capita')
-    plt.title('Historic stocks per capita over Time')
-    plt.show()
-
-    from sodym.export.array_plotter import PlotlyArrayPlotter
-    # visualize regional production
-    ap_production = PlotlyArrayPlotter(
-        array=stocks_pc,
-        intra_line_dim='Time',
-        subplot_dim='Region',
-        line_label='Stock PC',
-        xlabel='Year',
-        ylabel='StockPC [t]',
-        title='Regional Stocks per capita'
-    )
-
-    ap_production.plot(do_show=True)
-
-    # visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
+    #visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
     return StockArray(**dict(stocks))
 
 
-def extrapolate_to_future(historic_values: NamedDimArray, scale_by: NamedDimArray) -> NamedDimArray:
+def extrapolate_to_future(historic_values : FlodymArray, scale_by : FlodymArray) -> FlodymArray:
+
     if not historic_values.dims.letters[0] == 'h':
         raise ValueError("First dimension of historic_parameter must be historic time.")
     if not scale_by.dims.letters[0] == 't':
@@ -95,7 +62,7 @@ def extrapolate_to_future(historic_values: NamedDimArray, scale_by: NamedDimArra
     all_dims = historic_values.dims.union_with(scale_by.dims)
 
     dim_letters_out = ('t',) + historic_values.dims.letters[1:]
-    extrapolated_values = NamedDimArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
+    extrapolated_values = FlodymArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
 
     scale_by = scale_by.cast_to(extrapolated_values.dims)
 
@@ -109,6 +76,7 @@ def extrapolate_to_future(historic_values: NamedDimArray, scale_by: NamedDimArra
 
 def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_type='sigmoid'):
     shape_out = prediction_out.shape
+    assert len(shape_out) == 3, "Prediction array must have 3 dimensions: Time, Region, Good"
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
 
@@ -155,13 +123,13 @@ def prepare_stock_for_mfa(
     return stock
 
 
-def transform_t_to_hist(ndarray: NamedDimArray, dims: DimensionSet):
+def transform_t_to_hist(ndarray: FlodymArray, dims: DimensionSet):
     """Transforms an array with time dimension to an array with historic time dimension."""
     hist_dim = dims['h']
     time_dim = dims['t']
     assert time_dim.items[
            :len(hist_dim.items)] == hist_dim.items, "Time dimension must start with historic time dimension."
     new_dims = ndarray.dims.replace('t', hist_dim)
-    hist_array = NamedDimArray.from_dims_superset(dims_superset=new_dims, dim_letters=new_dims.letters)
+    hist_array = FlodymArray.from_dims_superset(dims_superset=new_dims, dim_letters=new_dims.letters)
     hist_array.values = ndarray.values[:len(hist_dim.items)]
     return hist_array

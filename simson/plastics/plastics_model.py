@@ -1,13 +1,11 @@
-from sodym import (
-    MFADefinition, DimensionDefinition, FlowDefinition, StockDefinition, ParameterDefinition,
-    Process, StockArray,
-)
-from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
-from sodym.flow_helper import make_empty_flows
+import os
 
-from simson.common.data_transformations import extrapolate_stock, prepare_stock_for_mfa
+from flodym import (
+    MFADefinition, DimensionDefinition, FlowDefinition, StockDefinition, ParameterDefinition,
+    InflowDrivenDSM, SimpleFlowDrivenStock, StockDrivenDSM
+)
+
 from simson.common.common_cfg import CommonCfg
-from simson.common.inflow_driven_mfa import InflowDrivenHistoricMFA
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.custom_export import CustomDataExporter
 from .stock_driven_plastics import PlasticsMFASystem
@@ -18,89 +16,49 @@ class PlasticsModel:
     def __init__(self, cfg: CommonCfg):
         self.cfg = cfg
         self.definition = self.set_up_definition()
-        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path)
         self.data_writer = CustomDataExporter(
             **dict(self.cfg.visualization), output_path=self.cfg.output_path,
             display_names=self.display_names
         )
+        self.init_mfa()
 
-        self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(self.definition.parameters, dims=self.dims)
-        self.scalar_parameters = self.data_reader.read_scalar_data(self.definition.scalar_parameters)
-        self.processes = {
-            name: Process(name=name, id=id) for id, name in enumerate(self.definition.processes)
+
+    def init_mfa(self):
+
+        dimension_map = {
+            'Time': 'time_in_years',
+            'Historic Time': 'historic_years',
+            'Element': 'elements',
+            'Region': 'regions',
+            'Material': 'materials',
+            'Good': 'goods_in_use',
+            'Intermediate': 'intermediate_products',
+            'Scenario': 'scenarios',
         }
 
-    def make_historic_mfa(self):
-        # TODO: consider how this will change in the future, do we need to create an MFA system?
-        # currently all we need here is the dynamic stock model for in-use stock.
-        historic_dims = self.dims.get_subset(('h', 'r', 'g'))
-        historic_inflow = StockArray(
-            dims=historic_dims,
-            values=self.parameters['production'].values,
-            name='in_use_inflow'
-        )
-        historic_stock = create_dynamic_stock(
-            name='in_use',
-            process=self.processes['use'],
-            ldf_type=self.cfg.customization.ldf_type,
-            inflow=historic_inflow,
-            lifetime_mean=self.parameters['lifetime_mean'],
-            lifetime_std=self.parameters['lifetime_std'],
-            time_letter='h',
-        )
-        return InflowDrivenHistoricMFA(
-            parameters=self.parameters,
-            scalar_parameters=self.scalar_parameters,
-            processes={'use': self.processes['use']},
-            dims=historic_dims,
-            flows={},
-            stocks={'in_use': historic_stock},
-        )
+        dimension_files = {}
+        for dimension in self.definition.dimensions:
+            dimension_filename = dimension_map[dimension.name]
+            dimension_files[dimension.name] = os.path.join(
+                self.cfg.input_data_path, 'dimensions', f'{dimension_filename}.csv'
+            )
 
-    def make_future_mfa(self, future_in_use_stock):
-        future_dims = self.dims.drop('h', inplace=False)
-        flows = make_empty_flows(
-            processes=self.processes,
-            flow_definitions=[f for f in self.definition.flows if 't' in f.dim_letters],
-            dims=future_dims,
+        parameter_files = {}
+        for parameter in self.definition.parameters:
+            parameter_files[parameter.name] = os.path.join(
+                self.cfg.input_data_path, 'datasets', f'{parameter.name}.csv'
+            )
+        self.mfa = PlasticsMFASystem.from_csv(
+            definition=self.definition,
+            dimension_files=dimension_files,
+            parameter_files=parameter_files,
         )
-        stocks = make_empty_stocks(
-            processes=self.processes,
-            stock_definitions=[s for s in self.definition.stocks if 't' in s.dim_letters],
-            dims=future_dims
-        )
-        stocks['in_use'] = future_in_use_stock
-        return PlasticsMFASystem(
-            dims=future_dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
-            processes=self.processes, flows=flows, stocks=stocks,
-        )
-
-    def create_future_stock_from_historic(self, historic_in_use_stock):
-        in_use_stock = extrapolate_stock(
-            historic_in_use_stock, dims=self.dims, parameters=self.parameters,
-            curve_strategy=self.cfg.customization.curve_strategy,
-        )
-        dsm = create_dynamic_stock(
-            name='in_use', process=self.processes['use'],
-            ldf_type=self.cfg.customization.ldf_type,
-            stock=in_use_stock, lifetime_mean=self.parameters['lifetime_mean'],
-            lifetime_std=self.parameters['lifetime_std'],
-        )
-        dsm.compute()  # gives inflows and outflows corresponding to in-use stock
-        return prepare_stock_for_mfa(
-            dsm=dsm, dims=self.dims, prm=self.parameters, use=self.processes['use']
-        )
+        self.mfa.cfg=self.cfg
 
     def run(self):
-        historic_mfa = self.make_historic_mfa()
-        historic_mfa.compute()
-        historic_in_use_stock = historic_mfa.stocks['in_use'].stock
-        future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
-        mfa = self.make_future_mfa(future_in_use_stock)
-        mfa.compute()
-        self.data_writer.export_mfa(mfa=mfa)
-        self.data_writer.visualize_results(mfa=mfa)
+        self.mfa.compute()
+        self.data_writer.export_mfa(mfa=self.mfa)
+        self.data_writer.visualize_results(mfa=self.mfa)
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     display_names = {
@@ -192,11 +150,12 @@ class PlasticsModel:
         ]
 
         stocks = [
-            StockDefinition(name='in_use', process='use', dim_letters=('h', 'r', 'g')),
-            StockDefinition(name='in_use', process='use', dim_letters=('t','e','r','m','g')),
-            StockDefinition(name='atmospheric', process='atmosphere', dim_letters=('t','e','r')),
-            StockDefinition(name='landfill', process='landfill', dim_letters=('t','e','r','m')),
-            StockDefinition(name='uncontrolled', process='uncontrolled', dim_letters=('t','e','r','m')),
+            StockDefinition(name='in_use_historic', dim_letters=('h', 'r', 'g'), subclass=InflowDrivenDSM, lifetime_model_class=self.cfg.customization.lifetime_model, time_letter='h'),
+            StockDefinition(name='in_use_dsm', dim_letters=('t','r','g'), subclass=StockDrivenDSM, lifetime_model_class=self.cfg.customization.lifetime_model),
+            StockDefinition(name='in_use', process='use', dim_letters=('t','e','r','m','g'), subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='atmospheric', process='atmosphere', dim_letters=('t','e','r'), subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='landfill', process='landfill', dim_letters=('t','e','r','m'), subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='uncontrolled', process='uncontrolled', dim_letters=('t','e','r','m'), subclass=SimpleFlowDrivenStock),
         ]
 
         parameters = [

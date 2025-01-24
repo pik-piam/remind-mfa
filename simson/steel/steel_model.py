@@ -1,10 +1,22 @@
-import numpy as np  # TODO: really necessary? -> scaling in other script?
-from sodym import (
-    MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition,
-    Process, FlowDrivenStock, StockArray
+import numpy as np  # TODO check if otherwise possible
+from flodym import (
+    MFADefinition,
+    DimensionDefinition,
+    FlowDefinition,
+    ParameterDefinition,
+    StockDefinition,
+    Process,
+    SimpleFlowDrivenStock,
+    Stock,
+    Parameter,
+    make_empty_stocks,
+    make_empty_flows,
+    make_processes,
+    StockDrivenDSM,
+    InflowDrivenDSM,
 )
-from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
-from sodym.flow_helper import make_empty_flows
+#from flodym.stock_helper import create_dynamic_stock, make_empty_stocks
+#from flodym.flow_helper import make_empty_flows
 
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
@@ -34,11 +46,7 @@ class SteelModel:
         # direct is for intermediate steel products, indirect for finished products like cars)
         # loading steel sector splits for intermediate products, and indirect trade
         self.parameters = self.data_reader.read_parameters(self.definition.parameters, dims=self.dims)
-        self.scalar_parameters = self.data_reader.read_scalar_data(self.definition.scalar_parameters)
-
-        self.processes = {
-            name: Process(name=name, id=id) for id, name in enumerate(self.definition.processes)
-        }
+        self.processes = make_processes(self.definition.processes)
 
     def run(self):
         # self.parameters['lifetime_std'][...] = self.parameters['lifetime_mean'] * 0.5  # TODO Decide; Delete
@@ -69,17 +77,6 @@ class SteelModel:
         """
 
         historic_dims = self.dims.get_subset(('h', 'e', 'r', 'i', 'g'))
-        flows = make_empty_flows(
-            processes=self.processes,
-            flow_definitions=[f for f in self.definition.flows if 'h' in f.dim_letters],
-            dims=historic_dims
-        )
-        stocks = make_empty_stocks(
-            processes=self.processes,
-            stock_definitions=[s for s in self.definition.stocks if 'h' in s.dim_letters],
-            dims=historic_dims
-        )
-
         historic_processes = [
             'sysenv',
             'forming',
@@ -89,12 +86,21 @@ class SteelModel:
             # 'indirect_trade', # todo decide whether to incorporate, depending on trade balancing
             'use'
         ]
+        processes = make_processes(historic_processes)
+        flows = make_empty_flows(
+            processes=processes,
+            flow_definitions=[f for f in self.definition.flows if 'h' in f.dim_letters],
+            dims=historic_dims
+        )
+        stocks = make_empty_stocks(
+            processes=processes,
+            stock_definitions=[s for s in self.definition.stocks if 'h' in s.dim_letters],
+            dims=historic_dims
+        )
 
-        processes = {p: self.processes[p] for p in historic_processes}
         return InflowDrivenHistoricSteelMFASystem(
             cfg=self.cfg,
             parameters=self.parameters,
-            scalar_parameters=self.scalar_parameters,
             processes=processes,
             dims=historic_dims,
             flows=flows,
@@ -111,7 +117,6 @@ class SteelModel:
                                    inflow=historic_in_use_stock.inflow, ldf_type=self.cfg.customization.ldf_type,
                                    lifetime_mean=prm['lifetime_mean'], lifetime_std=prm['lifetime_std'],
                                    time_letter='h')
-
         dsm.compute()
         historic_in_use_stock.stock[...] = dsm.stock
         historic_in_use_stock.outflow[...] = dsm.outflow
@@ -134,12 +139,16 @@ class SteelModel:
 
         # create dynamic stock model for in use stock
 
-        dsm = create_dynamic_stock(
-            name='in_use', process=self.processes['use'],
-            ldf_type=self.cfg.customization.ldf_type,
-            stock=in_use_stock, lifetime_mean=self.parameters['lifetime_mean'],
-            lifetime_std=self.parameters['lifetime_std'],
+        dsm = StockDrivenDSM(
+            dims=in_use_stock.dims,
+            name='in_use',
+            process=self.processes['use'],
+            lifetime_model=self.cfg.customization.lifetime_model,
+            stock=in_use_stock,
         )
+        dsm.lifetime_model.set_prms(
+            mean=self.parameters['lifetime_mean'],
+            std=self.parameters['lifetime_std'])
         dsm.compute()  # gives inflows and outflows corresponding to in-use stock
 
         old_stock = dsm.stock
@@ -257,9 +266,15 @@ class SteelModel:
 
             ap_stock.plot(do_show=True)
 
-        return FlowDrivenStock(
-            stock=dsm.stock, inflow=dsm.inflow, outflow=dsm.outflow, name='in_use', process_name='use',
-            process=self.processes['use'], )
+        return SimpleFlowDrivenStock(
+            dims=dsm.dims,
+            stock=dsm.stock,
+            inflow=dsm.inflow,
+            outflow=dsm.outflow,
+            name='in_use',
+            process_name='use',
+            process=self.processes['use'],
+            )
 
     def make_trade_model(self):
         """
@@ -290,9 +305,10 @@ class SteelModel:
         )
         stocks['use'] = future_in_use_stock
         return StockDrivenSteelMFASystem(
-            dims=self.dims, parameters=self.parameters, scalar_parameters=self.scalar_parameters,
-            processes=self.processes, flows=flows, stocks=stocks, trade_model=trade_model,
+            dims=self.dims, parameters=self.parameters,
+            processes=self.processes, flows=flows, stocks=stocks
         )
+
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     display_names = {
@@ -361,8 +377,8 @@ class SteelModel:
 
             FlowDefinition(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'e', 'r')),
-            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e', 'r')),
-            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e', 'r',)),
+            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e','r')),
+            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e','r',)),
             FlowDefinition(from_process='scrap_market', to_process='eaf_production', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='eaf_production', to_process='forming', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='eaf_production', to_process='sysenv', dim_letters=('t', 'e', 'r')),
@@ -387,10 +403,15 @@ class SteelModel:
         ]
 
         stocks = [
-            StockDefinition(name='in_use', process='use', dim_letters=('h', 'r', 'g')),
-            StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g')),
-            StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g')),
-            StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r'))
+            StockDefinition(
+                name='in_use',
+                process='use',
+                dim_letters=('h', 'r', 'g'),
+                subclass=SimpleFlowDrivenStock,
+                time_letter='h'),
+            StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g'), subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g'), subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r'), subclass=SimpleFlowDrivenStock),
         ]
 
         parameters = [
@@ -422,9 +443,15 @@ class SteelModel:
             ParameterDefinition(name='dri_production', dim_letters=('h', 'r')),
             ParameterDefinition(name='dri_imports', dim_letters=('h', 'r')),
             ParameterDefinition(name='dri_exports', dim_letters=('h', 'r')),
-        ]
 
-        scalar_parameters = ['max_scrap_share_base_model', 'scrap_in_bof_rate', 'forming_losses', 'production_yield']
+            ParameterDefinition(name='lifetime_mean', dim_letters=('r', 'g')),
+            ParameterDefinition(name='lifetime_std', dim_letters=('r', 'g')),
+
+            ParameterDefinition(name='max_scrap_share_base_model', dim_letters=()),
+            ParameterDefinition(name='scrap_in_bof_rate', dim_letters=()),
+            ParameterDefinition(name='forming_losses', dim_letters=()),
+            ParameterDefinition(name='production_yield', dim_letters=()),
+        ]
 
         return MFADefinition(
             dimensions=dimensions,
@@ -432,5 +459,4 @@ class SteelModel:
             flows=flows,
             stocks=stocks,
             parameters=parameters,
-            scalar_parameters=scalar_parameters,
         )

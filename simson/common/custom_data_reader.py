@@ -1,12 +1,10 @@
-import logging
 import os
-from typing import List
 
-from sodym.data_reader import ExampleDataReader
-from sodym import DimensionDefinition
+from flodym.data_reader import CompoundDataReader, CSVDimensionReader, CSVParameterReader
+from flodym.mfa_definition import MFADefinition
 
 
-class CustomDataReader(ExampleDataReader):
+class CustomDataReader(CompoundDataReader):
     dimension_map = {
         'Time': 'time_in_years',
         'Historic Time': 'historic_years',
@@ -17,27 +15,22 @@ class CustomDataReader(ExampleDataReader):
         'Intermediate': 'intermediate_products',
         'Scenario': 'scenarios',
     }
-    def __init__(self, input_data_path):
+    def __init__(self, input_data_path, definition: MFADefinition):
         self.input_data_path = input_data_path
-        scalar_data_yaml = os.path.join(input_data_path, 'scalar_parameters.yml')
-        super().__init__(scalar_data_yaml, {}, {})
 
-    def read_parameter_values(self, parameter: str, dims):
-        self.parameter_datasets[parameter] = os.path.join(
-            self.input_data_path, 'datasets', f'{parameter}.csv'
-        )
-        return super().read_parameter_values(parameter=parameter, dims=dims)
+        dimension_files = {}
+        for dimension in definition.dimensions:
+            dimension_filename = self.dimension_map[dimension.name]
+            dimension_files[dimension.name] = os.path.join(
+                self.input_data_path, 'dimensions', f'{dimension_filename}.csv'
+            )
+        dimension_reader = CSVDimensionReader(dimension_files)
 
-    def read_dimension(self, definition: DimensionDefinition):
-        dimension_filename = self.dimension_map[definition.name]
-        self.dimension_datasets[definition.name] = os.path.join(
-            self.input_data_path, 'dimensions', f'{dimension_filename}.csv'
-        )
-        return super().read_dimension(definition=definition)
+        parameter_files = {}
+        for parameter in definition.parameters:
+            parameter_files[parameter.name] = os.path.join(
+                self.input_data_path, 'datasets', f'{parameter.name}.csv'
+            )
+        parameter_reader = CSVParameterReader(parameter_files)
 
-    def read_scalar_data(self, parameters: List[str]):
-        try:
-            return super().read_scalar_data(parameters)
-        except FileNotFoundError as file_missing:
-            logging.warn(file_missing)
-            return None
+        super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)

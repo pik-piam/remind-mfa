@@ -11,12 +11,6 @@ class Extrapolation(BaseModel):
     data_to_extrapolate: np.ndarray  # historical data, 1 dimensional (time)
     target_range: np.ndarray  # predictor variable(s)
 
-    @model_validator(mode="after")
-    def validate_data(self):
-        assert self.data_to_extrapolate.shape[0] < self.target_range.shape[0], (
-            "data_to_extrapolate must be smaller then target_range")
-        return self
-
     @property
     def n_historic(self):
         return self.data_to_extrapolate.shape[0]
@@ -34,9 +28,11 @@ class Extrapolation(BaseModel):
 
 class OneDimensionalExtrapolation(Extrapolation):
     @model_validator(mode="after")
-    def validate_data_one_dimension(self):
+    def validate_data(self):
         assert self.data_to_extrapolate.ndim == 1, "Data to extrapolate must be 1-dimensional."
         assert self.target_range.ndim == 1, "Target range must be 1-dimensional."
+        assert self.data_to_extrapolate.shape[0] < self.target_range.shape[0], (
+            "data_to_extrapolate must be smaller then target_range")
         return self
 
 

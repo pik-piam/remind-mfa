@@ -1,30 +1,37 @@
-[tool.poetry]
-name = "mofa"
-version = "0.1.0"
-description = ""
-authors = ["Jakob Duerrwaechter <jakob.duerrwaechter@pik-potsdam.de>"]
-readme = "README.md"
-package-mode = false
-
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-matplotlib = "^3.7.1,!=3.9.1"
-numpy = "^1.25.0"
-scipy = "^1.11.0"
-PyYAML = "^6.0"
-statsmodels = "^0.14.0"
-pandas = "^2.0.2"
-pickle4 = "^0.0.1"
-openpyxl = "^3.1.2"
-xlrd = "^2.0.1"
-xlwt = "^1.3.0"
-plotly = "^5.18.0"
-sodym = { path = "../sodym/", develop = true }
-pydantic = "^2.8.2"
-# Kaleido version: https://github.com/plotly/Kaleido/issues/134#issuecomment-1215791893
-kaleido = "==0.1.0.post1"
-
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simson"
+version = "0.1.0"
+authors = [
+    {name = "Jakob Dürrwächter"},
+    {name = "Sally Dacie"},
+    {name = "Merlin Hosak"},
+]
+
+requires-python = ">= 3.10"
+dependencies = [
+    "matplotlib>=3.7.1,!=3.9.1",
+    "numpy>=1.25.0",
+    "scipy>=1.11.0",
+    "PyYAML>=6.0",
+    "statsmodels>=0.14.0",
+    "pandas>=2.0.2",
+    "pickle4>=0.0.1",
+    "openpyxl>=3.1.2",
+    "xlrd>=2.0.1",
+    "xlwt>=1.3.0",
+    "plotly>=5.18.0",
+    "pydantic>=2.8.2",
+    "flodym",
+    # Kaleido version: https://github.com/plotly/Kaleido/issues/134#issuecomment-1215791893
+    "kaleido==0.1.0.post1",
+]
+
+[tool.setuptools]
+packages = ["simson"]
+
+[tool.uv.sources]
+flodym = { path = "../flodym" }
