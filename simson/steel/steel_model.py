@@ -9,14 +9,13 @@ from flodym import (
     SimpleFlowDrivenStock,
     Stock,
     Parameter,
-    make_empty_stocks,
-    make_empty_flows,
+    StockArray,
     make_processes,
     StockDrivenDSM,
     InflowDrivenDSM,
 )
-#from flodym.stock_helper import create_dynamic_stock, make_empty_stocks
-#from flodym.flow_helper import make_empty_flows
+from flodym.stock_helper import make_empty_stocks
+from flodym.flow_helper import make_empty_flows
 
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
@@ -33,7 +32,7 @@ class SteelModel:
     def __init__(self, cfg: CommonCfg):
         self.cfg = cfg
         self.definition = self.set_up_definition()
-        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path)
+        self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path, definition=self.definition)
         self.data_writer = SteelDataExporter(
             **dict(self.cfg.visualization), output_path=self.cfg.output_path,
             display_names=self.display_names
@@ -113,11 +112,20 @@ class SteelModel:
         Calculate stocks and outflow through dynamic stock model
         """
         prm = self.parameters
-        dsm = create_dynamic_stock(name='in_use', process=self.processes['use'],
-                                   inflow=historic_in_use_stock.inflow, ldf_type=self.cfg.customization.ldf_type,
-                                   lifetime_mean=prm['lifetime_mean'], lifetime_std=prm['lifetime_std'],
-                                   time_letter='h')
-        dsm.compute()
+
+        dsm = InflowDrivenDSM(
+            dims=historic_in_use_stock.dims,
+            name='in_use',
+            process=self.processes['use'],
+            lifetime_model=self.cfg.customization.lifetime_model,
+            stock=historic_in_use_stock,
+        )
+        dsm.lifetime_model.set_prms(
+            mean=self.parameters['lifetime_mean'],
+            std=self.parameters['lifetime_std'])
+
+        dsm.compute()  # gives inflows and outflows corresponding to in-use stock
+
         historic_in_use_stock.stock[...] = dsm.stock
         historic_in_use_stock.outflow[...] = dsm.outflow
 
@@ -191,6 +199,21 @@ class SteelModel:
         demand_via_gdp.values = np.einsum('trg,t->trg', demand_via_gdp.values, 1 - scaler)
         demand_via_stock[...] += demand_via_gdp
 
+        # TODO solve
+        in_use_stock.inflow = demand_via_stock
+
+        new_dsm = InflowDrivenDSM(
+            dims=in_use_stock.dims,
+            name='in_use',
+            process=self.processes['use'],
+            lifetime_model=self.cfg.customization.lifetime_model,
+            stock=in_use_stock,
+        )
+        new_dsm.lifetime_model.set_prms(
+            mean=self.parameters['lifetime_mean'],
+            std=self.parameters['lifetime_std'])
+        new_dsm.compute()  # gives inflows and outflows corresponding to in-use stock
+
         # TODO delete visualisation
         stock = total_in_use_stock.values
         pop = self.parameters['population'].values
@@ -207,7 +230,7 @@ class SteelModel:
 
         visualise = False
         if visualise:
-            from sodym.export.array_plotter import PlotlyArrayPlotter
+            from flodym.export.array_plotter import PlotlyArrayPlotter
 
             ap_gdp = PlotlyArrayPlotter(
                 array=demand_via_gdp_old.sum_nda_over('g'),
@@ -239,12 +262,6 @@ class SteelModel:
             ap_old.plot(do_show=True)
 
             prm = self.parameters
-            dsm = create_dynamic_stock(name='in_use', process=self.processes['use'],
-                                       inflow=demand_via_stock, ldf_type=self.cfg.customization.ldf_type,
-                                       lifetime_mean=prm['lifetime_mean'], lifetime_std=prm['lifetime_std'],
-                                       time_letter='t')
-
-            dsm.compute()
 
             # TODO Delete
 
@@ -267,14 +284,14 @@ class SteelModel:
             ap_stock.plot(do_show=True)
 
         return SimpleFlowDrivenStock(
-            dims=dsm.dims,
-            stock=dsm.stock,
-            inflow=dsm.inflow,
-            outflow=dsm.outflow,
+            dims=new_dsm.dims,
+            stock=new_dsm.stock,
+            inflow=new_dsm.inflow,
+            outflow=new_dsm.outflow,
             name='in_use',
             process_name='use',
             process=self.processes['use'],
-            )
+        )
 
     def make_trade_model(self):
         """
@@ -308,7 +325,6 @@ class SteelModel:
             dims=self.dims, parameters=self.parameters,
             processes=self.processes, flows=flows, stocks=stocks
         )
-
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     display_names = {
@@ -377,8 +393,8 @@ class SteelModel:
 
             FlowDefinition(from_process='sysenv', to_process='bof_production', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='scrap_market', to_process='bof_production', dim_letters=('t', 'e', 'r')),
-            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e','r')),
-            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e','r',)),
+            FlowDefinition(from_process='bof_production', to_process='forming', dim_letters=('t', 'e', 'r')),
+            FlowDefinition(from_process='bof_production', to_process='sysenv', dim_letters=('t', 'e', 'r',)),
             FlowDefinition(from_process='scrap_market', to_process='eaf_production', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='eaf_production', to_process='forming', dim_letters=('t', 'e', 'r')),
             FlowDefinition(from_process='eaf_production', to_process='sysenv', dim_letters=('t', 'e', 'r')),
@@ -409,9 +425,12 @@ class SteelModel:
                 dim_letters=('h', 'r', 'g'),
                 subclass=SimpleFlowDrivenStock,
                 time_letter='h'),
-            StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g'), subclass=SimpleFlowDrivenStock),
-            StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g'), subclass=SimpleFlowDrivenStock),
-            StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r'), subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g'),
+                            subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g'),
+                            subclass=SimpleFlowDrivenStock),
+            StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r'),
+                            subclass=SimpleFlowDrivenStock),
         ]
 
         parameters = [

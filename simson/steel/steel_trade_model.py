@@ -1,6 +1,6 @@
 from simson.common.trade import Trade
 from simson.common.trade_balancers import balance_by_extrenum
-from sodym.dimensions import DimensionSet
+from flodym.dimensions import DimensionSet
 from pydantic import BaseModel as PydanticBaseModel
 from simson.common.trade_predictors import predict_by_extrapolation
 

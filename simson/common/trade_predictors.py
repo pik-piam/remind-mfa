@@ -1,7 +1,7 @@
 from simson.common.data_transformations import extrapolate_to_future
 from simson.common.trade import Trade
 from simson.common.trade_balancers import balance_by_scaling
-from sodym import Parameter
+from flodym import Parameter
 
 
 def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims: bool = False, do_balance: bool = True,

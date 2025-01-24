@@ -1,7 +1,7 @@
 import logging
 import os
-from sodym.mfa_system import MFASystem
-from sodym.export.array_plotter import PlotlyArrayPlotter
+from flodym.mfa_system import MFASystem
+from flodym.export.array_plotter import PlotlyArrayPlotter
 from simson.common.custom_export import CustomDataExporter
 from simson.common.data_transformations import transform_t_to_hist
 

@@ -1,5 +1,5 @@
 import numpy as np
-from sodym import StockArray
+from flodym import StockArray
 
 S_IND = np.array([0.47, 0.32, 0.10, 0.11])
 S_USA = np.array([0.47, 0.10, 0.13, 0.30])
