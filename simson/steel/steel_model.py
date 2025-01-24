@@ -1,17 +1,19 @@
+import numpy as np  # TODO: really necessary? -> scaling in other script?
 from sodym import (
     MFADefinition, DimensionDefinition, FlowDefinition, ParameterDefinition, StockDefinition,
-    Process, FlowDrivenStock
+    Process, FlowDrivenStock, StockArray
 )
 from sodym.stock_helper import create_dynamic_stock, make_empty_stocks
 from sodym.flow_helper import make_empty_flows
 
 from simson.common.common_cfg import CommonCfg
-from simson.common.data_transformations import extrapolate_stock
+from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
 from simson.common.custom_data_reader import CustomDataReader
 from simson.steel.steel_export import SteelDataExporter
 from simson.steel.stock_driven_steel import StockDrivenSteelMFASystem
 from simson.steel.inflow_driven_steel_historic import InflowDrivenHistoricSteelMFASystem
 from simson.steel.steel_trade_model import SteelTradeModel
+from simson.steel.steel_sector_splits import calc_final_stock_sector_splits, calc_stock_sector_splits
 
 
 class SteelModel:
@@ -39,7 +41,7 @@ class SteelModel:
         }
 
     def run(self):
-        self.parameters['lifetime_std'][...] = self.parameters['lifetime_mean'] * 0.5  # TODO Decide; Delete
+        # self.parameters['lifetime_std'][...] = self.parameters['lifetime_mean'] * 0.5  # TODO Decide; Delete
 
         trade_model = self.make_trade_model()
         trade_model.balance_historic_trade()
@@ -117,10 +119,20 @@ class SteelModel:
         return historic_in_use_stock
 
     def create_future_stock_from_historic(self, historic_in_use_stock):
-        in_use_stock = extrapolate_stock(
+        total_in_use_stock = extrapolate_stock(
             historic_in_use_stock.stock, dims=self.dims, parameters=self.parameters,
-            curve_strategy=self.cfg.customization.curve_strategy,
+            curve_strategy=self.cfg.customization.curve_strategy, target_dim_letters=('t', 'r')
         )
+
+        sector_splits = calc_stock_sector_splits(self.dims,
+                                                 self.parameters['gdppc'].values,
+                                                 self.parameters['lifetime_mean'].values,
+                                                 historic_in_use_stock.stock.get_shares_over('g').values)
+
+        in_use_stock = sector_splits * total_in_use_stock
+        in_use_stock = StockArray(**dict(in_use_stock))  # cast to Stock Array
+
+        # create dynamic stock model for in use stock
 
         dsm = create_dynamic_stock(
             name='in_use', process=self.processes['use'],
@@ -129,6 +141,122 @@ class SteelModel:
             lifetime_std=self.parameters['lifetime_std'],
         )
         dsm.compute()  # gives inflows and outflows corresponding to in-use stock
+
+        old_stock = dsm.stock
+
+        # smooth short-term demand
+
+        historic_demand = historic_in_use_stock.inflow
+
+        years = 20
+
+        past = np.linspace(0, 0, num=123)
+
+        ## smoothing method
+
+        ### linear smoothing
+
+        short_term_linear = np.linspace(0, 1, num=years)
+
+        ### sigmoid smoothing
+
+        short_term_sigmoid = np.arange(years)
+        short_term_sigmoid = 1 / (
+                1 + np.e ** (
+                -((short_term_sigmoid - years / 2)) / 2))  # increase last number to flatten sigmoid further
+
+        ### choose between linear and sigmoid smoothing
+
+        short_term = short_term_linear
+
+        future = np.linspace(1, 1, num=201 - 123 - years)
+        scaler = np.concatenate((past, short_term, future))
+
+        demand_via_stock_old = dsm.inflow.copy()  # TODO delete, just needed for visualisation
+
+        demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters['gdppc'])
+        demand_via_stock = dsm.inflow
+        demand_via_gdp_old = demand_via_gdp.copy()  # TODO delete, just neeeded for visualisation
+
+        demand_via_stock.values = np.einsum('trg,t->trg', demand_via_stock.values, scaler)
+        demand_via_gdp.values = np.einsum('trg,t->trg', demand_via_gdp.values, 1 - scaler)
+        demand_via_stock[...] += demand_via_gdp
+
+        # TODO delete visualisation
+        stock = total_in_use_stock.values
+        pop = self.parameters['population'].values
+        stock_pc = stock / pop
+        years = range(1900, 2101)
+        import matplotlib.pyplot as plt
+        for r, region in enumerate(self.dims['Region'].items):
+            plt.plot(years, stock_pc[:, r], label=f'{region}')
+        plt.legend()
+        plt.xlabel('Year')
+        plt.ylabel('Stock per capita')
+        plt.title('Stock per capita over time')
+        plt.show()
+
+        visualise = False
+        if visualise:
+            from sodym.export.array_plotter import PlotlyArrayPlotter
+
+            ap_gdp = PlotlyArrayPlotter(
+                array=demand_via_gdp_old.sum_nda_over('g'),
+                intra_line_dim='Time',
+                subplot_dim='Region',
+                line_label='GDP',
+            )
+
+            fig = ap_gdp.plot()
+
+            ap_smoothed = PlotlyArrayPlotter(
+                array=demand_via_stock.sum_nda_over('g'),
+                intra_line_dim='Time',
+                subplot_dim='Region',
+                line_label='smoothed',
+                fig=fig
+            )
+
+            fig = ap_smoothed.plot()
+
+            ap_old = PlotlyArrayPlotter(
+                array=demand_via_stock_old.sum_nda_over('g'),
+                intra_line_dim='Time',
+                subplot_dim='Region',
+                line_label='old',
+                fig=fig
+            )
+
+            ap_old.plot(do_show=True)
+
+            prm = self.parameters
+            dsm = create_dynamic_stock(name='in_use', process=self.processes['use'],
+                                       inflow=demand_via_stock, ldf_type=self.cfg.customization.ldf_type,
+                                       lifetime_mean=prm['lifetime_mean'], lifetime_std=prm['lifetime_std'],
+                                       time_letter='t')
+
+            dsm.compute()
+
+            # TODO Delete
+
+            ap_old = PlotlyArrayPlotter(
+                array=old_stock.sum_nda_over('g'),
+                intra_line_dim='Time',
+                subplot_dim='Region',
+                line_label='Old Stock',
+            )
+
+            fig = ap_old.plot()
+
+            ap_stock = PlotlyArrayPlotter(
+                array=dsm.stock.sum_nda_over('g'),
+                intra_line_dim='Time',
+                subplot_dim='Region',
+                line_label='New Stock',
+                fig=fig)
+
+            ap_stock.plot(do_show=True)
+
         return FlowDrivenStock(
             stock=dsm.stock, inflow=dsm.inflow, outflow=dsm.outflow, name='in_use', process_name='use',
             process=self.processes['use'], )

@@ -181,6 +181,15 @@ class SteelDataExporter(CustomDataExporter):
 
         fig = ap_demand.plot()
 
+        ap_production = PlotlyArrayPlotter(
+            array=total_production.sum_nda_to(('h', 'r')),
+            intra_line_dim='Historic Time',
+            subplot_dim='Region',
+            line_label='Total Production',
+            fig=fig)
+
+        fig = ap_production.plot()
+
         ap_supply = PlotlyArrayPlotter(
             array=scrap_supply,
             intra_line_dim='Historic Time',
