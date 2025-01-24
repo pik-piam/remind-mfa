@@ -44,28 +44,6 @@ def calc_stock_sector_splits(dims, gdp, lifetime_mean, historical_sector_splits)
 
     return sector_splits_nda
 
-    # TODO Delete
-    """
-    visualise = True
-    if visualise:
-        import matplotlib.pyplot as plt
-        regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
-        colors = ['b', 'g', 'r', 'y']
-        for r, region in enumerate(regions):
-            for g, good in enumerate(['Construction', 'Machinery', 'Products', 'Transport']):
-                plt.axhline(y=fin_sector_split[g], color=colors[g])
-                plt.axvline(x=gdp[122, r], color='black', linestyle='--')
-                plt.plot(gdp[:, r], general_split[:, r, g], label=f'{good} general', color=colors[g],
-                         linestyle=':')
-                plt.plot(gdp[:123, r], historical_sector_splits[:, r, g], label=f'{good} historical', color=colors[g],
-                         linestyle='--')
-                plt.plot(gdp[123:, r], sector_split[123:, r, g], label=f'{good} final', color=colors[g], linestyle='-.')
-            plt.title(f'{region} stock sector splits')
-            plt.xlabel('GDP per capita')
-            plt.ylabel('Stock share')
-            plt.show()
-    a = 0"""
-
 
 def merge_historical_and_general_split(historical_sector_splits, general_split, gdp):
     years = 201 - 123

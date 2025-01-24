@@ -2,7 +2,7 @@ from copy import copy
 import numpy as np
 
 from flodym import (
-    StockArray, DynamicStockModel,
+    StockArray, DynamicStockModel, SimpleFlowDrivenStock,
     DimensionSet, FlodymArray, Process, Parameter
 )
 
@@ -24,11 +24,11 @@ def extrapolate_stock(
 
     # transform to per capita
     pop = parameters['population']
-    historic_pop       = FlodymArray(dims=dims[('h','r')])
-    historic_gdppc     = FlodymArray(dims=dims[('h','r')])
-    historic_stocks_pc = FlodymArray(dims=dims[('h','r','g')])
-    stocks_pc          = FlodymArray(dims=dims[('t','r','g')])
-    stocks             = FlodymArray(dims=dims[('t','r','g')])
+    historic_pop = FlodymArray(dims=dims[('h', 'r')])
+    historic_gdppc = FlodymArray(dims=dims[('h', 'r')])
+    historic_stocks_pc = FlodymArray(dims=dims[historic_dim_letters])
+    stocks_pc = FlodymArray(dims=dims[target_dim_letters])
+    stocks = FlodymArray(dims=dims[target_dim_letters])
 
     historic_pop[...] = pop[{'t': dims['h']}]
     historic_gdppc[...] = parameters['gdppc'][{'t': dims['h']}]
@@ -46,12 +46,11 @@ def extrapolate_stock(
     # transform back to total stocks
     stocks[...] = stocks_pc * pop
 
-    #visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
+    # visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
     return StockArray(**dict(stocks))
 
 
-def extrapolate_to_future(historic_values : FlodymArray, scale_by : FlodymArray) -> FlodymArray:
-
+def extrapolate_to_future(historic_values: FlodymArray, scale_by: FlodymArray) -> FlodymArray:
     if not historic_values.dims.letters[0] == 'h':
         raise ValueError("First dimension of historic_parameter must be historic time.")
     if not scale_by.dims.letters[0] == 't':
@@ -76,7 +75,6 @@ def extrapolate_to_future(historic_values : FlodymArray, scale_by : FlodymArray)
 
 def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_type='sigmoid'):
     shape_out = prediction_out.shape
-    assert len(shape_out) == 3, "Prediction array must have 3 dimensions: Time, Region, Good"
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
 
@@ -116,7 +114,7 @@ def prepare_stock_for_mfa(
     stock_extd = StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
     inflow = StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)
     outflow = StockArray(values=outflow.values, name='in_use_outflow', dims=stock_dims)
-    stock = FlowDrivenStock(
+    stock = SimpleFlowDrivenStock(
         stock=stock_extd, inflow=inflow, outflow=outflow, name='in_use', process_name='use',
         process=use,
     )

@@ -20,7 +20,7 @@ class SteelDataExporter(CustomDataExporter):
     def visualize_production(self, mfa: MFASystem):
         flw = mfa.flows
         production = flw['bof_production => forming'] + flw['eaf_production => forming']
-        production = production.sum_nda_over('e')
+        production = production.sum_over('e')
 
         # visualize regional production
         ap_production = PlotlyArrayPlotter(
@@ -39,7 +39,7 @@ class SteelDataExporter(CustomDataExporter):
         ap_production.plot(save_path=save_path, do_show=self.do_show_figs)
 
         # visualize global production
-        production = production.sum_nda_over('r')
+        production = production.sum_over('r')
 
         ap_production = PlotlyArrayPlotter(
             array=production,
@@ -102,17 +102,17 @@ class SteelDataExporter(CustomDataExporter):
     def visiualize_global_stock(self, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp):
         if over_gdp:
             x_array = x_array * population
-            x_array = x_array.sum_nda_over('r')
+            x_array = x_array.sum_over('r')
             if per_capita:
                 # get global GDP per capita
-                x_array = x_array / population.sum_nda_over('r')
+                x_array = x_array / population.sum_over('r')
 
         self.visualize_global_stock_by_good(stock, x_array, population, x_label, y_label, title, per_capita)
         self.visualize_global_stock_by_region(stock, x_array, x_label, y_label, title, per_capita)
 
     def visualize_global_stock_by_good(self, stock, x_array, population, x_label, y_label, title, per_capita):
-        stock = stock.sum_nda_over('r')
-        stock = stock / population.sum_nda_over('r') if per_capita else stock
+        stock = stock.sum_over('r')
+        stock = stock / population.sum_over('r') if per_capita else stock
 
         ap_stock = PlotlyArrayPlotter(
             array=stock,
@@ -135,7 +135,7 @@ class SteelDataExporter(CustomDataExporter):
             logging.info('Global stocks by region can not be implemented per capita. Skipping...')
             return
 
-        stock = stock.sum_nda_over('g')
+        stock = stock.sum_over('g')
 
         ap_stock = PlotlyArrayPlotter(
             array=stock,
@@ -156,9 +156,8 @@ class SteelDataExporter(CustomDataExporter):
     def visualize_scrap_demand_supply(self, mfa: MFASystem):
         flw = mfa.flows
         prm = mfa.parameters
-        scp = mfa.scalar_parameters
 
-        total_production = flw['forming => ip_market'] / prm['forming_yield'] / scp['production_yield']
+        total_production = flw['forming => ip_market'] / prm['forming_yield'] / prm['production_yield']
         dri = (prm['dri_production'] + prm['dri_imports'] - prm['dri_exports'])
         pigiron = (prm['pigiron_production'] + prm['pigiron_imports'] - prm['pigiron_exports'] - prm['pigiron_to_cast'])
 
@@ -169,7 +168,7 @@ class SteelDataExporter(CustomDataExporter):
         scrap_supply = (flw['recycling => scrap_market'] +
                         flw['forming => scrap_market'] +
                         flw['fabrication => scrap_market'])
-        scrap_supply = transform_t_to_hist(scrap_supply, dims=mfa.dims).sum_nda_over('e')
+        scrap_supply = transform_t_to_hist(scrap_supply, dims=mfa.dims).sum_over('e')
 
         ap_demand = PlotlyArrayPlotter(
             array=scrap_demand,
@@ -182,7 +181,7 @@ class SteelDataExporter(CustomDataExporter):
         fig = ap_demand.plot()
 
         ap_production = PlotlyArrayPlotter(
-            array=total_production.sum_nda_to(('h', 'r')),
+            array=total_production.sum_to(('h', 'r')),
             intra_line_dim='Historic Time',
             subplot_dim='Region',
             line_label='Total Production',
@@ -207,8 +206,8 @@ class SteelDataExporter(CustomDataExporter):
         ap_supply.plot(save_path=save_path, do_show=self.do_show_figs)
 
         # plot global demand and supply
-        scrap_demand = scrap_demand.sum_nda_over('r')
-        scrap_supply = scrap_supply.sum_nda_over('r')
+        scrap_demand = scrap_demand.sum_over('r')
+        scrap_supply = scrap_supply.sum_over('r')
 
         ap_demand = PlotlyArrayPlotter(
             array=scrap_demand,
@@ -238,7 +237,7 @@ class SteelDataExporter(CustomDataExporter):
         flw = mfa.flows
 
         fabrication = flw['fabrication => use']
-        fabrication = fabrication.sum_nda_over(('e',))
+        fabrication = fabrication.sum_over(('e',))
         sector_splits = fabrication.get_shares_over('g')
 
         ap_sector_splits = PlotlyArrayPlotter(
@@ -257,7 +256,7 @@ class SteelDataExporter(CustomDataExporter):
         ap_sector_splits.plot(save_path=save_path, do_show=self.do_show_figs)
 
         # plot global sector splits
-        fabrication = fabrication.sum_nda_over('r')
+        fabrication = fabrication.sum_over('r')
         sector_splits = fabrication.get_shares_over('g')
 
         ap_sector_splits = PlotlyArrayPlotter(

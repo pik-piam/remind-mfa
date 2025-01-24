@@ -24,7 +24,7 @@ class InflowDrivenHistoricSteelMFASystem(MFASystem):
 
         aux = {
             'net_intermediate_trade': self.get_new_array(dim_letters=('h', 'r', 'i')),
-            'fabrication_by_sector': self.get_new_array(dim_letters=('h', 'r', 'g')),
+            'fabrication_inflow_by_sector': self.get_new_array(dim_letters=('h', 'r', 'g')),
             'fabrication_loss': self.get_new_array(dim_letters=('h', 'r', 'g')),
             'fabrication_error': self.get_new_array(dim_letters=('h', 'r'))
         }
@@ -42,10 +42,10 @@ class InflowDrivenHistoricSteelMFASystem(MFASystem):
         aux['fabrication_inflow_by_sector'][...] = self._calc_sector_flows_gdp_curve(flw['ip_market => fabrication'],
                                                                                      prm['gdppc'])
 
-        aux['fabrication_error'] = flw['ip_market => fabrication'] - aux['fabrication_by_sector']
+        aux['fabrication_error'] = flw['ip_market => fabrication'] - aux['fabrication_inflow_by_sector']
 
-        flw['fabrication => use'][...] = aux['fabrication_by_sector'] * prm['fabrication_yield']
-        aux['fabrication_loss'][...] = aux['fabrication_by_sector'] - flw['fabrication => use']
+        flw['fabrication => use'][...] = aux['fabrication_inflow_by_sector'] * prm['fabrication_yield']
+        aux['fabrication_loss'][...] = aux['fabrication_inflow_by_sector'] - flw['fabrication => use']
         flw['fabrication => sysenv'][...] = aux['fabrication_error'] + aux['fabrication_loss']
 
         # Recalculate indirect trade according to available inflow from fabrication
@@ -60,7 +60,7 @@ class InflowDrivenHistoricSteelMFASystem(MFASystem):
     def _calc_sector_flows_gdp_curve(self, intermediate_flow, gdppc):
         fabrication_sector_split = calc_demand_sector_splits_via_gdp(gdppc)
 
-        total_intermediate_flow = intermediate_flow.sum_nda_over('i')
+        total_intermediate_flow = intermediate_flow.sum_over('i')
         sector_flow_values = np.einsum('hr,hrg->hrg', total_intermediate_flow.values,
                                        fabrication_sector_split[:123])
         sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
@@ -78,6 +78,8 @@ class InflowDrivenHistoricSteelMFASystem(MFASystem):
         # https://en.wikipedia.org/wiki/Overdetermined_system#Approximate_solutions
         # gi_values represents 'A', hence the variable at_a is A transposed times A
         # 'b' is the intermediate flow and x are the sector flows that we are trying to find out
+
+        # TODO: Decide whether to delete, for now not used
 
         gi_values = gi_distribution.values.transpose()
         at_a = np.matmul(gi_values.transpose(), gi_values)

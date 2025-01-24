@@ -5,10 +5,7 @@ from flodym import (
     FlowDefinition,
     ParameterDefinition,
     StockDefinition,
-    Process,
     SimpleFlowDrivenStock,
-    Stock,
-    Parameter,
     StockArray,
     make_processes,
     StockDrivenDSM,
@@ -48,8 +45,6 @@ class SteelModel:
         self.processes = make_processes(self.definition.processes)
 
     def run(self):
-        # self.parameters['lifetime_std'][...] = self.parameters['lifetime_mean'] * 0.5  # TODO Decide; Delete
-
         trade_model = self.make_trade_model()
         trade_model.balance_historic_trade()
         historic_mfa = self.make_historic_mfa(trade_model)
@@ -118,13 +113,14 @@ class SteelModel:
             name='in_use',
             process=self.processes['use'],
             lifetime_model=self.cfg.customization.lifetime_model,
-            stock=historic_in_use_stock,
+            inflow=historic_in_use_stock.inflow,
+            time_letter='h',
         )
         dsm.lifetime_model.set_prms(
-            mean=self.parameters['lifetime_mean'],
-            std=self.parameters['lifetime_std'])
+            mean=prm['lifetime_mean'],
+            std=prm['lifetime_std'])
 
-        dsm.compute()  # gives inflows and outflows corresponding to in-use stock
+        dsm.compute()  # gives stocks and outflows corresponding to inflow
 
         historic_in_use_stock.stock[...] = dsm.stock
         historic_in_use_stock.outflow[...] = dsm.outflow
@@ -199,15 +195,12 @@ class SteelModel:
         demand_via_gdp.values = np.einsum('trg,t->trg', demand_via_gdp.values, 1 - scaler)
         demand_via_stock[...] += demand_via_gdp
 
-        # TODO solve
-        in_use_stock.inflow = demand_via_stock
-
         new_dsm = InflowDrivenDSM(
             dims=in_use_stock.dims,
             name='in_use',
             process=self.processes['use'],
             lifetime_model=self.cfg.customization.lifetime_model,
-            stock=in_use_stock,
+            inflow=demand_via_stock,
         )
         new_dsm.lifetime_model.set_prms(
             mean=self.parameters['lifetime_mean'],
@@ -215,18 +208,20 @@ class SteelModel:
         new_dsm.compute()  # gives inflows and outflows corresponding to in-use stock
 
         # TODO delete visualisation
-        stock = total_in_use_stock.values
-        pop = self.parameters['population'].values
-        stock_pc = stock / pop
-        years = range(1900, 2101)
-        import matplotlib.pyplot as plt
-        for r, region in enumerate(self.dims['Region'].items):
-            plt.plot(years, stock_pc[:, r], label=f'{region}')
-        plt.legend()
-        plt.xlabel('Year')
-        plt.ylabel('Stock per capita')
-        plt.title('Stock per capita over time')
-        plt.show()
+        visualise = False
+        if visualise:
+            stock = total_in_use_stock.values
+            pop = self.parameters['population'].values
+            stock_pc = stock / pop  # [:, :, np.newaxis]
+            years = range(1900, 2101)
+            import matplotlib.pyplot as plt
+            for r, region in enumerate(self.dims['Region'].items):
+                plt.plot(years, stock_pc[:, r], label=f'{region}')
+            plt.legend()
+            plt.xlabel('Year')
+            plt.ylabel('Stock per capita')
+            plt.title('Stock per capita over time')
+            plt.show()
 
         visualise = False
         if visualise:
@@ -323,7 +318,8 @@ class SteelModel:
         stocks['use'] = future_in_use_stock
         return StockDrivenSteelMFASystem(
             dims=self.dims, parameters=self.parameters,
-            processes=self.processes, flows=flows, stocks=stocks
+            processes=self.processes, flows=flows, stocks=stocks,
+            trade_model=trade_model,
         )
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.

@@ -3,8 +3,8 @@ from simson.common.trade import Trade
 
 
 def balance_by_extrenum(trade, by: str, inplace=False):
-    global_imports = trade.imports.sum_nda_over('r')
-    global_exports = trade.exports.sum_nda_over('r')
+    global_imports = trade.imports.sum_over('r')
+    global_exports = trade.exports.sum_over('r')
 
     reference_trade_lookup = {
         'maximum': global_imports.maximum(global_exports),
@@ -33,8 +33,8 @@ def balance_by_extrenum(trade, by: str, inplace=False):
 
 def balance_by_scaling(trade, inplace=False):
     net_trade = trade.imports - trade.exports
-    global_net_trade = net_trade.sum_nda_over('r')
-    global_absolute_net_trade = net_trade.abs().sum_nda_over('r')
+    global_net_trade = net_trade.sum_over('r')
+    global_absolute_net_trade = net_trade.abs().sum_over('r')
 
     # avoid division by zero, net_trade will be zero when global absolute net trade is zero anyways
     global_absolute_net_trade = global_absolute_net_trade.maximum(sys.float_info.epsilon)

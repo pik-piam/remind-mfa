@@ -29,7 +29,7 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
 
     ## The scaler needs to be summed across dimensions that the historic trade doesn't have for the extrapolation
     historic_dims_with_t_dimension = trade.imports.dims.replace('h', scaler.dims['t'])
-    total_scaler = scaler.sum_nda_to(historic_dims_with_t_dimension.intersect_with(scaler.dims).letters)
+    total_scaler = scaler.sum_to(historic_dims_with_t_dimension.intersect_with(scaler.dims).letters)
 
     ## The extrapolate_to_future function uses the WeightedProportionalExtrapolation, basically a linear regression
     ## so that the share of the historic trade in the scaler is kept constant
@@ -37,7 +37,7 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
         extrapolate_to_future(historic_values=trade[scale_first],
                               scale_by=total_scaler))
 
-    global_scale_first = future_scale_first.sum_nda_over(sum_over_dims=('r',))
+    global_scale_first = future_scale_first.sum_over(sum_over_dims=('r',))
 
     future_scale_second = extrapolate_to_future(historic_values=trade[scale_second],
                                                 scale_by=global_scale_first)
@@ -46,7 +46,7 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
         ## dimensions of the scaler, adapting the same sector split as the scaler.
         missing_dims = scaler.dims.difference_with(future_scale_first.dims)
         future_scale_first = future_scale_first * scaler.get_shares_over(missing_dims.letters)
-        global_scale_first = future_scale_first.sum_nda_over(sum_over_dims='r')
+        global_scale_first = future_scale_first.sum_over(sum_over_dims='r')
         future_scale_second = future_scale_second * global_scale_first.get_shares_over(missing_dims.letters)
 
     # create future trade object
