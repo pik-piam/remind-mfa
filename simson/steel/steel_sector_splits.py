@@ -1,5 +1,6 @@
 import numpy as np
 from flodym import StockArray
+from simson.common.data_transformations import smooth_np
 
 S_IND = np.array([0.47, 0.32, 0.10, 0.11])
 S_USA = np.array([0.47, 0.10, 0.13, 0.30])
@@ -33,7 +34,8 @@ def calc_stock_sector_splits(dims, gdp, lifetime_mean, historical_sector_splits)
     general_splits = calc_general_stock_sector_split(fin_sector_split, gdp)
 
     # merge historical and general split with sigmoid scaling
-    sector_splits = merge_historical_and_general_split(historical_sector_splits, general_splits, gdp)
+
+    sector_splits = merge_historical_and_general_split(historical_sector_splits, general_splits)
 
     # normalise
     sector_splits /= sector_splits.sum(axis=-1)[:, :, np.newaxis]
@@ -45,21 +47,15 @@ def calc_stock_sector_splits(dims, gdp, lifetime_mean, historical_sector_splits)
     return sector_splits_nda
 
 
-def merge_historical_and_general_split(historical_sector_splits, general_split, gdp):
-    years = 201 - 123
-    past = np.linspace(0, 0, num=123)
-    sigmoid_base = np.arange(years)
-    sigmoid = 1 / (
-            1 + np.e ** (
-            -((sigmoid_base - years / 2)) / 8))  # increase last number to flatten sigmoid further
-    scaler = np.concatenate((past, sigmoid))
+def merge_historical_and_general_split(historical_sector_splits, general_split):
+    # prepare simply extrapolation of historical sector splits by assuming same split as last year
+    extrapolated_historical_sector_splits = np.ones_like(general_split)
+    extrapolated_historical_sector_splits *= historical_sector_splits[-1]
+    extrapolated_historical_sector_splits[:123] = historical_sector_splits
 
-    sector_split = np.ones((201, 12, 4))
-    sector_split *= historical_sector_splits[-1]
-    sector_split[:123] = historical_sector_splits
-    sector_split *= 1 - scaler[:, np.newaxis, np.newaxis]
-    sector_split += general_split * scaler[:, np.newaxis, np.newaxis]
-
+    # smooth both curves with sigmoid smoothing
+    sector_split = smooth_np(extrapolated_historical_sector_splits, general_split,
+                             type='sigmoid', start_idx=historical_sector_splits.shape[0])
     return sector_split
 
 
@@ -67,19 +63,25 @@ def calc_general_stock_sector_split(fin_sector_split, gdp):
     LOWER_END = 1000
     UPPER_END = 100000
 
-    gdppc = np.linspace(-5000, 120000, 300)
-    log_gdppc = np.linspace(3, 5, 300)
-    gdppc = 10. ** log_gdppc
-
     first_sector_split = np.array([0.47, 0.33, 0.098, 0.102])
 
     def alpha(gdp):
         x = -3. + 6. * (np.log10(gdp) - np.log10(LOWER_END)) / (np.log10(UPPER_END) - np.log10(LOWER_END))
         return 1. / (1. + np.exp(-x))
 
+    a = alpha(gdp)
+    # stretch a such that it is 0 at GDPPC_IND and 1 at GDPPC_USA (actually overhsooting/extrpolating their values slightly)
+    a_first = alpha(LOWER_END)
+    a_fin = alpha(UPPER_END)
+    a = (a - a_first) / (a_fin - a_first)
+    sector_split = a[:, :, np.newaxis] * fin_sector_split + (1 - a[:, :, np.newaxis]) * first_sector_split
+
     # TODO delete visualisation
     visualise = False
     if visualise:
+        gdppc = np.linspace(-5000, 120000, 300)
+        log_gdppc = np.linspace(3, 5, 300)
+        gdppc = 10. ** log_gdppc
         a = alpha(gdppc)
         # stretch a such that it is 0 at GDPPC_IND and 1 at GDPPC_USA (actually overhsooting/extrpolating their values slightly)
         a_first = alpha(LOWER_END)
@@ -97,13 +99,6 @@ def calc_general_stock_sector_split(fin_sector_split, gdp):
         # fig.add_vline(x=UPPER_END, line_dash="dash", line_color="red")
         # fig.update_layout(xaxis_type="log")
         fig.show()
-
-    a = alpha(gdp)
-    # stretch a such that it is 0 at GDPPC_IND and 1 at GDPPC_USA (actually overhsooting/extrpolating their values slightly)
-    a_first = alpha(LOWER_END)
-    a_fin = alpha(UPPER_END)
-    a = (a - a_first) / (a_fin - a_first)
-    sector_split = a[:, :, np.newaxis] * fin_sector_split + (1 - a[:, :, np.newaxis]) * first_sector_split
 
     return sector_split
 

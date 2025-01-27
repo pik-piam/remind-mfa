@@ -1,4 +1,3 @@
-from copy import copy
 import numpy as np
 
 from flodym import (
@@ -121,13 +120,57 @@ def prepare_stock_for_mfa(
     return stock
 
 
-def transform_t_to_hist(ndarray: FlodymArray, dims: DimensionSet):
+def transform_t_to_hist(data: FlodymArray, dims: DimensionSet):
     """Transforms an array with time dimension to an array with historic time dimension."""
     hist_dim = dims['h']
     time_dim = dims['t']
     assert time_dim.items[
            :len(hist_dim.items)] == hist_dim.items, "Time dimension must start with historic time dimension."
-    new_dims = ndarray.dims.replace('t', hist_dim)
+    new_dims = data.dims.replace('t', hist_dim)
     hist_array = FlodymArray.from_dims_superset(dims_superset=new_dims, dim_letters=new_dims.letters)
-    hist_array.values = ndarray.values[:len(hist_dim.items)]
+    hist_array.values = data.values[:len(hist_dim.items)]
     return hist_array
+
+
+def smooth(to_smooth: FlodymArray, smooth_extrapolation: FlodymArray, type: str, start_idx: int, duration: int = None,
+           sigmoid_factor=8):
+    assert to_smooth.dims == smooth_extrapolation.dims, \
+        "to_smooth and smooth_extrapolation must have the same dimensions."
+    result = to_smooth.model_copy()
+    result.values = smooth_np(to_smooth.values, smooth_extrapolation.values, type, start_idx, duration, sigmoid_factor)
+
+    return result
+
+
+def smooth_np(to_smooth: np.ndarray, smooth_extrapolation: np.ndarray, type: str, start_idx: int, duration: int = None,
+              sigmoid_factor=8):
+    assert type in ['linear', 'sigmoid'], (f"type must be either 'linear' or 'sigmoid',"
+                                           f"{type} is undefined.")
+    assert to_smooth.shape == smooth_extrapolation.shape, (
+        "to_smooth and smooth_extrapolation must have the same dimensions.")
+
+    total_years = to_smooth.shape[0]
+    if duration is None:
+        duration = total_years - start_idx
+    end_idx = start_idx + duration
+    short_term_years = end_idx - start_idx
+
+    # create scaler to weigh the two arrays
+
+    past = np.linspace(0, 0, num=123)
+    if type == 'linear':
+        short_term = np.linspace(0, 1, num=short_term_years)
+    elif type == 'sigmoid':
+        sigmoid_parameters = np.arange(short_term_years)
+        short_term = 1 / (1 + np.e ** (-((
+                sigmoid_parameters - short_term_years / 2)) / sigmoid_factor))  # increase last number to flatten sigmoid further
+    future = np.linspace(1, 1, num=total_years - start_idx - short_term_years)
+    scaler = np.concatenate((past, short_term, future))
+
+    # perform smoothing
+
+    to_smooth_weighted = np.einsum('trg,t->trg', to_smooth, scaler)
+    smooth_extrapolation_weighted = np.einsum('trg,t->trg', smooth_extrapolation, 1 - scaler)
+    result = to_smooth_weighted + smooth_extrapolation_weighted
+
+    return result
