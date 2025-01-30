@@ -1,12 +1,4 @@
-from flodym import (
-    SimpleFlowDrivenStock,
-    StockArray,
-    make_processes,
-    make_empty_stocks,
-    make_empty_flows,
-    StockDrivenDSM,
-    InflowDrivenDSM,
-)
+import flodym as fd
 
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, smooth
@@ -36,7 +28,7 @@ class SteelModel:
         # direct is for intermediate steel products, indirect for finished products like cars)
         # loading steel sector splits for intermediate products, and indirect trade
         self.parameters = self.data_reader.read_parameters(self.definition.parameters, dims=self.dims)
-        self.processes = make_processes(self.definition.processes)
+        self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
         trade_model = self.make_trade_model()
@@ -74,13 +66,13 @@ class SteelModel:
             # 'indirect_trade', # todo decide whether to incorporate, depending on trade balancing
             'use'
         ]
-        processes = make_processes(historic_processes)
-        flows = make_empty_flows(
+        processes = fd.make_processes(historic_processes)
+        flows = fd.make_empty_flows(
             processes=processes,
             flow_definitions=[f for f in self.definition.flows if 'h' in f.dim_letters],
             dims=historic_dims
         )
-        stocks = make_empty_stocks(
+        stocks = fd.make_empty_stocks(
             processes=processes,
             stock_definitions=[s for s in self.definition.stocks if 'h' in s.dim_letters],
             dims=historic_dims
@@ -102,7 +94,7 @@ class SteelModel:
         """
         prm = self.parameters
 
-        dsm = InflowDrivenDSM(
+        dsm = fd.InflowDrivenDSM(
             dims=historic_in_use_stock.dims,
             name='in_use',
             process=self.processes['use'],
@@ -134,11 +126,11 @@ class SteelModel:
                                                  self.parameters['lifetime_mean'].values,
                                                  historic_in_use_stock.stock.get_shares_over('g').values)
         in_use_stock = sector_splits * total_in_use_stock
-        in_use_stock = StockArray(**dict(in_use_stock))  # cast to Stock Array
+        in_use_stock = fd.StockArray(**dict(in_use_stock))  # cast to Stock Array
 
         # create dynamic stock model for in use stock
 
-        dsm = StockDrivenDSM(
+        dsm = fd.StockDrivenDSM(
             dims=in_use_stock.dims,
             name='in_use',
             process=self.processes['use'],
@@ -163,7 +155,7 @@ class SteelModel:
 
         # create final dynamic stock model
 
-        new_dsm = InflowDrivenDSM(
+        new_dsm = fd.InflowDrivenDSM(
             dims=in_use_stock.dims,
             name='in_use',
             process=self.processes['use'],
@@ -175,7 +167,7 @@ class SteelModel:
             std=self.parameters['lifetime_std'])
         new_dsm.compute()  # gives inflows and outflows corresponding to in-use stock
 
-        return SimpleFlowDrivenStock(
+        return fd.SimpleFlowDrivenStock(
             dims=new_dsm.dims,
             stock=new_dsm.stock,
             inflow=new_dsm.inflow,
@@ -202,12 +194,12 @@ class SteelModel:
         return SteelTradeModel.create(dims=self.dims, trade_data=trade_prms)
 
     def make_future_mfa(self, future_in_use_stock, trade_model):
-        flows = make_empty_flows(
+        flows = fd.make_empty_flows(
             processes=self.processes,
             flow_definitions=[f for f in self.definition.flows if 't' in f.dim_letters],
             dims=self.dims
         )
-        stocks = make_empty_stocks(
+        stocks = fd.make_empty_stocks(
             processes=self.processes,
             stock_definitions=[s for s in self.definition.stocks if 't' in s.dim_letters],
             dims=self.dims

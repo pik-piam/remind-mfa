@@ -1,16 +1,12 @@
 import numpy as np
-
-from flodym import (
-    StockArray, DynamicStockModel, SimpleFlowDrivenStock,
-    DimensionSet, FlodymArray, Process, Parameter
-)
+import flodym as fd
 
 from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation, WeightedProportionalExtrapolation
 
 
 def extrapolate_stock(
-        historic_stocks: StockArray, dims: DimensionSet,
-        parameters: dict[str, Parameter], curve_strategy: str,
+        historic_stocks: fd.StockArray, dims: fd.DimensionSet,
+        parameters: dict[str, fd.Parameter], curve_strategy: str,
         target_dim_letters=None
 ):
     """Performs the per-capita transformation and the extrapolation."""
@@ -23,11 +19,11 @@ def extrapolate_stock(
 
     # transform to per capita
     pop = parameters['population']
-    historic_pop = FlodymArray(dims=dims[('h', 'r')])
-    historic_gdppc = FlodymArray(dims=dims[('h', 'r')])
-    historic_stocks_pc = FlodymArray(dims=dims[historic_dim_letters])
-    stocks_pc = FlodymArray(dims=dims[target_dim_letters])
-    stocks = FlodymArray(dims=dims[target_dim_letters])
+    historic_pop = fd.FlodymArray(dims=dims[('h', 'r')])
+    historic_gdppc = fd.FlodymArray(dims=dims[('h', 'r')])
+    historic_stocks_pc = fd.FlodymArray(dims=dims[historic_dim_letters])
+    stocks_pc = fd.FlodymArray(dims=dims[target_dim_letters])
+    stocks = fd.FlodymArray(dims=dims[target_dim_letters])
 
     historic_pop[...] = pop[{'t': dims['h']}]
     historic_gdppc[...] = parameters['gdppc'][{'t': dims['h']}]
@@ -46,10 +42,10 @@ def extrapolate_stock(
     stocks[...] = stocks_pc * pop
 
     # visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
-    return StockArray(**dict(stocks))
+    return fd.StockArray(**dict(stocks))
 
 
-def extrapolate_to_future(historic_values: FlodymArray, scale_by: FlodymArray) -> FlodymArray:
+def extrapolate_to_future(historic_values: fd.FlodymArray, scale_by: fd.FlodymArray) -> fd.FlodymArray:
     if not historic_values.dims.letters[0] == 'h':
         raise ValueError("First dimension of historic_parameter must be historic time.")
     if not scale_by.dims.letters[0] == 't':
@@ -60,7 +56,7 @@ def extrapolate_to_future(historic_values: FlodymArray, scale_by: FlodymArray) -
     all_dims = historic_values.dims.union_with(scale_by.dims)
 
     dim_letters_out = ('t',) + historic_values.dims.letters[1:]
-    extrapolated_values = FlodymArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
+    extrapolated_values = fd.FlodymArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
 
     scale_by = scale_by.cast_to(extrapolated_values.dims)
 
@@ -102,7 +98,7 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
 
 
 def prepare_stock_for_mfa(
-        dims: DimensionSet, dsm: DynamicStockModel, prm: dict[str, Parameter], use: Process
+        dims: fd.DimensionSet, dsm: fd.DynamicStockModel, prm: dict[str, fd.Parameter], use: fd.Process
 ):
     # We use an auxiliary stock for the prediction step to save dimensions and computation time
     # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
@@ -110,29 +106,29 @@ def prepare_stock_for_mfa(
     inflow = dsm.inflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
     outflow = dsm.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
     stock_dims = dims.get_subset(('t', 'r', 'g', 'm', 'e'))
-    stock_extd = StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
-    inflow = StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)
-    outflow = StockArray(values=outflow.values, name='in_use_outflow', dims=stock_dims)
-    stock = SimpleFlowDrivenStock(
+    stock_extd = fd.StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
+    inflow = fd.StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)
+    outflow = fd.StockArray(values=outflow.values, name='in_use_outflow', dims=stock_dims)
+    stock = fd.SimpleFlowDrivenStock(
         stock=stock_extd, inflow=inflow, outflow=outflow, name='in_use', process_name='use',
         process=use,
     )
     return stock
 
 
-def transform_t_to_hist(data: FlodymArray, dims: DimensionSet):
+def transform_t_to_hist(data: fd.FlodymArray, dims: fd.DimensionSet):
     """Transforms an array with time dimension to an array with historic time dimension."""
     hist_dim = dims['h']
     time_dim = dims['t']
     assert time_dim.items[
            :len(hist_dim.items)] == hist_dim.items, "Time dimension must start with historic time dimension."
     new_dims = data.dims.replace('t', hist_dim)
-    hist_array = FlodymArray.from_dims_superset(dims_superset=new_dims, dim_letters=new_dims.letters)
+    hist_array = fd.FlodymArray.from_dims_superset(dims_superset=new_dims, dim_letters=new_dims.letters)
     hist_array.values = data.values[:len(hist_dim.items)]
     return hist_array
 
 
-def smooth(to_smooth: FlodymArray, smooth_extrapolation: FlodymArray, type: str, start_idx: int, duration: int = None,
+def smooth(to_smooth: fd.FlodymArray, smooth_extrapolation: fd.FlodymArray, type: str, start_idx: int, duration: int = None,
            sigmoid_factor=8):
     assert to_smooth.dims == smooth_extrapolation.dims, \
         "to_smooth and smooth_extrapolation must have the same dimensions."

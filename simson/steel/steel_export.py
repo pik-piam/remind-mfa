@@ -1,5 +1,6 @@
 import logging
-from flodym.mfa_system import MFASystem
+import flodym as fd
+
 from simson.common.custom_export import CustomDataExporter
 from simson.common.data_transformations import transform_t_to_hist
 
@@ -28,7 +29,7 @@ class SteelDataExporter(CustomDataExporter):
         'excess_scrap': 'Excess scrap'
     }
 
-    def visualize_results(self, mfa: MFASystem):
+    def visualize_results(self, mfa: fd.MFASystem):
         if self.production['do_visualize']:
             self.visualize_production(mfa=mfa)
         if self.stock['do_visualize']:
@@ -39,7 +40,7 @@ class SteelDataExporter(CustomDataExporter):
             self.visualize_sector_splits(mfa)
         self.stop_and_show()
 
-    def visualize_production(self, mfa: MFASystem):
+    def visualize_production(self, mfa: fd.MFASystem):
         flw = mfa.flows
         production = flw['bof_production => forming'] + flw['eaf_production => forming']
         production = production.sum_over('e')
@@ -73,7 +74,7 @@ class SteelDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap_production, 'production_global.png')
 
-    def visualize_stock(self, mfa: MFASystem):
+    def visualize_stock(self, mfa: fd.MFASystem):
         over_gdp = self.stock['over_gdp']
         per_capita = self.stock['per_capita']
 
@@ -167,7 +168,7 @@ class SteelDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap_stock, 'stocks_global_by_region.png')
 
-    def visualize_scrap_demand_supply(self, mfa: MFASystem):
+    def visualize_scrap_demand_supply(self, mfa: fd.MFASystem):
         flw = mfa.flows
         prm = mfa.parameters
 
@@ -243,7 +244,7 @@ class SteelDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap_supply, 'scrap_demand_supply_global.png')
 
-    def visualize_sector_splits(self, mfa: MFASystem):
+    def visualize_sector_splits(self, mfa: fd.MFASystem):
         flw = mfa.flows
 
         fabrication = flw['fabrication => use']

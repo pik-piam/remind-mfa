@@ -1,7 +1,8 @@
-from flodym import MFASystem
+import flodym as fd
+
 from simson.steel.steel_trade_model import SteelTradeModel
 
-class StockDrivenSteelMFASystem(MFASystem):
+class StockDrivenSteelMFASystem(fd.MFASystem):
 
     trade_model : SteelTradeModel
 

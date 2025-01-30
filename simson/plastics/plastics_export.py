@@ -1,4 +1,5 @@
-from flodym.mfa_system import MFASystem
+import flodym as fd
+
 from simson.common.custom_export import CustomDataExporter
 
 
@@ -27,7 +28,7 @@ class PlasticsDataExporter(CustomDataExporter):
         'atmosphere': 'Atmosphere'
     }
 
-    def visualize_results(self, mfa: MFASystem):
+    def visualize_results(self, mfa: fd.MFASystem):
         if self.production['do_visualize']:
             self.visualize_production(mfa=mfa)
         if self.stock['do_visualize']:
@@ -38,7 +39,7 @@ class PlasticsDataExporter(CustomDataExporter):
             self.visualize_sector_splits(mfa)
         self.stop_and_show()
 
-    def visualize_production(self, mfa: MFASystem):
+    def visualize_production(self, mfa: fd.MFASystem):
         ap_modeled = self.plotter_class(
             array=mfa.stocks['in_use'].inflow['World'].sum_over(('m', 'e')),
             intra_line_dim='Time',

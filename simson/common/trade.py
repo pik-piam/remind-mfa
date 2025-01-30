@@ -1,14 +1,13 @@
-from pydantic import BaseModel as PydanticBaseModel
-from pydantic import model_validator
-from flodym import FlodymArray
+from pydantic import BaseModel as PydanticBaseModel, model_validator
 from typing import Optional, Callable
+import flodym as fd
 
 
 class Trade(PydanticBaseModel):
     """ A TradeModule handles the storing and calculation of trade data for a given MFASystem."""
 
-    imports: FlodymArray
-    exports: FlodymArray
+    imports: fd.FlodymArray
+    exports: fd.FlodymArray
     balancer: Optional[Callable] = None  # e.g. functions defined in trade_balancers.py
 
     @model_validator(mode='after')

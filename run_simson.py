@@ -1,7 +1,6 @@
 import logging
 import yaml
-
-from flodym import MFASystem
+import flodym as fd
 
 from simson.plastics.plastics_model import PlasticsModel
 from simson.common.common_cfg import CommonCfg
@@ -24,7 +23,7 @@ def get_model_config(filename):
     return {k: v for k, v in data.items()}
 
 
-def init_mfa(cfg: dict) -> MFASystem:
+def init_mfa(cfg: dict) -> fd.MFASystem:
     """Choose MFA subclass and return an initialized instance.
     """
     model_name = cfg['model_class']

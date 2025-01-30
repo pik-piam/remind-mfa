@@ -1,9 +1,9 @@
 import numpy as np
+import flodym as fd
 
 from simson.common.data_transformations import extrapolate_to_future
 from simson.common.trade import Trade
 from simson.common.trade_balancers import balance_by_scaling
-from flodym import Parameter
 
 
 def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims: bool = False, do_balance: bool = True,
@@ -58,8 +58,8 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
 
     future_dims = scaler.dims if adopt_scaler_dims else historic_dims_with_t_dimension
     future_trade = Trade(dims=future_dims,
-                         imports=Parameter(name=trade.imports.name, dims=future_dims),
-                         exports=Parameter(name=trade.exports.name, dims=future_dims),
+                         imports=fd.Parameter(name=trade.imports.name, dims=future_dims),
+                         exports=fd.Parameter(name=trade.exports.name, dims=future_dims),
                          balancer=balancer)
 
     future_trade[scale_first][...] = future_scale_first

@@ -1,12 +1,12 @@
 import numpy as np
 from numpy.linalg import inv
+import flodym as fd
+
 from simson.steel.steel_trade_model import SteelTradeModel
 from simson.steel.steel_sector_splits import calc_demand_sector_splits_via_gdp
 
-from flodym import MFASystem
 
-
-class InflowDrivenHistoricSteelMFASystem(MFASystem):
+class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
     trade_model: SteelTradeModel
 
     def compute(self):

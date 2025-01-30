@@ -1,20 +1,21 @@
-from simson.common.trade import Trade
-from simson.common.trade_balancers import balance_by_extrenum
-from flodym.dimensions import DimensionSet
 from pydantic import BaseModel as PydanticBaseModel
+import flodym as fd
+
+from simson.common.trade import Trade
 from simson.common.trade_predictors import predict_by_extrapolation
+from simson.common.trade_balancers import balance_by_extrenum
 
 
 class SteelTradeModel(PydanticBaseModel):
     """A trade model for the steel sector storing the data and defining how trade is processed."""
 
-    dims: DimensionSet
+    dims: fd.DimensionSet
     intermediate: Trade
     indirect: Trade
     scrap: Trade
 
     @classmethod
-    def create(cls, dims: DimensionSet, trade_data: dict):
+    def create(cls, dims: fd.DimensionSet, trade_data: dict):
         """Create a new instance of the SteelTradeModel class."""
         intermediate = Trade(imports=trade_data['direct_imports'],
                              exports=trade_data['direct_exports'],

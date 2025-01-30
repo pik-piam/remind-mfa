@@ -1,6 +1,8 @@
 import numpy as np
-from flodym import StockArray
+import flodym as fd
+
 from simson.common.data_transformations import smooth_np
+
 
 S_IND = np.array([0.47, 0.32, 0.10, 0.11])
 S_USA = np.array([0.47, 0.10, 0.13, 0.30])
@@ -41,7 +43,7 @@ def calc_stock_sector_splits(dims, gdp, lifetime_mean, historical_sector_splits)
     sector_splits /= sector_splits.sum(axis=-1)[:, :, np.newaxis]
 
     # convert to NamedDimArray
-    sector_splits_nda = StockArray.from_dims_superset(dims_superset=dims, dim_letters=('t', 'r', 'g'))
+    sector_splits_nda = fd.StockArray.from_dims_superset(dims_superset=dims, dim_letters=('t', 'r', 'g'))
     sector_splits_nda.values = sector_splits
 
     return sector_splits_nda

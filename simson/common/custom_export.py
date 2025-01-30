@@ -1,13 +1,9 @@
-import logging
 import os
 from matplotlib import pyplot as plt
 from pydantic import BaseModel as PydanticBaseModel
 import plotly.graph_objects as go
-
-from flodym import MFASystem
-from flodym.export.data_writer import export_mfa_flows_to_csv, export_mfa_stocks_to_csv, export_mfa_to_pickle
-from flodym.export.array_plotter import ArrayPlotter, PlotlyArrayPlotter, PyplotArrayPlotter
-from flodym.export.sankey import PlotlySankeyPlotter
+import flodym as fd
+import flodym.export as fde
 
 
 class CustomDataExporter(PydanticBaseModel):
@@ -21,13 +17,13 @@ class CustomDataExporter(PydanticBaseModel):
     stock: dict = {'do_visualize': True}
     sankey: dict = {'do_visualize': True}
 
-    def export_mfa(self, mfa: MFASystem):
+    def export_mfa(self, mfa: fd.MFASystem):
         if self.do_export['pickle']:
-            export_mfa_to_pickle(mfa=mfa, export_path=self.export_path('mfa.pickle'))
+            fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path('mfa.pickle'))
         if self.do_export['csv']:
             dir_out = os.path.join(self.export_path(), 'flows')
-            export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
-            export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
+            fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
+            fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, 'export')
@@ -44,9 +40,9 @@ class CustomDataExporter(PydanticBaseModel):
         if self.do_show_figs:
             fig.show()
 
-    def visualize_sankey(self, mfa: MFASystem):
+    def visualize_sankey(self, mfa: fd.MFASystem):
         if self.sankey['do_visualize']:
-            plotter = PlotlySankeyPlotter(
+            plotter = fde.PlotlySankeyPlotter(
                 mfa=mfa,
                 display_names=self._display_names,
                 **self.sankey)
@@ -56,7 +52,7 @@ class CustomDataExporter(PydanticBaseModel):
     def figure_path(self, filename: str) -> str:
         return os.path.join(self.output_path, 'figures', filename)
 
-    def plot_and_save_figure(self, plotter: ArrayPlotter, filename: str):
+    def plot_and_save_figure(self, plotter: fde.ArrayPlotter, filename: str):
         plotter.plot(do_show=self.do_show_figs)
         if self.do_save_figs:
             plotter.save(self.figure_path(filename), width=2200, height=1300)
@@ -68,8 +64,8 @@ class CustomDataExporter(PydanticBaseModel):
     @property
     def plotter_class(self):
         if self.plotting_engine == 'plotly':
-            return PlotlyArrayPlotter
+            return fde.PlotlyArrayPlotter
         elif self.plotting_engine == 'pyplot':
-            return PyplotArrayPlotter
+            return fde.PyplotArrayPlotter
         else:
             raise ValueError(f"Unknown plotting engine: {self.plotting_engine}")

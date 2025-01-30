@@ -1,6 +1,5 @@
 from pydantic import BaseModel as PydanticBaseModel
-
-from flodym import FixedLifetime, FoldedNormalLifetime, LogNormalLifetime, NormalLifetime, WeibullLifetime
+import flodym as fd
 
 
 class ModelCustomization(PydanticBaseModel):
@@ -11,11 +10,11 @@ class ModelCustomization(PydanticBaseModel):
     @property
     def lifetime_model(self):
         lifetime_model_classes = {
-            "Fixed": FixedLifetime,
-            "Normal": NormalLifetime,
-            "FoldedNormal": FoldedNormalLifetime,
-            "LogNormal": LogNormalLifetime,
-            "Weibull": WeibullLifetime,
+            "Fixed": fd.FixedLifetime,
+            "Normal": fd.NormalLifetime,
+            "FoldedNormal": fd.FoldedNormalLifetime,
+            "LogNormal": fd.LogNormalLifetime,
+            "Weibull": fd.WeibullLifetime,
         }
         return lifetime_model_classes[self.ldf_type]
 
