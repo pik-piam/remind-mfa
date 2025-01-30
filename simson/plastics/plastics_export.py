@@ -32,11 +32,10 @@ class PlasticsDataExporter(CustomDataExporter):
         if self.production['do_visualize']:
             self.visualize_production(mfa=mfa)
         if self.stock['do_visualize']:
-            self.visualize_stock(mfa=mfa)
-        if self.scrap_demand_supply['do_visualize']:
-            self.visualize_scrap_demand_supply(mfa)
-        if self.sector_splits['do_visualize']:
-            self.visualize_sector_splits(mfa)
+            print('Stock visualization not implemented yet.')
+            # self.visualize_stock(mfa=mfa)
+        if self.sankey['do_visualize']:
+            self.visualize_sankey(mfa=mfa)
         self.stop_and_show()
 
     def visualize_production(self, mfa: fd.MFASystem):

@@ -38,6 +38,8 @@ class SteelDataExporter(CustomDataExporter):
             self.visualize_scrap_demand_supply(mfa)
         if self.sector_splits['do_visualize']:
             self.visualize_sector_splits(mfa)
+        if self.sankey['do_visualize']:
+            self.visualize_sankey(mfa)
         self.stop_and_show()
 
     def visualize_production(self, mfa: fd.MFASystem):

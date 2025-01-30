@@ -41,13 +41,12 @@ class CustomDataExporter(PydanticBaseModel):
             fig.show()
 
     def visualize_sankey(self, mfa: fd.MFASystem):
-        if self.sankey['do_visualize']:
-            plotter = fde.PlotlySankeyPlotter(
-                mfa=mfa,
-                display_names=self._display_names,
-                **self.sankey)
-            fig = plotter.plot()
-            self._show_and_save_plotly(fig, name="sankey")
+        plotter = fde.PlotlySankeyPlotter(
+            mfa=mfa,
+            display_names=self._display_names,
+            **self.sankey)
+        fig = plotter.plot()
+        self._show_and_save_plotly(fig, name="sankey")
 
     def figure_path(self, filename: str) -> str:
         return os.path.join(self.output_path, 'figures', filename)

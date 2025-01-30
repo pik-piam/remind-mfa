@@ -1,7 +1,7 @@
 import os
 
 from simson.common.common_cfg import CommonCfg
-from .stock_driven_plastics import PlasticsMFASystem
+from .plastics_mfa_system import PlasticsMFASystem
 from .plastics_export import PlasticsDataExporter
 from .plastics_definition import get_definition
 

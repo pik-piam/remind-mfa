@@ -4,8 +4,8 @@ from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, smooth
 from simson.common.custom_data_reader import CustomDataReader
 from simson.steel.steel_export import SteelDataExporter
-from simson.steel.stock_driven_steel import StockDrivenSteelMFASystem
-from simson.steel.inflow_driven_steel_historic import InflowDrivenHistoricSteelMFASystem
+from simson.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
+from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
 from simson.steel.steel_trade_model import SteelTradeModel
 from simson.steel.steel_sector_splits import calc_stock_sector_splits
 from simson.steel.steel_definition import get_definition
