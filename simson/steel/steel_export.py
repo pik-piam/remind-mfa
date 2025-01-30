@@ -1,21 +1,43 @@
 import logging
-import os
 from flodym.mfa_system import MFASystem
-from flodym.export.array_plotter import PlotlyArrayPlotter
 from simson.common.custom_export import CustomDataExporter
 from simson.common.data_transformations import transform_t_to_hist
 
 
 class SteelDataExporter(CustomDataExporter):
+
     scrap_demand_supply: dict = {'do_visualize': True}
     sector_splits: dict = {'do_visualize': True}
 
+    # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
+    _display_names: dict = {
+        'sysenv': 'System environment',
+        'bof_production': 'Production (BF/BOF)',
+        'eaf_production': 'Production (EAF)',
+        'forming': 'Forming',
+        'ip_market': 'Intermediate product market',
+        # 'ip_trade': 'Intermediate product trade',  # todo decide whether to incorporate, depending on trade balancing
+        'fabrication': 'Fabrication',
+        # 'indirect_trade': 'Indirect trade', # todo decide whether to incorporate, depending on trade balancing
+        'in_use': 'Use phase',
+        'obsolete': 'Obsolete stocks',
+        'eol_market': 'End of life product market',
+        # 'eol_trade': 'End of life trade', # todo decide whether to incorporate, depending on trade balancing
+        'recycling': 'Recycling',
+        'scrap_market': 'Scrap market',
+        'excess_scrap': 'Excess scrap'
+    }
+
     def visualize_results(self, mfa: MFASystem):
-        super().visualize_results(mfa)
+        if self.production['do_visualize']:
+            self.visualize_production(mfa=mfa)
+        if self.stock['do_visualize']:
+            self.visualize_stock(mfa=mfa)
         if self.scrap_demand_supply['do_visualize']:
             self.visualize_scrap_demand_supply(mfa)
         if self.sector_splits['do_visualize']:
             self.visualize_sector_splits(mfa)
+        self.stop_and_show()
 
     def visualize_production(self, mfa: MFASystem):
         flw = mfa.flows
@@ -23,37 +45,33 @@ class SteelDataExporter(CustomDataExporter):
         production = production.sum_over('e')
 
         # visualize regional production
-        ap_production = PlotlyArrayPlotter(
+        ap_production = self.plotter_class(
             array=production,
             intra_line_dim='Time',
             subplot_dim='Region',
             line_label='Production',
-            display_names=self.display_names,
+            display_names=self._display_names,
             xlabel='Year',
             ylabel='Production [t]',
             title='Regional Steel Production'
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 'production_by_region.png') if self.do_save_figs else None
-        ap_production.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_production, 'production_by_region.png')
 
         # visualize global production
         production = production.sum_over('r')
 
-        ap_production = PlotlyArrayPlotter(
+        ap_production = self.plotter_class(
             array=production,
             intra_line_dim='Time',
             line_label='Production',
-            display_names=self.display_names,
+            display_names=self._display_names,
             xlabel='Year',
             ylabel='Production [t]',
             title='Global Steel Production'
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 'production_global.png') if self.do_save_figs else None
-        ap_production.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_production, 'production_global.png')
 
     def visualize_stock(self, mfa: MFASystem):
         over_gdp = self.stock['over_gdp']
@@ -63,14 +81,16 @@ class SteelDataExporter(CustomDataExporter):
         population = mfa.parameters['population']
         x_array = None
 
+        pc_str = ' pC' if per_capita else ''
         x_label = 'Year'
-        y_label = f'Stock{' pC' if per_capita else ''}[t]'
-        title = f'Stocks{' per capita' if per_capita else ''}' \
-                f'{f' over GDP{' pC' if per_capita else ''}' if over_gdp else ''}'
+        y_label = f'Stock{pc_str}[t]'
+        title = f"Stocks{pc_str}"
+        if over_gdp:
+            title = title + f"over GDP{pc_str}"
 
         if over_gdp:
             x_array = mfa.parameters['gdppc']
-            x_label = f'GDP/PPP{' per capita' if per_capita else ''}[2005 USD]'
+            x_label = f'GDP/PPP{pc_str}[2005 USD]'
 
         self.visualize_regional_stock(stock, x_array, population, x_label, y_label, title, per_capita, over_gdp)
         self.visiualize_global_stock(stock, x_array, population, x_label, y_label, title, per_capita, over_gdp)
@@ -82,12 +102,12 @@ class SteelDataExporter(CustomDataExporter):
             if over_gdp:
                 x_array = x_array * population
 
-        ap_stock = PlotlyArrayPlotter(
+        ap_stock = self.plotter_class(
             array=stock,
             intra_line_dim='Time',
             subplot_dim='Region',
             linecolor_dim='Good',
-            display_names=self.display_names,
+            display_names=self._display_names,
             xlabel=x_label,
             x_array=x_array,
             ylabel=y_label,
@@ -95,9 +115,7 @@ class SteelDataExporter(CustomDataExporter):
             area=True
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 f'stocks_by_region.png') if self.do_save_figs else None
-        ap_stock.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_stock, 'stocks_by_region.png')
 
     def visiualize_global_stock(self, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp):
         if over_gdp:
@@ -114,11 +132,11 @@ class SteelDataExporter(CustomDataExporter):
         stock = stock.sum_over('r')
         stock = stock / population.sum_over('r') if per_capita else stock
 
-        ap_stock = PlotlyArrayPlotter(
+        ap_stock = self.plotter_class(
             array=stock,
             intra_line_dim='Time',
             linecolor_dim='Good',
-            display_names=self.display_names,
+            display_names=self._display_names,
             x_array=x_array,
             xlabel=x_label,
             ylabel=y_label,
@@ -126,9 +144,7 @@ class SteelDataExporter(CustomDataExporter):
             area=True
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 f'stocks_global_by_good.png') if self.do_save_figs else None
-        ap_stock.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_stock, 'stocks_global_by_good.png')
 
     def visualize_global_stock_by_region(self, stock, x_array, x_label, y_label, title, per_capita):
         if per_capita:
@@ -137,11 +153,11 @@ class SteelDataExporter(CustomDataExporter):
 
         stock = stock.sum_over('g')
 
-        ap_stock = PlotlyArrayPlotter(
+        ap_stock = self.plotter_class(
             array=stock,
             intra_line_dim='Time',
             linecolor_dim='Region',
-            display_names=self.display_names,
+            display_names=self._display_names,
             x_array=x_array,
             xlabel=x_label,
             ylabel=y_label,
@@ -149,9 +165,7 @@ class SteelDataExporter(CustomDataExporter):
             area=True
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 f'stocks_global_by_region.png') if self.do_save_figs else None
-        ap_stock.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_stock, 'stocks_global_by_region.png')
 
     def visualize_scrap_demand_supply(self, mfa: MFASystem):
         flw = mfa.flows
@@ -170,17 +184,17 @@ class SteelDataExporter(CustomDataExporter):
                         flw['fabrication => scrap_market'])
         scrap_supply = transform_t_to_hist(scrap_supply, dims=mfa.dims).sum_over('e')
 
-        ap_demand = PlotlyArrayPlotter(
+        ap_demand = self.plotter_class(
             array=scrap_demand,
             intra_line_dim='Historic Time',
             subplot_dim='Region',
             line_label='Scrap Demand',
-            display_names=self.display_names
+            display_names=self._display_names
         )
 
         fig = ap_demand.plot()
 
-        ap_production = PlotlyArrayPlotter(
+        ap_production = self.plotter_class(
             array=total_production.sum_to(('h', 'r')),
             intra_line_dim='Historic Time',
             subplot_dim='Region',
@@ -189,7 +203,7 @@ class SteelDataExporter(CustomDataExporter):
 
         fig = ap_production.plot()
 
-        ap_supply = PlotlyArrayPlotter(
+        ap_supply = self.plotter_class(
             array=scrap_supply,
             intra_line_dim='Historic Time',
             subplot_dim='Region',
@@ -197,41 +211,37 @@ class SteelDataExporter(CustomDataExporter):
             fig=fig,
             xlabel='Year',
             ylabel='Scrap [t]',
-            display_names=self.display_names,
+            display_names=self._display_names,
             title='Regional Scrap Demand and Supply'
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 'scrap_demand_supply_by_region.png') if self.do_save_figs else None
-        ap_supply.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_supply, 'scrap_demand_supply_regional.png')
 
         # plot global demand and supply
         scrap_demand = scrap_demand.sum_over('r')
         scrap_supply = scrap_supply.sum_over('r')
 
-        ap_demand = PlotlyArrayPlotter(
+        ap_demand = self.plotter_class(
             array=scrap_demand,
             intra_line_dim='Historic Time',
             line_label='Scrap Demand',
-            display_names=self.display_names,
+            display_names=self._display_names,
         )
 
         fig = ap_demand.plot()
 
-        ap_supply = PlotlyArrayPlotter(
+        ap_supply = self.plotter_class(
             array=scrap_supply,
             intra_line_dim='Historic Time',
             line_label='Scrap Supply',
             fig=fig,
             xlabel='Year',
             ylabel='Scrap [t]',
-            display_names=self.display_names,
+            display_names=self._display_names,
             title='Global Scrap Demand and Supply'
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 'scrap_demand_supply_global.png') if self.do_save_figs else None
-        ap_supply.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_supply, 'scrap_demand_supply_global.png')
 
     def visualize_sector_splits(self, mfa: MFASystem):
         flw = mfa.flows
@@ -240,35 +250,31 @@ class SteelDataExporter(CustomDataExporter):
         fabrication = fabrication.sum_over(('e',))
         sector_splits = fabrication.get_shares_over('g')
 
-        ap_sector_splits = PlotlyArrayPlotter(
+        ap_sector_splits = self.plotter_class(
             array=sector_splits,
             intra_line_dim='Time',
             subplot_dim='Region',
             linecolor_dim='Good',
             xlabel='Year',
             ylabel='Sector Splits [%]',
-            display_names=self.display_names,
+            display_names=self._display_names,
             title='Regional Fabrication Sector Splits'
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 'sector_splits_regional.png') if self.do_save_figs else None
-        ap_sector_splits.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_sector_splits, 'sector_splits_regional.png')
 
         # plot global sector splits
         fabrication = fabrication.sum_over('r')
         sector_splits = fabrication.get_shares_over('g')
 
-        ap_sector_splits = PlotlyArrayPlotter(
+        ap_sector_splits = self.plotter_class(
             array=sector_splits,
             intra_line_dim='Time',
             linecolor_dim='Good',
             xlabel='Year',
             ylabel='Sector Splits [%]',
-            display_names=self.display_names,
+            display_names=self._display_names,
             title='Global Fabrication Sector Splits'
         )
 
-        save_path = os.path.join(self.output_path, 'figures',
-                                 'sector_splits_global.png') if self.do_save_figs else None
-        ap_sector_splits.plot(save_path=save_path, do_show=self.do_show_figs)
+        self.plot_and_save_figure(ap_sector_splits, 'sector_splits_global.png')

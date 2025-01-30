@@ -6,7 +6,6 @@ from simson.common.data_transformations import extrapolate_stock
 from simson.common.common_cfg import ModelCustomization
 
 
-
 class PlasticsMFASystem(MFASystem):
 
     cfg: Optional[ModelCustomization] = None

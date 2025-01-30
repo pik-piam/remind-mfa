@@ -29,6 +29,7 @@ class VisualizationCfg(PydanticBaseModel):
     sector_splits: dict = {'do_visualize': False}
     do_show_figs: bool = True
     do_save_figs: bool = False
+    plotting_engine: str = 'plotly'
 
 
 class CommonCfg(PydanticBaseModel):
