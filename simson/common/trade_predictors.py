@@ -1,3 +1,5 @@
+import numpy as np
+
 from simson.common.data_transformations import extrapolate_to_future
 from simson.common.trade import Trade
 from simson.common.trade_balancers import balance_by_scaling
@@ -45,9 +47,12 @@ def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims:
         ## If the scaler has more dimensions than the historic trade, the historic trade data is split into the missing
         ## dimensions of the scaler, adapting the same sector split as the scaler.
         missing_dims = scaler.dims.difference_with(future_scale_first.dims)
-        future_scale_first = future_scale_first * scaler.get_shares_over(missing_dims.letters)
-        global_scale_first = future_scale_first.sum_over(sum_over_dims='r')
-        future_scale_second = future_scale_second * global_scale_first.get_shares_over(missing_dims.letters)
+        with np.errstate(divide='ignore'):
+            future_scale_first = future_scale_first * scaler.get_shares_over(missing_dims.letters)
+            future_scale_first.set_values(np.nan_to_num(future_scale_first.values))
+            global_scale_first = future_scale_first.sum_over(sum_over_dims='r')
+            future_scale_second = future_scale_second * global_scale_first.get_shares_over(missing_dims.letters)
+            future_scale_second.set_values(np.nan_to_num(future_scale_second.values))
 
     # create future trade object
 

@@ -2,11 +2,11 @@ from flodym import (
     SimpleFlowDrivenStock,
     StockArray,
     make_processes,
+    make_empty_stocks,
+    make_empty_flows,
     StockDrivenDSM,
     InflowDrivenDSM,
 )
-from flodym.stock_helper import make_empty_stocks
-from flodym.flow_helper import make_empty_flows
 
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, smooth
@@ -129,12 +129,10 @@ class SteelModel:
         )
 
         # calculate and apply sector splits for in use stock
-
         sector_splits = calc_stock_sector_splits(self.dims,
                                                  self.parameters['gdppc'].values,
                                                  self.parameters['lifetime_mean'].values,
                                                  historic_in_use_stock.stock.get_shares_over('g').values)
-
         in_use_stock = sector_splits * total_in_use_stock
         in_use_stock = StockArray(**dict(in_use_stock))  # cast to Stock Array
 
