@@ -31,15 +31,15 @@ class SteelModel:
         self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
-        trade_model = self.make_trade_model()
-        trade_model.balance_historic_trade()
-        historic_mfa = self.make_historic_mfa(trade_model)
+        historic_trade_model = self.make_trade_model()
+        historic_trade_model.balance(to='maximum')
+        historic_mfa = self.make_historic_mfa(historic_trade_model)
         historic_mfa.compute()
         historic_in_use_stock = self.model_historic_stock(historic_mfa.stocks['in_use'])
         future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
-        trade_model = trade_model.predict(future_in_use_stock)
-        trade_model.balance_future_trade()
-        mfa = self.make_future_mfa(future_in_use_stock, trade_model)
+        future_trade_model = historic_trade_model.predict(future_in_use_stock)
+        future_trade_model.balance()
+        mfa = self.make_future_mfa(future_in_use_stock, future_trade_model)
         mfa.compute()
         self.data_writer.export_mfa(mfa=mfa)
         self.data_writer.visualize_results(mfa=mfa)
@@ -88,7 +88,7 @@ class SteelModel:
             trade_model=trade_model,
         )
 
-    def model_historic_stock(self, historic_in_use_stock):
+    def model_historic_stock(self, historic_in_use_stock: fd.Stock):
         """
         Calculate stocks and outflow through dynamic stock model
         """
@@ -113,7 +113,7 @@ class SteelModel:
 
         return historic_in_use_stock
 
-    def create_future_stock_from_historic(self, historic_in_use_stock):
+    def create_future_stock_from_historic(self, historic_in_use_stock: fd.Stock):
         # extrapolate in use stock to future
         total_in_use_stock = extrapolate_stock(
             historic_in_use_stock.stock, dims=self.dims, parameters=self.parameters,
@@ -191,7 +191,7 @@ class SteelModel:
         ]
         trade_prms = {name: self.parameters[name] for name in trade_prm_names}
         self.parameters = {name: self.parameters[name] for name in self.parameters if name not in trade_prm_names}
-        return SteelTradeModel.create(dims=self.dims, trade_data=trade_prms)
+        return SteelTradeModel.create(trade_data=trade_prms)
 
     def make_future_mfa(self, future_in_use_stock, trade_model):
         flows = fd.make_empty_flows(
