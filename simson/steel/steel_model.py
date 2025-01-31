@@ -3,7 +3,7 @@ import flodym as fd
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, smooth
 from simson.common.custom_data_reader import CustomDataReader
-from simson.steel.steel_trade import make_historic_trade, make_future_trade
+from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
 from simson.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
 from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
@@ -15,32 +15,25 @@ class SteelModel:
 
     def __init__(self, cfg: CommonCfg):
         self.cfg = cfg
-        self.definition = get_definition()
+        self.definition = get_definition(self.cfg)
         self.data_reader = CustomDataReader(input_data_path=self.cfg.input_data_path, definition=self.definition)
         self.data_writer = SteelDataExporter(
             **dict(self.cfg.visualization), output_path=self.cfg.output_path,
         )
-
         self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
-        # TODO: confirm all required data is being loaded
-        # loading the steel production data
-        # loading steel direct and indirect trade data (
-        # direct is for intermediate steel products, indirect for finished products like cars)
-        # loading steel sector splits for intermediate products, and indirect trade
         self.parameters = self.data_reader.read_parameters(self.definition.parameters, dims=self.dims)
         self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
-        self.historic_trade = make_historic_trade(self.parameters)
-        historic_mfa = self.make_historic_mfa()
-        historic_mfa.compute()
-        historic_in_use_stock = self.model_historic_stock(historic_mfa.stocks['in_use'])
-        future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
-        self.future_trade = make_future_trade(self.historic_trade, future_in_use_stock)
-        mfa = self.make_future_mfa(future_in_use_stock)
-        mfa.compute()
-        self.data_writer.export_mfa(mfa=mfa)
-        self.data_writer.visualize_results(mfa=mfa)
+        self.historic_mfa = self.make_historic_mfa()
+        self.historic_mfa.compute()
+
+        self.future_mfa = self.make_future_mfa()
+        future_demand = self.get_future_demand()
+        self.future_mfa.compute(future_demand, self.historic_mfa.trade_set)
+
+        self.data_writer.export_mfa(mfa=self.future_mfa)
+        self.data_writer.visualize_results(mfa=self.future_mfa)
 
     def make_historic_mfa(self) -> InflowDrivenHistoricSteelMFASystem:
         """
@@ -54,7 +47,8 @@ class SteelModel:
         via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
         """
 
-        historic_dims = self.dims.get_subset(('h', 'e', 'r', 'i', 'g'))
+        historic_dim_letters = tuple([d for d in self.dims.letters if d != 't'])
+        historic_dims = self.dims[historic_dim_letters]
         historic_processes = [
             'sysenv',
             'forming',
@@ -75,6 +69,9 @@ class SteelModel:
             stock_definitions=[s for s in self.definition.stocks if 'h' in s.dim_letters],
             dims=historic_dims
         )
+        trade_set = TradeSet.from_definitions(
+            definitions=[td for td in self.definition.trades if 'h' in td.dim_letters],
+            dims=historic_dims)
 
         return InflowDrivenHistoricSteelMFASystem(
             cfg=self.cfg,
@@ -83,38 +80,13 @@ class SteelModel:
             dims=historic_dims,
             flows=flows,
             stocks=stocks,
-            trade_set=self.historic_trade,
+            trade_set=trade_set,
         )
 
-    def model_historic_stock(self, historic_in_use_stock: fd.Stock):
-        """
-        Calculate stocks and outflow through dynamic stock model
-        """
-        prm = self.parameters
-
-        dsm = fd.InflowDrivenDSM(
-            dims=historic_in_use_stock.dims,
-            name='in_use',
-            process=self.processes['use'],
-            lifetime_model=self.cfg.customization.lifetime_model,
-            inflow=historic_in_use_stock.inflow,
-            time_letter='h',
-        )
-        dsm.lifetime_model.set_prms(
-            mean=prm['lifetime_mean'],
-            std=prm['lifetime_std'])
-
-        dsm.compute()  # gives stocks and outflows corresponding to inflow
-
-        historic_in_use_stock.stock[...] = dsm.stock
-        historic_in_use_stock.outflow[...] = dsm.outflow
-
-        return historic_in_use_stock
-
-    def create_future_stock_from_historic(self, historic_in_use_stock: fd.Stock):
+    def get_future_demand(self):
         # extrapolate in use stock to future
         total_in_use_stock = extrapolate_stock(
-            historic_in_use_stock.stock, dims=self.dims, parameters=self.parameters,
+            self.historic_mfa.stocks['historic_in_use'].stock, dims=self.dims, parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy, target_dim_letters=('t', 'r')
         )
 
@@ -122,27 +94,22 @@ class SteelModel:
         sector_splits = calc_stock_sector_splits(self.dims,
                                                  self.parameters['gdppc'].values,
                                                  self.parameters['lifetime_mean'].values,
-                                                 historic_in_use_stock.stock.get_shares_over('g').values)
-        in_use_stock = sector_splits * total_in_use_stock
-        in_use_stock = fd.StockArray(**dict(in_use_stock))  # cast to Stock Array
+                                                 self.historic_mfa.stocks['historic_in_use'].stock.get_shares_over('g').values)
 
         # create dynamic stock model for in use stock
-
         dsm = fd.StockDrivenDSM(
-            dims=in_use_stock.dims,
-            name='in_use',
-            process=self.processes['use'],
+            dims=self.dims['t', 'r', 'g'],
             lifetime_model=self.cfg.customization.lifetime_model,
-            stock=in_use_stock,
         )
         dsm.lifetime_model.set_prms(
             mean=self.parameters['lifetime_mean'],
             std=self.parameters['lifetime_std'])
+        dsm.stock[...] = sector_splits * total_in_use_stock
         dsm.compute()  # gives inflows and outflows corresponding to in-use stock
 
         # smooth short-term demand
 
-        historic_demand = historic_in_use_stock.inflow
+        historic_demand = self.historic_mfa.stocks['historic_in_use'].inflow
         demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters['gdppc'])
         demand_via_stock = dsm.inflow
 
@@ -150,32 +117,10 @@ class SteelModel:
         demand = smooth(demand_via_stock, demand_via_gdp, type='sigmoid',
                         start_idx=smoothing_start_idx,
                         duration=20)
+        return demand
 
-        # create final dynamic stock model
 
-        new_dsm = fd.InflowDrivenDSM(
-            dims=in_use_stock.dims,
-            name='in_use',
-            process=self.processes['use'],
-            lifetime_model=self.cfg.customization.lifetime_model,
-            inflow=demand,
-        )
-        new_dsm.lifetime_model.set_prms(
-            mean=self.parameters['lifetime_mean'],
-            std=self.parameters['lifetime_std'])
-        new_dsm.compute()  # gives inflows and outflows corresponding to in-use stock
-
-        return fd.SimpleFlowDrivenStock(
-            dims=new_dsm.dims,
-            stock=new_dsm.stock,
-            inflow=new_dsm.inflow,
-            outflow=new_dsm.outflow,
-            name='in_use',
-            process_name='use',
-            process=self.processes['use'],
-        )
-
-    def make_future_mfa(self, future_in_use_stock: fd.Stock) -> StockDrivenSteelMFASystem:
+    def make_future_mfa(self) -> StockDrivenSteelMFASystem:
         flows = fd.make_empty_flows(
             processes=self.processes,
             flow_definitions=[f for f in self.definition.flows if 't' in f.dim_letters],
@@ -186,9 +131,14 @@ class SteelModel:
             stock_definitions=[s for s in self.definition.stocks if 't' in s.dim_letters],
             dims=self.dims
         )
-        stocks['use'] = future_in_use_stock
+
+        trade_set = TradeSet.from_definitions(
+            definitions=[td for td in self.definition.trades if 't' in td.dim_letters],
+            dims=self.dims
+        )
+
         return StockDrivenSteelMFASystem(
             dims=self.dims, parameters=self.parameters,
             processes=self.processes, flows=flows, stocks=stocks,
-            trade_set=self.future_trade,
+            trade_set=trade_set,
         )

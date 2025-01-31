@@ -80,7 +80,7 @@ class SteelDataExporter(CustomDataExporter):
         over_gdp = self.stock['over_gdp']
         per_capita = self.stock['per_capita']
 
-        stock = mfa.stocks['use'].stock
+        stock = mfa.stocks['in_use'].stock
         population = mfa.parameters['population']
         x_array = None
 

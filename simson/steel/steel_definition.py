@@ -1,7 +1,15 @@
+from typing import List
 import flodym as fd
 
+from simson.common.common_cfg import CommonCfg
+from simson.common.trade import TradeDefinition
 
-def get_definition():
+
+class SteelMFADefinition(fd.MFADefinition):
+    trades: List[TradeDefinition]
+
+
+def get_definition(cfg: CommonCfg):
     dimensions = [
         fd.DimensionDefinition(name='Time', dim_letter='t', dtype=int),
         fd.DimensionDefinition(name='Element', dim_letter='e', dtype=str),
@@ -76,13 +84,14 @@ def get_definition():
 
     stocks = [
         fd.StockDefinition(
-            name='in_use',
+            name='historic_in_use',
             process='use',
             dim_letters=('h', 'r', 'g'),
-            subclass=fd.SimpleFlowDrivenStock,
+            subclass=fd.InflowDrivenDSM,
+            lifetime_model_class=cfg.customization.lifetime_model,
             time_letter='h'),
-        fd.StockDefinition(name='use', process='use', dim_letters=('t', 'e', 'r', 'g'),
-                        subclass=fd.SimpleFlowDrivenStock),
+        fd.StockDefinition(name='in_use', process='use', dim_letters=('t', 'r', 'g'),
+                        subclass=fd.InflowDrivenDSM, lifetime_model_class=cfg.customization.lifetime_model),
         fd.StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g'),
                         subclass=fd.SimpleFlowDrivenStock),
         fd.StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r'),
@@ -128,10 +137,22 @@ def get_definition():
         fd.ParameterDefinition(name='production_yield', dim_letters=()),
     ]
 
-    return fd.MFADefinition(
+    trades = [
+        # historic
+        TradeDefinition(name='intermediate', dim_letters=('h', 'r', 'i')),
+        TradeDefinition(name='indirect', dim_letters=('h', 'r', 'g')),
+        TradeDefinition(name='scrap', dim_letters=('h', 'r')),
+        # future
+        TradeDefinition(name='intermediate', dim_letters=('t', 'r', 'i')),
+        TradeDefinition(name='indirect', dim_letters=('t', 'r', 'g')),
+        TradeDefinition(name='scrap', dim_letters=('t', 'r', 'g')),
+    ]
+
+    return SteelMFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,
         stocks=stocks,
         parameters=parameters,
+        trades=trades,
     )

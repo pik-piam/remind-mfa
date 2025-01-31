@@ -1,8 +1,7 @@
 import numpy as np
-from numpy.linalg import inv
 import flodym as fd
 
-from simson.steel.steel_trade import TradeSet
+from simson.common.trade import TradeSet
 from simson.steel.steel_sector_splits import calc_demand_sector_splits_via_gdp
 
 
@@ -13,11 +12,21 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_historic_flows()
-        self.compute_historic_in_use_stock()
+        self.compute_trade()
+        self.compute_flows()
+        self.compute_in_use_stock()
         self.check_mass_balance()
 
-    def compute_historic_flows(self):
+    def compute_trade(self):
+        """
+        Create a trade module that stores and calculates the trade flows between regions and sectors.
+        """
+        for name, trade in self.trade_set.stages.items():
+            trade.imports[...] = self.parameters[f'{name}_imports']
+            trade.exports[...] = self.parameters[f'{name}_exports']
+        self.trade_set.balance(to='maximum')
+
+    def compute_flows(self):
         prm = self.parameters
         flw = self.flows
         trd = self.trade_set
@@ -68,7 +77,18 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
 
         return sector_flows
 
-    def compute_historic_in_use_stock(self):
+    def compute_in_use_stock(self):
         flw = self.flows
         stk = self.stocks
-        stk['in_use'].inflow[...] = flw['fabrication => use'] + flw['sysenv => use'] - flw['use => sysenv']
+        prm = self.parameters
+        flw = self.flows
+
+        stk['historic_in_use'].inflow[...] = flw['fabrication => use'] + flw['sysenv => use'] - flw['use => sysenv']
+
+        stk['historic_in_use'].lifetime_model.set_prms(
+            mean=prm['lifetime_mean'],
+            std=prm['lifetime_std'])
+
+        stk['historic_in_use'].compute()  # gives stocks and outflows corresponding to inflow
+
+        flw['use => sysenv'][...] += stk['historic_in_use'].outflow

@@ -1,8 +1,7 @@
 from pydantic import BaseModel as PydanticBaseModel, model_validator
-from typing import Optional, Callable
+from typing import List
 import numpy as np
 from scipy.stats import gmean, hmean
-from copy import copy
 import sys
 import flodym as fd
 
@@ -71,9 +70,23 @@ class TradeSet(PydanticBaseModel):
 
     stages: dict[str, Trade]
 
+    @classmethod
+    def from_definitions(cls, definitions: List['TradeDefinition'], dims: fd.DimensionSet):
+        stages = {}
+        for d in definitions:
+            stages[d.name] = Trade(
+                imports=fd.FlodymArray(dims=dims[d.dim_letters]),
+                exports=fd.FlodymArray(dims=dims[d.dim_letters]),
+            )
+        return cls(stages=stages)
+
     def __getitem__(self, item):
         return self.stages[item]
 
     def balance(self, to: str = None):
         for trade in self.stages.values():
             trade.balance(to=to) if to is not None else trade.balance()
+
+
+class TradeDefinition(fd.ParameterDefinition):
+    pass
