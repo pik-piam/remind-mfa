@@ -11,8 +11,6 @@ class Trade(PydanticBaseModel):
 
     imports: fd.FlodymArray
     exports: fd.FlodymArray
-    balancer: Optional[Callable] = None  # e.g. functions defined in trade_balancers.py
-    predictor: Optional[Callable] = None  # e.g. functions defined in trade_predictors.py
 
     @model_validator(mode='after')
     def validate_region_dimension(self):
@@ -23,8 +21,7 @@ class Trade(PydanticBaseModel):
 
     @model_validator(mode='after')
     def validate_trade_dimensions(self):
-        assert self.imports.dims.letters == self.exports.dims.letters, "Imports and Exports must have the same dimensions."
-
+        assert self.imports.dims.letters == self.exports.dims.letters, "Imports and exports must have the same dimensions."
         return self
 
     def balance(self, to: str='hmean', inplace=False):
@@ -55,20 +52,28 @@ class Trade(PydanticBaseModel):
             'imports': global_imports,
             'exports': global_exports,
             #TODO: document that this is the same method as referenced in Michaja's paper
-            'hmean': copy(global_exports).set_values(
-                hmean(np.stack([global_imports.values, global_exports.values]))),
-            'gmean': copy(global_exports).set_values(
-                gmean(np.stack([global_imports.values, global_exports.values]))),
+            'hmean': fd.FlodymArray(
+                dims=global_exports.dims,
+                values=hmean(np.stack([global_imports.values, global_exports.values])),
+                ),
+            'gmean': fd.FlodymArray(
+                dims=global_exports.dims,
+                values=gmean(np.stack([global_imports.values, global_exports.values]))
+                ),
             'amean': (global_imports + global_exports) / 2,
         }
         if to not in reference_trade_lookup:
             raise ValueError(f"Extrenum {to} not recognized. Must be one of {list(reference_trade_lookup.keys())}")
         return reference_trade_lookup[to]
 
-    def predict(self):
-        if self.predictor is not None:
-            assert 'h' in self.imports.dims.letters and 'h' in self.exports.dims.letters, \
-                "Trade data must have a historic time dimension."
-            self.predictor()
-        else:
-            raise NotImplementedError("No predictor function has been implemented for this Trade object.")
+class TradeSet(PydanticBaseModel):
+    """A trade model for the steel sector storing the data and defining how trade is processed."""
+
+    stages: dict[str, Trade]
+
+    def __getitem__(self, item):
+        return self.stages[item]
+
+    def balance(self, to: str = None):
+        for trade in self.stages.values():
+            trade.balance(to=to) if to is not None else trade.balance()

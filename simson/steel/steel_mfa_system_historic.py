@@ -2,12 +2,12 @@ import numpy as np
 from numpy.linalg import inv
 import flodym as fd
 
-from simson.steel.steel_trade_model import SteelTradeModel
+from simson.steel.steel_trade import TradeSet
 from simson.steel.steel_sector_splits import calc_demand_sector_splits_via_gdp
 
 
 class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
-    trade_model: SteelTradeModel
+    trade_set: TradeSet
 
     def compute(self):
         """
@@ -20,7 +20,7 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
     def compute_historic_flows(self):
         prm = self.parameters
         flw = self.flows
-        trd = self.trade_model
+        trd = self.trade_set
 
         aux = {
             'net_intermediate_trade': self.get_new_array(dim_letters=('h', 'r', 'i')),
@@ -33,8 +33,8 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         flw['forming => ip_market'][...] = prm['production_by_intermediate'] * prm['forming_yield']
         flw['forming => sysenv'][...] = flw['sysenv => forming'] - flw['forming => ip_market']
 
-        flw['ip_market => sysenv'][...] = trd.intermediate.exports
-        flw['sysenv => ip_market'][...] = trd.intermediate.imports
+        flw['ip_market => sysenv'][...] = trd['intermediate'].exports
+        flw['sysenv => ip_market'][...] = trd['intermediate'].imports
 
         aux['net_intermediate_trade'][...] = flw['sysenv => ip_market'] - flw['ip_market => sysenv']
         flw['ip_market => fabrication'][...] = flw['forming => ip_market'] + aux['net_intermediate_trade']
@@ -49,47 +49,20 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         flw['fabrication => sysenv'][...] = aux['fabrication_error'] + aux['fabrication_loss']
 
         # Recalculate indirect trade according to available inflow from fabrication
-        trd.indirect.exports[...] = trd.indirect.exports.minimum(flw['fabrication => use'])
-        trd.indirect.balance(by='minimum')
+        trd['indirect'].exports[...] = trd['indirect'].exports.minimum(flw['fabrication => use'])
+        trd['indirect'].balance(to='minimum')
 
-        flw['sysenv => use'][...] = trd.indirect.imports
-        flw['use => sysenv'][...] = trd.indirect.exports
+        flw['sysenv => use'][...] = trd['indirect'].imports
+        flw['use => sysenv'][...] = trd['indirect'].exports
 
         return
 
-    def _calc_sector_flows_gdp_curve(self, intermediate_flow, gdppc):
+    def _calc_sector_flows_gdp_curve(self, intermediate_flow: fd.FlodymArray, gdppc: fd.FlodymArray):
         fabrication_sector_split = calc_demand_sector_splits_via_gdp(gdppc)
 
         total_intermediate_flow = intermediate_flow.sum_over('i')
         sector_flow_values = np.einsum('hr,hrg->hrg', total_intermediate_flow.values,
                                        fabrication_sector_split[:123])
-        sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
-        sector_flows.values = sector_flow_values
-
-        return sector_flows
-
-    def _calc_sector_flows_ig_distribtution(self, intermediate_flow, gi_distribution):  # TODO: Delete?
-        """
-        Estimate the fabrication by in-use-good according to the inflow of intermediate products
-        and the good to intermediate product distribution.
-        """
-
-        # The following calculation is based on
-        # https://en.wikipedia.org/wiki/Overdetermined_system#Approximate_solutions
-        # gi_values represents 'A', hence the variable at_a is A transposed times A
-        # 'b' is the intermediate flow and x are the sector flows that we are trying to find out
-
-        # TODO: Decide whether to delete, for now not used
-
-        gi_values = gi_distribution.values.transpose()
-        at_a = np.matmul(gi_values.transpose(), gi_values)
-        inverse_at_a = inv(at_a)
-        inverse_at_a_times_at = np.matmul(inverse_at_a, gi_values.transpose())
-        sector_flow_values = np.einsum('gi,hri->hrg', inverse_at_a_times_at, intermediate_flow.values)
-
-        # don't allow negative sector flows
-        sector_flow_values = np.maximum(0, sector_flow_values)
-
         sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
         sector_flows.values = sector_flow_values
 

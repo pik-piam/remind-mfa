@@ -99,8 +99,8 @@ def get_definition():
 
         fd.ParameterDefinition(name='production', dim_letters=('h', 'r')),
         fd.ParameterDefinition(name='production_by_intermediate', dim_letters=('h', 'r', 'i')),
-        fd.ParameterDefinition(name='direct_imports', dim_letters=('h', 'r', 'i')),
-        fd.ParameterDefinition(name='direct_exports', dim_letters=('h', 'r', 'i')),
+        fd.ParameterDefinition(name='intermediate_imports', dim_letters=('h', 'r', 'i')),
+        fd.ParameterDefinition(name='intermediate_exports', dim_letters=('h', 'r', 'i')),
         fd.ParameterDefinition(name='indirect_imports', dim_letters=('h', 'r', 'g')),
         fd.ParameterDefinition(name='indirect_exports', dim_letters=('h', 'r', 'g')),
         fd.ParameterDefinition(name='scrap_imports', dim_letters=('h', 'r')),
@@ -108,8 +108,8 @@ def get_definition():
 
         fd.ParameterDefinition(name='population', dim_letters=('t', 'r')),
         fd.ParameterDefinition(name='gdppc', dim_letters=('t', 'r')),
-        fd.ParameterDefinition(name=f'lifetime_mean', dim_letters=('r', 'g')),
-        fd.ParameterDefinition(name=f'lifetime_std', dim_letters=('r', 'g')),
+        fd.ParameterDefinition(name='lifetime_mean', dim_letters=('r', 'g')),
+        fd.ParameterDefinition(name='lifetime_std', dim_letters=('r', 'g')),
 
         fd.ParameterDefinition(name='pigiron_production', dim_letters=('h', 'r')),
         fd.ParameterDefinition(name='pigiron_imports', dim_letters=('h', 'r')),

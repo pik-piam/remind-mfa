@@ -3,10 +3,10 @@ import flodym as fd
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, smooth
 from simson.common.custom_data_reader import CustomDataReader
+from simson.steel.steel_trade import make_historic_trade, make_future_trade
 from simson.steel.steel_export import SteelDataExporter
 from simson.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
 from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
-from simson.steel.steel_trade_model import SteelTradeModel
 from simson.steel.steel_sector_splits import calc_stock_sector_splits
 from simson.steel.steel_definition import get_definition
 
@@ -31,20 +31,18 @@ class SteelModel:
         self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
-        historic_trade_model = self.make_trade_model()
-        historic_trade_model.balance(to='maximum')
-        historic_mfa = self.make_historic_mfa(historic_trade_model)
+        self.historic_trade = make_historic_trade(self.parameters)
+        historic_mfa = self.make_historic_mfa()
         historic_mfa.compute()
         historic_in_use_stock = self.model_historic_stock(historic_mfa.stocks['in_use'])
         future_in_use_stock = self.create_future_stock_from_historic(historic_in_use_stock)
-        future_trade_model = historic_trade_model.predict(future_in_use_stock)
-        future_trade_model.balance()
-        mfa = self.make_future_mfa(future_in_use_stock, future_trade_model)
+        self.future_trade = make_future_trade(self.historic_trade, future_in_use_stock)
+        mfa = self.make_future_mfa(future_in_use_stock)
         mfa.compute()
         self.data_writer.export_mfa(mfa=mfa)
         self.data_writer.visualize_results(mfa=mfa)
 
-    def make_historic_mfa(self, trade_model) -> InflowDrivenHistoricSteelMFASystem:
+    def make_historic_mfa(self) -> InflowDrivenHistoricSteelMFASystem:
         """
         Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
         subtracting Losses in steel forming from production by IP data
@@ -85,7 +83,7 @@ class SteelModel:
             dims=historic_dims,
             flows=flows,
             stocks=stocks,
-            trade_model=trade_model,
+            trade_set=self.historic_trade,
         )
 
     def model_historic_stock(self, historic_in_use_stock: fd.Stock):
@@ -177,23 +175,7 @@ class SteelModel:
             process=self.processes['use'],
         )
 
-    def make_trade_model(self):
-        """
-        Create a trade module that stores and calculates the trade flows between regions and sectors.
-        """
-        trade_prm_names = [
-            'direct_imports',
-            'direct_exports',
-            'indirect_imports',
-            'indirect_exports',
-            'scrap_imports',
-            'scrap_exports'
-        ]
-        trade_prms = {name: self.parameters[name] for name in trade_prm_names}
-        self.parameters = {name: self.parameters[name] for name in self.parameters if name not in trade_prm_names}
-        return SteelTradeModel.create(trade_data=trade_prms)
-
-    def make_future_mfa(self, future_in_use_stock, trade_model):
+    def make_future_mfa(self, future_in_use_stock: fd.Stock) -> StockDrivenSteelMFASystem:
         flows = fd.make_empty_flows(
             processes=self.processes,
             flow_definitions=[f for f in self.definition.flows if 't' in f.dim_letters],
@@ -208,5 +190,5 @@ class SteelModel:
         return StockDrivenSteelMFASystem(
             dims=self.dims, parameters=self.parameters,
             processes=self.processes, flows=flows, stocks=stocks,
-            trade_model=trade_model,
+            trade_set=self.future_trade,
         )
