@@ -83,6 +83,15 @@ class TradeSet(PydanticBaseModel):
     def __getitem__(self, item):
         return self.stages[item]
 
+    def __setitem__(self, key: str, value: Trade):
+        if not isinstance(value, Trade):
+            raise ValueError("TradeSet can only store Trade objects.")
+        if key not in self.stages:
+            raise ValueError(f"TradeSet does not have a trade named {key}. You can add new trades using trade.stages[key] = value.")
+        if self.stages[key].imports.dims.letters != value.imports.dims.letters:
+            raise ValueError(f"Trade dimensions do not match. Expected {self.stages[key].dims.letters}, got {value.dims.letters}.")
+        self.stages[key] = value
+
     def balance(self, to: str = None):
         for trade in self.stages.values():
             trade.balance(to=to) if to is not None else trade.balance()
