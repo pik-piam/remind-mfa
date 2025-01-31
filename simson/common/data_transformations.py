@@ -97,38 +97,7 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
     prediction_out[:n_historic, ...] = historic_stocks_pc
 
 
-def prepare_stock_for_mfa(
-        dims: fd.DimensionSet, dsm: fd.DynamicStockModel, prm: dict[str, fd.Parameter], use: fd.Process
-):
-    # We use an auxiliary stock for the prediction step to save dimensions and computation time
-    # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
-    stock_extd = dsm.stock * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    inflow = dsm.inflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    outflow = dsm.outflow * prm['material_shares_in_goods'] * prm['carbon_content_materials']
-    stock_dims = dims.get_subset(('t', 'r', 'g', 'm', 'e'))
-    stock_extd = fd.StockArray(values=stock_extd.values, name='in_use_stock', dims=stock_dims)
-    inflow = fd.StockArray(values=inflow.values, name='in_use_inflow', dims=stock_dims)
-    outflow = fd.StockArray(values=outflow.values, name='in_use_outflow', dims=stock_dims)
-    stock = fd.SimpleFlowDrivenStock(
-        stock=stock_extd, inflow=inflow, outflow=outflow, name='in_use', process_name='use',
-        process=use,
-    )
-    return stock
-
-
-def transform_t_to_hist(data: fd.FlodymArray, dims: fd.DimensionSet):
-    """Transforms an array with time dimension to an array with historic time dimension."""
-    hist_dim = dims['h']
-    time_dim = dims['t']
-    assert time_dim.items[
-           :len(hist_dim.items)] == hist_dim.items, "Time dimension must start with historic time dimension."
-    new_dims = data.dims.replace('t', hist_dim)
-    hist_array = fd.FlodymArray.from_dims_superset(dims_superset=new_dims, dim_letters=new_dims.letters)
-    hist_array.values = data.values[:len(hist_dim.items)]
-    return hist_array
-
-
-def smooth(to_smooth: fd.FlodymArray, smooth_extrapolation: fd.FlodymArray, type: str, start_idx: int, duration: int = None,
+def blend_short_term_to_long_term(to_smooth: fd.FlodymArray, smooth_extrapolation: fd.FlodymArray, type: str, start_idx: int, duration: int = None,
            sigmoid_factor=8):
     assert to_smooth.dims == smooth_extrapolation.dims, \
         "to_smooth and smooth_extrapolation must have the same dimensions."

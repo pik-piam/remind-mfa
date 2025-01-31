@@ -1,7 +1,7 @@
 import flodym as fd
 
 from simson.common.common_cfg import CommonCfg
-from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, smooth
+from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, blend_short_term_to_long_term
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
@@ -84,6 +84,21 @@ class SteelModel:
         )
 
     def get_future_demand(self):
+        raw_future_stock = self.get_raw_future_stock()
+        demand_via_stock = self.get_demand_from_stock(raw_future_stock)
+        short_term_demand = self.get_short_term_demand_trend(
+            historic_demand=self.historic_mfa.stocks['historic_in_use'].inflow,
+        )
+        demand = blend_short_term_to_long_term(
+            demand_via_stock,
+            short_term_demand,
+            type='sigmoid',
+            start_idx=self.historic_mfa.dims['h'].len,
+            duration=20,
+        )
+        return demand
+
+    def get_raw_future_stock(self):
         # extrapolate in use stock to future
         total_in_use_stock = extrapolate_stock(
             self.historic_mfa.stocks['historic_in_use'].stock, dims=self.dims, parameters=self.parameters,
@@ -95,7 +110,10 @@ class SteelModel:
                                                  self.parameters['gdppc'].values,
                                                  self.parameters['lifetime_mean'].values,
                                                  self.historic_mfa.stocks['historic_in_use'].stock.get_shares_over('g').values)
+        raw_future_stock = total_in_use_stock * sector_splits
+        return raw_future_stock
 
+    def get_demand_from_stock(self, raw_future_stock):
         # create dynamic stock model for in use stock
         dsm = fd.StockDrivenDSM(
             dims=self.dims['t', 'r', 'g'],
@@ -104,21 +122,13 @@ class SteelModel:
         dsm.lifetime_model.set_prms(
             mean=self.parameters['lifetime_mean'],
             std=self.parameters['lifetime_std'])
-        dsm.stock[...] = sector_splits * total_in_use_stock
+        dsm.stock[...] = raw_future_stock
         dsm.compute()  # gives inflows and outflows corresponding to in-use stock
+        return dsm.inflow
 
-        # smooth short-term demand
-
-        historic_demand = self.historic_mfa.stocks['historic_in_use'].inflow
+    def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
         demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters['gdppc'])
-        demand_via_stock = dsm.inflow
-
-        smoothing_start_idx = historic_demand.values.shape[0]
-        demand = smooth(demand_via_stock, demand_via_gdp, type='sigmoid',
-                        start_idx=smoothing_start_idx,
-                        duration=20)
-        return demand
-
+        return demand_via_gdp
 
     def make_future_mfa(self) -> StockDrivenSteelMFASystem:
         flows = fd.make_empty_flows(

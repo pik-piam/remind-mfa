@@ -2,7 +2,6 @@ import logging
 import flodym as fd
 
 from simson.common.custom_export import CustomDataExporter
-from simson.common.data_transformations import transform_t_to_hist
 
 
 class SteelDataExporter(CustomDataExporter):
@@ -178,14 +177,14 @@ class SteelDataExporter(CustomDataExporter):
         dri = (prm['dri_production'] + prm['dri_imports'] - prm['dri_exports'])
         pigiron = (prm['pigiron_production'] + prm['pigiron_imports'] - prm['pigiron_exports'] - prm['pigiron_to_cast'])
 
-        total_production = transform_t_to_hist(total_production, dims=mfa.dims)
+        total_production = total_production[{'t': mfa.dims['h']}]
         scrap_demand = total_production - pigiron - dri
         # scrap is also used in pig iron and dri production
         scrap_demand += prm['pigiron_production'] * 0.15 + prm['dri_production'] * 0.06
         scrap_supply = (flw['recycling => scrap_market'] +
                         flw['forming => scrap_market'] +
                         flw['fabrication => scrap_market'])
-        scrap_supply = transform_t_to_hist(scrap_supply, dims=mfa.dims).sum_over('e')
+        scrap_supply = scrap_supply[{'t': mfa.dims['h']}].sum_over('e')
 
         ap_demand = self.plotter_class(
             array=scrap_demand,
