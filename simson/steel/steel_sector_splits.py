@@ -1,7 +1,7 @@
 import numpy as np
 import flodym as fd
 
-from simson.common.data_transformations import smooth_np
+from simson.common.data_transformations import blend_np_arrays_by_time
 
 
 S_IND = np.array([0.47, 0.32, 0.10, 0.11])
@@ -56,7 +56,7 @@ def merge_historical_and_general_split(historical_sector_splits, general_split):
     extrapolated_historical_sector_splits[:123] = historical_sector_splits
 
     # smooth both curves with sigmoid smoothing
-    sector_split = smooth_np(extrapolated_historical_sector_splits, general_split,
+    sector_split = blend_np_arrays_by_time(extrapolated_historical_sector_splits, general_split,
                              type='sigmoid', start_idx=historical_sector_splits.shape[0])
     return sector_split
 

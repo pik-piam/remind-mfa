@@ -99,29 +99,25 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
 
 def blend_short_term_to_long_term(to_smooth: fd.FlodymArray, smooth_extrapolation: fd.FlodymArray, type: str, start_idx: int, duration: int = None,
            sigmoid_factor=8):
+    assert type in ['linear', 'sigmoid'], (f"type must be either 'linear' or 'sigmoid',"
+                                           f"{type} is undefined.")
     assert to_smooth.dims == smooth_extrapolation.dims, \
         "to_smooth and smooth_extrapolation must have the same dimensions."
     result = to_smooth.model_copy()
-    result.values = smooth_np(to_smooth.values, smooth_extrapolation.values, type, start_idx, duration, sigmoid_factor)
+    result.values = blend_np_arrays_by_time(to_smooth.values, smooth_extrapolation.values, type, start_idx, duration, sigmoid_factor)
 
     return result
 
 
-def smooth_np(to_smooth: np.ndarray, smooth_extrapolation: np.ndarray, type: str, start_idx: int, duration: int = None,
+def blend_np_arrays_by_time(to_smooth: np.ndarray, smooth_extrapolation: np.ndarray, type: str, start_idx: int, duration: int = None,
               sigmoid_factor=8):
-    assert type in ['linear', 'sigmoid'], (f"type must be either 'linear' or 'sigmoid',"
-                                           f"{type} is undefined.")
-    assert to_smooth.shape == smooth_extrapolation.shape, (
-        "to_smooth and smooth_extrapolation must have the same dimensions.")
-
     total_years = to_smooth.shape[0]
     if duration is None:
         duration = total_years - start_idx
     end_idx = start_idx + duration
     short_term_years = end_idx - start_idx
 
-    # create scaler to weigh the two arrays
-
+    # create scaler to weight the two arrays
     past = np.linspace(0, 0, num=123)
     if type == 'linear':
         short_term = np.linspace(0, 1, num=short_term_years)
@@ -133,9 +129,8 @@ def smooth_np(to_smooth: np.ndarray, smooth_extrapolation: np.ndarray, type: str
     scaler = np.concatenate((past, short_term, future))
 
     # perform smoothing
-
-    to_smooth_weighted = np.einsum('trg,t->trg', to_smooth, scaler)
-    smooth_extrapolation_weighted = np.einsum('trg,t->trg', smooth_extrapolation, 1 - scaler)
+    to_smooth_weighted = np.einsum('t...,t->t...', to_smooth, scaler)
+    smooth_extrapolation_weighted = np.einsum('t...,t->t...', smooth_extrapolation, 1 - scaler)
     result = to_smooth_weighted + smooth_extrapolation_weighted
 
     return result
