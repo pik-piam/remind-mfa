@@ -6,7 +6,7 @@ from simson.common.trade import Trade
 from simson.common.trade_balancers import balance_by_scaling
 
 
-def predict_by_extrapolation(trade, scaler, scale_first: str, adopt_scaler_dims: bool = False, do_balance: bool = True,
+def predict_by_extrapolation(trade: Trade, scaler: fd.FlodymArray, scale_first: str, adopt_scaler_dims: bool = False, do_balance: bool = True,
                              balancer=balance_by_scaling):
     """
     Predict future trade values by extrapolating the trade data using a given scaler.

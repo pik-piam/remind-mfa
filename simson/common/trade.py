@@ -9,6 +9,7 @@ class Trade(PydanticBaseModel):
     imports: fd.FlodymArray
     exports: fd.FlodymArray
     balancer: Optional[Callable] = None  # e.g. functions defined in trade_balancers.py
+    predictor: Optional[Callable] = None  # e.g. functions defined in trade_predictors.py
 
     @model_validator(mode='after')
     def validate_region_dimension(self):
@@ -19,7 +20,7 @@ class Trade(PydanticBaseModel):
 
     @model_validator(mode='after')
     def validate_trade_dimensions(self):
-        assert self.imports.dims == self.exports.dims, "Imports and Exports must have the same dimensions."
+        assert self.imports.dims.letters == self.exports.dims.letters, "Imports and Exports must have the same dimensions."
 
         return self
 
@@ -36,19 +37,3 @@ class Trade(PydanticBaseModel):
             self.predictor()
         else:
             raise NotImplementedError("No predictor function has been implemented for this Trade object.")
-
-    def __getitem__(self, key):
-        if key == 'Imports':
-            return self.imports
-        elif key == 'Exports':
-            return self.exports
-        else:
-            raise KeyError(f"Key {key} not found in Trade data - has to be either 'Imports' or 'Exports'.")
-
-    def __setitem__(self, key, value):
-        if key == 'Imports':
-            self.imports = value
-        elif key == 'Exports':
-            self.exports = value
-        else:
-            raise KeyError(f"Key {key} has to be either 'Imports' or 'Exports'.")
