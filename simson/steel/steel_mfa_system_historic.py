@@ -1,4 +1,3 @@
-import numpy as np
 import flodym as fd
 
 from simson.common.trade import TradeSet
