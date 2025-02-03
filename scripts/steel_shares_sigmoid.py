@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 # you have this already
-names = ['Construction', 'Machinery', 'Products', 'Transport']
+names = ["Construction", "Machinery", "Products", "Transport"]
 s_ind = np.array([0.47, 0.32, 0.10, 0.11])
 s_usa = np.array([0.47, 0.10, 0.13, 0.30])
 
@@ -14,14 +14,14 @@ gdppc_usa = 40000
 
 # this is just the values we plot over
 log_gdppc = np.linspace(-30, 30, 300)
-gdppc = 10. ** log_gdppc
+gdppc = 10.0**log_gdppc
 
 
 # this is the core of the calculation: sigmoid over gdppc
 # -3 and +3 are x-values where the sigmoid has almost reached its limits (0 and 1)
 def alpha(gdppc):
-    x = -3. + 6. * (np.log(gdppc) - np.log(gdppc_ind)) / (np.log(gdppc_usa) - np.log(gdppc_ind))
-    return 1. / (1. + np.exp(-x))
+    x = -3.0 + 6.0 * (np.log(gdppc) - np.log(gdppc_ind)) / (np.log(gdppc_usa) - np.log(gdppc_ind))
+    return 1.0 / (1.0 + np.exp(-x))
 
 
 a = alpha(gdppc)
@@ -36,8 +36,8 @@ a = (a - a_ind) / (a_usa - a_ind)
 s = a[:, np.newaxis] * s_usa + (1 - a[:, np.newaxis]) * s_ind
 
 df = pd.DataFrame(s, columns=names)
-df['gdppc'] = gdppc
-fig = px.line(df, x='gdppc', y=names)
+df["gdppc"] = gdppc
+fig = px.line(df, x="gdppc", y=names)
 # vertcial lines at GDPPC_IND and GDPPC_USA
 fig.add_vline(x=gdppc_ind, line_dash="dash", line_color="green")
 fig.add_vline(x=gdppc_usa, line_dash="dash", line_color="red")

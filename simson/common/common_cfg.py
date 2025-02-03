@@ -19,16 +19,15 @@ class ModelCustomization(PydanticBaseModel):
         return lifetime_model_classes[self.ldf_type]
 
 
-
 class VisualizationCfg(PydanticBaseModel):
-    stock: dict = {'do_visualize': False}
-    production: dict = {'do_visualize': False}
-    sankey: dict = {'do_visualize': False}
-    scrap_demand_supply: dict = {'do_visualize': False}
-    sector_splits: dict = {'do_visualize': False}
+    stock: dict = {"do_visualize": False}
+    production: dict = {"do_visualize": False}
+    sankey: dict = {"do_visualize": False}
+    scrap_demand_supply: dict = {"do_visualize": False}
+    sector_splits: dict = {"do_visualize": False}
     do_show_figs: bool = True
     do_save_figs: bool = False
-    plotting_engine: str = 'plotly'
+    plotting_engine: str = "plotly"
 
 
 class CommonCfg(PydanticBaseModel):
