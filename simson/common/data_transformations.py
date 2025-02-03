@@ -1,23 +1,30 @@
 import numpy as np
-
-from flodym import StockArray, DimensionSet, FlodymArray, Parameter
+import flodym as fd
+from typing import Union
 
 from .data_extrapolations import SigmoidalExtrapolation, ExponentialExtrapolation, WeightedProportionalExtrapolation
 
 
 def extrapolate_stock(
-        historic_stocks: StockArray, dims: DimensionSet,
-        parameters: dict[str, Parameter], curve_strategy: str
-        ):
+        historic_stocks: fd.StockArray, dims: fd.DimensionSet,
+        parameters: dict[str, fd.Parameter], curve_strategy: str,
+        target_dim_letters=None
+):
     """Performs the per-capita transformation and the extrapolation."""
+
+    if target_dim_letters is None:
+        historic_dim_letters = historic_stocks.dims.letters
+        target_dim_letters = ('t',) + historic_dim_letters[1:]
+    else:
+        historic_dim_letters = ('h',) + target_dim_letters[1:]
 
     # transform to per capita
     pop = parameters['population']
-    historic_pop       = FlodymArray(dims=dims[('h','r')])
-    historic_gdppc     = FlodymArray(dims=dims[('h','r')])
-    historic_stocks_pc = FlodymArray(dims=dims[('h','r','g')])
-    stocks_pc          = FlodymArray(dims=dims[('t','r','g')])
-    stocks             = FlodymArray(dims=dims[('t','r','g')])
+    historic_pop = fd.FlodymArray(dims=dims[('h', 'r')])
+    historic_gdppc = fd.FlodymArray(dims=dims[('h', 'r')])
+    historic_stocks_pc = fd.FlodymArray(dims=dims[historic_dim_letters])
+    stocks_pc = fd.FlodymArray(dims=dims[target_dim_letters])
+    stocks = fd.FlodymArray(dims=dims[target_dim_letters])
 
     historic_pop[...] = pop[{'t': dims['h']}]
     historic_gdppc[...] = parameters['gdppc'][{'t': dims['h']}]
@@ -35,12 +42,11 @@ def extrapolate_stock(
     # transform back to total stocks
     stocks[...] = stocks_pc * pop
 
-    #visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
-    return StockArray(**dict(stocks))
+    # visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
+    return fd.StockArray(**dict(stocks))
 
 
-def extrapolate_to_future(historic_values : FlodymArray, scale_by : FlodymArray) -> FlodymArray:
-
+def extrapolate_to_future(historic_values: fd.FlodymArray, scale_by: fd.FlodymArray) -> fd.FlodymArray:
     if not historic_values.dims.letters[0] == 'h':
         raise ValueError("First dimension of historic_parameter must be historic time.")
     if not scale_by.dims.letters[0] == 't':
@@ -51,7 +57,7 @@ def extrapolate_to_future(historic_values : FlodymArray, scale_by : FlodymArray)
     all_dims = historic_values.dims.union_with(scale_by.dims)
 
     dim_letters_out = ('t',) + historic_values.dims.letters[1:]
-    extrapolated_values = FlodymArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
+    extrapolated_values = fd.FlodymArray.from_dims_superset(dims_superset=all_dims, dim_letters=dim_letters_out)
 
     scale_by = scale_by.cast_to(extrapolated_values.dims)
 
@@ -65,7 +71,6 @@ def extrapolate_to_future(historic_values : FlodymArray, scale_by : FlodymArray)
 
 def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_type='sigmoid'):
     shape_out = prediction_out.shape
-    assert len(shape_out) == 3, "Prediction array must have 3 dimensions: Time, Region, Good"
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
 
@@ -76,17 +81,18 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
     else:
         raise ValueError('fitting_function_type must be either "sigmoid" or "exponential".')
 
-    for i_region in range(shape_out[1]):
-        for i_good in range(shape_out[2]):
-            region_category_historic_stock = historic_stocks_pc[:, i_region, i_good]
-            regional_gdppc = gdppc[:, i_region]
-            extrapolation = extrapolation_class(
-                data_to_extrapolate=region_category_historic_stock,
-                target_range=regional_gdppc
-            )
-            pure_prediction[:, i_region, i_good] = extrapolation.regress()
+    for idx in np.ndindex(shape_out[1:]):
+        # idx is a tuple of indices for all dimensions except the time dimension
+        index = (slice(None),) + idx
+        current_hist_stock_pc = historic_stocks_pc[index]
+        current_gdppc = gdppc[index[:2]]
+        extrapolation = extrapolation_class(
+            data_to_extrapolate=current_hist_stock_pc,
+            target_range=current_gdppc
+        )
+        pure_prediction[index] = extrapolation.regress()
 
     prediction_out[...] = pure_prediction - (
-        pure_prediction[n_historic - 1, :, :] - historic_stocks_pc[n_historic - 1, :, :]
-        )
-    prediction_out[:n_historic,:,:] = historic_stocks_pc
+            pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :]
+    )
+    prediction_out[:n_historic, ...] = historic_stocks_pc

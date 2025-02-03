@@ -1,21 +1,45 @@
-from flodym import MFASystem
+import flodym as fd
 
+from simson.common.trade import TradeSet
+from simson.common.trade_predictors import predict_by_extrapolation
 
-class StockDrivenSteelMFASystem(MFASystem):
+class StockDrivenSteelMFASystem(fd.MFASystem):
 
-    def compute(self):
+    trade_set : TradeSet
+
+    def compute(self, demand: fd.FlodymArray, historic_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
+        self.compute_in_use_stock(demand)
+        self.compute_trade(historic_trade)
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
+
+    def compute_in_use_stock(self, demand):
+        self.stocks['in_use'].inflow = demand
+        self.stocks['in_use'].lifetime_model.set_prms(
+            mean=self.parameters['lifetime_mean'],
+            std=self.parameters['lifetime_std'])
+        self.stocks['in_use'].compute()
+
+    def compute_trade(self, historic_trade: TradeSet):
+        product_demand = self.stocks['in_use'].inflow
+        eol_products = self.stocks['in_use'].outflow
+
+        self.trade_set['intermediate'] = predict_by_extrapolation(historic_trade['intermediate'], product_demand, 'imports')
+        self.trade_set['indirect'] = predict_by_extrapolation(historic_trade['indirect'], product_demand, 'imports')
+        self.trade_set['scrap'] = predict_by_extrapolation(historic_trade['scrap'], eol_products, 'exports', adopt_scaler_dims=True)
+
+        self.trade_set.balance()
 
     def compute_flows(self):
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
+        trd = self.trade_set
 
         # auxiliary arrays;
         # It is important to initialize them to define their dimensions. See the FlodymArray documentation for details.
@@ -43,18 +67,18 @@ class StockDrivenSteelMFASystem(MFASystem):
         # Pre-use
 
 
-        flw['sysenv => use']['Fe'][...]                 = prm['indirect_imports']
-        flw['use => sysenv']['Fe'][...]                 = prm['indirect_exports']
+        flw['sysenv => use']['Fe'][...]                 = trd['indirect'].imports
+        flw['use => sysenv']['Fe'][...]                 = trd['indirect'].exports
 
         aux['net_indirect_trade'][...]                  = flw['sysenv => use']                  -   flw['use => sysenv']
-        flw['fabrication => use']['Fe'][...]            = stk['use'].inflow                     -   aux['net_indirect_trade']['Fe']
+        flw['fabrication => use']['Fe'][...]            = stk['in_use'].inflow                  -   aux['net_indirect_trade']['Fe']
 
         aux['total_fabrication'][...]                   = flw['fabrication => use']             /   prm['fabrication_yield']
         flw['fabrication => scrap_market'][...]         = aux['total_fabrication']              -   flw['fabrication => use']
         flw['ip_market => fabrication'][...]            = aux['total_fabrication']              *   prm['good_to_intermediate_distribution']
 
-        flw['sysenv => ip_market']['Fe'][...]           = prm['direct_imports']
-        flw['ip_market => sysenv']['Fe'][...]           = prm['direct_exports']
+        flw['sysenv => ip_market']['Fe'][...]           = trd['intermediate'].imports
+        flw['ip_market => sysenv']['Fe'][...]           = trd['intermediate'].exports
         aux['net_direct_trade'][...]                    = flw['sysenv => ip_market']            -   flw['ip_market => sysenv']
 
         flw['forming => ip_market'][...]                = flw['ip_market => fabrication']       -   aux['net_direct_trade']
@@ -65,11 +89,11 @@ class StockDrivenSteelMFASystem(MFASystem):
 
         # Post-use
 
-        flw['use => eol_market']['Fe'][...]        = stk['use'].outflow         *   prm['recovery_rate']
-        flw['use => obsolete']['Fe'][...]          = stk['use'].outflow         -   flw['use => eol_market']['Fe']
+        flw['use => eol_market']['Fe'][...]             = stk['in_use'].outflow                 *   prm['recovery_rate']
+        flw['use => obsolete']['Fe'][...]               = stk['in_use'].outflow                 -   flw['use => eol_market']['Fe']
 
-        flw['sysenv => eol_market']['Fe'][...]          = prm['scrap_imports']
-        flw['eol_market => sysenv']['Fe'][...]          = prm['scrap_exports']
+        flw['sysenv => eol_market']['Fe'][...]          = trd['scrap'].imports
+        flw['eol_market => sysenv']['Fe'][...]          = trd['scrap'].exports
         aux['net_scrap_trade'][...]                     = flw['sysenv => eol_market']           -   flw['eol_market => sysenv']
 
         flw['eol_market => recycling'][...]             = flw['use => eol_market']              +   aux['net_scrap_trade']
@@ -104,7 +128,6 @@ class StockDrivenSteelMFASystem(MFASystem):
         flw = self.flows
 
         # in-use stock is already computed in compute_in_use_stock
-
         stk['obsolete'].inflow[...] = flw['use => obsolete']
         stk['obsolete'].compute()
 

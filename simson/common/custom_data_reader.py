@@ -1,10 +1,8 @@
 import os
-
-from flodym.data_reader import CompoundDataReader, CSVDimensionReader, CSVParameterReader
-from flodym.mfa_definition import MFADefinition
+import flodym as fd
 
 
-class CustomDataReader(CompoundDataReader):
+class CustomDataReader(fd.CompoundDataReader):
     dimension_map = {
         'Time': 'time_in_years',
         'Historic Time': 'historic_years',
@@ -15,7 +13,7 @@ class CustomDataReader(CompoundDataReader):
         'Intermediate': 'intermediate_products',
         'Scenario': 'scenarios',
     }
-    def __init__(self, input_data_path, definition: MFADefinition):
+    def __init__(self, input_data_path, definition: fd.MFADefinition):
         self.input_data_path = input_data_path
 
         dimension_files = {}
@@ -24,13 +22,13 @@ class CustomDataReader(CompoundDataReader):
             dimension_files[dimension.name] = os.path.join(
                 self.input_data_path, 'dimensions', f'{dimension_filename}.csv'
             )
-        dimension_reader = CSVDimensionReader(dimension_files)
+        dimension_reader = fd.CSVDimensionReader(dimension_files)
 
         parameter_files = {}
         for parameter in definition.parameters:
             parameter_files[parameter.name] = os.path.join(
                 self.input_data_path, 'datasets', f'{parameter.name}.csv'
             )
-        parameter_reader = CSVParameterReader(parameter_files)
+        parameter_reader = fd.CSVParameterReader(parameter_files)
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)

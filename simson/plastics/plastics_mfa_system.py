@@ -1,13 +1,11 @@
 from typing import Optional
-
-from flodym import MFASystem
+import flodym as fd
 
 from simson.common.data_transformations import extrapolate_stock
 from simson.common.common_cfg import ModelCustomization
 
 
-
-class PlasticsMFASystem(MFASystem):
+class PlasticsMFASystem(fd.MFASystem):
 
     cfg: Optional[ModelCustomization] = None
 
