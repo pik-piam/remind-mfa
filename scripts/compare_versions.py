@@ -10,6 +10,6 @@ new = pickle.load(open(new_path, "rb"))
 
 for flow in old["flows"]:
     diff = old["flows"][flow] - new["flows"][flow]
-    if np.max(np.abs(diff)) > 1.E-10:
+    if np.max(np.abs(diff)) > 1.0e-10:
         print(flow)
         print(np.max(np.abs(diff)))

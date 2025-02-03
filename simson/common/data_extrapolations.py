@@ -18,7 +18,7 @@ class Extrapolation(BaseModel):
     def extrapolate(self, historic_from_regression: bool = False):
         regression = self.regress()
         if not historic_from_regression:
-            regression[:self.n_historic] = self.data_to_extrapolate
+            regression[: self.n_historic] = self.data_to_extrapolate
         return regression
 
     @abstractmethod
@@ -31,8 +31,9 @@ class OneDimensionalExtrapolation(Extrapolation):
     def validate_data(self):
         assert self.data_to_extrapolate.ndim == 1, "Data to extrapolate must be 1-dimensional."
         assert self.target_range.ndim == 1, "Target range must be 1-dimensional."
-        assert self.data_to_extrapolate.shape[0] < self.target_range.shape[0], (
-            "data_to_extrapolate must be smaller then target_range")
+        assert (
+            self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
+        ), "data_to_extrapolate must be smaller then target_range"
         return self
 
 
@@ -47,17 +48,20 @@ class WeightedProportionalExtrapolation(Extrapolation):
     @model_validator(mode="after")
     def validate_input(self):
         assert self.n_last_points_to_match > 0, "n_last_points_to_match must be greater than 0."
-        assert self.data_to_extrapolate.shape[0] >= self.n_last_points_to_match, (
-            f"data_to_extrapolate must have at least n_last_points_to_match data points ({self.n_last_points_to_match}).")
+        assert (
+            self.data_to_extrapolate.shape[0] >= self.n_last_points_to_match
+        ), f"data_to_extrapolate must have at least n_last_points_to_match data points ({self.n_last_points_to_match})."
         return self
 
     def regress(self):
-        """"
+        """ "
         Formula a = sum_i (w_i x_i y_i) / sum_i (w_i x_i^2) is the result of the weighted least squares regression
         a = argmin sum_i (w_i (a * x_i - y_i)^2).
         """
-        regression_x = self.target_range[self.n_historic - self.n_last_points_to_match:self.n_historic]
-        regression_y = self.data_to_extrapolate[-self.n_last_points_to_match:]
+        regression_x = self.target_range[
+            self.n_historic - self.n_last_points_to_match : self.n_historic
+        ]
+        regression_y = self.data_to_extrapolate[-self.n_last_points_to_match :]
 
         # move last points axis to back for multiplication
         regression_x = np.moveaxis(regression_x, 0, -1)
@@ -69,8 +73,10 @@ class WeightedProportionalExtrapolation(Extrapolation):
 
         # calculate slope
         slope_dividend = np.sum(regression_x * regression_y * regression_weights, axis=-1)
-        slope_divisor = np.sum(regression_x ** 2 * regression_weights, axis=-1)
-        slope_divisor[slope_divisor == 0] = sys.float_info.epsilon  # avoid division by zero, slope will be zero anyways
+        slope_divisor = np.sum(regression_x**2 * regression_weights, axis=-1)
+        slope_divisor[slope_divisor == 0] = (
+            sys.float_info.epsilon
+        )  # avoid division by zero, slope will be zero anyways
         slope = slope_dividend / slope_divisor
 
         regression = self.target_range * slope
@@ -80,16 +86,18 @@ class WeightedProportionalExtrapolation(Extrapolation):
 class SigmoidalExtrapolation(OneDimensionalExtrapolation):
 
     def initial_guess(self):
-        return np.array([2. * self.target_range[self.n_historic - 1], self.data_to_extrapolate[-1]])
+        return np.array(
+            [2.0 * self.target_range[self.n_historic - 1], self.data_to_extrapolate[-1]]
+        )
 
     def fitting_function(self, prms):
         return (
-                prms[0] / (1. + np.exp(prms[1] / self.target_range[:self.n_historic]))
+            prms[0] / (1.0 + np.exp(prms[1] / self.target_range[: self.n_historic]))
         ) - self.data_to_extrapolate
 
     def regress(self):
-        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.e-12)
-        regression = prms_out.x[0] / (1. + np.exp(prms_out.x[1] / self.target_range))
+        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
+        regression = prms_out.x[0] / (1.0 + np.exp(prms_out.x[1] / self.target_range))
         return regression
 
 
@@ -98,18 +106,22 @@ class ExponentialExtrapolation(OneDimensionalExtrapolation):
     def initial_guess(self):
         current_level = self.data_to_extrapolate[-1]
         current_extrapolator = self.target_range[self.n_historic - 1]
-        initial_saturation_level = 2. * current_level if np.max(np.abs(current_level)) > sys.float_info.epsilon else 1.0
-        initial_stretch_factor = - np.log(1 - current_level / initial_saturation_level) / current_extrapolator
+        initial_saturation_level = (
+            2.0 * current_level if np.max(np.abs(current_level)) > sys.float_info.epsilon else 1.0
+        )
+        initial_stretch_factor = (
+            -np.log(1 - current_level / initial_saturation_level) / current_extrapolator
+        )
 
         return np.array([initial_saturation_level, initial_stretch_factor])
 
     def fitting_function(self, prms):
         return (
-                prms[0] * (1 - np.exp(-prms[1] * self.target_range[:self.n_historic]))
+            prms[0] * (1 - np.exp(-prms[1] * self.target_range[: self.n_historic]))
         ) - self.data_to_extrapolate
 
     def regress(self):
-        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.e-12)
-        regression = (prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.target_range)))
+        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
+        regression = prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.target_range))
 
         return regression
