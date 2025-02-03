@@ -36,3 +36,6 @@ packages = ["simson"]
 
 [tool.uv.sources]
 flodym = { path = "../flodym", editable = true }
+
+[tool.black]
+line-length = 100

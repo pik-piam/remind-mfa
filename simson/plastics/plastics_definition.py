@@ -35,6 +35,7 @@ def get_definition(cfg: CommonCfg):
         'atmosphere',
     ]
 
+    # fmt: off
     # names are auto-generated, see Flow class documetation
     flows = [
         fd.FlowDefinition(from_process='sysenv', to_process='virginfoss', dim_letters=('t','e','r','m')),
@@ -67,14 +68,15 @@ def get_definition(cfg: CommonCfg):
         fd.FlowDefinition(from_process='emission', to_process='atmosphere', dim_letters=('t','e','r')),
         fd.FlowDefinition(from_process='captured', to_process='virginccu', dim_letters=('t','e','r')),
     ]
+    # fmt: on
 
     stocks = [
-        fd.StockDefinition(name='in_use_historic', dim_letters=('h', 'r', 'g'), subclass=fd.InflowDrivenDSM, lifetime_model_class=cfg.customization.lifetime_model, time_letter='h'),
-        fd.StockDefinition(name='in_use_dsm', dim_letters=('t','r','g'), subclass=fd.StockDrivenDSM, lifetime_model_class=cfg.customization.lifetime_model),
-        fd.StockDefinition(name='in_use', process='use', dim_letters=('t','e','r','m','g'), subclass=fd.SimpleFlowDrivenStock),
-        fd.StockDefinition(name='atmospheric', process='atmosphere', dim_letters=('t','e','r'), subclass=fd.SimpleFlowDrivenStock),
-        fd.StockDefinition(name='landfill', process='landfill', dim_letters=('t','e','r','m'), subclass=fd.SimpleFlowDrivenStock),
-        fd.StockDefinition(name='uncontrolled', process='uncontrolled', dim_letters=('t','e','r','m'), subclass=fd.SimpleFlowDrivenStock),
+        fd.StockDefinition(name='in_use_historic', dim_letters=('h', 'r', 'g'), subclass=fd.InflowDrivenDSM, lifetime_model_class=cfg.customization.lifetime_model, time_letter='h',),
+        fd.StockDefinition(name='in_use_dsm', dim_letters=('t','r','g'), subclass=fd.StockDrivenDSM, lifetime_model_class=cfg.customization.lifetime_model,),
+        fd.StockDefinition(name='in_use', process='use', dim_letters=('t','e','r','m','g'), subclass=fd.SimpleFlowDrivenStock,),
+        fd.StockDefinition(name='atmospheric', process='atmosphere', dim_letters=('t','e','r'), subclass=fd.SimpleFlowDrivenStock,),
+        fd.StockDefinition(name='landfill', process='landfill', dim_letters=('t','e','r','m'), subclass=fd.SimpleFlowDrivenStock,),
+        fd.StockDefinition(name='uncontrolled', process='uncontrolled', dim_letters=('t','e','r','m'), subclass=fd.SimpleFlowDrivenStock,),
     ]
 
     parameters = [

@@ -38,7 +38,8 @@ def get_definition(cfg: CommonCfg):
         'excess_scrap'
     ]
 
-    # names are auto-generated, see Flow class documetation
+    # fmt: off
+    # names are auto-generated, see Flow class documentation
     flows = [
         # Historic Flows
 
@@ -81,6 +82,7 @@ def get_definition(cfg: CommonCfg):
         fd.FlowDefinition(from_process='recycling', to_process='scrap_market', dim_letters=('t', 'e', 'r', 'g')),
         fd.FlowDefinition(from_process='scrap_market', to_process='excess_scrap', dim_letters=('t', 'e', 'r'))
     ]
+    # fmt: on
 
     stocks = [
         fd.StockDefinition(
@@ -89,13 +91,27 @@ def get_definition(cfg: CommonCfg):
             dim_letters=('h', 'r', 'g'),
             subclass=fd.InflowDrivenDSM,
             lifetime_model_class=cfg.customization.lifetime_model,
-            time_letter='h'),
-        fd.StockDefinition(name='in_use', process='use', dim_letters=('t', 'r', 'g'),
-                        subclass=fd.InflowDrivenDSM, lifetime_model_class=cfg.customization.lifetime_model),
-        fd.StockDefinition(name='obsolete', process='obsolete', dim_letters=('t', 'e', 'r', 'g'),
-                        subclass=fd.SimpleFlowDrivenStock),
-        fd.StockDefinition(name='excess_scrap', process='excess_scrap', dim_letters=('t', 'e', 'r'),
-                        subclass=fd.SimpleFlowDrivenStock),
+            time_letter='h',
+        ),
+        fd.StockDefinition(
+            name='in_use',
+            process='use',
+            dim_letters=('t', 'r', 'g'),
+            subclass=fd.InflowDrivenDSM,
+            lifetime_model_class=cfg.customization.lifetime_model,
+        ),
+        fd.StockDefinition(
+            name='obsolete',
+            process='obsolete',
+            dim_letters=('t', 'e', 'r', 'g'),
+            subclass=fd.SimpleFlowDrivenStock,
+        ),
+        fd.StockDefinition(
+            name='excess_scrap',
+            process='excess_scrap',
+            dim_letters=('t', 'e', 'r'),
+            subclass=fd.SimpleFlowDrivenStock,
+        ),
     ]
 
     parameters = [
