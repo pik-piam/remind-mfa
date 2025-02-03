@@ -1,7 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
+
 # add simson to path
 import sys
+
 sys.path.append("../simson")
 
 from simson.common.data_blending import blending_factor
@@ -26,4 +28,3 @@ for type in types:
     plt.plot(x, blending_factor(x, type), label=type)
 plt.legend()
 plt.show()
-
