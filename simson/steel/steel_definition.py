@@ -120,6 +120,11 @@ def get_definition(cfg: CommonCfg):
         fd.ParameterDefinition(name='lifetime_mean', dim_letters=('r', 'g')),
         fd.ParameterDefinition(name='lifetime_std', dim_letters=('r', 'g')),
 
+        fd.ParameterDefinition(name='sector_split_low', dim_letters=('g',)),
+        fd.ParameterDefinition(name='sector_split_high', dim_letters=('g',)),
+        fd.ParameterDefinition(name='secsplit_gdppc_low', dim_letters=()),
+        fd.ParameterDefinition(name='secsplit_gdppc_high', dim_letters=()),
+
         fd.ParameterDefinition(name='pigiron_production', dim_letters=('h', 'r')),
         fd.ParameterDefinition(name='pigiron_imports', dim_letters=('h', 'r')),
         fd.ParameterDefinition(name='pigiron_exports', dim_letters=('h', 'r')),

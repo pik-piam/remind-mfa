@@ -2,7 +2,7 @@ import numpy as np
 import flodym as fd
 
 from simson.common.trade import TradeSet
-from simson.steel.steel_sector_splits import calc_demand_sector_splits_via_gdp
+from simson.common.data_blending import blend
 
 
 class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
@@ -13,6 +13,7 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         Perform all computations for the MFA system.
         """
         self.compute_trade()
+        self.calc_sector_split()
         self.compute_flows()
         self.compute_in_use_stock()
         self.check_mass_balance()
@@ -48,8 +49,7 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         aux['net_intermediate_trade'][...] = flw['sysenv => ip_market'] - flw['ip_market => sysenv']
         flw['ip_market => fabrication'][...] = flw['forming => ip_market'] + aux['net_intermediate_trade']
 
-        aux['fabrication_inflow_by_sector'][...] = self._calc_sector_flows_gdp_curve(flw['ip_market => fabrication'],
-                                                                                     prm['gdppc'])
+        aux['fabrication_inflow_by_sector'][...] = flw['ip_market => fabrication'] * prm['sector_split']
 
         aux['fabrication_error'] = flw['ip_market => fabrication'] - aux['fabrication_inflow_by_sector']
 
@@ -66,16 +66,19 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
 
         return
 
-    def _calc_sector_flows_gdp_curve(self, intermediate_flow: fd.FlodymArray, gdppc: fd.FlodymArray):
-        fabrication_sector_split = calc_demand_sector_splits_via_gdp(gdppc)
-
-        total_intermediate_flow = intermediate_flow.sum_over('i')
-        sector_flow_values = np.einsum('hr,hrg->hrg', total_intermediate_flow.values,
-                                       fabrication_sector_split[:123])
-        sector_flows = self.get_new_array(dim_letters=('h', 'r', 'g'))
-        sector_flows.values = sector_flow_values
-
-        return sector_flows
+    def calc_sector_split(self) -> fd.FlodymArray:
+        """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions.
+        """
+        self.parameters["sector_split"] = fd.Parameter(dims=self.dims['h', 'r', 'g'], name='sector_split')
+        self.parameters["sector_split"][...] = blend(
+            target_dims=self.dims['h', 'r', 'g'],
+            y_lower=self.parameters['sector_split_low'],
+            y_upper=self.parameters['sector_split_high'],
+            x=self.parameters['gdppc'][{'t': self.dims['h']}],
+            x_lower=self.parameters['secsplit_gdppc_low'],
+            x_upper=self.parameters['secsplit_gdppc_high'],
+            type='poly_mix',
+        )
 
     def compute_in_use_stock(self):
         flw = self.flows

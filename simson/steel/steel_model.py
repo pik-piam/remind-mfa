@@ -1,13 +1,15 @@
+import numpy as np
 import flodym as fd
+import flodym.export as fde
 
+from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import CommonCfg
-from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future, blend_short_term_to_long_term
+from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
 from simson.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
 from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
-from simson.steel.steel_sector_splits import calc_stock_sector_splits
 from simson.steel.steel_definition import get_definition
 
 
@@ -84,21 +86,21 @@ class SteelModel:
         )
 
     def get_future_demand(self):
-        raw_future_stock = self.get_raw_future_stock()
-        demand_via_stock = self.get_demand_from_stock(raw_future_stock)
+        long_term_stock = self.get_long_term_stock()
+        long_term_demand = self.get_demand_from_stock(long_term_stock)
         short_term_demand = self.get_short_term_demand_trend(
             historic_demand=self.historic_mfa.stocks['historic_in_use'].inflow,
         )
-        demand = blend_short_term_to_long_term(
-            demand_via_stock,
-            short_term_demand,
-            type='sigmoid',
-            start_idx=self.historic_mfa.dims['h'].len,
-            duration=20,
+        demand = blend_over_time(
+            target_dims=long_term_demand.dims,
+            y_lower=short_term_demand,
+            y_upper=long_term_demand,
+            t_lower=self.historic_mfa.dims['h'].items[-1],
+            t_upper=self.historic_mfa.dims['h'].items[-1] + 20,
         )
         return demand
 
-    def get_raw_future_stock(self):
+    def get_long_term_stock(self):
         # extrapolate in use stock to future
         total_in_use_stock = extrapolate_stock(
             self.historic_mfa.stocks['historic_in_use'].stock, dims=self.dims, parameters=self.parameters,
@@ -106,25 +108,64 @@ class SteelModel:
         )
 
         # calculate and apply sector splits for in use stock
-        sector_splits = calc_stock_sector_splits(self.dims,
-                                                 self.parameters['gdppc'].values,
-                                                 self.parameters['lifetime_mean'].values,
-                                                 self.historic_mfa.stocks['historic_in_use'].stock.get_shares_over('g').values)
-        raw_future_stock = total_in_use_stock * sector_splits
-        return raw_future_stock
+        sector_splits = self.calc_stock_sector_splits(
+            self.historic_mfa.stocks['historic_in_use'].stock.get_shares_over('g'),
+        )
+        long_term_stock = total_in_use_stock * sector_splits
+        return long_term_stock
 
-    def get_demand_from_stock(self, raw_future_stock):
+    def calc_stock_sector_splits(self, historical_sector_splits: fd.FlodymArray):
+        prm = self.parameters
+        sector_split_high =  (prm['lifetime_mean'] * prm['sector_split_high']).get_shares_over('g')
+        sector_split_theory = blend(
+            target_dims=self.dims['t', 'r', 'g'],
+            y_lower=prm['sector_split_low'],
+            y_upper=sector_split_high,
+            x=prm['gdppc'].apply(np.log),
+            x_lower=float(np.log(1000)),
+            x_upper=float(np.log(100000)),
+        )
+        last_historical = historical_sector_splits[{'h': self.dims['h'].items[-1]}]
+        historical_extrapolated = last_historical.cast_to(self.dims['t', 'r', 'g'])
+        historical_extrapolated[{'t': self.dims['h']}] = historical_sector_splits
+        sector_splits = blend(
+            target_dims=self.dims['t', 'r', 'g'],
+            y_lower=historical_extrapolated,
+            y_upper=sector_split_theory,
+            x=prm['gdppc'].apply(np.log),
+            x_lower=prm['gdppc'][{'t': self.dims['h'].items[-1]}].apply(np.log),
+            x_upper=float(np.log(100000)),
+        )
+
+        # DEBUG
+        # array_dict = {
+        #     'Theory': sector_split_theory,
+        #     'Historical': historical_extrapolated,
+        #     'Blended': sector_splits,
+        # }
+        # for name, array in array_dict.items():
+        #     plotter = fde.PlotlyArrayPlotter(
+        #         array=array,
+        #         intra_line_dim='Time',
+        #         subplot_dim='Region',
+        #         linecolor_dim='Good',
+        #         title=name,
+        #     )
+        #     plotter.plot(do_show=True)
+        return sector_splits
+
+    def get_demand_from_stock(self, long_term_stock):
         # create dynamic stock model for in use stock
-        dsm = fd.StockDrivenDSM(
+        in_use_dsm_long_term = fd.StockDrivenDSM(
             dims=self.dims['t', 'r', 'g'],
             lifetime_model=self.cfg.customization.lifetime_model,
         )
-        dsm.lifetime_model.set_prms(
+        in_use_dsm_long_term.lifetime_model.set_prms(
             mean=self.parameters['lifetime_mean'],
             std=self.parameters['lifetime_std'])
-        dsm.stock[...] = raw_future_stock
-        dsm.compute()  # gives inflows and outflows corresponding to in-use stock
-        return dsm.inflow
+        in_use_dsm_long_term.stock[...] = long_term_stock
+        in_use_dsm_long_term.compute()
+        return in_use_dsm_long_term.inflow
 
     def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
         demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters['gdppc'])
