@@ -35,7 +35,7 @@ visualization:
       - "sysenv"
     exclude_flows: [ ]
   do_show_figs: True
-  do_save_figs: False
+  do_save_figs: True
   plotting_engine: 'plotly'
 
 # data export
