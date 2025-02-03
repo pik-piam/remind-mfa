@@ -55,7 +55,7 @@ class Trade(PydanticBaseModel):
             "minimum": global_imports.minimum(global_exports),
             "imports": global_imports,
             "exports": global_exports,
-            # TODO: document that this is the same method as referenced in Michaja's paper
+            # this is the same method as referenced in Michaja's paper
             "hmean": fd.FlodymArray(
                 dims=global_exports.dims,
                 values=hmean(np.stack([global_imports.values, global_exports.values])),
@@ -76,36 +76,36 @@ class Trade(PydanticBaseModel):
 class TradeSet(PydanticBaseModel):
     """A trade model for the steel sector storing the data and defining how trade is processed."""
 
-    stages: dict[str, Trade]
+    markets: dict[str, Trade]
 
     @classmethod
     def from_definitions(cls, definitions: List["TradeDefinition"], dims: fd.DimensionSet):
-        stages = {}
+        markets = {}
         for d in definitions:
-            stages[d.name] = Trade(
+            markets[d.name] = Trade(
                 imports=fd.FlodymArray(dims=dims[d.dim_letters]),
                 exports=fd.FlodymArray(dims=dims[d.dim_letters]),
             )
-        return cls(stages=stages)
+        return cls(markets=markets)
 
     def __getitem__(self, item):
-        return self.stages[item]
+        return self.markets[item]
 
     def __setitem__(self, key: str, value: Trade):
         if not isinstance(value, Trade):
             raise ValueError("TradeSet can only store Trade objects.")
-        if key not in self.stages:
+        if key not in self.markets:
             raise ValueError(
-                f"TradeSet does not have a trade named {key}. You can add new trades using trade.stages[key] = value."
+                f"TradeSet does not have a trade named {key}. You can add new trades using trade.markets[key] = value."
             )
-        if self.stages[key].imports.dims.letters != value.imports.dims.letters:
+        if self.markets[key].imports.dims.letters != value.imports.dims.letters:
             raise ValueError(
-                f"Trade dimensions do not match. Expected {self.stages[key].dims.letters}, got {value.dims.letters}."
+                f"Trade dimensions do not match. Expected {self.markets[key].imports.dims.letters}, got {value.imports.dims.letters}."
             )
-        self.stages[key] = value
+        self.markets[key] = value
 
     def balance(self, to: str = None):
-        for trade in self.stages.values():
+        for trade in self.markets.values():
             trade.balance(to=to) if to is not None else trade.balance()
 
 

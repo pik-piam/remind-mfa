@@ -137,27 +137,27 @@ class SteelModel:
         last_historical = historical_sector_splits[{"h": self.dims["h"].items[-1]}]
         historical_extrapolated = last_historical.cast_to(self.dims["t", "r", "g"])
         historical_extrapolated[{"t": self.dims["h"]}] = historical_sector_splits
-        sector_splits = blend(
+        sector_splits = blend_over_time(
             target_dims=self.dims["t", "r", "g"],
             y_lower=historical_extrapolated,
             y_upper=sector_split_theory,
-            x=prm["gdppc"].apply(np.log),
-            x_lower=prm["gdppc"][{"t": self.dims["h"].items[-1]}].apply(np.log),
-            x_upper=float(np.log(100000)),
+            t_lower=self.dims["h"].items[-1],
+            t_upper=self.dims["t"].items[-1],
+            type="converge_quadratic",
         )
 
-        # DEBUG
+        # # DEBUG
         # array_dict = {
-        #     'Theory': sector_split_theory,
-        #     'Historical': historical_extrapolated,
-        #     'Blended': sector_splits,
+        #     "Theory": sector_split_theory,
+        #     "Historical": historical_extrapolated,
+        #     "Blended": sector_splits,
         # }
         # for name, array in array_dict.items():
         #     plotter = fde.PlotlyArrayPlotter(
         #         array=array,
-        #         intra_line_dim='Time',
-        #         subplot_dim='Region',
-        #         linecolor_dim='Good',
+        #         intra_line_dim="Time",
+        #         subplot_dim="Region",
+        #         linecolor_dim="Good",
         #         title=name,
         #     )
         #     plotter.plot(do_show=True)
