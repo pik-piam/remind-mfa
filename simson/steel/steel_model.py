@@ -146,21 +146,21 @@ class SteelModel:
             type="converge_quadratic",
         )
 
-        # DEBUG
-        array_dict = {
-            'Theory': sector_split_theory,
-            'Historical': historical_extrapolated,
-            'Blended': sector_splits,
-        }
-        for name, array in array_dict.items():
-            plotter = fde.PlotlyArrayPlotter(
-                array=array,
-                intra_line_dim='Time',
-                subplot_dim='Region',
-                linecolor_dim='Good',
-                title=name,
-            )
-            plotter.plot(do_show=True)
+        # # DEBUG
+        # array_dict = {
+        #     'Theory': sector_split_theory,
+        #     'Historical': historical_extrapolated,
+        #     'Blended': sector_splits,
+        # }
+        # for name, array in array_dict.items():
+        #     plotter = fde.PlotlyArrayPlotter(
+        #         array=array,
+        #         intra_line_dim='Time',
+        #         subplot_dim='Region',
+        #         linecolor_dim='Good',
+        #         title=name,
+        #     )
+        #     plotter.plot(do_show=True)
         return sector_splits
 
     def get_demand_from_stock(self, long_term_stock):
