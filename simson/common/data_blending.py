@@ -78,6 +78,10 @@ def blending_factor(x: np.ndarray, type: str) -> np.ndarray:
     def poly_mix(x):
         return 0.5 * hermite(x) + 0.5 * quintic(x)
 
+    def converge_quadratic(x):
+        x = np.clip(x, 0, 1)
+        return 1 - (1 - x) ** 2
+
     function_map = {
         "linear": linear,
         "sigmoid3": sigmoid3,
@@ -89,6 +93,7 @@ def blending_factor(x: np.ndarray, type: str) -> np.ndarray:
         "hermite": hermite,
         "quintic": quintic,
         "poly_mix": poly_mix,
+        "converge_quadratic": converge_quadratic,
     }
 
     if type not in function_map:

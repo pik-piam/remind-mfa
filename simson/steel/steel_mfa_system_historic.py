@@ -22,7 +22,7 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         """
         Create a trade module that stores and calculates the trade flows between regions and sectors.
         """
-        for name, trade in self.trade_set.stages.items():
+        for name, trade in self.trade_set.markets.items():
             trade.imports[...] = self.parameters[f"{name}_imports"]
             trade.exports[...] = self.parameters[f"{name}_exports"]
         self.trade_set.balance(to="maximum")
