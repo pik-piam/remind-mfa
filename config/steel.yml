@@ -34,7 +34,7 @@ visualization:
     exclude_processes:
       - "sysenv"
     exclude_flows: [ ]
-  do_show_figs: True
+  do_show_figs: False
   do_save_figs: True
   plotting_engine: 'plotly'
 

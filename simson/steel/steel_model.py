@@ -1,6 +1,5 @@
 import numpy as np
 import flodym as fd
-import flodym.export as fde
 
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import CommonCfg

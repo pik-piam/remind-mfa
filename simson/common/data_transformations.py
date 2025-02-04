@@ -10,11 +10,11 @@ from .data_extrapolations import (
 
 
 def extrapolate_stock(
-    historic_stocks: fd.StockArray,
-    dims: fd.DimensionSet,
-    parameters: dict[str, fd.Parameter],
-    curve_strategy: str,
-    target_dim_letters=None,
+        historic_stocks: fd.StockArray,
+        dims: fd.DimensionSet,
+        parameters: dict[str, fd.Parameter],
+        curve_strategy: str,
+        target_dim_letters=None,
 ):
     """Performs the per-capita transformation and the extrapolation."""
 
@@ -43,7 +43,7 @@ def extrapolate_stock(
             historic_stocks_pc.values,
             parameters["gdppc"].values,
             stocks_pc.values,
-            fitting_function_type="exponential",
+            extrapolation_class=ExponentialExtrapolation,
         )
     else:
         raise RuntimeError(
@@ -59,7 +59,7 @@ def extrapolate_stock(
 
 
 def extrapolate_to_future(
-    historic_values: fd.FlodymArray, scale_by: fd.FlodymArray
+        historic_values: fd.FlodymArray, scale_by: fd.FlodymArray
 ) -> fd.FlodymArray:
     if not historic_values.dims.letters[0] == "h":
         raise ValueError("First dimension of historic_parameter must be historic time.")
@@ -85,17 +85,10 @@ def extrapolate_to_future(
     return extrapolated_values
 
 
-def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_type="sigmoid"):
+def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_class=SigmoidalExtrapolation):
     shape_out = prediction_out.shape
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
-
-    if fitting_function_type == "sigmoid":
-        extrapolation_class = SigmoidalExtrapolation
-    elif fitting_function_type == "exponential":
-        extrapolation_class = ExponentialExtrapolation
-    else:
-        raise ValueError('fitting_function_type must be either "sigmoid" or "exponential".')
 
     for idx in np.ndindex(shape_out[1:]):
         # idx is a tuple of indices for all dimensions except the time dimension
@@ -108,6 +101,6 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
         pure_prediction[index] = extrapolation.regress()
 
     prediction_out[...] = pure_prediction - (
-        pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :]
+            pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :]
     )
     prediction_out[:n_historic, ...] = historic_stocks_pc

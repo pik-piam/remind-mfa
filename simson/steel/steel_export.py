@@ -1,4 +1,3 @@
-import logging
 import flodym as fd
 
 from simson.common.custom_export import CustomDataExporter
@@ -267,8 +266,9 @@ class SteelDataExporter(CustomDataExporter):
 
     def visualize_sector_splits(self, mfa: fd.MFASystem):
         flw = mfa.flows
+        prm = mfa.parameters
 
-        fabrication = flw["fabrication => use"]
+        fabrication = flw["fabrication => use"] / prm["fabrication_yield"]
         fabrication = fabrication.sum_over(("e",))
         sector_splits = fabrication.get_shares_over("g")
 
