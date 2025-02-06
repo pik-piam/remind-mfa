@@ -11,6 +11,7 @@ customization:
   curve_strategy: 'LogSigmoid_GDP_regression'
   ldf_type: 'LogNormal'
   product_dimension_name: 'Good'
+  do_stock_extrapolation_by_category: True
 
 # visualization
 visualization:

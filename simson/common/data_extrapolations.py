@@ -129,13 +129,16 @@ class ExponentialExtrapolation(OneDimensionalExtrapolation):
 
 class MultiDimLogSigmoidalExtrapolation(Extrapolation):
     saturation_level: float = None
-    guess_sat_level_over_max_by_pct: float = 0.2
+    guess_sat_level_over_max_by_pct: float = 0.2  # TODO store default value in new config
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.target_range = np.log(self.target_range)
 
     def initial_guess(self):
         max_level = np.max(self.data_to_extrapolate)
         sat_level_guess = (1.0 + self.guess_sat_level_over_max_by_pct) * max_level
 
-        self.target_range = np.log(self.target_range)
         mean_target = np.mean(self.target_range)  # TODO: decide maybe only use mean of historic values
 
         index_max_level = np.where(self.data_to_extrapolate == max_level)  # todo check

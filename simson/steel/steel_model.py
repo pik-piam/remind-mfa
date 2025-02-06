@@ -4,6 +4,7 @@ import flodym as fd
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import CommonCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
+from simson.common.data_extrapolations import MultiDimLogSigmoidalExtrapolation
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
@@ -106,13 +107,17 @@ class SteelModel:
         return demand
 
     def get_long_term_stock(self):
+        historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
+        saturation_level = self.get_saturation_level(historic_stocks)
+
         # extrapolate in use stock to future
         total_in_use_stock = extrapolate_stock(
-            self.historic_mfa.stocks["historic_in_use"].stock,
+            historic_stocks,
             dims=self.dims,
             parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy,
-            target_dim_letters=("t", "r"),
+            target_dim_letters=None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r"),
+            saturation_level=saturation_level,
         )
 
         # calculate and apply sector splits for in use stock
@@ -122,9 +127,33 @@ class SteelModel:
         long_term_stock = total_in_use_stock * sector_splits
         return long_term_stock
 
+    def get_saturation_level(self, historic_stocks):
+        pop = self.parameters["population"]
+        gdppc = self.parameters["gdppc"]
+        historic_pop = pop[{"t": self.dims["h"]}]
+        historic_stocks_pc = historic_stocks.sum_over('g') / historic_pop
+
+        multi_dim_extrapolation = MultiDimLogSigmoidalExtrapolation(
+            data_to_extrapolate=historic_stocks_pc.values,
+            target_range=gdppc.values
+        )
+        multi_dim_params = multi_dim_extrapolation.get_params()
+        saturation_level = multi_dim_params[0]
+
+        if self.cfg.customization.do_stock_extrapolation_by_category:
+            high_stock_sector_split = self.get_high_stock_sector_split()
+            saturation_level = saturation_level * high_stock_sector_split.values
+
+        return saturation_level
+
+    def get_high_stock_sector_split(self):
+        prm = self.parameters
+        high_stock_sector_split = (prm["lifetime_mean"] * prm["sector_split_high"]).get_shares_over("g")
+        return high_stock_sector_split
+
     def calc_stock_sector_splits(self, historical_sector_splits: fd.FlodymArray):
         prm = self.parameters
-        sector_split_high = (prm["lifetime_mean"] * prm["sector_split_high"]).get_shares_over("g")
+        sector_split_high = self.get_high_stock_sector_split()
         sector_split_theory = blend(
             target_dims=self.dims["t", "r", "g"],
             y_lower=prm["sector_split_low"],

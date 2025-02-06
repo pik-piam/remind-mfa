@@ -16,6 +16,7 @@ def extrapolate_stock(
         parameters: dict[str, fd.Parameter],
         curve_strategy: str,
         target_dim_letters=None,
+        saturation_level=None,
 ):
     """Performs the per-capita transformation and the extrapolation."""
 
@@ -49,7 +50,8 @@ def extrapolate_stock(
     gdp_regression(historic_stocks_pc.values,
                    parameters["gdppc"].values,
                    stocks_pc.values,
-                   extrapolation_class_dict[curve_strategy])
+                   extrapolation_class_dict[curve_strategy],
+                   saturation_level=saturation_level)
 
     # transform back to total stocks
     stocks[...] = stocks_pc * pop
@@ -85,7 +87,8 @@ def extrapolate_to_future(
     return extrapolated_values
 
 
-def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_class=SigmoidalExtrapolation):
+def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_class=SigmoidalExtrapolation,
+                   saturation_level=None):
     shape_out = prediction_out.shape
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
@@ -93,26 +96,20 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
     # TODO decide whether to delete this line
     # gdppc = np.maximum.accumulate(gdppc, axis=0) TODO doesn't let GDP drop ever
 
-    extrapolation_kwargs = {}
-
-    if extrapolation_class == LogSigmoidalExtrapolation:
-        multi_dim_extrapolation = MultiDimLogSigmoidalExtrapolation(
-            data_to_extrapolate=historic_stocks_pc,
-            target_range=gdppc
-        )
-        multi_dim_params = multi_dim_extrapolation.get_params()
-        saturation_level = multi_dim_params[0]
-        extrapolation_kwargs['saturation_level'] = saturation_level
-
     for idx in np.ndindex(shape_out[1:]):
         # idx is a tuple of indices for all dimensions except the time dimension
-        index = (slice(None),) + idx
-        current_hist_stock_pc = historic_stocks_pc[index]
-        current_gdppc = gdppc[index[:2]]
+        idx_with_time_dim = (slice(None),) + idx
+        current_hist_stock_pc = historic_stocks_pc[idx_with_time_dim]
+        current_gdppc = gdppc[idx_with_time_dim[:2]]
+        current_saturation_level = saturation_level
+        if isinstance(saturation_level, np.ndarray):
+            current_saturation_level = saturation_level[idx]
         extrapolation = extrapolation_class(
-            data_to_extrapolate=current_hist_stock_pc, target_range=current_gdppc, **extrapolation_kwargs
+            data_to_extrapolate=current_hist_stock_pc,
+            target_range=current_gdppc,
+            saturation_level=current_saturation_level
         )
-        pure_prediction[index] = extrapolation.regress()
+        pure_prediction[idx_with_time_dim] = extrapolation.regress()
 
     prediction_out[...] = pure_prediction - (
             pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :]
@@ -120,34 +117,37 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
     prediction_out[:n_historic, ...] = historic_stocks_pc
 
     # TODO delete visualisation
+    visualise = False
 
-    from matplotlib import pyplot as plt
-    regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
-    for r, region in enumerate(regions):
-        plt.plot(gdppc[:, r], pure_prediction[:, r], label=region)
-        # plt.plot(gdppc[:, r], prediction_out[:, r], label=region)
-    plt.legend()
-    plt.xlabel('GDP pc')
-    plt.ylabel('Stocks pc')
-    plt.title('Stocks over GDP')
-    plt.show()
+    if visualise:
 
-    for r, region in enumerate(regions):
-        plt.plot(np.log(gdppc[:, r]), pure_prediction[:, r], label=region)
-        # plt.plot(np.log(gdppc[:, r]), prediction_out[:, r], label=region)
-    plt.legend()
-    plt.xlabel('Log GDP pc')
-    plt.ylabel('Stocks pc')
-    plt.title('Stocks over Log GDP')
-    plt.show()
+        from matplotlib import pyplot as plt
+        regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
+        for r, region in enumerate(regions):
+            plt.plot(gdppc[:, r], pure_prediction[:, r], label=region)
+            # plt.plot(gdppc[:, r], prediction_out[:, r], label=region)
+        plt.legend()
+        plt.xlabel('GDP pc')
+        plt.ylabel('Stocks pc')
+        plt.title('Stocks over GDP')
+        plt.show()
 
-    for r, region in enumerate(regions):
-        plt.plot(range(1900, 2101), pure_prediction[:, r], label=region)
-        # plt.plot(range(1900, 2101), prediction_out[:, r], label=region)
-    plt.legend()
-    plt.xlabel('Year')
-    plt.ylabel('Stocks pc')
-    plt.title('Stocks over Time')
-    plt.show()
+        for r, region in enumerate(regions):
+            plt.plot(np.log(gdppc[:, r]), pure_prediction[:, r], label=region)
+            # plt.plot(np.log(gdppc[:, r]), prediction_out[:, r], label=region)
+        plt.legend()
+        plt.xlabel('Log GDP pc')
+        plt.ylabel('Stocks pc')
+        plt.title('Stocks over Log GDP')
+        plt.show()
 
-    a = 0
+        for r, region in enumerate(regions):
+            plt.plot(range(1900, 2101), pure_prediction[:, r], label=region)
+            # plt.plot(range(1900, 2101), prediction_out[:, r], label=region)
+        plt.legend()
+        plt.xlabel('Year')
+        plt.ylabel('Stocks pc')
+        plt.title('Stocks over Time')
+        plt.show()
+
+        a = 0
