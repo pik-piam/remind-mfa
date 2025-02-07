@@ -111,9 +111,14 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
         )
         pure_prediction[idx_with_time_dim] = extrapolation.regress()
 
-    prediction_out[...] = pure_prediction - (
-            pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :]
-    )  # TODO: Discuss this line - how should we deal with continuation at current point (currently changes sat level
+    # TODO: Discuss this - how should we deal with continuation at current point (currently changes sat level
+    do_fit_current_levels = False
+    if do_fit_current_levels:
+        prediction_out[...] = pure_prediction - (
+                pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :])
+    else:
+        prediction_out[...] = pure_prediction
+
     prediction_out[:n_historic, ...] = historic_stocks_pc
 
     # TODO delete visualisation
@@ -128,6 +133,7 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
             # plt.plot(gdppc[:, r], prediction_out[:, r], label=region)
         plt.legend()
         plt.xlabel('GDP pc')
+        plt.axvline(x=2022, color='r', linestyle='--')
         plt.ylabel('Stocks pc')
         plt.title('Stocks over GDP')
         plt.show()
@@ -136,14 +142,20 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
             plt.plot(np.log(gdppc[:, r]), pure_prediction[:, r], label=region)
             # plt.plot(np.log(gdppc[:, r]), prediction_out[:, r], label=region)
         plt.legend()
+        plt.axvline(x=2022, color='r', linestyle='--')
         plt.xlabel('Log GDP pc')
         plt.ylabel('Stocks pc')
         plt.title('Stocks over Log GDP')
         plt.show()
 
+        if len(pure_prediction.shape) == 3:
+            pure_prediction = np.sum(pure_prediction, axis=2)
+            prediction_out = np.sum(prediction_out, axis=2)
+
         for r, region in enumerate(regions):
-            plt.plot(range(1900, 2101), pure_prediction[:, r], label=region)
-            # plt.plot(range(1900, 2101), prediction_out[:, r], label=region)
+            # plt.plot(range(1900, 2101), pure_prediction[:, r], label=region)
+            plt.plot(range(1900, 2101), prediction_out[:, r], label=region)
+        plt.axvline(x=2022, color='r', linestyle='--')
         plt.legend()
         plt.xlabel('Year')
         plt.ylabel('Stocks pc')

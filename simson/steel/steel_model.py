@@ -120,12 +120,11 @@ class SteelModel:
             saturation_level=saturation_level,
         )
 
-        # calculate and apply sector splits for in use stock
-        sector_splits = self.calc_stock_sector_splits(
-            self.historic_mfa.stocks["historic_in_use"].stock.get_shares_over("g"),
-        )
-        long_term_stock = total_in_use_stock * sector_splits
-        return long_term_stock
+        if not self.cfg.customization.do_stock_extrapolation_by_category:
+            # calculate and apply sector splits for in use stock
+            sector_splits = self.calc_stock_sector_splits()
+            total_in_use_stock = total_in_use_stock * sector_splits
+        return total_in_use_stock
 
     def get_saturation_level(self, historic_stocks):
         pop = self.parameters["population"]
@@ -141,7 +140,13 @@ class SteelModel:
         saturation_level = multi_dim_params[0]
 
         if self.cfg.customization.do_stock_extrapolation_by_category:
-            high_stock_sector_split = self.get_high_stock_sector_split()
+            # TODO Decide method for high stock sector split
+            highest_gdp_level = True
+            if highest_gdp_level:
+                high_stock_sector_split = self.get_high_stock_sector_split()
+            else:  # calc regional specific stock sector split for end of century
+                gdp_sector_splits = self.calc_stock_sector_splits().values
+                high_stock_sector_split = gdp_sector_splits[-1]
             saturation_level = saturation_level * high_stock_sector_split.values
 
         return saturation_level
@@ -151,7 +156,8 @@ class SteelModel:
         high_stock_sector_split = (prm["lifetime_mean"] * prm["sector_split_high"]).get_shares_over("g")
         return high_stock_sector_split
 
-    def calc_stock_sector_splits(self, historical_sector_splits: fd.FlodymArray):
+    def calc_stock_sector_splits(self):
+        historical_sector_splits = self.historic_mfa.stocks["historic_in_use"].stock.get_shares_over("g")
         prm = self.parameters
         sector_split_high = self.get_high_stock_sector_split()
         sector_split_theory = blend(
