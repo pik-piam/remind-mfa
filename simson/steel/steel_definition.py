@@ -144,8 +144,6 @@ def get_definition(cfg: CommonCfg):
         fd.ParameterDefinition(name="dri_production", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="dri_imports", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="dri_exports", dim_letters=("h", "r")),
-        fd.ParameterDefinition(name="lifetime_mean", dim_letters=("r", "g")),
-        fd.ParameterDefinition(name="lifetime_std", dim_letters=("r", "g")),
         fd.ParameterDefinition(name="max_scrap_share_base_model", dim_letters=()),
         fd.ParameterDefinition(name="scrap_in_bof_rate", dim_letters=()),
         fd.ParameterDefinition(name="forming_losses", dim_letters=()),
