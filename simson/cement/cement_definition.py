@@ -9,7 +9,7 @@ class CementMFADefinition(fd.MFADefinition):
 
 def get_definition(cfg: CommonCfg):
     dimensions = [
-        fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
+        #fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
@@ -27,16 +27,16 @@ def get_definition(cfg: CommonCfg):
 
     flows = [
         # historic flows
-        fd.FlowDefinition(from_process="sysenv", to_process="raw_meal_preparation", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="raw_meal_preparation", to_process="clinker_production", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="raw_meal_preparation", to_process="sysenv", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="clinker_production", to_process="cement_grinding", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="clinker_production", to_process="sysenv", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="cement_grinding", to_process="concrete_production", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="cement_grinding", to_process="sysenv", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="concrete_production", to_process="use", dim_letters=("h", "r", "s")),
-        fd.FlowDefinition(from_process="concrete_production", to_process="sysenv", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("h", "r", "s")),
+        fd.FlowDefinition(from_process="sysenv", to_process="raw_meal_preparation", dim_letters=("h", "r",)),
+        fd.FlowDefinition(from_process="raw_meal_preparation", to_process="clinker_production", dim_letters=("h", "r",)),
+        fd.FlowDefinition(from_process="sysenv", to_process="clinker_production", dim_letters=("h", "r",)),
+        fd.FlowDefinition(from_process="clinker_production", to_process="cement_grinding", dim_letters=("h", "r",)),
+        fd.FlowDefinition(from_process="sysenv", to_process="cement_grinding", dim_letters=("h", "r",)),
+        fd.FlowDefinition(from_process="cement_grinding", to_process="concrete_production", dim_letters=("h", "r",)),
+        fd.FlowDefinition(from_process="sysenv", to_process="concrete_production", dim_letters=("h", "r",)),
+        fd.FlowDefinition(from_process="concrete_production", to_process="use", dim_letters=("h", "r", "s",)),
+        fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("h", "r", "s",)),
+        fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("h", "r", "s",)),
 
         # future flows
         # TODO
@@ -49,6 +49,7 @@ def get_definition(cfg: CommonCfg):
             dim_letters=("h", "r", "s"),
             subclass=fd.InflowDrivenDSM,
             lifetime_model_class=fd.NormalLifetime,
+            time_letter="h",
 
         ),
         fd.StockDefinition(
@@ -56,16 +57,19 @@ def get_definition(cfg: CommonCfg):
             process="eol",
             dim_letters=("h", "r", "s"),
             subclass=fd.SimpleFlowDrivenStock,
-            lifetime_model_class=fd.NormalLifetime, #TODO see if this is necessary if I want to set lifetime to infinity
+            time_letter="h",
+            #lifetime_model_class=fd.NormalLifetime, #TODO see if this is necessary if I want to set lifetime to infinity
         ),
 
     ]
 
     parameters = [
-        fd.ParameterDefinition(name="clinker_ratio", dim_letters=("r")),
-        fd.ParameterDefinition(name="cement_ratio", dim_letters=("r")),
-        
-
+        fd.ParameterDefinition(name="cement_production", dim_letters=("h", "r",)),
+        fd.ParameterDefinition(name="clinker_ratio", dim_letters=("r",)),
+        fd.ParameterDefinition(name="cement_ratio", dim_letters=("r",)),
+        fd.ParameterDefinition(name="use_split", dim_letters=("r", "s",)),
+        fd.ParameterDefinition(name="use_lifetime_mean", dim_letters=("r", "s",)),
+        fd.ParameterDefinition(name="use_lifetime_std", dim_letters=("r", "s",)),
     ]
 
     # trades = []
