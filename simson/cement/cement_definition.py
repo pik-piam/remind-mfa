@@ -70,6 +70,9 @@ def get_definition(cfg: CommonCfg):
         fd.ParameterDefinition(name="use_split", dim_letters=("s",)),
         fd.ParameterDefinition(name="use_lifetime_mean", dim_letters=("s",)),
         fd.ParameterDefinition(name="use_lifetime_std", dim_letters=("s",)),
+        # parameters for plotting only
+        fd.ParameterDefinition(name="population", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="gdppc", dim_letters=("h", "r")),
     ]
 
     # trades = []
