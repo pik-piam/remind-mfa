@@ -37,33 +37,36 @@ class CementDataExporter(CustomDataExporter):
 
     def visualize_production(self, production: fd.Flow, name: str):
 
-        ap_production = self.plotter_class(
-            array=production,
-            intra_line_dim="Historic Time",
-            subplot_dim="Region",
-            line_label=f"{name} Production",
-            display_names=self._display_names,
-            xlabel="Year",
-            ylabel="Production [t]",
-            title=f"Regional {name} Production",
-        )
-
-        self.plot_and_save_figure(ap_production, f"{name}_production_regional.png")
-
-        # TODO fix global production
-        # global_production = production.sum_over("r")
-
-        # ap_global_production = self.plotter_class(
-        #     array=global_production,
-        #     intra_line_dim="Time",
+        # ap_production = self.plotter_class(
+        #     array=production,
+        #     intra_line_dim="Historic Time",
+        #     subplot_dim="Region",
         #     line_label=f"{name} Production",
         #     display_names=self._display_names,
         #     xlabel="Year",
         #     ylabel="Production [t]",
-        #     title=f"Global {name} Production",
+        #     title=f"Regional {name} Production",
         # )
 
-        # self.plot_and_save_figure(ap_global_production, f"{name}_production_global.png")
+        # self.plot_and_save_figure(ap_production, f"{name}_production_regional.png")
+
+        # TODO fix global production
+        if "r" in production.dims.letters:
+            global_production = production.sum_over("r")
+        else:
+            global_production = production
+
+        ap_global_production = self.plotter_class(
+            array=global_production,
+            intra_line_dim="Historic Time",
+            line_label=f"{name} Production",
+            display_names=self._display_names,
+            xlabel="Year",
+            ylabel="Production [t]",
+            title=f"Global {name} Production",
+        )
+
+        self.plot_and_save_figure(ap_global_production, f"{name}_production_global.png")
 
 
     def visualize_clinker_production(self, mfa: fd.MFASystem):
