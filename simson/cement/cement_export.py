@@ -61,7 +61,7 @@ class CementDataExporter(CustomDataExporter):
 
         ap_global_production = self.plotter_class(
             array=global_production,
-            intra_line_dim="Historic Time",
+            intra_line_dim="Time",
             line_label=f"{name} Production",
             display_names=self._display_names,
             xlabel="Year",
@@ -87,14 +87,14 @@ class CementDataExporter(CustomDataExporter):
     def visualize_use_stock(self, mfa: fd.MFASystem):
         over_gdp = self.use_stock["over_gdp"]
         per_capita = self.use_stock["per_capita"]
-        stock = mfa.stocks["historic_in_use"].stock
+        stock = mfa.stocks["in_use"].stock
 
         self.visualize_stock(mfa, stock, over_gdp, per_capita, "In use")
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         over_gdp = self.eol_stock["over_gdp"]
         per_capita = self.eol_stock["per_capita"]
-        stock = mfa.stocks["historic_eol"].stock
+        stock = mfa.stocks["eol"].stock
 
         self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
 
@@ -144,7 +144,7 @@ class CementDataExporter(CustomDataExporter):
 
         ap_stock = self.plotter_class(
             array=stock,
-            intra_line_dim="Historic Time",
+            intra_line_dim="Time",
             linecolor_dim="Stock Type",
             display_names=self._display_names,
             x_array=x_array,

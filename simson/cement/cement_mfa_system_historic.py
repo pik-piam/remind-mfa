@@ -32,7 +32,7 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         flw["sysenv => concrete_production"][...] = flw["concrete_production => use"][...] - flw["cement_grinding => concrete_production"][...]
 
         # TODO: find out waste rates
-        flw["sysenv => clinker_production"][...] = fd.FlodymArray(dims=self.dims["h", "r"])
+        flw["sysenv => clinker_production"][...] = fd.FlodymArray(dims=self.dims["h",])
 
 
     def compute_in_use_stock(self):
@@ -51,7 +51,7 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         # end of life
         flw["use => eol"][...] = stk["historic_in_use"].outflow
         stk["historic_eol"].inflow[...] = flw["use => eol"]
-        stk["historic_eol"].outflow[...] = fd.FlodymArray(dims=self.dims["h", "r", "s"])
+        stk["historic_eol"].outflow[...] = fd.FlodymArray(dims=self.dims["h", "s"])
         stk["historic_eol"].compute()
         flw["eol => sysenv"][...] = stk["historic_eol"].outflow
 

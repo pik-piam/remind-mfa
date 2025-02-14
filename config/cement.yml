@@ -33,7 +33,7 @@ visualization:
   sankey:
     do_visualize: True
     slice_dict:
-      h: 2020
+      t: 2050
     split_flows_by: 'Stock Type'
     color_scheme: 'blueish'
     flow_color: 'hsl(230,20,70)'
