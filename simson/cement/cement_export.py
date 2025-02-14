@@ -21,18 +21,18 @@ class CementDataExporter(CustomDataExporter):
     }
 
     def visualize_results(self, mfa: fd.MFASystem):
-        # if self.clinker_production["do_visualize"]:
-        #     self.visualize_clinker_production(mfa)
-        # if self.cement_production["do_visualize"]:
-        #     self.visualize_cement_production(mfa)
-        # if self.concrete_production["do_visualize"]:
-        #     self.visualize_concrete_production(mfa)
+        if self.clinker_production["do_visualize"]:
+            self.visualize_clinker_production(mfa)
+        if self.cement_production["do_visualize"]:
+            self.visualize_cement_production(mfa)
+        if self.concrete_production["do_visualize"]:
+            self.visualize_concrete_production(mfa)
         if self.use_stock["do_visualize"]:
             self.visualize_use_stock(mfa)
         if self.eol_stock["do_visualize"]:
             self.visualize_eol_stock(mfa)
-        # if self.sankey["do_visualize"]:
-        #     self.visualize_sankey(mfa)
+        if self.sankey["do_visualize"]:
+            self.visualize_sankey(mfa)
         self.stop_and_show()
 
     def visualize_production(self, production: fd.Flow, name: str):
