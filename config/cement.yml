@@ -15,13 +15,11 @@ customization:
 # visualization
 visualization:
   use_stock:
-    do_visualize: False
-    over_time: True
+    do_visualize: True
     over_gdp: False
     per_capita: True
   eol_stock:
     do_visualize: True
-    over_time: True
     over_gdp: False
     per_capita: False
   clinker_production:
