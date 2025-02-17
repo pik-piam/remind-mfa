@@ -32,15 +32,11 @@ class CementModel:
         self.historic_mfa = self.make_historic_mfa()
         self.historic_mfa.compute()
 
-        self.data_writer.export_mfa(mfa=self.historic_mfa)
-        # self.data_writer.visualize_results(mfa=self.historic_mfa)
-
         # future mfa
         self.future_mfa = self.make_future_mfa()
         future_demand = self.get_future_demand()
         self.future_mfa.compute(future_demand)
 
-        # TODO visualize future mfa
         self.data_writer.export_mfa(mfa=self.future_mfa)
         self.data_writer.visualize_results(mfa=self.future_mfa)
 
