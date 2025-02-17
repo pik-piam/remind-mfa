@@ -29,6 +29,13 @@ class VisualizationCfg(PydanticBaseModel):
     do_save_figs: bool = False
     plotting_engine: str = "plotly"
 
+    # for cement:
+    clinker_production: dict = {}
+    cement_production: dict = {}
+    concrete_production: dict = {}
+    use_stock: dict = {}
+    eol_stock: dict = {}
+
 
 class CommonCfg(PydanticBaseModel):
     input_data_path: str

@@ -3,12 +3,12 @@ import flodym as fd
 from simson.common.custom_export import CustomDataExporter
 
 class CementDataExporter(CustomDataExporter):
-    # TODO: understand why this is not imported from cement.yml
-    clinker_production: dict = {"do_visualize": True}
-    cement_production: dict = {"do_visualize": True}
-    concrete_production: dict = {"do_visualize": True}
-    use_stock: dict = {"do_visualize": True, "over_gdp": True, "per_capita": False}
-    eol_stock: dict = {"do_visualize": True, "over_gdp": False, "per_capita": True}
+    # They have to be defined here but are eventually overwritten by yml definitions
+    clinker_production: dict = {}
+    cement_production: dict = {}
+    concrete_production: dict = {}
+    use_stock: dict = {}
+    eol_stock: dict = {}
 
     _display_names: dict = {
         "sysenv": "System environment",
