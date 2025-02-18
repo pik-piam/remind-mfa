@@ -1,8 +1,9 @@
-from pydantic import BaseModel as PydanticBaseModel
+from simson.common.base_model import SimsonBaseModel
 import flodym as fd
 
 
-class ModelCustomization(PydanticBaseModel):
+class ModelCustomization(SimsonBaseModel):
+
     curve_strategy: str
     ldf_type: str
     _lifetime_model_class: type = None
@@ -19,7 +20,8 @@ class ModelCustomization(PydanticBaseModel):
         return lifetime_model_classes[self.ldf_type]
 
 
-class VisualizationCfg(PydanticBaseModel):
+class VisualizationCfg(SimsonBaseModel):
+
     stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}
@@ -30,7 +32,7 @@ class VisualizationCfg(PydanticBaseModel):
     plotting_engine: str = "plotly"
 
 
-class CommonCfg(PydanticBaseModel):
+class CommonCfg(SimsonBaseModel):
     input_data_path: str
     customization: ModelCustomization
     visualization: VisualizationCfg
