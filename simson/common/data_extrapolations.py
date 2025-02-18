@@ -27,7 +27,7 @@ class Extrapolation(SimsonBaseModel):
 
 
 class OneDimensionalExtrapolation(Extrapolation):
-    
+
     @model_validator(mode="after")
     def validate_data(self):
         assert self.data_to_extrapolate.ndim == 1, "Data to extrapolate must be 1-dimensional."
