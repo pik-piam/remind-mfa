@@ -2,21 +2,16 @@ import logging
 import yaml
 import flodym as fd
 
-from simson.common.common_cfg import CommonCfg
+from simson.common.common_cfg import GeneralCfg
 from simson.plastics.plastics_model import PlasticsModel
 from simson.steel.steel_model import SteelModel
 from simson.cement.cement_model import CementModel
 
 
-allowed_models = {
+models = {
     "plastics": PlasticsModel,
     "steel": SteelModel,
     "cement": CementModel,
-}
-configurations = {
-    "plastics": CommonCfg,
-    "steel": CommonCfg,
-    "cement": CommonCfg,
 }
 
 
@@ -28,12 +23,9 @@ def get_model_config(filename):
 
 def init_mfa(cfg: dict) -> fd.MFASystem:
     """Choose MFA subclass and return an initialized instance."""
-    model_name = cfg["model_class"]
-    if model_name not in allowed_models:
-        raise ValueError(f"Model class {model_name} not supported.")
 
-    cfg = configurations[model_name](**cfg)
-    mfa = allowed_models[model_name](cfg=cfg)
+    cfg = GeneralCfg.from_model_class(**cfg)
+    mfa = models[cfg.model_class](cfg=cfg)
     return mfa
 
 

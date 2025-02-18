@@ -1,7 +1,7 @@
 from typing import List
 import flodym as fd
 
-from simson.common.common_cfg import CommonCfg
+from simson.common.common_cfg import GeneralCfg
 from simson.common.trade import TradeDefinition
 
 
@@ -9,7 +9,7 @@ class SteelMFADefinition(fd.MFADefinition):
     trades: List[TradeDefinition]
 
 
-def get_definition(cfg: CommonCfg):
+def get_definition(cfg: GeneralCfg):
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
         fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
@@ -144,8 +144,6 @@ def get_definition(cfg: CommonCfg):
         fd.ParameterDefinition(name="dri_production", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="dri_imports", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="dri_exports", dim_letters=("h", "r")),
-        fd.ParameterDefinition(name="lifetime_mean", dim_letters=("r", "g")),
-        fd.ParameterDefinition(name="lifetime_std", dim_letters=("r", "g")),
         fd.ParameterDefinition(name="max_scrap_share_base_model", dim_letters=()),
         fd.ParameterDefinition(name="scrap_in_bof_rate", dim_letters=()),
         fd.ParameterDefinition(name="forming_losses", dim_letters=()),
