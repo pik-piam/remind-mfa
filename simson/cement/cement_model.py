@@ -1,7 +1,7 @@
 import numpy as np
 import flodym as fd
 
-from simson.common.common_cfg import CommonCfg
+from simson.common.common_cfg import GeneralCfg
 from simson.cement.cement_definition import get_definition
 from simson.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from simson.cement.cement_mfa_system_future import StockDrivenCementMFASystem
@@ -12,7 +12,7 @@ from simson.common.data_blending import blend, blend_over_time
 
 class CementModel:
 
-    def __init__(self, cfg: CommonCfg):
+    def __init__(self, cfg: GeneralCfg):
         self.cfg = cfg
         self.definition = get_definition(self.cfg)
         self.data_reader = CementDataReader(

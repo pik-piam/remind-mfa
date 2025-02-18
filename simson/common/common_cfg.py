@@ -5,6 +5,7 @@ import flodym as fd
 IMPLEMENTED_MODELS = [
     "plastics",
     "steel",
+    "cement",
 ]
 
 
@@ -35,7 +36,9 @@ class VisualizationCfg(SimsonBaseModel):
     do_save_figs: bool = False
     plotting_engine: str = "plotly"
 
-    # for cement:
+
+class CementVisualizationCfg(VisualizationCfg):
+
     clinker_production: dict = {}
     cement_production: dict = {}
     concrete_production: dict = {}
@@ -71,6 +74,7 @@ class GeneralCfg(SimsonBaseModel):
         subclasses = {
             "plastics": PlasticsCfg,
             "steel": SteelCfg,
+            "cement": CementCfg,
         }
         if model_class not in subclasses:
             raise ValueError(f"Model class {model_class} not supported.")
@@ -81,6 +85,11 @@ class GeneralCfg(SimsonBaseModel):
 class PlasticsCfg(GeneralCfg):
 
     visualization: PlasticsVisualizationCfg
+
+
+class CementCfg(GeneralCfg):
+
+    visualization: CementVisualizationCfg
 
 
 class SteelCfg(GeneralCfg):
