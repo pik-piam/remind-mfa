@@ -79,5 +79,3 @@ class PlasticsCfg(GeneralCfg):
 class SteelCfg(GeneralCfg):
 
     visualization: SteelVisualizationCfg
-
-
