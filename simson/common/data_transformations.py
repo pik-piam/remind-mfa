@@ -37,19 +37,22 @@ def extrapolate_stock(
     historic_stocks_pc[...] = historic_stocks / historic_pop
 
     if curve_strategy == "GDP_regression":
-        gdp_regression(historic_stocks_pc.values, parameters["gdppc"].values, stocks_pc.values)
+        fit_func = "sigmoid"
     elif curve_strategy == "Exponential_GDP_regression":
-        gdp_regression(
-            historic_stocks_pc.values,
-            parameters["gdppc"].values,
-            stocks_pc.values,
-            fitting_function_type="exponential",
-        )
+        fit_func = "exponential"
     else:
         raise RuntimeError(
             f"Extrapolation strategy {curve_strategy} is not defined. "
             f"It needs to be 'GDP_regression'."
         )
+    
+    # adjusts stocks_pc
+    gdp_regression(
+        historic_stocks_pc.values,
+        parameters["gdppc"].values,
+        stocks_pc.values,
+        fitting_function_type=fit_func,
+    )
 
     # transform back to total stocks
     stocks[...] = stocks_pc * pop
