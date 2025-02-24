@@ -44,7 +44,7 @@ class CementDataExporter(CustomDataExporter):
             # regional production
             ap_production = self.plotter_class(
                 array=production,
-                intra_line_dim="Historic Time",
+                intra_line_dim="Time",
                 subplot_dim="Region",
                 line_label=f"{name} Production",
                 display_names=self._display_names,
@@ -57,7 +57,6 @@ class CementDataExporter(CustomDataExporter):
 
             # global production
             global_production = production.sum_over("r")
-
 
         else:
             global_production = production

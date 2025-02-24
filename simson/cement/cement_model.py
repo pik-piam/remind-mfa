@@ -39,7 +39,7 @@ class CementModel:
         self.future_mfa.compute(future_demand)
 
         self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.visualize_results(mfa=self.future_mfa, fit=fit)
+        self.data_writer.visualize_results(mfa=self.future_mfa, fit=None)
 
     def make_historic_mfa(self) -> InflowDrivenHistoricCementMFASystem:
 
@@ -118,7 +118,7 @@ class CementModel:
     def get_demand_from_stock(self, long_term_stock):
         # create dynamic stock model for in use stock
         in_use_dsm_long_term = fd.StockDrivenDSM(
-            dims=self.dims["t", "s"],
+            dims=self.dims["t", "r", "s"],
             lifetime_model=self.cfg.customization.lifetime_model,
         )
         in_use_dsm_long_term.lifetime_model.set_prms(
@@ -129,8 +129,8 @@ class CementModel:
         return in_use_dsm_long_term.inflow
 
     def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
-        # TODO correct scale_by by removing the sum over "r" when different regions are implemented.
-        demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters["gdppc"].sum_over("r"))
+        # TODO is gdp the right scale_by parameter?
+        demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters["gdppc"])
         return demand_via_gdp
     
     def make_future_mfa(self) -> StockDrivenCementMFASystem:

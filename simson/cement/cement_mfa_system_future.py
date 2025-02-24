@@ -46,7 +46,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         flw["use => eol"][...] = stk["in_use"].outflow
         stk["eol"].inflow[...] = flw["use => eol"]
-        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "s"])
+        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s"])
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
     
