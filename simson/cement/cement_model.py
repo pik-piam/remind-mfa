@@ -34,11 +34,12 @@ class CementModel:
 
         # future mfa
         self.future_mfa = self.make_future_mfa()
-        future_demand = self.get_future_demand()
+        # TODO have return_fit defined in yml...
+        future_demand, fit = self.get_future_demand(return_fit=True)
         self.future_mfa.compute(future_demand)
 
         self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.visualize_results(mfa=self.future_mfa)
+        self.data_writer.visualize_results(mfa=self.future_mfa, fit=fit)
 
     def make_historic_mfa(self) -> InflowDrivenHistoricCementMFASystem:
 
@@ -74,7 +75,7 @@ class CementModel:
             stocks=stocks,
         )
     
-    def get_future_demand(self):
+    def get_future_demand(self, return_fit=False):
         long_term_stock = self.get_long_term_stock()
         long_term_demand = self.get_demand_from_stock(long_term_stock)
         short_term_demand = self.get_short_term_demand_trend(
@@ -87,6 +88,14 @@ class CementModel:
             t_lower=self.historic_mfa.dims["h"].items[-1],
             t_upper=self.historic_mfa.dims["h"].items[-1] + 20,
         )
+        if return_fit:
+            fit = {
+                "long_term_stock": long_term_stock,
+                "short_term_demand": short_term_demand,
+                "long_term_demand": long_term_demand,
+            }
+            return demand, fit
+        
         return demand
     
     def get_long_term_stock(self):

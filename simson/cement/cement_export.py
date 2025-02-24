@@ -20,7 +20,7 @@ class CementDataExporter(CustomDataExporter):
         "eol": "End of life",
     }
 
-    def visualize_results(self, mfa: fd.MFASystem):
+    def visualize_results(self, mfa: fd.MFASystem, fit=None):
         if self.clinker_production["do_visualize"]:
             self.visualize_clinker_production(mfa)
         if self.cement_production["do_visualize"]:
@@ -33,6 +33,9 @@ class CementDataExporter(CustomDataExporter):
             self.visualize_eol_stock(mfa)
         if self.sankey["do_visualize"]:
             self.visualize_sankey(mfa)
+        # TODO add this to yml
+        if fit is not None:
+            self.visualize_fit(mfa, fit)
         self.stop_and_show()
 
     def visualize_production(self, production: fd.Flow, name: str):
@@ -156,3 +159,43 @@ class CementDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
 
+    def visualize_fit(self, mfa: fd.MFASystem, fit: dict):
+        import plotly.graph_objects as go
+        master_fig = go.Figure()
+        # TODO remove sum_over("r")
+        lt_stock = fit["long_term_stock"].sum_over("r")
+        lt_demand = fit["long_term_demand"]
+        st_demand = fit["short_term_demand"]
+        x_label = "Year"
+        y_label = "Demand [t]"
+        title = "Long term stock"
+
+        ap_st = self.plotter_class(
+            array=st_demand,
+            intra_line_dim="Time",
+            linecolor_dim="Stock Type",
+            display_names=self._display_names,
+            # x_array=x_array,
+            xlabel=x_label,
+            ylabel=y_label,
+            title=f"{title} (global by stock type)",
+            area=True,
+        )
+
+        ap_st.plot(do_show=False)
+        fig = ap_st.fig
+
+        ap_lt = self.plotter_class(
+            array=lt_demand,
+            intra_line_dim="Time",
+            linecolor_dim="Stock Type",
+            display_names=self._display_names,
+            # x_array=x_array,
+            xlabel=x_label,
+            ylabel=y_label,
+            title=f"{title} (global by stock type)",
+            area=True,
+            fig=fig,
+        )
+
+        self.plot_and_save_figure(ap_lt, "fit.png")
