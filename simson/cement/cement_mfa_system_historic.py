@@ -1,6 +1,4 @@
 import flodym as fd
-import numpy as np
-
 
 class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
     

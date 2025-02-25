@@ -3,6 +3,7 @@ import flodym as fd
 
 from simson.common.common_cfg import GeneralCfg
 from simson.cement.cement_definition import get_definition
+from simson.cement.cement_mfa_system_historic_simple import InflowDrivenHistoricSimpleCementMFASystem
 from simson.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from simson.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from simson.cement.cement_data_reader import CementDataReader
@@ -29,8 +30,10 @@ class CementModel:
         self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
-        self.historic_mfa = self.make_historic_mfa()
+        self.historic_mfa = self.make_historic_simple_mfa()
         self.historic_mfa.compute()
+        # self.historic_mfa = self.make_historic_mfa()
+        # self.historic_mfa.compute()
 
         # future mfa
         self.future_mfa = self.make_future_mfa()
@@ -40,6 +43,33 @@ class CementModel:
 
         self.data_writer.export_mfa(mfa=self.future_mfa)
         self.data_writer.visualize_results(mfa=self.future_mfa, fit=None)
+
+    def make_historic_simple_mfa(self) -> InflowDrivenHistoricSimpleCementMFASystem:
+        historic_dim_letters = tuple([d for d in self.dims.letters if d != "t"])
+        historic_dims = self.dims[historic_dim_letters]
+        historic_processes = [
+            "sysenv",
+            "use",
+        ]
+        processes = fd.make_processes(historic_processes)
+        flows = fd.make_empty_flows(
+            processes=processes,
+            flow_definitions=[f for f in self.definition.flows if "h" in f.dim_letters],
+            dims=historic_dims,
+        )
+        stocks = fd.make_empty_stocks(
+            processes=processes,
+            stock_definitions=[s for s in self.definition.stocks if "h" in s.dim_letters],
+            dims=historic_dims,
+        )
+        return InflowDrivenHistoricSimpleCementMFASystem(
+            cfg=self.cfg,
+            parameters=self.parameters,
+            processes=processes,
+            dims=historic_dims,
+            flows=flows,
+            stocks=stocks,
+        )
 
     def make_historic_mfa(self) -> InflowDrivenHistoricCementMFASystem:
 

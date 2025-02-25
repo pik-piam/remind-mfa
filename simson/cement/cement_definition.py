@@ -25,18 +25,22 @@ def get_definition(cfg: GeneralCfg):
         "eol",
     ]
 
-    flows = [
+    flows = [    
+        # historic simple flows
+        fd.FlowDefinition(from_process="sysenv", to_process="use", dim_letters=("h", "r", "s",)),
+        fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "s",)),
+
         # historic flows
-        fd.FlowDefinition(from_process="sysenv", to_process="raw_meal_preparation", dim_letters=("h", "r",)),
-        fd.FlowDefinition(from_process="raw_meal_preparation", to_process="clinker_production", dim_letters=("h", "r",)),
-        fd.FlowDefinition(from_process="sysenv", to_process="clinker_production", dim_letters=("h", "r",)),
-        fd.FlowDefinition(from_process="clinker_production", to_process="cement_grinding", dim_letters=("h", "r",)),
-        fd.FlowDefinition(from_process="sysenv", to_process="cement_grinding", dim_letters=("h", "r",)),
-        fd.FlowDefinition(from_process="cement_grinding", to_process="concrete_production", dim_letters=("h", "r",)),
-        fd.FlowDefinition(from_process="sysenv", to_process="concrete_production", dim_letters=("h", "r",)),
-        fd.FlowDefinition(from_process="concrete_production", to_process="use", dim_letters=("h", "r", "s",)),
-        fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("h", "r", "s",)),
-        fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("h", "r", "s",)),
+        # fd.FlowDefinition(from_process="sysenv", to_process="raw_meal_preparation", dim_letters=("h", "r",)),
+        # fd.FlowDefinition(from_process="raw_meal_preparation", to_process="clinker_production", dim_letters=("h", "r",)),
+        # fd.FlowDefinition(from_process="sysenv", to_process="clinker_production", dim_letters=("h", "r",)),
+        # fd.FlowDefinition(from_process="clinker_production", to_process="cement_grinding", dim_letters=("h", "r",)),
+        # fd.FlowDefinition(from_process="sysenv", to_process="cement_grinding", dim_letters=("h", "r",)),
+        # fd.FlowDefinition(from_process="cement_grinding", to_process="concrete_production", dim_letters=("h", "r",)),
+        # fd.FlowDefinition(from_process="sysenv", to_process="concrete_production", dim_letters=("h", "r",)),
+        # fd.FlowDefinition(from_process="concrete_production", to_process="use", dim_letters=("h", "r", "s",)),
+        # fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("h", "r", "s",)),
+        # fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("h", "r", "s",)),
 
         # future flows
         fd.FlowDefinition(from_process="sysenv", to_process="raw_meal_preparation", dim_letters=("t", "r",)),
@@ -60,13 +64,13 @@ def get_definition(cfg: GeneralCfg):
             lifetime_model_class=fd.NormalLifetime,
             time_letter="h",
         ),
-        fd.StockDefinition(
-            name="historic_eol",
-            process="eol",
-            dim_letters=("h", "r", "s"),
-            subclass=fd.SimpleFlowDrivenStock,
-            time_letter="h",
-        ),
+        # fd.StockDefinition(
+        #     name="historic_eol",
+        #     process="eol",
+        #     dim_letters=("h", "r", "s"),
+        #     subclass=fd.SimpleFlowDrivenStock,
+        #     time_letter="h",
+        # ),
         fd.StockDefinition(
             name="in_use",
             process="use",
