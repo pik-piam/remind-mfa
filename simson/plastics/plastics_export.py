@@ -1,7 +1,9 @@
 import flodym as fd
+from typing import TYPE_CHECKING
 
 from simson.common.custom_export import CustomDataExporter
-
+if TYPE_CHECKING:
+    from simson.plastics.plastics_model import PlasticsModel
 
 class PlasticsDataExporter(CustomDataExporter):
 
@@ -28,14 +30,14 @@ class PlasticsDataExporter(CustomDataExporter):
         "atmosphere": "Atmosphere",
     }
 
-    def visualize_results(self, mfa: fd.MFASystem):
+    def visualize_results(self, model: 'PlasticsModel'):
         if self.cfg.production["do_visualize"]:
-            self.visualize_production(mfa=mfa)
+            self.visualize_production(mfa=model.mfa)
         if self.cfg.stock["do_visualize"]:
             print("Stock visualization not implemented yet.")
             # self.visualize_stock(mfa=mfa)
         if self.cfg.sankey["do_visualize"]:
-            self.visualize_sankey(mfa=mfa)
+            self.visualize_sankey(mfa=model.mfa)
         self.stop_and_show()
 
     def visualize_production(self, mfa: fd.MFASystem):

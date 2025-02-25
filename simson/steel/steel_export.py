@@ -1,8 +1,11 @@
 import logging
 import flodym as fd
+from typing import TYPE_CHECKING
 
 from simson.common.custom_export import CustomDataExporter
 from simson.common.common_cfg import SteelVisualizationCfg
+if TYPE_CHECKING:
+    from simson.steel.steel_model import SteelModel
 
 class SteelDataExporter(CustomDataExporter):
 
@@ -27,17 +30,17 @@ class SteelDataExporter(CustomDataExporter):
         "excess_scrap": "Excess scrap",
     }
 
-    def visualize_results(self, mfa: fd.MFASystem):
+    def visualize_results(self, model: 'SteelModel'):
         if self.cfg.production["do_visualize"]:
-            self.visualize_production(mfa=mfa)
+            self.visualize_production(mfa=model.future_mfa)
         if self.cfg.stock["do_visualize"]:
-            self.visualize_stock(mfa=mfa)
+            self.visualize_stock(mfa=model.future_mfa)
         if self.cfg.scrap_demand_supply["do_visualize"]:
-            self.visualize_scrap_demand_supply(mfa)
+            self.visualize_scrap_demand_supply(model.future_mfa)
         if self.cfg.sector_splits["do_visualize"]:
-            self.visualize_sector_splits(mfa)
+            self.visualize_sector_splits(model.future_mfa)
         if self.cfg.sankey["do_visualize"]:
-            self.visualize_sankey(mfa)
+            self.visualize_sankey(model.future_mfa)
         self.stop_and_show()
 
     def visualize_production(self, mfa: fd.MFASystem):

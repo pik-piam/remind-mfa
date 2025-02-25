@@ -41,7 +41,7 @@ class SteelModel:
         self.future_mfa.compute(future_demand, self.historic_mfa.trade_set)
 
         self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.visualize_results(mfa=self.future_mfa)
+        self.data_writer.visualize_results(model=self)
 
     def make_historic_mfa(self) -> InflowDrivenHistoricSteelMFASystem:
         """
