@@ -95,5 +95,3 @@ class CementCfg(GeneralCfg):
 class SteelCfg(GeneralCfg):
 
     visualization: SteelVisualizationCfg
-
-
