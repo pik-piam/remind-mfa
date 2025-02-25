@@ -9,7 +9,7 @@ from simson.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from simson.cement.cement_data_reader import CementDataReader
 from simson.cement.cement_export import CementDataExporter
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
-from simson.common.data_blending import blend, blend_over_time
+from simson.common.data_blending import blend_over_time
 
 class CementModel:
 
@@ -34,15 +34,17 @@ class CementModel:
         self.historic_mfa.compute()
         # self.historic_mfa = self.make_historic_mfa()
         # self.historic_mfa.compute()
-
-        # future mfa
-        self.future_mfa = self.make_future_mfa()
-        # TODO have return_fit defined in yml...
         future_demand, fit = self.get_future_demand(return_fit=True)
-        self.future_mfa.compute(future_demand)
+        self.data_writer.visualize_extrapolation(mfa=self.historic_mfa, future_demand=future_demand)
+        # future mfa
+        if False:
+            self.future_mfa = self.make_future_mfa()
+            # TODO have return_fit defined in yml...
+            future_demand, fit = self.get_future_demand(return_fit=True)
+            self.future_mfa.compute(future_demand)
 
-        self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.visualize_results(mfa=self.future_mfa, fit=None)
+            self.data_writer.export_mfa(mfa=self.future_mfa)
+            self.data_writer.visualize_results(mfa=self.future_mfa, fit=None)
 
     def make_historic_simple_mfa(self) -> InflowDrivenHistoricSimpleCementMFASystem:
         historic_dim_letters = tuple([d for d in self.dims.letters if d != "t"])

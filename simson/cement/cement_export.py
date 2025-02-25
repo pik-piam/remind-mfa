@@ -198,3 +198,19 @@ class CementDataExporter(CustomDataExporter):
         )
 
         self.plot_and_save_figure(ap_lt, "fit.png")
+
+    def visualize_extrapolation(self, mfa: fd.MFASystem, future_demand):
+        stock = mfa.stocks["historic_in_use"].stock.sum_over("s")
+
+        ap_stock = self.plotter_class(
+            array=stock,
+            intra_line_dim="Historic Time",
+            subplot_dim="Region",
+            line_label=f"Stock",
+            display_names=self._display_names,
+            xlabel="Year",
+            ylabel="Stock [t]",
+            title=f"Regional Stock",
+        )
+
+        self.plot_and_save_figure(ap_stock, f"Stock_regional.png")
