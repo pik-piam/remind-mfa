@@ -12,7 +12,8 @@ class PlasticsModel:
         self.cfg = cfg
         self.definition = get_definition(cfg)
         self.data_writer = PlasticsDataExporter(
-            **dict(self.cfg.visualization),
+            cfg=self.cfg.visualization,
+            do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
         )
         self.init_mfa()

@@ -22,7 +22,8 @@ class SteelModel:
             input_data_path=self.cfg.input_data_path, definition=self.definition
         )
         self.data_writer = SteelDataExporter(
-            **dict(self.cfg.visualization),
+            cfg=self.cfg.visualization,
+            do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
         )
         self.dims = self.data_reader.read_dimensions(self.definition.dimensions)

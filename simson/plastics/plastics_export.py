@@ -29,12 +29,12 @@ class PlasticsDataExporter(CustomDataExporter):
     }
 
     def visualize_results(self, mfa: fd.MFASystem):
-        if self.production["do_visualize"]:
+        if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=mfa)
-        if self.stock["do_visualize"]:
+        if self.cfg.stock["do_visualize"]:
             print("Stock visualization not implemented yet.")
             # self.visualize_stock(mfa=mfa)
-        if self.sankey["do_visualize"]:
+        if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(mfa=mfa)
         self.stop_and_show()
 
@@ -63,17 +63,17 @@ class PlasticsDataExporter(CustomDataExporter):
         self, gdppc, historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc
     ):
 
-        if self.stock["per_capita"]:
+        if self.cfg.stock["per_capita"]:
             stocks_plot = stocks_pc["World"]
             historic_stocks_plot = historic_stocks_pc["World"]
         else:
             stocks_plot = stocks["World"]
             historic_stocks_plot = historic_stocks["World"]
 
-        if self.stock["over"] == "time":
+        if self.cfg.stock["over"] == "time":
             x_array, x_array_hist = None, None
             xlabel = "Year"
-        elif self.stock["over"] == "gdppc":
+        elif self.cfg.stock["over"] == "gdppc":
             x_array = gdppc["World"]
             x_array_hist = historic_gdppc["World"]
             xlabel = "GDP per capita [USD]"
