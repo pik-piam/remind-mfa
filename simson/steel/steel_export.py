@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING
 
 from simson.common.custom_export import CustomDataExporter
 from simson.common.common_cfg import SteelVisualizationCfg
+
 if TYPE_CHECKING:
     from simson.steel.steel_model import SteelModel
+
 
 class SteelDataExporter(CustomDataExporter):
 
@@ -30,7 +32,7 @@ class SteelDataExporter(CustomDataExporter):
         "excess_scrap": "Excess scrap",
     }
 
-    def visualize_results(self, model: 'SteelModel'):
+    def visualize_results(self, model: "SteelModel"):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.future_mfa)
         if self.cfg.stock["do_visualize"]:

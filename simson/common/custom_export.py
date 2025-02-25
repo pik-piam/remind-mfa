@@ -7,6 +7,7 @@ import flodym.export as fde
 
 from simson.common.common_cfg import VisualizationCfg
 
+
 class CustomDataExporter(SimsonBaseModel):
     output_path: str
     do_export: dict = {"pickle": True, "csv": True}
@@ -37,7 +38,9 @@ class CustomDataExporter(SimsonBaseModel):
             fig.show()
 
     def visualize_sankey(self, mfa: fd.MFASystem):
-        plotter = fde.PlotlySankeyPlotter(mfa=mfa, display_names=self._display_names, **self.cfg.sankey)
+        plotter = fde.PlotlySankeyPlotter(
+            mfa=mfa, display_names=self._display_names, **self.cfg.sankey
+        )
         fig = plotter.plot()
         self._show_and_save_plotly(fig, name="sankey")
 

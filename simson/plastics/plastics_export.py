@@ -2,8 +2,10 @@ import flodym as fd
 from typing import TYPE_CHECKING
 
 from simson.common.custom_export import CustomDataExporter
+
 if TYPE_CHECKING:
     from simson.plastics.plastics_model import PlasticsModel
+
 
 class PlasticsDataExporter(CustomDataExporter):
 
@@ -30,7 +32,7 @@ class PlasticsDataExporter(CustomDataExporter):
         "atmosphere": "Atmosphere",
     }
 
-    def visualize_results(self, model: 'PlasticsModel'):
+    def visualize_results(self, model: "PlasticsModel"):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.mfa)
         if self.cfg.stock["do_visualize"]:
