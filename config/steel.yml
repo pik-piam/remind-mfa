@@ -38,5 +38,5 @@ visualization:
 # data export
 output_path: 'data/steel/output'
 do_export:
-  pickle: True
-  csv: True
+  pickle: False
+  csv: False
