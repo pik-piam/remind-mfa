@@ -1,14 +1,15 @@
 import flodym as fd
+from typing import TYPE_CHECKING
 
 from simson.common.custom_export import CustomDataExporter
+from simson.common.common_cfg import CementVisualizationCfg
+
+if TYPE_CHECKING:
+    from simson.cement.cement_model import CementModel
 
 class CementDataExporter(CustomDataExporter):
     # They have to be defined here but are eventually overwritten by yml definitions
-    clinker_production: dict = {}
-    cement_production: dict = {}
-    concrete_production: dict = {}
-    use_stock: dict = {}
-    eol_stock: dict = {}
+    cfg: CementVisualizationCfg
 
     _display_names: dict = {
         "sysenv": "System environment",
@@ -20,22 +21,19 @@ class CementDataExporter(CustomDataExporter):
         "eol": "End of life",
     }
 
-    def visualize_results(self, mfa: fd.MFASystem, fit=None):
-        if self.clinker_production["do_visualize"]:
-            self.visualize_clinker_production(mfa)
-        if self.cement_production["do_visualize"]:
-            self.visualize_cement_production(mfa)
-        if self.concrete_production["do_visualize"]:
-            self.visualize_concrete_production(mfa)
-        if self.use_stock["do_visualize"]:
-            self.visualize_use_stock(mfa)
-        if self.eol_stock["do_visualize"]:
-            self.visualize_eol_stock(mfa)
-        if self.sankey["do_visualize"]:
-            self.visualize_sankey(mfa)
-        # TODO add this to yml
-        if fit is not None:
-            self.visualize_fit(mfa, fit)
+    def visualize_results(self, model: 'CementModel'):
+        if self.cfg.clinker_production["do_visualize"]:
+            self.visualize_clinker_production(mfa=model.future_mfa)
+        if self.cfg.cement_production["do_visualize"]:
+            self.visualize_cement_production(mfa=model.future_mfa)
+        if self.cfg.concrete_production["do_visualize"]:
+            self.visualize_concrete_production(mfa=model.future_mfa)
+        if self.cfg.use_stock["do_visualize"]:
+            self.visualize_use_stock(mfa=model.future_mfa)
+        if self.cfg.eol_stock["do_visualize"]:
+            self.visualize_eol_stock(mfa=model.future_mfa)
+        if self.cfg.sankey["do_visualize"]:
+            self.visualize_sankey(mfa=model.future_mfa)
         self.stop_and_show()
 
     def visualize_production(self, production: fd.Flow, name: str):
@@ -87,15 +85,15 @@ class CementDataExporter(CustomDataExporter):
         self.visualize_production(production, "Concrete")
 
     def visualize_use_stock(self, mfa: fd.MFASystem):
-        over_gdp = self.use_stock["over_gdp"]
-        per_capita = self.use_stock["per_capita"]
+        over_gdp = self.cfg.use_stock["over_gdp"]
+        per_capita = self.cfg.use_stock["per_capita"]
         stock = mfa.stocks["in_use"].stock
 
         self.visualize_stock(mfa, stock, over_gdp, per_capita, "In use")
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
-        over_gdp = self.eol_stock["over_gdp"]
-        per_capita = self.eol_stock["per_capita"]
+        over_gdp = self.cfg.eol_stock["over_gdp"]
+        per_capita = self.cfg.eol_stock["per_capita"]
         stock = mfa.stocks["eol"].stock
 
         self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
@@ -157,47 +155,6 @@ class CementDataExporter(CustomDataExporter):
         )
 
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
-
-    def visualize_fit(self, mfa: fd.MFASystem, fit: dict):
-        import plotly.graph_objects as go
-        master_fig = go.Figure()
-        # TODO remove sum_over("r")
-        lt_stock = fit["long_term_stock"].sum_over("r")
-        lt_demand = fit["long_term_demand"]
-        st_demand = fit["short_term_demand"]
-        x_label = "Year"
-        y_label = "Demand [t]"
-        title = "Long term stock"
-
-        ap_st = self.plotter_class(
-            array=st_demand,
-            intra_line_dim="Time",
-            linecolor_dim="Stock Type",
-            display_names=self._display_names,
-            # x_array=x_array,
-            xlabel=x_label,
-            ylabel=y_label,
-            title=f"{title} (global by stock type)",
-            area=True,
-        )
-
-        ap_st.plot(do_show=False)
-        fig = ap_st.fig
-
-        ap_lt = self.plotter_class(
-            array=lt_demand,
-            intra_line_dim="Time",
-            linecolor_dim="Stock Type",
-            display_names=self._display_names,
-            # x_array=x_array,
-            xlabel=x_label,
-            ylabel=y_label,
-            title=f"{title} (global by stock type)",
-            area=True,
-            fig=fig,
-        )
-
-        self.plot_and_save_figure(ap_lt, "fit.png")
 
     def visualize_extrapolation(self, mfa: fd.MFASystem, future_demand):
         stock = mfa.stocks["historic_in_use"].stock.sum_over("s")

@@ -20,7 +20,8 @@ class CementModel:
             input_data_path=self.cfg.input_data_path, definition=self.definition
         )
         self.data_writer = CementDataExporter(
-            **dict(self.cfg.visualization),
+            cfg=self.cfg.visualization,
+            do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
         )
         self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
@@ -30,21 +31,22 @@ class CementModel:
         self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
+        # simple historic mfa
         self.historic_mfa = self.make_historic_simple_mfa()
         self.historic_mfa.compute()
-        # self.historic_mfa = self.make_historic_mfa()
-        # self.historic_mfa.compute()
-        future_demand, fit = self.get_future_demand(return_fit=True)
-        self.data_writer.visualize_extrapolation(mfa=self.historic_mfa, future_demand=future_demand)
-        # future mfa
-        if False:
-            self.future_mfa = self.make_future_mfa()
-            # TODO have return_fit defined in yml...
-            future_demand, fit = self.get_future_demand(return_fit=True)
-            self.future_mfa.compute(future_demand)
 
-            self.data_writer.export_mfa(mfa=self.future_mfa)
-            self.data_writer.visualize_results(mfa=self.future_mfa, fit=None)
+        # future mfa
+        self.future_mfa = self.make_future_mfa()
+        future_demand = self.get_future_demand()
+        self.future_mfa.compute(future_demand)
+
+        # visualization and export
+        self.data_writer.export_mfa(mfa=self.future_mfa)
+        self.data_writer.visualize_results(model=self)
+
+        # visualize extrapolation
+        # self.data_writer.visualize_extrapolation(mfa=self.historic_mfa, future_demand=future_demand)
+        
 
     def make_historic_simple_mfa(self) -> InflowDrivenHistoricSimpleCementMFASystem:
         historic_dim_letters = tuple([d for d in self.dims.letters if d != "t"])
