@@ -95,13 +95,13 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
         idx_with_time_dim = (slice(None),) + idx
         current_hist_stock_pc = historic_stocks_pc[idx_with_time_dim]
         current_gdppc = gdppc[idx_with_time_dim[:2]]
-        current_saturation_level = saturation_level
-        if isinstance(saturation_level, np.ndarray):
-            current_saturation_level = saturation_level[idx]
+        kwargs = {}
+        if saturation_level is not None:
+            kwargs['saturation_level'] = saturation_level[idx]
         extrapolation = extrapolation_class(
             data_to_extrapolate=current_hist_stock_pc,
             target_range=current_gdppc,
-            saturation_level=current_saturation_level
+            **kwargs
         )
         pure_prediction[idx_with_time_dim] = extrapolation.regress()
 

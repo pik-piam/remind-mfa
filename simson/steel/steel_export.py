@@ -2,14 +2,19 @@ from plotly import colors as plc
 import plotly.graph_objects as go
 import numpy as np
 import flodym as fd
+from typing import TYPE_CHECKING
 import flodym.export as fde
 
 from simson.common.custom_export import CustomDataExporter
+from simson.common.common_cfg import SteelVisualizationCfg
+
+if TYPE_CHECKING:
+    from simson.steel.steel_model import SteelModel
 
 
 class SteelDataExporter(CustomDataExporter):
-    scrap_demand_supply: dict = {"do_visualize": True}
-    sector_splits: dict = {"do_visualize": True}
+
+    cfg: SteelVisualizationCfg
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     _display_names: dict = {
@@ -35,18 +40,18 @@ class SteelDataExporter(CustomDataExporter):
         "excess_scrap": "Excess<br>scrap",
     }
 
-    def visualize_results(self, historic_mfa: fd.MFASystem, future_mfa: fd.MFASystem):
-        if self.production["do_visualize"]:
-            self.visualize_production(mfa=future_mfa)
-        if self.stock["do_visualize"]:
-            self.visualize_stock(mfa=future_mfa)
-        if self.scrap_demand_supply["do_visualize"]:
-            self.visualize_scrap_demand_supply(future_mfa, regional=True)
-            self.visualize_scrap_demand_supply(future_mfa, regional=False)
-        if self.sector_splits["do_visualize"]:
-            self.visualize_sector_splits(future_mfa)
-        if self.sankey["do_visualize"]:
-            self.visualize_sankey(future_mfa)
+    def visualize_results(self, model: "SteelModel"):
+        if self.cfg.production["do_visualize"]:
+            self.visualize_production(mfa=model.future_mfa)
+        if self.cfg.stock["do_visualize"]:
+            self.visualize_stock(mfa=model.future_mfa)
+        if self.cfg.scrap_demand_supply["do_visualize"]:
+            self.visualize_scrap_demand_supply(model.future_mfa, regional=True)
+            self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
+        if self.cfg.sector_splits["do_visualize"]:
+            self.visualize_sector_splits(model.future_mfa)
+        if self.cfg.sankey["do_visualize"]:
+            self.visualize_sankey(model.future_mfa)
         self.stop_and_show()
 
     def visualize_sankey(self, mfa: fd.MFASystem):
@@ -69,13 +74,13 @@ class SteelDataExporter(CustomDataExporter):
         flow_color_dict.update(
             {fn: trade_color for fn, f in mfa.flows.items() if f.from_process.name == "imports" or f.to_process.name == "exports"}
         )
-        self.sankey["flow_color_dict"] = flow_color_dict
+        self.cfg.sankey["flow_color_dict"] = flow_color_dict
 
-        self.sankey["node_color_dict"] = {"default": "gray", "use": "black"}
+        self.cfg.sankey["node_color_dict"] = {"default": "gray", "use": "black"}
 
 
         sdn = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
-        plotter = fde.PlotlySankeyPlotter(mfa=mfa, display_names=sdn, **self.sankey)
+        plotter = fde.PlotlySankeyPlotter(mfa=mfa, display_names=sdn, **self.cfg.sankey)
         fig = plotter.plot()
 
         legend_entries = [
@@ -147,8 +152,8 @@ class SteelDataExporter(CustomDataExporter):
         self.plot_and_save_figure(ap_production, "production_global.png")
 
     def visualize_stock(self, mfa: fd.MFASystem):
-        over_gdp = self.stock["over_gdp"]
-        per_capita = self.stock["per_capita"]
+        over_gdp = self.cfg.stock["over_gdp"]
+        per_capita = self.cfg.stock["per_capita"]
 
         stock = mfa.stocks["in_use"].stock
         population = mfa.parameters["population"]

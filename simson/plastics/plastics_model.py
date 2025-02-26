@@ -1,6 +1,6 @@
 import os
 
-from simson.common.common_cfg import CommonCfg
+from simson.common.common_cfg import GeneralCfg
 from .plastics_mfa_system import PlasticsMFASystem
 from .plastics_export import PlasticsDataExporter
 from .plastics_definition import get_definition
@@ -8,11 +8,12 @@ from .plastics_definition import get_definition
 
 class PlasticsModel:
 
-    def __init__(self, cfg: CommonCfg):
+    def __init__(self, cfg: GeneralCfg):
         self.cfg = cfg
         self.definition = get_definition(cfg)
         self.data_writer = PlasticsDataExporter(
-            **dict(self.cfg.visualization),
+            cfg=self.cfg.visualization,
+            do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
         )
         self.init_mfa()
@@ -52,4 +53,4 @@ class PlasticsModel:
     def run(self):
         self.mfa.compute()
         self.data_writer.export_mfa(mfa=self.mfa)
-        self.data_writer.visualize_results(mfa=self.mfa)
+        self.data_writer.visualize_results(model=self)

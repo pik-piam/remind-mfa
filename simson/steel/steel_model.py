@@ -2,7 +2,7 @@ import numpy as np
 import flodym as fd
 
 from simson.common.data_blending import blend, blend_over_time
-from simson.common.common_cfg import CommonCfg
+from simson.common.common_cfg import GeneralCfg
 from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
 from simson.common.data_extrapolations import MultiDimLogSigmoidalExtrapolation
 from simson.common.custom_data_reader import CustomDataReader
@@ -15,14 +15,15 @@ from simson.steel.steel_definition import get_definition
 
 class SteelModel:
 
-    def __init__(self, cfg: CommonCfg):
+    def __init__(self, cfg: GeneralCfg):
         self.cfg = cfg
         self.definition = get_definition(self.cfg)
         self.data_reader = CustomDataReader(
             input_data_path=self.cfg.input_data_path, definition=self.definition
         )
         self.data_writer = SteelDataExporter(
-            **dict(self.cfg.visualization),
+            cfg=self.cfg.visualization,
+            do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
         )
         self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
@@ -79,7 +80,7 @@ class SteelModel:
         self.future_mfa.compute(future_demand, self.historic_mfa.trade_set)
 
         self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.visualize_results(historic_mfa=self.historic_mfa, future_mfa=self.future_mfa)
+        self.data_writer.visualize_results(model=self)
 
     def make_historic_mfa(self) -> InflowDrivenHistoricSteelMFASystem:
         """
