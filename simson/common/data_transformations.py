@@ -11,12 +11,12 @@ from .data_extrapolations import (
 
 
 def extrapolate_stock(
-        historic_stocks: fd.StockArray,
-        dims: fd.DimensionSet,
-        parameters: dict[str, fd.Parameter],
-        curve_strategy: str,
-        target_dim_letters=None,
-        saturation_level=None,
+    historic_stocks: fd.StockArray,
+    dims: fd.DimensionSet,
+    parameters: dict[str, fd.Parameter],
+    curve_strategy: str,
+    target_dim_letters=None,
+    saturation_level=None,
 ):
     """Performs the per-capita transformation and the extrapolation."""
 
@@ -34,19 +34,22 @@ def extrapolate_stock(
     historic_stocks_pc[...] = historic_stocks / parameters["population"][{"t": dims["h"]}]
 
     extrapolation_class_dict = {
-        'GDP_regression': SigmoidalExtrapolation,
-        'Exponential_GDP_regression': ExponentialExtrapolation,
-        'LogSigmoid_GDP_regression': LogSigmoidalExtrapolation
+        "GDP_regression": SigmoidalExtrapolation,
+        "Exponential_GDP_regression": ExponentialExtrapolation,
+        "LogSigmoid_GDP_regression": LogSigmoidalExtrapolation,
     }
 
-    assert curve_strategy in extrapolation_class_dict.keys(), \
-        f"Extrapolation strategy {curve_strategy} is not defined."
+    assert (
+        curve_strategy in extrapolation_class_dict.keys()
+    ), f"Extrapolation strategy {curve_strategy} is not defined."
 
-    gdp_regression(historic_stocks_pc.values,
-                   parameters["gdppc"].values,
-                   stocks_pc.values,
-                   extrapolation_class_dict[curve_strategy],
-                   saturation_level=saturation_level)
+    gdp_regression(
+        historic_stocks_pc.values,
+        parameters["gdppc"].values,
+        stocks_pc.values,
+        extrapolation_class_dict[curve_strategy],
+        saturation_level=saturation_level,
+    )
 
     # transform back to total stocks
     stocks[...] = stocks_pc * parameters["population"]
@@ -55,7 +58,7 @@ def extrapolate_stock(
 
 
 def extrapolate_to_future(
-        historic_values: fd.FlodymArray, scale_by: fd.FlodymArray
+    historic_values: fd.FlodymArray, scale_by: fd.FlodymArray
 ) -> fd.FlodymArray:
     if not historic_values.dims.letters[0] == "h":
         raise ValueError("First dimension of historic_parameter must be historic time.")
@@ -81,8 +84,13 @@ def extrapolate_to_future(
     return extrapolated_values
 
 
-def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_class=SigmoidalExtrapolation,
-                   saturation_level=None):
+def gdp_regression(
+    historic_stocks_pc,
+    gdppc,
+    prediction_out,
+    extrapolation_class=SigmoidalExtrapolation,
+    saturation_level=None,
+):
     shape_out = prediction_out.shape
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
@@ -97,11 +105,9 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
         current_gdppc = gdppc[idx_with_time_dim[:2]]
         kwargs = {}
         if saturation_level is not None:
-            kwargs['saturation_level'] = saturation_level[idx]
+            kwargs["saturation_level"] = saturation_level[idx]
         extrapolation = extrapolation_class(
-            data_to_extrapolate=current_hist_stock_pc,
-            target_range=current_gdppc,
-            **kwargs
+            data_to_extrapolate=current_hist_stock_pc, target_range=current_gdppc, **kwargs
         )
         pure_prediction[idx_with_time_dim] = extrapolation.regress()
 
@@ -109,7 +115,8 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
     do_fit_current_levels = False
     if do_fit_current_levels:
         prediction_out[...] = pure_prediction - (
-                pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :])
+            pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :]
+        )
     else:
         prediction_out[...] = pure_prediction
 

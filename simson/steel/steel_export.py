@@ -66,18 +66,29 @@ class SteelDataExporter(CustomDataExporter):
             {fn: ("Good", good_colors) for fn, f in mfa.flows.items() if "Good" in f.dims}
         )
         flow_color_dict.update(
-            {fn: scrap_color for fn, f in mfa.flows.items() if f.from_process.name == "scrap_market" or f.to_process.name == "scrap_market"}
+            {
+                fn: scrap_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "scrap_market" or f.to_process.name == "scrap_market"
+            }
         )
         flow_color_dict.update(
-            {fn: losses_color for fn, f in mfa.flows.items() if f.to_process.name in ["losses", "excess_scrap", "obsolete"]}
+            {
+                fn: losses_color
+                for fn, f in mfa.flows.items()
+                if f.to_process.name in ["losses", "excess_scrap", "obsolete"]
+            }
         )
         flow_color_dict.update(
-            {fn: trade_color for fn, f in mfa.flows.items() if f.from_process.name == "imports" or f.to_process.name == "exports"}
+            {
+                fn: trade_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "imports" or f.to_process.name == "exports"
+            }
         )
         self.cfg.sankey["flow_color_dict"] = flow_color_dict
 
         self.cfg.sankey["node_color_dict"] = {"default": "gray", "use": "black"}
-
 
         sdn = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
         plotter = fde.PlotlySankeyPlotter(mfa=mfa, display_names=sdn, **self.cfg.sankey)
@@ -178,7 +189,7 @@ class SteelDataExporter(CustomDataExporter):
         )
 
     def visualize_regional_stock(
-            self, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
+        self, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
     ):
         if per_capita:
             stock = stock / population
@@ -202,7 +213,7 @@ class SteelDataExporter(CustomDataExporter):
         self.plot_and_save_figure(ap_stock, "stocks_by_region.png")
 
     def visiualize_global_stock(
-            self, mfa, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
+        self, mfa, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
     ):
         if over_gdp:
             x_array = x_array * population
@@ -210,10 +221,41 @@ class SteelDataExporter(CustomDataExporter):
                 # get global GDP per capita
                 x_array = x_array / population
 
-        self.visualize_global_stock_by_region(mfa, stock, x_array, population, x_label, y_label, title, per_capita, subplots_by_good=True)
-        self.visualize_global_stock_by_region(mfa, stock, x_array, population, x_label, y_label, title, per_capita, subplots_by_good=False)
+        self.visualize_global_stock_by_region(
+            mfa,
+            stock,
+            x_array,
+            population,
+            x_label,
+            y_label,
+            title,
+            per_capita,
+            subplots_by_good=True,
+        )
+        self.visualize_global_stock_by_region(
+            mfa,
+            stock,
+            x_array,
+            population,
+            x_label,
+            y_label,
+            title,
+            per_capita,
+            subplots_by_good=False,
+        )
 
-    def visualize_global_stock_by_region(self, mfa, stock, x_array, population, x_label, y_label, title, per_capita, subplots_by_good=False):
+    def visualize_global_stock_by_region(
+        self,
+        mfa,
+        stock,
+        x_array,
+        population,
+        x_label,
+        y_label,
+        title,
+        per_capita,
+        subplots_by_good=False,
+    ):
 
         if subplots_by_good:
             subplot_dim = {"subplot_dim": "Good"}
@@ -225,7 +267,11 @@ class SteelDataExporter(CustomDataExporter):
             stock = stock / population
 
         colors = plc.qualitative.Dark24
-        colors = colors[: stock.dims["r"].len] + colors[: stock.dims["r"].len] + ["black" for _ in range(stock.dims["r"].len)]
+        colors = (
+            colors[: stock.dims["r"].len]
+            + colors[: stock.dims["r"].len]
+            + ["black" for _ in range(stock.dims["r"].len)]
+        )
 
         ap_stock = self.plotter_class(
             array=stock,
@@ -258,7 +304,9 @@ class SteelDataExporter(CustomDataExporter):
         )
         fig = ap_hist_stock.plot()
 
-        last_year_dim = fd.Dimension(name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]])
+        last_year_dim = fd.Dimension(
+            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
+        )
         scatter_stock = hist_stock[{"h": last_year_dim}]
         scatter_x_array = hist_x_array[{"h": last_year_dim}]
         ap_scatter_stock = self.plotter_class(
@@ -278,7 +326,11 @@ class SteelDataExporter(CustomDataExporter):
         # adjust lower bound of x-axis
         fig.update_xaxes(type="log", range=[3, 5])
 
-        self.plot_and_save_figure(ap_scatter_stock, f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png", do_plot=False)
+        self.plot_and_save_figure(
+            ap_scatter_stock,
+            f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
+            do_plot=False,
+        )
 
     def visualize_scrap_demand_supply(self, mfa: fd.MFASystem, regional=True):
 
@@ -295,14 +347,14 @@ class SteelDataExporter(CustomDataExporter):
         prm = mfa.parameters
 
         total_production = (
-                flw["forming => ip_market"] / prm["forming_yield"] / prm["production_yield"]
-        )[{'t': mfa.dims['h']}]
+            flw["forming => ip_market"] / prm["forming_yield"] / prm["production_yield"]
+        )[{"t": mfa.dims["h"]}]
         scrap_supply = (
-                flw["recycling => scrap_market"]
-                + flw["forming => scrap_market"]
-                + flw["fabrication => scrap_market"]
+            flw["recycling => scrap_market"]
+            + flw["forming => scrap_market"]
+            + flw["fabrication => scrap_market"]
         )
-        scrap_supply = scrap_supply[{'t': mfa.dims['h']}].sum_over("e")
+        scrap_supply = scrap_supply[{"t": mfa.dims["h"]}].sum_over("e")
 
         ap = self.plotter_class(
             array=summing_func(scrap_supply),
@@ -341,7 +393,7 @@ class SteelDataExporter(CustomDataExporter):
             fig = ap.plot()
 
             ap = self.plotter_class(
-                array=summing_func(trade.net_imports[{'t': mfa.dims['h']}].sum_to(("h", "r"))),
+                array=summing_func(trade.net_imports[{"t": mfa.dims["h"]}].sum_to(("h", "r"))),
                 intra_line_dim="Historic Time",
                 **subplot_dim,
                 line_label=f"Net imports ({trade_name})",

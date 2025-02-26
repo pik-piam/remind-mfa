@@ -34,10 +34,9 @@ class SteelModel:
         self.processes = fd.make_processes(self.definition.processes)
 
     def modify_parameters(self):
-        """Manual changes to parameters in order to match historical scrap consumption.
-        """
+        """Manual changes to parameters in order to match historical scrap consumption."""
         lifetime_factor = fd.Parameter(dims=self.dims["t", "r"])
-        lifetime_factor.values[:45, ...] = np.linspace(1., 0.7, 45)[:, np.newaxis]
+        lifetime_factor.values[:45, ...] = np.linspace(1.0, 0.7, 45)[:, np.newaxis]
         lifetime_factor.values[45:55, ...] = 0.7
         lifetime_factor.values[55:90, ...] = np.linspace(0.7, 0.8, 35)[:, np.newaxis]
         lifetime_factor.values[90:110, ...] = np.linspace(0.8, 1.3, 20)[:, np.newaxis]
@@ -69,7 +68,6 @@ class SteelModel:
         )
 
         self.parameters["recovery_rate"].values *= 0.95
-
 
     def run(self):
         self.historic_mfa = self.make_historic_mfa()
@@ -156,7 +154,9 @@ class SteelModel:
             dims=self.dims,
             parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy,
-            target_dim_letters=None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r"),
+            target_dim_letters=(
+                None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+            ),
             saturation_level=saturation_level,
         )
 
@@ -170,11 +170,10 @@ class SteelModel:
         pop = self.parameters["population"]
         gdppc = self.parameters["gdppc"]
         historic_pop = pop[{"t": self.dims["h"]}]
-        historic_stocks_pc = historic_stocks.sum_over('g') / historic_pop
+        historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
         multi_dim_extrapolation = MultiDimLogSigmoidalExtrapolation(
-            data_to_extrapolate=historic_stocks_pc.values,
-            target_range=gdppc.values
+            data_to_extrapolate=historic_stocks_pc.values, target_range=gdppc.values
         )
         multi_dim_params = multi_dim_extrapolation.get_params()
         saturation_level = multi_dim_params[0]
@@ -193,11 +192,15 @@ class SteelModel:
 
     def get_high_stock_sector_split(self):
         prm = self.parameters
-        high_stock_sector_split = (prm["lifetime_mean"][{'t': self.dims['t'].items[-1]}] * prm["sector_split_high"]).get_shares_over("g")
+        high_stock_sector_split = (
+            prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}] * prm["sector_split_high"]
+        ).get_shares_over("g")
         return high_stock_sector_split
 
     def calc_stock_sector_splits(self):
-        historical_sector_splits = self.historic_mfa.stocks["historic_in_use"].stock.get_shares_over("g")
+        historical_sector_splits = self.historic_mfa.stocks[
+            "historic_in_use"
+        ].stock.get_shares_over("g")
         prm = self.parameters
         sector_split_high = self.get_high_stock_sector_split()
         sector_split_theory = blend(

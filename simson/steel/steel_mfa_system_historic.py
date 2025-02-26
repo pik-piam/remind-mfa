@@ -67,11 +67,10 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
     def calc_sector_split(self) -> fd.FlodymArray:
         """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""
         target_dims = self.dims["h", "r", "g"]
-        self.parameters["sector_split"] = fd.Parameter(dims=target_dims, name="sector_split"
-        )
+        self.parameters["sector_split"] = fd.Parameter(dims=target_dims, name="sector_split")
         sector_split_1 = fd.Parameter(dims=target_dims)
         sector_split_2 = fd.Parameter(dims=target_dims)
-        log_gdppc = self.parameters["gdppc"][{'t': self.dims['h']}].apply(np.log)
+        log_gdppc = self.parameters["gdppc"][{"t": self.dims["h"]}].apply(np.log)
         log_gdppc_low = self.parameters["secsplit_gdppc_low"].apply(np.log)
         log_gdppc_high = self.parameters["secsplit_gdppc_high"].apply(np.log)
         log_gddpc_medium = (log_gdppc_low + log_gdppc_high) / 2
@@ -113,7 +112,8 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         )
 
         stk["historic_in_use"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"][{'t': self.dims['h']}], std=prm["lifetime_std"][{'t': self.dims['h']}]
+            mean=prm["lifetime_mean"][{"t": self.dims["h"]}],
+            std=prm["lifetime_std"][{"t": self.dims["h"]}],
         )
 
         stk["historic_in_use"].compute()  # gives stocks and outflows corresponding to inflow
