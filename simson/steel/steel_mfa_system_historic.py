@@ -72,12 +72,16 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         """
         trd = self.trade_set
         exports_total = trd["indirect"].exports.sum_over(("g",))
-        export_factor = exports_total.minimum(fabrication_to_good_market_total) / exports_total.maximum(sys.float_info.epsilon)
+        export_factor = exports_total.minimum(
+            fabrication_to_good_market_total
+        ) / exports_total.maximum(sys.float_info.epsilon)
         trd["indirect"].exports[...] = trd["indirect"].exports * export_factor
         trd["indirect"].balance(to="minimum")
 
-    def get_use_inflow_by_trade_adjusted_sector_split(self, fabrication_to_good_market_total: fd.FlodymArray) -> fd.FlodymArray:
-        """ Distribute the good_market => use flow among the good categories
+    def get_use_inflow_by_trade_adjusted_sector_split(
+        self, fabrication_to_good_market_total: fd.FlodymArray
+    ) -> fd.FlodymArray:
+        """Distribute the good_market => use flow among the good categories
         Where possible, this is done by the sector split parameter.
         However, the indirect trade may be larger then the flow for a single good category.
         The other good's inflow to the in-use stock must be reduced by these excess imports
@@ -140,9 +144,7 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         prm = self.parameters
         flw = self.flows
 
-        stk["historic_in_use"].inflow[...] = (
-            flw["good_market => use"]
-        )
+        stk["historic_in_use"].inflow[...] = flw["good_market => use"]
 
         stk["historic_in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"][{"t": self.dims["h"]}],

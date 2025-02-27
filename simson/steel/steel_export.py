@@ -314,7 +314,7 @@ class SteelDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}.png")
 
-    def visualize_sector_splits(self, mfa: fd.MFASystem, regional: bool=True):
+    def visualize_sector_splits(self, mfa: fd.MFASystem, regional: bool = True):
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
