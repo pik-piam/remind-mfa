@@ -134,7 +134,7 @@ class CementModel:
     
     def get_long_term_stock(self):
         # extrapolate in use stock to future
-        stock_handler = StockExtrapolation(
+        self.stock_handler = StockExtrapolation(
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
@@ -142,12 +142,8 @@ class CementModel:
             target_dim_letters=("t", "r"),
         )
 
-        total_in_use_stock = stock_handler.stocks
+        total_in_use_stock = self.stock_handler.stocks
 
-        # calculate and apply sector splits for in use stock
-        # sector_splits = self.calc_stock_sector_splits(
-        #     self.historic_mfa.stocks["historic_in_use"].stock.get_shares_over("g"),
-        # )
         long_term_stock = total_in_use_stock * self.parameters["use_split"]
         return long_term_stock
     
