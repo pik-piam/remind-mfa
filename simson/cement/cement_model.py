@@ -8,7 +8,7 @@ from simson.cement.cement_mfa_system_historic import InflowDrivenHistoricCementM
 from simson.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from simson.cement.cement_data_reader import CementDataReader
 from simson.cement.cement_export import CementDataExporter
-from simson.common.data_transformations import extrapolate_to_future
+from simson.common.data_transformations import StockExtrapolation, extrapolate_to_future
 from simson.common.data_blending import blend_over_time
 
 class CementModel:
@@ -134,13 +134,15 @@ class CementModel:
     
     def get_long_term_stock(self):
         # extrapolate in use stock to future
-        total_in_use_stock = extrapolate_stock(
+        stock_handler = StockExtrapolation(
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy,
             target_dim_letters=("t", "r"),
         )
+
+        total_in_use_stock = stock_handler.stocks
 
         # calculate and apply sector splits for in use stock
         # sector_splits = self.calc_stock_sector_splits(
