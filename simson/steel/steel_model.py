@@ -116,7 +116,7 @@ class SteelModel:
             curve_strategy=self.cfg.customization.curve_strategy,
             target_dim_letters=("t", "r"),
         )
-    
+
         total_in_use_stock = stock_handler.stocks
 
         # calculate and apply sector splits for in use stock

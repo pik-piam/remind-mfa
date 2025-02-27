@@ -37,11 +37,13 @@ class OneDimensionalExtrapolation(Extrapolation):
             self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
         ), "data_to_extrapolate must be smaller then target_range"
         return self
-    
+
     @classmethod
     def n_prms(cls):
         """Number of parameters in the fit function."""
-        class_instance = cls(data_to_extrapolate=np.zeros(1), target_range=np.zeros(2)) # instance with dummy data.
+        class_instance = cls(
+            data_to_extrapolate=np.zeros(1), target_range=np.zeros(2)
+        )  # instance with dummy data.
         return len(class_instance.initial_guess())
 
     def initial_guess(self):
@@ -100,7 +102,7 @@ class SigmoidalExtrapolation(OneDimensionalExtrapolation):
     @staticmethod
     def func(x, prms):
         return prms[0] / (1.0 + np.exp(prms[1] / x))
-    
+
     def initial_guess(self):
         return np.array(
             [2.0 * self.target_range[self.n_historic - 1], self.data_to_extrapolate[-1]]
@@ -111,7 +113,9 @@ class SigmoidalExtrapolation(OneDimensionalExtrapolation):
         return f - self.data_to_extrapolate
 
     def regress(self):
-        self.fit_prms = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12).x
+        self.fit_prms = least_squares(
+            self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12
+        ).x
         regression = self.func(self.target_range, self.fit_prms)
         return regression
 
@@ -139,7 +143,9 @@ class ExponentialExtrapolation(OneDimensionalExtrapolation):
         return f - self.data_to_extrapolate
 
     def regress(self):
-        self.fit_prms = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12).x
+        self.fit_prms = least_squares(
+            self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12
+        ).x
         regression = self.func(self.target_range, self.fit_prms)
 
         return regression

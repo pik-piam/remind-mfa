@@ -11,16 +11,17 @@ from .data_extrapolations import (
     WeightedProportionalExtrapolation,
 )
 
+
 class StockExtrapolation:
 
     def __init__(
-            self, 
-            historic_stocks: fd.StockArray, 
-            dims: fd.DimensionSet, 
-            parameters: dict[str, fd.Parameter], 
-            curve_strategy: str, 
-            target_dim_letters=None
-        ):
+        self,
+        historic_stocks: fd.StockArray,
+        dims: fd.DimensionSet,
+        parameters: dict[str, fd.Parameter],
+        curve_strategy: str,
+        target_dim_letters=None,
+    ):
         self.historic_stocks = historic_stocks
         self.dims = dims
         self.parameters = parameters
@@ -34,7 +35,7 @@ class StockExtrapolation:
     def find_regression_strategy(self) -> Callable:
         """For now, only a regression based on GDP is implemented."""
         self.regression_strategy = self.gdp_regression
-        
+
     def find_extrapolation_class(self) -> OneDimensionalExtrapolation:
         if self.curve_strategy == "GDP_regression":
             self.extrapolation_class = SigmoidalExtrapolation
@@ -42,7 +43,7 @@ class StockExtrapolation:
             self.extrapolation_class = ExponentialExtrapolation
         else:
             raise ValueError('fitting_function_type must be either "sigmoid" or "exponential".')
-    
+
     def extrapolate(self):
         self.per_capita_transformation()
         self.regression_strategy()
