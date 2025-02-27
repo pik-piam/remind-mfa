@@ -109,43 +109,33 @@ class CementModel:
             stocks=stocks,
         )
     
-    def get_future_demand(self, return_fit=False):
-        long_term_stock = self.get_long_term_stock()
-        long_term_demand = self.get_demand_from_stock(long_term_stock)
-        short_term_demand = self.get_short_term_demand_trend(
+    def get_future_demand(self):
+        self.long_term_stock = self.get_long_term_stock()
+        self.long_term_demand = self.get_demand_from_stock(self.long_term_stock)
+        self.short_term_demand = self.get_short_term_demand_trend(
             historic_demand=self.historic_mfa.stocks["historic_in_use"].inflow,
         )
-        demand = blend_over_time(
-            target_dims=long_term_demand.dims,
-            y_lower=short_term_demand,
-            y_upper=long_term_demand,
+        self.demand = blend_over_time(
+            target_dims=self.long_term_demand.dims,
+            y_lower=self.short_term_demand,
+            y_upper=self.long_term_demand,
             t_lower=self.historic_mfa.dims["h"].items[-1],
             t_upper=self.historic_mfa.dims["h"].items[-1] + 20,
         )
-        if return_fit:
-            fit = {
-                "long_term_stock": long_term_stock,
-                "short_term_demand": short_term_demand,
-                "long_term_demand": long_term_demand,
-            }
-            return demand, fit
-        
-        return demand
+        return self.demand
     
     def get_long_term_stock(self):
         # extrapolate in use stock to future
-        total_in_use_stock = extrapolate_stock(
+        total_in_use_stock, self.fit_prms = extrapolate_stock(
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy,
-            target_dim_letters=("t", "r"),
+            # TODO see if "s" should be included. For now, stock types are aggregated.
+            target_dim_letters=("t", "r",),
+            get_fit_prms=True,
         )
 
-        # calculate and apply sector splits for in use stock
-        # sector_splits = self.calc_stock_sector_splits(
-        #     self.historic_mfa.stocks["historic_in_use"].stock.get_shares_over("g"),
-        # )
         long_term_stock = total_in_use_stock * self.parameters["use_split"]
         return long_term_stock
     
