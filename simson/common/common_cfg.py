@@ -44,7 +44,6 @@ class CementVisualizationCfg(VisualizationCfg):
     concrete_production: dict = {}
     use_stock: dict = {}
     eol_stock: dict = {}
-    extrapolation: dict = {}
 
 
 class SteelVisualizationCfg(VisualizationCfg):

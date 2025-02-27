@@ -5,7 +5,6 @@ from typing import Union
 from .data_extrapolations import (
     SigmoidalExtrapolation,
     ExponentialExtrapolation,
-    GeneralLogisticExtrapolation,
     WeightedProportionalExtrapolation,
 )
 
@@ -16,7 +15,6 @@ def extrapolate_stock(
     parameters: dict[str, fd.Parameter],
     curve_strategy: str,
     target_dim_letters=None,
-    get_fit_prms=False,
 ):
     """Performs the per-capita transformation and the extrapolation."""
 
@@ -33,7 +31,6 @@ def extrapolate_stock(
     historic_stocks_pc = fd.FlodymArray(dims=dims[historic_dim_letters])
     stocks_pc = fd.FlodymArray(dims=dims[target_dim_letters])
     stocks = fd.FlodymArray(dims=dims[target_dim_letters])
-    fit_prms = []
 
     historic_pop[...] = pop[{"t": dims["h"]}]
     historic_gdppc[...] = parameters["gdppc"][{"t": dims["h"]}]
@@ -43,36 +40,25 @@ def extrapolate_stock(
         fit_func = "sigmoid"
     elif curve_strategy == "Exponential_GDP_regression":
         fit_func = "exponential"
-    elif curve_strategy == "General_logistic_GDP_regression":
-        fit_func = "generallogistic"
     else:
         raise RuntimeError(
             f"Extrapolation strategy {curve_strategy} is not defined. "
-            f"It needs to be 'GDP_regression', 'Exponential_GDP_regression', or 'General_logistic_GDP_regression'."
+            f"It needs to be 'GDP_regression'."
         )
     
-    # adjusts stocks_pc and adds fit_prms
+    # adjusts stocks_pc
     gdp_regression(
         historic_stocks_pc.values,
         parameters["gdppc"].values,
         stocks_pc.values,
         fitting_function_type=fit_func,
-        fit_prms=fit_prms,
     )
 
     # transform back to total stocks
     stocks[...] = stocks_pc * pop
 
-    returner = fd.StockArray(**dict(stocks))
-    if get_fit_prms:
-        # hacky way to force fit_prms to tuple array ready for FlodymArray
-        fit_arr = np.empty(len(fit_prms), dtype=object)
-        fit_arr[:] = fit_prms
-        fd_fit = fd.FlodymArray(dims=returner.dims["r",], values=fit_arr)
-        return returner, fd_fit
-
     # visualize_stock(self, self.parameters['gdppc'], historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc)
-    return returner
+    return fd.StockArray(**dict(stocks))
 
 
 def extrapolate_to_future(
@@ -102,7 +88,7 @@ def extrapolate_to_future(
     return extrapolated_values
 
 
-def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_type="sigmoid", fit_prms=[]):
+def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_type="sigmoid"):
     shape_out = prediction_out.shape
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
@@ -111,10 +97,8 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
         extrapolation_class = SigmoidalExtrapolation
     elif fitting_function_type == "exponential":
         extrapolation_class = ExponentialExtrapolation
-    elif fitting_function_type == "generallogistic":
-        extrapolation_class = GeneralLogisticExtrapolation
     else:
-        raise ValueError('fitting_function_type must be either "sigmoid", "exponential" or "generallogistic".')
+        raise ValueError('fitting_function_type must be either "sigmoid" or "exponential".')
 
     for idx in np.ndindex(shape_out[1:]):
         # idx is a tuple of indices for all dimensions except the time dimension
@@ -125,7 +109,6 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, fitting_function_t
             data_to_extrapolate=current_hist_stock_pc, target_range=current_gdppc
         )
         pure_prediction[index] = extrapolation.regress()
-        fit_prms.append(extrapolation.prms_out.x)
 
     prediction_out[...] = pure_prediction - (
         pure_prediction[n_historic - 1, :] - historic_stocks_pc[n_historic - 1, :]

@@ -1,4 +1,3 @@
-import numpy as np
 import flodym as fd
 from typing import TYPE_CHECKING
 
@@ -35,8 +34,6 @@ class CementDataExporter(CustomDataExporter):
             self.visualize_eol_stock(mfa=model.future_mfa)
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(mfa=model.future_mfa)
-        if self.cfg.extrapolation["do_visualize"]:
-            self.visualize_extrapolation(model=model)
         self.stop_and_show()
 
     def visualize_production(self, production: fd.Flow, name: str):
@@ -159,38 +156,18 @@ class CementDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
 
-    def visualize_extrapolation(self, model: 'CementModel'):
-        historic_mfa = model.historic_mfa
-        historic_stock = historic_mfa.stocks["historic_in_use"].stock.sum_over("s")
-        historic_stock_pc = historic_stock
-        historic_stock_pc.values = historic_stock.values / model.parameters["population"].values[:124]
-        gdppc = model.parameters["gdppc"]
-        historic_gdppc = fd.FlodymArray(dims=model.dims["h", "r",])
-        historic_gdppc.values = np.log(gdppc.values[:124])
-        historic_time = historic_stock.dims["Historic Time"]
-        print(model.fit_prms)
+    def visualize_extrapolation(self, mfa: fd.MFASystem, future_demand):
+        stock = mfa.stocks["historic_in_use"].stock.sum_over("s")
 
         ap_stock = self.plotter_class(
-            array=historic_stock_pc,
+            array=stock,
             intra_line_dim="Historic Time",
             subplot_dim="Region",
             line_label=f"Stock",
             display_names=self._display_names,
-            x_array=historic_gdppc,
-            xlabel="log(GDPpc)",
-            ylabel="Stock pc [t]",
+            xlabel="Year",
+            ylabel="Stock [t]",
             title=f"Regional Stock",
         )
-
-        # ap_stock = self.plotter_class(
-        #     array=long_term_stock,
-        #     intra_line_dim="Time",
-        #     subplot_dim="Region",
-        #     line_label=f"Stock",
-        #     display_names=self._display_names,
-        #     xlabel="Year",
-        #     ylabel="Stock [t]",
-        #     title=f"Regional Stock",
-        # )
 
         self.plot_and_save_figure(ap_stock, f"Stock_regional.png")

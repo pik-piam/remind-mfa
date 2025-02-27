@@ -103,7 +103,6 @@ class SigmoidalExtrapolation(OneDimensionalExtrapolation):
 
 
 class ExponentialExtrapolation(OneDimensionalExtrapolation):
-    prms_out: dict = {}
 
     def initial_guess(self):
         current_level = self.data_to_extrapolate[-1]
@@ -116,51 +115,14 @@ class ExponentialExtrapolation(OneDimensionalExtrapolation):
         )
 
         return np.array([initial_saturation_level, initial_stretch_factor])
-    
-    @staticmethod
-    def function_to_fit(x, prms):
-        return (
-            prms[0] * (1 - np.exp(-prms[1] * x))
-        )
 
     def fitting_function(self, prms):
-        f = self.function_to_fit(self.target_range[: self.n_historic], prms)
-        return f - self.data_to_extrapolate
-
-    def regress(self):
-        self.prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
-        regression = self.function_to_fit(self.target_range, self.prms_out.x)
-
-        return regression
-
-class GeneralLogisticExtrapolation(OneDimensionalExtrapolation):
-
-    def initial_guess(self):
-        current_level = self.data_to_extrapolate[-1]
-        current_extrapolator = self.target_range[self.n_historic - 1]
-        initial_saturation_level = (
-            2.0 * current_level if np.max(np.abs(current_level)) > sys.float_info.epsilon else 1.0
-        )
-        initial_stretch_factor = (
-            -np.log(1 - current_level / initial_saturation_level) / current_extrapolator
-        )
-        # TODO improve initial guess
-        x_offset = np.min(self.target_range)
-        asymetry = 1.0
-
-        return np.array([initial_saturation_level, initial_stretch_factor, x_offset, asymetry])
-    
-    @staticmethod
-    def function_to_fit(x, prms):
         return (
-            prms[0] * (1 + np.exp(-prms[1] * (x - prms[2]) ** (1 / prms[3])))
-        )
-
-    def fitting_function(self, prms):
-        f = self.function_to_fit(self.target_range[: self.n_historic], prms) 
-        return f - self.data_to_extrapolate
+            prms[0] * (1 - np.exp(-prms[1] * self.target_range[: self.n_historic]))
+        ) - self.data_to_extrapolate
 
     def regress(self):
-        self.prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
-        regression = self.function_to_fit(self.target_range, self.prms_out.x)
+        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
+        regression = prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.target_range))
+
         return regression
