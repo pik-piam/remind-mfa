@@ -10,6 +10,7 @@ class Extrapolation(SimsonBaseModel):
 
     data_to_extrapolate: np.ndarray  # historical data, 1 dimensional (time)
     target_range: np.ndarray  # predictor variable(s)
+    fit_prms: np.ndarray = None
 
     @property
     def n_historic(self):
@@ -36,6 +37,16 @@ class OneDimensionalExtrapolation(Extrapolation):
             self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
         ), "data_to_extrapolate must be smaller then target_range"
         return self
+    
+    @classmethod
+    def n_prms(cls):
+        """Number of parameters in the fit function."""
+        class_instance = cls(data_to_extrapolate=np.zeros(1), target_range=np.zeros(2)) # instance with dummy data.
+        return len(class_instance.initial_guess())
+
+    def initial_guess(self):
+        """Should be overwritten by subclasses."""
+        raise NotImplementedError
 
 
 class WeightedProportionalExtrapolation(Extrapolation):
@@ -86,23 +97,30 @@ class WeightedProportionalExtrapolation(Extrapolation):
 
 class SigmoidalExtrapolation(OneDimensionalExtrapolation):
 
+    @staticmethod
+    def func(x, prms):
+        return prms[0] / (1.0 + np.exp(prms[1] / x))
+    
     def initial_guess(self):
         return np.array(
             [2.0 * self.target_range[self.n_historic - 1], self.data_to_extrapolate[-1]]
         )
 
     def fitting_function(self, prms):
-        return (
-            prms[0] / (1.0 + np.exp(prms[1] / self.target_range[: self.n_historic]))
-        ) - self.data_to_extrapolate
+        f = self.func(self.target_range[: self.n_historic], prms)
+        return f - self.data_to_extrapolate
 
     def regress(self):
-        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
-        regression = prms_out.x[0] / (1.0 + np.exp(prms_out.x[1] / self.target_range))
+        self.fit_prms = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12).x
+        regression = self.func(self.target_range, self.fit_prms)
         return regression
 
 
 class ExponentialExtrapolation(OneDimensionalExtrapolation):
+
+    @staticmethod
+    def func(x, prms):
+        return prms[0] * (1 - np.exp(-prms[1] * x))
 
     def initial_guess(self):
         current_level = self.data_to_extrapolate[-1]
@@ -117,12 +135,11 @@ class ExponentialExtrapolation(OneDimensionalExtrapolation):
         return np.array([initial_saturation_level, initial_stretch_factor])
 
     def fitting_function(self, prms):
-        return (
-            prms[0] * (1 - np.exp(-prms[1] * self.target_range[: self.n_historic]))
-        ) - self.data_to_extrapolate
+        f = self.func(self.target_range[: self.n_historic], prms)
+        return f - self.data_to_extrapolate
 
     def regress(self):
-        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
-        regression = prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.target_range))
+        self.fit_prms = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12).x
+        regression = self.func(self.target_range, self.fit_prms)
 
         return regression
