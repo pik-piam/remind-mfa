@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import flodym as fd
 
@@ -33,9 +34,8 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         trd = self.trade_set
 
         aux = {
-            "fabrication_inflow_by_sector": self.get_new_array(dim_letters=("h", "r", "g")),
-            "fabrication_loss": self.get_new_array(dim_letters=("h", "r", "g")),
-            "fabrication_error": self.get_new_array(dim_letters=("h", "r")),
+            "aggregate_fabrication_yield": self.get_new_array(dim_letters=("h", "r")),
+            "fabrication_to_good_market_total": self.get_new_array(dim_letters=("h", "r")),
         }
 
         # fmt: off
@@ -48,21 +48,54 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
 
         flw["ip_market => fabrication"][...] = flw["forming => ip_market"] + trd["intermediate"].net_imports
 
-        aux["fabrication_inflow_by_sector"][...] = flw["ip_market => fabrication"] * prm["sector_split"]
+        # get approximate fabrication yield with consumption sector split
+        aux["aggregate_fabrication_yield"][...] = (prm["fabrication_yield"][{'t': self.dims['h']}] * prm["sector_split"]).sum_over("g")
+        # We don't know the good distribution yet, so we just calculate the total, and the flow later
+        aux["fabrication_to_good_market_total"][...] = flw["ip_market => fabrication"] * aux["aggregate_fabrication_yield"]
+        flw["fabrication => sysenv"][...] = flw["ip_market => fabrication"] - aux["fabrication_to_good_market_total"]
 
-        aux["fabrication_error"] = flw["ip_market => fabrication"] - aux["fabrication_inflow_by_sector"]
+        self.scale_indirect_trade_to_fabrication(aux["fabrication_to_good_market_total"])
 
-        flw["fabrication => use"][...] = aux["fabrication_inflow_by_sector"] * prm["fabrication_yield"][{'t': self.dims['h']}]
-        aux["fabrication_loss"][...] = aux["fabrication_inflow_by_sector"] - flw["fabrication => use"]
-        flw["fabrication => sysenv"][...] = aux["fabrication_error"] + aux["fabrication_loss"]
+        # Transfer to flows
+        flw["sysenv => good_market"][...] = trd["indirect"].imports
+        flw["good_market => sysenv"][...] = trd["indirect"].exports
 
-        # Recalculate indirect trade according to available inflow from fabrication
-        trd["indirect"].exports[...] = trd["indirect"].exports.minimum(flw["fabrication => use"])
+        flw["good_market => use"][...] = self.get_use_inflow_by_trade_adjusted_sector_split(aux["fabrication_to_good_market_total"])
+
+        # now we can get the good distribution
+        flw["fabrication => good_market"][...] = flw["good_market => use"] - trd["indirect"].net_imports
+        # fmt: on
+
+    def scale_indirect_trade_to_fabrication(self, fabrication_to_good_market_total: fd.FlodymArray):
+        """Recalculate indirect trade according to available inflow from fabrication:
+        Exports are scaled down such that their sum does not exceed the fabrication
+        """
+        trd = self.trade_set
+        exports_total = trd["indirect"].exports.sum_over(("g",))
+        export_factor = exports_total.minimum(fabrication_to_good_market_total) / exports_total.maximum(sys.float_info.epsilon)
+        trd["indirect"].exports[...] = trd["indirect"].exports * export_factor
         trd["indirect"].balance(to="minimum")
 
-        flw["sysenv => use"][...] = trd["indirect"].imports
-        flw["use => sysenv"][...] = trd["indirect"].exports
+    def get_use_inflow_by_trade_adjusted_sector_split(self, fabrication_to_good_market_total: fd.FlodymArray) -> fd.FlodymArray:
+        """ Distribute the good_market => use flow among the good categories
+        Where possible, this is done by the sector split parameter.
+        However, the indirect trade may be larger then the flow for a single good category.
+        The other good's inflow to the in-use stock must be reduced by these excess imports
+        """
+        # fmt: off
+        total_use_inflow = fabrication_to_good_market_total + self.trade_set["indirect"].net_imports
+        use_inflow_target = total_use_inflow * self.parameters["sector_split"]
+        min_imports = self.trade_set["indirect"].net_imports.maximum(0)
+        # imports exceeding the target values determined by the sector split for each good
+        imports_excess_total = (min_imports - use_inflow_target).maximum(0).sum_over("g")
+        # remainder of the target values not covered by imports, which should be covered by domestic fabrication
+        fabrication_domestic_excess = (use_inflow_target - min_imports).maximum(0)
+        # total of this remainder
+        fabrication_domestic_excess_total = fabrication_domestic_excess.sum_over("g")
+        # scale down such that the sum of the domestic fabrication is reduced by the sum of the excess imports
+        fabrication_domestic = fabrication_domestic_excess * (fabrication_domestic_excess_total - imports_excess_total) / fabrication_domestic_excess_total.maximum(sys.float_info.epsilon)
         # fmt: on
+        return min_imports + fabrication_domestic
 
     def calc_sector_split(self) -> fd.FlodymArray:
         """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""
@@ -108,7 +141,7 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         flw = self.flows
 
         stk["historic_in_use"].inflow[...] = (
-            flw["fabrication => use"] + flw["sysenv => use"] - flw["use => sysenv"]
+            flw["good_market => use"]
         )
 
         stk["historic_in_use"].lifetime_model.set_prms(

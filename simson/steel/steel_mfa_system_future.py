@@ -49,8 +49,6 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         trd = self.trade_set
 
         aux = {
-            "net_indirect_trade": self.get_new_array(dim_letters=("t", "e", "r", "g")),
-            "net_direct_trade": self.get_new_array(dim_letters=("t", "e", "r", "i")),
             "net_scrap_trade": self.get_new_array(dim_letters=("t", "e", "r", "g")),
             "total_fabrication": self.get_new_array(dim_letters=("t", "e", "r", "g")),
             "production": self.get_new_array(dim_letters=("t", "e", "r", "i")),
@@ -66,24 +64,22 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         # fmt: off
 
+        flw["good_market => use"]["Fe"][...] = stk["in_use"].inflow
         # Pre-use
-        flw["imports => use"]["Fe"][...] = trd["indirect"].imports
-        flw["use => exports"]["Fe"][...] = trd["indirect"].exports
+        flw["imports => good_market"]["Fe"][...] = trd["indirect"].imports
+        flw["good_market => exports"]["Fe"][...] = trd["indirect"].exports
 
+        flw["fabrication => good_market"]["Fe"][...] = flw["good_market => use"]["Fe"][...] - trd["indirect"].net_imports
 
-        aux["net_indirect_trade"][...] = flw["imports => use"] - flw["use => exports"]
-        flw["fabrication => use"]["Fe"][...] = stk["in_use"].inflow - aux["net_indirect_trade"]["Fe"]
-
-        aux["total_fabrication"][...] = flw["fabrication => use"] / prm["fabrication_yield"]
-        flw["fabrication => scrap_market"][...] = (aux["total_fabrication"] - flw["fabrication => use"]) * (1. - prm["fabrication_losses"])
-        flw["fabrication => losses"][...] = (aux["total_fabrication"] - flw["fabrication => use"]) * prm["fabrication_losses"]
+        aux["total_fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
+        flw["fabrication => scrap_market"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
+        flw["fabrication => losses"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
         flw["ip_market => fabrication"][...] = aux["total_fabrication"] * prm["good_to_intermediate_distribution"]
 
         flw["imports => ip_market"]["Fe"][...] = trd["intermediate"].imports
         flw["ip_market => exports"]["Fe"][...] = trd["intermediate"].exports
-        aux["net_direct_trade"][...] = flw["imports => ip_market"] - flw["ip_market => exports"]
 
-        flw["forming => ip_market"][...] = flw["ip_market => fabrication"] - aux["net_direct_trade"]
+        flw["forming => ip_market"]["Fe"][...] = flw["ip_market => fabrication"] - trd["intermediate"].net_imports
         aux["production"][...] = flw["forming => ip_market"] / prm["forming_yield"]
         aux["forming_outflow"][...] = aux["production"] - flw["forming => ip_market"]
         flw["forming => losses"][...] = aux["forming_outflow"] * prm["forming_losses"]
@@ -130,8 +126,8 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         flw["eaf_production => losses"][...] = flw["scrap_market => eaf_production"] - flw["eaf_production => forming"]
 
         # buffers to sysenv for plotting
-        flw["sysenv => imports"][...] = flw["imports => use"] + flw["imports => ip_market"] + flw["imports => eol_market"]
-        flw["exports => sysenv"][...] = flw["use => exports"] + flw["ip_market => exports"] + flw["eol_market => exports"]
+        flw["sysenv => imports"][...] = flw["imports => good_market"] + flw["imports => ip_market"] + flw["imports => eol_market"]
+        flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["ip_market => exports"] + flw["eol_market => exports"]
         flw["losses => sysenv"][...] = flw["forming => losses"] + flw["fabrication => losses"] + flw["bof_production => losses"] + flw["eaf_production => losses"]
         flw["sysenv => extraction"][...] = flw["extraction => bof_production"]
         # fmt: on

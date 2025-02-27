@@ -25,7 +25,7 @@ visualization:
   sankey:
     do_visualize: True
     slice_dict:
-      t: 1994
+      t: 2020
       # r: 'USA'
     exclude_processes:
       - "sysenv"

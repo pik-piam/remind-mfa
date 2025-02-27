@@ -51,6 +51,8 @@ class SteelModel:
             dims=self.dims["t", "r", "g"],
             values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values,
         )
+        self.parameters["lifetime_mean"]["Construction"] = self.parameters["lifetime_mean"]["Construction"] * 1.5
+        self.parameters["lifetime_std"]["Construction"] = self.parameters["lifetime_std"]["Construction"] * 1.5
 
         scrap_rate_factor = fd.Parameter(dims=self.dims["t",])
         scrap_rate_factor.values[:20] = 1.9
@@ -98,9 +100,8 @@ class SteelModel:
             "sysenv",
             "forming",
             "ip_market",
-            # 'ip_trade', # todo decide whether to incorporate, depending on trade balancing
+            "good_market",
             "fabrication",
-            # 'indirect_trade', # todo decide whether to incorporate, depending on trade balancing
             "use",
         ]
         processes = fd.make_processes(historic_processes)
