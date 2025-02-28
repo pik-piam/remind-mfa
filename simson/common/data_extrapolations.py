@@ -105,7 +105,7 @@ class PehlExtrapolation(OneDimensionalExtrapolation):
     @staticmethod
     def func(x, prms):
         return prms[0] / (1.0 + np.exp(prms[1] / x))
-    
+
     def initial_guess(self):
         return np.array(
             [2.0 * self.target_range[self.n_historic - 1], self.data_to_extrapolate[-1]]

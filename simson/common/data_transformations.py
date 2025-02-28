@@ -7,6 +7,7 @@ from .data_extrapolations import (
     WeightedProportionalExtrapolation,
 )
 
+
 class StockExtrapolation:
 
     def __init__(
