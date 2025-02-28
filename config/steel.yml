@@ -6,7 +6,7 @@ input_data_path: '../simson_data/data/steel/output'
 
 # model customization
 customization:
-  curve_strategy: 'Exponential_GDP_regression'
+  curve_strategy: 'ExponentialSaturationExtrapolation'
   ldf_type: 'LogNormal'
 
 # visualization

@@ -6,7 +6,7 @@ input_data_path: 'data/plastics/input'
 
 # model customization
 customization:
-  curve_strategy: 'GDP_regression'
+  curve_strategy: 'PehlExtrapolation'
   ldf_type: 'Normal'
 
 # visualization
