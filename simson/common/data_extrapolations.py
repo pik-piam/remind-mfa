@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import ClassVar 
+from typing import ClassVar
 import numpy as np
 import sys
 from simson.common.base_model import SimsonBaseModel
@@ -23,9 +23,10 @@ class Extrapolation(SimsonBaseModel):
             regression[: self.n_historic] = self.data_to_extrapolate
         return regression
 
+
 class OneDimensionalExtrapolation(Extrapolation):
 
-    n_prms: ClassVar[int] = 2 # should be overwritten by subclasses if not 2
+    n_prms: ClassVar[int] = 2  # should be overwritten by subclasses if not 2
 
     @model_validator(mode="after")
     def validate_data(self):
@@ -35,11 +36,11 @@ class OneDimensionalExtrapolation(Extrapolation):
             self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
         ), "data_to_extrapolate must be smaller then target_range"
         return self
-    
+
     @abstractmethod
     def func(x, prms):
         pass
-    
+
     @abstractmethod
     def initial_guess(self):
         pass
@@ -49,7 +50,9 @@ class OneDimensionalExtrapolation(Extrapolation):
         return f - self.data_to_extrapolate
 
     def regress(self):
-        self.fit_prms = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12).x
+        self.fit_prms = least_squares(
+            self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12
+        ).x
         regression = self.func(self.target_range, self.fit_prms)
         return regression
 

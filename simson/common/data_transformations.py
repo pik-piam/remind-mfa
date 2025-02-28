@@ -11,17 +11,19 @@ from .data_extrapolations import (
 class StockExtrapolation:
 
     def __init__(
-            self, 
-            historic_stocks: fd.StockArray, 
-            dims: fd.DimensionSet, 
-            parameters: dict[str, fd.Parameter], 
-            stock_extrapolation_class: OneDimensionalExtrapolation, 
-            target_dim_letters=None
-        ):
+        self,
+        historic_stocks: fd.StockArray,
+        dims: fd.DimensionSet,
+        parameters: dict[str, fd.Parameter],
+        stock_extrapolation_class: OneDimensionalExtrapolation,
+        target_dim_letters=None,
+    ):
         self.historic_stocks = historic_stocks
         self.dims = dims
         self.parameters = parameters
-        self.stock_extrapolation_class = self.validate_extrapolation_class(stock_extrapolation_class)
+        self.stock_extrapolation_class = self.validate_extrapolation_class(
+            stock_extrapolation_class
+        )
         self.target_dim_letters = target_dim_letters
         self.regression_strategy = self.find_regression_strategy()
         self.n_fit_prms = self.stock_extrapolation_class.n_prms
@@ -29,15 +31,19 @@ class StockExtrapolation:
 
     def validate_extrapolation_class(self, extrapolation_class) -> OneDimensionalExtrapolation:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
-        extrapolation_classes = {cls.__name__: cls for cls in OneDimensionalExtrapolation.__subclasses__()}
+        extrapolation_classes = {
+            cls.__name__: cls for cls in OneDimensionalExtrapolation.__subclasses__()
+        }
         if extrapolation_class not in extrapolation_classes:
-            raise ValueError(f'Extrapolation class must be one of {list(extrapolation_classes.keys())}')
+            raise ValueError(
+                f"Extrapolation class must be one of {list(extrapolation_classes.keys())}"
+            )
         return extrapolation_classes[extrapolation_class]
 
     def find_regression_strategy(self) -> Callable:
         """For now, only a regression based on GDP is implemented."""
         return self.gdp_regression
-        
+
     def extrapolate(self):
         self.per_capita_transformation()
         self.regression_strategy()
