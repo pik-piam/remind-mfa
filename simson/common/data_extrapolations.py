@@ -132,7 +132,7 @@ class ExponentialSaturationExtrapolation(OneDimensionalExtrapolation):
         )
 
         return np.array([initial_saturation_level, initial_stretch_factor])
-    
+
 
 class SigmoidExtrapolation(OneDimensionalExtrapolation):
 
@@ -153,7 +153,9 @@ class SigmoidExtrapolation(OneDimensionalExtrapolation):
         if len(self.data_to_extrapolate) > 1:
             # Calculate average rate of change in recent history
             recent_y_change = self.data_to_extrapolate[-1] - self.data_to_extrapolate[-2]
-            recent_x_change = self.target_range[self.n_historic-1] - self.target_range[self.n_historic-2]
+            recent_x_change = (
+                self.target_range[self.n_historic - 1] - self.target_range[self.n_historic - 2]
+            )
             if abs(recent_x_change) > sys.float_info.epsilon:
                 slope_estimate = recent_y_change / recent_x_change
                 # Convert slope to stretch factor (sigmoid derivative at midpoint is prms[0]*prms[1]/4)
