@@ -1,13 +1,9 @@
 import numpy as np
 import flodym as fd
-from typing import Union
 from typing import Callable
-
 
 from .data_extrapolations import (
     OneDimensionalExtrapolation,
-    SigmoidalExtrapolation,
-    ExponentialExtrapolation,
     WeightedProportionalExtrapolation,
 )
 
@@ -18,31 +14,29 @@ class StockExtrapolation:
             historic_stocks: fd.StockArray, 
             dims: fd.DimensionSet, 
             parameters: dict[str, fd.Parameter], 
-            curve_strategy: str, 
+            stock_extrapolation_class: OneDimensionalExtrapolation, 
             target_dim_letters=None
         ):
         self.historic_stocks = historic_stocks
         self.dims = dims
         self.parameters = parameters
-        self.curve_strategy = curve_strategy
+        self.stock_extrapolation_class = self.validate_extrapolation_class(stock_extrapolation_class)
         self.target_dim_letters = target_dim_letters
-        self.find_regression_strategy()
-        self.find_extrapolation_class()
-        self.n_fit_prms = self.extrapolation_class.n_prms()
+        self.regression_strategy = self.find_regression_strategy()
+        self.n_fit_prms = self.stock_extrapolation_class.n_prms
         self.extrapolate()
+
+    def validate_extrapolation_class(self, extrapolation_class) -> OneDimensionalExtrapolation:
+        """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
+        extrapolation_classes = {cls.__name__: cls for cls in OneDimensionalExtrapolation.__subclasses__()}
+        if extrapolation_class not in extrapolation_classes:
+            raise ValueError(f'Extrapolation class must be one of {list(extrapolation_classes.keys())}')
+        return extrapolation_classes[extrapolation_class]
 
     def find_regression_strategy(self) -> Callable:
         """For now, only a regression based on GDP is implemented."""
-        self.regression_strategy = self.gdp_regression
+        return self.gdp_regression
         
-    def find_extrapolation_class(self) -> OneDimensionalExtrapolation:
-        if self.curve_strategy == "GDP_regression":
-            self.extrapolation_class = SigmoidalExtrapolation
-        elif self.curve_strategy == "Exponential_GDP_regression":
-            self.extrapolation_class = ExponentialExtrapolation
-        else:
-            raise ValueError('fitting_function_type must be either "sigmoid" or "exponential".')
-    
     def extrapolate(self):
         self.per_capita_transformation()
         self.regression_strategy()
@@ -81,7 +75,7 @@ class StockExtrapolation:
             index = (slice(None),) + idx
             current_hist_stock_pc = historic_in[index]
             current_gdppc = self.gdppc.values[index[:2]]
-            extrapolation = self.extrapolation_class(
+            extrapolation = self.stock_extrapolation_class(
                 data_to_extrapolate=current_hist_stock_pc, target_range=current_gdppc
             )
             pure_prediction[index] = extrapolation.regress()

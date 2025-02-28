@@ -113,7 +113,7 @@ class SteelModel:
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
-            curve_strategy=self.cfg.customization.curve_strategy,
+            stock_extrapolation_class=self.cfg.customization.curve_strategy,
             target_dim_letters=("t", "r"),
         )
     

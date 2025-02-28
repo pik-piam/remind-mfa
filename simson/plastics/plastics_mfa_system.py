@@ -32,7 +32,7 @@ class PlasticsMFASystem(fd.MFASystem):
             self.stocks["in_use_historic"].stock,
             dims=self.dims,
             parameters=self.parameters,
-            curve_strategy=self.cfg.customization.curve_strategy,
+            stock_extrapolation_class=self.cfg.customization.curve_strategy,
         )
         in_use_stock = stock_handler.stocks
         self.stocks["in_use_dsm"].stock[...] = in_use_stock
