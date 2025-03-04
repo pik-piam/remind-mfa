@@ -14,7 +14,8 @@ def choose_sublass_by_name(name: str, parent: type) -> type:
 
     def recurse_subclasses(cls):
         return set(cls.__subclasses__()).union(
-            [s for c in cls.__subclasses__() for s in recurse_subclasses(c)])
+            [s for c in cls.__subclasses__() for s in recurse_subclasses(c)]
+        )
 
     subclasses = {cls.__name__: cls for cls in recurse_subclasses(parent)}
     if name not in subclasses:

@@ -24,11 +24,15 @@ class Extrapolation(SimsonBaseModel):
         assert (
             self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
         ), "data_to_extrapolate must be smaller then target_range"
-        assert self.data_to_extrapolate.shape[1:] == self.target_range.shape[1:], "Data to extrapolate and target range must have the same shape except for the first dimension."
+        assert (
+            self.data_to_extrapolate.shape[1:] == self.target_range.shape[1:]
+        ), "Data to extrapolate and target range must have the same shape except for the first dimension."
         if self.weights is None:
             self.weights = np.ones_like(self.data_to_extrapolate)
         else:
-            assert self.weights.shape == self.data_to_extrapolate.shape, "Weights must have the same shape as data_to_extrapolate."
+            assert (
+                self.weights.shape == self.data_to_extrapolate.shape
+            ), "Weights must have the same shape as data_to_extrapolate."
         return self
 
     @property
@@ -38,7 +42,7 @@ class Extrapolation(SimsonBaseModel):
     def extrapolate(self, historic_from_regression: bool = False):
         regression = self.regress()
         if not historic_from_regression:
-            regression[:self.n_historic,...] = self.data_to_extrapolate
+            regression[: self.n_historic, ...] = self.data_to_extrapolate
         return regression
 
     @abstractmethod
@@ -46,15 +50,20 @@ class Extrapolation(SimsonBaseModel):
         pass
 
     @abstractmethod
-    def initial_guess(self, target_range: np.ndarray, data_to_extrapolate: np.ndarray) -> np.ndarray:
+    def initial_guess(
+        self, target_range: np.ndarray, data_to_extrapolate: np.ndarray
+    ) -> np.ndarray:
         """gets either one-dimensional or multi-dimensional data, but always returns one scalar value per prm"""
         pass
 
-    def get_fitting_function(self, target_range: np.ndarray, data_to_extrapolate: np.ndarray, weights: np.ndarray) -> callable:
+    def get_fitting_function(
+        self, target_range: np.ndarray, data_to_extrapolate: np.ndarray, weights: np.ndarray
+    ) -> callable:
         def fitting_function(prms: np.ndarray) -> np.ndarray:
             f = self.func(target_range, prms)
             loss = weights * (f - data_to_extrapolate)
             return loss.flatten()
+
         return fitting_function
 
     def regress(self):
@@ -65,13 +74,11 @@ class Extrapolation(SimsonBaseModel):
 
     def regress_common(self):
         fitting_function = self.get_fitting_function(
-            self.target_range[:self.n_historic, ...], self.data_to_extrapolate, self.weights
+            self.target_range[: self.n_historic, ...], self.data_to_extrapolate, self.weights
         )
         initial_guess = self.initial_guess(self.target_range, self.data_to_extrapolate)
 
-        self.fit_prms = least_squares(
-            fitting_function, x0=initial_guess, gtol=1.0e-12
-        ).x
+        self.fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
         regression = self.func(self.target_range, self.fit_prms)
         return regression
 
@@ -81,12 +88,14 @@ class Extrapolation(SimsonBaseModel):
         for idx in np.ndindex(self.target_range.shape[1:]):
             index = (slice(None),) + idx
             fitting_function = self.get_fitting_function(
-                self.target_range[:self.n_historic, ...][index], self.data_to_extrapolate[index], self.weights[index]
+                self.target_range[: self.n_historic, ...][index],
+                self.data_to_extrapolate[index],
+                self.weights[index],
             )
-            initial_guess = self.initial_guess(self.target_range[index], self.data_to_extrapolate[index])
-            self.fit_prms[idx] = least_squares(
-                fitting_function, x0=initial_guess, gtol=1.0e-12
-            ).x
+            initial_guess = self.initial_guess(
+                self.target_range[index], self.data_to_extrapolate[index]
+            )
+            self.fit_prms[idx] = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
             regression[index] = self.func(self.target_range[index], self.fit_prms[idx])
         return regression
 
@@ -101,7 +110,7 @@ class ProportionalExtrapolation(Extrapolation):
 
     @staticmethod
     def initial_guess(target_range, data_to_extrapolate):
-        return np.array([1.])
+        return np.array([1.0])
 
 
 class PehlExtrapolation(Extrapolation):
@@ -114,7 +123,10 @@ class PehlExtrapolation(Extrapolation):
 
     def initial_guess(self, target_range, data_to_extrapolate):
         return np.array(
-            [2.0 * np.max(target_range[self.n_historic-1,...]), np.max(data_to_extrapolate[-1,...])]
+            [
+                2.0 * np.max(target_range[self.n_historic - 1, ...]),
+                np.max(data_to_extrapolate[-1, ...]),
+            ]
         )
 
 
@@ -127,8 +139,8 @@ class ExponentialSaturationExtrapolation(Extrapolation):
         return prms[0] * (1 - np.exp(-prms[1] * x))
 
     def initial_guess(self, target_range, data_to_extrapolate):
-        current_level = np.max(data_to_extrapolate[-1,...])
-        current_extrapolator = np.max(target_range[self.n_historic-1,...])
+        current_level = np.max(data_to_extrapolate[-1, ...])
+        current_extrapolator = np.max(target_range[self.n_historic - 1, ...])
         initial_saturation_level = 2.0 * current_level
         initial_stretch_factor = (
             -np.log(1 - current_level / initial_saturation_level) / current_extrapolator
@@ -142,7 +154,7 @@ class VarySatLogSigmoidExtrapolation(Extrapolation):
 
     @staticmethod
     def func(x, prms):
-        return prms[0] / (1 + np.exp(-prms[1] * (np.log(x)-prms[2])))
+        return prms[0] / (1 + np.exp(-prms[1] * (np.log(x) - prms[2])))
 
     @staticmethod
     def initial_guess(target_range, data_to_extrapolate):
@@ -159,10 +171,10 @@ class VarySatLogSigmoidExtrapolation(Extrapolation):
 class FixedSatLogSigmoidExtrapolation(Extrapolation):
 
     n_prms: ClassVar[int] = 2
-    saturation_level: float = 1.
+    saturation_level: float = 1.0
 
     def func(self, x, prms):
-        return self.saturation_level / (1 + np.exp(-prms[0] * (np.log(x)-prms[1])))
+        return self.saturation_level / (1 + np.exp(-prms[0] * (np.log(x) - prms[1])))
 
     @staticmethod
     def initial_guess(target_range, data_to_extrapolate):

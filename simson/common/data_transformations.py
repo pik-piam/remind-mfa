@@ -103,13 +103,16 @@ def extrapolate_to_future(
     # calculate weights
     n_hist_points = historic_values.dims.shape()[0]
     n_last_points = 5
-    weights_1d = np.maximum(0., np.arange(- n_hist_points, 0) + n_last_points + 1)
+    weights_1d = np.maximum(0.0, np.arange(-n_hist_points, 0) + n_last_points + 1)
     weights_1d = weights_1d / weights_1d.sum()
     weights = np.zeros_like(historic_values.values)
     weights[...] = weights_1d[(slice(None),) + (np.newaxis,) * (weights.ndim - 1)]
 
     extrapolation = ProportionalExtrapolation(
-        data_to_extrapolate=historic_values.values, target_range=scale_by.values, weights=weights, independent=True
+        data_to_extrapolate=historic_values.values,
+        target_range=scale_by.values,
+        weights=weights,
+        independent=True,
     )
     extrapolated_values.set_values(extrapolation.extrapolate())
 
