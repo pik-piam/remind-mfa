@@ -3,7 +3,7 @@ import flodym as fd
 
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
-from simson.common.data_extrapolations import MultiDimLogSigmoidalExtrapolation
+from simson.common.data_extrapolations import VarySatLogSigmoidExtrapolation
 from simson.common.data_transformations import StockExtrapolation, extrapolate_to_future
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
@@ -174,11 +174,11 @@ class SteelModel:
         historic_pop = pop[{"t": self.dims["h"]}]
         historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
-        multi_dim_extrapolation = MultiDimLogSigmoidalExtrapolation(
+        multi_dim_extrapolation = VarySatLogSigmoidExtrapolation(
             data_to_extrapolate=historic_stocks_pc.values, target_range=gdppc.values
         )
-        multi_dim_params = multi_dim_extrapolation.get_params()
-        saturation_level = multi_dim_params[0]
+        multi_dim_extrapolation.regress()
+        saturation_level = multi_dim_extrapolation.fit_prms[0]
 
         if self.cfg.customization.do_stock_extrapolation_by_category:
             # TODO Decide method for high stock sector split

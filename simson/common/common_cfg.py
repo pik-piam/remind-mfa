@@ -1,7 +1,7 @@
 from simson.common.base_model import SimsonBaseModel
 import flodym as fd
 
-from .data_extrapolations import OneDimensionalExtrapolation
+from .data_extrapolations import Extrapolation
 
 
 IMPLEMENTED_MODELS = [
@@ -35,9 +35,9 @@ class ModelCustomization(SimsonBaseModel):
         return choose_sublass_by_name(self.lifetime_model_name, fd.LifetimeModel)
 
     @property
-    def stock_extrapolation_class(self) -> OneDimensionalExtrapolation:
+    def stock_extrapolation_class(self) -> Extrapolation:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
-        return choose_sublass_by_name(self.stock_extrapolation_class_name, OneDimensionalExtrapolation)
+        return choose_sublass_by_name(self.stock_extrapolation_class_name, Extrapolation)
 
 
 class VisualizationCfg(SimsonBaseModel):
