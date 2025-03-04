@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import ClassVar
 import numpy as np
 import sys
 from simson.common.base_model import SimsonBaseModel
@@ -8,8 +9,11 @@ from scipy.optimize import least_squares
 
 class Extrapolation(SimsonBaseModel):
 
-    data_to_extrapolate: np.ndarray  # historical data, 1 dimensional (time)
-    target_range: np.ndarray  # predictor variable(s)
+    data_to_extrapolate: np.ndarray
+    """historical data, 1 dimensional (time)"""
+    target_range: np.ndarray
+    """predictor variable(s)"""
+    fit_prms: np.ndarray = None
 
     @property
     def n_historic(self):
@@ -28,6 +32,8 @@ class Extrapolation(SimsonBaseModel):
 
 class OneDimensionalExtrapolation(Extrapolation):
 
+    n_prms: ClassVar[int] = 2  # should be overwritten by subclasses if not 2
+
     @model_validator(mode="after")
     def validate_data(self):
         assert self.data_to_extrapolate.ndim == 1, "Data to extrapolate must be 1-dimensional."
@@ -36,6 +42,25 @@ class OneDimensionalExtrapolation(Extrapolation):
             self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
         ), "data_to_extrapolate must be smaller then target_range"
         return self
+
+    @abstractmethod
+    def func(x, prms):
+        pass
+
+    @abstractmethod
+    def initial_guess(self):
+        pass
+
+    def fitting_function(self, prms):
+        f = self.func(self.target_range[: self.n_historic], prms)
+        return f - self.data_to_extrapolate
+
+    def regress(self):
+        self.fit_prms = least_squares(
+            self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12
+        ).x
+        regression = self.func(self.target_range, self.fit_prms)
+        return regression
 
 
 class WeightedProportionalExtrapolation(Extrapolation):
@@ -84,25 +109,23 @@ class WeightedProportionalExtrapolation(Extrapolation):
         return regression
 
 
-class SigmoidalExtrapolation(OneDimensionalExtrapolation):
+class PehlExtrapolation(OneDimensionalExtrapolation):
+
+    @staticmethod
+    def func(x, prms):
+        return prms[0] / (1.0 + np.exp(prms[1] / x))
 
     def initial_guess(self):
         return np.array(
             [2.0 * self.target_range[self.n_historic - 1], self.data_to_extrapolate[-1]]
         )
 
-    def fitting_function(self, prms):
-        return (
-            prms[0] / (1.0 + np.exp(prms[1] / self.target_range[: self.n_historic]))
-        ) - self.data_to_extrapolate
 
-    def regress(self):
-        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
-        regression = prms_out.x[0] / (1.0 + np.exp(prms_out.x[1] / self.target_range))
-        return regression
+class ExponentialSaturationExtrapolation(OneDimensionalExtrapolation):
 
-
-class ExponentialExtrapolation(OneDimensionalExtrapolation):
+    @staticmethod
+    def func(x, prms):
+        return prms[0] * (1 - np.exp(-prms[1] * x))
 
     def initial_guess(self):
         current_level = self.data_to_extrapolate[-1]
@@ -113,19 +136,40 @@ class ExponentialExtrapolation(OneDimensionalExtrapolation):
         initial_stretch_factor = (
             -np.log(1 - current_level / initial_saturation_level) / current_extrapolator
         )
-
         return np.array([initial_saturation_level, initial_stretch_factor])
 
-    def fitting_function(self, prms):
-        return (
-            prms[0] * (1 - np.exp(-prms[1] * self.target_range[: self.n_historic]))
-        ) - self.data_to_extrapolate
 
-    def regress(self):
-        prms_out = least_squares(self.fitting_function, x0=self.initial_guess(), gtol=1.0e-12)
-        regression = prms_out.x[0] * (1 - np.exp(-prms_out.x[1] * self.target_range))
+class VarySatSigmoidExtrapolation(OneDimensionalExtrapolation):
 
-        return regression
+    n_prms: ClassVar[int] = 3
+
+    @staticmethod
+    def func(x, prms):
+        return prms[0] / (1 + np.exp(-prms[1] * (x-prms[2])))
+
+    def initial_guess(self):
+        max_level = np.max(self.data_to_extrapolate)
+        sat_level_guess = 2 * max_level
+
+        mean_target = np.mean(self.target_range)
+
+        target_max_level = self.target_range[-1, ...]
+        stretch_factor = 2 / (target_max_level - mean_target)
+        return np.array([sat_level_guess, stretch_factor, mean_target])
+
+
+class FixedSatLogSigmoidExtrapolation(OneDimensionalExtrapolation):
+
+    saturation_level: float = 1.
+
+    def func(self, x, prms):
+        return self.saturation_level / (1 + np.exp(-prms[0] * (np.log(x)-prms[1])))
+
+    def initial_guess(self):
+        mean_target = np.mean(np.log(self.target_range))
+        target_max_level = np.log(self.target_range[-1, ...])
+        stretch_factor = 2 / (target_max_level - mean_target)
+        return np.array([stretch_factor, mean_target])
 
 
 class MultiDimLogSigmoidalExtrapolation(Extrapolation):
@@ -190,8 +234,3 @@ class MultiDimLogSigmoidalExtrapolation(Extrapolation):
         )
 
         return regression
-
-
-class LogSigmoidalExtrapolation(MultiDimLogSigmoidalExtrapolation, OneDimensionalExtrapolation):
-    # TODO decide class structure -> is OneDimensionalExtrapolation really necessary?
-    pass

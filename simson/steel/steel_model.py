@@ -3,8 +3,8 @@ import flodym as fd
 
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
-from simson.common.data_transformations import extrapolate_stock, extrapolate_to_future
 from simson.common.data_extrapolations import MultiDimLogSigmoidalExtrapolation
+from simson.common.data_transformations import StockExtrapolation, extrapolate_to_future
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
@@ -150,16 +150,17 @@ class SteelModel:
         saturation_level = self.get_saturation_level(historic_stocks)
 
         # extrapolate in use stock to future
-        total_in_use_stock = extrapolate_stock(
+        stock_handler = StockExtrapolation(
             historic_stocks,
             dims=self.dims,
             parameters=self.parameters,
-            curve_strategy=self.cfg.customization.curve_strategy,
+            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             target_dim_letters=(
                 None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
             saturation_level=saturation_level,
         )
+        total_in_use_stock = stock_handler.stocks
 
         if not self.cfg.customization.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
