@@ -114,6 +114,7 @@ class SteelModel:
         total_in_use_stock = extrapolate_stock(
             historic_stocks,
             dims=self.dims,
+            
             parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy,
             target_dim_letters=None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r"),
