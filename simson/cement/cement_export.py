@@ -167,18 +167,16 @@ class CementDataExporter(CustomDataExporter):
         gdppc = model.parameters["gdppc"]
         historic_gdppc = fd.FlodymArray(dims=model.dims["h", "r",])
         historic_gdppc.values = gdppc.values[:124]
-        historic_time = historic_stock.dims["Historic Time"]
 
-        fit = model.stock_handler.extrapolation_class.func(gdppc.values, model.stock_handler.fit_prms.T)
-        fd_fit = fd.FlodymArray(dims=gdppc.dims, values=fit)
+        fit = model.stock_handler.extrapolation_class.func(historic_gdppc.values, model.stock_handler.fit_prms.T)
+        fd_fit = fd.FlodymArray(dims=historic_gdppc.dims, values=fit)
 
         ap_fit = self.plotter_class(
             array=fd_fit,
-            intra_line_dim="Time",
+            intra_line_dim="Historic Time",
             subplot_dim="Region",
             line_label=f"Fit",
             display_names=self._display_names,
-            x_array=gdppc,
             title=f"Regional Stock",
         )
 
@@ -191,8 +189,7 @@ class CementDataExporter(CustomDataExporter):
             subplot_dim="Region",
             line_label=f"DSM",
             display_names=self._display_names,
-            x_array=historic_gdppc,
-            xlabel="GDPpc",
+            xlabel="Time",
             ylabel="Stock pc [t]",
             title=f"Regional Stock: Extrapolation Fit",
             fig=fig,
