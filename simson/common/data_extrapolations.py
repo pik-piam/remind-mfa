@@ -182,7 +182,7 @@ class FixedSatLogSigmoidExtrapolation(Extrapolation):
         target_max_level = np.max(np.log(target_range))
         stretch_factor = 2 / (target_max_level - mean_target)
         return np.array([stretch_factor, mean_target])
-    
+
 
 class SigmoidExtrapolation(Extrapolation):
 
