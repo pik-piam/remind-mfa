@@ -17,6 +17,7 @@ class StockExtrapolation:
         stock_extrapolation_class: Extrapolation,
         target_dim_letters=None,
         saturation_level=None,
+        gdppc_accumulation=False,
     ):
         self.historic_stocks = historic_stocks
         self.dims = dims
@@ -24,6 +25,7 @@ class StockExtrapolation:
         self.stock_extrapolation_class = stock_extrapolation_class
         self.target_dim_letters = target_dim_letters
         self.saturation_level = saturation_level
+        self.gdppc_accumulation = gdppc_accumulation
         self.extrapolate()
 
     def extrapolate(self):
@@ -40,6 +42,8 @@ class StockExtrapolation:
         # transform to per capita
         self.pop = self.parameters["population"]
         self.gdppc = self.parameters["gdppc"]
+        if self.gdppc_accumulation:
+            self.gdppc.values = np.maximum.accumulate(self.gdppc.values, axis=0)
         self.historic_pop = fd.FlodymArray(dims=self.dims[("h", "r")])
         self.historic_gdppc = fd.FlodymArray(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.FlodymArray(dims=self.dims[self.historic_dim_letters])
