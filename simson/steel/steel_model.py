@@ -136,17 +136,7 @@ class SteelModel:
 
     def get_future_demand(self):
         long_term_stock = self.get_long_term_stock()
-        long_term_demand = self.get_demand_from_stock(long_term_stock)
-        short_term_demand = self.get_short_term_demand_trend(
-            historic_demand=self.historic_mfa.stocks["historic_in_use"].inflow,
-        )
-        demand = blend_over_time(
-            target_dims=long_term_demand.dims,
-            y_lower=short_term_demand,
-            y_upper=long_term_demand,
-            t_lower=self.historic_mfa.dims["h"].items[-1],
-            t_upper=self.historic_mfa.dims["h"].items[-1] + 20,
-        )
+        demand = self.get_demand_from_stock(long_term_stock)
         return demand
 
     def get_long_term_stock(self):
