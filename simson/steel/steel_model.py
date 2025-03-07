@@ -171,10 +171,9 @@ class SteelModel:
         multi_dim_extrapolation = VarySatLogSigmoidExtrapolation(
             data_to_extrapolate=historic_stocks_pc.values,
             target_range=gdppc.values,
-            independent=True,
         )
         multi_dim_extrapolation.regress()
-        saturation_level = multi_dim_extrapolation.fit_prms.T[0]
+        saturation_level = multi_dim_extrapolation.fit_prms[0]
 
         if self.cfg.customization.do_stock_extrapolation_by_category:
             # TODO Decide method for high stock sector split
@@ -185,6 +184,8 @@ class SteelModel:
                 gdp_sector_splits = self.calc_stock_sector_splits().values
                 high_stock_sector_split = gdp_sector_splits[-1]
             saturation_level = saturation_level * high_stock_sector_split.values
+        else:
+            saturation_level = np.full(gdppc.values.shape[1:], saturation_level)
 
         return saturation_level
 
