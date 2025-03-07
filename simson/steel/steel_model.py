@@ -172,7 +172,7 @@ class SteelModel:
             data_to_extrapolate=historic_stocks_pc.values, target_range=gdppc.values, independent=True
         )
         multi_dim_extrapolation.regress()
-        saturation_level = multi_dim_extrapolation.fit_prms[0]
+        saturation_level = multi_dim_extrapolation.fit_prms.T[0]
 
         if self.cfg.customization.do_stock_extrapolation_by_category:
             # TODO Decide method for high stock sector split
