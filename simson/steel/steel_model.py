@@ -169,7 +169,9 @@ class SteelModel:
         historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
         multi_dim_extrapolation = VarySatLogSigmoidExtrapolation(
-            data_to_extrapolate=historic_stocks_pc.values, target_range=gdppc.values, independent=True
+            data_to_extrapolate=historic_stocks_pc.values,
+            target_range=gdppc.values,
+            independent=True,
         )
         multi_dim_extrapolation.regress()
         saturation_level = multi_dim_extrapolation.fit_prms.T[0]
