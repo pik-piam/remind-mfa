@@ -57,11 +57,11 @@ class StockExtrapolation:
         self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
         self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
 
-    def gaussian_correction(self, historic, prediction, approaching_time = 50):
+    def gaussian_correction(self, historic, prediction, approaching_time=50):
         """Gaussian smoothing of extrapolation around interface historic/future to remove discontinuities."""
         """Multiplies Gaussian with a Taylor expansion around the difference beteween historic and fit."""
         time = np.array(self.dims["t"].items)
-        last_history_idx = len(historic) -1
+        last_history_idx = len(historic) - 1
         last_history_year = time[last_history_idx]
         difference_0th = historic[last_history_idx, :] - prediction[last_history_idx, :]
 
@@ -71,21 +71,23 @@ class StockExtrapolation:
 
         # do a proper linear regression to last n1 points
         def lin_fit(x, y, last_idx, n=5):
-            x_cut = np.vstack([x[last_idx - n:last_idx], np.ones(n)]).T
-            y_cut = y[last_idx - n:last_idx, :]
+            x_cut = np.vstack([x[last_idx - n : last_idx], np.ones(n)]).T
+            y_cut = y[last_idx - n : last_idx, :]
             y_reshaped = y_cut.reshape(n, -1).T
             slopes = [np.linalg.lstsq(x_cut, y_dim, rcond=None)[0][0] for y_dim in y_reshaped]
             slopes_reshaped = np.array(slopes).reshape(y.shape[1:])
             return slopes_reshaped
-        
+
         last_historic_1st = lin_fit(time, historic, last_history_idx)
         last_prediction_1st = lin_fit(time, prediction, last_history_idx)
 
-        difference_1st = (last_historic_1st - last_prediction_1st) / (last_history_year - time[last_history_idx - 1])
+        difference_1st = (last_historic_1st - last_prediction_1st) / (
+            last_history_year - time[last_history_idx - 1]
+        )
 
         def gaussian(t, approaching_time):
-            return np.exp(-3 * t ** 2 / (approaching_time ** 2))
-        
+            return np.exp(-3 * t**2 / (approaching_time**2))
+
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
         taylor = difference_0th + difference_1st * (time_extended - last_history_year)
         correction = taylor * gaussian(time_extended - last_history_year, approaching_time)
@@ -112,16 +114,16 @@ class StockExtrapolation:
                 data_to_extrapolate=current_hist_stock_pc, target_range=current_gdppc, **kwargs
             )
             pure_prediction[index] = extrapolation.regress()
-        
+
         if self.do_gaussian_correction:
             prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction)
         else:
             pass
-            #match last point by adding the difference between the last historic point and the corresponding prediction
+            # match last point by adding the difference between the last historic point and the corresponding prediction
             prediction_out[...] = pure_prediction - (
                 pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
             )
-            
+
         prediction_out[:n_historic, ...] = historic_in
 
         # transform back to total stocks
