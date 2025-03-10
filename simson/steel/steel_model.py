@@ -4,7 +4,7 @@ import flodym as fd
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
 from simson.common.data_extrapolations import VarySatLogSigmoidExtrapolation
-from simson.common.data_transformations import StockExtrapolation, extrapolate_to_future
+from simson.common.data_transformations import StockExtrapolation  # , extrapolate_to_future
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
@@ -136,17 +136,7 @@ class SteelModel:
 
     def get_future_demand(self):
         long_term_stock = self.get_long_term_stock()
-        long_term_demand = self.get_demand_from_stock(long_term_stock)
-        short_term_demand = self.get_short_term_demand_trend(
-            historic_demand=self.historic_mfa.stocks["historic_in_use"].inflow,
-        )
-        demand = blend_over_time(
-            target_dims=long_term_demand.dims,
-            y_lower=short_term_demand,
-            y_upper=long_term_demand,
-            t_lower=self.historic_mfa.dims["h"].items[-1],
-            t_upper=self.historic_mfa.dims["h"].items[-1] + 20,
-        )
+        demand = self.get_demand_from_stock(long_term_stock)
         return demand
 
     def get_long_term_stock(self):
@@ -179,7 +169,8 @@ class SteelModel:
         historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
         multi_dim_extrapolation = VarySatLogSigmoidExtrapolation(
-            data_to_extrapolate=historic_stocks_pc.values, target_range=gdppc.values
+            data_to_extrapolate=historic_stocks_pc.values,
+            target_range=gdppc.values,
         )
         multi_dim_extrapolation.regress()
         saturation_level = multi_dim_extrapolation.fit_prms[0]
@@ -193,6 +184,8 @@ class SteelModel:
                 gdp_sector_splits = self.calc_stock_sector_splits().values
                 high_stock_sector_split = gdp_sector_splits[-1]
             saturation_level = saturation_level * high_stock_sector_split.values
+        else:
+            saturation_level = np.full(gdppc.values.shape[1:], saturation_level)
 
         return saturation_level
 
@@ -259,9 +252,9 @@ class SteelModel:
         in_use_dsm_long_term.compute()
         return in_use_dsm_long_term.inflow
 
-    def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
-        demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters["gdppc"])
-        return demand_via_gdp
+    # def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
+    #     demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters["gdppc"])
+    #     return demand_via_gdp
 
     def make_future_mfa(self) -> StockDrivenSteelMFASystem:
         flows = fd.make_empty_flows(

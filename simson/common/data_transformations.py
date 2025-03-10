@@ -1,5 +1,6 @@
 import numpy as np
 import flodym as fd
+from typing import Tuple
 
 from .data_extrapolations import (
     Extrapolation,
@@ -15,8 +16,10 @@ class StockExtrapolation:
         dims: fd.DimensionSet,
         parameters: dict[str, fd.Parameter],
         stock_extrapolation_class: Extrapolation,
-        target_dim_letters=None,
-        saturation_level=None,
+        target_dim_letters: Tuple[str, ...] = None,
+        saturation_level: np.ndarray = None,
+        do_gdppc_accumulation: bool = True,
+        stock_correction: str = "gaussian_first_order",  # Possible values "gaussian_first_order", "shift_zeroth_order", "none"
     ):
         self.historic_stocks = historic_stocks
         self.dims = dims
@@ -24,6 +27,8 @@ class StockExtrapolation:
         self.stock_extrapolation_class = stock_extrapolation_class
         self.target_dim_letters = target_dim_letters
         self.saturation_level = saturation_level
+        self.do_gdppc_accumulation = do_gdppc_accumulation
+        self.stock_correction = stock_correction
         self.extrapolate()
 
     def extrapolate(self):
@@ -40,6 +45,8 @@ class StockExtrapolation:
         # transform to per capita
         self.pop = self.parameters["population"]
         self.gdppc = self.parameters["gdppc"]
+        if self.do_gdppc_accumulation:
+            self.gdppc_acc = np.maximum.accumulate(self.gdppc.values, axis=0)
         self.historic_pop = fd.FlodymArray(dims=self.dims[("h", "r")])
         self.historic_gdppc = fd.FlodymArray(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.FlodymArray(dims=self.dims[self.historic_dim_letters])
@@ -50,8 +57,50 @@ class StockExtrapolation:
         self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
         self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
 
+    def gaussian_correction(
+        self, historic: np.ndarray, prediction: np.ndarray, approaching_time: float = 50
+    ):
+        """Gaussian smoothing of extrapolation around interface historic/future to remove discontinuities."""
+        """Multiplies Gaussian with a Taylor expansion around the difference beteween historic and fit."""
+        time = np.array(self.dims["t"].items)
+        last_history_idx = len(historic) - 1
+        last_history_year = time[last_history_idx]
+        difference_0th = historic[last_history_idx, :] - prediction[last_history_idx, :]
+
+        # standard approach: only take last 2 points
+        # last_historic_1st = historic[last_history_idx, :] - historic[last_history_idx - 1, :]
+        # last_prediction_1st = prediction[last_history_idx, :] - prediction[last_history_idx - 1, :]
+
+        # do a proper linear regression to last n1 points
+        def lin_fit(x, y, last_idx, n=5):
+            x_cut = np.vstack([x[last_idx - n : last_idx], np.ones(n)]).T
+            y_cut = y[last_idx - n : last_idx, :]
+            y_reshaped = y_cut.reshape(n, -1).T
+            slopes = [np.linalg.lstsq(x_cut, y_dim, rcond=None)[0][0] for y_dim in y_reshaped]
+            slopes_reshaped = np.array(slopes).reshape(y.shape[1:])
+            return slopes_reshaped
+
+        last_historic_1st = lin_fit(time, historic, last_history_idx)
+        last_prediction_1st = lin_fit(time, prediction, last_history_idx)
+
+        difference_1st = (last_historic_1st - last_prediction_1st) / (
+            last_history_year - time[last_history_idx - 1]
+        )
+
+        def gaussian(t, approaching_time):
+            """After the approaching time, the amplitude of the gaussian has decreased to 5%."""
+            a = np.sqrt(np.log(20))
+            return np.exp(-((a * t / approaching_time) ** 2))
+
+        time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
+        taylor = difference_0th + difference_1st * (time_extended - last_history_year)
+        correction = taylor * gaussian(time_extended - last_history_year, approaching_time)
+
+        return prediction[...] + correction
+
     def gdp_regression(self):
         """Updates per capita stock to future by extrapolation."""
+        gdppc = self.gdppc_acc if self.do_gdppc_accumulation else self.gdppc
         prediction_out = self.stocks_pc.values
         historic_in = self.historic_stocks_pc.values
         shape_out = prediction_out.shape
@@ -62,7 +111,7 @@ class StockExtrapolation:
             # idx is a tuple of indices for all dimensions except the time dimension
             index = (slice(None),) + idx
             current_hist_stock_pc = historic_in[index]
-            current_gdppc = self.gdppc.values[index[:2]]
+            current_gdppc = gdppc[index[:2]]
             kwargs = {}
             if self.saturation_level is not None:
                 kwargs["saturation_level"] = self.saturation_level[idx]
@@ -71,10 +120,14 @@ class StockExtrapolation:
             )
             pure_prediction[index] = extrapolation.regress()
 
-        # match last point by adding the difference between the last historic point and the corresponding prediction
-        prediction_out[...] = pure_prediction - (
-            pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
-        )
+        if self.stock_correction == "gaussian_first_order":
+            prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction)
+        elif self.stock_correction == "shift_zeroth_order":
+            # match last point by adding the difference between the last historic point and the corresponding prediction
+            prediction_out[...] = pure_prediction - (
+                pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
+            )
+
         prediction_out[:n_historic, ...] = historic_in
 
         # transform back to total stocks
