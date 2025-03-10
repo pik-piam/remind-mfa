@@ -19,7 +19,7 @@ class StockExtrapolation:
         target_dim_letters: Tuple[str, ...] = None,
         saturation_level: np.ndarray = None,
         do_gdppc_accumulation: bool = True,
-        do_gaussian_correction: bool = True,
+        stock_correction: str = "gaussian_first_order", # Possible values "gaussian_first_order", "shift_zeroth_order", "none"
     ):
         self.historic_stocks = historic_stocks
         self.dims = dims
@@ -28,7 +28,7 @@ class StockExtrapolation:
         self.target_dim_letters = target_dim_letters
         self.saturation_level = saturation_level
         self.do_gdppc_accumulation = do_gdppc_accumulation
-        self.do_gaussian_correction = do_gaussian_correction
+        self.stock_correction = stock_correction
         self.extrapolate()
 
     def extrapolate(self):
@@ -46,7 +46,7 @@ class StockExtrapolation:
         self.pop = self.parameters["population"]
         self.gdppc = self.parameters["gdppc"]
         if self.do_gdppc_accumulation:
-            self.gdppc.values = np.maximum.accumulate(self.gdppc.values, axis=0)
+            self.gdppc_acc = np.maximum.accumulate(self.gdppc.values, axis=0)
         self.historic_pop = fd.FlodymArray(dims=self.dims[("h", "r")])
         self.historic_gdppc = fd.FlodymArray(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.FlodymArray(dims=self.dims[self.historic_dim_letters])
@@ -57,7 +57,7 @@ class StockExtrapolation:
         self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
         self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
 
-    def gaussian_correction(self, historic, prediction, approaching_time=50):
+    def gaussian_correction(self, historic: np.ndarray, prediction: np.ndarray, approaching_time: float=50):
         """Gaussian smoothing of extrapolation around interface historic/future to remove discontinuities."""
         """Multiplies Gaussian with a Taylor expansion around the difference beteween historic and fit."""
         time = np.array(self.dims["t"].items)
@@ -86,7 +86,9 @@ class StockExtrapolation:
         )
 
         def gaussian(t, approaching_time):
-            return np.exp(-3 * t**2 / (approaching_time**2))
+            """After the approaching time, the amplitude of the gaussian has decreased to 5%."""
+            a = np.sqrt(np.log(20))
+            return np.exp(- (a *  t / approaching_time) ** 2)
 
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
         taylor = difference_0th + difference_1st * (time_extended - last_history_year)
@@ -96,6 +98,7 @@ class StockExtrapolation:
 
     def gdp_regression(self):
         """Updates per capita stock to future by extrapolation."""
+        gdppc = self.gdppc_acc if self.do_gdppc_accumulation else self.gdppc
         prediction_out = self.stocks_pc.values
         historic_in = self.historic_stocks_pc.values
         shape_out = prediction_out.shape
@@ -106,7 +109,7 @@ class StockExtrapolation:
             # idx is a tuple of indices for all dimensions except the time dimension
             index = (slice(None),) + idx
             current_hist_stock_pc = historic_in[index]
-            current_gdppc = self.gdppc.values[index[:2]]
+            current_gdppc = gdppc[index[:2]]
             kwargs = {}
             if self.saturation_level is not None:
                 kwargs["saturation_level"] = self.saturation_level[idx]
@@ -115,10 +118,9 @@ class StockExtrapolation:
             )
             pure_prediction[index] = extrapolation.regress()
 
-        if self.do_gaussian_correction:
+        if self.stock_correction == "gaussian_first_order":
             prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction)
-        else:
-            pass
+        elif self.stock_correction == "shift_zeroth_order":
             # match last point by adding the difference between the last historic point and the corresponding prediction
             prediction_out[...] = pure_prediction - (
                 pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]

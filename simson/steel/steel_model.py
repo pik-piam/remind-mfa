@@ -4,7 +4,7 @@ import flodym as fd
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
 from simson.common.data_extrapolations import VarySatLogSigmoidExtrapolation
-from simson.common.data_transformations import StockExtrapolation, extrapolate_to_future
+from simson.common.data_transformations import StockExtrapolation#, extrapolate_to_future
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
@@ -252,9 +252,9 @@ class SteelModel:
         in_use_dsm_long_term.compute()
         return in_use_dsm_long_term.inflow
 
-    def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
-        demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters["gdppc"])
-        return demand_via_gdp
+    # def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
+    #     demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters["gdppc"])
+    #     return demand_via_gdp
 
     def make_future_mfa(self) -> StockDrivenSteelMFASystem:
         flows = fd.make_empty_flows(
