@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import ClassVar
+from typing import ClassVar, Optional, Tuple
 import numpy as np
 import sys
 from simson.common.base_model import SimsonBaseModel
@@ -10,12 +10,14 @@ from scipy.optimize import least_squares
 class Extrapolation(SimsonBaseModel):
 
     data_to_extrapolate: np.ndarray
-    """historical data, 1 dimensional (time)"""
+    """historical data, 1 dimensional"""
     target_range: np.ndarray
-    """predictor variable(s)"""
+    """predictor variable(s) covering range of data_to_extrapolate and beyond"""
     weights: np.ndarray = None
-    independent: bool = False
-    """Whether to regress each entry (apart along time dim) independently or do a common regression for all entries"""
+    saturation_level: np.ndarray = None
+    independent_dims: Optional[Tuple[int, ...]] = ()
+    """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly.
+    If None, all dimensions are regressed individually. If empty (), all dimensions are regressed aggregately."""
     fit_prms: np.ndarray = None
     n_prms: ClassVar[int]
 
@@ -46,7 +48,7 @@ class Extrapolation(SimsonBaseModel):
         return regression
 
     @abstractmethod
-    def func(x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+    def func(x: np.ndarray, prms: np.ndarray, **kwargs) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -57,48 +59,58 @@ class Extrapolation(SimsonBaseModel):
         pass
 
     def get_fitting_function(
-        self, target_range: np.ndarray, data_to_extrapolate: np.ndarray, weights: np.ndarray
+        self, target_range: np.ndarray, data_to_extrapolate: np.ndarray, weights: np.ndarray, saturation_level: np.ndarray,
     ) -> callable:
+        kwargs = {"saturation_level": saturation_level} if saturation_level is not None else {}
         def fitting_function(prms: np.ndarray) -> np.ndarray:
-            f = self.func(target_range, prms)
+            f = self.func(target_range, prms, **kwargs)
             loss = weights * (f - data_to_extrapolate)
             return loss.flatten()
 
         return fitting_function
 
     def regress(self):
-        if self.independent:
-            return self.regress_independently()
-        else:
-            return self.regress_common()
+        def remove_shape_dimensions(shape, retain_idx):
+            """Removes dimensions from shape, except indices in retain_idx."""
+            result_shape = []
+            
+            for i, dim_size in enumerate(shape):
+                if i in retain_idx:
+                    result_shape.append(dim_size)
+                    
+            return tuple(result_shape)
 
-    def regress_common(self):
-        fitting_function = self.get_fitting_function(
-            self.target_range[: self.n_historic, ...], self.data_to_extrapolate, self.weights
-        )
-        initial_guess = self.initial_guess(self.target_range, self.data_to_extrapolate)
-
-        self.fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
-        regression = self.func(self.target_range, self.fit_prms)
-        return regression
-
-    def regress_independently(self):
+        # extract dimensions that are regressed independently
+        if self.independent_dims is not None:
+            target_shape = remove_shape_dimensions(self.target_range.shape, self.independent_dims)
+        else: 
+            target_shape = self.target_range.shape[1:]
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
-        for idx in np.ndindex(self.target_range.shape[1:]):
-            index = (slice(None),) + idx
-            fitting_function = self.get_fitting_function(
-                self.target_range[: self.n_historic, ...][index],
-                self.data_to_extrapolate[index],
-                self.weights[index],
-            )
-            initial_guess = self.initial_guess(
-                self.target_range[index], self.data_to_extrapolate[index]
-            )
-            self.fit_prms[idx] = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
-            regression[index] = self.func(self.target_range[index], self.fit_prms[idx])
-        return regression
 
+        # loop over dimensions that are regressed independently
+        for idx in np.ndindex(target_shape):
+            index = (slice(None),) + idx
+            self.fit_prms[idx], regression[index] = self.regress_common(self.target_range[index],
+                                                     self.data_to_extrapolate[index],
+                                                     self.weights[index],
+                                                     self.saturation_level[idx] if self.saturation_level is not None else None)
+        
+        return regression
+    
+    def regress_common(self, target, data, weights, saturation_level):
+        """Finds optimal fit of data and extrapolates to target."""
+        fitting_function = self.get_fitting_function(
+            target[:self.n_historic, ...],
+            data,
+            weights,
+            saturation_level,
+        )
+        initial_guess = self.initial_guess(target, data)
+        fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
+        kwargs = {"saturation_level": saturation_level} if saturation_level is not None else {}
+        regression = self.func(target, fit_prms, **kwargs)
+        return fit_prms, regression        
 
 class ProportionalExtrapolation(Extrapolation):
 
@@ -171,10 +183,11 @@ class VarySatLogSigmoidExtrapolation(Extrapolation):
 class FixedSatLogSigmoidExtrapolation(Extrapolation):
 
     n_prms: ClassVar[int] = 2
-    saturation_level: float = 1.0
+    saturation_level: np.ndarray = np.array([1.0])
 
-    def func(self, x, prms):
-        return self.saturation_level / (1 + np.exp(-prms[0] * (np.log(x) - prms[1])))
+    @staticmethod
+    def func(x, prms, saturation_level):
+        return saturation_level / (1 + np.exp(-prms[0] * (np.log(x) - prms[1])))
 
     @staticmethod
     def initial_guess(target_range, data_to_extrapolate):
