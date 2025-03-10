@@ -19,7 +19,7 @@ class StockExtrapolation:
         target_dim_letters: Tuple[str, ...] = None,
         saturation_level: np.ndarray = None,
         do_gdppc_accumulation: bool = True,
-        stock_correction: str = "gaussian_first_order", # Possible values "gaussian_first_order", "shift_zeroth_order", "none"
+        stock_correction: str = "gaussian_first_order",  # Possible values "gaussian_first_order", "shift_zeroth_order", "none"
     ):
         self.historic_stocks = historic_stocks
         self.dims = dims
@@ -57,7 +57,9 @@ class StockExtrapolation:
         self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
         self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
 
-    def gaussian_correction(self, historic: np.ndarray, prediction: np.ndarray, approaching_time: float=50):
+    def gaussian_correction(
+        self, historic: np.ndarray, prediction: np.ndarray, approaching_time: float = 50
+    ):
         """Gaussian smoothing of extrapolation around interface historic/future to remove discontinuities."""
         """Multiplies Gaussian with a Taylor expansion around the difference beteween historic and fit."""
         time = np.array(self.dims["t"].items)
@@ -88,7 +90,7 @@ class StockExtrapolation:
         def gaussian(t, approaching_time):
             """After the approaching time, the amplitude of the gaussian has decreased to 5%."""
             a = np.sqrt(np.log(20))
-            return np.exp(- (a *  t / approaching_time) ** 2)
+            return np.exp(-((a * t / approaching_time) ** 2))
 
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
         taylor = difference_0th + difference_1st * (time_extended - last_history_year)
