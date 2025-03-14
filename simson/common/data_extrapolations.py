@@ -13,8 +13,8 @@ class Extrapolation(SimsonBaseModel):
     """historical data, 1 dimensional"""
     target_range: np.ndarray
     """predictor variable(s) covering range of data_to_extrapolate and beyond"""
-    weights: np.ndarray = None
-    saturation_level: np.ndarray = None
+    weights: Optional[np.ndarray] = None
+    saturation_level: Optional[np.ndarray] = None
     independent_dims: Optional[Tuple[int, ...]] = ()
     """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly.
     If None, all dimensions are regressed individually. If empty (), all dimensions are regressed aggregately."""
