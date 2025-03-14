@@ -73,7 +73,7 @@ class Extrapolation(SimsonBaseModel):
             return loss.flatten()
 
         return fitting_function
-    
+
     @staticmethod
     def remove_shape_dimensions(shape, retain_idx):
         """Removes dimensions from shape, except indices in retain_idx."""
@@ -88,7 +88,9 @@ class Extrapolation(SimsonBaseModel):
     def regress(self):
         # extract dimensions that are regressed independently
         if self.independent_dims is not None:
-            target_shape = self.remove_shape_dimensions(self.target_range.shape, self.independent_dims)
+            target_shape = self.remove_shape_dimensions(
+                self.target_range.shape, self.independent_dims
+            )
         else:
             target_shape = self.target_range.shape[1:]
         regression = np.zeros_like(self.target_range)
