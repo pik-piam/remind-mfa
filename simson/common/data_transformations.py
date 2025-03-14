@@ -16,8 +16,12 @@ class StockExtrapolation:
         dims: fd.DimensionSet,
         parameters: dict[str, fd.Parameter],
         stock_extrapolation_class: Extrapolation,
-        target_dim_letters: Optional[Tuple[str, ...]] = None, # sets the dimensions of the stock extrapolation output
-        fit_dim_letters: Optional[Tuple[str, ...]] = None, # sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters
+        target_dim_letters: Optional[
+            Tuple[str, ...]
+        ] = None,  # sets the dimensions of the stock extrapolation output
+        fit_dim_letters: Optional[
+            Tuple[str, ...]
+        ] = None,  # sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters
         saturation_level: Optional[np.ndarray] = None,
         do_gdppc_accumulation: bool = True,
         stock_correction: str = "gaussian_first_order",  # Possible values "gaussian_first_order", "shift_zeroth_order", "none"
@@ -49,13 +53,13 @@ class StockExtrapolation:
 
         if fit_dim_letters is None:
             # fit_dim_letters should be the same as target_dim_letters, but without the time dimension
-            self.fit_dim_letters = tuple(x for x in self.target_dim_letters if x != 't')
+            self.fit_dim_letters = tuple(x for x in self.target_dim_letters if x != "t")
         else:
             self.fit_dim_letters = fit_dim_letters
             if not set(self.fit_dim_letters).issubset(self.target_dim_letters):
                 raise ValueError("fit_dim_letters must be subset of target_dim_letters.")
         self.get_fit_idx()
-    
+
     def get_fit_idx(self):
         """Get the indices of the fit dimensions in the historic_stocks dimensions."""
         a = self.historic_stocks.dims.letters
@@ -63,7 +67,7 @@ class StockExtrapolation:
         if b is None:
             self.fit_dim_idx = ()
         else:
-            self.fit_dim_idx = tuple(i for i, x in enumerate(a) if x in b)   
+            self.fit_dim_idx = tuple(i for i, x in enumerate(a) if x in b)
 
     def extrapolate(self):
         self.per_capita_transformation()
@@ -124,6 +128,7 @@ class StockExtrapolation:
         correction = taylor * gaussian(time_extended - last_history_year, approaching_time)
 
         return prediction[...] + correction
+
     def gdp_regression(self):
         """Updates per capita stock to future by extrapolation."""
 
@@ -133,7 +138,7 @@ class StockExtrapolation:
             b_reshaped = np.reshape(b, new_shape)
             b_broadcasted = np.broadcast_to(b_reshaped, a.shape)
             return b_broadcasted
-        
+
         prediction_out = self.stocks_pc.values
         pure_prediction = np.zeros_like(prediction_out)
         historic_in = self.historic_stocks_pc.values
@@ -142,10 +147,10 @@ class StockExtrapolation:
         n_historic = historic_in.shape[0]
 
         extrapolation = self.stock_extrapolation_class(
-                data_to_extrapolate=historic_in,
-                target_range=gdppc,
-                independent_dims=self.fit_dim_idx,
-                saturation_level=self.saturation_level,
+            data_to_extrapolate=historic_in,
+            target_range=gdppc,
+            independent_dims=self.fit_dim_idx,
+            saturation_level=self.saturation_level,
         )
         pure_prediction = extrapolation.regress()
 
@@ -161,6 +166,7 @@ class StockExtrapolation:
 
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
+
 
 def extrapolate_to_future(
     historic_values: fd.FlodymArray, scale_by: fd.FlodymArray

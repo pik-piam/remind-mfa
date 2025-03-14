@@ -59,9 +59,14 @@ class Extrapolation(SimsonBaseModel):
         pass
 
     def get_fitting_function(
-        self, target_range: np.ndarray, data_to_extrapolate: np.ndarray, weights: np.ndarray, saturation_level: np.ndarray,
+        self,
+        target_range: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+        weights: np.ndarray,
+        saturation_level: np.ndarray,
     ) -> callable:
         kwargs = {"saturation_level": saturation_level} if saturation_level is not None else {}
+
         def fitting_function(prms: np.ndarray) -> np.ndarray:
             f = self.func(target_range, prms, **kwargs)
             loss = weights * (f - data_to_extrapolate)
@@ -73,17 +78,17 @@ class Extrapolation(SimsonBaseModel):
         def remove_shape_dimensions(shape, retain_idx):
             """Removes dimensions from shape, except indices in retain_idx."""
             result_shape = []
-            
+
             for i, dim_size in enumerate(shape):
                 if i in retain_idx:
                     result_shape.append(dim_size)
-                    
+
             return tuple(result_shape)
 
         # extract dimensions that are regressed independently
         if self.independent_dims is not None:
             target_shape = remove_shape_dimensions(self.target_range.shape, self.independent_dims)
-        else: 
+        else:
             target_shape = self.target_range.shape[1:]
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
@@ -91,17 +96,19 @@ class Extrapolation(SimsonBaseModel):
         # loop over dimensions that are regressed independently
         for idx in np.ndindex(target_shape):
             index = (slice(None),) + idx
-            self.fit_prms[idx], regression[index] = self.regress_common(self.target_range[index],
-                                                     self.data_to_extrapolate[index],
-                                                     self.weights[index],
-                                                     self.saturation_level[idx] if self.saturation_level is not None else None)
-        
+            self.fit_prms[idx], regression[index] = self.regress_common(
+                self.target_range[index],
+                self.data_to_extrapolate[index],
+                self.weights[index],
+                self.saturation_level[idx] if self.saturation_level is not None else None,
+            )
+
         return regression
-    
+
     def regress_common(self, target, data, weights, saturation_level):
         """Finds optimal fit of data and extrapolates to target."""
         fitting_function = self.get_fitting_function(
-            target[:self.n_historic, ...],
+            target[: self.n_historic, ...],
             data,
             weights,
             saturation_level,
@@ -110,7 +117,8 @@ class Extrapolation(SimsonBaseModel):
         fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
         kwargs = {"saturation_level": saturation_level} if saturation_level is not None else {}
         regression = self.func(target, fit_prms, **kwargs)
-        return fit_prms, regression        
+        return fit_prms, regression
+
 
 class ProportionalExtrapolation(Extrapolation):
 
