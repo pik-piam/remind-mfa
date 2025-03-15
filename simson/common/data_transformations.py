@@ -76,7 +76,11 @@ class StockExtrapolation:
         if self.fit_dim_letters is None:
             self.fit_dim_idx = ()
         else:
-            self.fit_dim_idx = tuple(i for i, x in enumerate(self.historic_stocks.dims.letters) if x in self.fit_dim_letters)
+            self.fit_dim_idx = tuple(
+                i
+                for i, x in enumerate(self.historic_stocks.dims.letters)
+                if x in self.fit_dim_letters
+            )
 
     def extrapolate(self):
         self.per_capita_transformation()
