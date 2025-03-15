@@ -10,7 +10,7 @@ from scipy.optimize import least_squares
 class Extrapolation(SimsonBaseModel):
 
     data_to_extrapolate: np.ndarray
-    """historical data, 1 dimensional"""
+    """historical data"""
     target_range: np.ndarray
     """predictor variable(s) covering range of data_to_extrapolate and beyond"""
     weights: Optional[np.ndarray] = None
@@ -77,12 +77,7 @@ class Extrapolation(SimsonBaseModel):
     @staticmethod
     def remove_shape_dimensions(shape, retain_idx):
         """Removes dimensions from shape, except indices in retain_idx."""
-        result_shape = []
-
-        for i, dim_size in enumerate(shape):
-            if i in retain_idx:
-                result_shape.append(dim_size)
-
+        result_shape = [dim_size for i, dim_size in enumerate(shape) if i in retain_idx]
         return tuple(result_shape)
 
     def regress(self):
