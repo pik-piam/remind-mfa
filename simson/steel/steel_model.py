@@ -153,7 +153,7 @@ class SteelModel:
                 None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
             indep_fit_dim_letters=(
-                ('r',) if self.cfg.customization.do_stock_extrapolation_by_category else ()
+                ("r",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
             ),
             saturation_level=saturation_level,
         )
