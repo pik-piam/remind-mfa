@@ -41,7 +41,7 @@ class SteelDataExporter(CustomDataExporter):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.future_mfa, regional=True)
             self.visualize_production(mfa=model.future_mfa, regional=False)
-        if self.cfg.stock["do_visualize"]:
+        if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=True)
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
         if self.cfg.scrap_demand_supply["do_visualize"]:
@@ -150,7 +150,7 @@ class SteelDataExporter(CustomDataExporter):
         self.plot_and_save_figure(ap_production, f"production_{name_str}.png")
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-        per_capita = self.cfg.stock["per_capita"]
+        per_capita = self.cfg.use_stock["per_capita"]
 
         stock = mfa.stocks["in_use"].stock
         population = mfa.parameters["population"]
@@ -160,7 +160,7 @@ class SteelDataExporter(CustomDataExporter):
         x_label = "Year"
         y_label = f"Stock{pc_str}[t]"
         title = f"Stocks{pc_str}"
-        if self.cfg.stock["over_gdp"]:
+        if self.cfg.use_stock["over_gdp"]:
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str}[2005 USD]"
             x_array = mfa.parameters["gdppc"]

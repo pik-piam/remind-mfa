@@ -1,4 +1,4 @@
-import numpy as np
+from plotly import colors as plc
 import flodym as fd
 from typing import TYPE_CHECKING
 
@@ -30,7 +30,8 @@ class CementDataExporter(CustomDataExporter):
         if self.cfg.concrete_production["do_visualize"]:
             self.visualize_concrete_production(mfa=model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
-            self.visualize_use_stock(mfa=model.future_mfa)
+            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=False)
+            # self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
         if self.cfg.eol_stock["do_visualize"]:
             self.visualize_eol_stock(mfa=model.future_mfa)
         if self.cfg.sankey["do_visualize"]:
@@ -87,12 +88,12 @@ class CementDataExporter(CustomDataExporter):
         production = mfa.flows["concrete_production => use"].sum_over("s")
         self.visualize_production(production, "Concrete")
 
-    def visualize_use_stock(self, mfa: fd.MFASystem):
-        over_gdp = self.cfg.use_stock["over_gdp"]
-        per_capita = self.cfg.use_stock["per_capita"]
-        stock = mfa.stocks["in_use"].stock
+    # def visualize_use_stock(self, mfa: fd.MFASystem):
+    #     over_gdp = self.cfg.use_stock["over_gdp"]
+    #     per_capita = self.cfg.use_stock["per_capita"]
+    #     stock = mfa.stocks["in_use"].stock
 
-        self.visualize_stock(mfa, stock, over_gdp, per_capita, "In use")
+    #     self.visualize_stock(mfa, stock, over_gdp, per_capita, "In use")
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         over_gdp = self.cfg.eol_stock["over_gdp"]
@@ -100,6 +101,115 @@ class CementDataExporter(CustomDataExporter):
         stock = mfa.stocks["eol"].stock
 
         self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
+
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
+        per_capita = self.cfg.use_stock["per_capita"]
+
+        stock = mfa.stocks["in_use"].stock
+        population = mfa.parameters["population"]
+        x_array = None
+
+        pc_str = " pC" if per_capita else ""
+        x_label = "Year"
+        y_label = f"Stock{pc_str}[t]"
+        title = f"Stocks{pc_str}"
+        if self.cfg.use_stock["over_gdp"]:
+            title = title + f" over GDP{pc_str}"
+            x_label = f"GDP/PPP{pc_str}[2005 USD]"
+            x_array = mfa.parameters["gdppc"]
+            if not per_capita:
+                # get global GDP per capita
+                x_array = x_array * population
+        elif self.cfg.use_stock["over_time"]:
+            # TODO: add plot over time...
+            # this does not quite work yet...
+            title = title + f" over Time"
+            x_label = f"Time"
+            x_array = mfa.dims["Time"]
+        else:
+            raise ValueError("Either 'over_gdp' or 'over_time' must be True.")
+
+        if subplots_by_stock_type:
+            subplot_dim = {"subplot_dim": "Stock Type"}
+        else:
+            subplot_dim = {}
+            stock = stock.sum_over("s")
+
+        if per_capita:
+            stock = stock / population
+
+        colors = plc.qualitative.Dark24
+        colors = (
+            colors[: stock.dims["r"].len]
+            + colors[: stock.dims["r"].len]
+            + ["black" for _ in range(stock.dims["r"].len)]
+        )
+
+        # Future stock (dotted)
+        ap_stock = self.plotter_class(
+            array=stock,
+            intra_line_dim="Time",
+            linecolor_dim="Region",
+            **subplot_dim,
+            display_names=self._display_names,
+            x_array=x_array,
+            xlabel=x_label,
+            ylabel=y_label,
+            title=title,
+            color_map=colors,
+            line_type="dot",
+            suppress_legend=True,
+        )
+        fig = ap_stock.plot()
+
+        # Historic stock (solid)
+        hist_stock = stock[{"t": mfa.dims["h"]}]
+        hist_x_array = x_array[{"t": mfa.dims["h"]}]
+        ap_hist_stock = self.plotter_class(
+            array=hist_stock,
+            intra_line_dim="Historic Time",
+            linecolor_dim="Region",
+            **subplot_dim,
+            display_names=self._display_names,
+            x_array=hist_x_array,
+            fig=fig,
+            color_map=colors,
+        )
+        fig = ap_hist_stock.plot()
+
+        # Last historic year (black dot)
+        last_year_dim = fd.Dimension(
+            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
+        )
+        scatter_stock = hist_stock[{"h": last_year_dim}]
+        scatter_x_array = hist_x_array[{"h": last_year_dim}]
+        ap_scatter_stock = self.plotter_class(
+            array=scatter_stock,
+            intra_line_dim="Last Historic Year",
+            linecolor_dim="Region",
+            **subplot_dim,
+            display_names=self._display_names,
+            x_array=scatter_x_array,
+            fig=fig,
+            chart_type="scatter",
+            color_map=colors,
+            suppress_legend=True,
+        )
+        fig = ap_scatter_stock.plot()
+
+        # Adjust x-axis
+        if self.cfg.plotting_engine == "plotly":
+            fig.update_xaxes(type="log", range=[3, 5])
+        elif self.cfg.plotting_engine == "pyplot":
+            for ax in fig.get_axes():
+                ax.set_xscale("log")
+                ax.set_xlim(1e3, 1e5)
+
+        self.plot_and_save_figure(
+            ap_scatter_stock,
+            f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
+            do_plot=False,
+        )
 
     def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
         population = mfa.parameters["population"]
@@ -119,11 +229,11 @@ class CementDataExporter(CustomDataExporter):
         # self.visualize_regional_stock(
         #     stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
         # )
-        self.visiualize_global_stock(
+        self.visualize_global_stock(
             stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
         )
     
-    def visiualize_global_stock(
+    def visualize_global_stock(
         self, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
     ):
         if over_gdp:

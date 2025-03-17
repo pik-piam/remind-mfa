@@ -35,7 +35,7 @@ class PlasticsDataExporter(CustomDataExporter):
     def visualize_results(self, model: "PlasticsModel"):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.mfa)
-        if self.cfg.stock["do_visualize"]:
+        if self.cfg.use_stock["do_visualize"]:
             print("Stock visualization not implemented yet.")
             # self.visualize_stock(mfa=mfa)
         if self.cfg.sankey["do_visualize"]:
@@ -67,17 +67,17 @@ class PlasticsDataExporter(CustomDataExporter):
         self, gdppc, historic_gdppc, stocks, historic_stocks, stocks_pc, historic_stocks_pc
     ):
 
-        if self.cfg.stock["per_capita"]:
+        if self.cfg.use_stock["per_capita"]:
             stocks_plot = stocks_pc["World"]
             historic_stocks_plot = historic_stocks_pc["World"]
         else:
             stocks_plot = stocks["World"]
             historic_stocks_plot = historic_stocks["World"]
 
-        if self.cfg.stock["over"] == "time":
+        if self.cfg.use_stock["over"] == "time":
             x_array, x_array_hist = None, None
             xlabel = "Year"
-        elif self.cfg.stock["over"] == "gdppc":
+        elif self.cfg.use_stock["over"] == "gdppc":
             x_array = gdppc["World"]
             x_array_hist = historic_gdppc["World"]
             xlabel = "GDP per capita [USD]"

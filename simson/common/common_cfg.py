@@ -44,7 +44,7 @@ class ModelCustomization(SimsonBaseModel):
 
 class VisualizationCfg(SimsonBaseModel):
 
-    stock: dict = {"do_visualize": False}
+    use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}
     do_show_figs: bool = True
@@ -57,7 +57,6 @@ class CementVisualizationCfg(VisualizationCfg):
     clinker_production: dict = {}
     cement_production: dict = {}
     concrete_production: dict = {}
-    use_stock: dict = {}
     eol_stock: dict = {}
     extrapolation: dict = {}
 
