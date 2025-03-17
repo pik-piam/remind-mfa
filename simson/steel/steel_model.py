@@ -152,6 +152,9 @@ class SteelModel:
             target_dim_letters=(
                 None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
+            indep_fit_dim_letters=(
+                ('r',) if self.cfg.customization.do_stock_extrapolation_by_category else ()
+            ),
             saturation_level=saturation_level,
         )
         total_in_use_stock = stock_handler.stocks
