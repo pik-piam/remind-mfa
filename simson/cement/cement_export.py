@@ -160,6 +160,7 @@ class CementDataExporter(CustomDataExporter):
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
 
     def visualize_extrapolation(self, model: 'CementModel'):
+        """This needs to be reworked"""
         historic_mfa = model.historic_mfa
         historic_stock = historic_mfa.stocks["historic_in_use"].stock.sum_over("s")
         historic_stock_pc = historic_stock
