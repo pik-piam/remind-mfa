@@ -1,6 +1,6 @@
 import numpy as np
 import flodym as fd
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 from .data_extrapolations import (
     Extrapolation,
@@ -17,7 +17,7 @@ class StockExtrapolation:
         parameters: dict[str, fd.Parameter],
         stock_extrapolation_class: Extrapolation,
         target_dim_letters: Optional[Tuple[str, ...]] = None,
-        indep_fit_dim_letters: Optional[Tuple[str, ...]] = (),
+        indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
         saturation_level: Optional[np.ndarray] = None,
         do_gdppc_accumulation: bool = True,
         stock_correction: str = "gaussian_first_order",
@@ -31,7 +31,7 @@ class StockExtrapolation:
             parameters (dict[str, fd.Parameter]): Parameters for the extrapolation.
             stock_extrapolation_class (Extrapolation): Class used for stock extrapolation.
             target_dim_letters (Optional[Tuple[str, ...]], optional): Sets the dimensions of the stock extrapolation output. Defaults to None.
-            indep_fit_dim_letters (Optional[Tuple[str, ...]], optional): Sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters. If None, all dimensions given in target_dim_letters are regressed individually. If empty (), all dimensions are regressed aggregately. Defaults to ().
+            indep_fit_dim_letters (Optional[Tuple[str, ...]], optional): Sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters. If "all", all dimensions given in target_dim_letters are regressed individually. If empty (), all dimensions are regressed aggregately. Defaults to ().
             saturation_level (Optional[np.ndarray], optional): Saturation level for the extrapolation. Defaults to None.
             do_gdppc_accumulation (bool, optional): Flag to perform GDP per capita accumulation. Defaults to True.
             stock_correction (str, optional): Method for stock correction. Possible values are "gaussian_first_order", "shift_zeroth_order", "none". Defaults to "gaussian_first_order".
@@ -48,7 +48,7 @@ class StockExtrapolation:
         self.stock_correction = stock_correction
         self.extrapolate()
 
-    def set_dims(self, fit_dim_letters: Tuple[str, ...]):
+    def set_dims(self, indep_fit_dim_letters: Tuple[str, ...]):
         """
         Check target_dim_letters.
         Set fit_dim_letters and check:
@@ -62,19 +62,19 @@ class StockExtrapolation:
         else:
             self.historic_dim_letters = ("h",) + self.target_dim_letters[1:]
 
-        if fit_dim_letters is None:
+        if indep_fit_dim_letters == "all":
             # fit_dim_letters should be the same as target_dim_letters, but without the time dimension
-            self.fit_dim_letters = tuple(x for x in self.target_dim_letters if x != "t")
+            self.indep_fit_dim_letters = tuple(x for x in self.target_dim_letters if x != "t")
         else:
-            self.fit_dim_letters = fit_dim_letters
-            if not set(self.fit_dim_letters).issubset(self.target_dim_letters):
+            self.indep_fit_dim_letters = indep_fit_dim_letters
+            if not set(self.indep_fit_dim_letters).issubset(self.target_dim_letters):
                 raise ValueError("fit_dim_letters must be subset of target_dim_letters.")
         self.get_fit_idx()
 
     def get_fit_idx(self):
         """Get the indices of the fit dimensions in the historic_stocks dimensions."""
         self.fit_dim_idx = tuple(
-            i for i, x in enumerate(self.historic_stocks.dims.letters) if x in self.fit_dim_letters
+            i for i, x in enumerate(self.historic_stocks.dims.letters) if x in self.indep_fit_dim_letters
         )
 
     def extrapolate(self):

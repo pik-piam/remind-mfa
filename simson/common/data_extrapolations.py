@@ -15,9 +15,8 @@ class Extrapolation(SimsonBaseModel):
     """predictor variable(s) covering range of data_to_extrapolate and beyond"""
     weights: Optional[np.ndarray] = None
     saturation_level: Optional[np.ndarray] = None
-    independent_dims: Optional[Tuple[int, ...]] = ()
-    """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly.
-    If None, all dimensions are regressed individually. If empty (), all dimensions are regressed aggregately."""
+    independent_dims: Tuple[int, ...] = ()
+    """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly."""
     fit_prms: np.ndarray = None
     n_prms: ClassVar[int]
 
@@ -82,12 +81,9 @@ class Extrapolation(SimsonBaseModel):
 
     def regress(self):
         # extract dimensions that are regressed independently
-        if self.independent_dims is not None:
-            target_shape = self.remove_shape_dimensions(
-                self.target_range.shape, self.independent_dims
-            )
-        else:
-            target_shape = self.target_range.shape[1:]
+        target_shape = self.remove_shape_dimensions(
+            self.target_range.shape, self.independent_dims
+        )
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
 
