@@ -1,7 +1,8 @@
 import flodym as fd
 
+
 class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
-    
+
     def compute(self):
         """
         Perform all computations for the MFA system.
@@ -18,20 +19,37 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         flw["cement_grinding => concrete_production"][...] = prm["cement_production"]
 
         # calculate value chain forwards
-        flw["concrete_production => use"][...] = flw["cement_grinding => concrete_production"] / prm["cement_ratio"]  * prm["use_split"]
+        flw["concrete_production => use"][...] = (
+            flw["cement_grinding => concrete_production"] / prm["cement_ratio"] * prm["use_split"]
+        )
 
         # calculate value chain backwards
-        flw["clinker_production => cement_grinding"][...] = flw["cement_grinding => concrete_production"] * prm["clinker_ratio"]
-        flw["raw_meal_preparation => clinker_production"][...] = flw["clinker_production => cement_grinding"]
-        flw["sysenv => raw_meal_preparation"][...] = flw["raw_meal_preparation => clinker_production"]
+        flw["clinker_production => cement_grinding"][...] = (
+            flw["cement_grinding => concrete_production"] * prm["clinker_ratio"]
+        )
+        flw["raw_meal_preparation => clinker_production"][...] = flw[
+            "clinker_production => cement_grinding"
+        ]
+        flw["sysenv => raw_meal_preparation"][...] = flw[
+            "raw_meal_preparation => clinker_production"
+        ]
 
         # sysenv flows for mass balance: they represent net inflow of other material use minus waste
-        flw["sysenv => cement_grinding"][...] = flw["cement_grinding => concrete_production"][...] * (1 - prm["clinker_ratio"])
-        flw["sysenv => concrete_production"][...] = flw["concrete_production => use"][...] - flw["cement_grinding => concrete_production"][...]
+        flw["sysenv => cement_grinding"][...] = flw["cement_grinding => concrete_production"][
+            ...
+        ] * (1 - prm["clinker_ratio"])
+        flw["sysenv => concrete_production"][...] = (
+            flw["concrete_production => use"][...]
+            - flw["cement_grinding => concrete_production"][...]
+        )
 
         # TODO: find out waste rates
-        flw["sysenv => clinker_production"][...] = fd.FlodymArray(dims=self.dims["h", "r",])
-
+        flw["sysenv => clinker_production"][...] = fd.FlodymArray(
+            dims=self.dims[
+                "h",
+                "r",
+            ]
+        )
 
     def compute_in_use_stock(self):
         prm = self.parameters

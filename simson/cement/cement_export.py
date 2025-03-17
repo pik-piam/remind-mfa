@@ -8,6 +8,7 @@ from simson.common.common_cfg import CementVisualizationCfg
 if TYPE_CHECKING:
     from simson.cement.cement_model import CementModel
 
+
 class CementDataExporter(CustomDataExporter):
     # They have to be defined here but are eventually overwritten by yml definitions
     cfg: CementVisualizationCfg
@@ -22,7 +23,7 @@ class CementDataExporter(CustomDataExporter):
         "eol": "End of life",
     }
 
-    def visualize_results(self, model: 'CementModel'):
+    def visualize_results(self, model: "CementModel"):
         if self.cfg.clinker_production["do_visualize"]:
             self.visualize_clinker_production(mfa=model.future_mfa)
         if self.cfg.cement_production["do_visualize"]:
@@ -75,11 +76,10 @@ class CementDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap_global_production, f"{name}_production_global.png")
 
-
     def visualize_clinker_production(self, mfa: fd.MFASystem):
         production = mfa.flows["clinker_production => cement_grinding"]
         self.visualize_production(production, "Clinker")
-    
+
     def visualize_cement_production(self, mfa: fd.MFASystem):
         production = mfa.flows["cement_grinding => concrete_production"]
         self.visualize_production(production, "Cement")
@@ -232,7 +232,7 @@ class CementDataExporter(CustomDataExporter):
         self.visualize_global_stock(
             stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
         )
-    
+
     def visualize_global_stock(
         self, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
     ):
@@ -247,7 +247,7 @@ class CementDataExporter(CustomDataExporter):
             stock, x_array, population, x_label, y_label, title, per_capita
         )
         # self.visualize_global_stock_by_region(stock, x_array, x_label, y_label, title, per_capita)
-    
+
     def visualize_global_stock_by_type(
         self, stock, x_array, population, x_label, y_label, title, per_capita
     ):
@@ -269,17 +269,26 @@ class CementDataExporter(CustomDataExporter):
 
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
 
-    def visualize_extrapolation(self, model: 'CementModel'):
+    def visualize_extrapolation(self, model: "CementModel"):
         """This needs to be reworked"""
         historic_mfa = model.historic_mfa
         historic_stock = historic_mfa.stocks["historic_in_use"].stock.sum_over("s")
         historic_stock_pc = historic_stock
-        historic_stock_pc.values = historic_stock.values / model.parameters["population"].values[:124]
+        historic_stock_pc.values = (
+            historic_stock.values / model.parameters["population"].values[:124]
+        )
         gdppc = model.parameters["gdppc"]
-        historic_gdppc = fd.FlodymArray(dims=model.dims["h", "r",])
+        historic_gdppc = fd.FlodymArray(
+            dims=model.dims[
+                "h",
+                "r",
+            ]
+        )
         historic_gdppc.values = gdppc.values[:124]
 
-        fit = model.stock_handler.extrapolation_class.func(historic_gdppc.values, model.stock_handler.fit_prms.T)
+        fit = model.stock_handler.extrapolation_class.func(
+            historic_gdppc.values, model.stock_handler.fit_prms.T
+        )
         fd_fit = fd.FlodymArray(dims=historic_gdppc.dims, values=fit)
 
         ap_fit = self.plotter_class(

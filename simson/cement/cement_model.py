@@ -3,13 +3,16 @@ import flodym as fd
 
 from simson.common.common_cfg import GeneralCfg
 from simson.cement.cement_definition import get_definition
-from simson.cement.cement_mfa_system_historic_simple import InflowDrivenHistoricSimpleCementMFASystem
+from simson.cement.cement_mfa_system_historic_simple import (
+    InflowDrivenHistoricSimpleCementMFASystem,
+)
 from simson.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from simson.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from simson.cement.cement_data_reader import CementDataReader
 from simson.cement.cement_export import CementDataExporter
 from simson.common.data_transformations import StockExtrapolation, extrapolate_to_future
 from simson.common.data_blending import blend_over_time
+
 
 class CementModel:
 
@@ -46,7 +49,6 @@ class CementModel:
 
         # visualize extrapolation
         # self.data_writer.visualize_extrapolation(mfa=self.historic_mfa, future_demand=future_demand)
-        
 
     def make_historic_simple_mfa(self) -> InflowDrivenHistoricSimpleCementMFASystem:
         historic_dim_letters = tuple([d for d in self.dims.letters if d != "t"])
@@ -108,12 +110,12 @@ class CementModel:
             flows=flows,
             stocks=stocks,
         )
-    
+
     def get_future_demand(self):
         long_term_stock = self.get_long_term_stock()
         demand = self.get_demand_from_stock(long_term_stock)
         return demand
-    
+
     def get_long_term_stock(self):
         # extrapolate in use stock to future
         self.stock_handler = StockExtrapolation(
@@ -129,7 +131,7 @@ class CementModel:
 
         total_in_use_stock = total_in_use_stock * self.parameters["use_split"]
         return total_in_use_stock
-    
+
     def get_demand_from_stock(self, long_term_stock):
         # create dynamic stock model for in use stock
         in_use_dsm_long_term = fd.StockDrivenDSM(
@@ -142,7 +144,7 @@ class CementModel:
         in_use_dsm_long_term.stock[...] = long_term_stock
         in_use_dsm_long_term.compute()
         return in_use_dsm_long_term.inflow
-    
+
     def make_future_mfa(self) -> StockDrivenCementMFASystem:
         flows = fd.make_empty_flows(
             processes=self.processes,
