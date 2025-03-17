@@ -3,10 +3,7 @@ import numpy as np
 
 
 class StockDrivenCementMFASystem(fd.MFASystem):
-    """
-    For now, this is the same as historic MFA
-    """
-    
+
     def compute(self, demand: fd.FlodymArray):
         """
         Perform all computations for the MFA system.
@@ -50,9 +47,3 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
     
-
-
-
-
-
-

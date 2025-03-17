@@ -52,7 +52,3 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         stk["historic_eol"].outflow[...] = fd.FlodymArray(dims=self.dims["h", "r", "s"])
         stk["historic_eol"].compute()
         flw["eol => sysenv"][...] = stk["historic_eol"].outflow
-
-
-
-

@@ -3,10 +3,6 @@ import flodym as fd
 from simson.common.common_cfg import GeneralCfg
 
 
-class CementMFADefinition(fd.MFADefinition):
-    pass
-
-
 def get_definition(cfg: GeneralCfg):
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
@@ -97,7 +93,7 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
     ]
 
-    return CementMFADefinition(
+    return fd.MFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,
