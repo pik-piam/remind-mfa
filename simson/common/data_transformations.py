@@ -74,9 +74,7 @@ class StockExtrapolation:
     def get_fit_idx(self):
         """Get the indices of the fit dimensions in the historic_stocks dimensions."""
         self.fit_dim_idx = tuple(
-            i
-            for i, x in enumerate(self.historic_stocks.dims.letters)
-            if x in self.fit_dim_letters
+            i for i, x in enumerate(self.historic_stocks.dims.letters) if x in self.fit_dim_letters
         )
 
     def extrapolate(self):
