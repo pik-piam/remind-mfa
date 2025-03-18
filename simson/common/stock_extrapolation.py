@@ -5,6 +5,7 @@ from typing import Tuple, Optional, Union
 from simson.common.data_extrapolations import Extrapolation
 from simson.common.data_transformations import broadcast_trailing_dimensions
 
+
 class StockExtrapolation:
 
     def __init__(
