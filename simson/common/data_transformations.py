@@ -200,7 +200,7 @@ def extrapolate_to_future(
         data_to_extrapolate=historic_values.values,
         target_range=scale_by.values,
         weights=weights,
-        independent_dims=tuple(range(1,dims_out.ndim)),
+        independent_dims=tuple(range(1, dims_out.ndim)),
     )
     extrapolated_values.set_values(extrapolation.extrapolate())
 
@@ -211,5 +211,5 @@ def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) ->
     """Broadcasts array to shape of to_shape_of, adding dimensions if necessary."""
     new_shape = array.shape + (1,) * (len(to_shape_of.shape) - len(array.shape))
     b_reshaped = np.reshape(array, new_shape)
-    b_broadcast= np.broadcast_to(b_reshaped, to_shape_of.shape)
+    b_broadcast = np.broadcast_to(b_reshaped, to_shape_of.shape)
     return b_broadcast
