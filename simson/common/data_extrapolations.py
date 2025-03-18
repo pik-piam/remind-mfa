@@ -2,9 +2,10 @@ from abc import abstractmethod
 from typing import ClassVar, Optional, Tuple
 import numpy as np
 import sys
-from simson.common.base_model import SimsonBaseModel
 from pydantic import model_validator
 from scipy.optimize import least_squares
+
+from simson.common.base_model import SimsonBaseModel
 
 
 class Extrapolation(SimsonBaseModel):

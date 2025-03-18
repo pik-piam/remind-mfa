@@ -10,8 +10,7 @@ from simson.cement.cement_mfa_system_historic import InflowDrivenHistoricCementM
 from simson.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from simson.cement.cement_data_reader import CementDataReader
 from simson.cement.cement_export import CementDataExporter
-from simson.common.data_transformations import StockExtrapolation, extrapolate_to_future
-from simson.common.data_blending import blend_over_time
+from simson.common.stock_extrapolation import StockExtrapolation
 
 
 class CementModel:

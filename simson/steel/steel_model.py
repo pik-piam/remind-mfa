@@ -4,7 +4,7 @@ import flodym as fd
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
 from simson.common.data_extrapolations import VarySatLogSigmoidExtrapolation
-from simson.common.data_transformations import StockExtrapolation, broadcast_trailing_dimensions
+from simson.common.stock_extrapolation import StockExtrapolation
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter

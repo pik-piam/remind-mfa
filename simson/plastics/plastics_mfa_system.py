@@ -1,7 +1,7 @@
 from typing import Optional
 import flodym as fd
 
-from simson.common.data_transformations import StockExtrapolation
+from simson.common.stock_extrapolation import StockExtrapolation
 from simson.common.common_cfg import PlasticsCfg
 
 
