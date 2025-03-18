@@ -81,18 +81,25 @@ class Extrapolation(SimsonBaseModel):
 
     def regress(self):
         # extract dimensions that are regressed independently
-        target_shape = self.remove_shape_dimensions(self.target_range.shape, self.independent_dims)
+        target_shape = self.remove_shape_dimensions(
+            shape=self.target_range.shape, retain_idx=self.independent_dims
+        )
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
 
         # loop over dimensions that are regressed independently
-        for idx in np.ndindex(target_shape):
-            index = (slice(None),) + idx
-            self.fit_prms[idx], regression[index] = self.regress_common(
-                self.target_range[index],
-                self.data_to_extrapolate[index],
-                self.weights[index],
-                self.saturation_level[idx] if self.saturation_level is not None else None,
+        for slice_indep in np.ndindex(target_shape):
+
+            slice_all = [slice(None)] * len(self.target_range.shape)
+            for i, j in enumerate(self.independent_dims):
+                slice_all[j] = slice_indep[i]
+            slice_all = tuple(slice_all)
+
+            self.fit_prms[slice_indep], regression[slice_all] = self.regress_common(
+                self.target_range[slice_all],
+                self.data_to_extrapolate[slice_all],
+                self.weights[slice_all],
+                self.saturation_level[slice_indep] if self.saturation_level is not None else None,
             )
 
         return regression

@@ -65,6 +65,7 @@ class SteelVisualizationCfg(VisualizationCfg):
 
     scrap_demand_supply: dict = {"do_visualize": False}
     sector_splits: dict = {"do_visualize": False}
+    trade: dict = {"do_visualize": False}
 
 
 class PlasticsVisualizationCfg(VisualizationCfg):

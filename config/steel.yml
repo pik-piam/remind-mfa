@@ -13,12 +13,12 @@ customization:
 # visualization
 visualization:
   scrap_demand_supply:
-    do_visualize: False
-  sector_splits:
-    do_visualize: False
-  stock:
     do_visualize: True
-    over_gdp: True
+  sector_splits:
+    do_visualize: True
+  use_stock:
+    do_visualize: True
+    over_gdp: False
     per_capita: True
   production:
     do_visualize: True
@@ -32,6 +32,8 @@ visualization:
       - "imports"
       - "exports"
     exclude_flows: [ ]
+  trade:
+    do_visualize: True
   do_show_figs: True
   do_save_figs: False
   plotting_engine: 'plotly'

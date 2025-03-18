@@ -142,18 +142,11 @@ class StockExtrapolation:
     def gdp_regression(self):
         """Updates per capita stock to future by extrapolation."""
 
-        def match_dimensions(a, b):
-            """Broadcasts b to the shape of a."""
-            new_shape = b.shape + (1,) * (len(a.shape) - len(b.shape))
-            b_reshaped = np.reshape(b, new_shape)
-            b_broadcasted = np.broadcast_to(b_reshaped, a.shape)
-            return b_broadcasted
-
         prediction_out = self.stocks_pc.values
         pure_prediction = np.zeros_like(prediction_out)
         historic_in = self.historic_stocks_pc.values
         gdppc = self.gdppc_acc if self.do_gdppc_accumulation else self.gdppc
-        gdppc = match_dimensions(prediction_out, gdppc)
+        gdppc = broadcast_trailing_dimensions(gdppc, prediction_out)
         n_historic = historic_in.shape[0]
 
         extrapolation = self.stock_extrapolation_class(
@@ -189,11 +182,10 @@ def extrapolate_to_future(
         raise ValueError("Scaler dimensions must be subset of historic_parameter dimensions.")
 
     all_dims = historic_values.dims.union_with(scale_by.dims)
-
     dim_letters_out = ("t",) + historic_values.dims.letters[1:]
-    extrapolated_values = fd.FlodymArray.from_dims_superset(
-        dims_superset=all_dims, dim_letters=dim_letters_out
-    )
+    dims_out = all_dims[dim_letters_out]
+
+    extrapolated_values = fd.FlodymArray(dims=dims_out)
 
     scale_by = scale_by.cast_to(extrapolated_values.dims)
 
@@ -202,15 +194,22 @@ def extrapolate_to_future(
     n_last_points = 5
     weights_1d = np.maximum(0.0, np.arange(-n_hist_points, 0) + n_last_points + 1)
     weights_1d = weights_1d / weights_1d.sum()
-    weights = np.zeros_like(historic_values.values)
-    weights[...] = weights_1d[(slice(None),) + (np.newaxis,) * (weights.ndim - 1)]
+    weights = broadcast_trailing_dimensions(weights_1d, historic_values.values)
 
     extrapolation = ProportionalExtrapolation(
         data_to_extrapolate=historic_values.values,
         target_range=scale_by.values,
         weights=weights,
-        independent_dims=(),
+        independent_dims=tuple(range(1,dims_out.ndim)),
     )
     extrapolated_values.set_values(extrapolation.extrapolate())
 
     return extrapolated_values
+
+
+def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) -> np.ndarray:
+    """Broadcasts array to shape of to_shape_of, adding dimensions if necessary."""
+    new_shape = array.shape + (1,) * (len(to_shape_of.shape) - len(array.shape))
+    b_reshaped = np.reshape(array, new_shape)
+    b_broadcast= np.broadcast_to(b_reshaped, to_shape_of.shape)
+    return b_broadcast

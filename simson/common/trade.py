@@ -40,6 +40,7 @@ class Trade(SimsonBaseModel):
         global_exports = self.exports.sum_over("r")
 
         reference_trade = self.get_reference_trade(global_imports, global_exports, to)
+        reference_trade.apply(np.nan_to_num, inplace=True)
 
         import_factor = reference_trade / global_imports.maximum(sys.float_info.epsilon)
         export_factor = reference_trade / global_exports.maximum(sys.float_info.epsilon)

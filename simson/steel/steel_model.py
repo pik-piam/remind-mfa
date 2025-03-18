@@ -4,7 +4,7 @@ import flodym as fd
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
 from simson.common.data_extrapolations import VarySatLogSigmoidExtrapolation
-from simson.common.data_transformations import StockExtrapolation
+from simson.common.data_transformations import StockExtrapolation, broadcast_trailing_dimensions
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
 from simson.steel.steel_export import SteelDataExporter
@@ -153,7 +153,7 @@ class SteelModel:
                 None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
             indep_fit_dim_letters=(
-                ("r",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
+                ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
             ),
             saturation_level=saturation_level,
         )
@@ -177,27 +177,20 @@ class SteelModel:
             independent_dims=(),
         )
         multi_dim_extrapolation.regress()
-        saturation_level = multi_dim_extrapolation.fit_prms.T[0]
+        saturation_level = multi_dim_extrapolation.fit_prms[0,0]
 
         if self.cfg.customization.do_stock_extrapolation_by_category:
-            # TODO Decide method for high stock sector split
-            highest_gdp_level = True
-            if highest_gdp_level:
-                high_stock_sector_split = self.get_high_stock_sector_split()
-            else:  # calc regional specific stock sector split for end of century
-                gdp_sector_splits = self.calc_stock_sector_splits().values
-                high_stock_sector_split = gdp_sector_splits[-1]
-            saturation_level = (saturation_level * high_stock_sector_split.values.T).T
-        else:
-            saturation_level = np.full(gdppc.values.shape[1:], saturation_level)
+            high_stock_sector_split = self.get_high_stock_sector_split()
+            saturation_level = saturation_level * high_stock_sector_split.values
 
         return saturation_level
 
     def get_high_stock_sector_split(self):
         prm = self.parameters
-        high_stock_sector_split = (
-            prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}] * prm["sector_split_high"]
-        ).get_shares_over("g")
+        last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
+        last_gdppc = prm["gdppc"][{"t": self.dims["t"].items[-1]}]
+        av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
+        high_stock_sector_split = (av_lifetime * prm["sector_split_high"]).get_shares_over("g")
         return high_stock_sector_split
 
     def calc_stock_sector_splits(self):
