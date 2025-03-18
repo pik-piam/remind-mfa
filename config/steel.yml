@@ -18,9 +18,15 @@ visualization:
     do_visualize: True
   use_stock:
     do_visualize: True
-    over_gdp: False
+    over_gdp: True
     per_capita: True
+  gdppc:
+    do_visualize: True
   production:
+    do_visualize: True
+  consumption:
+    do_visualize: True
+  trade:
     do_visualize: True
   sankey:
     do_visualize: False
@@ -32,8 +38,6 @@ visualization:
       - "imports"
       - "exports"
     exclude_flows: [ ]
-  trade:
-    do_visualize: True
   do_show_figs: True
   do_save_figs: False
   plotting_engine: 'plotly'

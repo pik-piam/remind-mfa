@@ -36,11 +36,7 @@ class SteelModel:
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
         lifetime_factor = fd.Parameter(dims=self.dims["t", "r"])
-        lifetime_factor.values[:45, ...] = np.linspace(1.0, 0.7, 45)[:, np.newaxis]
-        lifetime_factor.values[45:55, ...] = 0.7
-        lifetime_factor.values[55:90, ...] = np.linspace(0.7, 0.8, 35)[:, np.newaxis]
-        lifetime_factor.values[90:110, ...] = np.linspace(0.8, 1.3, 20)[:, np.newaxis]
-        lifetime_factor.values[110:, ...] = 1.3
+        lifetime_factor.values[...] = 1.3
         self.parameters["lifetime_factor"] = lifetime_factor
 
         self.parameters["lifetime_mean"] = fd.Parameter(
@@ -59,11 +55,9 @@ class SteelModel:
         )
 
         scrap_rate_factor = fd.Parameter(dims=self.dims["t",])
-        scrap_rate_factor.values[:20] = 1.9
-        scrap_rate_factor.values[20:50] = np.linspace(1.9, 1.6, 30)
-        scrap_rate_factor.values[50:70] = 1.6
-        scrap_rate_factor.values[70:100] = np.linspace(1.6, 0.8, 30)
-        scrap_rate_factor.values[100:] = 0.8
+        scrap_rate_factor.values[:80] = 1.4
+        scrap_rate_factor.values[80:110] = np.linspace(1.4, 0.8, 30)
+        scrap_rate_factor.values[110:] = 0.8
         self.parameters["forming_yield"] = fd.Parameter(
             dims=self.dims["t", "i"],
             values=(1 - scrap_rate_factor * (1 - self.parameters["forming_yield"])).values,
@@ -72,8 +66,6 @@ class SteelModel:
             dims=self.dims["t", "g"],
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
-
-        self.parameters["recovery_rate"].values *= 0.95
 
     def run(self):
         self.historic_mfa = self.make_historic_mfa()
@@ -218,22 +210,6 @@ class SteelModel:
             t_upper=self.dims["t"].items[-1],
             type="converge_quadratic",
         )
-
-        # # DEBUG
-        # array_dict = {
-        #     "Theory": sector_split_theory,
-        #     "Historical": historical_extrapolated,
-        #     "Blended": sector_splits,
-        # }
-        # for name, array in array_dict.items():
-        #     plotter = fde.PlotlyArrayPlotter(
-        #         array=array,
-        #         intra_line_dim="Time",
-        #         subplot_dim="Region",
-        #         linecolor_dim="Good",
-        #         title=name,
-        #     )
-        #     plotter.plot(do_show=True)
         return sector_splits
 
     def get_demand_from_stock(self, long_term_stock):
@@ -248,10 +224,6 @@ class SteelModel:
         in_use_dsm_long_term.stock[...] = long_term_stock
         in_use_dsm_long_term.compute()
         return in_use_dsm_long_term.inflow
-
-    # def get_short_term_demand_trend(self, historic_demand: fd.FlodymArray):
-    #     demand_via_gdp = extrapolate_to_future(historic_demand, scale_by=self.parameters["gdppc"])
-    #     return demand_via_gdp
 
     def make_future_mfa(self) -> StockDrivenSteelMFASystem:
         flows = fd.make_empty_flows(

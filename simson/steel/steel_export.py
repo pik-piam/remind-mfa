@@ -41,6 +41,12 @@ class SteelDataExporter(CustomDataExporter):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.future_mfa, regional=True)
             self.visualize_production(mfa=model.future_mfa, regional=False)
+        if self.cfg.consumption["do_visualize"]:
+            self.visualize_consumption(model.future_mfa)
+        if self.cfg.gdppc["do_visualize"]:
+            self.visualize_gdppc(model.future_mfa)
+        if self.cfg.trade["do_visualize"]:
+            self.visualize_trade(model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=True)
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
@@ -52,8 +58,6 @@ class SteelDataExporter(CustomDataExporter):
             self.visualize_sector_splits(model.future_mfa, regional=False)
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(model.future_mfa)
-        if self.cfg.trade["do_visualize"]:
-            self.visualize_trade(model.future_mfa)
         self.stop_and_show()
 
     def visualize_trade(self, mfa: fd.MFASystem):
@@ -90,6 +94,32 @@ class SteelDataExporter(CustomDataExporter):
             )
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
+
+    def visualize_consumption(self, mfa: fd.MFASystem):
+        consumption = mfa.stocks["in_use"].inflow
+        ap = self.plotter_class(
+            array=consumption,
+            intra_line_dim="Time",
+            subplot_dim="Region",
+            linecolor_dim="Good",
+            display_names=self._display_names,
+            title="Consumption",
+        )
+        fig = ap.plot()
+        self.plot_and_save_figure(ap, "consumption.png", do_plot=False)
+
+    def visualize_gdppc(self, mfa: fd.MFASystem):
+        gdppc = mfa.parameters["gdppc"]
+        ap = self.plotter_class(
+            array=gdppc,
+            intra_line_dim="Time",
+            linecolor_dim="Region",
+            display_names=self._display_names,
+            title="GDP per capita",
+        )
+        fig = ap.plot()
+        fig.update_yaxes(type="log")
+        self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         good_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]

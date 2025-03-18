@@ -73,17 +73,9 @@ class Extrapolation(SimsonBaseModel):
 
         return fitting_function
 
-    @staticmethod
-    def remove_shape_dimensions(shape, retain_idx):
-        """Removes dimensions from shape, except indices in retain_idx."""
-        result_shape = [dim_size for i, dim_size in enumerate(shape) if i in retain_idx]
-        return tuple(result_shape)
-
     def regress(self):
         # extract dimensions that are regressed independently
-        target_shape = self.remove_shape_dimensions(
-            shape=self.target_range.shape, retain_idx=self.independent_dims
-        )
+        target_shape = tuple([self.target_range.shape[i] for i in sorted(self.independent_dims)])
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
 
