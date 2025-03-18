@@ -1,7 +1,7 @@
 import flodym as fd
 
 from simson.common.trade import TradeSet
-from simson.common.trade_predictors import predict_by_extrapolation
+from simson.common.trade_extrapolation import predict_by_extrapolation
 
 
 class StockDrivenSteelMFASystem(fd.MFASystem):

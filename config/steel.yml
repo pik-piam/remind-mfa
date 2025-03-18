@@ -13,14 +13,20 @@ customization:
 # visualization
 visualization:
   scrap_demand_supply:
-    do_visualize: False
+    do_visualize: True
   sector_splits:
-    do_visualize: False
-  stock:
+    do_visualize: True
+  use_stock:
     do_visualize: True
     over_gdp: True
     per_capita: True
+  gdppc:
+    do_visualize: True
   production:
+    do_visualize: True
+  consumption:
+    do_visualize: True
+  trade:
     do_visualize: True
   sankey:
     do_visualize: False

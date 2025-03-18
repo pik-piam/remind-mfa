@@ -41,6 +41,12 @@ class SteelDataExporter(CustomDataExporter):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.future_mfa, regional=True)
             self.visualize_production(mfa=model.future_mfa, regional=False)
+        if self.cfg.consumption["do_visualize"]:
+            self.visualize_consumption(model.future_mfa)
+        if self.cfg.gdppc["do_visualize"]:
+            self.visualize_gdppc(model.future_mfa)
+        if self.cfg.trade["do_visualize"]:
+            self.visualize_trade(model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=True)
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
@@ -53,6 +59,67 @@ class SteelDataExporter(CustomDataExporter):
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(model.future_mfa)
         self.stop_and_show()
+
+    def visualize_trade(self, mfa: fd.MFASystem):
+        linecolor_dims = {
+            "intermediate": "Intermediate",
+            "indirect": "Good",
+            "scrap": "Good",
+        }
+
+        for name, trade in mfa.trade_set.markets.items():
+            n_colors = mfa.dims[linecolor_dims[name]].len
+            colors = plc.qualitative.Dark24[:n_colors] * 2
+            ap_imports = self.plotter_class(
+                array=trade.imports,
+                intra_line_dim="Time",
+                subplot_dim="Region",
+                linecolor_dim=linecolor_dims[name],
+                display_names=self._display_names,
+                color_map=colors,
+            )
+            fig = ap_imports.plot()
+            ap_exports = self.plotter_class(
+                array=-trade.exports,
+                intra_line_dim="Time",
+                subplot_dim="Region",
+                linecolor_dim=linecolor_dims[name],
+                line_type="dash",
+                display_names=self._display_names,
+                title=f"{name} Trade",
+                ylabel="Trade (Exports negative)",
+                suppress_legend=True,
+                fig=fig,
+                color_map=colors,
+            )
+            fig = ap_exports.plot()
+            self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
+
+    def visualize_consumption(self, mfa: fd.MFASystem):
+        consumption = mfa.stocks["in_use"].inflow
+        ap = self.plotter_class(
+            array=consumption,
+            intra_line_dim="Time",
+            subplot_dim="Region",
+            linecolor_dim="Good",
+            display_names=self._display_names,
+            title="Consumption",
+        )
+        fig = ap.plot()
+        self.plot_and_save_figure(ap, "consumption.png", do_plot=False)
+
+    def visualize_gdppc(self, mfa: fd.MFASystem):
+        gdppc = mfa.parameters["gdppc"]
+        ap = self.plotter_class(
+            array=gdppc,
+            intra_line_dim="Time",
+            linecolor_dim="Region",
+            display_names=self._display_names,
+            title="GDP per capita",
+        )
+        fig = ap.plot()
+        fig.update_yaxes(type="log")
+        self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         good_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]
@@ -203,7 +270,10 @@ class SteelDataExporter(CustomDataExporter):
 
         # Historic stock (solid)
         hist_stock = stock[{"t": mfa.dims["h"]}]
-        hist_x_array = x_array[{"t": mfa.dims["h"]}]
+        if self.cfg.use_stock["over_gdp"]:
+            hist_x_array = x_array[{"t": mfa.dims["h"]}]
+        else:
+            hist_x_array = None
         ap_hist_stock = self.plotter_class(
             array=hist_stock,
             intra_line_dim="Historic Time",
@@ -221,7 +291,10 @@ class SteelDataExporter(CustomDataExporter):
             name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
         )
         scatter_stock = hist_stock[{"h": last_year_dim}]
-        scatter_x_array = hist_x_array[{"h": last_year_dim}]
+        if self.cfg.use_stock["over_gdp"]:
+            scatter_x_array = hist_x_array[{"h": last_year_dim}]
+        else:
+            scatter_x_array = None
         ap_scatter_stock = self.plotter_class(
             array=scatter_stock,
             intra_line_dim="Last Historic Year",
@@ -237,12 +310,13 @@ class SteelDataExporter(CustomDataExporter):
         fig = ap_scatter_stock.plot()
 
         # Adjust x-axis
-        if self.cfg.plotting_engine == "plotly":
-            fig.update_xaxes(type="log", range=[3, 5])
-        elif self.cfg.plotting_engine == "pyplot":
-            for ax in fig.get_axes():
-                ax.set_xscale("log")
-                ax.set_xlim(1e3, 1e5)
+        if self.cfg.use_stock["over_gdp"]:
+            if self.cfg.plotting_engine == "plotly":
+                fig.update_xaxes(type="log", range=[3, 5])
+            elif self.cfg.plotting_engine == "pyplot":
+                for ax in fig.get_axes():
+                    ax.set_xscale("log")
+                    ax.set_xlim(1e3, 1e5)
 
         self.plot_and_save_figure(
             ap_scatter_stock,

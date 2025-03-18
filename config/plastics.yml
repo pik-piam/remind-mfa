@@ -11,7 +11,7 @@ customization:
 
 # visualization
 visualization:
-  stock:
+  use_stock:
     do_visualize: True
     # options: 'time', 'gdppc'
     over: 'gdppc'
