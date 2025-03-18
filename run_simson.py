@@ -2,14 +2,16 @@ import logging
 import yaml
 import flodym as fd
 
-from simson.plastics.plastics_model import PlasticsModel
 from simson.common.common_cfg import GeneralCfg
+from simson.plastics.plastics_model import PlasticsModel
 from simson.steel.steel_model import SteelModel
+from simson.cement.cement_model import CementModel
 
 
 models = {
     "plastics": PlasticsModel,
     "steel": SteelModel,
+    "cement": CementModel,
 }
 
 

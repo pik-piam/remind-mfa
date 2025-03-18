@@ -7,6 +7,7 @@ from .data_extrapolations import Extrapolation
 IMPLEMENTED_MODELS = [
     "plastics",
     "steel",
+    "cement",
 ]
 
 
@@ -43,12 +44,21 @@ class ModelCustomization(SimsonBaseModel):
 
 class VisualizationCfg(SimsonBaseModel):
 
-    stock: dict = {"do_visualize": False}
+    use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}
     do_show_figs: bool = True
     do_save_figs: bool = False
     plotting_engine: str = "plotly"
+
+
+class CementVisualizationCfg(VisualizationCfg):
+
+    clinker_production: dict = {}
+    cement_production: dict = {}
+    concrete_production: dict = {}
+    eol_stock: dict = {}
+    extrapolation: dict = {}
 
 
 class SteelVisualizationCfg(VisualizationCfg):
@@ -79,6 +89,7 @@ class GeneralCfg(SimsonBaseModel):
         subclasses = {
             "plastics": PlasticsCfg,
             "steel": SteelCfg,
+            "cement": CementCfg,
         }
         if model_class not in subclasses:
             raise ValueError(f"Model class {model_class} not supported.")
@@ -89,6 +100,11 @@ class GeneralCfg(SimsonBaseModel):
 class PlasticsCfg(GeneralCfg):
 
     visualization: PlasticsVisualizationCfg
+
+
+class CementCfg(GeneralCfg):
+
+    visualization: CementVisualizationCfg
 
 
 class SteelCfg(GeneralCfg):
