@@ -14,7 +14,7 @@ class StockExtrapolation:
         dims: fd.DimensionSet,
         parameters: dict[str, fd.Parameter],
         stock_extrapolation_class: Type[Extrapolation],
-        target_dim_letters: Optional[Tuple[str, ...]] = None,
+        target_dim_letters: Union[Tuple[str, ...], str] = "all",
         indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
         bounds: list[Bound] = [],
         do_gdppc_accumulation: bool = True,
@@ -28,7 +28,7 @@ class StockExtrapolation:
             dims (fd.DimensionSet): Dimension set for the data.
             parameters (dict[str, fd.Parameter]): Parameters for the extrapolation.
             stock_extrapolation_class (Extrapolation): Class used for stock extrapolation.
-            target_dim_letters (Optional[Tuple[str, ...]], optional): Sets the dimensions of the stock extrapolation output. Defaults to None.
+            target_dim_letters (Union[Tuple[str, ...], str], optional): Sets the dimensions of the stock extrapolation output. If "all", the output will have the same shape as historic_stocks, except for the time dimension. Defaults to "all".
             indep_fit_dim_letters (Optional[Tuple[str, ...]], optional): Sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters. If "all", all dimensions given in target_dim_letters are regressed individually. If empty (), all dimensions are regressed aggregately. Defaults to ().
             bounds (list[Bound], optional): List of bounds for the extrapolation. Defaults to [].
             do_gdppc_accumulation (bool, optional): Flag to perform GDP per capita accumulation. Defaults to True.
@@ -53,7 +53,7 @@ class StockExtrapolation:
         In this case, fit_dim_letters should be a subset of target_dim_letters.
         This check cannot be performed if self.target_dim_letters or self.fit_dim_letters is None.
         """
-        if self.target_dim_letters is None:
+        if self.target_dim_letters == "all":
             self.historic_dim_letters = self.historic_stocks.dims.letters
             self.target_dim_letters = ("t",) + self.historic_dim_letters[1:]
         else:
