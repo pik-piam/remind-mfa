@@ -19,15 +19,15 @@ class Bound():
         self.upper_bound = np.array(upper_bound)
 
     @staticmethod
-    def create_bounds_arr(bounds_list: list["Bound"], all_prm_names: list[str]):
+    def create_bounds_arr(bounds_list: list["Bound"], all_prm_names: list[str], bound_shape: tuple) -> np.ndarray:
         """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
         
-        if not bounds_list:
-            raise ValueError("Bounds list cannot be empty")
-
         # Check bound shapes
-        shape = bounds_list[0].lower_bound.shape
-        if any(b.lower_bound.shape != shape or b.upper_bound.shape != shape for b in bounds_list):
+        if bounds_list:
+            if not bound_shape == bounds_list[0].lower_bound.shape:
+                raise ValueError("Bounds shape must match target shape")
+
+        if any(b.lower_bound.shape != bound_shape or b.upper_bound.shape != bound_shape for b in bounds_list):
             raise ValueError("All bounds must have the same shape")
         
         # Check for invalid parameter names
@@ -35,9 +35,9 @@ class Bound():
         if invalid_params:
             raise ValueError(f"Unknown parameters in bounds: {invalid_params}")
         
-        bounds = np.empty(shape, dtype=object)
+        bounds = np.empty(bound_shape, dtype=object)
         param_positions = {name: i for i, name in enumerate(all_prm_names)}
-        for index in np.ndindex(shape):
+        for index in np.ndindex(bound_shape):
             # Initialize default bounds
             lower_bounds = [-np.inf] * len(all_prm_names)
             upper_bounds = [np.inf] * len(all_prm_names)

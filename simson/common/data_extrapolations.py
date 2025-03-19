@@ -3,7 +3,7 @@ from typing import ClassVar, Optional, Tuple
 import numpy as np
 import sys
 from pydantic import model_validator
-from scipy.optimize import least_squares, curve_fit
+from scipy.optimize import least_squares
 
 from simson.common.base_model import SimsonBaseModel
 from simson.common.data_transformations import Bound
@@ -82,9 +82,8 @@ class Extrapolation(SimsonBaseModel):
         target_shape = tuple([self.target_range.shape[i] for i in sorted(self.independent_dims)])
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
-        if self.bounds:
-            bounds_array = Bound.create_bounds_arr(self.bounds, self.prm_names)
-
+        bound_shape = tuple(self.target_range.shape[i] for i in self.independent_dims)
+        bounds_array = Bound.create_bounds_arr(self.bounds, self.prm_names, bound_shape)
 
         # loop over dimensions that are regressed independently
         for slice_indep in np.ndindex(target_shape):
@@ -98,7 +97,7 @@ class Extrapolation(SimsonBaseModel):
                 self.target_range[slice_all],
                 self.data_to_extrapolate[slice_all],
                 self.weights[slice_all],
-                (-np.inf, np.inf) if not self.bounds else bounds_array[slice_indep],
+                bounds_array[slice_indep],
             )
 
         return regression
