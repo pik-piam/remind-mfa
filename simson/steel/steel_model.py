@@ -3,7 +3,8 @@ import flodym as fd
 
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
-from simson.common.data_extrapolations import VarySatLogSigmoidExtrapolation
+from simson.common.data_extrapolations import LogSigmoidExtrapolation
+from simson.common.data_transformations import Bound
 from simson.common.stock_extrapolation import StockExtrapolation
 from simson.common.custom_data_reader import CustomDataReader
 from simson.common.trade import TradeSet
@@ -11,6 +12,7 @@ from simson.steel.steel_export import SteelDataExporter
 from simson.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
 from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
 from simson.steel.steel_definition import get_definition
+
 
 
 class SteelModel:
@@ -133,7 +135,9 @@ class SteelModel:
 
     def get_long_term_stock(self):
         historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
-        saturation_level = self.get_saturation_level(historic_stocks)
+        sat_level = self.get_saturation_level(historic_stocks)
+        sat_level = Bound("saturation_level", lower_bound=sat_level, upper_bound=sat_level)
+
 
         # extrapolate in use stock to future
         stock_handler = StockExtrapolation(
@@ -147,7 +151,7 @@ class SteelModel:
             indep_fit_dim_letters=(
                 ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
             ),
-            saturation_level=saturation_level,
+            bounds=[sat_level,]
         )
         total_in_use_stock = stock_handler.stocks
 
@@ -163,7 +167,7 @@ class SteelModel:
         historic_pop = pop[{"t": self.dims["h"]}]
         historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
-        multi_dim_extrapolation = VarySatLogSigmoidExtrapolation(
+        multi_dim_extrapolation = LogSigmoidExtrapolation(
             data_to_extrapolate=historic_stocks_pc.values,
             target_range=gdppc.values,
             independent_dims=(),
