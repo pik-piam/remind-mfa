@@ -88,13 +88,6 @@ class CementDataExporter(CustomDataExporter):
         production = mfa.flows["concrete_production => use"].sum_over("s")
         self.visualize_production(production, "Concrete")
 
-    # def visualize_use_stock(self, mfa: fd.MFASystem):
-    #     over_gdp = self.cfg.use_stock["over_gdp"]
-    #     per_capita = self.cfg.use_stock["per_capita"]
-    #     stock = mfa.stocks["in_use"].stock
-
-    #     self.visualize_stock(mfa, stock, over_gdp, per_capita, "In use")
-
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         over_gdp = self.cfg.eol_stock["over_gdp"]
         per_capita = self.cfg.eol_stock["per_capita"]
