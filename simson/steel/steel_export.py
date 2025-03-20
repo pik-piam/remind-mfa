@@ -48,8 +48,8 @@ class SteelDataExporter(CommonDataExporter):
         if self.cfg.trade["do_visualize"]:
             self.visualize_trade(model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
-            self.visualize_stock(mfa=model.future_mfa, subplots_by_good=True)
-            self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
+            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=True)
+            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
         if self.cfg.scrap_demand_supply["do_visualize"]:
             self.visualize_scrap_demand_supply(model.future_mfa, regional=True)
             self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
@@ -216,7 +216,7 @@ class SteelDataExporter(CommonDataExporter):
 
         self.plot_and_save_figure(ap_production, f"production_{name_str}.png")
 
-    def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, subplot_dim=subplot_dim)
 
