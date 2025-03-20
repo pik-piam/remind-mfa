@@ -41,7 +41,6 @@ def get_definition(cfg: GeneralCfg):
                 "s",
             ),
         ),
-
         # future flows
         fd.FlowDefinition(
             from_process="sysenv",
