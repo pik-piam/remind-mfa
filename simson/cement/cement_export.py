@@ -113,14 +113,6 @@ class CementDataExporter(CustomDataExporter):
             if not per_capita:
                 # get global GDP per capita
                 x_array = x_array * population
-        elif self.cfg.use_stock["over_time"]:
-            # TODO: add plot over time...
-            # this does not quite work yet...
-            title = title + f" over Time"
-            x_label = f"Time"
-            x_array = mfa.dims["Time"]
-        else:
-            raise ValueError("Either 'over_gdp' or 'over_time' must be True.")
 
         if subplots_by_stock_type:
             subplot_dim = {"subplot_dim": "Stock Type"}
