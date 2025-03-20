@@ -4,11 +4,12 @@ from simson.common.base_model import SimsonBaseModel
 import plotly.graph_objects as go
 import flodym as fd
 import flodym.export as fde
+from plotly import colors as plc
 
 from simson.common.common_cfg import VisualizationCfg
 
 
-class CustomDataExporter(SimsonBaseModel):
+class CommonDataExporter(SimsonBaseModel):
     output_path: str
     do_export: dict = {"pickle": True, "csv": True}
     cfg: VisualizationCfg
@@ -73,3 +74,82 @@ class CustomDataExporter(SimsonBaseModel):
             return fde.PyplotArrayPlotter
         else:
             raise ValueError(f"Unknown plotting engine: {self.cfg.plotting_engine}")
+        
+    def plot_history_and_future(
+        self,
+        mfa: fd.MFASystem,
+        data_to_plot: fd.FlodymArray,
+        subplot_dim: dict = {},
+        x_array: fd.FlodymArray = None,
+        linecolor_dim: str = None,
+        x_label: str = None,
+        y_label: str = None,
+        title: str = None,
+        ):
+        
+        colors = plc.qualitative.Dark24
+        colors = (
+            colors[: data_to_plot.dims["r"].len]
+            + colors[: data_to_plot.dims["r"].len]
+            + ["black" for _ in range(data_to_plot.dims["r"].len)]
+        )
+
+        # data preparation
+        hist = data_to_plot[{"t": mfa.dims["h"]}]
+        last_year_dim = fd.Dimension(
+            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
+        )
+        scatter = hist[{"h": last_year_dim}]
+        if x_array is None:
+            hist_x_array = None
+            scatter_x_array = None
+        else:
+            hist_x_array = x_array[{"t": mfa.dims["h"]}]
+            scatter_x_array = hist_x_array[{"h": last_year_dim}]
+        
+        # Future stock (dotted)
+        ap = self.plotter_class(
+            array=data_to_plot,
+            intra_line_dim="Time",
+            linecolor_dim=linecolor_dim,
+            **subplot_dim,
+            display_names=self._display_names,
+            x_array=x_array,
+            xlabel=x_label,
+            ylabel=y_label,
+            title=title,
+            color_map=colors,
+            line_type="dot",
+            suppress_legend=True,
+        )
+        fig = ap.plot()
+
+        # Historic stock (solid)
+        ap_hist = self.plotter_class(
+            array=hist,
+            intra_line_dim="Historic Time",
+            linecolor_dim=linecolor_dim,
+            **subplot_dim,
+            display_names=self._display_names,
+            x_array=hist_x_array,
+            fig=fig,
+            color_map=colors,
+        )
+        fig = ap_hist.plot()
+
+        # Last historic year (black dot)
+        ap_scatter = self.plotter_class(
+            array=scatter,
+            intra_line_dim="Last Historic Year",
+            linecolor_dim=linecolor_dim,
+            **subplot_dim,
+            display_names=self._display_names,
+            x_array=scatter_x_array,
+            fig=fig,
+            chart_type="scatter",
+            color_map=colors,
+            suppress_legend=True,
+        )
+        fig = ap_scatter.plot()
+        
+        return fig, ap_scatter

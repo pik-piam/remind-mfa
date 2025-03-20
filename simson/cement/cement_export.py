@@ -2,14 +2,14 @@ from plotly import colors as plc
 import flodym as fd
 from typing import TYPE_CHECKING
 
-from simson.common.custom_export import CustomDataExporter
+from simson.common.custom_export import CommonDataExporter
 from simson.common.common_cfg import CementVisualizationCfg
 
 if TYPE_CHECKING:
     from simson.cement.cement_model import CementModel
 
 
-class CementDataExporter(CustomDataExporter):
+class CementDataExporter(CommonDataExporter):
     # They have to be defined here but are eventually overwritten by yml definitions
     cfg: CementVisualizationCfg
 
