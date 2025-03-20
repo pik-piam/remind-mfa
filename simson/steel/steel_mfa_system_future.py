@@ -17,6 +17,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
+        self.check_non_negative_flows(no_error=True)
 
     def compute_in_use_stock(self, demand):
         self.stocks["in_use"].inflow = demand

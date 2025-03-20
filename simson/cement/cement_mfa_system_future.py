@@ -11,6 +11,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
+        self.check_non_negative_flows()
 
     def compute_in_use_stock(self, demand):
         self.stocks["in_use"].inflow = demand

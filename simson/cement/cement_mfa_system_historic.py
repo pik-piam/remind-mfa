@@ -10,6 +10,7 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         self.compute_in_use_stock()
         self.compute_flows()
         self.check_mass_balance()
+        self.check_non_negative_flows()
 
     def compute_in_use_stock(self):
         prm = self.parameters
