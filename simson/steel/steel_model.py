@@ -14,7 +14,6 @@ from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFAS
 from simson.steel.steel_definition import get_definition
 
 
-
 class SteelModel:
 
     def __init__(self, cfg: GeneralCfg):
@@ -138,7 +137,6 @@ class SteelModel:
         sat_level = self.get_saturation_level(historic_stocks)
         sat_level = Bound("saturation_level", lower_bound=sat_level, upper_bound=sat_level)
 
-
         # extrapolate in use stock to future
         stock_handler = StockExtrapolation(
             historic_stocks,
@@ -151,7 +149,9 @@ class SteelModel:
             indep_fit_dim_letters=(
                 ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
             ),
-            bounds=[sat_level,]
+            bounds=[
+                sat_level,
+            ],
         )
         total_in_use_stock = stock_handler.stocks
 

@@ -37,7 +37,7 @@ class Extrapolation(SimsonBaseModel):
                 self.weights.shape == self.data_to_extrapolate.shape
             ), "Weights must have the same shape as data_to_extrapolate."
         return self
-    
+
     @property
     def n_prms(self):
         return len(self.prm_names)
@@ -113,7 +113,9 @@ class Extrapolation(SimsonBaseModel):
         # correct initial guess
         outside_bounds = (initial_guess < bounds[0]) + (initial_guess > bounds[1])
         if np.any(outside_bounds):
-            initial_guess[outside_bounds] = (bounds[0][outside_bounds] + bounds[1][outside_bounds]) / 2
+            initial_guess[outside_bounds] = (
+                bounds[0][outside_bounds] + bounds[1][outside_bounds]
+            ) / 2
         fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12, bounds=bounds).x
         regression = self.func(target, fit_prms)
         return fit_prms, regression
@@ -134,7 +136,7 @@ class ProportionalExtrapolation(Extrapolation):
 
 class PehlExtrapolation(Extrapolation):
 
-    prm_names: list[str]  = ["saturation_level", "stretch_factor"]
+    prm_names: list[str] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -151,7 +153,7 @@ class PehlExtrapolation(Extrapolation):
 
 class ExponentialSaturationExtrapolation(Extrapolation):
 
-    prm_names: list[str]  = ["saturation_level", "stretch_factor"]
+    prm_names: list[str] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -169,7 +171,7 @@ class ExponentialSaturationExtrapolation(Extrapolation):
 
 class LogSigmoidExtrapolation(Extrapolation):
 
-    prm_names: list[str]  = ["saturation_level", "stretch_factor", "x_offset"]
+    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
 
     @staticmethod
     def func(x, prms):
@@ -189,7 +191,7 @@ class LogSigmoidExtrapolation(Extrapolation):
 
 class SigmoidExtrapolation(Extrapolation):
 
-    prm_names: list[str]  = ["saturation_level", "stretch_factor", "x_offset"]
+    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
 
     @staticmethod
     def func(x, prms):

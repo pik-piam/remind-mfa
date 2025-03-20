@@ -126,7 +126,9 @@ class CementModel:
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             target_dim_letters=("t", "r"),
             indep_fit_dim_letters=(),
-            bounds=[bounds,]
+            bounds=[
+                bounds,
+            ],
         )
 
         total_in_use_stock = self.stock_handler.stocks
