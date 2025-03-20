@@ -32,7 +32,7 @@ class CementDataExporter(CommonDataExporter):
             self.visualize_concrete_production(mfa=model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=False)
-            # self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
+            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
         if self.cfg.eol_stock["do_visualize"]:
             self.visualize_eol_stock(mfa=model.future_mfa)
         if self.cfg.sankey["do_visualize"]:
@@ -96,57 +96,8 @@ class CementDataExporter(CommonDataExporter):
         self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
-        per_capita = self.cfg.use_stock["per_capita"]
-
-        stock = mfa.stocks["in_use"].stock
-        population = mfa.parameters["population"]
-        x_array = None
-
-        pc_str = " pC" if per_capita else ""
-        x_label = "Year"
-        y_label = f"Stock{pc_str}[t]"
-        title = f"Stocks{pc_str}"
-        if self.cfg.use_stock["over_gdp"]:
-            title = title + f" over GDP{pc_str}"
-            x_label = f"GDP/PPP{pc_str}[2005 USD]"
-            x_array = mfa.parameters["gdppc"]
-            if not per_capita:
-                # get global GDP per capita
-                x_array = x_array * population
-
-        if subplots_by_stock_type:
-            subplot_dim = {"subplot_dim": "Stock Type"}
-        else:
-            subplot_dim = {}
-            stock = stock.sum_over("s")
-
-        if per_capita:
-            stock = stock / population
-
-        fig, ap_scatter_stock = self.plot_history_and_future(
-            mfa=mfa,
-            data_to_plot=stock,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            linecolor_dim="Region",
-            x_label=x_label,
-            y_label=y_label,
-            title=title,
-        )
-
-        # Adjust x-axis
-        if self.cfg.plotting_engine == "plotly":
-            fig.update_xaxes(type="log", range=[3, 5])
-        elif self.cfg.plotting_engine == "pyplot":
-            for ax in fig.get_axes():
-                ax.set_xscale("log")
-                ax.set_xlim(1e3, 1e5)
-
-        self.plot_and_save_figure(
-            ap_scatter_stock,
-            f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
-            do_plot=False,
-        )
+        subplot_dim = "Stock Type" if subplots_by_stock_type else None
+        super().visualize_use_stock(mfa, subplot_dim=subplot_dim)
 
     def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
         population = mfa.parameters["population"]

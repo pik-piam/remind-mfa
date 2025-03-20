@@ -75,23 +75,83 @@ class CommonDataExporter(SimsonBaseModel):
         else:
             raise ValueError(f"Unknown plotting engine: {self.cfg.plotting_engine}")
         
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplot_dim: str = None):
+        """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated."""
+        per_capita = self.cfg.use_stock["per_capita"]
+
+        stock = mfa.stocks["in_use"].stock
+        population = mfa.parameters["population"]
+        x_array = None
+        linecolor_dim = "Region"
+
+        pc_str = " pC" if per_capita else ""
+        x_label = "Year"
+        y_label = f"Stock{pc_str} [t]"
+        title = f"Stocks{pc_str}"
+        if self.cfg.use_stock["over_gdp"]:
+            title = title + f" over GDP{pc_str}"
+            x_label = f"GDP/PPP{pc_str} [2005 USD]"
+            x_array = mfa.parameters["gdppc"]
+            if not per_capita:
+                # get global GDP per capita
+                x_array = x_array * population
+
+        if subplot_dim is not None:
+            subplot_dim = {"subplot_dim": subplot_dim}
+        else:
+            subplot_dim = {}
+            # sum over all dimensions except time and linecolor_dim
+            other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in ["t", "r",])
+            for dimletter in other_dimletters:
+                stock = stock.sum_over(dimletter)
+
+        if per_capita:
+            stock = stock / population
+
+        fig, ap_scatter_stock = self.plot_history_and_future(
+            mfa=mfa,
+            data_to_plot=stock,
+            subplot_dim=subplot_dim,
+            x_array=x_array,
+            linecolor_dim=linecolor_dim,
+            x_label=x_label,
+            y_label=y_label,
+            title=title,
+        )
+
+        # Adjust x-axis
+        if self.cfg.use_stock["over_gdp"]:
+            if self.cfg.plotting_engine == "plotly":
+                fig.update_xaxes(type="log", range=[3, 5])
+            elif self.cfg.plotting_engine == "pyplot":
+                for ax in fig.get_axes():
+                    ax.set_xscale("log")
+                    ax.set_xlim(1e3, 1e5)
+
+        self.plot_and_save_figure(
+            ap_scatter_stock,
+            f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
+            do_plot=False,
+        )
+
     def plot_history_and_future(
         self,
         mfa: fd.MFASystem,
         data_to_plot: fd.FlodymArray,
         subplot_dim: dict = {},
         x_array: fd.FlodymArray = None,
-        linecolor_dim: str = None,
+        linecolor_dim: str = "Region",
         x_label: str = None,
         y_label: str = None,
         title: str = None,
         ):
         
         colors = plc.qualitative.Dark24
+        dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim)
         colors = (
-            colors[: data_to_plot.dims["r"].len]
-            + colors[: data_to_plot.dims["r"].len]
-            + ["black" for _ in range(data_to_plot.dims["r"].len)]
+            colors[: data_to_plot.dims[dimletter].len]
+            + colors[: data_to_plot.dims[dimletter].len]
+            + ["black" for _ in range(data_to_plot.dims[dimletter].len)]
         )
 
         # data preparation
