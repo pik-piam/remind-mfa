@@ -184,7 +184,7 @@ class LogSigmoidExtrapolation(Extrapolation):
 
         mean_target = np.mean(np.log(target_range))
 
-        target_max_level = np.max(np.log(target_range))
+        target_max_level = np.log(np.max(target_range))
         stretch_factor = 2 / (target_max_level - mean_target)
         return np.array([sat_level_guess, stretch_factor, mean_target])
 
