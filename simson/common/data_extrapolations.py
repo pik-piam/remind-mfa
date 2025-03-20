@@ -179,7 +179,7 @@ class LogSigmoidExtrapolation(Extrapolation):
 
     @staticmethod
     def initial_guess(target_range, data_to_extrapolate):
-        max_level = np.max(np.log(data_to_extrapolate))
+        max_level = np.log(np.max(data_to_extrapolate))
         sat_level_guess = 2 * max_level
 
         mean_target = np.mean(np.log(target_range))
