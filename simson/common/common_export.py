@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import flodym as fd
 import flodym.export as fde
 from plotly import colors as plc
+from typing import Optional
 
 from simson.common.common_cfg import VisualizationCfg
 
@@ -96,10 +97,7 @@ class CommonDataExporter(SimsonBaseModel):
                 # get global GDP per capita
                 x_array = x_array * population
 
-        if subplot_dim is not None:
-            subplot_dim = {"subplot_dim": subplot_dim}
-        else:
-            subplot_dim = {}
+        if subplot_dim is None:
             # sum over all dimensions except time and linecolor_dim
             other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in ["t", "r",])
             for dimletter in other_dimletters:
@@ -138,21 +136,25 @@ class CommonDataExporter(SimsonBaseModel):
         self,
         mfa: fd.MFASystem,
         data_to_plot: fd.FlodymArray,
-        subplot_dim: dict = {},
-        x_array: fd.FlodymArray = None,
-        linecolor_dim: str = "Region",
-        x_label: str = None,
-        y_label: str = None,
-        title: str = None,
+        subplot_dim: Optional[str] = None,
+        x_array: Optional[fd.FlodymArray] = None,
+        linecolor_dim: Optional[str] = None,
+        x_label: Optional[str] = None,
+        y_label: Optional[str] = None,
+        title: Optional[str] = None,
+        **kwargs,
         ):
         
         colors = plc.qualitative.Dark24
-        dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim)
-        colors = (
-            colors[: data_to_plot.dims[dimletter].len]
-            + colors[: data_to_plot.dims[dimletter].len]
-            + ["black" for _ in range(data_to_plot.dims[dimletter].len)]
-        )
+        if linecolor_dim:
+            dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim)
+            colors = (
+                colors[: data_to_plot.dims[dimletter].len]
+                + colors[: data_to_plot.dims[dimletter].len]
+                + ["black" for _ in range(data_to_plot.dims[dimletter].len)]
+            )
+        else:
+            colors = (colors[:1] + colors[:1] + ["black"])
 
         # data preparation
         hist = data_to_plot[{"t": mfa.dims["h"]}]
@@ -172,15 +174,13 @@ class CommonDataExporter(SimsonBaseModel):
             array=data_to_plot,
             intra_line_dim="Time",
             linecolor_dim=linecolor_dim,
-            **subplot_dim,
-            display_names=self._display_names,
+            subplot_dim=subplot_dim,
             x_array=x_array,
-            xlabel=x_label,
-            ylabel=y_label,
             title=title,
             color_map=colors,
             line_type="dot",
             suppress_legend=True,
+            **kwargs,
         )
         fig = ap.plot()
 
@@ -189,11 +189,11 @@ class CommonDataExporter(SimsonBaseModel):
             array=hist,
             intra_line_dim="Historic Time",
             linecolor_dim=linecolor_dim,
-            **subplot_dim,
-            display_names=self._display_names,
+            subplot_dim=subplot_dim,
             x_array=hist_x_array,
             fig=fig,
             color_map=colors,
+            **kwargs,
         )
         fig = ap_hist.plot()
 
@@ -202,13 +202,15 @@ class CommonDataExporter(SimsonBaseModel):
             array=scatter,
             intra_line_dim="Last Historic Year",
             linecolor_dim=linecolor_dim,
-            **subplot_dim,
-            display_names=self._display_names,
+            subplot_dim=subplot_dim,
             x_array=scatter_x_array,
+            xlabel=x_label,
+            ylabel=y_label,
             fig=fig,
             chart_type="scatter",
             color_map=colors,
             suppress_legend=True,
+            **kwargs,
         )
         fig = ap_scatter.plot()
         

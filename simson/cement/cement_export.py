@@ -27,7 +27,8 @@ class CementDataExporter(CommonDataExporter):
         if self.cfg.clinker_production["do_visualize"]:
             self.visualize_clinker_production(mfa=model.future_mfa)
         if self.cfg.cement_production["do_visualize"]:
-            self.visualize_cement_production(mfa=model.future_mfa)
+            self.visualize_cement_production(mfa=model.future_mfa, regional=False)
+            self.visualize_cement_production(mfa=model.future_mfa, regional=True)
         if self.cfg.concrete_production["do_visualize"]:
             self.visualize_concrete_production(mfa=model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
@@ -41,48 +42,47 @@ class CementDataExporter(CommonDataExporter):
             self.visualize_extrapolation(model=model)
         self.stop_and_show()
 
-    def visualize_production(self, production: fd.Flow, name: str):
+    def visualize_production(self, mfa: fd.MFASystem, production: fd.Flow, name: str, regional: bool = False):
+        
+        x_array = None
+        #intra_line_dim = "Time"
+        #line_label = f"{name} Production"
+        x_label = "Year"
+        y_label = "Production [t]"
+        linecolor_dim = None
+        
 
-        if "r" in production.dims.letters:
-            # regional production
-            ap_production = self.plotter_class(
-                array=production,
-                intra_line_dim="Time",
-                subplot_dim="Region",
-                line_label=f"{name} Production",
-                display_names=self._display_names,
-                xlabel="Year",
-                ylabel="Production [t]",
-                title=f"Regional {name} Production",
-            )
-
-            self.plot_and_save_figure(ap_production, f"{name}_production_regional.png")
-
-            # global production
-            global_production = production.sum_over("r")
-
+        if regional:
+            subplot_dim = "Region"
+            title = f"Regional {name} Production"
+            regional_tag = "_regional"
         else:
-            global_production = production
-
-        ap_global_production = self.plotter_class(
-            array=global_production,
-            intra_line_dim="Time",
-            line_label=f"{name} Production",
-            display_names=self._display_names,
-            xlabel="Year",
-            ylabel="Production [t]",
-            title=f"Global {name} Production",
+            subplot_dim = None
+            regional_tag = ""
+            title = f"Global {name} Production"
+            production = production.sum_over("r")
+        
+        fig, ap_production = self.plot_history_and_future(
+            mfa=mfa,
+            data_to_plot=production,
+            subplot_dim=subplot_dim,
+            x_array=x_array,
+            linecolor_dim=linecolor_dim,
+            x_label=x_label,
+            y_label=y_label,
+            title=title,
+            line_label="Production",
         )
 
-        self.plot_and_save_figure(ap_global_production, f"{name}_production_global.png")
+        self.plot_and_save_figure(ap_production, f"{name}_production{regional_tag}.png", do_plot=False)
 
     def visualize_clinker_production(self, mfa: fd.MFASystem):
         production = mfa.flows["clinker_production => cement_grinding"]
         self.visualize_production(production, "Clinker")
 
-    def visualize_cement_production(self, mfa: fd.MFASystem):
+    def visualize_cement_production(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["cement_grinding => concrete_production"]
-        self.visualize_production(production, "Cement")
+        self.visualize_production(mfa=mfa, production=production, name="Cement", regional=regional)
 
     def visualize_concrete_production(self, mfa: fd.MFASystem):
         production = mfa.flows["concrete_production => use"].sum_over("s")
