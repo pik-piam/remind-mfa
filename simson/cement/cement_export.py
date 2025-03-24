@@ -42,15 +42,16 @@ class CementDataExporter(CommonDataExporter):
             self.visualize_extrapolation(model=model)
         self.stop_and_show()
 
-    def visualize_production(self, mfa: fd.MFASystem, production: fd.Flow, name: str, regional: bool = False):
-        
+    def visualize_production(
+        self, mfa: fd.MFASystem, production: fd.Flow, name: str, regional: bool = False
+    ):
+
         x_array = None
-        #intra_line_dim = "Time"
-        #line_label = f"{name} Production"
+        # intra_line_dim = "Time"
+        # line_label = f"{name} Production"
         x_label = "Year"
         y_label = "Production [t]"
         linecolor_dim = None
-        
 
         if regional:
             subplot_dim = "Region"
@@ -61,7 +62,7 @@ class CementDataExporter(CommonDataExporter):
             regional_tag = ""
             title = f"Global {name} Production"
             production = production.sum_over("r")
-        
+
         fig, ap_production = self.plot_history_and_future(
             mfa=mfa,
             data_to_plot=production,
@@ -74,7 +75,9 @@ class CementDataExporter(CommonDataExporter):
             line_label="Production",
         )
 
-        self.plot_and_save_figure(ap_production, f"{name}_production{regional_tag}.png", do_plot=False)
+        self.plot_and_save_figure(
+            ap_production, f"{name}_production{regional_tag}.png", do_plot=False
+        )
 
     def visualize_clinker_production(self, mfa: fd.MFASystem):
         production = mfa.flows["clinker_production => cement_grinding"]

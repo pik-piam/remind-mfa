@@ -75,7 +75,7 @@ class CommonDataExporter(SimsonBaseModel):
             return fde.PyplotArrayPlotter
         else:
             raise ValueError(f"Unknown plotting engine: {self.cfg.plotting_engine}")
-        
+
     def visualize_use_stock(self, mfa: fd.MFASystem, subplot_dim: str = None):
         """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated."""
         per_capita = self.cfg.use_stock["per_capita"]
@@ -99,7 +99,15 @@ class CommonDataExporter(SimsonBaseModel):
 
         if subplot_dim is None:
             # sum over all dimensions except time and linecolor_dim
-            other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in ["t", "r",])
+            other_dimletters = tuple(
+                letter
+                for letter in stock.dims.letters
+                if letter
+                not in [
+                    "t",
+                    "r",
+                ]
+            )
             for dimletter in other_dimletters:
                 stock = stock.sum_over(dimletter)
 
@@ -143,18 +151,20 @@ class CommonDataExporter(SimsonBaseModel):
         y_label: Optional[str] = None,
         title: Optional[str] = None,
         **kwargs,
-        ):
-        
+    ):
+
         colors = plc.qualitative.Dark24
         if linecolor_dim:
-            dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim)
+            dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
+            )
             colors = (
                 colors[: data_to_plot.dims[dimletter].len]
                 + colors[: data_to_plot.dims[dimletter].len]
                 + ["black" for _ in range(data_to_plot.dims[dimletter].len)]
             )
         else:
-            colors = (colors[:1] + colors[:1] + ["black"])
+            colors = colors[:1] + colors[:1] + ["black"]
 
         # data preparation
         hist = data_to_plot[{"t": mfa.dims["h"]}]
@@ -168,7 +178,7 @@ class CommonDataExporter(SimsonBaseModel):
         else:
             hist_x_array = x_array[{"t": mfa.dims["h"]}]
             scatter_x_array = hist_x_array[{"h": last_year_dim}]
-        
+
         # Future stock (dotted)
         ap = self.plotter_class(
             array=data_to_plot,
@@ -213,5 +223,5 @@ class CommonDataExporter(SimsonBaseModel):
             **kwargs,
         )
         fig = ap_scatter.plot()
-        
+
         return fig, ap_scatter
