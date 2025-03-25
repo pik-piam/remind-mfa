@@ -84,7 +84,9 @@ class CementModel:
 
     def get_long_term_stock(self):
         # extrapolate in use stock to future
-        sat_bound = Bound(var_name="saturation_level", lower_bound=np.full(12, 100), upper_bound=np.full(12, 300))
+        sat_bound = Bound(
+            var_name="saturation_level", lower_bound=np.full(12, 100), upper_bound=np.full(12, 300)
+        )
         self.stock_handler = StockExtrapolation(
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
