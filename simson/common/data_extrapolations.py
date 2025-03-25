@@ -6,7 +6,7 @@ from pydantic import model_validator
 from scipy.optimize import least_squares
 
 from simson.common.base_model import SimsonBaseModel
-from simson.common.data_transformations import Bound
+from simson.common.data_transformations import Bound, create_bounds_arr
 
 
 class Extrapolation(SimsonBaseModel):
@@ -24,6 +24,7 @@ class Extrapolation(SimsonBaseModel):
 
     @model_validator(mode="after")
     def validate_data(self):
+        print("Bounds: ", self.bounds)
         assert (
             self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
         ), "data_to_extrapolate must be smaller then target_range"
@@ -83,7 +84,7 @@ class Extrapolation(SimsonBaseModel):
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
         bound_shape = tuple(self.target_range.shape[i] for i in self.independent_dims)
-        bounds_array = Bound.create_bounds_arr(self.bounds, self.prm_names, bound_shape)
+        bounds_array = create_bounds_arr(self.bounds, self.prm_names, bound_shape)
 
         # loop over dimensions that are regressed independently
         for slice_indep in np.ndindex(target_shape):

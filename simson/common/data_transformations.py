@@ -1,6 +1,9 @@
 import numpy as np
-from scipy.optimize import Bounds
 from typing import Union
+from collections.abc import Iterable
+from pydantic import field_validator, model_validator
+
+from simson.common.base_model import SimsonBaseModel
 
 
 def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) -> np.ndarray:
@@ -10,28 +13,49 @@ def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) ->
     b_broadcast = np.broadcast_to(b_reshaped, to_shape_of.shape)
     return b_broadcast
 
+class Bound(SimsonBaseModel):
+    var_name: str
+    lower_bound: Union[float, np.ndarray]
+    upper_bound: Union[float, np.ndarray]
 
-class Bound:
-    """Class representing bounds for a single parameter."""
+    class Config:
+        arbitrary_types_allowed = True
 
-    def __init__(
-        self,
-        var_name: str,
-        lower_bound: Union[float, np.ndarray],
-        upper_bound: Union[float, np.ndarray],
-    ):
-        self.var_name = var_name
-        self.lower_bound = np.array(lower_bound)
-        self.upper_bound = np.array(upper_bound)
+    @field_validator("lower_bound", "upper_bound", mode="before")
+    def convert_to_array(cls, value):
+        return np.array(value)
+    
+    @model_validator(mode="after")
+    def valdiate_bounds(self):
+        if self.lower_bound.shape != self.upper_bound.shape:
+            raise ValueError("Lower and upper bounds must have the same shape")
+        if np.any(self.lower_bound > self.upper_bound):
+            raise ValueError("Lower bounds must be smaller than upper bounds")
+    
+        # Check if lower bound equals upper bound
+        equal_mask = self.lower_bound == self.upper_bound
+        if np.any(equal_mask):
+            adjustment = 10e-10
+            zero_mask = (self.lower_bound == 0) & (self.upper_bound == 0)
+            
+            # Handle case where both bounds are 0
+            self.lower_bound[zero_mask] = -adjustment
+            self.upper_bound[zero_mask] = adjustment
+            
+            # Handle general case where bounds are equal
+            non_zero_mask = equal_mask & np.logical_not(zero_mask)
+            self.lower_bound[non_zero_mask] -= adjustment * np.abs(self.lower_bound[non_zero_mask])
+            self.upper_bound[non_zero_mask] += adjustment * np.abs(self.upper_bound[non_zero_mask])
+        
+        return self
 
-    @staticmethod
-    def create_bounds_arr(
-        bounds_list: list["Bound"], all_prm_names: list[str], bound_shape: tuple
+
+def create_bounds_arr(
+        bounds_list: list[Bound], all_prm_names: list[str], bound_shape: tuple
     ) -> np.ndarray:
         """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
 
-        # Check bound shapes
-        if bounds_list:
+        if isinstance(bounds_list, Iterable) and len(bounds_list) >= 1:
             if not bound_shape == bounds_list[0].lower_bound.shape:
                 raise ValueError("Bounds shape must match target shape")
 
@@ -46,23 +70,16 @@ class Bound:
         if invalid_params:
             raise ValueError(f"Unknown parameters in bounds: {invalid_params}")
 
-        bounds = np.empty(bound_shape, dtype=object)
+        #bounds = np.empty(bound_shape, dtype=object)
         param_positions = {name: i for i, name in enumerate(all_prm_names)}
-        for index in np.ndindex(bound_shape):
-            # Initialize default bounds
-            lower_bounds = [-np.inf] * len(all_prm_names)
-            upper_bounds = [np.inf] * len(all_prm_names)
 
-            # Update bounds for parameters that have them
-            for bound in bounds_list:
-                pos = param_positions[bound.var_name]
-                lower_bounds[pos] = bound.lower_bound[index]
-                upper_bounds[pos] = bound.upper_bound[index]
-                if lower_bounds[pos] == upper_bounds[pos]:
-                    # avoid error in least_squares
-                    lower_bounds[pos] = lower_bounds[pos] * 0.999999
-                    upper_bounds[pos] = upper_bounds[pos] * 1.000001
+        lower_bounds = np.full(bound_shape + (len(all_prm_names),), -np.inf)
+        upper_bounds = np.full(bound_shape + (len(all_prm_names),), np.inf)
 
-            bounds[index] = (np.array(lower_bounds), np.array(upper_bounds))
+        for bound in bounds_list:
+            pos = param_positions[bound.var_name]
+            lower_bounds[..., pos] = bound.lower_bound
+            upper_bounds[..., pos] = bound.upper_bound
 
+        bounds = np.stack((lower_bounds, upper_bounds), axis=-2)
         return bounds
