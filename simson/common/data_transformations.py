@@ -22,30 +22,30 @@ class Bound(SimsonBaseModel):
     upper_bound: fd.FlodymArray
 
     # TODO: Add test that bound dimensions and dims match
-    
+
     @model_validator(mode="before")
     @classmethod
     def convert_to_fd_array(cls, data: dict):
-        required_fields = ['var_name', 'lower_bound', 'upper_bound']
+        required_fields = ["var_name", "lower_bound", "upper_bound"]
         for field in required_fields:
             if field not in data:
                 raise ValueError(f"Missing required field: {field}")
 
-        var_name = data.get('var_name')
-        dims = data.get('dims')
-        lower = np.array(data.get('lower_bound'), dtype=float)
-        upper = np.array(data.get('upper_bound'), dtype=float)
+        var_name = data.get("var_name")
+        dims = data.get("dims")
+        lower = np.array(data.get("lower_bound"), dtype=float)
+        upper = np.array(data.get("upper_bound"), dtype=float)
 
         if dims is None:
-            dims = cls.model_fields.get('dims').default
-        
+            dims = cls.model_fields.get("dims").default
+
         return {
-            'var_name': var_name,
-            'lower_bound': fd.FlodymArray(dims=dims, values=lower, name="lower_bound"),
-            'upper_bound': fd.FlodymArray(dims=dims, values=upper, name="upper_bound"),
-            'dims': dims
+            "var_name": var_name,
+            "lower_bound": fd.FlodymArray(dims=dims, values=lower, name="lower_bound"),
+            "upper_bound": fd.FlodymArray(dims=dims, values=upper, name="upper_bound"),
+            "dims": dims,
         }
-    
+
     @model_validator(mode="after")
     def validate_bounds(self):
         lb = self.lower_bound.values
@@ -79,7 +79,7 @@ class Bound(SimsonBaseModel):
         self.dims = target_dims
         return self
 
-    
+
 class BoundList(SimsonBaseModel):
     bound_list: list[Bound] = []
     target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
@@ -96,7 +96,7 @@ class BoundList(SimsonBaseModel):
 
         if self.bound_list == []:
             return None
-        
+
         invalid_params = set(b.var_name for b in self.bound_list) - set(all_prm_names)
         if invalid_params:
             raise ValueError(f"Unknown parameters in bounds: {invalid_params}")

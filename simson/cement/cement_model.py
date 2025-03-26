@@ -86,7 +86,12 @@ class CementModel:
         # extrapolate in use stock to future
         indep_fit_dim_letters = ("r",)
         sat_bound = Bound(var_name="saturation_level", lower_bound=200, upper_bound=200)
-        bound_list = BoundList(bound_list=[sat_bound,], target_dims=self.dims[indep_fit_dim_letters])
+        bound_list = BoundList(
+            bound_list=[
+                sat_bound,
+            ],
+            target_dims=self.dims[indep_fit_dim_letters],
+        )
         self.stock_handler = StockExtrapolation(
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
@@ -94,7 +99,7 @@ class CementModel:
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             target_dim_letters=("t", "r"),
             indep_fit_dim_letters=indep_fit_dim_letters,
-            bound_list=bound_list
+            bound_list=bound_list,
         )
 
         total_in_use_stock = self.stock_handler.stocks

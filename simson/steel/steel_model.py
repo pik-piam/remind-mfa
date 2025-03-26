@@ -133,14 +133,23 @@ class SteelModel:
         return demand
 
     def get_long_term_stock(self):
-        indep_fit_dim_letters = ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
+        indep_fit_dim_letters = (
+            ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
+        )
         historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
         sat_level = self.get_saturation_level(historic_stocks)
-        sat_bound = Bound(var_name="saturation_level",
-                          lower_bound=sat_level,
-                          upper_bound=sat_level,
-                          dims=self.dims[indep_fit_dim_letters])
-        bound_list = BoundList(bound_list=[sat_bound,], target_dims=self.dims[indep_fit_dim_letters])
+        sat_bound = Bound(
+            var_name="saturation_level",
+            lower_bound=sat_level,
+            upper_bound=sat_level,
+            dims=self.dims[indep_fit_dim_letters],
+        )
+        bound_list = BoundList(
+            bound_list=[
+                sat_bound,
+            ],
+            target_dims=self.dims[indep_fit_dim_letters],
+        )
         # extrapolate in use stock to future
         stock_handler = StockExtrapolation(
             historic_stocks,
