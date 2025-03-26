@@ -1,7 +1,7 @@
+import flodym as fd
 import numpy as np
-from typing import Union
-from collections.abc import Iterable
-from pydantic import field_validator, model_validator
+from typing import Optional
+from pydantic import model_validator
 
 from simson.common.base_model import SimsonBaseModel
 
@@ -15,72 +15,102 @@ def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) ->
 
 
 class Bound(SimsonBaseModel):
-    var_name: str
-    lower_bound: Union[float, np.ndarray]
-    upper_bound: Union[float, np.ndarray]
+    var_name: Optional[str]
+    dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
+    """Dimensions of the bounds. Not required if bounds are scalar."""
+    lower_bound: fd.FlodymArray
+    upper_bound: fd.FlodymArray
 
-    class Config:
-        arbitrary_types_allowed = True
+    # TODO: Add test that bound dimensions and dims match
+    
+    @model_validator(mode="before")
+    @classmethod
+    def convert_to_fd_array(cls, data: dict):
+        required_fields = ['var_name', 'lower_bound', 'upper_bound']
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field: {field}")
 
-    @field_validator("lower_bound", "upper_bound", mode="before")
-    def convert_to_array(cls, value):
-        return np.array(value)
+        var_name = data.get('var_name')
+        dims = data.get('dims')
+        lower = np.array(data.get('lower_bound'), dtype=float)
+        upper = np.array(data.get('upper_bound'), dtype=float)
 
+        if dims is None:
+            dims = cls.model_fields.get('dims').default
+        
+        return {
+            'var_name': var_name,
+            'lower_bound': fd.FlodymArray(dims=dims, values=lower, name="lower_bound"),
+            'upper_bound': fd.FlodymArray(dims=dims, values=upper, name="upper_bound"),
+            'dims': dims
+        }
+    
     @model_validator(mode="after")
-    def valdiate_bounds(self):
-        if self.lower_bound.shape != self.upper_bound.shape:
+    def validate_bounds(self):
+        lb = self.lower_bound.values
+        ub = self.upper_bound.values
+
+        if lb.shape != ub.shape:
             raise ValueError("Lower and upper bounds must have the same shape")
-        if np.any(self.lower_bound > self.upper_bound):
+        if np.any(lb > ub):
             raise ValueError("Lower bounds must be smaller than upper bounds")
 
         # Check if lower bound equals upper bound
-        equal_mask = self.lower_bound == self.upper_bound
+        equal_mask = lb == ub
         if np.any(equal_mask):
-            adjustment = 10e-10
-            zero_mask = (self.lower_bound == 0) & (self.upper_bound == 0)
+            adjustment = 1e-10
+            zero_mask = (lb == 0) & (ub == 0)
 
             # Handle case where both bounds are 0
-            self.lower_bound[zero_mask] = -adjustment
-            self.upper_bound[zero_mask] = adjustment
+            lb[zero_mask] = -adjustment
+            ub[zero_mask] = adjustment
 
             # Handle general case where bounds are equal
             non_zero_mask = equal_mask & np.logical_not(zero_mask)
-            self.lower_bound[non_zero_mask] -= adjustment * np.abs(self.lower_bound[non_zero_mask])
-            self.upper_bound[non_zero_mask] += adjustment * np.abs(self.upper_bound[non_zero_mask])
+            lb[non_zero_mask] -= adjustment * np.abs(lb[non_zero_mask])
+            ub[non_zero_mask] += adjustment * np.abs(ub[non_zero_mask])
 
         return self
 
+    def extend_dims(self, target_dims: fd.DimensionSet):
+        self.lower_bound = self.lower_bound.cast_to(target_dims)
+        self.upper_bound = self.upper_bound.cast_to(target_dims)
+        self.dims = target_dims
+        return self
 
-def create_bounds_arr(
-    bounds_list: list[Bound], all_prm_names: list[str], bound_shape: tuple
-) -> np.ndarray:
-    """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
+    
+class BoundList(SimsonBaseModel):
+    bound_list: list[Bound] = []
+    target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
+    """Dimension of the extrapolation to which the bounds are extended."""
 
-    if isinstance(bounds_list, Iterable) and len(bounds_list) >= 1:
-        if not bound_shape == bounds_list[0].lower_bound.shape:
-            raise ValueError("Bounds shape must match target shape")
+    @model_validator(mode="after")
+    def cast_bounds(self):
+        for idx, bound in enumerate(self.bound_list):
+            self.bound_list[idx] = bound.extend_dims(self.target_dims)
+        return self
 
-    if any(
-        b.lower_bound.shape != bound_shape or b.upper_bound.shape != bound_shape
-        for b in bounds_list
-    ):
-        raise ValueError("All bounds must have the same shape")
+    def create_bounds_arr(self, all_prm_names: list[str]) -> np.ndarray:
+        """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
 
-    # Check for invalid parameter names
-    invalid_params = set(b.var_name for b in bounds_list) - set(all_prm_names)
-    if invalid_params:
-        raise ValueError(f"Unknown parameters in bounds: {invalid_params}")
+        if self.bound_list == []:
+            return None
+        
+        invalid_params = set(b.var_name for b in self.bound_list) - set(all_prm_names)
+        if invalid_params:
+            raise ValueError(f"Unknown parameters in bounds: {invalid_params}")
 
-    # bounds = np.empty(bound_shape, dtype=object)
-    param_positions = {name: i for i, name in enumerate(all_prm_names)}
+        bound_shape = self.bound_list[0].upper_bound.values.shape
+        param_positions = {name: i for i, name in enumerate(all_prm_names)}
 
-    lower_bounds = np.full(bound_shape + (len(all_prm_names),), -np.inf)
-    upper_bounds = np.full(bound_shape + (len(all_prm_names),), np.inf)
+        lower_bounds = np.full(bound_shape + (len(all_prm_names),), -np.inf)
+        upper_bounds = np.full(bound_shape + (len(all_prm_names),), np.inf)
 
-    for bound in bounds_list:
-        pos = param_positions[bound.var_name]
-        lower_bounds[..., pos] = bound.lower_bound
-        upper_bounds[..., pos] = bound.upper_bound
+        for bound in self.bound_list:
+            pos = param_positions[bound.var_name]
+            lower_bounds[..., pos] = bound.lower_bound.values
+            upper_bounds[..., pos] = bound.upper_bound.values
 
-    bounds = np.stack((lower_bounds, upper_bounds), axis=-2)
-    return bounds
+        bounds = np.stack((lower_bounds, upper_bounds), axis=-2)
+        return bounds

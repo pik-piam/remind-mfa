@@ -1,12 +1,12 @@
 from abc import abstractmethod
-from typing import ClassVar, Optional, Tuple
+from typing import Optional, Tuple
 import numpy as np
 import sys
 from pydantic import model_validator
 from scipy.optimize import least_squares
 
 from simson.common.base_model import SimsonBaseModel
-from simson.common.data_transformations import Bound, create_bounds_arr
+from simson.common.data_transformations import BoundList
 
 
 class Extrapolation(SimsonBaseModel):
@@ -16,7 +16,7 @@ class Extrapolation(SimsonBaseModel):
     target_range: np.ndarray
     """predictor variable(s) covering range of data_to_extrapolate and beyond"""
     weights: Optional[np.ndarray] = None
-    bounds: list[Bound] = []
+    bound_list: BoundList = BoundList()
     independent_dims: Tuple[int, ...] = ()
     """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly."""
     fit_prms: np.ndarray = None
@@ -24,7 +24,6 @@ class Extrapolation(SimsonBaseModel):
 
     @model_validator(mode="after")
     def validate_data(self):
-        print("Bounds: ", self.bounds)
         assert (
             self.data_to_extrapolate.shape[0] < self.target_range.shape[0]
         ), "data_to_extrapolate must be smaller then target_range"
@@ -83,8 +82,7 @@ class Extrapolation(SimsonBaseModel):
         target_shape = tuple([self.target_range.shape[i] for i in sorted(self.independent_dims)])
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
-        bound_shape = tuple(self.target_range.shape[i] for i in self.independent_dims)
-        bounds_array = create_bounds_arr(self.bounds, self.prm_names, bound_shape)
+        bounds_array = self.bound_list.create_bounds_arr(self.prm_names)
 
         # loop over dimensions that are regressed independently
         for slice_indep in np.ndindex(target_shape):
@@ -98,7 +96,7 @@ class Extrapolation(SimsonBaseModel):
                 self.target_range[slice_all],
                 self.data_to_extrapolate[slice_all],
                 self.weights[slice_all],
-                bounds_array[slice_indep],
+                bounds_array[slice_indep] if bounds_array is not None else (-np.inf, np.inf),
             )
 
         return regression

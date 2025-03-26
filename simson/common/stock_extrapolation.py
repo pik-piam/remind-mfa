@@ -3,7 +3,7 @@ import numpy as np
 from typing import Tuple, Optional, Union, Type
 
 from simson.common.data_extrapolations import Extrapolation
-from simson.common.data_transformations import broadcast_trailing_dimensions, Bound
+from simson.common.data_transformations import broadcast_trailing_dimensions, BoundList
 
 
 class StockExtrapolation:
@@ -16,7 +16,7 @@ class StockExtrapolation:
         stock_extrapolation_class: Type[Extrapolation],
         target_dim_letters: Union[Tuple[str, ...], str] = "all",
         indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
-        bounds: list[Bound] = [],
+        bound_list: BoundList = BoundList(),
         do_gdppc_accumulation: bool = True,
         stock_correction: str = "gaussian_first_order",
     ):
@@ -40,7 +40,7 @@ class StockExtrapolation:
         self.stock_extrapolation_class = stock_extrapolation_class
         self.target_dim_letters = target_dim_letters
         self.set_dims(indep_fit_dim_letters)
-        self.bounds = bounds
+        self.bound_list = bound_list
         self.do_gdppc_accumulation = do_gdppc_accumulation
         self.stock_correction = stock_correction
         self.extrapolate()
@@ -150,7 +150,7 @@ class StockExtrapolation:
             data_to_extrapolate=historic_in,
             target_range=gdppc,
             independent_dims=self.fit_dim_idx,
-            bounds=self.bounds,
+            bound_list=self.bound_list,
         )
         pure_prediction = extrapolation.regress()
 
