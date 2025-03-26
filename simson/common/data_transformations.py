@@ -88,7 +88,10 @@ class BoundList(SimsonBaseModel):
     @model_validator(mode="after")
     def cast_bounds(self):
         for idx, bound in enumerate(self.bound_list):
-            self.bound_list[idx] = bound.extend_dims(self.target_dims)
+            if set(bound.dims.letters).issubset(self.target_dims.letters):
+                self.bound_list[idx] = bound.extend_dims(self.target_dims)
+            else:
+                raise ValueError(f"Bound {bound.var_name} has dimensions not in target_dims.")
         return self
 
     def create_bounds_arr(self, all_prm_names: list[str]) -> np.ndarray:
