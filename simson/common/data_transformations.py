@@ -21,8 +21,6 @@ class Bound(SimsonBaseModel):
     lower_bound: fd.FlodymArray
     upper_bound: fd.FlodymArray
 
-    # TODO: Add test that bound dimensions and dims match
-
     @model_validator(mode="before")
     @classmethod
     def convert_to_fd_array(cls, data: dict):
@@ -55,6 +53,8 @@ class Bound(SimsonBaseModel):
             raise ValueError("Lower and upper bounds must have the same shape")
         if np.any(lb > ub):
             raise ValueError("Lower bounds must be smaller than upper bounds")
+        if self.dims.shape() != lb.shape:
+            raise ValueError("Shape of given bounds and dims must match.")
 
         # Check if lower bound equals upper bound
         equal_mask = lb == ub
