@@ -3,17 +3,17 @@ import flodym as fd
 
 class StockDrivenCementMFASystem(fd.MFASystem):
 
-    def compute(self, stock: fd.FlodymArray):
+    def compute(self, stock_projection: fd.FlodymArray):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_in_use_stock(stock)
+        self.compute_in_use_stock(stock_projection)
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
 
-    def compute_in_use_stock(self, stock: fd.FlodymArray):
-        self.stocks["in_use"].stock = stock
+    def compute_in_use_stock(self, stock_projection: fd.FlodymArray):
+        self.stocks["in_use"].stock = stock_projection
         self.stocks["in_use"].lifetime_model.set_prms(
             mean=self.parameters["use_lifetime_mean"], std=self.parameters["use_lifetime_std"]
         )
