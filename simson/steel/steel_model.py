@@ -73,8 +73,8 @@ class SteelModel:
         self.historic_mfa.compute()
 
         self.future_mfa = self.make_future_mfa()
-        future_demand = self.get_future_demand()
-        self.future_mfa.compute(future_demand, self.historic_mfa.trade_set)
+        future_stock = self.get_long_term_stock()
+        self.future_mfa.compute(future_stock, self.historic_mfa.trade_set)
 
         self.data_writer.export_mfa(mfa=self.future_mfa)
         self.data_writer.visualize_results(model=self)
@@ -127,12 +127,7 @@ class SteelModel:
             trade_set=trade_set,
         )
 
-    def get_future_demand(self):
-        long_term_stock = self.get_long_term_stock()
-        demand = self.get_demand_from_stock(long_term_stock)
-        return demand
-
-    def get_long_term_stock(self):
+    def get_long_term_stock(self) -> fd.FlodymArray:
         indep_fit_dim_letters = (
             ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
         )
@@ -224,19 +219,6 @@ class SteelModel:
             type="converge_quadratic",
         )
         return sector_splits
-
-    def get_demand_from_stock(self, long_term_stock):
-        # create dynamic stock model for in use stock
-        in_use_dsm_long_term = fd.StockDrivenDSM(
-            dims=self.dims["t", "r", "g"],
-            lifetime_model=self.cfg.customization.lifetime_model,
-        )
-        in_use_dsm_long_term.lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
-        )
-        in_use_dsm_long_term.stock[...] = long_term_stock
-        in_use_dsm_long_term.compute()
-        return in_use_dsm_long_term.inflow
 
     def make_future_mfa(self) -> StockDrivenSteelMFASystem:
         flows = fd.make_empty_flows(
