@@ -81,7 +81,7 @@ class Bound(SimsonBaseModel):
 
 
 class BoundList(SimsonBaseModel):
-    bound_list: list[Bound] = []
+    bound_list: list[Bound] = Field(default_factory=list)
     target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
     """Dimension of the extrapolation to which the bounds are extended."""
 
