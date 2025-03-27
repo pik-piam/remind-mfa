@@ -140,7 +140,7 @@ def get_definition(cfg: GeneralCfg):
             name="in_use",
             process="use",
             dim_letters=("t", "r", "s"),
-            subclass=fd.InflowDrivenDSM,
+            subclass=fd.StockDrivenDSM,
             lifetime_model_class=fd.NormalLifetime,
         ),
         fd.StockDefinition(
