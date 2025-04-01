@@ -49,12 +49,8 @@ class Bound(SimsonBaseModel):
         lb = self.lower_bound.values
         ub = self.upper_bound.values
 
-        if lb.shape != ub.shape:
-            raise ValueError("Lower and upper bounds must have the same shape")
         if np.any(lb > ub):
             raise ValueError("Lower bounds must be smaller than upper bounds")
-        if self.dims.shape() != lb.shape:
-            raise ValueError("Shape of given bounds and dims must match.")
 
         # Check if lower bound equals upper bound
         equal_mask = lb == ub
