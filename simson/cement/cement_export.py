@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 
 
 class CementDataExporter(CommonDataExporter):
-    # They have to be defined here but are eventually overwritten by yml definitions
     cfg: CementVisualizationCfg
 
     _display_names: dict = {
@@ -100,7 +99,7 @@ class CementDataExporter(CommonDataExporter):
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
         subplot_dim = "Stock Type" if subplots_by_stock_type else None
-        super().visualize_use_stock(mfa, subplot_dim=subplot_dim)
+        super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
 
     def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
         population = mfa.parameters["population"]

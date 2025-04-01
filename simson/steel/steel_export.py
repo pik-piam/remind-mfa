@@ -218,7 +218,7 @@ class SteelDataExporter(CommonDataExporter):
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
-        super().visualize_use_stock(mfa, subplot_dim=subplot_dim)
+        super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
 
     def visualize_scrap_demand_supply(self, mfa: fd.MFASystem, regional=True):
 
