@@ -76,7 +76,9 @@ class CommonDataExporter(SimsonBaseModel):
         else:
             raise ValueError(f"Unknown plotting engine: {self.cfg.plotting_engine}")
 
-    def visualize_use_stock(self, mfa: fd.MFASystem, stock: fd.FlodymArray, subplot_dim: str = None):
+    def visualize_use_stock(
+        self, mfa: fd.MFASystem, stock: fd.FlodymArray, subplot_dim: str = None
+    ):
         """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated."""
         per_capita = self.cfg.use_stock["per_capita"]
 
