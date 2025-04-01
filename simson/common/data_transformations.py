@@ -1,7 +1,7 @@
 import flodym as fd
 import numpy as np
 from typing import Optional
-from pydantic import model_validator
+from pydantic import model_validator, Field
 
 from simson.common.base_model import SimsonBaseModel
 
@@ -49,12 +49,8 @@ class Bound(SimsonBaseModel):
         lb = self.lower_bound.values
         ub = self.upper_bound.values
 
-        if lb.shape != ub.shape:
-            raise ValueError("Lower and upper bounds must have the same shape")
         if np.any(lb > ub):
             raise ValueError("Lower bounds must be smaller than upper bounds")
-        if self.dims.shape() != lb.shape:
-            raise ValueError("Shape of given bounds and dims must match.")
 
         # Check if lower bound equals upper bound
         equal_mask = lb == ub
@@ -81,7 +77,7 @@ class Bound(SimsonBaseModel):
 
 
 class BoundList(SimsonBaseModel):
-    bound_list: list[Bound] = []
+    bound_list: list[Bound] = Field(default_factory=list)
     target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
     """Dimension of the extrapolation to which the bounds are extended."""
 
@@ -94,7 +90,7 @@ class BoundList(SimsonBaseModel):
                 raise ValueError(f"Bound {bound.var_name} has dimensions not in target_dims.")
         return self
 
-    def create_bounds_arr(self, all_prm_names: list[str]) -> np.ndarray:
+    def to_np_array(self, all_prm_names: list[str]) -> np.ndarray:
         """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
 
         if self.bound_list == []:
