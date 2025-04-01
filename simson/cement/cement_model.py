@@ -1,8 +1,7 @@
-import numpy as np
 import flodym as fd
 
 from simson.common.common_cfg import GeneralCfg
-from simson.common.data_transformations import Bound
+from simson.common.data_transformations import Bound, BoundList
 from simson.cement.cement_definition import get_definition
 from simson.cement.cement_mfa_system_historic import (
     InflowDrivenHistoricCementMFASystem,
@@ -84,17 +83,22 @@ class CementModel:
 
     def get_long_term_stock(self):
         # extrapolate in use stock to future
-        bounds = Bound("saturation_level", 100, 300)
+        indep_fit_dim_letters = ("r",)
+        sat_bound = Bound(var_name="saturation_level", lower_bound=100, upper_bound=300)
+        bound_list = BoundList(
+            bound_list=[
+                sat_bound,
+            ],
+            target_dims=self.dims[indep_fit_dim_letters],
+        )
         self.stock_handler = StockExtrapolation(
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             target_dim_letters=("t", "r"),
-            indep_fit_dim_letters=(),
-            bounds=[
-                bounds,
-            ],
+            indep_fit_dim_letters=indep_fit_dim_letters,
+            bound_list=bound_list,
         )
 
         total_in_use_stock = self.stock_handler.stocks
