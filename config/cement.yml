@@ -14,7 +14,6 @@ visualization:
   use_stock:
     do_visualize: True
     over_gdp: True
-    over_time: False
     per_capita: True
   eol_stock:
     do_visualize: True
