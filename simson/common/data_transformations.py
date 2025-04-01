@@ -1,7 +1,7 @@
 import flodym as fd
 import numpy as np
 from typing import Optional
-from pydantic import model_validator
+from pydantic import model_validator, Field
 
 from simson.common.base_model import SimsonBaseModel
 
@@ -94,7 +94,7 @@ class BoundList(SimsonBaseModel):
                 raise ValueError(f"Bound {bound.var_name} has dimensions not in target_dims.")
         return self
 
-    def create_bounds_arr(self, all_prm_names: list[str]) -> np.ndarray:
+    def to_np_array(self, all_prm_names: list[str]) -> np.ndarray:
         """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
 
         if self.bound_list == []:
