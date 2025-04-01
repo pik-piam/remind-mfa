@@ -85,11 +85,11 @@ class StockExtrapolation:
         self.gdppc = self.parameters["gdppc"]
         if self.do_gdppc_accumulation:
             self.gdppc_acc = np.maximum.accumulate(self.gdppc.values, axis=0)
-        self.historic_pop = fd.FlodymArray(dims=self.dims[("h", "r")])
-        self.historic_gdppc = fd.FlodymArray(dims=self.dims[("h", "r")])
-        self.historic_stocks_pc = fd.FlodymArray(dims=self.dims[self.historic_dim_letters])
-        self.stocks_pc = fd.FlodymArray(dims=self.dims[self.target_dim_letters])
-        self.stocks = fd.FlodymArray(dims=self.dims[self.target_dim_letters])
+        self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
+        self.historic_gdppc = fd.Parameter(dims=self.dims[("h", "r")])
+        self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
+        self.stocks_pc = fd.StockArray(dims=self.dims[self.target_dim_letters])
+        self.stocks = fd.StockArray(dims=self.dims[self.target_dim_letters])
 
         self.historic_pop[...] = self.pop[{"t": self.dims["h"]}]
         self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]

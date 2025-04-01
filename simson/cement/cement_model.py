@@ -39,8 +39,8 @@ class CementModel:
 
         # future mfa
         self.future_mfa = self.make_future_mfa()
-        future_demand = self.get_future_demand()
-        self.future_mfa.compute(future_demand)
+        future_stock = self.get_long_term_stock()
+        self.future_mfa.compute(future_stock)
 
         # visualization and export
         self.data_writer.export_mfa(mfa=self.future_mfa)
@@ -76,12 +76,7 @@ class CementModel:
             stocks=stocks,
         )
 
-    def get_future_demand(self):
-        long_term_stock = self.get_long_term_stock()
-        demand = self.get_demand_from_stock(long_term_stock)
-        return demand
-
-    def get_long_term_stock(self):
+    def get_long_term_stock(self) -> fd.FlodymArray:
         # extrapolate in use stock to future
         indep_fit_dim_letters = ("r",)
         sat_bound = Bound(var_name="saturation_level", lower_bound=100, upper_bound=300)
@@ -105,19 +100,6 @@ class CementModel:
 
         total_in_use_stock = total_in_use_stock * self.parameters["use_split"]
         return total_in_use_stock
-
-    def get_demand_from_stock(self, long_term_stock):
-        # create dynamic stock model for in use stock
-        in_use_dsm_long_term = fd.StockDrivenDSM(
-            dims=self.dims["t", "r", "s"],
-            lifetime_model=self.cfg.customization.lifetime_model,
-        )
-        in_use_dsm_long_term.lifetime_model.set_prms(
-            mean=self.parameters["use_lifetime_mean"], std=self.parameters["use_lifetime_std"]
-        )
-        in_use_dsm_long_term.stock[...] = long_term_stock
-        in_use_dsm_long_term.compute()
-        return in_use_dsm_long_term.inflow
 
     def make_future_mfa(self) -> StockDrivenCementMFASystem:
         flows = fd.make_empty_flows(
