@@ -133,7 +133,7 @@ def get_definition(cfg: GeneralCfg):
             process="use",
             dim_letters=("h", "r", "s"),
             subclass=fd.InflowDrivenDSM,
-            lifetime_model_class=fd.NormalLifetime,
+            lifetime_model_class=cfg.customization.lifetime_model,
             time_letter="h",
         ),
         fd.StockDefinition(
@@ -141,7 +141,7 @@ def get_definition(cfg: GeneralCfg):
             process="use",
             dim_letters=("t", "r", "s"),
             subclass=fd.StockDrivenDSM,
-            lifetime_model_class=fd.NormalLifetime,
+            lifetime_model_class=cfg.customization.lifetime_model,
         ),
         fd.StockDefinition(
             name="eol",
