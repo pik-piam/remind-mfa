@@ -146,7 +146,7 @@ class SteelModel:
             target_dims=self.dims[indep_fit_dim_letters],
         )
         # extrapolate in use stock to future
-        stock_handler = StockExtrapolation(
+        self.stock_handler = StockExtrapolation(
             historic_stocks,
             dims=self.dims,
             parameters=self.parameters,
@@ -157,7 +157,7 @@ class SteelModel:
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,
         )
-        total_in_use_stock = stock_handler.stocks
+        total_in_use_stock = self.stock_handler.stocks
 
         if not self.cfg.customization.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
