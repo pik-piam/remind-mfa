@@ -79,11 +79,12 @@ class CommonDataExporter(SimsonBaseModel):
     def visualize_use_stock(
         self, mfa: fd.MFASystem, stock: fd.FlodymArray, subplot_dim: str = None
     ):
-        """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated."""
+        """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated. Multiple subplot dimensions are not supported."""
         per_capita = self.cfg.use_stock["per_capita"]
 
         population = mfa.parameters["population"]
         x_array = None
+        # different lines stand for different regions
         linecolor_dim = "Region"
 
         pc_str = " pC" if per_capita else ""
@@ -97,20 +98,16 @@ class CommonDataExporter(SimsonBaseModel):
             if not per_capita:
                 # get global GDP per capita
                 x_array = x_array * population
-
+        
+        # sum over all dimensions except time, region (linecolor_dim), and subplot_dim
         if subplot_dim is None:
-            # sum over all dimensions except time and linecolor_dim
-            other_dimletters = tuple(
-                letter
-                for letter in stock.dims.letters
-                if letter
-                not in [
-                    "t",
-                    "r",
-                ]
-            )
-            for dimletter in other_dimletters:
-                stock = stock.sum_over(dimletter)
+            dimlist = ["t", "r"]
+        else:
+            subplot_dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim)
+            dimlist = ["t", "r", subplot_dimletter]
+            
+        other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
+        stock = stock.sum_over(other_dimletters)
 
         if per_capita:
             stock = stock / population
