@@ -95,13 +95,14 @@ class CementDataExporter(CommonDataExporter):
         per_capita = self.cfg.eol_stock["per_capita"]
         stock = mfa.stocks["eol"].stock
 
-        self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
+        self.visualize_stock_old(mfa, stock, over_gdp, per_capita, "EOL")
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
         subplot_dim = "Stock Type" if subplots_by_stock_type else None
-        super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
+        per_capita = self.cfg.use_stock["per_capita"]
+        self.visualize_stock(mfa, stock=mfa.stocks["in_use"].stock, per_capita=per_capita, subplot_dim=subplot_dim)
 
-    def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
+    def visualize_stock_old(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
         population = mfa.parameters["population"]
         x_array = None
 

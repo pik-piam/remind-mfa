@@ -76,12 +76,10 @@ class CommonDataExporter(SimsonBaseModel):
         else:
             raise ValueError(f"Unknown plotting engine: {self.cfg.plotting_engine}")
 
-    def visualize_use_stock(
-        self, mfa: fd.MFASystem, stock: fd.FlodymArray, subplot_dim: str = None
+    def visualize_stock(
+        self, mfa: fd.MFASystem, stock: fd.FlodymArray, per_capita: bool, subplot_dim: str = None
     ):
         """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated. Multiple subplot dimensions are not supported."""
-        per_capita = self.cfg.use_stock["per_capita"]
-
         population = mfa.parameters["population"]
         x_array = None
         # different lines stand for different regions
@@ -105,7 +103,7 @@ class CommonDataExporter(SimsonBaseModel):
         else:
             subplot_dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim)
             dimlist = ["t", "r", subplot_dimletter]
-            
+
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
         stock = stock.sum_over(other_dimletters)
 
