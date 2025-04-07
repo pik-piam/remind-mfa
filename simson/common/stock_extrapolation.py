@@ -1,6 +1,6 @@
 import flodym as fd
 import numpy as np
-from typing import Tuple, Optional, Union, Type
+from typing import Tuple, Union, Type
 
 from simson.common.data_extrapolations import Extrapolation
 from simson.common.data_transformations import broadcast_trailing_dimensions, BoundList
@@ -161,6 +161,13 @@ class StockExtrapolation:
             prediction_out[...] = pure_prediction - (
                 pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
             )
+
+        # save extrapolation data for later analysis
+        self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
+        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
+        parameter_names = fd.Dimension(name='Parameter Names', letter='p', items=extrapolation.prm_names)
+        parameter_dims = parameter_dims.expand_by([parameter_names])
+        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation.fit_prms)
 
         prediction_out[:n_historic, ...] = historic_in
 
