@@ -16,17 +16,17 @@ customization:
 # visualization
 visualization:
   scrap_demand_supply:
-    do_visualize: True
+    do_visualize: False
   sector_splits:
-    do_visualize: True
+    do_visualize: False
   stock:
     do_visualize: True
     over_gdp: False
     per_capita: True
   production:
-    do_visualize: True
+    do_visualize: False
   sankey:
-    do_visualize: True
+    do_visualize: False
     slice_dict:
       t: 2050
     split_flows_by: 'Good'
@@ -35,7 +35,7 @@ visualization:
     exclude_processes:
       - "sysenv"
     exclude_flows: [ ]
-  do_show_figs: False
+  do_show_figs: True
   do_save_figs: True
   plotting_engine: 'plotly'
 

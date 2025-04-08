@@ -150,6 +150,7 @@ def get_definition(cfg: CommonCfg):
         fd.ParameterDefinition(name="scrap_in_bof_rate", dim_letters=()),
         fd.ParameterDefinition(name="forming_losses", dim_letters=()),
         fd.ParameterDefinition(name="production_yield", dim_letters=()),
+        fd.ParameterDefinition(name="scrap_consumption", dim_letters=("h", "r")),
     ]
 
     trades = [

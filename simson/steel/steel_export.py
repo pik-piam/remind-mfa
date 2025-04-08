@@ -182,7 +182,7 @@ class SteelDataExporter(CustomDataExporter):
         flw = mfa.flows
         prm = mfa.parameters
 
-        total_production = (
+        production_inflow = (
                 flw["forming => ip_market"] / prm["forming_yield"] / prm["production_yield"]
         )
         dri = prm["dri_production"] + prm["dri_imports"] - prm["dri_exports"]
@@ -193,15 +193,16 @@ class SteelDataExporter(CustomDataExporter):
                 - prm["pigiron_to_cast"]
         )
 
-        total_production = total_production[{"t": mfa.dims["h"]}]
-        scrap_demand = total_production - pigiron - dri
-        # scrap is also used in pig iron and dri production
-        scrap_demand += prm["pigiron_production"] * 0.15 + prm["dri_production"] * 0.06
+        production_inflow = production_inflow[{"t": mfa.dims["h"]}]
+        production_inflow = production_inflow.sum_to(("h", "r"))
+        scrap_demand = production_inflow - pigiron - dri
         scrap_supply = (
                 flw["recycling => scrap_market"]
                 + flw["forming => scrap_market"]
                 + flw["fabrication => scrap_market"]
         )
+        scrap_consumption = prm["scrap_consumption"]
+
         scrap_supply = scrap_supply[{"t": mfa.dims["h"]}].sum_over("e")
 
         ap_demand = self.plotter_class(
@@ -214,21 +215,31 @@ class SteelDataExporter(CustomDataExporter):
 
         fig = ap_demand.plot()
 
-        ap_production = self.plotter_class(
-            array=total_production.sum_to(("h", "r")),
-            intra_line_dim="Historic Time",
-            subplot_dim="Region",
-            line_label="Total Production",
-            fig=fig,
-        )
-
-        fig = ap_production.plot()
-
         ap_supply = self.plotter_class(
             array=scrap_supply,
             intra_line_dim="Historic Time",
             subplot_dim="Region",
             line_label="Scrap Supply",
+            fig=fig,
+        )
+
+        fig = ap_supply.plot()
+
+        ap_consumption = self.plotter_class(
+            array=scrap_consumption,
+            intra_line_dim="Historic Time",
+            subplot_dim="Region",
+            line_label="Scrap Consumption",
+            fig=fig,
+        )
+
+        fig = ap_consumption.plot()
+
+        ap_production = self.plotter_class(
+            array=production_inflow,
+            intra_line_dim="Historic Time",
+            subplot_dim="Region",
+            line_label="Production Inflow",
             fig=fig,
             xlabel="Year",
             ylabel="Scrap [t]",
@@ -236,11 +247,13 @@ class SteelDataExporter(CustomDataExporter):
             title="Regional Scrap Demand and Supply",
         )
 
-        self.plot_and_save_figure(ap_supply, "scrap_demand_supply_regional.png")
+        self.plot_and_save_figure(ap_production, "scrap_demand_supply_regional.png")
 
         # plot global demand and supply
         scrap_demand = scrap_demand.sum_over("r")
         scrap_supply = scrap_supply.sum_over("r")
+        scrap_consumption = scrap_consumption.sum_over("r")
+        production_inflow = production_inflow.sum_over("r")
 
         ap_demand = self.plotter_class(
             array=scrap_demand,
@@ -256,13 +269,31 @@ class SteelDataExporter(CustomDataExporter):
             intra_line_dim="Historic Time",
             line_label="Scrap Supply",
             fig=fig,
+        )
+
+        fig = ap_supply.plot()
+
+        ap_consumption = self.plotter_class(
+            array=scrap_consumption,
+            intra_line_dim="Historic Time",
+            line_label="Scrap Consumption",
+            fig=fig,
+        )
+
+        fig = ap_consumption.plot()
+
+        ap_production = self.plotter_class(
+            array=production_inflow,
+            intra_line_dim="Historic Time",
+            line_label="Production Inflow",
+            fig=fig,
             xlabel="Year",
             ylabel="Scrap [t]",
             display_names=self._display_names,
             title="Global Scrap Demand and Supply",
         )
 
-        self.plot_and_save_figure(ap_supply, "scrap_demand_supply_global.png")
+        self.plot_and_save_figure(ap_production, "scrap_demand_supply_global.png")
 
     def visualize_sector_splits(self, mfa: fd.MFASystem):
         flw = mfa.flows

@@ -93,8 +93,26 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
     pure_prediction = np.zeros_like(prediction_out)
     n_historic = historic_stocks_pc.shape[0]
 
-    # TODO decide whether to delete this line
-    # gdppc = np.maximum.accumulate(gdppc, axis=0) TODO doesn't let GDP drop ever
+    # TODO decide whether to delete these lines
+    do_accumulate_gdp = False
+    if do_accumulate_gdp:
+        visualise = True
+        if visualise:
+            former_gdp = gdppc
+            from matplotlib import pyplot as plt
+            regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
+            years = range(1900, 2101)
+            for r, region in enumerate(regions):
+                plt.plot(years, former_gdp[:, r], label=region)
+            for r, region in enumerate(regions):
+                plt.plot(years, np.maximum.accumulate(gdppc, axis=0)[:, r], linestyle='--')
+            plt.xlabel('Year')
+            plt.ylabel('GDP pc')
+            plt.title('GDP over Time')
+            plt.legend()
+            plt.show()
+            a = 0
+        gdppc = np.maximum.accumulate(gdppc, axis=0)  # doesn't let GDP drop ever
 
     for idx in np.ndindex(shape_out[1:]):
         # idx is a tuple of indices for all dimensions except the time dimension
@@ -111,6 +129,10 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
         )
         pure_prediction[idx_with_time_dim] = extrapolation.regress()
 
+        if np.any(extrapolation.get_params() < 0):
+            # TODO, parameters, especially the stretch factor, should not be negative
+            a = 0
+
     # TODO: Discuss this - how should we deal with continuation at current point (currently changes sat level
     do_fit_current_levels = False
     if do_fit_current_levels:
@@ -122,38 +144,39 @@ def gdp_regression(historic_stocks_pc, gdppc, prediction_out, extrapolation_clas
     prediction_out[:n_historic, ...] = historic_stocks_pc
 
     # TODO delete visualisation
-    visualise = False
+    visualise = True
 
     if visualise:
-
-        from matplotlib import pyplot as plt
-        regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
-        for r, region in enumerate(regions):
-            plt.plot(gdppc[:, r], pure_prediction[:, r], label=region)
-            # plt.plot(gdppc[:, r], prediction_out[:, r], label=region)
-        plt.legend()
-        plt.xlabel('GDP pc')
-        plt.axvline(x=2022, color='r', linestyle='--')
-        plt.ylabel('Stocks pc')
-        plt.title('Stocks over GDP')
-        plt.show()
-
-        for r, region in enumerate(regions):
-            plt.plot(np.log(gdppc[:, r]), pure_prediction[:, r], label=region)
-            # plt.plot(np.log(gdppc[:, r]), prediction_out[:, r], label=region)
-        plt.legend()
-        plt.axvline(x=2022, color='r', linestyle='--')
-        plt.xlabel('Log GDP pc')
-        plt.ylabel('Stocks pc')
-        plt.title('Stocks over Log GDP')
-        plt.show()
 
         if len(pure_prediction.shape) == 3:
             pure_prediction = np.sum(pure_prediction, axis=2)
             prediction_out = np.sum(prediction_out, axis=2)
 
+        from matplotlib import pyplot as plt
+        regions = ['CAZ', 'CHA', 'EUR', 'IND', 'JPN', 'LAM', 'MEA', 'NEU', 'OAS', 'REF', 'SSA', 'USA']
         for r, region in enumerate(regions):
-            # plt.plot(range(1900, 2101), pure_prediction[:, r], label=region)
+            # plt.plot(gdppc[:, r], pure_prediction[:, r], label=region, linestyle='--')
+            plt.plot(gdppc[:, r], prediction_out[:, r], label=region)
+        plt.legend()
+        plt.xlabel('GDP pc')
+        # plt.axvline(x=2022, color='r', linestyle='--')
+        plt.ylabel('Stocks pc')
+        plt.title('Stocks over GDP')
+        plt.show()
+
+        for r, region in enumerate(regions):
+            plt.plot(gdppc[:, r], pure_prediction[:, r], label=region)
+            # plt.plot(gdppc[:, r], prediction_out[:, r], label=region)
+        plt.legend()
+        # plt.axvline(x=2022, color='r', linestyle='--')
+        plt.xlabel('GDP pc (logarithmic)')
+        plt.xscale('log')
+        plt.ylabel('Stocks pc')
+        plt.title('Stocks over log of GDP')
+        plt.show()
+
+        for r, region in enumerate(regions):
+            # plt.plot(range(1900, 2101), pure_prediction[:, r], label=region, linestyle='--')
             plt.plot(range(1900, 2101), prediction_out[:, r], label=region)
         plt.axvline(x=2022, color='r', linestyle='--')
         plt.legend()

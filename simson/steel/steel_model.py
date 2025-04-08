@@ -114,7 +114,7 @@ class SteelModel:
         total_in_use_stock = extrapolate_stock(
             historic_stocks,
             dims=self.dims,
-            
+
             parameters=self.parameters,
             curve_strategy=self.cfg.customization.curve_strategy,
             target_dim_letters=None if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r"),
@@ -140,15 +140,24 @@ class SteelModel:
         multi_dim_params = multi_dim_extrapolation.get_params()
         saturation_level = multi_dim_params[0]
 
+        do_stock_extrapolation_by_category = True
+        do_split_by_highest_theoretical_split = True
         if self.cfg.customization.do_stock_extrapolation_by_category:
-            # TODO Decide method for high stock sector split
-            highest_gdp_level = True
-            if highest_gdp_level:
-                high_stock_sector_split = self.get_high_stock_sector_split()
-            else:  # calc regional specific stock sector split for end of century
-                gdp_sector_splits = self.calc_stock_sector_splits().values
-                high_stock_sector_split = gdp_sector_splits[-1]
-            saturation_level = saturation_level * high_stock_sector_split.values
+            # TODO Decide method for stock sector split
+            if do_stock_extrapolation_by_category:
+                historic_stocks_pc_by_good = historic_stocks / historic_pop
+                saturation_level = np.array([MultiDimLogSigmoidalExtrapolation(
+                    data_to_extrapolate=historic_stocks_pc_by_good.values[:, :, g],
+                    target_range=gdppc.values
+                ).get_params()[0] for g in range(4)])
+                saturation_level = np.array([saturation_level for i in range(12)])
+            else:
+                if do_split_by_highest_theoretical_split:
+                    high_stock_sector_split = self.get_high_stock_sector_split()
+                else:  # calc regional specific stock sector split for end of century
+                    gdp_sector_splits = self.calc_stock_sector_splits().values
+                    high_stock_sector_split = gdp_sector_splits[-1]
+                saturation_level = saturation_level * high_stock_sector_split.values
 
         return saturation_level
 
