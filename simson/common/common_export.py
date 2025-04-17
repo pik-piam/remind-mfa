@@ -9,12 +9,13 @@ import flodym as fd
 import flodym.export as fde
 
 from simson.common.base_model import SimsonBaseModel
-from simson.common.common_cfg import VisualizationCfg
+from simson.common.common_cfg import VisualizationCfg, ExportCfg
+from simson.common.assumptions_doc import assumptions_str
 
 
 class CommonDataExporter(SimsonBaseModel):
     output_path: str
-    do_export: dict = {"pickle": True, "csv": True}
+    do_export: ExportCfg
     cfg: VisualizationCfg
     _display_names: dict = {}
 
@@ -25,12 +26,16 @@ class CommonDataExporter(SimsonBaseModel):
         return self
 
     def export_mfa(self, mfa: fd.MFASystem):
-        if self.do_export["pickle"]:
+        if self.do_export.pickle:
             fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("mfa.pickle"))
-        if self.do_export["csv"]:
+        if self.do_export.csv:
             dir_out = os.path.join(self.export_path(), "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
+        if self.do_export.assumptions:
+            file_out = os.path.join(self.export_path("assumptions.txt"))
+            with open(file_out, "w") as f:
+                f.write(assumptions_str())
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")

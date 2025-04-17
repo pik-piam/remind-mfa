@@ -42,6 +42,12 @@ class ModelCustomization(SimsonBaseModel):
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
 
 
+class ExportCfg(SimsonBaseModel):
+    csv: bool = True
+    pickle: bool = True
+    assumptions: bool = True
+
+
 class VisualizationCfg(SimsonBaseModel):
 
     use_stock: dict = {"do_visualize": False}
@@ -83,7 +89,7 @@ class GeneralCfg(SimsonBaseModel):
     customization: ModelCustomization
     visualization: VisualizationCfg
     output_path: str
-    do_export: dict[str, bool]
+    do_export: ExportCfg
 
     @classmethod
     def from_model_class(cls, **kwargs) -> "GeneralCfg":
