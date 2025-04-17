@@ -37,7 +37,7 @@ class SteelModel:
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
         lifetime_factor = fd.Parameter(dims=self.dims["t", "r"])
-        lifetime_factor.values[...] = 1.3
+        lifetime_factor.values[...] = 1.1
         self.parameters["lifetime_factor"] = lifetime_factor
 
         self.parameters["lifetime_mean"] = fd.Parameter(
@@ -49,10 +49,10 @@ class SteelModel:
             values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values,
         )
         self.parameters["lifetime_mean"]["Construction"] = (
-            self.parameters["lifetime_mean"]["Construction"] * 1.5
+            self.parameters["lifetime_mean"]["Construction"] * 1.4
         )
         self.parameters["lifetime_std"]["Construction"] = (
-            self.parameters["lifetime_std"]["Construction"] * 1.5
+            self.parameters["lifetime_std"]["Construction"] * 1.4
         )
 
         scrap_rate_factor = fd.Parameter(dims=self.dims["t",])
@@ -182,6 +182,8 @@ class SteelModel:
         if self.cfg.customization.do_stock_extrapolation_by_category:
             high_stock_sector_split = self.get_high_stock_sector_split()
             saturation_level = saturation_level * high_stock_sector_split.values
+
+        saturation_level *= 0.75
 
         return saturation_level
 

@@ -1,12 +1,14 @@
 import os
 from matplotlib import pyplot as plt
-from simson.common.base_model import SimsonBaseModel
 import plotly.graph_objects as go
+import plotly.colors as plc
+import plotly.io as pio
+from typing import Optional
+from pydantic import model_validator
 import flodym as fd
 import flodym.export as fde
-from plotly import colors as plc
-from typing import Optional
 
+from simson.common.base_model import SimsonBaseModel
 from simson.common.common_cfg import VisualizationCfg
 
 
@@ -15,6 +17,12 @@ class CommonDataExporter(SimsonBaseModel):
     do_export: dict = {"pickle": True, "csv": True}
     cfg: VisualizationCfg
     _display_names: dict = {}
+
+    @model_validator(mode="after")
+    def set_plotly_renderer(self):
+        if self.cfg.plotting_engine == "plotly":
+            pio.renderers.default = self.cfg.plotly_renderer
+        return self
 
     def export_mfa(self, mfa: fd.MFASystem):
         if self.do_export["pickle"]:
