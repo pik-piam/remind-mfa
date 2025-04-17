@@ -115,7 +115,7 @@ class StockExtrapolation:
                 "Number of historic years used for determination of regressed and actual "
                 "growth rates of ins-use stocks, which are then used for a correction "
                 "reconciling the two and blending from observed to regression."
-            )
+            ),
         )
 
         add_assumption_doc(
@@ -131,9 +131,9 @@ class StockExtrapolation:
             ),
         )
         gdppc = deepcopy(gdppc)
-        growth = (gdppc[126]/gdppc[127])
+        growth = gdppc[126] / gdppc[127]
         for i in range(n_deriv + 5):
-            gdppc[125-i, ...] = gdppc[125-i+1, ...] * growth
+            gdppc[125 - i, ...] = gdppc[125 - i + 1, ...] * growth
 
         extrapolation = self.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
@@ -209,11 +209,15 @@ class StockExtrapolation:
             description=(
                 "Number of years for the blending from historical to regressed in-use stock "
                 "growth rates. "
-            )
+            ),
         )
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
         corr0 = difference_0th * gaussian(time_extended - last_history_year, 50)
-        corr1 = difference_1st * (time_extended - last_history_year) * gaussian(time_extended - last_history_year, 30)
+        corr1 = (
+            difference_1st
+            * (time_extended - last_history_year)
+            * gaussian(time_extended - last_history_year, 30)
+        )
         correction = corr0 + corr1
 
         return prediction[...] + correction

@@ -9,7 +9,9 @@ from simson.common.base_model import SimsonBaseModel
 _assumptions = []
 
 
-def add_assumption_doc(type: str, name: str, description: str, value: str=None, source: str = None):
+def add_assumption_doc(
+    type: str, name: str, description: str, value: str = None, source: str = None
+):
     """
     Add an assumption to the list of assumptions. The assumption is stored in a global list
     and can be printed later using the print_assumptions() function.
