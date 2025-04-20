@@ -113,19 +113,19 @@ def get_definition(cfg: GeneralCfg):
 
     parameters = [
         # EOL rates
-        fd.ParameterDefinition(name="mechanical_recycling_rate", dim_letters=("t", "m")),
-        fd.ParameterDefinition(name="chemical_recycling_rate", dim_letters=("t", "m")),
-        fd.ParameterDefinition(name="solvent_recycling_rate", dim_letters=("t", "m")),
-        fd.ParameterDefinition(name="incineration_rate", dim_letters=("t", "m")),
-        fd.ParameterDefinition(name="uncontrolled_losses_rate", dim_letters=("t", "m")),
+        fd.ParameterDefinition(name="mechanical_recycling_rate", dim_letters=("t","r","m")),
+        fd.ParameterDefinition(name="chemical_recycling_rate", dim_letters=("t","r","m")),
+        fd.ParameterDefinition(name="solvent_recycling_rate", dim_letters=("t","r","m")),
+        fd.ParameterDefinition(name="incineration_rate", dim_letters=("t","r","m")),
+        fd.ParameterDefinition(name="landfill_rate", dim_letters=("t","r","m")),
         # virgin production rates
-        fd.ParameterDefinition(name="bio_production_rate", dim_letters=("t", "m")),
-        fd.ParameterDefinition(name="daccu_production_rate", dim_letters=("t", "m")),
+        fd.ParameterDefinition(name="bio_production_rate", dim_letters=("t","r","m")),
+        fd.ParameterDefinition(name="daccu_production_rate", dim_letters=("t","r","m")),
         # recycling losses
-        fd.ParameterDefinition(name="mechanical_recycling_yield", dim_letters=("t", "m")),
-        fd.ParameterDefinition(name="reclmech_loss_uncontrolled_rate", dim_letters=("t", "m")),
+        fd.ParameterDefinition(name="mechanical_recycling_yield", dim_letters=("t","r","m")),
+        fd.ParameterDefinition(name="reclmech_loss_uncontrolled_rate", dim_letters=("t","r","m")),
         # other
-        fd.ParameterDefinition(name="material_shares_in_goods", dim_letters=("m", "g")),
+        fd.ParameterDefinition(name="material_shares_in_goods", dim_letters=("r","m","g")),
         fd.ParameterDefinition(name="emission_capture_rate", dim_letters=("t",)),
         fd.ParameterDefinition(name="carbon_content_materials", dim_letters=("e", "m")),
         # for in-use stock

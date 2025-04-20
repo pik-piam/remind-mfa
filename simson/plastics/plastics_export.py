@@ -25,7 +25,7 @@ class PlasticsDataExporter(CustomDataExporter):
         "use": "Use Phase",
         "eol": "End of Life",
         "incineration": "Incineration",
-        "landfill": "Disposal",
+        "landfill": "Landfill",
         "uncontrolled": "Uncontrolled release",
         "emission": "Emissions",
         "captured": "Captured",
@@ -35,8 +35,8 @@ class PlasticsDataExporter(CustomDataExporter):
     def visualize_results(self, model: "PlasticsModel"):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.mfa)
-        if self.cfg.stock["do_visualize"]:
-            print("Stock visualization not implemented yet.")
+        #if self.cfg.stock["do_visualize"]:
+        #    print("Stock visualization not implemented yet.")
             # self.visualize_stock(mfa=mfa)
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(mfa=model.mfa)
@@ -44,7 +44,7 @@ class PlasticsDataExporter(CustomDataExporter):
 
     def visualize_production(self, mfa: fd.MFASystem):
         ap_modeled = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow["World"].sum_over(("m", "e")),
+            array=mfa.stocks["in_use"].inflow.sum_over(("r","m", "e")),
             intra_line_dim="Time",
             subplot_dim="Good",
             line_label="Modeled",
@@ -52,13 +52,13 @@ class PlasticsDataExporter(CustomDataExporter):
         )
         fig = ap_modeled.plot()
         ap_historic = self.plotter_class(
-            array=mfa.parameters["production"]["World"],
+            array=mfa.parameters["production"].sum_over("r"),
             intra_line_dim="Historic Time",
             subplot_dim="Good",
             line_label="Historic Production",
             fig=fig,
             xlabel="Year",
-            ylabel="Production [t]",
+            ylabel="Production [Mt]",
             display_names=self._display_names,
         )
         self.plot_and_save_figure(ap_historic, "production.png")
@@ -68,18 +68,18 @@ class PlasticsDataExporter(CustomDataExporter):
     ):
 
         if self.cfg.stock["per_capita"]:
-            stocks_plot = stocks_pc["World"]
-            historic_stocks_plot = historic_stocks_pc["World"]
+            stocks_plot = stocks_pc
+            historic_stocks_plot = historic_stocks_pc
         else:
-            stocks_plot = stocks["World"]
-            historic_stocks_plot = historic_stocks["World"]
+            stocks_plot = stocks
+            historic_stocks_plot = historic_stocks
 
         if self.cfg.stock["over"] == "time":
             x_array, x_array_hist = None, None
             xlabel = "Year"
         elif self.cfg.stock["over"] == "gdppc":
-            x_array = gdppc["World"]
-            x_array_hist = historic_gdppc["World"]
+            x_array = gdppc
+            x_array_hist = historic_gdppc
             xlabel = "GDP per capita [USD]"
 
         ap_modeled = self.plotter_class(

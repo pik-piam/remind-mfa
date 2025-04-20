@@ -86,15 +86,15 @@ class PlasticsMFASystem(fd.MFASystem):
         flw["reclsolv => recl"][...] = flw["eol => reclsolv"]
 
         flw["eol => incineration"][...] = flw["use => eol"] * prm["incineration_rate"]
-        flw["eol => uncontrolled"][...] = flw["use => eol"] * prm["uncontrolled_losses_rate"]
+        flw["eol => landfill"][...] = flw["use => eol"] * prm["landfill_rate"]
 
-        flw["eol => landfill"][...] = (
+        flw["eol => uncontrolled"][...] = (
             flw["use => eol"]
             - flw["eol => reclmech"]
             - flw["eol => reclchem"]
             - flw["eol => reclsolv"]
             - flw["eol => incineration"]
-            - flw["eol => uncontrolled"]
+            - flw["eol => landfill"]
         )
 
         flw["incineration => emission"][...] = flw["eol => incineration"] + flw["reclmech => incineration"]
