@@ -164,6 +164,7 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="use_split", dim_letters=("s",)),
         fd.ParameterDefinition(name="use_lifetime_mean", dim_letters=("s",)),
         fd.ParameterDefinition(name="use_lifetime_std", dim_letters=("s",)),
+        fd.ParameterDefinition(name="historic_use_lifetime_mean", dim_letters=("h", "s",)),
         fd.ParameterDefinition(
             name="population",
             dim_letters=(

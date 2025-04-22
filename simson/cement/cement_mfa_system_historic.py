@@ -21,8 +21,8 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
             prm["cement_production"] * prm["use_split"] / prm["cement_ratio"]
         )
         stk["historic_in_use"].lifetime_model.set_prms(
-            mean=prm["use_lifetime_mean"],
-            std=prm["use_lifetime_std"],
+            mean=prm["historic_use_lifetime_mean"],
+            std=0.2 * prm["historic_use_lifetime_mean"],
         )
         stk["historic_in_use"].compute()
 
