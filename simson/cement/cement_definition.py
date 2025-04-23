@@ -162,9 +162,8 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="clinker_ratio", dim_letters=()),
         fd.ParameterDefinition(name="cement_ratio", dim_letters=()),
         fd.ParameterDefinition(name="use_split", dim_letters=("s",)),
-        fd.ParameterDefinition(name="use_lifetime_mean", dim_letters=("s",)),
-        fd.ParameterDefinition(name="use_lifetime_std", dim_letters=("s",)),
-        fd.ParameterDefinition(name="historic_use_lifetime_mean", dim_letters=("h", "s",)),
+        fd.ParameterDefinition(name="historic_use_lifetime_mean", dim_letters=("h", "r", "s",)),
+        fd.ParameterDefinition(name="future_use_lifetime_mean", dim_letters=("t", "r", "s",)),
         fd.ParameterDefinition(
             name="population",
             dim_letters=(
