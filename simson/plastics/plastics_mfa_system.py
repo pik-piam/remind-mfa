@@ -68,42 +68,57 @@ class PlasticsMFASystem(fd.MFASystem):
         }
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
+        split = (
+            prm["material_shares_in_goods"]
+            * prm["carbon_content_materials"]
+        )
 
         # fmt: off
         flw["fabrication => use"][...] = stk["in_use"].inflow
         flw["use => eol"][...] = stk["in_use"].outflow
+        
+        flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wastetotal"]  * split
+        flw["wasteexport => wastetrade"][...] = prm["wasteexport_rate"] * prm["wastetotal"]  * split
+        flw["wasteimport => collected"][...] = flw["wastetrade => wasteimport"]
+        flw["collected => wasteexport"][...] = flw["wasteexport => wastetrade"]
 
-        flw["eol => reclmech"][...] = flw["use => eol"] * prm["mechanical_recycling_rate"]
-        flw["reclmech => recl"][...] = flw["eol => reclmech"] * prm["mechanical_recycling_yield"]
-        aux["reclmech_loss"][...] = flw["eol => reclmech"] - flw["reclmech => recl"]
+        flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
+        flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["mechanical_recycling_rate"]
+        flw["reclmech => recl"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => recl"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
-        flw["eol => reclchem"][...] = flw["use => eol"] * prm["chemical_recycling_rate"]
-        flw["reclchem => recl"][...] = flw["eol => reclchem"]
+        flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["chemical_recycling_rate"]
+        flw["reclchem => recl"][...] = flw["collected => reclchem"]
 
-        flw["eol => reclsolv"][...] = flw["use => eol"] * prm["solvent_recycling_rate"]
-        flw["reclsolv => recl"][...] = flw["eol => reclsolv"]
+        flw["collected => incineration"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["incineration_rate"]
 
-        flw["eol => incineration"][...] = flw["use => eol"] * prm["incineration_rate"]
-        flw["eol => landfill"][...] = flw["use => eol"] * prm["landfill_rate"]
-
-        flw["eol => uncontrolled"][...] = (
-            flw["use => eol"]
-            - flw["eol => reclmech"]
-            - flw["eol => reclchem"]
-            - flw["eol => reclsolv"]
-            - flw["eol => incineration"]
-            - flw["eol => landfill"]
+        flw["collected => landfill"][...] = (
+            flw["eol => collected"]
+            + flw["wasteimport => collected"]
+            - flw["collected => wasteexport"]
+            - flw["collected => reclmech"]
+            - flw["collected => reclchem"]
+            - flw["collected => incineration"]
         )
 
-        flw["incineration => emission"][...] = flw["eol => incineration"] + flw["reclmech => incineration"]
+        flw["eol => mismanaged"][...] = (
+            flw["use => eol"]
+            - flw["eol => collected"]
+        )
+
+        flw["mismanaged => uncontrolled"][...] = (
+            flw["eol => mismanaged"]
+        )
+
+        flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
 
         flw["emission => captured"][...] = flw["incineration => emission"] * prm["emission_capture_rate"]
         flw["emission => atmosphere"][...] = flw["incineration => emission"] - flw["emission => captured"]
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
-        flw["recl => fabrication"][...] = flw["reclmech => recl"] + flw["reclchem => recl"] + flw["reclsolv => recl"]
+        flw["recl => fabrication"][...] = flw["reclmech => recl"] + flw["reclchem => recl"]
         flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"]
 
         flw["virgindaccu => virgin"][...] = flw["virgin => fabrication"] * prm["daccu_production_rate"]
@@ -137,13 +152,17 @@ class PlasticsMFASystem(fd.MFASystem):
 
         # in-use stock is already computed in compute_in_use_stock
 
-        stk["landfill"].inflow[...] = flw["eol => landfill"]
+        stk["landfill"].inflow[...] = flw["collected => landfill"]
         stk["landfill"].compute()
 
         stk["uncontrolled"].inflow[...] = (
-            flw["eol => uncontrolled"] + flw["reclmech => uncontrolled"]
+            flw["eol => mismanaged"] + flw["reclmech => uncontrolled"]
         )
         stk["uncontrolled"].compute()
+
+        stk["wastetrade"].inflow[...] = flw["wasteexport => wastetrade"]
+        stk["wastetrade"].outflow[...] = flw["wastetrade => wasteimport"]
+        stk["wastetrade"].compute()
 
         stk["atmospheric"].inflow[...] = flw["emission => atmosphere"]
         stk["atmospheric"].outflow[...] = (
