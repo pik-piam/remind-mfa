@@ -65,6 +65,7 @@ class PlasticsMFASystem(fd.MFASystem):
             "virgin_material_shares": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "captured_2_virginccu_by_mat": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "ratio_nonc_to_c": self.get_new_array(dim_letters=("m",)),
+            "final_2_fabrication": self.get_new_array(dim_letters=("t", "e", "m")),
         }
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
@@ -77,10 +78,20 @@ class PlasticsMFASystem(fd.MFASystem):
         flw["fabrication => use"][...] = stk["in_use"].inflow
         flw["use => eol"][...] = stk["in_use"].outflow
         
-        flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wastetotal"]  * split
-        flw["wasteexport => wastetrade"][...] = prm["wasteexport_rate"] * prm["wastetotal"]  * split
+        flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wasteimporttotal"]  * split
+        flw["wasteexport => wastetrade"][...] = prm["wasteexport_rate"] * prm["wasteimporttotal"]  * split
         flw["wasteimport => collected"][...] = flw["wastetrade => wasteimport"]
         flw["collected => wasteexport"][...] = flw["wasteexport => wastetrade"]
+
+        aux["final_2_fabrication"][...] = (
+            flw["fabrication => use"]
+            .sum_over(["r","g"]).get_shares_over(["e","m"]) 
+        )
+
+        flw["finaltrade => finalimport"][...] = prm["finalimport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
+        flw["finalexport => finaltrade"][...] = prm["finalexport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
+        flw["finalimport => fabrication"][...] = flw["finaltrade => finalimport"]
+        flw["fabrication => finalexport"][...] = flw["finalexport => finaltrade"]
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["mechanical_recycling_rate"]
@@ -119,7 +130,7 @@ class PlasticsMFASystem(fd.MFASystem):
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         flw["recl => fabrication"][...] = flw["reclmech => recl"] + flw["reclchem => recl"]
-        flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"]
+        flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"] - flw["finalimport => fabrication"] + flw["fabrication => finalexport"]
 
         flw["virgindaccu => virgin"][...] = flw["virgin => fabrication"] * prm["daccu_production_rate"]
         flw["virginbio => virgin"][...] = flw["virgin => fabrication"] * prm["bio_production_rate"]

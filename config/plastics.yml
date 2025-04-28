@@ -8,6 +8,7 @@ input_data_path: 'data/plastics/input'
 customization:
   stock_extrapolation_class_name: 'PehlExtrapolation'
   lifetime_model_name: 'NormalLifetime'
+  do_stock_extrapolation_by_category: True
 
 # visualization
 visualization:
@@ -21,7 +22,7 @@ visualization:
   sankey:
     do_visualize: True
     slice_dict:
-      t: 2015
+      t: 2020
       r: "CHA"
     split_flows_by: 'Material'
     color_scheme: 'blueish'
