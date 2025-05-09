@@ -6,7 +6,7 @@ input_data_path: 'data/plastics/input'
 
 # model customization
 customization:
-  stock_extrapolation_class_name: 'PehlExtrapolation'
+  stock_extrapolation_class_name: 'FixedSatLogSigmoidExtrapolation'
   lifetime_model_name: 'NormalLifetime'
   do_stock_extrapolation_by_category: True
 
@@ -23,12 +23,10 @@ visualization:
     do_visualize: True
     slice_dict:
       t: 2020
-      r: "CHA"
-    split_flows_by: 'Material'
-    color_scheme: 'blueish'
-    flow_color: 'hsl(230,20,70)'
     exclude_processes:
       - "sysenv"
+      - "finaltrade"
+      - "wastetrade"
     exclude_flows: [ ]
   do_show_figs: True
   do_save_figs: False

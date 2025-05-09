@@ -1,6 +1,7 @@
 import flodym as fd
 import pandas as pd
 import xarray as xr
+import numpy as np
 
 from plotly import colors as plc
 import plotly.graph_objects as go
@@ -18,22 +19,22 @@ class PlasticsDataExporter(CustomDataExporter):
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     _display_names: dict = {
         "sysenv": "System environment",
-        "virginfoss": "Virgin production (fossil)",
-        "virginbio": "Virgin production (biomass)",
-        "virgindaccu": "Virgin production (daccu)",
-        "virginccu": "Virgin production (ccu)",
-        "virgin": "Virgin production (total)",
-        "fabrication": "Fabrication",
-        "recl": "Recycling (total)",
-        "reclmech": "Mechanical recycling",
-        "reclchem": "Chemical recycling",
+        "virginfoss": "Prim(fossil)",
+        "virginbio": "Prim(biomass)",
+        "virgindaccu": "Prim(daccu)",
+        "virginccu": "Prim(ccu)",
+        "virgin": "Prim(total)",
+        "fabrication": "Fabri",
+        "recl": "Recycling(total)",
+        "reclmech": "Mech recycling",
+        "reclchem": "Chem recycling",
         "use": "Use Phase",
-        "eol": "End of Life",   
-        "collected": "Collection of plastics for disposal",
-        "mismanaged": "Uncollected plastics",
+        "eol": "EoL",   
+        "collected": "Collect",
+        "mismanaged": "Uncollected",
         "incineration": "Incineration",
         "landfill": "Landfill",
-        "uncontrolled": "Uncontrolled release",
+        "uncontrolled": "Uncontrolled",
         "emission": "Emissions",
         "captured": "Captured",
         "atmosphere": "Atmosphere",
@@ -41,8 +42,8 @@ class PlasticsDataExporter(CustomDataExporter):
         "wasteimport": "Import waste",
         "wasteexport": "Export waste",
         "wastetrade": "Waste trade",
-        "finalimport": "Import final product",
-        "finalexport": "Export final product",
+        "finalimport": "Import final",
+        "finalexport": "Export final",
         "finaltrade": "Final trade",
     }
 
@@ -181,85 +182,94 @@ class PlasticsDataExporter(CustomDataExporter):
 
     
     def visualize_sankey(self, mfa: fd.MFASystem):
-        # Define color palette for different plastic life-cycle stages
-        production_color = "hsl(50,40,70)"
-        recycling_color = "hsl(120,40,70)"
-        use_color = "hsl(220,40,70)"
-        eol_color = "hsl(0,40,70)"
-        trade_color = "hsl(260,20,80)"
-        emission_color = "hsl(30,40,70)"
+        # 1) 生产一个 Good 的色板
+        #good_items = mfa.dims["Good"].items
+        #good_colors = [f"hsl({190 + 10*i},40,{77-5*i})" for i in range(len(good_items))]
 
-        # Assign default flow color and update by category
+        # 2) 其他阶段的单一颜色
+        production_color = "#EDC948"
+        use_color = "#9EC3D5"
+        eol_color      = "#499894"
+        recycle_color  = "#86BCB6"
+        emission_color = "#E15759"
+        trade_color    = "#D37295"
+
+        # 3) 初始化 flow_color_dict
         flow_color_dict = {"default": production_color}
-        # Virgin production flows
-        flow_color_dict.update({
-            fn: production_color
-            for fn, f in mfa.flows.items()
-            if any(dim.name.startswith("virgin") for dim in f.dims)
-        })
-        # Recycling flows (mechanical or chemical)
-        flow_color_dict.update({
-            fn: recycling_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in {"recl", "reclmech", "reclchem"} 
-            or f.to_process.name in {"recl", "reclmech", "reclchem"}
-        })
-        # Use phase flows
+
+        # # 4) 用 Good 上色 —— 这行关键！
+        # flow_color_dict.update({
+        #     fn: ("Good", good_colors)
+        #     for fn, f in mfa.flows.items()
+        #     if "Good" in f.dims
+        # })
+
+        # 5) 其余流程阶段单色（只为那些不含 Good 的流提供备选色）
         flow_color_dict.update({
             fn: use_color
             for fn, f in mfa.flows.items()
-            if any(dim.name == "use" for dim in f.dims)
+            if f.from_process.name in ["use"]
+            or  f.to_process.name in ["use"]
         })
-        # End-of-life flows
         flow_color_dict.update({
-            fn: eol_color
+            fn: eol_color 
             for fn, f in mfa.flows.items()
-            if f.from_process.name in {"eol","mismanaged","landfill","incineration"} 
-            or f.to_process.name in {"eol","mismanaged","landfill","incineration"}
+            if f.from_process.name in ["eol", "collected"]
         })
-        # Trade flows (imports/exports)
-        flow_color_dict.update({
-            fn: trade_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in {"wastetrade","wasteimport","wasteexport","finaltrade","finalimport","finalexport"} 
-            or f.to_process.name in {"wastetrade","wasteimport","wasteexport","finaltrade","finalimport","finalexport"}
-        })
-        # Emission flows
         flow_color_dict.update({
             fn: emission_color
             for fn, f in mfa.flows.items()
-            if f.to_process.name == "atmosphere" or any(dim.name == "emission" for dim in f.dims)
+            if f.to_process.name in ["atmosphere", "mismanaged", "incineration", "uncontrolled", "emission"]
+        })
+        flow_color_dict.update({
+            fn: recycle_color
+            for fn, f in mfa.flows.items()
+            if f.from_process.name in ["reclmech", "reclchem", "recl"] or f.to_process.name in ["reclmech", "reclchem", "recl"]
+        })
+        flow_color_dict.update({
+            fn: trade_color
+            for fn, f in mfa.flows.items()
+            if f.from_process.name in ["wastetrade","finaltrade","wasteimport","finalimport","wasteexport","finalexport"]
+            or f.to_process.name in ["wastetrade","finaltrade","wasteimport","finalimport","wasteexport","finalexport"]
         })
 
-        # Update sankey configuration
-        self.cfg.sankey["flow_color_dict"] = flow_color_dict
-        self.cfg.sankey["node_color_dict"] = {"default": "gray", "use": "black"}
 
-        # Prepare display names for plotting
+        # 7) 格式化 & 布局优化
+        self.cfg.sankey.update({
+            "valueformat": ".2s",       # 科学计数法，两位有效数字
+            "node_pad": 15,             # 节点间距
+            "node_thickness": 20,       # 节点厚度
+            "arrangement": "snap",      # 节点自动“吸附”减少交叉
+            "flow_color_dict": flow_color_dict,
+            "node_color_dict": {"default": "gray", "use": "black"}
+        })
+
+        # 8) 调用 Plotter 绘图
         sdn = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
         plotter = fde.PlotlySankeyPlotter(mfa=mfa, display_names=sdn, **self.cfg.sankey)
         fig = plotter.plot()
 
-        # Build legend
+        # 9) 把 Good 的图例也加上
         legend_entries = [
-            [production_color, "Virgin Production"],
-            [recycling_color, "Recycling (total)"],
-            [use_color, "Use Phase"],
-            [eol_color, "End of Life"],
-            [trade_color, "Trade Pool"],
-            [emission_color, "Emissions"],
+            [production_color, "Production"],
+            [eol_color       , "EoL"],
+            [recycle_color   , "Recycling"],
+            [emission_color  , "Losses"],
+            [trade_color     , "Trade"],
+            # ["white"         , ""],
+            # ["white"         , "Goods"],
         ]
-        for color, label in legend_entries:
-            fig.add_trace(
-                go.Scatter(
-                    mode="markers",
-                    x=[None], y=[None],
-                    marker=dict(size=10, color=color, symbol="square"),
-                    name=label
-                )
-            )
+        # for good, color in zip(good_items, good_colors):
+        #     legend_entries.append([color, good])
 
-        # Finalize layout
+        for color, label in legend_entries:
+            fig.add_trace(go.Scatter(
+                mode="markers", x=[None], y=[None],
+                marker=dict(size=10, color=color, symbol="square"),
+                name=label
+            ))
+
+        # 10) 最后布局微调 & 展示
         fig.update_layout(
             font_size=18,
             showlegend=True,
@@ -269,8 +279,11 @@ class PlasticsDataExporter(CustomDataExporter):
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
 
-        # Display and save
-        self._show_and_save_plotly(fig, name="sankey_plastics")
+        self._show_and_save_plotly(fig, name="sankey")
+
+
+
+
 
     def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"):
         # 假设 "eol" 是 flow 的 key
@@ -340,7 +353,7 @@ class PlasticsDataExporter(CustomDataExporter):
         if "collected => reclmech" not in mfa.flows:
             raise KeyError("The MFA system does not contain 'use' in flows.")
         
-        use_data = mfa.flows["collected => reclmech"].values  # xarray.DataArray
+        use_data = mfa.flows["collected => reclmech"].values + mfa.flows["collected => reclchem"].values # xarray.DataArray
         print(use_data.shape)
         # 转换为 DataFrame 并重命名列
         years = pd.read_csv("data/plastics/input/dimensions/time_in_years.csv", header=None)[0].tolist()
@@ -356,7 +369,8 @@ class PlasticsDataExporter(CustomDataExporter):
 
         # 转为 DataFrame，并处理合并和重命名
         df = ds.to_dataframe(name="Use").reset_index()
-        df_grouped = df.groupby(["year", "region"], as_index=False)["Use"].sum()
+
+        df_grouped = df.groupby(["year", "region", "material"], as_index=False)["Use"].sum()
         df_grouped.columns = [col.capitalize() if col != "Use" else col for col in df_grouped.columns]  # 可选：统一列名风格
 
         # 输出为 CSV

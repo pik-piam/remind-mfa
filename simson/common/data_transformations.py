@@ -65,7 +65,7 @@ class StockExtrapolation:
             current_gdppc = self.gdppc.values[index[:2]]
             kwargs = {}
             if self.saturation_level is not None:
-                kwargs["saturation_level"] = self.saturation_level[idx]
+                kwargs["saturation_level"] = self.saturation_level
             extrapolation = self.stock_extrapolation_class(
                 data_to_extrapolate=current_hist_stock_pc, target_range=current_gdppc, **kwargs
             )

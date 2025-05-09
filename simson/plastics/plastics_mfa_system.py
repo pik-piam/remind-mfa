@@ -1,5 +1,6 @@
 from typing import Optional
 import flodym as fd
+import numpy as np
 
 from simson.common.data_transformations import StockExtrapolation
 from simson.common.common_cfg import PlasticsCfg
@@ -28,11 +29,14 @@ class PlasticsMFASystem(fd.MFASystem):
         self.stocks["in_use_historic"].compute()
 
     def compute_in_use_dsm(self):
+        saturation_level = np.zeros_like(self.stocks["in_use_historic"].stock)
+        saturation_level[...] = 0.06/1000/1000
         stock_handler = StockExtrapolation(
             self.stocks["in_use_historic"].stock,
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            saturation_level = saturation_level,
         )
         in_use_stock = stock_handler.stocks
         self.stocks["in_use_dsm"].stock[...] = in_use_stock
