@@ -1,7 +1,8 @@
 import numpy as np
 import flodym as fd
 
-from simson.common.data_transformations import extrapolate_to_future
+from simson.common.data_extrapolations import ProportionalExtrapolation
+from simson.common.data_transformations import broadcast_trailing_dimensions
 from simson.common.trade import Trade
 
 
@@ -75,3 +76,39 @@ def predict_by_extrapolation(
         future_trade.balance(to=balance_to, inplace=True)
 
     return future_trade
+
+
+def extrapolate_to_future(
+    historic_values: fd.FlodymArray, scale_by: fd.FlodymArray
+) -> fd.FlodymArray:
+    if not historic_values.dims.letters[0] == "h":
+        raise ValueError("First dimension of historic_parameter must be historic time.")
+    if not scale_by.dims.letters[0] == "t":
+        raise ValueError("First dimension of scaler must be time.")
+    if not set(scale_by.dims.letters[1:]).issubset(historic_values.dims.letters[1:]):
+        raise ValueError("Scaler dimensions must be subset of historic_parameter dimensions.")
+
+    all_dims = historic_values.dims.union_with(scale_by.dims)
+    dim_letters_out = ("t",) + historic_values.dims.letters[1:]
+    dims_out = all_dims[dim_letters_out]
+
+    extrapolated_values = fd.FlodymArray(dims=dims_out)
+
+    scale_by = scale_by.cast_to(extrapolated_values.dims)
+
+    # calculate weights
+    n_hist_points = historic_values.dims.shape[0]
+    n_last_points = 5
+    weights_1d = np.maximum(0.0, np.arange(-n_hist_points, 0) + n_last_points + 1)
+    weights_1d = weights_1d / weights_1d.sum()
+    weights = broadcast_trailing_dimensions(weights_1d, historic_values.values)
+
+    extrapolation = ProportionalExtrapolation(
+        data_to_extrapolate=historic_values.values,
+        target_range=scale_by.values,
+        weights=weights,
+        independent_dims=tuple(range(1, dims_out.ndim)),
+    )
+    extrapolated_values.set_values(extrapolation.extrapolate())
+
+    return extrapolated_values

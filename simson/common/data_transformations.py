@@ -1,119 +1,115 @@
-import numpy as np
 import flodym as fd
+import numpy as np
+from typing import Optional
+from pydantic import model_validator, Field
 
-from .data_extrapolations import (
-    Extrapolation,
-    ProportionalExtrapolation,
-)
-
-
-class StockExtrapolation:
-
-    def __init__(
-        self,
-        historic_stocks: fd.StockArray,
-        dims: fd.DimensionSet,
-        parameters: dict[str, fd.Parameter],
-        stock_extrapolation_class: Extrapolation,
-        target_dim_letters=None,
-        saturation_level=None,
-    ):
-        self.historic_stocks = historic_stocks
-        self.dims = dims
-        self.parameters = parameters
-        self.stock_extrapolation_class = stock_extrapolation_class
-        self.target_dim_letters = target_dim_letters
-        self.saturation_level = saturation_level
-        self.extrapolate()
-
-    def extrapolate(self):
-        self.per_capita_transformation()
-        self.gdp_regression()
-
-    def per_capita_transformation(self):
-        if self.target_dim_letters is None:
-            self.historic_dim_letters = self.historic_stocks.dims.letters
-            self.target_dim_letters = ("t",) + self.historic_dim_letters[1:]
-        else:
-            self.historic_dim_letters = ("h",) + self.target_dim_letters[1:]
-
-        # transform to per capita
-        self.pop = self.parameters["population"]
-        self.gdppc = self.parameters["gdppc"]
-        self.historic_pop = fd.FlodymArray(dims=self.dims[("h", "r")])
-        self.historic_gdppc = fd.FlodymArray(dims=self.dims[("h", "r")])
-        self.historic_stocks_pc = fd.FlodymArray(dims=self.dims[self.historic_dim_letters])
-        self.stocks_pc = fd.FlodymArray(dims=self.dims[self.target_dim_letters])
-        self.stocks = fd.FlodymArray(dims=self.dims[self.target_dim_letters])
-
-        self.historic_pop[...] = self.pop[{"t": self.dims["h"]}]
-        self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
-        self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
-
-    def gdp_regression(self):
-        """Updates per capita stock to future by extrapolation."""
-        prediction_out = self.stocks_pc.values
-        historic_in = self.historic_stocks_pc.values
-        shape_out = prediction_out.shape
-        pure_prediction = np.zeros_like(prediction_out)
-        n_historic = historic_in.shape[0]
-
-        for idx in np.ndindex(shape_out[1:]):
-            # idx is a tuple of indices for all dimensions except the time dimension
-            index = (slice(None),) + idx
-            current_hist_stock_pc = historic_in[index]
-            current_gdppc = self.gdppc.values[index[:2]]
-            kwargs = {}
-            if self.saturation_level is not None:
-                kwargs["saturation_level"] = self.saturation_level
-            extrapolation = self.stock_extrapolation_class(
-                data_to_extrapolate=current_hist_stock_pc, target_range=current_gdppc, **kwargs
-            )
-            pure_prediction[index] = extrapolation.regress()
-
-        # match last point by adding the difference between the last historic point and the corresponding prediction
-        prediction_out[...] = pure_prediction - (
-            pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
-        )
-        prediction_out[:n_historic, ...] = historic_in
-
-        # transform back to total stocks
-        self.stocks[...] = self.stocks_pc * self.pop
+from simson.common.base_model import SimsonBaseModel
 
 
-def extrapolate_to_future(
-    historic_values: fd.FlodymArray, scale_by: fd.FlodymArray
-) -> fd.FlodymArray:
-    if not historic_values.dims.letters[0] == "h":
-        raise ValueError("First dimension of historic_parameter must be historic time.")
-    if not scale_by.dims.letters[0] == "t":
-        raise ValueError("First dimension of scaler must be time.")
-    if not set(scale_by.dims.letters[1:]).issubset(historic_values.dims.letters[1:]):
-        raise ValueError("Scaler dimensions must be subset of historic_parameter dimensions.")
+def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) -> np.ndarray:
+    """Broadcasts array to shape of to_shape_of, adding dimensions if necessary."""
+    new_shape = array.shape + (1,) * (len(to_shape_of.shape) - len(array.shape))
+    b_reshaped = np.reshape(array, new_shape)
+    b_broadcast = np.broadcast_to(b_reshaped, to_shape_of.shape)
+    return b_broadcast
 
-    all_dims = historic_values.dims.union_with(scale_by.dims)
 
-    dim_letters_out = ("t",) + historic_values.dims.letters[1:]
-    extrapolated_values = fd.FlodymArray.from_dims_superset(
-        dims_superset=all_dims, dim_letters=dim_letters_out
-    )
+class Bound(SimsonBaseModel):
+    var_name: Optional[str]
+    dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
+    """Dimensions of the bounds. Not required if bounds are scalar."""
+    lower_bound: fd.FlodymArray
+    upper_bound: fd.FlodymArray
 
-    scale_by = scale_by.cast_to(extrapolated_values.dims)
+    @model_validator(mode="before")
+    @classmethod
+    def convert_to_fd_array(cls, data: dict):
+        required_fields = ["var_name", "lower_bound", "upper_bound"]
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field: {field}")
 
-    # calculate weights
-    n_hist_points = historic_values.dims.shape()[0]
-    n_last_points = 5
-    weights_1d = np.maximum(0.0, np.arange(-n_hist_points, 0) + n_last_points + 1)
-    weights_1d = weights_1d / weights_1d.sum()
-    weights = np.zeros_like(historic_values.values)
-    weights[...] = weights_1d[(slice(None),) + (np.newaxis,) * (weights.ndim - 1)]
+        var_name = data.get("var_name")
+        dims = data.get("dims")
+        lower = np.array(data.get("lower_bound"), dtype=float)
+        upper = np.array(data.get("upper_bound"), dtype=float)
 
-    extrapolation = ProportionalExtrapolation(
-        data_to_extrapolate=historic_values.values,
-        target_range=scale_by.values,
-        weights=weights,
-        independent=True,
-    )
-    extrapolated_values.set_values(extrapolation.extrapolate())
+        if dims is None:
+            dims = cls.model_fields.get("dims").default
 
-    return extrapolated_values
+        return {
+            "var_name": var_name,
+            "lower_bound": fd.FlodymArray(dims=dims, values=lower, name="lower_bound"),
+            "upper_bound": fd.FlodymArray(dims=dims, values=upper, name="upper_bound"),
+            "dims": dims,
+        }
+
+    @model_validator(mode="after")
+    def validate_bounds(self):
+        lb = self.lower_bound.values
+        ub = self.upper_bound.values
+
+        if np.any(lb > ub):
+            raise ValueError("Lower bounds must be smaller than upper bounds")
+
+        # Check if lower bound equals upper bound
+        equal_mask = lb == ub
+        if np.any(equal_mask):
+            adjustment = 1e-10
+            zero_mask = (lb == 0) & (ub == 0)
+
+            # Handle case where both bounds are 0
+            lb[zero_mask] = -adjustment
+            ub[zero_mask] = adjustment
+
+            # Handle general case where bounds are equal
+            non_zero_mask = equal_mask & np.logical_not(zero_mask)
+            lb[non_zero_mask] -= adjustment * np.abs(lb[non_zero_mask])
+            ub[non_zero_mask] += adjustment * np.abs(ub[non_zero_mask])
+
+        return self
+
+    def extend_dims(self, target_dims: fd.DimensionSet):
+        self.lower_bound = self.lower_bound.cast_to(target_dims)
+        self.upper_bound = self.upper_bound.cast_to(target_dims)
+        self.dims = target_dims
+        return self
+
+
+class BoundList(SimsonBaseModel):
+    bound_list: list[Bound] = Field(default_factory=list)
+    target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
+    """Dimension of the extrapolation to which the bounds are extended."""
+
+    @model_validator(mode="after")
+    def cast_bounds(self):
+        for idx, bound in enumerate(self.bound_list):
+            if set(bound.dims.letters).issubset(self.target_dims.letters):
+                self.bound_list[idx] = bound.extend_dims(self.target_dims)
+            else:
+                raise ValueError(f"Bound {bound.var_name} has dimensions not in target_dims.")
+        return self
+
+    def to_np_array(self, all_prm_names: list[str]) -> np.ndarray:
+        """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
+
+        if self.bound_list == []:
+            return None
+
+        invalid_params = set(b.var_name for b in self.bound_list) - set(all_prm_names)
+        if invalid_params:
+            raise ValueError(f"Unknown parameters in bounds: {invalid_params}")
+
+        bound_shape = self.bound_list[0].upper_bound.values.shape
+        param_positions = {name: i for i, name in enumerate(all_prm_names)}
+
+        lower_bounds = np.full(bound_shape + (len(all_prm_names),), -np.inf)
+        upper_bounds = np.full(bound_shape + (len(all_prm_names),), np.inf)
+
+        for bound in self.bound_list:
+            pos = param_positions[bound.var_name]
+            lower_bounds[..., pos] = bound.lower_bound.values
+            upper_bounds[..., pos] = bound.upper_bound.values
+
+        bounds = np.stack((lower_bounds, upper_bounds), axis=-2)
+        return bounds

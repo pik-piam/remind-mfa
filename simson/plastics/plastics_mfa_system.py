@@ -2,7 +2,7 @@ from typing import Optional
 import flodym as fd
 import numpy as np
 
-from simson.common.data_transformations import StockExtrapolation
+from simson.common.stock_extrapolation import StockExtrapolation
 from simson.common.common_cfg import PlasticsCfg
 
 
@@ -20,6 +20,7 @@ class PlasticsMFASystem(fd.MFASystem):
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
+        self.check_flows(no_error=True)
 
     def compute_historic_stock(self):
         self.stocks["in_use_historic"].inflow[...] = self.parameters["production"]

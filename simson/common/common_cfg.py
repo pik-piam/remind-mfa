@@ -7,10 +7,11 @@ from .data_extrapolations import Extrapolation
 IMPLEMENTED_MODELS = [
     "plastics",
     "steel",
+    "cement",
 ]
 
 
-def choose_sublass_by_name(name: str, parent: type) -> type:
+def choose_subclass_by_name(name: str, parent: type) -> type:
 
     def recurse_subclasses(cls):
         return set(cls.__subclasses__()).union(
@@ -33,28 +34,47 @@ class ModelCustomization(SimsonBaseModel):
 
     @property
     def lifetime_model(self) -> fd.LifetimeModel:
-        return choose_sublass_by_name(self.lifetime_model_name, fd.LifetimeModel)
+        return choose_subclass_by_name(self.lifetime_model_name, fd.LifetimeModel)
 
     @property
     def stock_extrapolation_class(self) -> Extrapolation:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
-        return choose_sublass_by_name(self.stock_extrapolation_class_name, Extrapolation)
+        return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
+
+
+class ExportCfg(SimsonBaseModel):
+    csv: bool = True
+    pickle: bool = True
+    assumptions: bool = True
 
 
 class VisualizationCfg(SimsonBaseModel):
 
-    stock: dict = {"do_visualize": False}
+    use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}
     do_show_figs: bool = True
     do_save_figs: bool = False
     plotting_engine: str = "plotly"
+    plotly_renderer: str = "browser"
+
+
+class CementVisualizationCfg(VisualizationCfg):
+
+    clinker_production: dict = {}
+    cement_production: dict = {}
+    concrete_production: dict = {}
+    eol_stock: dict = {}
+    extrapolation: dict = {}
 
 
 class SteelVisualizationCfg(VisualizationCfg):
 
     scrap_demand_supply: dict = {"do_visualize": False}
     sector_splits: dict = {"do_visualize": False}
+    trade: dict = {"do_visualize": False}
+    consumption: dict = {"do_visualize": False}
+    gdppc: dict = {"do_visualize": False}
 
 
 class PlasticsVisualizationCfg(VisualizationCfg):
@@ -69,7 +89,7 @@ class GeneralCfg(SimsonBaseModel):
     customization: ModelCustomization
     visualization: VisualizationCfg
     output_path: str
-    do_export: dict[str, bool]
+    do_export: ExportCfg
 
     @classmethod
     def from_model_class(cls, **kwargs) -> "GeneralCfg":
@@ -79,6 +99,7 @@ class GeneralCfg(SimsonBaseModel):
         subclasses = {
             "plastics": PlasticsCfg,
             "steel": SteelCfg,
+            "cement": CementCfg,
         }
         if model_class not in subclasses:
             raise ValueError(f"Model class {model_class} not supported.")
@@ -89,6 +110,11 @@ class GeneralCfg(SimsonBaseModel):
 class PlasticsCfg(GeneralCfg):
 
     visualization: PlasticsVisualizationCfg
+
+
+class CementCfg(GeneralCfg):
+
+    visualization: CementVisualizationCfg
 
 
 class SteelCfg(GeneralCfg):

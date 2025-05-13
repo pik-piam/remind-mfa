@@ -6,7 +6,7 @@ input_data_path: '../simson_data/data/steel/output'
 
 # model customization
 customization:
-  stock_extrapolation_class_name: 'FixedSatLogSigmoidExtrapolation'
+  stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
 
@@ -16,14 +16,20 @@ visualization:
     do_visualize: True
   sector_splits:
     do_visualize: True
-  stock:
+  use_stock:
     do_visualize: True
     over_gdp: True
     per_capita: True
+  gdppc:
+    do_visualize: True
   production:
     do_visualize: True
-  sankey:
+  consumption:
     do_visualize: True
+  trade:
+    do_visualize: True
+  sankey:
+    do_visualize: False
     slice_dict:
       t: 2020
       r: 'USA'

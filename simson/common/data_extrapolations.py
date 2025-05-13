@@ -1,23 +1,26 @@
 from abc import abstractmethod
-from typing import ClassVar
+from typing import Optional, Tuple
 import numpy as np
 import sys
-from simson.common.base_model import SimsonBaseModel
 from pydantic import model_validator
 from scipy.optimize import least_squares
+
+from simson.common.base_model import SimsonBaseModel
+from simson.common.data_transformations import BoundList
 
 
 class Extrapolation(SimsonBaseModel):
 
     data_to_extrapolate: np.ndarray
-    """historical data, 1 dimensional (time)"""
+    """historical data"""
     target_range: np.ndarray
-    """predictor variable(s)"""
-    weights: np.ndarray = None
-    independent: bool = False
-    """Whether to regress each entry (apart along time dim) independently or do a common regression for all entries"""
+    """predictor variable(s) covering range of data_to_extrapolate and beyond"""
+    weights: Optional[np.ndarray] = None
+    bound_list: BoundList = BoundList()
+    independent_dims: Tuple[int, ...] = ()
+    """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly."""
     fit_prms: np.ndarray = None
-    n_prms: ClassVar[int]
+    prm_names: list[str] = []
 
     @model_validator(mode="after")
     def validate_data(self):
@@ -36,6 +39,10 @@ class Extrapolation(SimsonBaseModel):
         return self
 
     @property
+    def n_prms(self):
+        return len(self.prm_names)
+
+    @property
     def n_historic(self):
         return self.data_to_extrapolate.shape[0]
 
@@ -46,7 +53,7 @@ class Extrapolation(SimsonBaseModel):
         return regression
 
     @abstractmethod
-    def func(x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+    def func(x: np.ndarray, prms: np.ndarray, **kwargs) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -57,8 +64,12 @@ class Extrapolation(SimsonBaseModel):
         pass
 
     def get_fitting_function(
-        self, target_range: np.ndarray, data_to_extrapolate: np.ndarray, weights: np.ndarray
+        self,
+        target_range: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+        weights: np.ndarray,
     ) -> callable:
+
         def fitting_function(prms: np.ndarray) -> np.ndarray:
             f = self.func(target_range, prms)
             loss = weights * (f - data_to_extrapolate)
@@ -67,42 +78,51 @@ class Extrapolation(SimsonBaseModel):
         return fitting_function
 
     def regress(self):
-        if self.independent:
-            return self.regress_independently()
-        else:
-            return self.regress_common()
-
-    def regress_common(self):
-        fitting_function = self.get_fitting_function(
-            self.target_range[: self.n_historic, ...], self.data_to_extrapolate, self.weights
-        )
-        initial_guess = self.initial_guess(self.target_range, self.data_to_extrapolate)
-
-        self.fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
-        regression = self.func(self.target_range, self.fit_prms)
-        return regression
-
-    def regress_independently(self):
+        # extract dimensions that are regressed independently
+        target_shape = tuple([self.target_range.shape[i] for i in sorted(self.independent_dims)])
         regression = np.zeros_like(self.target_range)
         self.fit_prms = np.zeros(self.target_range.shape[1:] + (self.n_prms,))
-        for idx in np.ndindex(self.target_range.shape[1:]):
-            index = (slice(None),) + idx
-            fitting_function = self.get_fitting_function(
-                self.target_range[: self.n_historic, ...][index],
-                self.data_to_extrapolate[index],
-                self.weights[index],
+        bounds_array = self.bound_list.to_np_array(self.prm_names)
+
+        # loop over dimensions that are regressed independently
+        for slice_indep in np.ndindex(target_shape):
+
+            slice_all = [slice(None)] * len(self.target_range.shape)
+            for i, j in enumerate(self.independent_dims):
+                slice_all[j] = slice_indep[i]
+            slice_all = tuple(slice_all)
+
+            self.fit_prms[slice_indep], regression[slice_all] = self.regress_common(
+                self.target_range[slice_all],
+                self.data_to_extrapolate[slice_all],
+                self.weights[slice_all],
+                bounds_array[slice_indep] if bounds_array is not None else (-np.inf, np.inf),
             )
-            initial_guess = self.initial_guess(
-                self.target_range[index], self.data_to_extrapolate[index]
-            )
-            self.fit_prms[idx] = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12).x
-            regression[index] = self.func(self.target_range[index], self.fit_prms[idx])
+
         return regression
+
+    def regress_common(self, target, data, weights, bounds):
+        """Finds optimal fit of data and extrapolates to target."""
+        fitting_function = self.get_fitting_function(
+            target[: self.n_historic, ...],
+            data,
+            weights,
+        )
+        initial_guess = self.initial_guess(target, data)
+        # correct initial guess
+        outside_bounds = (initial_guess < bounds[0]) + (initial_guess > bounds[1])
+        if np.any(outside_bounds):
+            initial_guess[outside_bounds] = (
+                bounds[0][outside_bounds] + bounds[1][outside_bounds]
+            ) / 2
+        fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12, bounds=bounds).x
+        regression = self.func(target, fit_prms)
+        return fit_prms, regression
 
 
 class ProportionalExtrapolation(Extrapolation):
 
-    n_prms: ClassVar[int] = 1
+    prm_names: list[str] = ["proportionality_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -115,7 +135,7 @@ class ProportionalExtrapolation(Extrapolation):
 
 class PehlExtrapolation(Extrapolation):
 
-    n_prms: ClassVar[int] = 2
+    prm_names: list[str] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -132,7 +152,7 @@ class PehlExtrapolation(Extrapolation):
 
 class ExponentialSaturationExtrapolation(Extrapolation):
 
-    n_prms: ClassVar[int] = 2
+    prm_names: list[str] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -148,9 +168,9 @@ class ExponentialSaturationExtrapolation(Extrapolation):
         return np.array([initial_saturation_level, initial_stretch_factor])
 
 
-class VarySatLogSigmoidExtrapolation(Extrapolation):
+class LogSigmoidExtrapolation(Extrapolation):
 
-    n_prms: ClassVar[int] = 3
+    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
 
     @staticmethod
     def func(x, prms):
@@ -158,27 +178,55 @@ class VarySatLogSigmoidExtrapolation(Extrapolation):
 
     @staticmethod
     def initial_guess(target_range, data_to_extrapolate):
-        max_level = np.max(np.log(data_to_extrapolate))
+        max_level = np.log(np.max(data_to_extrapolate))
         sat_level_guess = 2 * max_level
 
         mean_target = np.mean(np.log(target_range))
 
-        target_max_level = np.max(np.log(target_range))
+        target_max_level = np.log(np.max(target_range))
         stretch_factor = 2 / (target_max_level - mean_target)
         return np.array([sat_level_guess, stretch_factor, mean_target])
 
 
-class FixedSatLogSigmoidExtrapolation(Extrapolation):
+class SigmoidExtrapolation(Extrapolation):
 
-    n_prms: ClassVar[int] = 2
-    saturation_level: float = 1.0
-
-    def func(self, x, prms):
-        return self.saturation_level / (1 + np.exp(-prms[0] * (np.log(x) - prms[1])))
+    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
 
     @staticmethod
-    def initial_guess(target_range, data_to_extrapolate):
-        mean_target = np.mean(np.log(target_range))
-        target_max_level = np.max(np.log(target_range))
-        stretch_factor = 2 / (target_max_level - mean_target)
-        return np.array([stretch_factor, mean_target])
+    def func(x, prms):
+        return prms[0] / (1.0 + np.exp(-prms[1] * (x - prms[2])))
+
+    def initial_guess(self):
+        current_level = self.data_to_extrapolate[-1]
+        current_extrapolator = self.target_range[self.n_historic - 1]
+        initial_saturation_level = (
+            2.0 * current_level if np.max(np.abs(current_level)) > sys.float_info.epsilon else 1.0
+        )
+
+        # Estimate slope based on historical data points
+        if len(self.data_to_extrapolate) > 1:
+            # Calculate average rate of change in recent history
+            recent_y_change = self.data_to_extrapolate[-1] - self.data_to_extrapolate[-2]
+            recent_x_change = (
+                self.target_range[self.n_historic - 1] - self.target_range[self.n_historic - 2]
+            )
+            if abs(recent_x_change) > sys.float_info.epsilon:
+                slope_estimate = recent_y_change / recent_x_change
+                # Convert slope to stretch factor (sigmoid derivative at midpoint is prms[0]*prms[1]/4)
+                initial_stretch_factor = 4.0 * slope_estimate / initial_saturation_level
+            else:
+                initial_stretch_factor = 0.1
+        else:
+            initial_stretch_factor = 0.1
+
+        # If current level is approximately half the saturation level, set x-offset to current x value
+        ratio = current_level / initial_saturation_level
+        # Solve for x-offset using the sigmoid equation at current point
+        if 0 < ratio < 1:
+            logit = np.log(ratio / (1.0 - ratio))
+            initial_x_offset = current_extrapolator - logit / initial_stretch_factor
+        else:
+            # Fallback if ratio is not in (0,1)
+            initial_x_offset = current_extrapolator
+
+        return np.array([initial_saturation_level, initial_stretch_factor, initial_x_offset])

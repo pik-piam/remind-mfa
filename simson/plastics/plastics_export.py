@@ -8,13 +8,13 @@ import plotly.graph_objects as go
 from typing import TYPE_CHECKING
 import flodym.export as fde
 
-from simson.common.custom_export import CustomDataExporter
+from simson.common.common_export import CommonDataExporter
 
 if TYPE_CHECKING:
     from simson.plastics.plastics_model import PlasticsModel
 
 
-class PlasticsDataExporter(CustomDataExporter):
+class PlasticsDataExporter(CommonDataExporter):
 
     # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
     _display_names: dict = {
