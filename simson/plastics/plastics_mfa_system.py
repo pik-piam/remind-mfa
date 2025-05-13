@@ -4,6 +4,7 @@ import numpy as np
 
 from simson.common.stock_extrapolation import StockExtrapolation
 from simson.common.common_cfg import PlasticsCfg
+from simson.common.data_transformations import Bound, BoundList
 
 
 class PlasticsMFASystem(fd.MFASystem):
@@ -30,14 +31,25 @@ class PlasticsMFASystem(fd.MFASystem):
         self.stocks["in_use_historic"].compute()
 
     def compute_in_use_dsm(self):
-        saturation_level = np.zeros_like(self.stocks["in_use_historic"].stock)
-        saturation_level[...] = 0.06/1000/1000
+        saturation_level = 0.2/1000/1000
+        sat_bound = Bound(
+            var_name="saturation_level",
+            lower_bound=saturation_level,
+            upper_bound=saturation_level*3,
+            dims=self.dims[()],
+        )
+        bound_list = BoundList(
+            bound_list=[
+                sat_bound,
+            ],
+            target_dims=self.dims[()],
+        )
         stock_handler = StockExtrapolation(
             self.stocks["in_use_historic"].stock,
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
-            saturation_level = saturation_level,
+            bound_list=bound_list,
         )
         in_use_stock = stock_handler.stocks
         self.stocks["in_use_dsm"].stock[...] = in_use_stock
@@ -88,15 +100,15 @@ class PlasticsMFASystem(fd.MFASystem):
         flw["wasteimport => collected"][...] = flw["wastetrade => wasteimport"]
         flw["collected => wasteexport"][...] = flw["wasteexport => wastetrade"]
 
-        aux["final_2_fabrication"][...] = (
-            flw["fabrication => use"]
-            .sum_over(["r","g"]).get_shares_over(["e","m"]) 
-        )
+        # aux["final_2_fabrication"][...] = (
+        #     flw["fabrication => use"]
+        #     .sum_over(["r","g"]).get_shares_over(["e","m"]) 
+        # )
 
-        flw["finaltrade => finalimport"][...] = prm["finalimport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
-        flw["finalexport => finaltrade"][...] = prm["finalexport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
-        flw["finalimport => fabrication"][...] = flw["finaltrade => finalimport"]
-        flw["fabrication => finalexport"][...] = flw["finalexport => finaltrade"]
+        #flw["finaltrade => finalimport"][...] = prm["finalimport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
+        #flw["finalexport => finaltrade"][...] = prm["finalexport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
+        #flw["finalimport => fabrication"][...] = flw["finaltrade => finalimport"]
+        #flw["fabrication => finalexport"][...] = flw["finalexport => finaltrade"]
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["mechanical_recycling_rate"]
@@ -135,7 +147,8 @@ class PlasticsMFASystem(fd.MFASystem):
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         flw["recl => fabrication"][...] = flw["reclmech => recl"] + flw["reclchem => recl"]
-        flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"] - flw["finalimport => fabrication"] + flw["fabrication => finalexport"]
+        #flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"] - flw["finalimport => fabrication"] + flw["fabrication => finalexport"]
+        flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"]
 
         flw["virgindaccu => virgin"][...] = flw["virgin => fabrication"] * prm["daccu_production_rate"]
         flw["virginbio => virgin"][...] = flw["virgin => fabrication"] * prm["bio_production_rate"]

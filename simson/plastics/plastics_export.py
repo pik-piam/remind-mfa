@@ -42,16 +42,16 @@ class PlasticsDataExporter(CommonDataExporter):
         "wasteimport": "Import waste",
         "wasteexport": "Export waste",
         "wastetrade": "Waste trade",
-        "finalimport": "Import final",
-        "finalexport": "Export final",
-        "finaltrade": "Final trade",
+        #"finalimport": "Import final",
+        #"finalexport": "Export final",
+        #"finaltrade": "Final trade",
     }
 
     def visualize_results(self, model: "PlasticsModel"):
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.mfa)
 
-        if self.cfg.stock["do_visualize"]:
+        if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.mfa, subplots_by_good=False)
 
         if self.cfg.sankey["do_visualize"]:
@@ -84,7 +84,7 @@ class PlasticsDataExporter(CommonDataExporter):
         self.plot_and_save_figure(ap_historic, "production.png")
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-        per_capita = self.cfg.stock["per_capita"]
+        per_capita = self.cfg.use_stock["per_capita"]
 
         stock = mfa.stocks["in_use"].stock * 1000 * 1000
         population = mfa.parameters["population"]
@@ -94,7 +94,7 @@ class PlasticsDataExporter(CommonDataExporter):
         x_label = "Year"
         y_label = f"Plastic Stock{pc_str} [t]"
         title = f"Plastic Stocks{pc_str}"
-        if self.cfg.stock.get("over_gdp", False):
+        if self.cfg.use_stock.get("over_gdp", False):
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
             x_array = mfa.parameters["gdppc"]
@@ -226,12 +226,12 @@ class PlasticsDataExporter(CommonDataExporter):
             for fn, f in mfa.flows.items()
             if f.from_process.name in ["reclmech", "reclchem", "recl"] or f.to_process.name in ["reclmech", "reclchem", "recl"]
         })
-        flow_color_dict.update({
-            fn: trade_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in ["wastetrade","finaltrade","wasteimport","finalimport","wasteexport","finalexport"]
-            or f.to_process.name in ["wastetrade","finaltrade","wasteimport","finalimport","wasteexport","finalexport"]
-        })
+        # flow_color_dict.update({
+        #     fn: trade_color
+        #     for fn, f in mfa.flows.items()
+        #     if f.from_process.name in ["wastetrade","finaltrade","wasteimport","finalimport","wasteexport","finalexport"]
+        #     or f.to_process.name in ["wastetrade","finaltrade","wasteimport","finalimport","wasteexport","finalexport"]
+        # })
 
 
         # 7) 格式化 & 布局优化

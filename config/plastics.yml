@@ -6,7 +6,7 @@ input_data_path: 'data/plastics/input'
 
 # model customization
 customization:
-  stock_extrapolation_class_name: 'FixedSatLogSigmoidExtrapolation'
+  stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'NormalLifetime'
   do_stock_extrapolation_by_category: True
 
@@ -25,7 +25,7 @@ visualization:
       t: 2020
     exclude_processes:
       - "sysenv"
-      - "finaltrade"
+      #- "finaltrade"
       - "wastetrade"
     exclude_flows: [ ]
   do_show_figs: True

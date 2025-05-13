@@ -25,9 +25,9 @@ def get_definition(cfg: GeneralCfg):
         "wasteimport",
         "wasteexport",
         "wastetrade",
-        "finalimport",
-        "finalexport",
-        "finaltrade",
+        #"finalimport",
+        #"finalexport",
+        #"finaltrade",
         "recl",
         "reclmech",
         "reclchem",
@@ -83,10 +83,10 @@ def get_definition(cfg: GeneralCfg):
         fd.FlowDefinition(from_process="wasteexport", to_process="wastetrade", dim_letters=("t","e","r","m")),
 
         # final trade
-        fd.FlowDefinition(from_process="finaltrade", to_process="finalimport", dim_letters=("t","e","r","m")),
-        fd.FlowDefinition(from_process="finalimport", to_process="fabrication", dim_letters=("t","e","r","m")),
-        fd.FlowDefinition(from_process="fabrication", to_process="finalexport", dim_letters=("t","e","r","m")),
-        fd.FlowDefinition(from_process="finalexport", to_process="finaltrade", dim_letters=("t","e","r","m")),
+        #fd.FlowDefinition(from_process="finaltrade", to_process="finalimport", dim_letters=("t","e","r","m")),
+        #fd.FlowDefinition(from_process="finalimport", to_process="fabrication", dim_letters=("t","e","r","m")),
+        #fd.FlowDefinition(from_process="fabrication", to_process="finalexport", dim_letters=("t","e","r","m")),
+        #fd.FlowDefinition(from_process="finalexport", to_process="finaltrade", dim_letters=("t","e","r","m")),
     ]
     # fmt: on
 
@@ -116,12 +116,12 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=("t", "e", "m"),
             subclass=fd.SimpleFlowDrivenStock,
         ),
-        fd.StockDefinition(
-            name="finaltrade",
-            process="finaltrade",
-            dim_letters=("t", "e", "m"),
-            subclass=fd.SimpleFlowDrivenStock,
-        ),
+        # fd.StockDefinition(
+        #     name="finaltrade",
+        #     process="finaltrade",
+        #     dim_letters=("t", "e", "m"),
+        #     subclass=fd.SimpleFlowDrivenStock,
+        # ),
         fd.StockDefinition(
             name="atmospheric",
             process="atmosphere",
@@ -152,8 +152,8 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="landfill_rate", dim_letters=("t","r","m")),
         fd.ParameterDefinition(name="wasteimport_rate", dim_letters=("t","r","g")),
         fd.ParameterDefinition(name="wasteexport_rate", dim_letters=("t","r","g")),
-        fd.ParameterDefinition(name="finalimport_rate", dim_letters=("t","r")),
-        fd.ParameterDefinition(name="finalexport_rate", dim_letters=("t","r")),
+        #fd.ParameterDefinition(name="finalimport_rate", dim_letters=("t","r")),
+        #fd.ParameterDefinition(name="finalexport_rate", dim_letters=("t","r")),
         # virgin production rates
         fd.ParameterDefinition(name="bio_production_rate", dim_letters=("t","r","m")),
         fd.ParameterDefinition(name="daccu_production_rate", dim_letters=("t","r","m")),
