@@ -29,7 +29,7 @@ class PlasticsDataExporter(CommonDataExporter):
         "reclmech": "Mech recycling",
         "reclchem": "Chem recycling",
         "use": "Use Phase",
-        "eol": "EoL",   
+        "eol": "EoL",
         "collected": "Collect",
         "mismanaged": "Uncollected",
         "incineration": "Incineration",
@@ -38,13 +38,12 @@ class PlasticsDataExporter(CommonDataExporter):
         "emission": "Emissions",
         "captured": "Captured",
         "atmosphere": "Atmosphere",
-
         "wasteimport": "Import waste",
         "wasteexport": "Export waste",
         "wastetrade": "Waste trade",
-        #"finalimport": "Import final",
-        #"finalexport": "Export final",
-        #"finaltrade": "Final trade",
+        # "finalimport": "Import final",
+        # "finalexport": "Export final",
+        # "finaltrade": "Final trade",
     }
 
     def visualize_results(self, model: "PlasticsModel"):
@@ -64,7 +63,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
     def visualize_production(self, mfa: fd.MFASystem):
         ap_modeled = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r","m", "e")),
+            array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e")),
             intra_line_dim="Time",
             subplot_dim="Good",
             line_label="Modeled",
@@ -106,7 +105,7 @@ class PlasticsDataExporter(CommonDataExporter):
         else:
             subplot_dim = {}
             stock = stock.sum_over("g")
-            stock = stock.sum_over(["e", "m"]) 
+            stock = stock.sum_over(["e", "m"])
 
         if per_capita:
             stock = stock / population
@@ -180,19 +179,18 @@ class PlasticsDataExporter(CommonDataExporter):
             do_plot=False,
         )
 
-    
     def visualize_sankey(self, mfa: fd.MFASystem):
         # 1) 生产一个 Good 的色板
-        #good_items = mfa.dims["Good"].items
-        #good_colors = [f"hsl({190 + 10*i},40,{77-5*i})" for i in range(len(good_items))]
+        # good_items = mfa.dims["Good"].items
+        # good_colors = [f"hsl({190 + 10*i},40,{77-5*i})" for i in range(len(good_items))]
 
         # 2) 其他阶段的单一颜色
         production_color = "#EDC948"
         use_color = "#9EC3D5"
-        eol_color      = "#499894"
-        recycle_color  = "#86BCB6"
+        eol_color = "#499894"
+        recycle_color = "#86BCB6"
         emission_color = "#E15759"
-        trade_color    = "#D37295"
+        trade_color = "#D37295"
 
         # 3) 初始化 flow_color_dict
         flow_color_dict = {"default": production_color}
@@ -205,27 +203,36 @@ class PlasticsDataExporter(CommonDataExporter):
         # })
 
         # 5) 其余流程阶段单色（只为那些不含 Good 的流提供备选色）
-        flow_color_dict.update({
-            fn: use_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in ["use"]
-            or  f.to_process.name in ["use"]
-        })
-        flow_color_dict.update({
-            fn: eol_color 
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in ["eol", "collected"]
-        })
-        flow_color_dict.update({
-            fn: emission_color
-            for fn, f in mfa.flows.items()
-            if f.to_process.name in ["atmosphere", "mismanaged", "incineration", "uncontrolled", "emission"]
-        })
-        flow_color_dict.update({
-            fn: recycle_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in ["reclmech", "reclchem", "recl"] or f.to_process.name in ["reclmech", "reclchem", "recl"]
-        })
+        flow_color_dict.update(
+            {
+                fn: use_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name in ["use"] or f.to_process.name in ["use"]
+            }
+        )
+        flow_color_dict.update(
+            {
+                fn: eol_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name in ["eol", "collected"]
+            }
+        )
+        flow_color_dict.update(
+            {
+                fn: emission_color
+                for fn, f in mfa.flows.items()
+                if f.to_process.name
+                in ["atmosphere", "mismanaged", "incineration", "uncontrolled", "emission"]
+            }
+        )
+        flow_color_dict.update(
+            {
+                fn: recycle_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name in ["reclmech", "reclchem", "recl"]
+                or f.to_process.name in ["reclmech", "reclchem", "recl"]
+            }
+        )
         # flow_color_dict.update({
         #     fn: trade_color
         #     for fn, f in mfa.flows.items()
@@ -233,16 +240,17 @@ class PlasticsDataExporter(CommonDataExporter):
         #     or f.to_process.name in ["wastetrade","finaltrade","wasteimport","finalimport","wasteexport","finalexport"]
         # })
 
-
         # 7) 格式化 & 布局优化
-        self.cfg.sankey.update({
-            "valueformat": ".2s",       # 科学计数法，两位有效数字
-            "node_pad": 15,             # 节点间距
-            "node_thickness": 20,       # 节点厚度
-            "arrangement": "snap",      # 节点自动“吸附”减少交叉
-            "flow_color_dict": flow_color_dict,
-            "node_color_dict": {"default": "gray", "use": "black"}
-        })
+        self.cfg.sankey.update(
+            {
+                "valueformat": ".2s",  # 科学计数法，两位有效数字
+                "node_pad": 15,  # 节点间距
+                "node_thickness": 20,  # 节点厚度
+                "arrangement": "snap",  # 节点自动“吸附”减少交叉
+                "flow_color_dict": flow_color_dict,
+                "node_color_dict": {"default": "gray", "use": "black"},
+            }
+        )
 
         # 8) 调用 Plotter 绘图
         sdn = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
@@ -252,10 +260,10 @@ class PlasticsDataExporter(CommonDataExporter):
         # 9) 把 Good 的图例也加上
         legend_entries = [
             [production_color, "Production"],
-            [eol_color       , "EoL"],
-            [recycle_color   , "Recycling"],
-            [emission_color  , "Losses"],
-            [trade_color     , "Trade"],
+            [eol_color, "EoL"],
+            [recycle_color, "Recycling"],
+            [emission_color, "Losses"],
+            [trade_color, "Trade"],
             # ["white"         , ""],
             # ["white"         , "Goods"],
         ]
@@ -263,117 +271,150 @@ class PlasticsDataExporter(CommonDataExporter):
         #     legend_entries.append([color, good])
 
         for color, label in legend_entries:
-            fig.add_trace(go.Scatter(
-                mode="markers", x=[None], y=[None],
-                marker=dict(size=10, color=color, symbol="square"),
-                name=label
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    mode="markers",
+                    x=[None],
+                    y=[None],
+                    marker=dict(size=10, color=color, symbol="square"),
+                    name=label,
+                )
+            )
 
         # 10) 最后布局微调 & 展示
         fig.update_layout(
-            font_size=18,
-            showlegend=True,
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="black"
+            font_size=18, showlegend=True, plot_bgcolor="rgba(0,0,0,0)", font_color="black"
         )
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
 
         self._show_and_save_plotly(fig, name="sankey")
 
-
-
-
-
-    def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"):
+    def export_eol_data_by_region_and_year(
+        self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"
+    ):
         # 假设 "eol" 是 flow 的 key
         if "use => eol" not in mfa.flows:
             raise KeyError("The MFA system does not contain 'eol' in flows.")
-        
-        eol_data = mfa.flows["eol => collected"].values + mfa.flows["wasteimport => collected"].values - mfa.flows["collected => wasteexport"].values  # xarray.DataArray
+
+        eol_data = (
+            mfa.flows["eol => collected"].values
+            + mfa.flows["wasteimport => collected"].values
+            - mfa.flows["collected => wasteexport"].values
+        )  # xarray.DataArray
         # 转换为 DataFrame 并重命名列
-        years = pd.read_csv("data/plastics/input/dimensions/time_in_years.csv", header=None)[0].tolist()
-        elements = pd.read_csv("data/plastics/input/dimensions/elements.csv", header=None)[0].tolist()
+        years = pd.read_csv("data/plastics/input/dimensions/time_in_years.csv", header=None)[
+            0
+        ].tolist()
+        elements = pd.read_csv("data/plastics/input/dimensions/elements.csv", header=None)[
+            0
+        ].tolist()
         regions = pd.read_csv("data/plastics/input/dimensions/regions.csv", header=None)[0].tolist()
-        materials = pd.read_csv("data/plastics/input/dimensions/materials.csv", header=None)[0].tolist()
-        #goods = pd.read_csv("data/plastics/input/dimensions/goods_in_use.csv", header=None)[0].tolist()
-        #print(mfa.flows["wasteexport => tradepool"].values)
-        #print(mfa.flows["tradepool => wasteimport"].values)
+        materials = pd.read_csv("data/plastics/input/dimensions/materials.csv", header=None)[
+            0
+        ].tolist()
+        # goods = pd.read_csv("data/plastics/input/dimensions/goods_in_use.csv", header=None)[0].tolist()
+        # print(mfa.flows["wasteexport => tradepool"].values)
+        # print(mfa.flows["tradepool => wasteimport"].values)
 
         ds = xr.DataArray(
             eol_data,
             coords=[years, elements, regions, materials],
-            dims=["year", "elements", "region", "material"]
+            dims=["year", "elements", "region", "material"],
         )
 
         # 转为 DataFrame，并处理合并和重命名
         df = ds.to_dataframe(name="EOL").reset_index()
         df_grouped = df.groupby(["year", "region"], as_index=False)["EOL"].sum()
-        df_grouped.columns = [col.capitalize() if col != "EOL" else col for col in df_grouped.columns]  # 可选：统一列名风格
+        df_grouped.columns = [
+            col.capitalize() if col != "EOL" else col for col in df_grouped.columns
+        ]  # 可选：统一列名风格
         print(df_grouped[(df_grouped["Region"] == "CHA") & (df_grouped["Year"] == 2019)])
         print(df_grouped[(df_grouped["Region"] == "USA") & (df_grouped["Year"] == 2019)])
         print(df_grouped[(df_grouped["Region"] == "EUR") & (df_grouped["Year"] == 2019)])
-
 
         # 输出为 CSV
         df_grouped.to_csv(output_path, index=False)
         print(f"EOL data exported to {output_path}")
 
-    def export_use_data_by_region_and_year(self, mfa: fd.MFASystem, output_path: str = "use_by_region_year.csv"):
+    def export_use_data_by_region_and_year(
+        self, mfa: fd.MFASystem, output_path: str = "use_by_region_year.csv"
+    ):
         # 假设 "eol" 是 flow 的 key
         if "fabrication => use" not in mfa.flows:
             raise KeyError("The MFA system does not contain 'use' in flows.")
-        
+
         use_data = mfa.flows["fabrication => use"].values  # xarray.DataArray
         print(use_data.shape)
         # 转换为 DataFrame 并重命名列
-        years = pd.read_csv("data/plastics/input/dimensions/time_in_years.csv", header=None)[0].tolist()
-        elements = pd.read_csv("data/plastics/input/dimensions/elements.csv", header=None)[0].tolist()
+        years = pd.read_csv("data/plastics/input/dimensions/time_in_years.csv", header=None)[
+            0
+        ].tolist()
+        elements = pd.read_csv("data/plastics/input/dimensions/elements.csv", header=None)[
+            0
+        ].tolist()
         regions = pd.read_csv("data/plastics/input/dimensions/regions.csv", header=None)[0].tolist()
-        materials = pd.read_csv("data/plastics/input/dimensions/materials.csv", header=None)[0].tolist()
-        goods = pd.read_csv("data/plastics/input/dimensions/goods_in_use.csv", header=None)[0].tolist()
+        materials = pd.read_csv("data/plastics/input/dimensions/materials.csv", header=None)[
+            0
+        ].tolist()
+        goods = pd.read_csv("data/plastics/input/dimensions/goods_in_use.csv", header=None)[
+            0
+        ].tolist()
 
         ds = xr.DataArray(
             use_data,
             coords=[years, elements, regions, materials, goods],
-            dims=["year", "elements", "region", "material", "goods"]
+            dims=["year", "elements", "region", "material", "goods"],
         )
 
         # 转为 DataFrame，并处理合并和重命名
         df = ds.to_dataframe(name="Use").reset_index()
         df_grouped = df.groupby(["year", "region"], as_index=False)["Use"].sum()
-        df_grouped.columns = [col.capitalize() if col != "Use" else col for col in df_grouped.columns]  # 可选：统一列名风格
+        df_grouped.columns = [
+            col.capitalize() if col != "Use" else col for col in df_grouped.columns
+        ]  # 可选：统一列名风格
 
         # 输出为 CSV
         df_grouped.to_csv(output_path, index=False)
         print(f"Use data exported to {output_path}")
 
-    def export_recycling_data_by_region_and_year(self, mfa: fd.MFASystem, output_path: str = "recycling_by_region_year.csv"):
+    def export_recycling_data_by_region_and_year(
+        self, mfa: fd.MFASystem, output_path: str = "recycling_by_region_year.csv"
+    ):
         # 假设 "eol" 是 flow 的 key
         if "collected => reclmech" not in mfa.flows:
             raise KeyError("The MFA system does not contain 'use' in flows.")
-        
-        use_data = mfa.flows["collected => reclmech"].values + mfa.flows["collected => reclchem"].values # xarray.DataArray
+
+        use_data = (
+            mfa.flows["collected => reclmech"].values + mfa.flows["collected => reclchem"].values
+        )  # xarray.DataArray
         print(use_data.shape)
         # 转换为 DataFrame 并重命名列
-        years = pd.read_csv("data/plastics/input/dimensions/time_in_years.csv", header=None)[0].tolist()
-        elements = pd.read_csv("data/plastics/input/dimensions/elements.csv", header=None)[0].tolist()
+        years = pd.read_csv("data/plastics/input/dimensions/time_in_years.csv", header=None)[
+            0
+        ].tolist()
+        elements = pd.read_csv("data/plastics/input/dimensions/elements.csv", header=None)[
+            0
+        ].tolist()
         regions = pd.read_csv("data/plastics/input/dimensions/regions.csv", header=None)[0].tolist()
-        materials = pd.read_csv("data/plastics/input/dimensions/materials.csv", header=None)[0].tolist()
+        materials = pd.read_csv("data/plastics/input/dimensions/materials.csv", header=None)[
+            0
+        ].tolist()
 
         ds = xr.DataArray(
             use_data,
             coords=[years, elements, regions, materials],
-            dims=["year", "elements", "region", "material"]
+            dims=["year", "elements", "region", "material"],
         )
 
         # 转为 DataFrame，并处理合并和重命名
         df = ds.to_dataframe(name="Use").reset_index()
 
         df_grouped = df.groupby(["year", "region", "material"], as_index=False)["Use"].sum()
-        df_grouped.columns = [col.capitalize() if col != "Use" else col for col in df_grouped.columns]  # 可选：统一列名风格
+        df_grouped.columns = [
+            col.capitalize() if col != "Use" else col for col in df_grouped.columns
+        ]  # 可选：统一列名风格
 
         # 输出为 CSV
         df_grouped.to_csv(output_path, index=False)
         print(f"Use data exported to {output_path}")
-        

@@ -31,11 +31,11 @@ class PlasticsMFASystem(fd.MFASystem):
         self.stocks["in_use_historic"].compute()
 
     def compute_in_use_dsm(self):
-        saturation_level = 0.2/1000/1000
+        saturation_level = 0.2 / 1000 / 1000
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=saturation_level,
-            upper_bound=saturation_level*3,
+            upper_bound=saturation_level * 3,
             dims=self.dims[()],
         )
         bound_list = BoundList(
@@ -86,15 +86,12 @@ class PlasticsMFASystem(fd.MFASystem):
         }
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
-        split = (
-            prm["material_shares_in_goods"]
-            * prm["carbon_content_materials"]
-        )
+        split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
 
         # fmt: off
         flw["fabrication => use"][...] = stk["in_use"].inflow
         flw["use => eol"][...] = stk["in_use"].outflow
-        
+
         flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wasteimporttotal"]  * split
         flw["wasteexport => wastetrade"][...] = prm["wasteexport_rate"] * prm["wasteimporttotal"]  * split
         flw["wasteimport => collected"][...] = flw["wastetrade => wasteimport"]
@@ -102,7 +99,7 @@ class PlasticsMFASystem(fd.MFASystem):
 
         # aux["final_2_fabrication"][...] = (
         #     flw["fabrication => use"]
-        #     .sum_over(["r","g"]).get_shares_over(["e","m"]) 
+        #     .sum_over(["r","g"]).get_shares_over(["e","m"])
         # )
 
         #flw["finaltrade => finalimport"][...] = prm["finalimport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
@@ -184,9 +181,7 @@ class PlasticsMFASystem(fd.MFASystem):
         stk["landfill"].inflow[...] = flw["collected => landfill"]
         stk["landfill"].compute()
 
-        stk["uncontrolled"].inflow[...] = (
-            flw["eol => mismanaged"] + flw["reclmech => uncontrolled"]
-        )
+        stk["uncontrolled"].inflow[...] = flw["eol => mismanaged"] + flw["reclmech => uncontrolled"]
         stk["uncontrolled"].compute()
 
         stk["wastetrade"].inflow[...] = flw["wasteexport => wastetrade"]
