@@ -29,7 +29,7 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=(
                 "h",
                 "r",
-                "s",
+                "s"
             ),
         ),
         fd.FlowDefinition(
@@ -38,7 +38,7 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=(
                 "h",
                 "r",
-                "s",
+                "s"
             ),
         ),
         # future flows
@@ -47,7 +47,7 @@ def get_definition(cfg: GeneralCfg):
             to_process="raw_meal_preparation",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.FlowDefinition(
@@ -55,7 +55,7 @@ def get_definition(cfg: GeneralCfg):
             to_process="clinker_production",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.FlowDefinition(
@@ -63,7 +63,7 @@ def get_definition(cfg: GeneralCfg):
             to_process="clinker_production",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.FlowDefinition(
@@ -71,7 +71,7 @@ def get_definition(cfg: GeneralCfg):
             to_process="cement_grinding",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.FlowDefinition(
@@ -79,7 +79,7 @@ def get_definition(cfg: GeneralCfg):
             to_process="cement_grinding",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.FlowDefinition(
@@ -87,7 +87,7 @@ def get_definition(cfg: GeneralCfg):
             to_process="concrete_production",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.FlowDefinition(
@@ -95,7 +95,7 @@ def get_definition(cfg: GeneralCfg):
             to_process="concrete_production",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.FlowDefinition(
@@ -104,7 +104,7 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=(
                 "t",
                 "r",
-                "s",
+                "s"
             ),
         ),
         fd.FlowDefinition(
@@ -113,7 +113,7 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=(
                 "t",
                 "r",
-                "s",
+                "s"
             ),
         ),
         fd.FlowDefinition(
@@ -122,7 +122,7 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=(
                 "t",
                 "r",
-                "s",
+                "s"
             ),
         ),
     ]
@@ -156,7 +156,7 @@ def get_definition(cfg: GeneralCfg):
             name="cement_production",
             dim_letters=(
                 "h",
-                "r",
+                "r"
             ),
         ),
         fd.ParameterDefinition(name="clinker_ratio", dim_letters=()),
@@ -167,7 +167,7 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=(
                 "h",
                 "r",
-                "s",
+                "s"
             ),
         ),
         fd.ParameterDefinition(
@@ -175,14 +175,14 @@ def get_definition(cfg: GeneralCfg):
             dim_letters=(
                 "t",
                 "r",
-                "s",
+                "s"
             ),
         ),
         fd.ParameterDefinition(
             name="population",
             dim_letters=(
                 "t",
-                "r",
+                "r"
             ),
         ),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
