@@ -1,5 +1,6 @@
 import numpy as np
 import flodym as fd
+from copy import deepcopy
 
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
@@ -45,7 +46,8 @@ class SteelModel:
             value=scalar_lifetime_factor,
             description=(
                 "Factor multiplied to all lifetime means and standard deviations to match "
-                "historical scrap consumption."
+                "historical scrap consumption. Standard deviation gets an additional increase "
+                "of 1.5 to smooth out unrealistic dips after rapid stock build-up"
             ),
         )
         lifetime_factor = fd.Parameter(dims=self.dims["t", "r"])
@@ -58,9 +60,9 @@ class SteelModel:
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "g"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values,
+            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values *1.5,
         )
-        construction_lifetime_factor = 1.1
+        construction_lifetime_factor = 1.2
         add_assumption_doc(
             type="ad-hoc fix",
             name="construction lifetime factor",
@@ -177,6 +179,32 @@ class SteelModel:
             ],
             target_dims=self.dims[indep_fit_dim_letters],
         )
+
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="stock saturation level factor",
+            description=(
+                "Region-dependent factor multiplied to regressed saturation level to keep future "
+                "steel demand in line with other literature sources."
+            ),
+        )
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="stock growth speed factor",
+            description=(
+                "Region-dependent factor multiplied to regressed stock growth speed to prevent "
+                "rapid increase in steel demand and continue historical trends."
+            ),
+        )
+        # scale stocks (y) and gdp (x) to get different vertical and horizontal scalings with just
+        # one regression:
+        # divide by factor, then regress, then multiply again, which is equivalent to
+        # multiplying targets by this factor
+        historic_stocks = historic_stocks / self.parameters["saturation_level_factor"]
+        gdppc_old = deepcopy(self.parameters["gdppc"])
+        self.parameters["gdppc"] = ( self.parameters["gdppc"] ** self.parameters["stock_growth_speed_factor"]
+                                   * self.parameters["gdppc"][{'t': 2022}] ** (1. - self.parameters["stock_growth_speed_factor"]))
+
         # extrapolate in use stock to future
         stock_handler = StockExtrapolation(
             historic_stocks,
@@ -190,6 +218,10 @@ class SteelModel:
             bound_list=bound_list,
         )
         total_in_use_stock = stock_handler.stocks
+
+        # scale back stocks and gdp back
+        total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
+        self.parameters["gdppc"] = gdppc_old
 
         if not self.cfg.customization.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
@@ -225,7 +257,7 @@ class SteelModel:
                 "in line with other literature sources."
             ),
         )
-        saturation_level *= 0.75
+        saturation_level *= saturation_level_factor
 
         return saturation_level
 

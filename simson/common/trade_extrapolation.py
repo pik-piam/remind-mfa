@@ -7,10 +7,10 @@ from simson.common.trade import Trade
 
 
 def predict_by_extrapolation(
-    trade: Trade,
+    historic_trade: Trade,
+    future_trade: Trade,
     scaler: fd.FlodymArray,
     scale_first: str,
-    adopt_scaler_dims: bool = False,
     balance_to: str = None,
 ):
     """
@@ -26,89 +26,72 @@ def predict_by_extrapolation(
     # prepare prediction
     assert scale_first in ["imports", "exports"], "Scale by must be either 'imports' or 'exports'."
     assert (
-        "h" in trade.imports.dims.letters and "h" in trade.exports.dims.letters
+        "h" in historic_trade.imports.dims.letters and "h" in historic_trade.exports.dims.letters
     ), "Trade data must have a historic time dimension."
 
     scale_second = "exports" if scale_first == "imports" else "imports"
+    historic_first = getattr(historic_trade, scale_first)
+    historic_second = getattr(historic_trade, scale_second)
+    future_first = getattr(future_trade, scale_first)
+    future_second = getattr(future_trade, scale_second)
+    # TODO: make sure future_trade dims are a subset of the union of the dims of the scaler and the historic trade
 
-    # predict via extrapolation
+    missing_dims = scaler.dims.difference_with(historic_trade.imports.dims).letters[1:]
 
-    ## The scaler needs to be summed across dimensions that the historic trade doesn't have for the extrapolation
-    historic_dims_with_t_dimension = trade.imports.dims.replace("h", scaler.dims["t"])
-    total_scaler = scaler.sum_to(historic_dims_with_t_dimension.intersect_with(scaler.dims).letters)
-
-    ## The extrapolate_to_future function uses the WeightedProportionalExtrapolation, basically a linear regression
-    ## so that the share of the historic trade in the scaler is kept constant
-    future_scale_first = extrapolate_to_future(
-        historic_values=getattr(trade, scale_first), scale_by=total_scaler
-    )
-
-    global_scale_first = future_scale_first.sum_over(sum_over_dims=("r",))
-
-    future_scale_second = extrapolate_to_future(
-        historic_values=getattr(trade, scale_second), scale_by=global_scale_first
-    )
-    if adopt_scaler_dims:
-        ## If the scaler has more dimensions than the historic trade, the historic trade data is split into the missing
-        ## dimensions of the scaler, adapting the same sector split as the scaler.
-        missing_dims = scaler.dims.difference_with(future_scale_first.dims)
+    if len(missing_dims) > 0:
         with np.errstate(divide="ignore"):
-            future_scale_first = future_scale_first * scaler.get_shares_over(missing_dims.letters)
-            future_scale_first.set_values(np.nan_to_num(future_scale_first.values))
-            global_scale_first = future_scale_first.sum_over(sum_over_dims="r")
-            future_scale_second = future_scale_second * global_scale_first.get_shares_over(
-                missing_dims.letters
-            )
-            future_scale_second.set_values(np.nan_to_num(future_scale_second.values))
+            historic_first *= scaler[{'t': historic_first.dims['h']}].get_shares_over(missing_dims).apply(np.nan_to_num)
+            historic_second *= scaler[{'t': historic_second.dims['h']}].get_shares_over(missing_dims).apply(np.nan_to_num)
 
-    # create future trade object
-    future_dims = scaler.dims if adopt_scaler_dims else historic_dims_with_t_dimension
-    future_trade = Trade(
-        imports=fd.Parameter(name=trade.imports.name, dims=future_dims),
-        exports=fd.Parameter(name=trade.exports.name, dims=future_dims),
-    )
+    future_first[...] = extrapolate_to_future(historic=historic_first, scale_by=scaler)
+    future_second[...] = 0.
 
-    getattr(future_trade, scale_first)[...] = future_scale_first
-    getattr(future_trade, scale_second)[...] = future_scale_second
+    #TODO: Ensure share < 1 already in extrapolation?
+    scaler_second = (scaler + future_trade.net_imports).maximum(0)
+    future_second[...] = extrapolate_to_future(historic=historic_second, scale_by=scaler_second)
 
     # balance
     if balance_to is not None:
-        future_trade.balance(to=balance_to, inplace=True)
-
-    return future_trade
+        future_trade.balance(to=balance_to)
 
 
 def extrapolate_to_future(
-    historic_values: fd.FlodymArray, scale_by: fd.FlodymArray
+    historic: fd.FlodymArray, scale_by: fd.FlodymArray
 ) -> fd.FlodymArray:
-    if not historic_values.dims.letters[0] == "h":
+    """Uses the WeightedProportionalExtrapolation, basically a linear regression
+    so that the share of the historic trade in the scaler is kept constant
+    """
+    if not historic.dims.letters[0] == "h":
         raise ValueError("First dimension of historic_parameter must be historic time.")
     if not scale_by.dims.letters[0] == "t":
         raise ValueError("First dimension of scaler must be time.")
-    if not set(scale_by.dims.letters[1:]).issubset(historic_values.dims.letters[1:]):
+    if not set(scale_by.dims.letters[1:]).issubset(historic.dims.letters[1:]):
         raise ValueError("Scaler dimensions must be subset of historic_parameter dimensions.")
 
-    all_dims = historic_values.dims.union_with(scale_by.dims)
-    dim_letters_out = ("t",) + historic_values.dims.letters[1:]
+    all_dims = historic.dims.union_with(scale_by.dims)
+    dim_letters_out = ("t",) + historic.dims.letters[1:]
     dims_out = all_dims[dim_letters_out]
 
-    extrapolated_values = fd.FlodymArray(dims=dims_out)
-
-    scale_by = scale_by.cast_to(extrapolated_values.dims)
+    scale_by = scale_by.cast_to(dims_out)
 
     # calculate weights
-    n_hist_points = historic_values.dims.shape[0]
+    n_hist_points = historic.dims.shape[0]
     n_last_points = 5
     weights_1d = np.maximum(0.0, np.arange(-n_hist_points, 0) + n_last_points + 1)
     weights_1d = weights_1d / weights_1d.sum()
-    weights = broadcast_trailing_dimensions(weights_1d, historic_values.values)
+    weights = broadcast_trailing_dimensions(weights_1d, historic.values)
 
     extrapolation = ProportionalExtrapolation(
-        data_to_extrapolate=historic_values.values,
+        data_to_extrapolate=historic.values,
         target_range=scale_by.values,
         weights=weights,
         independent_dims=tuple(range(1, dims_out.ndim)),
     )
-    extrapolated_values.set_values(extrapolation.extrapolate())
+    extrapolated = fd.FlodymArray(dims=dims_out, values=extrapolation.extrapolate()).maximum(0.0)
+    last_historic = historic[historic.dims['h'].items[-1]].maximum(0.0).cast_to(dims_out)
+    alpha_rel = 0.5
+    alpha_abs = 1 - alpha_rel
+    projected = last_historic ** alpha_abs * extrapolated ** alpha_rel
+    projected[{'t': historic.dims['h']}] = historic
 
-    return extrapolated_values
+    return projected

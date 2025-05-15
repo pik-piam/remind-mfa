@@ -4,6 +4,7 @@ import flodym as fd
 
 from simson.common.trade import TradeSet
 from simson.common.data_blending import blend
+from simson.common.assumptions_doc import add_assumption_doc
 
 
 class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
@@ -111,6 +112,15 @@ class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
         log_gdppc = self.parameters["gdppc"][{"t": self.dims["h"]}].apply(np.log)
         log_gdppc_low = self.parameters["secsplit_gdppc_low"].apply(np.log)
         log_gdppc_high = self.parameters["secsplit_gdppc_high"].apply(np.log)
+        add_assumption_doc(
+            type="expert guess",
+            name="medium sector split",
+            description=(
+                "Demand sector split for medium GDP per capita, to account for higher construction "
+                "share in medium GDP. Roughly based on given source, but adapted."
+            ),
+            source="https://steel.gov.in/sites/default/files/2025-03/GSI%20Report.pdf",
+        )
         log_gddpc_medium = (log_gdppc_low + log_gdppc_high) / 2
 
         sector_split_1[...] = blend(

@@ -158,7 +158,7 @@ class StockExtrapolation:
         self.stocks[...] = self.stocks_pc * self.pop
 
     def gaussian_correction(
-        self, historic: np.ndarray, prediction: np.ndarray, approaching_time: float = 50, n: int = 5
+        self, historic: np.ndarray, prediction: np.ndarray, n: int = 5
     ):
         """Gaussian smoothing of extrapolation around interface historic/future to remove discontinuities."""
         """Multiplies Gaussian with a Taylor expansion around the difference beteween historic and fit."""
@@ -212,11 +212,11 @@ class StockExtrapolation:
             ),
         )
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
-        corr0 = difference_0th * gaussian(time_extended - last_history_year, 50)
+        corr0 = difference_0th * gaussian(time_extended - last_history_year, approaching_time_0th)
         corr1 = (
             difference_1st
             * (time_extended - last_history_year)
-            * gaussian(time_extended - last_history_year, 30)
+            * gaussian(time_extended - last_history_year, approaching_time_1st)
         )
         correction = corr0 + corr1
 
