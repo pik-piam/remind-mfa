@@ -65,16 +65,24 @@ class SteelDataExporter(CommonDataExporter):
 
     def visualize_trade(self, mfa: fd.MFASystem):
         linecolor_dims = {
-            "intermediate": "Intermediate",
+            "intermediate": None,
             "indirect": "Good",
             "scrap": "Good",
         }
 
         for name, trade in mfa.trade_set.markets.items():
-            n_colors = mfa.dims[linecolor_dims[name]].len
+            imports = trade.imports
+            exports = trade.exports
+            linecolor_dim = linecolor_dims[name]
+            if linecolor_dim is not None:
+                imports = imports.sum_over(imports.dims[linecolor_dim].letter)
+                exports = exports.sum_over(exports.dims[linecolor_dim].letter)
+                n_colors = mfa.dims[linecolor_dim].len
+            else:
+                n_colors = 1
             colors = plc.qualitative.Dark24[:n_colors] * 2
             ap_imports = self.plotter_class(
-                array=trade.imports.sum_over(trade.imports.dims[linecolor_dims[name]].letter),
+                array=imports,
                 intra_line_dim="Time",
                 subplot_dim="Region",
                 # linecolor_dim=linecolor_dims[name],
@@ -83,7 +91,7 @@ class SteelDataExporter(CommonDataExporter):
             )
             fig = ap_imports.plot()
             ap_exports = self.plotter_class(
-                array=-trade.exports.sum_over(trade.exports.dims[linecolor_dims[name]].letter),
+                array=-exports,
                 intra_line_dim="Time",
                 subplot_dim="Region",
                 # linecolor_dim=linecolor_dims[name],

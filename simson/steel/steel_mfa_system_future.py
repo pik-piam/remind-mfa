@@ -63,7 +63,6 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         aux = {
             "net_scrap_trade": self.get_new_array(dim_letters=("t", "r", "g")),
-            "total_fabrication": self.get_new_array(dim_letters=("t", "r", "g")),
             "production": self.get_new_array(dim_letters=("t", "r", "i")),
             "forming_outflow": self.get_new_array(dim_letters=("t", "r")),
             "scrap_in_production": self.get_new_array(dim_letters=("t", "r")),
@@ -84,10 +83,9 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["indirect"].net_imports
 
-        aux["total_fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
-        flw["fabrication => scrap_market"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
-        flw["fabrication => losses"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
-        flw["ip_market => fabrication"][...] = aux["total_fabrication"] * prm["good_to_intermediate_distribution"]
+        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
+        flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
+        flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
 
         flw["imports => ip_market"][...] = trd["intermediate"].imports
         flw["ip_market => exports"][...] = trd["intermediate"].exports
