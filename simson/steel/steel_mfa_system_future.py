@@ -29,19 +29,30 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
     def compute_trade(self, historic_trade: TradeSet):
         product_demand = self.stocks["in_use"].inflow
         predict_by_extrapolation(
-            historic_trade["indirect"], self.trade_set["indirect"], product_demand, "imports", balance_to="hmean"
+            historic_trade["indirect"],
+            self.trade_set["indirect"],
+            product_demand,
+            "imports",
+            balance_to="hmean",
         )
 
         fabrication = product_demand - self.trade_set["indirect"].net_imports
         predict_by_extrapolation(
-            historic_trade["intermediate"], self.trade_set["intermediate"], fabrication, "imports", balance_to="hmean"
+            historic_trade["intermediate"],
+            self.trade_set["intermediate"],
+            fabrication,
+            "imports",
+            balance_to="hmean",
         )
 
         eol_products = self.stocks["in_use"].outflow
         predict_by_extrapolation(
-            historic_trade["scrap"], self.trade_set["scrap"], eol_products, "exports", balance_to="hmean"
+            historic_trade["scrap"],
+            self.trade_set["scrap"],
+            eol_products,
+            "exports",
+            balance_to="hmean",
         )
-
 
     def compute_flows(self):
         # abbreviations for better readability

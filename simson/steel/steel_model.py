@@ -60,7 +60,8 @@ class SteelModel:
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "g"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values *1.5,
+            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values
+            * 1.5,
         )
         construction_lifetime_factor = 1.2
         add_assumption_doc(
@@ -202,8 +203,11 @@ class SteelModel:
         # multiplying targets by this factor
         historic_stocks = historic_stocks / self.parameters["saturation_level_factor"]
         gdppc_old = deepcopy(self.parameters["gdppc"])
-        self.parameters["gdppc"] = ( self.parameters["gdppc"] ** self.parameters["stock_growth_speed_factor"]
-                                   * self.parameters["gdppc"][{'t': 2022}] ** (1. - self.parameters["stock_growth_speed_factor"]))
+        self.parameters["gdppc"] = self.parameters["gdppc"] ** self.parameters[
+            "stock_growth_speed_factor"
+        ] * self.parameters["gdppc"][{"t": 2022}] ** (
+            1.0 - self.parameters["stock_growth_speed_factor"]
+        )
 
         # extrapolate in use stock to future
         stock_handler = StockExtrapolation(

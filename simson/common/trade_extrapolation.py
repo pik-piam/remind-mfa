@@ -40,13 +40,21 @@ def predict_by_extrapolation(
 
     if len(missing_dims) > 0:
         with np.errstate(divide="ignore"):
-            historic_first *= scaler[{'t': historic_first.dims['h']}].get_shares_over(missing_dims).apply(np.nan_to_num)
-            historic_second *= scaler[{'t': historic_second.dims['h']}].get_shares_over(missing_dims).apply(np.nan_to_num)
+            historic_first *= (
+                scaler[{"t": historic_first.dims["h"]}]
+                .get_shares_over(missing_dims)
+                .apply(np.nan_to_num)
+            )
+            historic_second *= (
+                scaler[{"t": historic_second.dims["h"]}]
+                .get_shares_over(missing_dims)
+                .apply(np.nan_to_num)
+            )
 
     future_first[...] = extrapolate_to_future(historic=historic_first, scale_by=scaler)
-    future_second[...] = 0.
+    future_second[...] = 0.0
 
-    #TODO: Ensure share < 1 already in extrapolation?
+    # TODO: Ensure share < 1 already in extrapolation?
     scaler_second = (scaler + future_trade.net_imports).maximum(0)
     future_second[...] = extrapolate_to_future(historic=historic_second, scale_by=scaler_second)
 
@@ -55,9 +63,7 @@ def predict_by_extrapolation(
         future_trade.balance(to=balance_to)
 
 
-def extrapolate_to_future(
-    historic: fd.FlodymArray, scale_by: fd.FlodymArray
-) -> fd.FlodymArray:
+def extrapolate_to_future(historic: fd.FlodymArray, scale_by: fd.FlodymArray) -> fd.FlodymArray:
     """Uses the WeightedProportionalExtrapolation, basically a linear regression
     so that the share of the historic trade in the scaler is kept constant
     """
@@ -88,10 +94,10 @@ def extrapolate_to_future(
         independent_dims=tuple(range(1, dims_out.ndim)),
     )
     extrapolated = fd.FlodymArray(dims=dims_out, values=extrapolation.extrapolate()).maximum(0.0)
-    last_historic = historic[historic.dims['h'].items[-1]].maximum(0.0).cast_to(dims_out)
+    last_historic = historic[historic.dims["h"].items[-1]].maximum(0.0).cast_to(dims_out)
     alpha_rel = 0.5
     alpha_abs = 1 - alpha_rel
-    projected = last_historic ** alpha_abs * extrapolated ** alpha_rel
-    projected[{'t': historic.dims['h']}] = historic
+    projected = last_historic**alpha_abs * extrapolated**alpha_rel
+    projected[{"t": historic.dims["h"]}] = historic
 
     return projected
