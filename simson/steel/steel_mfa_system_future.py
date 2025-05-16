@@ -63,7 +63,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         aux = {
             "net_scrap_trade": self.get_new_array(dim_letters=("t", "r", "g")),
-            "production": self.get_new_array(dim_letters=("t", "r", "i")),
+            "production": self.get_new_array(dim_letters=("t", "r")),
             "forming_outflow": self.get_new_array(dim_letters=("t", "r")),
             "scrap_in_production": self.get_new_array(dim_letters=("t", "r")),
             "available_scrap": self.get_new_array(dim_letters=("t", "r")),

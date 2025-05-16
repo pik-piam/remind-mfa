@@ -124,7 +124,7 @@ def get_definition(cfg: GeneralCfg):
     ]
 
     parameters = [
-        fd.ParameterDefinition(name="forming_yield", dim_letters=("i",)),
+        fd.ParameterDefinition(name="forming_yield", dim_letters=()),
         fd.ParameterDefinition(name="fabrication_yield", dim_letters=("g",)),
         fd.ParameterDefinition(name="recovery_rate", dim_letters=("g",)),
         fd.ParameterDefinition(name="external_copper_rate", dim_letters=("g",)),
