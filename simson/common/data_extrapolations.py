@@ -174,16 +174,16 @@ class LogSigmoidExtrapolation(Extrapolation):
 
     @staticmethod
     def func(x, prms):
-        return prms[0] / (1 + np.exp(-prms[1] * (np.log(x) - prms[2])))
+        return prms[0] / (1 + np.exp(-prms[1] * (np.log10(x) - prms[2])))
 
     @staticmethod
     def initial_guess(target_range, data_to_extrapolate):
-        max_level = np.log(np.max(data_to_extrapolate))
+        max_level = np.log10(np.max(data_to_extrapolate))
         sat_level_guess = 2 * max_level
 
-        mean_target = np.mean(np.log(target_range))
+        mean_target = np.mean(np.log10(target_range))
 
-        target_max_level = np.log(np.max(target_range))
+        target_max_level = np.log10(np.max(target_range))
         stretch_factor = 2 / (target_max_level - mean_target)
         return np.array([sat_level_guess, stretch_factor, mean_target])
 
