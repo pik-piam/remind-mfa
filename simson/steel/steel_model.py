@@ -223,7 +223,7 @@ class SteelModel:
         )
         total_in_use_stock = stock_handler.stocks
 
-        # scale back stocks and gdp back
+        # scale back stocks and gdp
         total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
         self.parameters["gdppc"] = gdppc_old
 
