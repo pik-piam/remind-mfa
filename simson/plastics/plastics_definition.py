@@ -172,15 +172,15 @@ def get_definition(cfg: GeneralCfg):
             name="lifetime_mean",
             dim_letters=(
                 "r",
-                "g",
-            ),
+                "g"
+            )
         ),
         fd.ParameterDefinition(
             name="lifetime_std",
             dim_letters=(
                 "r",
-                "g",
-            ),
+                "g"
+            )
         ),
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
