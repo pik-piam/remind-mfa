@@ -13,14 +13,16 @@ def predict_by_extrapolation(
     scale_first: str,
     balance_to: str = None,
 ):
-    """
-    Predict future trade values by extrapolating the trade data using a given scaler.
-    :param trade: Trade object with historic trade data.
-    :param scaler: NamedDimArray object with the scaler values.
-    :param scale_first: str, either 'imports' or 'exports', indicating which trade values to scale first and
-                        use as a scaler for the other trade values (scale_second).
-    :param adopt_scaler_dims: bool, whether to adopt the dimensions of the scaler or use the ones of the trade data.
-    :param balance_to: str, which method to use for balancing the future trade data. If None, no balancing is done.
+    """Predict future trade values by extrapolating the trade data using a given scaler.
+
+    Args:
+        historic_trade (Trade): Historic trade data.
+        future_trade (Trade): Future trade data, which is written to.
+        scaler (FlodyArray): The array with the values to scale the historic trade data by.
+        scale_first (str): Either 'imports' or 'exports', indicating which trade values to scale first and
+            use as a scaler for the other trade values (scale_second).
+        balance_to (str): Method to use for balancing the future trade data. If None, no balancing is done.
+            For valid options, see trade object documentation.
     """
 
     # prepare prediction
