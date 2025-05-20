@@ -1,7 +1,9 @@
 import flodym as fd
+import numpy as np
 
 from simson.common.trade import TradeSet
 from simson.common.trade_extrapolation import predict_by_extrapolation
+from simson.common.price_driven_trade import PriceDrivenTrade
 
 
 class StockDrivenSteelMFASystem(fd.MFASystem):
@@ -18,6 +20,43 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(no_error=True)
+        self.update_price_elastic()
+
+    def update_price_elastic(self):
+        self.compute_price_elastic_trade()
+        # self.compute_consumption()
+        # self.compute_in_use_inflow_driven()
+        # self.compute_other_flows()
+        # self.compute_other_stocks()
+
+        # self.check_mass_balance()
+        # self.check_flows(no_error=True)
+
+    def compute_price_elastic_trade(self):
+        price = fd.FlodymArray(dims=self.dims["t", "r"])
+        price[...] = 500.
+        price.values[131:201,2] = np.linspace(500, 3000, 70)
+        model = PriceDrivenTrade(dims=self.trade_set["intermediate"].exports.dims)
+        model.calibrate(
+            demand=self.flows["ip_market => fabrication"][2022],
+            price=price[2022],
+            imports_target=self.trade_set["intermediate"].imports[2022],
+            exports_target=self.trade_set["intermediate"].exports[2022],
+        )
+        price, demand, supply, imports, exports = model.compute_price_driven_trade(
+            price_0=price,
+            demand_0=self.flows["ip_market => fabrication"],
+            supply_0=self.flows["forming => ip_market"],
+        )
+
+        self.flows["ip_market => fabrication"][...] = demand
+        self.flows["forming => ip_market"][...] = supply
+        self.trade_set["intermediate"].imports[...] = imports
+        self.trade_set["intermediate"].exports[...] = exports
+        self.trade_set["intermediate"].balance()
+
+        self.flows["imports => ip_market"][...] = self.trade_set["intermediate"].imports
+        self.flows["ip_market => exports"][...] = self.trade_set["intermediate"].exports
 
     def compute_in_use_stock(self, stock_projection):
         self.stocks["in_use"].stock[...] = stock_projection
