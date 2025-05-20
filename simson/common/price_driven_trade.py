@@ -1,6 +1,6 @@
 import numpy as np
 import flodym as fd
-from pydantic import ConfigDict, model_validator, computed_field
+from pydantic import ConfigDict, model_validator
 
 from simson.common.base_model import SimsonBaseModel
 
@@ -11,8 +11,8 @@ class PriceDrivenTrade(SimsonBaseModel):
 
     eta_demand: float = -0.3
     eta_supply: float = 1.2
-    mu: float = 0.010
-    """OOM: 1/price"""
+    mu: float = 0.014
+    """OOM: 1/price; Higher mu means more price-elastic"""
     learning_rate: float = 0.2
     convergence_tol: float = 0.01
     max_iter: int = 1000
@@ -50,14 +50,14 @@ class PriceDrivenTrade(SimsonBaseModel):
             demand = demand_0 * (price / price_0) ** self.eta_demand
             supply = supply_0 * (price / price_0) ** self.eta_supply
 
-            # Trade module
             imports, exports = self.get_trade(price, demand)
+
             # adjust price
             supply_target = demand + exports - imports
-            price_target = price * (supply_target / supply)**(1/self.eta_supply)
-            price = price_target ** self.learning_rate * price ** (1 - self.learning_rate)
+            price_factor = (supply_target / supply)**(1/self.eta_supply)
+            price *= price_factor ** self.learning_rate
 
-
+            # check convergence
             excess = (supply - supply_target)
             max_error = np.max(np.abs(excess.values))/np.max(np.abs(supply_target.values))
             if max_error < self.convergence_tol:
@@ -74,20 +74,6 @@ class PriceDrivenTrade(SimsonBaseModel):
         imports_target: fd.FlodymArray,
         exports_target: fd.FlodymArray,
     ):
-
-        # given: p_i, M_i, X_i, S_i, D_i
-        # wanted: tau_i, phi_jj
-
-        # eq:
-        # f(p) = exp(-mu*p)
-        # s_i = q_ii / D_i
-        # p_ij = tau_i * phi_jj * p_i
-        # s_jj = f(p_jj) / sum(j, f(p_ij))
-        # M_i = sum(i \ j, q_ij)
-        # X_i = sum(j \ i, q_ij)
-        # S'_i = sum(i, q_ij) = S_i + M_i
-        # D'_i = sum(j, q_ij) = D_i + X_i
-        # D'_i = S'_i
 
         self.export_penalty = fd.FlodymArray(dims=self.all_dims['r',])
         self.export_penalty[...] = 1.

@@ -25,7 +25,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
     def update_price_elastic(self):
         self.compute_price_elastic_trade()
         # self.compute_consumption()
-        # self.compute_in_use_inflow_driven()
+        self.compute_in_use_inflow_driven()
         # self.compute_other_flows()
         # self.compute_other_stocks()
 
@@ -35,7 +35,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
     def compute_price_elastic_trade(self):
         price = fd.FlodymArray(dims=self.dims["t", "r"])
         price[...] = 500.
-        price.values[131:201,2] = np.linspace(500, 3000, 70)
+        # price.values[131:201,2] = np.minimum(800., np.linspace(500, 2000, 70))
         model = PriceDrivenTrade(dims=self.trade_set["intermediate"].exports.dims)
         model.calibrate(
             demand=self.flows["ip_market => fabrication"][2022],
@@ -62,6 +62,17 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.stocks["in_use"].stock[...] = stock_projection
         self.stocks["in_use"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
+        )
+        self.stocks["in_use"].compute()
+
+    def compute_in_use_inflow_driven(self):
+        self.stocks["in_use"] = fd.InflowDrivenDSM(
+            dims=self.stocks["in_use"].dims,
+            inflow=self.stocks["in_use"].inflow,
+            name=self.stocks["in_use"].name,
+            process=self.stocks["in_use"].process,
+            lifetime_model=self.stocks["in_use"].lifetime_model,
+            time_letter=self.stocks["in_use"].time_letter,
         )
         self.stocks["in_use"].compute()
 
