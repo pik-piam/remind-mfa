@@ -82,7 +82,8 @@ def get_definition(cfg: GeneralCfg):
 
     parameters = [
         fd.ParameterDefinition(name="cement_production", dim_letters=("h", "r")),
-        fd.ParameterDefinition(name="cement_trade", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="historic_cement_trade", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="future_cement_trade", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="clinker_ratio", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="cement_ratio", dim_letters=()),
         fd.ParameterDefinition(name="use_split", dim_letters=("s",)),
