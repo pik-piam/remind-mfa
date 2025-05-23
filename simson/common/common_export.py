@@ -108,6 +108,7 @@ class CommonDataExporter(SimsonBaseModel):
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
             x_array = mfa.parameters["gdppc"]
             if not per_capita:
+                 # get global GDP per capita
                 x_array = x_array * population
 
         if subplot_dim is None:
@@ -146,8 +147,7 @@ class CommonDataExporter(SimsonBaseModel):
                 for ax in fig.get_axes():
                     ax.set_xscale("log")
                     ax.set_xlim(1e3, 1e5)
-
-        #TODO add subplot_dim to filename            
+          
         self.plot_and_save_figure(
             ap_scatter_stock,
             f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
