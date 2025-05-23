@@ -1,3 +1,4 @@
+import numpy as np
 import flodym as fd
 
 
@@ -14,11 +15,15 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.check_flows(no_error=True)
 
     def compute_in_use_stock(self, stock_projection: fd.FlodymArray):
-        self.stocks["in_use"].stock = stock_projection
-        self.stocks["in_use"].lifetime_model.set_prms(
-            mean=self.parameters["use_lifetime_mean"], std=self.parameters["use_lifetime_std"]
+        prm = self.parameters
+        stk = self.stocks
+
+        stk["in_use"].stock = stock_projection
+        stk["in_use"].lifetime_model.set_prms(
+            mean=prm["future_use_lifetime_mean"],
+            std=0.2 * prm["future_use_lifetime_mean"],
         )
-        self.stocks["in_use"].compute()
+        stk["in_use"].compute()
 
     def compute_flows(self):
         prm = self.parameters

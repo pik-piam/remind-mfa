@@ -22,6 +22,7 @@ visualization:
     per_capita: True
   gdppc:
     do_visualize: True
+    per_capita: True
   production:
     do_visualize: True
   consumption:

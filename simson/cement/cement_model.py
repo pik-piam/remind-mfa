@@ -79,7 +79,7 @@ class CementModel:
     def get_long_term_stock(self) -> fd.FlodymArray:
         # extrapolate in use stock to future
         indep_fit_dim_letters = ("r",)
-        sat_bound = Bound(var_name="saturation_level", lower_bound=100, upper_bound=300)
+        sat_bound = Bound(var_name="saturation_level", lower_bound=200, upper_bound=200)
         bound_list = BoundList(
             bound_list=[
                 sat_bound,

@@ -20,7 +20,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.check_flows(no_error=True)
 
     def compute_in_use_stock(self, stock_projection):
-        self.stocks["in_use"].stock = stock_projection
+        self.stocks["in_use"].stock[...] = stock_projection
         self.stocks["in_use"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )
@@ -28,19 +28,31 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
     def compute_trade(self, historic_trade: TradeSet):
         product_demand = self.stocks["in_use"].inflow
+        predict_by_extrapolation(
+            historic_trade["indirect"],
+            self.trade_set["indirect"],
+            product_demand,
+            "imports",
+            balance_to="hmean",
+        )
+
+        fabrication = product_demand - self.trade_set["indirect"].net_imports
+        predict_by_extrapolation(
+            historic_trade["intermediate"],
+            self.trade_set["intermediate"],
+            fabrication,
+            "imports",
+            balance_to="hmean",
+        )
+
         eol_products = self.stocks["in_use"].outflow
-
-        self.trade_set["intermediate"] = predict_by_extrapolation(
-            historic_trade["intermediate"], product_demand, "imports"
+        predict_by_extrapolation(
+            historic_trade["scrap"],
+            self.trade_set["scrap"],
+            eol_products,
+            "exports",
+            balance_to="hmean",
         )
-        self.trade_set["indirect"] = predict_by_extrapolation(
-            historic_trade["indirect"], product_demand, "imports"
-        )
-        self.trade_set["scrap"] = predict_by_extrapolation(
-            historic_trade["scrap"], eol_products, "exports", adopt_scaler_dims=True
-        )
-
-        self.trade_set.balance()
 
     def compute_flows(self):
         # abbreviations for better readability
@@ -50,37 +62,37 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         trd = self.trade_set
 
         aux = {
-            "net_scrap_trade": self.get_new_array(dim_letters=("t", "e", "r", "g")),
-            "total_fabrication": self.get_new_array(dim_letters=("t", "e", "r", "g")),
-            "production": self.get_new_array(dim_letters=("t", "e", "r", "i")),
-            "forming_outflow": self.get_new_array(dim_letters=("t", "e", "r")),
-            "scrap_in_production": self.get_new_array(dim_letters=("t", "e", "r")),
-            "available_scrap": self.get_new_array(dim_letters=("t", "e", "r")),
-            "eaf_share_production": self.get_new_array(dim_letters=("t", "e", "r")),
-            "production_inflow": self.get_new_array(dim_letters=("t", "e", "r")),
-            "max_scrap_production": self.get_new_array(dim_letters=("t", "e", "r")),
-            "scrap_share_production": self.get_new_array(dim_letters=("t", "e", "r")),
-            "bof_production_inflow": self.get_new_array(dim_letters=("t", "e", "r")),
+            "net_scrap_trade": self.get_new_array(dim_letters=("t", "r", "g")),
+            "total_fabrication": self.get_new_array(dim_letters=("t", "r", "g")),
+            "production": self.get_new_array(dim_letters=("t", "r", "i")),
+            "forming_outflow": self.get_new_array(dim_letters=("t", "r")),
+            "scrap_in_production": self.get_new_array(dim_letters=("t", "r")),
+            "available_scrap": self.get_new_array(dim_letters=("t", "r")),
+            "eaf_share_production": self.get_new_array(dim_letters=("t", "r")),
+            "production_inflow": self.get_new_array(dim_letters=("t", "r")),
+            "max_scrap_production": self.get_new_array(dim_letters=("t", "r")),
+            "scrap_share_production": self.get_new_array(dim_letters=("t", "r")),
+            "bof_production_inflow": self.get_new_array(dim_letters=("t", "r")),
         }
 
         # fmt: off
 
-        flw["good_market => use"]["Fe"][...] = stk["in_use"].inflow
+        flw["good_market => use"][...] = stk["in_use"].inflow
         # Pre-use
-        flw["imports => good_market"]["Fe"][...] = trd["indirect"].imports
-        flw["good_market => exports"]["Fe"][...] = trd["indirect"].exports
+        flw["imports => good_market"][...] = trd["indirect"].imports
+        flw["good_market => exports"][...] = trd["indirect"].exports
 
-        flw["fabrication => good_market"]["Fe"][...] = flw["good_market => use"]["Fe"][...] - trd["indirect"].net_imports
+        flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["indirect"].net_imports
 
         aux["total_fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
         flw["fabrication => scrap_market"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
         flw["fabrication => losses"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
         flw["ip_market => fabrication"][...] = aux["total_fabrication"] * prm["good_to_intermediate_distribution"]
 
-        flw["imports => ip_market"]["Fe"][...] = trd["intermediate"].imports
-        flw["ip_market => exports"]["Fe"][...] = trd["intermediate"].exports
+        flw["imports => ip_market"][...] = trd["intermediate"].imports
+        flw["ip_market => exports"][...] = trd["intermediate"].exports
 
-        flw["forming => ip_market"]["Fe"][...] = flw["ip_market => fabrication"] - trd["intermediate"].net_imports
+        flw["forming => ip_market"][...] = flw["ip_market => fabrication"] - trd["intermediate"].net_imports
         aux["production"][...] = flw["forming => ip_market"] / prm["forming_yield"]
         aux["forming_outflow"][...] = aux["production"] - flw["forming => ip_market"]
         flw["forming => losses"][...] = aux["forming_outflow"] * prm["forming_losses"]
@@ -88,11 +100,11 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         # Post-use
 
-        flw["use => eol_market"]["Fe"][...] = stk["in_use"].outflow * prm["recovery_rate"]
-        flw["use => obsolete"]["Fe"][...] = stk["in_use"].outflow - flw["use => eol_market"]["Fe"]
+        flw["use => eol_market"][...] = stk["in_use"].outflow * prm["recovery_rate"]
+        flw["use => obsolete"][...] = stk["in_use"].outflow - flw["use => eol_market"]
 
-        flw["imports => eol_market"]["Fe"][...] = trd["scrap"].imports
-        flw["eol_market => exports"]["Fe"][...] = trd["scrap"].exports
+        flw["imports => eol_market"][...] = trd["scrap"].imports
+        flw["eol_market => exports"][...] = trd["scrap"].exports
         aux["net_scrap_trade"][...] = flw["imports => eol_market"] - flw["eol_market => exports"]
 
         flw["eol_market => recycling"][...] = flw["use => eol_market"] + aux["net_scrap_trade"]

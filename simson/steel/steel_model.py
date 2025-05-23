@@ -1,5 +1,6 @@
 import numpy as np
 import flodym as fd
+from copy import deepcopy
 
 from simson.common.data_blending import blend, blend_over_time
 from simson.common.common_cfg import GeneralCfg
@@ -12,6 +13,7 @@ from simson.steel.steel_export import SteelDataExporter
 from simson.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
 from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
 from simson.steel.steel_definition import get_definition
+from simson.common.assumptions_doc import add_assumption_doc
 
 
 class SteelModel:
@@ -36,8 +38,20 @@ class SteelModel:
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
+
+        scalar_lifetime_factor = 1.1
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="overall lifetime factor",
+            value=scalar_lifetime_factor,
+            description=(
+                "Factor multiplied to all lifetime means and standard deviations to match "
+                "historical scrap consumption. Standard deviation gets an additional increase "
+                "of 1.5 to smooth out unrealistic dips after rapid stock build-up"
+            ),
+        )
         lifetime_factor = fd.Parameter(dims=self.dims["t", "r"])
-        lifetime_factor.values[...] = 1.3
+        lifetime_factor.values[...] = scalar_lifetime_factor
         self.parameters["lifetime_factor"] = lifetime_factor
 
         self.parameters["lifetime_mean"] = fd.Parameter(
@@ -46,15 +60,36 @@ class SteelModel:
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "g"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values,
+            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values
+            * 1.5,
+        )
+        construction_lifetime_factor = 1.2
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="construction lifetime factor",
+            value=construction_lifetime_factor,
+            description=(
+                "Additional factor multiplied to construction lifetime mean and standard deviation "
+                "to match historical scrap consumption. The special treatment of construction "
+                "is motivated by literature sources suggesting longer building lifetimes than the "
+                "used source"
+            ),
         )
         self.parameters["lifetime_mean"]["Construction"] = (
-            self.parameters["lifetime_mean"]["Construction"] * 1.5
+            self.parameters["lifetime_mean"]["Construction"] * construction_lifetime_factor
         )
         self.parameters["lifetime_std"]["Construction"] = (
-            self.parameters["lifetime_std"]["Construction"] * 1.5
+            self.parameters["lifetime_std"]["Construction"] * construction_lifetime_factor
         )
 
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="scrap rate factor",
+            description=(
+                "Time-dependent factor multiplied to forming and fabrication losses to match "
+                "historical scrap consumption."
+            ),
+        )
         scrap_rate_factor = fd.Parameter(dims=self.dims["t",])
         scrap_rate_factor.values[:80] = 1.4
         scrap_rate_factor.values[80:110] = np.linspace(1.4, 0.8, 30)
@@ -145,6 +180,35 @@ class SteelModel:
             ],
             target_dims=self.dims[indep_fit_dim_letters],
         )
+
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="stock saturation level factor",
+            description=(
+                "Region-dependent factor multiplied to regressed saturation level to keep future "
+                "steel demand in line with other literature sources."
+            ),
+        )
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="stock growth speed factor",
+            description=(
+                "Region-dependent factor multiplied to regressed stock growth speed to prevent "
+                "rapid increase in steel demand and continue historical trends."
+            ),
+        )
+        # scale stocks (y) and gdp (x) to get different vertical and horizontal scalings with just
+        # one regression:
+        # divide by factor, then regress, then multiply again, which is equivalent to
+        # multiplying targets by this factor
+        historic_stocks = historic_stocks / self.parameters["saturation_level_factor"]
+        gdppc_old = deepcopy(self.parameters["gdppc"])
+        self.parameters["gdppc"] = self.parameters["gdppc"] ** self.parameters[
+            "stock_growth_speed_factor"
+        ] * self.parameters["gdppc"][{"t": 2022}] ** (
+            1.0 - self.parameters["stock_growth_speed_factor"]
+        )
+
         # extrapolate in use stock to future
         self.stock_handler = StockExtrapolation(
             historic_stocks,
@@ -158,6 +222,10 @@ class SteelModel:
             bound_list=bound_list,
         )
         total_in_use_stock = self.stock_handler.stocks
+
+        # scale back stocks and gdp
+        total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
+        self.parameters["gdppc"] = gdppc_old
 
         if not self.cfg.customization.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
@@ -182,6 +250,18 @@ class SteelModel:
         if self.cfg.customization.do_stock_extrapolation_by_category:
             high_stock_sector_split = self.get_high_stock_sector_split()
             saturation_level = saturation_level * high_stock_sector_split.values
+
+        saturation_level_factor = 0.75
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="saturation level factor",
+            value=saturation_level_factor,
+            description=(
+                "Factor multiplied to regressed saturation level to reduce future steel demand "
+                "in line with other literature sources."
+            ),
+        )
+        saturation_level *= saturation_level_factor
 
         return saturation_level
 

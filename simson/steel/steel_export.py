@@ -1,3 +1,4 @@
+import numpy as np
 from plotly import colors as plc
 import plotly.graph_objects as go
 import flodym as fd
@@ -44,7 +45,9 @@ class SteelDataExporter(CommonDataExporter):
         if self.cfg.consumption["do_visualize"]:
             self.visualize_consumption(model.future_mfa)
         if self.cfg.gdppc["do_visualize"]:
-            self.visualize_gdppc(model.future_mfa)
+            self.visualize_gdppc(
+                model.future_mfa, change=False, per_capita=self.cfg.gdppc["per_capita"]
+            )
         if self.cfg.trade["do_visualize"]:
             self.visualize_trade(model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
@@ -73,19 +76,19 @@ class SteelDataExporter(CommonDataExporter):
             n_colors = mfa.dims[linecolor_dims[name]].len
             colors = plc.qualitative.Dark24[:n_colors] * 2
             ap_imports = self.plotter_class(
-                array=trade.imports,
+                array=trade.imports.sum_over(trade.imports.dims[linecolor_dims[name]].letter),
                 intra_line_dim="Time",
                 subplot_dim="Region",
-                linecolor_dim=linecolor_dims[name],
+                # linecolor_dim=linecolor_dims[name],
                 display_names=self._display_names,
                 color_map=colors,
             )
             fig = ap_imports.plot()
             ap_exports = self.plotter_class(
-                array=-trade.exports,
+                array=-trade.exports.sum_over(trade.exports.dims[linecolor_dims[name]].letter),
                 intra_line_dim="Time",
                 subplot_dim="Region",
-                linecolor_dim=linecolor_dims[name],
+                # linecolor_dim=linecolor_dims[name],
                 line_type="dash",
                 display_names=self._display_names,
                 title=f"{name} Trade",
@@ -99,29 +102,40 @@ class SteelDataExporter(CommonDataExporter):
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         consumption = mfa.stocks["in_use"].inflow
+        good_dim = consumption.dims.index("g")
+        consumption = consumption.apply(np.cumsum, kwargs={"axis": good_dim})
         ap = self.plotter_class(
             array=consumption,
             intra_line_dim="Time",
             subplot_dim="Region",
             linecolor_dim="Good",
+            chart_type="area",
             display_names=self._display_names,
             title="Consumption",
         )
         fig = ap.plot()
         self.plot_and_save_figure(ap, "consumption.png", do_plot=False)
 
-    def visualize_gdppc(self, mfa: fd.MFASystem):
+    def visualize_gdppc(self, mfa: fd.MFASystem, change=False, per_capita=False):
         gdppc = mfa.parameters["gdppc"]
+        if not per_capita:
+            gdppc = gdppc * mfa.parameters["population"]
+        if change:
+            gdppc = gdppc.apply(np.diff, kwargs={"axis": 0, "prepend": 0})
+            gdppc[1900] = gdppc[1901]
         ap = self.plotter_class(
             array=gdppc,
             intra_line_dim="Time",
             linecolor_dim="Region",
             display_names=self._display_names,
-            title="GDP per capita",
+            title=f"GDP{' per capita' if per_capita else ''}{' growth rate' if change else ''}",
         )
         fig = ap.plot()
-        fig.update_yaxes(type="log")
-        self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
+        if change:
+            self.plot_and_save_figure(ap, "gdppc_change.png", do_plot=False)
+        else:
+            fig.update_yaxes(type="log")
+            self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         good_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]
@@ -200,7 +214,6 @@ class SteelDataExporter(CommonDataExporter):
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
         production = flw["bof_production => forming"] + flw["eaf_production => forming"]
-        production = production.sum_over("e")
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
@@ -238,7 +251,7 @@ class SteelDataExporter(CommonDataExporter):
             + flw["forming => scrap_market"]
             + flw["fabrication => scrap_market"]
         )
-        scrap_supply = scrap_supply[{"t": mfa.dims["h"]}].sum_over("e")
+        scrap_supply = scrap_supply[{"t": mfa.dims["h"]}]
 
         ap = self.plotter_class(
             array=summing_func(scrap_supply),
@@ -293,7 +306,7 @@ class SteelDataExporter(CommonDataExporter):
 
         flw = mfa.flows
 
-        fabrication = summing_func(flw["good_market => use"].sum_over(("e",)))
+        fabrication = summing_func(flw["good_market => use"])
         sector_splits = fabrication.get_shares_over("g")
         sector_splits = sector_splits.cumsum(dim_letter="g")
 
