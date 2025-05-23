@@ -92,12 +92,11 @@ class CommonDataExporter(SimsonBaseModel):
     def visualize_use_stock(
         self, mfa: fd.MFASystem, stock: fd.FlodymArray, subplot_dim: str = None
     ):
-        """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated. Multiple subplot dimensions are not supported."""
+        """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated."""
         per_capita = self.cfg.use_stock["per_capita"]
 
         population = mfa.parameters["population"]
         x_array = None
-        # different lines stand for different regions
         linecolor_dim = "Region"
 
         pc_str = " pC" if per_capita else ""
@@ -110,16 +109,20 @@ class CommonDataExporter(SimsonBaseModel):
             x_array = mfa.parameters["gdppc"]
             if not per_capita:
                 x_array = x_array * population
-        
-        # sum over all dimensions except time, region (linecolor_dim), and subplot_dim
+
         if subplot_dim is None:
-            dimlist = ["t", "r"]
-        else:
-            subplot_dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim)
-            dimlist = ["t", "r", subplot_dimletter]
-            
-        other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        stock = stock.sum_over(other_dimletters)
+            # sum over all dimensions except time and linecolor_dim
+            other_dimletters = tuple(
+                letter
+                for letter in stock.dims.letters
+                if letter
+                not in [
+                    "t",
+                    "r",
+                ]
+            )
+            for dimletter in other_dimletters:
+                stock = stock.sum_over(dimletter)
 
         if per_capita:
             stock = stock / population
