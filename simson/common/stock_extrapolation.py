@@ -151,6 +151,13 @@ class StockExtrapolation:
                 pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
             )
 
+        # save extrapolation data for later analysis
+        self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
+        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
+        parameter_names = fd.Dimension(name='Parameter Names', letter='p', items=extrapolation.prm_names)
+        parameter_dims = parameter_dims.expand_by([parameter_names])
+        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation.fit_prms)
+    
         prediction_out[:n_historic, ...] = historic_in
         self.stocks_pc.set_values(prediction_out)
 
@@ -219,41 +226,4 @@ class StockExtrapolation:
         correction = corr0 + corr1
 
         return prediction[...] + correction
-
-    def gdp_regression(self):
-        """Updates per capita stock to future by extrapolation."""
-
-        prediction_out = self.stocks_pc.values
-        pure_prediction = np.zeros_like(prediction_out)
-        historic_in = self.historic_stocks_pc.values
-        gdppc = self.gdppc_acc if self.do_gdppc_accumulation else self.gdppc
-        gdppc = broadcast_trailing_dimensions(gdppc, prediction_out)
-        n_historic = historic_in.shape[0]
-
-        extrapolation = self.stock_extrapolation_class(
-            data_to_extrapolate=historic_in,
-            target_range=gdppc,
-            independent_dims=self.fit_dim_idx,
-            bound_list=self.bound_list,
-        )
-        pure_prediction = extrapolation.regress()
-
-        if self.stock_correction == "gaussian_first_order":
-            prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction)
-        elif self.stock_correction == "shift_zeroth_order":
-            # match last point by adding the difference between the last historic point and the corresponding prediction
-            prediction_out[...] = pure_prediction - (
-                pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
-            )
-
-        # save extrapolation data for later analysis
-        self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
-        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
-        parameter_names = fd.Dimension(name='Parameter Names', letter='p', items=extrapolation.prm_names)
-        parameter_dims = parameter_dims.expand_by([parameter_names])
-        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation.fit_prms)
-
-        prediction_out[:n_historic, ...] = historic_in
-
-        # transform back to total stocks
-        self.stocks[...] = self.stocks_pc * self.pop
+    
