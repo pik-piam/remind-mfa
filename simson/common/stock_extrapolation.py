@@ -154,10 +154,12 @@ class StockExtrapolation:
         # save extrapolation data for later analysis
         self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
         parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
-        parameter_names = fd.Dimension(name='Parameter Names', letter='p', items=extrapolation.prm_names)
+        parameter_names = fd.Dimension(
+            name="Parameter Names", letter="p", items=extrapolation.prm_names
+        )
         parameter_dims = parameter_dims.expand_by([parameter_names])
         self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation.fit_prms)
-    
+
         prediction_out[:n_historic, ...] = historic_in
         self.stocks_pc.set_values(prediction_out)
 
@@ -226,4 +228,3 @@ class StockExtrapolation:
         correction = corr0 + corr1
 
         return prediction[...] + correction
-    

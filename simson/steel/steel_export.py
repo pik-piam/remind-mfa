@@ -336,7 +336,7 @@ class SteelDataExporter(CommonDataExporter):
 
     def visualize_extrapolation(self, model: "SteelModel"):
         mfa = model.future_mfa
-        per_capita = True # TODO see where this shold go
+        per_capita = True  # TODO see where this shold go
         subplot_dim = "Region"
         stock = mfa.stocks["in_use"].stock
         population = mfa.parameters["population"]
@@ -356,7 +356,9 @@ class SteelDataExporter(CommonDataExporter):
         if subplot_dim is None:
             dimlist = ["t"]
         else:
-            subplot_dimletter = next(dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim)
+            subplot_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
+            )
             dimlist = ["t", subplot_dimletter]
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
@@ -387,9 +389,9 @@ class SteelDataExporter(CommonDataExporter):
             x_array=x_array,
             title=title,
             fig=fig,
-            #color_map=color,
+            # color_map=color,
             line_type="dot",
-            line_label="Pure Extrapolation"
+            line_label="Pure Extrapolation",
         )
         fig = ap_pure_prediction.plot()
 
