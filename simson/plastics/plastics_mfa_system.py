@@ -31,7 +31,7 @@ class PlasticsMFASystem(fd.MFASystem):
         self.stocks["in_use_historic"].compute()
 
     def compute_in_use_dsm(self):
-        saturation_level = 0.2 / 1e6 # t to Mt
+        saturation_level = 0.2 / 1e6  # t to Mt
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=saturation_level,
