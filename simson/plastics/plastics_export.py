@@ -45,7 +45,7 @@ class PlasticsDataExporter(CommonDataExporter):
         self.export_eol_data_by_region_and_year(mfa=model.mfa)
         self.export_use_data_by_region_and_year(mfa=model.mfa)
         self.export_recycling_data_by_region_and_year(mfa=model.mfa)
-    
+
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.mfa)
 
@@ -187,52 +187,59 @@ class PlasticsDataExporter(CommonDataExporter):
         flow_color_dict = {"default": production_color}
 
         # Assign colors to 'use' flows
-        flow_color_dict.update({
-            fn: use_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name == "use" or f.to_process.name == "use"
-        })
+        flow_color_dict.update(
+            {
+                fn: use_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "use" or f.to_process.name == "use"
+            }
+        )
 
         # Assign colors to end-of-life flows
-        flow_color_dict.update({
-            fn: eol_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in ("eol", "collected")
-        })
+        flow_color_dict.update(
+            {
+                fn: eol_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name in ("eol", "collected")
+            }
+        )
 
         # Assign colors to emission flows
-        flow_color_dict.update({
-            fn: emission_color
-            for fn, f in mfa.flows.items()
-            if f.to_process.name in (
-                "atmosphere", "mismanaged", "incineration", "uncontrolled", "emission"
-            )
-        })
+        flow_color_dict.update(
+            {
+                fn: emission_color
+                for fn, f in mfa.flows.items()
+                if f.to_process.name
+                in ("atmosphere", "mismanaged", "incineration", "uncontrolled", "emission")
+            }
+        )
 
         # Assign colors to recycling flows
-        flow_color_dict.update({
-            fn: recycle_color
-            for fn, f in mfa.flows.items()
-            if f.from_process.name in ("reclmech", "reclchem", "recl")
-            or f.to_process.name in ("reclmech", "reclchem", "recl")
-        })
+        flow_color_dict.update(
+            {
+                fn: recycle_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name in ("reclmech", "reclchem", "recl")
+                or f.to_process.name in ("reclmech", "reclchem", "recl")
+            }
+        )
 
         # Update Sankey layout configuration
-        self.cfg.sankey.update({
-            "valueformat": ".2s",          # scientific notation, two significant digits
-            "node_pad": 15,                  # padding between nodes
-            "node_thickness": 20,            # node thickness
-            "arrangement": "snap",         # reduce crossings by snapping nodes
-            "flow_color_dict": flow_color_dict,
-            "node_color_dict": {"default": "gray", "use": "black"},
-        })
+        self.cfg.sankey.update(
+            {
+                "valueformat": ".2s",  # scientific notation, two significant digits
+                "node_pad": 15,  # padding between nodes
+                "node_thickness": 20,  # node thickness
+                "arrangement": "snap",  # reduce crossings by snapping nodes
+                "flow_color_dict": flow_color_dict,
+                "node_color_dict": {"default": "gray", "use": "black"},
+            }
+        )
 
         # Prepare display names and generate the Sankey diagram
         display_names_fmt = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
         plotter = fde.PlotlySankeyPlotter(
-            mfa=mfa,
-            display_names=display_names_fmt,
-            **self.cfg.sankey
+            mfa=mfa, display_names=display_names_fmt, **self.cfg.sankey
         )
         fig = plotter.plot()
 
@@ -248,7 +255,8 @@ class PlasticsDataExporter(CommonDataExporter):
             fig.add_trace(
                 go.Scatter(
                     mode="markers",
-                    x=[None], y=[None],
+                    x=[None],
+                    y=[None],
                     marker=dict(size=10, color=color, symbol="square"),
                     name=label,
                 )
@@ -256,10 +264,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
         # Final layout adjustments and display
         fig.update_layout(
-            font_size=18,
-            showlegend=True,
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="black"
+            font_size=18, showlegend=True, plot_bgcolor="rgba(0,0,0,0)", font_color="black"
         )
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
@@ -276,14 +281,9 @@ class PlasticsDataExporter(CommonDataExporter):
             + mfa.flows["wasteimport => collected"]
             - mfa.flows["collected => wasteexport"]
         )
-        df = eol_data.to_df(
-            index=True
-        )
-        df_grouped = (
-            df
-            .groupby(["Time", "Region", "Material"], as_index=True)["value"]
-            .sum())
-        
+        df = eol_data.to_df(index=True)
+        df_grouped = df.groupby(["Time", "Region", "Material"], as_index=True)["value"].sum()
+
         df_grouped.to_csv(output_path, index=True)
 
     def export_use_data_by_region_and_year(
@@ -292,13 +292,8 @@ class PlasticsDataExporter(CommonDataExporter):
         if "fabrication => use" not in mfa.flows:
             raise KeyError(f"The MFA system does not contain 'use' in flows.")
 
-        df = mfa.flows["fabrication => use"].to_df(
-            index=True
-        )  
-        df_grouped = (
-            df
-            .groupby(["Time", "Region"], as_index=True)["value"]
-            .sum())
+        df = mfa.flows["fabrication => use"].to_df(index=True)
+        df_grouped = df.groupby(["Time", "Region"], as_index=True)["value"].sum()
 
         df_grouped.to_csv(output_path, index=True)
 
@@ -308,17 +303,9 @@ class PlasticsDataExporter(CommonDataExporter):
 
         if "collected => reclmech" not in mfa.flows:
             raise KeyError(f"The MFA system does not contain 'reclmech' in flows.")
-        recl_data = (
-            mfa.flows["collected => reclmech"]
-            + mfa.flows["collected => reclchem"]
-        )
-        df = recl_data.to_df(
-            index=True
-        )
+        recl_data = mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]
+        df = recl_data.to_df(index=True)
 
-        df_grouped = (
-            df
-            .groupby(["Time", "Region", "Material"], as_index=True)["value"]
-            .sum())
+        df_grouped = df.groupby(["Time", "Region", "Material"], as_index=True)["value"].sum()
 
         df_grouped.to_csv(output_path, index=True)
