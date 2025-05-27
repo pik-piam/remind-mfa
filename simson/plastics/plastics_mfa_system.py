@@ -97,16 +97,6 @@ class PlasticsMFASystem(fd.MFASystem):
         flw["wasteimport => collected"][...] = flw["wastetrade => wasteimport"]
         flw["collected => wasteexport"][...] = flw["wasteexport => wastetrade"]
 
-        # aux["final_2_fabrication"][...] = (
-        #     flw["fabrication => use"]
-        #     .sum_over(["r","g"]).get_shares_over(["e","m"])
-        # )
-
-        #flw["finaltrade => finalimport"][...] = prm["finalimport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
-        #flw["finalexport => finaltrade"][...] = prm["finalexport_rate"] * prm["finalimporttotal"] * aux["final_2_fabrication"]
-        #flw["finalimport => fabrication"][...] = flw["finaltrade => finalimport"]
-        #flw["fabrication => finalexport"][...] = flw["finalexport => finaltrade"]
-
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["mechanical_recycling_rate"]
         flw["reclmech => recl"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
@@ -144,7 +134,6 @@ class PlasticsMFASystem(fd.MFASystem):
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         flw["recl => fabrication"][...] = flw["reclmech => recl"] + flw["reclchem => recl"]
-        #flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"] - flw["finalimport => fabrication"] + flw["fabrication => finalexport"]
         flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"]
 
         flw["virgindaccu => virgin"][...] = flw["virgin => fabrication"] * prm["daccu_production_rate"]
