@@ -32,7 +32,7 @@ def get_definition(cfg: GeneralCfg):
         fd.FlowDefinition(
             from_process="raw_meal_preparation",
             to_process="clinker_production",
-            dim_letters=("t", "r"),
+            dim_letters=("t", "r")
         ),
         fd.FlowDefinition(
             from_process="sysenv", to_process="clinker_production", dim_letters=("t", "r")

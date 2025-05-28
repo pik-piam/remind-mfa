@@ -204,7 +204,6 @@ class CementDataExporter(CommonDataExporter):
         )
 
         # extrapolation
-        color = ["red"]
         ap_pure_prediction = self.plotter_class(
             array=model.stock_handler.pure_prediction,
             intra_line_dim="Time",
@@ -212,7 +211,6 @@ class CementDataExporter(CommonDataExporter):
             x_array=x_array,
             title=title,
             fig=fig,
-            # color_map=color,
             line_type="dot",
             line_label="Pure Extrapolation",
         )

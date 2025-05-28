@@ -11,6 +11,7 @@ from simson.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from simson.cement.cement_data_reader import CementDataReader
 from simson.cement.cement_export import CementDataExporter
 from simson.common.stock_extrapolation import StockExtrapolation
+from simson.common.assumptions_doc import add_assumption_doc
 
 
 class CementModel:
@@ -46,9 +47,6 @@ class CementModel:
         self.data_writer.export_mfa(mfa=self.future_mfa)
         self.data_writer.visualize_results(model=self)
 
-        # visualize extrapolation
-        # self.data_writer.visualize_extrapolation(mfa=self.historic_mfa, future_demand=future_demand)
-
     def make_historic_mfa(self) -> InflowDrivenHistoricCementMFASystem:
         historic_dim_letters = tuple([d for d in self.dims.letters if d != "t"])
         historic_dims = self.dims[historic_dim_letters]
@@ -80,6 +78,14 @@ class CementModel:
         # extrapolate in use stock to future
         indep_fit_dim_letters = ("r",)
         sat_bound = Bound(var_name="saturation_level", lower_bound=200, upper_bound=200)
+        add_assumption_doc(
+            type="ad-hoc fix",
+            value=200,
+            name="Saturation level of in-use concrete stock",
+            description=
+                "The saturation level of the in-use concrete stock is set to 200 Mt. "
+                "This is slightly above current EU levels."
+        )
         bound_list = BoundList(
             bound_list=[
                 sat_bound,

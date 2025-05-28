@@ -1,5 +1,6 @@
 import flodym as fd
 
+from simson.common.assumptions_doc import add_assumption_doc
 
 class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
 
@@ -24,6 +25,13 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         stk["historic_in_use"].lifetime_model.set_prms(
             mean=prm["historic_use_lifetime_mean"],
             std=0.2 * prm["historic_use_lifetime_mean"],
+        )
+        add_assumption_doc(
+            type="expert guess",
+            value=0.2,
+            name="Standard deviation of historic use lifetime",
+            description=
+                "The standard deviation of the historic use lifetime is set to 20 percent of the mean."
         )
         stk["historic_in_use"].compute()
 
