@@ -138,7 +138,7 @@ class StockExtrapolation:
 
         extrapolation = self.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
-            target_range=gdppc,
+            predictor_values=gdppc,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
         )
@@ -159,7 +159,7 @@ class StockExtrapolation:
             name="Parameter Names", letter="p", items=extrapolation.prm_names
         )
         parameter_dims = parameter_dims.expand_by([parameter_names])
-        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation.fit_prms)
+        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation._fit_prms)
 
         prediction_out[:n_historic, ...] = historic_in
         self.stocks_pc.set_values(prediction_out)
