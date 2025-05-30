@@ -3,7 +3,7 @@ import numpy as np
 from typing import Optional
 from pydantic import model_validator, Field
 
-from remind_mfa.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import RemindMFABaseModel
 
 
 def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) -> np.ndarray:
@@ -14,7 +14,7 @@ def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) ->
     return b_broadcast
 
 
-class Bound(SimsonBaseModel):
+class Bound(RemindMFABaseModel):
     var_name: Optional[str]
     dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
     """Dimensions of the bounds. Not required if bounds are scalar."""
@@ -76,7 +76,7 @@ class Bound(SimsonBaseModel):
         return self
 
 
-class BoundList(SimsonBaseModel):
+class BoundList(RemindMFABaseModel):
     bound_list: list[Bound] = Field(default_factory=list)
     target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
     """Dimension of the extrapolation to which the bounds are extended."""

@@ -3,7 +3,7 @@ from pydantic import field_validator
 from typing import ClassVar, Any, Optional
 import os
 
-from remind_mfa.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import RemindMFABaseModel
 
 
 _assumptions = []
@@ -37,7 +37,7 @@ def add_assumption_doc(
     _assumptions.append(assumption)
 
 
-class Assumption(SimsonBaseModel):
+class Assumption(RemindMFABaseModel):
     type: str
     name: str
     description: str
