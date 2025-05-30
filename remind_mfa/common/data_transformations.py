@@ -18,6 +18,7 @@ class Bound(RemindMFABaseModel):
     """
     Flodym-compatible bounds for a parameter.
     """
+
     var_name: Optional[str]
     dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
     """Dimensions of the bounds. Not required if bounds are scalar."""
@@ -84,8 +85,9 @@ class Bound(RemindMFABaseModel):
 
 class BoundList(RemindMFABaseModel):
     """
-    Collection of Bound objects for (multiple) parameters. 
+    Collection of Bound objects for (multiple) parameters.
     """
+
     bound_list: list[Bound] = Field(default_factory=list)
     """List of bounds for parameters."""
     target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])

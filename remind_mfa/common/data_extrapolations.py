@@ -57,12 +57,11 @@ class Extrapolation(RemindMFABaseModel):
     def n_historic(self):
         """Number of historic data points to use for regression."""
         return self.data_to_extrapolate.shape[0]
-    
-    @property    
+
+    @property
     def fit_prms(self) -> np.ndarray:
         """Optimized parameters after regression (read-only)."""
         return self._fit_prms
-
 
     def extrapolate(self, historic_from_regression: bool = False):
         """
@@ -117,7 +116,9 @@ class Extrapolation(RemindMFABaseModel):
         The regression is performed independently for each dimension specified in `independent_dims`.
         """
         # extract dimensions that are regressed independently
-        predictor_shape = tuple([self.predictor_values.shape[i] for i in sorted(self.independent_dims)])
+        predictor_shape = tuple(
+            [self.predictor_values.shape[i] for i in sorted(self.independent_dims)]
+        )
         regression = np.zeros_like(self.predictor_values)
         self._fit_prms = np.zeros(predictor_shape + (self.n_prms,))
         bounds_array = self.bound_list.to_np_array(self.prm_names)
@@ -248,7 +249,8 @@ class SigmoidExtrapolation(Extrapolation):
             # Calculate average rate of change in recent history
             recent_y_change = self.data_to_extrapolate[-1] - self.data_to_extrapolate[-2]
             recent_x_change = (
-                self.predictor_values[self.n_historic - 1] - self.predictor_values[self.n_historic - 2]
+                self.predictor_values[self.n_historic - 1]
+                - self.predictor_values[self.n_historic - 2]
             )
             if abs(recent_x_change) > sys.float_info.epsilon:
                 slope_estimate = recent_y_change / recent_x_change
