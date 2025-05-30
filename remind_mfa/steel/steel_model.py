@@ -2,18 +2,18 @@ import numpy as np
 import flodym as fd
 from copy import deepcopy
 
-from simson.common.data_blending import blend, blend_over_time
-from simson.common.common_cfg import GeneralCfg
-from simson.common.data_extrapolations import LogSigmoidExtrapolation
-from simson.common.data_transformations import Bound, BoundList
-from simson.common.stock_extrapolation import StockExtrapolation
-from simson.common.custom_data_reader import CustomDataReader
-from simson.common.trade import TradeSet
-from simson.steel.steel_export import SteelDataExporter
-from simson.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
-from simson.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
-from simson.steel.steel_definition import get_definition
-from simson.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.data_blending import blend, blend_over_time
+from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.data_extrapolations import LogSigmoidExtrapolation
+from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.common.stock_extrapolation import StockExtrapolation
+from remind_mfa.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.trade import TradeSet
+from remind_mfa.steel.steel_export import SteelDataExporter
+from remind_mfa.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
+from remind_mfa.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
+from remind_mfa.steel.steel_definition import get_definition
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class SteelModel:

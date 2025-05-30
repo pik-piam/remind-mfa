@@ -3,10 +3,10 @@ import yaml
 import flodym as fd
 import sys
 
-from simson.common.common_cfg import GeneralCfg
-from simson.plastics.plastics_model import PlasticsModel
-from simson.steel.steel_model import SteelModel
-from simson.cement.cement_model import CementModel
+from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.plastics.plastics_model import PlasticsModel
+from remind_mfa.steel.steel_model import SteelModel
+from remind_mfa.cement.cement_model import CementModel
 
 
 models = {
@@ -37,7 +37,7 @@ def calculate_model(model_config):
     logging.info("Model computations completed.")
 
 
-def run_simson(cfg_file: str):
+def run_remind_mfa(cfg_file: str):
     logging.basicConfig(
         format="%(asctime)s %(levelname)-8s %(message)s",
         level=logging.INFO,
@@ -53,4 +53,4 @@ if __name__ == "__main__":
         cfg_file = sys.argv[1]
     except IndexError:
         raise ValueError("Please provide a configuration file as an argument.")
-    run_simson(cfg_file)
+    run_remind_mfa(cfg_file)

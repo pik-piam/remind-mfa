@@ -2,11 +2,11 @@ from plotly import colors as plc
 import flodym as fd
 from typing import TYPE_CHECKING
 
-from simson.common.common_export import CommonDataExporter
-from simson.common.common_cfg import CementVisualizationCfg
+from remind_mfa.common.common_export import CommonDataExporter
+from remind_mfa.common.common_cfg import CementVisualizationCfg
 
 if TYPE_CHECKING:
-    from simson.cement.cement_model import CementModel
+    from remind_mfa.cement.cement_model import CementModel
 
 
 class CementDataExporter(CommonDataExporter):

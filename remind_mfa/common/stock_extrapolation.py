@@ -3,9 +3,9 @@ import numpy as np
 from typing import Tuple, Union, Type
 from copy import deepcopy
 
-from simson.common.data_extrapolations import Extrapolation
-from simson.common.data_transformations import broadcast_trailing_dimensions, BoundList
-from simson.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.data_extrapolations import Extrapolation
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class StockExtrapolation:

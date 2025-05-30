@@ -8,9 +8,9 @@ from pydantic import model_validator
 import flodym as fd
 import flodym.export as fde
 
-from simson.common.base_model import SimsonBaseModel
-from simson.common.common_cfg import VisualizationCfg, ExportCfg
-from simson.common.assumptions_doc import assumptions_str
+from remind_mfa.common.base_model import SimsonBaseModel
+from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg
+from remind_mfa.common.assumptions_doc import assumptions_str
 
 
 class CommonDataExporter(SimsonBaseModel):

@@ -1,9 +1,9 @@
 import numpy as np
 import flodym as fd
 
-from simson.common.data_extrapolations import ProportionalExtrapolation
-from simson.common.data_transformations import broadcast_trailing_dimensions
-from simson.common.trade import Trade
+from remind_mfa.common.data_extrapolations import ProportionalExtrapolation
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
+from remind_mfa.common.trade import Trade
 
 
 def predict_by_extrapolation(
