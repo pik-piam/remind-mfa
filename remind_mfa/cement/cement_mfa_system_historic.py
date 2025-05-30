@@ -2,6 +2,7 @@ import flodym as fd
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
+
 class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
 
     def compute(self):
@@ -30,8 +31,7 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
             type="expert guess",
             value=0.2,
             name="Standard deviation of historic use lifetime",
-            description=
-                "The standard deviation of the historic use lifetime is set to 20 percent of the mean."
+            description="The standard deviation of the historic use lifetime is set to 20 percent of the mean.",
         )
         stk["historic_in_use"].compute()
 

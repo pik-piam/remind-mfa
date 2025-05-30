@@ -197,7 +197,9 @@ class StockExtrapolation:
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
 
-    def gaussian_correction(self, historic: np.ndarray, prediction: np.ndarray, n: int = 5) -> np.ndarray:
+    def gaussian_correction(
+        self, historic: np.ndarray, prediction: np.ndarray, n: int = 5
+    ) -> np.ndarray:
         """
         Gaussian smoothing of extrapolation between the historic and future interface to remove discontinuities
         of 0th and 1st order derivatives. Multiplies Gaussian with a Taylor expansion around

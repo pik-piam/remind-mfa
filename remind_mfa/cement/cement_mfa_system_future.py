@@ -3,6 +3,7 @@ import flodym as fd
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
+
 class StockDrivenCementMFASystem(fd.MFASystem):
 
     def compute(self, stock_projection: fd.FlodymArray):
@@ -28,8 +29,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             type="expert guess",
             value=0.2,
             name="Standard deviation of future use lifetime",
-            description=
-                "The standard deviation of the future use lifetime is set to 20 percent of the mean."
+            description="The standard deviation of the future use lifetime is set to 20 percent of the mean.",
         )
         stk["in_use"].compute()
 
