@@ -101,6 +101,14 @@ class CementModel:
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,
         )
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="Region specific stock extrapolation.",
+            description=
+                "Each region has its own stock extrapolation. "
+                "Independent fit of stretch_factor and x_offset. "
+                "This is problematic especially for regions with low historic stock levels."
+        )
 
         total_in_use_stock = self.stock_handler.stocks
 

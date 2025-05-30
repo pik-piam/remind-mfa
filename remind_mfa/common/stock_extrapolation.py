@@ -9,6 +9,9 @@ from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class StockExtrapolation:
+    """
+    Class for extrapolating stocks based on historical data and GDP per capita.
+    """
 
     def __init__(
         self,
@@ -79,6 +82,7 @@ class StockExtrapolation:
         )
 
     def extrapolate(self):
+        """Preprocessing and extrapolation."""
         self.per_capita_transformation()
         self.gdp_regression()
 
@@ -102,7 +106,18 @@ class StockExtrapolation:
 
         prediction_out = self.stocks_pc.values.copy()
         historic_in = self.historic_stocks_pc.values
-        gdppc = self.gdppc_acc if self.do_gdppc_accumulation else self.gdppc
+        if self.do_gdppc_accumulation:
+            gdppc = self.gdppc_acc
+            add_assumption_doc(
+                type="model assumption",
+                name="Usage of cumulative GDP per capita",
+                description=(
+                    "Accumulated GDPpc is used for stock extrapolation to prevent "
+                    "stock shrink in times of decreasing GDPpc. "
+                ),
+            )
+        else:
+            gdppc = self.gdppc
         gdppc = broadcast_trailing_dimensions(gdppc, prediction_out)
         n_historic = historic_in.shape[0]
 
@@ -146,10 +161,25 @@ class StockExtrapolation:
 
         if self.stock_correction == "gaussian_first_order":
             prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction, n_deriv)
+            add_assumption_doc(
+                type="model assumption",
+                name="Usage of Gaussian correction",
+                description=(
+                    "Gaussian correction is used to blend histroric trends with the extrapolation."
+                ),
+            )
         elif self.stock_correction == "shift_zeroth_order":
             # match last point by adding the difference between the last historic point and the corresponding prediction
             prediction_out[...] = pure_prediction - (
                 pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
+            )
+            add_assumption_doc(
+                type="model assumption",
+                name="Usage of zeroth order correction",
+                description=(
+                    "Zeroth order correction is used to match the last historic point with the "
+                    "extrapolated stock."
+                ),
             )
 
         # save extrapolation data for later analysis
@@ -167,20 +197,26 @@ class StockExtrapolation:
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
 
-    def gaussian_correction(self, historic: np.ndarray, prediction: np.ndarray, n: int = 5):
-        """Gaussian smoothing of extrapolation around interface historic/future to remove discontinuities."""
-        """Multiplies Gaussian with a Taylor expansion around the difference beteween historic and fit."""
+    def gaussian_correction(self, historic: np.ndarray, prediction: np.ndarray, n: int = 5) -> np.ndarray:
+        """
+        Gaussian smoothing of extrapolation between the historic and future interface to remove discontinuities
+        of 0th and 1st order derivatives. Multiplies Gaussian with a Taylor expansion around
+        the difference beteween historic and fit.
+        Args:
+            historic (np.ndarray): Historical stock data.
+            prediction (np.ndarray): Predicted stock data from regression.
+            n (int): Number of years for the linear regression fit. Defaults to 5.
+        Returns:
+            np.ndarray: Corrected stock data after applying Gaussian smoothing.
+        """
         time = np.array(self.dims["t"].items)
         last_history_idx = len(historic) - 1
         last_history_year = time[last_history_idx]
+        # offset between historic and prediction at transition point
         difference_0th = historic[last_history_idx, :] - prediction[last_history_idx, :]
 
-        # standard approach: only take last 2 points
-        # last_historic_1st = historic[last_history_idx, :] - historic[last_history_idx - 1, :]
-        # last_prediction_1st = prediction[last_history_idx, :] - prediction[last_history_idx - 1, :]
-
-        # do a proper linear regression to last n1 points
         def lin_fit(x, y, last_idx, n=n):
+            """Linear fit of the last n points."""
             x_cut = np.vstack([x[last_idx - n : last_idx], np.ones(n)]).T
             y_cut = y[last_idx - n : last_idx, :]
             y_reshaped = y_cut.reshape(n, -1).T
@@ -191,6 +227,7 @@ class StockExtrapolation:
         last_historic_1st = lin_fit(time, historic, last_history_idx)
         last_prediction_1st = lin_fit(time, prediction, last_history_idx)
 
+        # offset of the 1st derivative at the transition point
         difference_1st = (last_historic_1st - last_prediction_1st) / (
             last_history_year - time[last_history_idx - 1]
         )
