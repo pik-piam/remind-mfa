@@ -50,7 +50,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
                 "therefore, it is actually apparent consumption. "
                 "With this fix, we do not have any regional production jumps "
                 "between historical and future data, as trade is not yet modeled in the future."
-                "This fix propagates throught to cement and clinker production."
+                "This fix propagates through to cement and clinker production."
             ),
         )
 
