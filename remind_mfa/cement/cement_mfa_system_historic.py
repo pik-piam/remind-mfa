@@ -1,6 +1,6 @@
 import flodym as fd
 
-from simson.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
 
