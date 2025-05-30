@@ -1,5 +1,5 @@
 from pydantic import model_validator
-from remind_mfa.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import RemindMFABaseModel
 from typing import List
 import numpy as np
 from scipy.stats import gmean, hmean
@@ -7,7 +7,7 @@ import sys
 import flodym as fd
 
 
-class Trade(SimsonBaseModel):
+class Trade(RemindMFABaseModel):
     """A TradeModule handles the storing and calculation of trade data for a given MFASystem."""
 
     imports: fd.FlodymArray
@@ -78,7 +78,7 @@ class Trade(SimsonBaseModel):
         return reference_trade_lookup[to]
 
 
-class TradeSet(SimsonBaseModel):
+class TradeSet(RemindMFABaseModel):
     """A trade model for the steel sector storing the data and defining how trade is processed."""
 
     markets: dict[str, Trade]

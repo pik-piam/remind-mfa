@@ -5,11 +5,11 @@ import sys
 from pydantic import model_validator
 from scipy.optimize import least_squares
 
-from remind_mfa.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import RemindMFABaseModel
 from remind_mfa.common.data_transformations import BoundList
 
 
-class Extrapolation(SimsonBaseModel):
+class Extrapolation(RemindMFABaseModel):
 
     data_to_extrapolate: np.ndarray
     """historical data"""

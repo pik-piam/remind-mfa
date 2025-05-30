@@ -1,4 +1,4 @@
-from remind_mfa.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import RemindMFABaseModel
 import flodym as fd
 
 from .data_extrapolations import Extrapolation
@@ -26,7 +26,7 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
-class ModelCustomization(SimsonBaseModel):
+class ModelCustomization(RemindMFABaseModel):
 
     stock_extrapolation_class_name: str
     lifetime_model_name: str
@@ -42,13 +42,13 @@ class ModelCustomization(SimsonBaseModel):
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
 
 
-class ExportCfg(SimsonBaseModel):
+class ExportCfg(RemindMFABaseModel):
     csv: bool = True
     pickle: bool = True
     assumptions: bool = True
 
 
-class VisualizationCfg(SimsonBaseModel):
+class VisualizationCfg(RemindMFABaseModel):
 
     use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
@@ -82,7 +82,7 @@ class PlasticsVisualizationCfg(VisualizationCfg):
     pass
 
 
-class GeneralCfg(SimsonBaseModel):
+class GeneralCfg(RemindMFABaseModel):
 
     model_class: str
     input_data_path: str
