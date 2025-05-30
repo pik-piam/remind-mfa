@@ -83,7 +83,7 @@ class CementModel:
             value=200,
             name="Saturation level of in-use concrete stock",
             description=
-                "The saturation level of the in-use concrete stock is set to 200 Mt. "
+                "The saturation level of the in-use concrete stock is set to T/cap. "
                 "This is slightly above current EU levels."
         )
         bound_list = BoundList(

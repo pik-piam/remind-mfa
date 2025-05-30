@@ -14,7 +14,7 @@ class Extrapolation(RemindMFABaseModel):
     """
     Base class for extrapolation methods.
     This class provides a framework for extrapolating (historical) data to predictor values using regression techniques.
-    The extrapolation method is defined by the `func` method, which should be implemented in subclasses.
+    The functional form of the extrapolation is defined by the `func` method, which should be implemented in subclasses.
     """
 
     data_to_extrapolate: np.ndarray
@@ -22,7 +22,7 @@ class Extrapolation(RemindMFABaseModel):
     predictor_values: np.ndarray
     """predictor variable(s) covering range of data_to_extrapolate and beyond."""
     weights: Optional[np.ndarray] = None
-    """Weights for the data to extrapolate. Defaults to ones, i.e., equal weights for all data points."""
+    """Weights for the data to extrapolate. Defaults None, i.e., equal weights for all data points."""
     bound_list: BoundList = BoundList()
     """Bounds for the parameters to be fitted. Defaults to no bounds."""
     independent_dims: Tuple[int, ...] = ()
@@ -36,7 +36,7 @@ class Extrapolation(RemindMFABaseModel):
     def validate_data(self):
         assert (
             self.data_to_extrapolate.shape[0] <= self.predictor_values.shape[0]
-        ), "data_to_extrapolate cannot be longer thanpredictor_values"
+        ), "data_to_extrapolate cannot be longer than predictor_values"
         assert (
             self.data_to_extrapolate.shape[1:] == self.predictor_values.shape[1:]
         ), "Data to extrapolate and predictor_values must have the same shape except for the first dimension."
