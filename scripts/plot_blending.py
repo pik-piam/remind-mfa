@@ -1,12 +1,12 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-# add simson to path
+# add remind-mfa to path
 import sys
 
-sys.path.append("../simson")
+sys.path.append("../remind-mfa")
 
-from simson.common.data_blending import blending_factor
+from remind_mfa.common.data_blending import blending_factor
 
 types = [
     "linear",
