@@ -1,6 +1,6 @@
 import flodym as fd
 
-from simson.common.common_cfg import GeneralCfg
+from remind_mfa.common.common_cfg import GeneralCfg
 
 
 def get_definition(cfg: GeneralCfg):

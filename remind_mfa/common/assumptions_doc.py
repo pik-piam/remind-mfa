@@ -3,7 +3,7 @@ from pydantic import field_validator
 from typing import ClassVar, Any, Optional
 import os
 
-from simson.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import SimsonBaseModel
 
 
 _assumptions = []

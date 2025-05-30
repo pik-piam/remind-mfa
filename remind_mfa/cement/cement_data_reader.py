@@ -1,4 +1,4 @@
-from simson.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.custom_data_reader import CustomDataReader
 
 
 class CementDataReader(CustomDataReader):

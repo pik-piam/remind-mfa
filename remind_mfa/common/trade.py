@@ -1,5 +1,5 @@
 from pydantic import model_validator
-from simson.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import SimsonBaseModel
 from typing import List
 import numpy as np
 from scipy.stats import gmean, hmean

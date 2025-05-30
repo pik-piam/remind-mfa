@@ -1,4 +1,4 @@
-from simson.common.base_model import SimsonBaseModel
+from remind_mfa.common.base_model import SimsonBaseModel
 import flodym as fd
 
 from .data_extrapolations import Extrapolation

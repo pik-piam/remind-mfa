@@ -1,8 +1,8 @@
 from typing import List
 import flodym as fd
 
-from simson.common.common_cfg import GeneralCfg
-from simson.common.trade import TradeDefinition
+from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.trade import TradeDefinition
 
 
 class SteelMFADefinition(fd.MFADefinition):

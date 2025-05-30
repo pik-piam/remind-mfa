@@ -2,9 +2,9 @@ from typing import Optional
 import flodym as fd
 import numpy as np
 
-from simson.common.stock_extrapolation import StockExtrapolation
-from simson.common.common_cfg import PlasticsCfg
-from simson.common.data_transformations import Bound, BoundList
+from remind_mfa.common.stock_extrapolation import StockExtrapolation
+from remind_mfa.common.common_cfg import PlasticsCfg
+from remind_mfa.common.data_transformations import Bound, BoundList
 
 
 class PlasticsMFASystem(fd.MFASystem):

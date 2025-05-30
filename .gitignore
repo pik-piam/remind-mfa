@@ -5,4 +5,4 @@ config/
 .idea
 .vscode
 uv.lock
-simson.egg-info
+remind-mfa.egg-info

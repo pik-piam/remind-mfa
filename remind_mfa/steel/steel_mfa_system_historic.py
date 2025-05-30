@@ -2,9 +2,9 @@ import sys
 import numpy as np
 import flodym as fd
 
-from simson.common.trade import TradeSet
-from simson.common.data_blending import blend
-from simson.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.data_blending import blend
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):

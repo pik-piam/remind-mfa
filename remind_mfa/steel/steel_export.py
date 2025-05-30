@@ -5,11 +5,11 @@ import flodym as fd
 from typing import TYPE_CHECKING
 import flodym.export as fde
 
-from simson.common.common_export import CommonDataExporter
-from simson.common.common_cfg import SteelVisualizationCfg
+from remind_mfa.common.common_export import CommonDataExporter
+from remind_mfa.common.common_cfg import SteelVisualizationCfg
 
 if TYPE_CHECKING:
-    from simson.steel.steel_model import SteelModel
+    from remind_mfa.steel.steel_model import SteelModel
 
 
 class SteelDataExporter(CommonDataExporter):

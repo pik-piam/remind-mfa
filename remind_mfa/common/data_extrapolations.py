@@ -5,8 +5,8 @@ import sys
 from pydantic import model_validator
 from scipy.optimize import least_squares
 
-from simson.common.base_model import SimsonBaseModel
-from simson.common.data_transformations import BoundList
+from remind_mfa.common.base_model import SimsonBaseModel
+from remind_mfa.common.data_transformations import BoundList
 
 
 class Extrapolation(SimsonBaseModel):
