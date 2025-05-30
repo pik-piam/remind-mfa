@@ -165,7 +165,7 @@ class StockExtrapolation:
                 type="model assumption",
                 name="Usage of Gaussian correction",
                 description=(
-                    "Gaussian correction is used to blend histroric trends with the extrapolation."
+                    "Gaussian correction is used to blend historic trends with the extrapolation."
                 ),
             )
         elif self.stock_correction == "shift_zeroth_order":
