@@ -1,6 +1,8 @@
 import numpy as np
 import flodym as fd
 
+from remind_mfa.common.assumptions_doc import add_assumption_doc
+
 
 class StockDrivenCementMFASystem(fd.MFASystem):
 
@@ -23,6 +25,12 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             mean=prm["future_use_lifetime_mean"],
             std=0.2 * prm["future_use_lifetime_mean"],
         )
+        add_assumption_doc(
+            type="expert guess",
+            value=0.2,
+            name="Standard deviation of future use lifetime",
+            description="The standard deviation of the future use lifetime is set to 20 percent of the mean.",
+        )
         stk["in_use"].compute()
 
     def compute_flows(self):
@@ -32,6 +40,20 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         # go backwards from in-use stock
         flw["concrete_production => use"][...] = stk["in_use"].inflow
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="Regional concrete production is actually apparent consumption.",
+            description=(
+                "The concrete stock considers both cement production and trade. "
+                "The concrete production is constructed by concrete stock. "
+                "The regional concrete production does not consider trade, "
+                "therefore, it is actually apparent consumption. "
+                "With this fix, we do not have any regional production jumps "
+                "between historical and future data, as trade is not yet modeled in the future."
+                "This fix propagates through to cement and clinker production."
+            ),
+        )
+
         flw["cement_grinding => concrete_production"][...] = (
             flw["concrete_production => use"] * prm["cement_ratio"]
         )

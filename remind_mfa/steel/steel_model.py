@@ -241,7 +241,7 @@ class SteelModel:
 
         multi_dim_extrapolation = LogSigmoidExtrapolation(
             data_to_extrapolate=historic_stocks_pc.values,
-            target_range=gdppc.values,
+            predictor_values=gdppc.values,
             independent_dims=(),
         )
         multi_dim_extrapolation.regress()

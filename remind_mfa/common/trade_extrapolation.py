@@ -91,7 +91,7 @@ def extrapolate_to_future(historic: fd.FlodymArray, scale_by: fd.FlodymArray) ->
 
     extrapolation = ProportionalExtrapolation(
         data_to_extrapolate=historic.values,
-        target_range=scale_by.values,
+        predictor_values=scale_by.values,
         weights=weights,
         independent_dims=tuple(range(1, dims_out.ndim)),
     )

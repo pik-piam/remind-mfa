@@ -15,6 +15,10 @@ def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) ->
 
 
 class Bound(RemindMFABaseModel):
+    """
+    Flodym-compatible bounds for a parameter.
+    """
+
     var_name: Optional[str]
     dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
     """Dimensions of the bounds. Not required if bounds are scalar."""
@@ -70,6 +74,9 @@ class Bound(RemindMFABaseModel):
         return self
 
     def extend_dims(self, target_dims: fd.DimensionSet):
+        """
+        Extend the bounds to a new set of dimensions.
+        """
         self.lower_bound = self.lower_bound.cast_to(target_dims)
         self.upper_bound = self.upper_bound.cast_to(target_dims)
         self.dims = target_dims
@@ -77,7 +84,12 @@ class Bound(RemindMFABaseModel):
 
 
 class BoundList(RemindMFABaseModel):
+    """
+    Collection of Bound objects for (multiple) parameters.
+    """
+
     bound_list: list[Bound] = Field(default_factory=list)
+    """List of bounds for parameters."""
     target_dims: fd.DimensionSet = fd.DimensionSet(dim_list=[])
     """Dimension of the extrapolation to which the bounds are extended."""
 
@@ -91,7 +103,14 @@ class BoundList(RemindMFABaseModel):
         return self
 
     def to_np_array(self, all_prm_names: list[str]) -> np.ndarray:
-        """Creates bounds array where each element is tuple of lower and upper bounds for each parameter."""
+        """
+        Creates bounds array where each element is tuple of lower and upper bounds for each parameter.
+        Useful if bounds should be passed to optimization algorthms like from scipy.
+        Args:
+            all_prm_names: List of all parameter names that ensure right order of bounds.
+        Returns:
+            np.ndarray: bound information for each parameter.
+        """
 
         if self.bound_list == []:
             return None
