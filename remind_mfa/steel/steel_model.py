@@ -245,7 +245,7 @@ class SteelModel:
             independent_dims=(),
         )
         multi_dim_extrapolation.regress()
-        saturation_level = multi_dim_extrapolation._fit_prms[0]
+        saturation_level = multi_dim_extrapolation.fit_prms[0]
 
         if self.cfg.customization.do_stock_extrapolation_by_category:
             high_stock_sector_split = self.get_high_stock_sector_split()
