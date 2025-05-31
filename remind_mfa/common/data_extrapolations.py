@@ -225,6 +225,7 @@ class SigmoidExtrapolation(Extrapolation):
         stretch_factor = 2 / (max_predictor - mean_predictor)
         return np.array([sat_level_guess, stretch_factor, mean_predictor])
 
+
 class LogSigmoidExtrapolation(SigmoidExtrapolation):
     """
     LogSigmoidExtrapolation is a specific implementation of SigmoidExtrapolation that uses a logarithmic transformation
