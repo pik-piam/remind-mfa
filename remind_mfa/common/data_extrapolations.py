@@ -169,8 +169,7 @@ class ProportionalExtrapolation(Extrapolation):
     def func(x, prms):
         return prms[0] * x
 
-    @staticmethod
-    def initial_guess(predictor_values, data_to_extrapolate):
+    def initial_guess(self, predictor_values, data_to_extrapolate):
         return np.array([1.0])
 
 
@@ -209,26 +208,6 @@ class ExponentialSaturationExtrapolation(Extrapolation):
         return np.array([initial_saturation_level, initial_stretch_factor])
 
 
-class LogSigmoidExtrapolation(Extrapolation):
-
-    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
-
-    @staticmethod
-    def func(x, prms):
-        return prms[0] / (1 + np.exp(-prms[1] * (np.log10(x) - prms[2])))
-
-    @staticmethod
-    def initial_guess(predictor_values, data_to_extrapolate):
-        max_level = np.log10(np.max(data_to_extrapolate))
-        sat_level_guess = 2 * max_level
-
-        mean_predictor = np.mean(np.log10(predictor_values))
-
-        max_predictor = np.log10(np.max(predictor_values))
-        stretch_factor = 2 / (max_predictor - mean_predictor)
-        return np.array([sat_level_guess, stretch_factor, mean_predictor])
-
-
 class SigmoidExtrapolation(Extrapolation):
 
     prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
@@ -237,38 +216,25 @@ class SigmoidExtrapolation(Extrapolation):
     def func(x, prms):
         return prms[0] / (1.0 + np.exp(-prms[1] * (x - prms[2])))
 
-    def initial_guess(self):
-        current_level = self.data_to_extrapolate[-1]
-        current_extrapolator = self.predictor_values[self.n_historic - 1]
-        initial_saturation_level = (
-            2.0 * current_level if np.max(np.abs(current_level)) > sys.float_info.epsilon else 1.0
-        )
+    def initial_guess(self, predictor_values, data_to_extrapolate):
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2 * max_level
 
-        # Estimate slope based on historical data points
-        if len(self.data_to_extrapolate) > 1:
-            # Calculate average rate of change in recent history
-            recent_y_change = self.data_to_extrapolate[-1] - self.data_to_extrapolate[-2]
-            recent_x_change = (
-                self.predictor_values[self.n_historic - 1]
-                - self.predictor_values[self.n_historic - 2]
-            )
-            if abs(recent_x_change) > sys.float_info.epsilon:
-                slope_estimate = recent_y_change / recent_x_change
-                # Convert slope to stretch factor (sigmoid derivative at midpoint is prms[0]*prms[1]/4)
-                initial_stretch_factor = 4.0 * slope_estimate / initial_saturation_level
-            else:
-                initial_stretch_factor = 0.1
-        else:
-            initial_stretch_factor = 0.1
+        mean_predictor = np.mean(predictor_values)
+        max_predictor = np.max(predictor_values)
+        stretch_factor = 2 / (max_predictor - mean_predictor)
+        return np.array([sat_level_guess, stretch_factor, mean_predictor])
 
-        # If current level is approximately half the saturation level, set x-offset to current x value
-        ratio = current_level / initial_saturation_level
-        # Solve for x-offset using the sigmoid equation at current point
-        if 0 < ratio < 1:
-            logit = np.log(ratio / (1.0 - ratio))
-            initial_x_offset = current_extrapolator - logit / initial_stretch_factor
-        else:
-            # Fallback if ratio is not in (0,1)
-            initial_x_offset = current_extrapolator
 
-        return np.array([initial_saturation_level, initial_stretch_factor, initial_x_offset])
+class LogSigmoidExtrapolation(SigmoidExtrapolation):
+    """
+    LogSigmoidExtrapolation is a specific implementation of SigmoidExtrapolation that uses a logarithmic transformation
+    for the predictor values.
+    """
+
+    @staticmethod
+    def func(x, prms):
+        return SigmoidExtrapolation.func(np.log10(x), prms)
+
+    def initial_guess(self, predictor_values, data_to_extrapolate):
+        return super().initial_guess(np.log10(predictor_values), data_to_extrapolate)
