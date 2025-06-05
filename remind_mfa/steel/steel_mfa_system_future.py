@@ -34,7 +34,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
     def compute_price_elastic_trade(self):
         price = fd.FlodymArray(dims=self.dims["t", "r"])
-        price[...] = 500.
+        price[...] = 500.0
         # price.values[131:201,2] = np.minimum(800., np.linspace(500, 2000, 70))
         model = PriceDrivenTrade(dims=self.trade_set["intermediate"].exports.dims)
         model.calibrate(
@@ -85,7 +85,9 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
             "imports",
             balance_to="hmean",
         )
-        self.trade_set["indirect"].imports[...] = self.trade_set["indirect"].imports.minimum(product_demand)
+        self.trade_set["indirect"].imports[...] = self.trade_set["indirect"].imports.minimum(
+            product_demand
+        )
         self.trade_set["indirect"].balance(to="minimum")
 
         fabrication = product_demand - self.trade_set["indirect"].net_imports

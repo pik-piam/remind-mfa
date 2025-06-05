@@ -96,7 +96,9 @@ class SteelModel:
         scrap_rate_factor.values[110:] = 0.8
         self.parameters["forming_yield"] = fd.Parameter(
             dims=self.dims["t",],
-            values=(1 - scrap_rate_factor * (1 - self.parameters["forming_yield"].values.mean())).values,
+            values=(
+                1 - scrap_rate_factor * (1 - self.parameters["forming_yield"].values.mean())
+            ).values,
         )
         self.parameters["fabrication_yield"] = fd.Parameter(
             dims=self.dims["t", "g"],
