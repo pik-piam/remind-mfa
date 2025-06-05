@@ -11,7 +11,7 @@ class PriceDrivenTrade(RemindMFABaseModel):
 
     eta_demand: float = -0.3
     eta_supply: float = 1.2
-    mu: float = 0.014
+    mu: float = 0.012
     """OOM: 1/price; Higher mu means more price-elastic"""
     learning_rate: float = 0.2
     convergence_tol: float = 0.01

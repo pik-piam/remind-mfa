@@ -19,8 +19,8 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
-        self.check_flows(no_error=True)
-        self.update_price_elastic()
+        self.check_flows(raise_error=False)
+        # self.update_price_elastic()
 
     def update_price_elastic(self):
         self.compute_price_elastic_trade()
@@ -30,7 +30,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         # self.compute_other_stocks()
 
         # self.check_mass_balance()
-        # self.check_flows(no_error=True)
+        # self.check_flows(raise_error=False)
 
     def compute_price_elastic_trade(self):
         price = fd.FlodymArray(dims=self.dims["t", "r"])
@@ -85,6 +85,8 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
             "imports",
             balance_to="hmean",
         )
+        self.trade_set["indirect"].imports[...] = self.trade_set["indirect"].imports.minimum(product_demand)
+        self.trade_set["indirect"].balance(to="minimum")
 
         fabrication = product_demand - self.trade_set["indirect"].net_imports
         predict_by_extrapolation(
@@ -95,7 +97,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
             balance_to="hmean",
         )
 
-        eol_products = self.stocks["in_use"].outflow
+        eol_products = self.stocks["in_use"].outflow * self.parameters["recovery_rate"]
         predict_by_extrapolation(
             historic_trade["scrap"],
             self.trade_set["scrap"],
@@ -103,6 +105,8 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
             "exports",
             balance_to="hmean",
         )
+        self.trade_set["scrap"].exports[...] = self.trade_set["scrap"].exports.minimum(eol_products)
+        self.trade_set["scrap"].balance(to="minimum")
 
     def compute_flows(self):
         # abbreviations for better readability
