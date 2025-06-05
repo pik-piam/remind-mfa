@@ -12,7 +12,6 @@ class SteelMFADefinition(fd.MFADefinition):
 def get_definition(cfg: GeneralCfg):
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
-        # fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Intermediate", dim_letter="i", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
@@ -45,12 +44,12 @@ def get_definition(cfg: GeneralCfg):
     flows = [
         # Historic Flows
 
-        fd.FlowDefinition(from_process="sysenv", to_process="forming", dim_letters=("h", "r", "i")),
-        fd.FlowDefinition(from_process="forming", to_process="ip_market", dim_letters=("h", "r", "i")),
+        fd.FlowDefinition(from_process="sysenv", to_process="forming", dim_letters=("h", "r")),
+        fd.FlowDefinition(from_process="forming", to_process="ip_market", dim_letters=("h", "r")),
         fd.FlowDefinition(from_process="forming", to_process="sysenv", dim_letters=("h", "r")),
-        fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("h", "r", "i")),
-        fd.FlowDefinition(from_process="ip_market", to_process="sysenv", dim_letters=("h", "r", "i")),
-        fd.FlowDefinition(from_process="sysenv", to_process="ip_market", dim_letters=("h", "r", "i")),
+        fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("h", "r")),
+        fd.FlowDefinition(from_process="ip_market", to_process="sysenv", dim_letters=("h", "r")),
+        fd.FlowDefinition(from_process="sysenv", to_process="ip_market", dim_letters=("h", "r")),
         fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h", "r", "g")),
         fd.FlowDefinition(from_process="fabrication", to_process="sysenv", dim_letters=("h", "r")),
         fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h", "r", "g")),
@@ -67,13 +66,13 @@ def get_definition(cfg: GeneralCfg):
         fd.FlowDefinition(from_process="scrap_market", to_process="eaf_production", dim_letters=("t", "r")),
         fd.FlowDefinition(from_process="eaf_production", to_process="forming", dim_letters=("t", "r")),
         fd.FlowDefinition(from_process="eaf_production", to_process="losses", dim_letters=("t", "r")),
-        fd.FlowDefinition(from_process="forming", to_process="ip_market", dim_letters=("t", "r", "i")),
+        fd.FlowDefinition(from_process="forming", to_process="ip_market", dim_letters=("t", "r")),
         fd.FlowDefinition(from_process="forming", to_process="scrap_market", dim_letters=("t", "r")),
         fd.FlowDefinition(from_process="forming", to_process="losses", dim_letters=("t", "r")),
         fd.FlowDefinition(from_process="fabrication", to_process="losses", dim_letters=("t", "r")),
-        fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("t", "r", "i")),
-        fd.FlowDefinition(from_process="ip_market", to_process="exports", dim_letters=("t", "r", "i")),
-        fd.FlowDefinition(from_process="imports", to_process="ip_market", dim_letters=("t", "r", "i")),
+        fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("t", "r")),
+        fd.FlowDefinition(from_process="ip_market", to_process="exports", dim_letters=("t", "r")),
+        fd.FlowDefinition(from_process="imports", to_process="ip_market", dim_letters=("t", "r")),
         fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t", "r", "g")),
         fd.FlowDefinition(from_process="fabrication", to_process="scrap_market", dim_letters=("t", "r")),
         fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t", "r", "g")),
@@ -166,11 +165,11 @@ def get_definition(cfg: GeneralCfg):
 
     trades = [
         # historic
-        TradeDefinition(name="intermediate", dim_letters=("h", "r", "i")),
+        TradeDefinition(name="intermediate", dim_letters=("h", "r")),
         TradeDefinition(name="indirect", dim_letters=("h", "r", "g")),
         TradeDefinition(name="scrap", dim_letters=("h", "r")),
         # future
-        TradeDefinition(name="intermediate", dim_letters=("t", "r", "i")),
+        TradeDefinition(name="intermediate", dim_letters=("t", "r")),
         TradeDefinition(name="indirect", dim_letters=("t", "r", "g")),
         TradeDefinition(name="scrap", dim_letters=("t", "r", "g")),
     ]

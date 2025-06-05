@@ -1,7 +1,9 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import predict_by_extrapolation
+from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 
 
 class StockDrivenSteelMFASystem(fd.MFASystem):
@@ -17,12 +19,60 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
-        self.check_flows(no_error=True)
+        self.check_flows(raise_error=False)
+        # self.update_price_elastic()
+
+    def update_price_elastic(self):
+        self.compute_price_elastic_trade()
+        # self.compute_consumption()
+        self.compute_in_use_inflow_driven()
+        # self.compute_other_flows()
+        # self.compute_other_stocks()
+
+        # self.check_mass_balance()
+        # self.check_flows(raise_error=False)
+
+    def compute_price_elastic_trade(self):
+        price = fd.FlodymArray(dims=self.dims["t", "r"])
+        price[...] = 500.0
+        # price.values[131:201,2] = np.minimum(800., np.linspace(500, 2000, 70))
+        model = PriceDrivenTrade(dims=self.trade_set["intermediate"].exports.dims)
+        model.calibrate(
+            demand=self.flows["ip_market => fabrication"][2022],
+            price=price[2022],
+            imports_target=self.trade_set["intermediate"].imports[2022],
+            exports_target=self.trade_set["intermediate"].exports[2022],
+        )
+        price, demand, supply, imports, exports = model.compute_price_driven_trade(
+            price_0=price,
+            demand_0=self.flows["ip_market => fabrication"],
+            supply_0=self.flows["forming => ip_market"],
+        )
+
+        self.flows["ip_market => fabrication"][...] = demand
+        self.flows["forming => ip_market"][...] = supply
+        self.trade_set["intermediate"].imports[...] = imports
+        self.trade_set["intermediate"].exports[...] = exports
+        self.trade_set["intermediate"].balance()
+
+        self.flows["imports => ip_market"][...] = self.trade_set["intermediate"].imports
+        self.flows["ip_market => exports"][...] = self.trade_set["intermediate"].exports
 
     def compute_in_use_stock(self, stock_projection):
         self.stocks["in_use"].stock[...] = stock_projection
         self.stocks["in_use"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
+        )
+        self.stocks["in_use"].compute()
+
+    def compute_in_use_inflow_driven(self):
+        self.stocks["in_use"] = fd.InflowDrivenDSM(
+            dims=self.stocks["in_use"].dims,
+            inflow=self.stocks["in_use"].inflow,
+            name=self.stocks["in_use"].name,
+            process=self.stocks["in_use"].process,
+            lifetime_model=self.stocks["in_use"].lifetime_model,
+            time_letter=self.stocks["in_use"].time_letter,
         )
         self.stocks["in_use"].compute()
 
@@ -35,6 +85,10 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
             "imports",
             balance_to="hmean",
         )
+        self.trade_set["indirect"].imports[...] = self.trade_set["indirect"].imports.minimum(
+            product_demand
+        )
+        self.trade_set["indirect"].balance(to="minimum")
 
         fabrication = product_demand - self.trade_set["indirect"].net_imports
         predict_by_extrapolation(
@@ -45,7 +99,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
             balance_to="hmean",
         )
 
-        eol_products = self.stocks["in_use"].outflow
+        eol_products = self.stocks["in_use"].outflow * self.parameters["recovery_rate"]
         predict_by_extrapolation(
             historic_trade["scrap"],
             self.trade_set["scrap"],
@@ -53,6 +107,8 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
             "exports",
             balance_to="hmean",
         )
+        self.trade_set["scrap"].exports[...] = self.trade_set["scrap"].exports.minimum(eol_products)
+        self.trade_set["scrap"].balance(to="minimum")
 
     def compute_flows(self):
         # abbreviations for better readability
@@ -63,8 +119,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         aux = {
             "net_scrap_trade": self.get_new_array(dim_letters=("t", "r", "g")),
-            "total_fabrication": self.get_new_array(dim_letters=("t", "r", "g")),
-            "production": self.get_new_array(dim_letters=("t", "r", "i")),
+            "production": self.get_new_array(dim_letters=("t", "r")),
             "forming_outflow": self.get_new_array(dim_letters=("t", "r")),
             "scrap_in_production": self.get_new_array(dim_letters=("t", "r")),
             "available_scrap": self.get_new_array(dim_letters=("t", "r")),
@@ -84,10 +139,9 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["indirect"].net_imports
 
-        aux["total_fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
-        flw["fabrication => scrap_market"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
-        flw["fabrication => losses"][...] = (aux["total_fabrication"] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
-        flw["ip_market => fabrication"][...] = aux["total_fabrication"] * prm["good_to_intermediate_distribution"]
+        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
+        flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
+        flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
 
         flw["imports => ip_market"][...] = trd["intermediate"].imports
         flw["ip_market => exports"][...] = trd["intermediate"].exports
