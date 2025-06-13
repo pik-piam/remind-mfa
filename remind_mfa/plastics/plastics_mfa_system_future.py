@@ -10,31 +10,24 @@ from remind_mfa.common.common_cfg import PlasticsCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
 
 
-class PlasticsMFASystem(fd.MFASystem):
+class PlasticsMFASystemFuture(fd.MFASystem):
 
     cfg: Optional[PlasticsCfg] = None
     trade_set: TradeSet
 
-    def compute(self):
+    def compute(self, historic_stock: fd.Stock, historic_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_in_use_dsm()
+        self.extrapolate_stock(historic_stock)
         self.transfer_to_simple_stock()
-        self.compute_trade()
+        self.extrapolate_trade(historic_trade)
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(no_error=True)
 
-    def compute_historic_stock(self):
-        self.stocks["in_use_historic"].inflow[...] = self.parameters["production"]
-        self.stocks["in_use_historic"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
-        )
-        self.stocks["in_use_historic"].compute()
-
-    def compute_in_use_dsm(self):
+    def extrapolate_stock(self, historic_stock: fd.Stock):
         saturation_level = 0.2 / 1e6  # t to Mt
         sat_bound = Bound(
             var_name="saturation_level",
@@ -49,7 +42,7 @@ class PlasticsMFASystem(fd.MFASystem):
             target_dims=self.dims[()],
         )
         stock_handler = StockExtrapolation(
-            self.stocks["in_use_historic"].stock,
+            historic_stocks=historic_stock.stock,
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
@@ -73,21 +66,15 @@ class PlasticsMFASystem(fd.MFASystem):
         self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
         self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split
 
-    def compute_trade(self):
+    def extrapolate_trade(self, historic_trade: TradeSet):
 
-        for name, trade in self.trade_set.markets.items():
-            if name.endswith("_his"):
-                trade.imports[...] = self.parameters[f"{name}_imports"]
-                trade.exports[...] = self.parameters[f"{name}_exports"]
-        self.trade_set.balance(to="maximum")
-    
         product_demand = self.stocks["in_use"].inflow
 
-        self.trade_set["final"] = predict_by_extrapolation(
-            self.trade_set["final_his"], 
-            self.trade_set["final"], 
-            product_demand, 
-            "imports", 
+        predict_by_extrapolation(
+            historic_trade["final_his"],
+            self.trade_set["final"],
+            product_demand,
+            "imports",
             balance_to="hmean",
         )
 
@@ -114,12 +101,13 @@ class PlasticsMFASystem(fd.MFASystem):
         split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
 
         flw["good_market => use"][...] = stk["in_use"].inflow
+        element_split = flw["good_market => use"].sum_over(("m",)).get_shares_over("e")
 
-        flw["imports => good_market"][...] = trd["final"].imports
-        flw["good_market => exports"][...] = trd["final"].exports
+        flw["imports => good_market"][...] = trd["final"].imports * element_split
+        flw["good_market => exports"][...] = trd["final"].exports * element_split
 
         # fmt: off
-        flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["final"].net_imports
+        flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["final"].net_imports * element_split
 
         flw["use => eol"][...] = stk["in_use"].outflow
 
