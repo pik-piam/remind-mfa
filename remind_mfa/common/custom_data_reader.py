@@ -14,7 +14,7 @@ class CustomDataReader(fd.CompoundDataReader):
         "Scenario": "scenarios",
     }
 
-    def __init__(self, input_data_path, definition: fd.MFADefinition):
+    def __init__(self, input_data_path, definition: fd.MFADefinition, allow_missing_values: bool = False, allow_extra_values: bool = False):
         self.input_data_path = input_data_path
 
         dimension_files = {}
@@ -30,6 +30,6 @@ class CustomDataReader(fd.CompoundDataReader):
             parameter_files[parameter.name] = os.path.join(
                 self.input_data_path, "datasets", f"{parameter.name}.csv"
             )
-        parameter_reader = fd.CSVParameterReader(parameter_files)
+        parameter_reader = fd.CSVParameterReader(parameter_files, allow_missing_values=allow_missing_values, allow_extra_values=allow_extra_values)
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)

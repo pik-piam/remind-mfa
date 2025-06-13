@@ -1,6 +1,12 @@
+from typing import List
 import flodym as fd
 
 from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.trade import TradeDefinition
+
+
+class PlasticsMFADefinition(fd.MFADefinition):
+    trades: List[TradeDefinition]
 
 
 def get_definition(cfg: GeneralCfg):
@@ -25,9 +31,9 @@ def get_definition(cfg: GeneralCfg):
         "wasteimport",
         "wasteexport",
         "wastetrade",
-        # "finalimport",
-        # "finalexport",
-        # "finaltrade",
+        "good_market",
+        "imports",
+        "exports",
         "recl",
         "reclmech",
         "reclchem",
@@ -57,7 +63,11 @@ def get_definition(cfg: GeneralCfg):
         fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r","m")),
         fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r","m")),
         fd.FlowDefinition(from_process="virgin", to_process="fabrication", dim_letters=("t","e","r","m")),
-        fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("t","e","r","m","g")),
+        fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","g")),
+        fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t", "e", "r", "g")),
+        fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t", "e", "r", "g")),
+        fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","m","g")),
+        #fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("t","e","r","m","g")),
         fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","m","g")),
         fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","m")),
         fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","m")),
@@ -139,6 +149,10 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="solvent_recycling_rate", dim_letters=("t", "r", "m")),
         fd.ParameterDefinition(name="incineration_rate", dim_letters=("t", "r", "m")),
         fd.ParameterDefinition(name="landfill_rate", dim_letters=("t", "r", "m")),
+        # trade
+        fd.ParameterDefinition(name="final_his_imports", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="final_his_exports", dim_letters=("h", "r")),
+
         fd.ParameterDefinition(name="wasteimport_rate", dim_letters=("t", "r", "g")),
         fd.ParameterDefinition(name="wasteexport_rate", dim_letters=("t", "r", "g")),
         # virgin production rates
@@ -153,7 +167,6 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="carbon_content_materials", dim_letters=("e", "m")),
         # for in-use stock
         fd.ParameterDefinition(name="wasteimporttotal", dim_letters=("t", "g")),
-        fd.ParameterDefinition(name="finalimporttotal", dim_letters=("t",)),
         fd.ParameterDefinition(name="production", dim_letters=("h", "r", "g")),
         fd.ParameterDefinition(name="lifetime_mean", dim_letters=("r", "g")),
         fd.ParameterDefinition(name="lifetime_std", dim_letters=("r", "g")),
@@ -161,10 +174,17 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
     ]
 
-    return fd.MFADefinition(
+
+    trades = [
+        TradeDefinition(name="final_his", dim_letters=("h", "r")),
+        TradeDefinition(name="final", dim_letters=("t", "r")),
+    ]
+
+    return PlasticsMFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,
         stocks=stocks,
         parameters=parameters,
+        trades=trades,
     )

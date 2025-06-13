@@ -2,6 +2,9 @@ from typing import Optional
 import flodym as fd
 import numpy as np
 
+from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.trade_extrapolation import predict_by_extrapolation
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.common_cfg import PlasticsCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
@@ -10,14 +13,15 @@ from remind_mfa.common.data_transformations import Bound, BoundList
 class PlasticsMFASystem(fd.MFASystem):
 
     cfg: Optional[PlasticsCfg] = None
+    trade_set: TradeSet
 
     def compute(self):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_historic_stock()
         self.compute_in_use_dsm()
         self.transfer_to_simple_stock()
+        self.compute_trade()
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
@@ -69,12 +73,33 @@ class PlasticsMFASystem(fd.MFASystem):
         self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
         self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split
 
+    def compute_trade(self):
+
+        for name, trade in self.trade_set.markets.items():
+            if name.endswith("_his"):
+                trade.imports[...] = self.parameters[f"{name}_imports"]
+                trade.exports[...] = self.parameters[f"{name}_exports"]
+        self.trade_set.balance(to="maximum")
+    
+        product_demand = self.stocks["in_use"].inflow
+
+        self.trade_set["final"] = predict_by_extrapolation(
+            self.trade_set["final_his"], 
+            self.trade_set["final"], 
+            product_demand, 
+            "imports", 
+            balance_to="hmean",
+        )
+
+        self.trade_set.balance(to="maximum")
+
     def compute_flows(self):
 
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
+        trd = self.trade_set
 
         aux = {
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
@@ -88,8 +113,14 @@ class PlasticsMFASystem(fd.MFASystem):
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
         split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
 
+        flw["good_market => use"][...] = stk["in_use"].inflow
+
+        flw["imports => good_market"][...] = trd["final"].imports
+        flw["good_market => exports"][...] = trd["final"].exports
+
         # fmt: off
-        flw["fabrication => use"][...] = stk["in_use"].inflow
+        flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["final"].net_imports
+
         flw["use => eol"][...] = stk["in_use"].outflow
 
         flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wasteimporttotal"]  * split
