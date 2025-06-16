@@ -1,14 +1,19 @@
 import flodym as fd
 import numpy as np
+from enum import Enum
 
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.trade_extrapolation import predict_by_extrapolation
+from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
+from remind_mfa.common.common_mfa_system import CommonMFASystem
 
+class SteelMode(str, Enum):
+    stock_driven = "stock_driven"
+    inflow_driven = "inflow_driven"
 
-class StockDrivenSteelMFASystem(fd.MFASystem):
+class SteelMFASystem(CommonMFASystem):
 
-    trade_set: TradeSet
+    mode: SteelMode
 
     def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
         """
@@ -22,10 +27,17 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.check_flows(raise_error=False)
         # self.update_price_elastic()
 
+    def compute_trade(self, historic_trade: TradeSet):
+        if self.stock_driven:
+            self.extrapolate_trade_set(historic_trade)
+        else:
+            self.fill_trade()
+            self.trade_set.balance(to="hmean")
+
     def update_price_elastic(self):
         self.compute_price_elastic_trade()
         # self.compute_consumption()
-        self.compute_in_use_inflow_driven()
+        # self.compute_in_use_stock() # ensure inflow-driven
         # self.compute_other_flows()
         # self.compute_other_stocks()
 
@@ -59,26 +71,21 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.flows["ip_market => exports"][...] = self.trade_set["intermediate"].exports
 
     def compute_in_use_stock(self, stock_projection):
-        self.stocks["in_use"].stock[...] = stock_projection
+        if self.stock_driven:
+            self.stocks["in_use"].stock[...] = stock_projection
+        else:
+            self.stocks["in_use"].inflow[...] = self.parameters["in_use_inflow"]
+
         self.stocks["in_use"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )
         self.stocks["in_use"].compute()
+        if not self.stock_driven:
+            self.stocks["in_use"].outflow[...] += self.parameters["fixed_in_use_outflow"]
 
-    def compute_in_use_inflow_driven(self):
-        self.stocks["in_use"] = fd.InflowDrivenDSM(
-            dims=self.stocks["in_use"].dims,
-            inflow=self.stocks["in_use"].inflow,
-            name=self.stocks["in_use"].name,
-            process=self.stocks["in_use"].process,
-            lifetime_model=self.stocks["in_use"].lifetime_model,
-            time_letter=self.stocks["in_use"].time_letter,
-        )
-        self.stocks["in_use"].compute()
-
-    def compute_trade(self, historic_trade: TradeSet):
+    def extrapolate_trade_set(self, historic_trade: TradeSet):
         product_demand = self.stocks["in_use"].inflow
-        predict_by_extrapolation(
+        extrapolate_trade(
             historic_trade["indirect"],
             self.trade_set["indirect"],
             product_demand,
@@ -91,7 +98,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         self.trade_set["indirect"].balance(to="minimum")
 
         fabrication = product_demand - self.trade_set["indirect"].net_imports
-        predict_by_extrapolation(
+        extrapolate_trade(
             historic_trade["intermediate"],
             self.trade_set["intermediate"],
             fabrication,
@@ -100,7 +107,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         )
 
         eol_products = self.stocks["in_use"].outflow * self.parameters["recovery_rate"]
-        predict_by_extrapolation(
+        extrapolate_trade(
             historic_trade["scrap"],
             self.trade_set["scrap"],
             eol_products,
@@ -175,7 +182,6 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
         )
         aux["scrap_in_production"][...] = aux["available_scrap"].minimum(aux["max_scrap_production"])
         flw["scrap_market => excess_scrap"][...] = aux["available_scrap"] - aux["scrap_in_production"]
-        #  TODO include copper like this:aux['scrap_share_production']['Fe'][...] = aux['scrap_in_production']['Fe'] / aux['production_inflow']['Fe']
         aux["scrap_share_production"][...] = aux["scrap_in_production"] / aux["production_inflow"]
         aux["eaf_share_production"][...] = (
             aux["scrap_share_production"]
@@ -209,3 +215,7 @@ class StockDrivenSteelMFASystem(fd.MFASystem):
 
         stk["excess_scrap"].inflow[...] = flw["scrap_market => excess_scrap"]
         stk["excess_scrap"].compute()
+
+    @property
+    def stock_driven(self) -> bool:
+        return self.mode == SteelMode.stock_driven
