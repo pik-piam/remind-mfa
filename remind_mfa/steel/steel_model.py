@@ -23,7 +23,7 @@ class SteelModel:
         self.cfg = cfg
 
     def run(self):
-        stock_driven = self.cfg.customization.mode == 'stock_driven'
+        stock_driven = self.cfg.customization.mode == "stock_driven"
         self.definition_future = get_definition(self.cfg, historic=False, stock_driven=stock_driven)
         self.read_data(self.definition_future)
         self.modify_parameters()
@@ -50,12 +50,11 @@ class SteelModel:
 
     def read_data(self, definition: SteelMFADefinition):
         self.data_reader = CustomDataReader(
-            input_data_path=self.cfg.input_data_path, definition=definition,
+            input_data_path=self.cfg.input_data_path,
+            definition=definition,
         )
         self.dims = self.data_reader.read_dimensions(definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(
-            definition.parameters, dims=self.dims
-        )
+        self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""

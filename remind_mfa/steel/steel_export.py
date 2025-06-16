@@ -457,8 +457,14 @@ class SteelDataExporter(CommonDataExporter):
             flow = future_mfa.flows[flow_name][{"t": future_time}]
             flow.to_df().to_csv(f"data/steel/input/datasets/{parameter_name}.csv")
 
-        values = future_mfa.stocks["in_use"].get_outflow_by_cohort()[:, :n_historic_years, ...].sum(axis=1)
-        array = fd.FlodymArray(dims=future_mfa.stocks["in_use"].dims, values=values)[{"t": future_time}]
+        values = (
+            future_mfa.stocks["in_use"]
+            .get_outflow_by_cohort()[:, :n_historic_years, ...]
+            .sum(axis=1)
+        )
+        array = fd.FlodymArray(dims=future_mfa.stocks["in_use"].dims, values=values)[
+            {"t": future_time}
+        ]
         array.to_df().to_csv("data/steel/input/datasets/fixed_in_use_outflow.csv")
 
     def export_mfa(self, mfa):
