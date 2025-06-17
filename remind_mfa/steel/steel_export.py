@@ -219,7 +219,7 @@ class SteelDataExporter(CommonDataExporter):
 
         self._show_and_save_plotly(fig, name="sankey")
 
-    def visuualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
+    def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
         production = flw["bof_production => forming"] + flw["eaf_production => forming"]
         fabrication = flw["ip_market => fabrication"]
