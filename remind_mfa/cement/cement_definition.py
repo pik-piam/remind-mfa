@@ -9,6 +9,8 @@ def get_definition(cfg: GeneralCfg):
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
+        fd.DimensionDefinition(name="Structure", dim_letter="b", dtype=str), # b for building
+        fd.DimensionDefinition(name="Function", dim_letter="f", dtype=str),
     ]
 
     processes = [
@@ -90,6 +92,9 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="future_use_lifetime_mean", dim_letters=("t", "r", "s")),
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
+        fd.ParameterDefinition(name="concrete_building_mi", dim_letters=("r", "f", "b")),
+        # fd.ParameterDefinition(name="building_split", dim_letters=("r", "b", "f")),
+        fd.ParameterDefinition(name="buildings_floorspace", dim_letters=("t", "r", "s")),
     ]
 
     return fd.MFADefinition(

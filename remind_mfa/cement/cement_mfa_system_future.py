@@ -1,4 +1,3 @@
-import numpy as np
 import flodym as fd
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc

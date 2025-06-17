@@ -20,7 +20,8 @@ class CementModel:
         self.cfg = cfg
         self.definition = get_definition(self.cfg)
         self.data_reader = CementDataReader(
-            input_data_path=self.cfg.input_data_path, definition=self.definition
+            input_data_path=self.cfg.input_data_path,
+            definition=self.definition,
         )
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,
@@ -86,9 +87,7 @@ class CementModel:
             "This is slightly above current EU levels.",
         )
         bound_list = BoundList(
-            bound_list=[
-                sat_bound,
-            ],
+            bound_list=[sat_bound],
             target_dims=self.dims[indep_fit_dim_letters],
         )
         self.stock_handler = StockExtrapolation(
