@@ -7,9 +7,11 @@ from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 
+
 class SteelMode(str, Enum):
     stock_driven = "stock_driven"
     inflow_driven = "inflow_driven"
+
 
 class SteelMFASystem(CommonMFASystem):
 

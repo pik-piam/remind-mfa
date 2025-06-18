@@ -219,7 +219,7 @@ class SteelDataExporter(CommonDataExporter):
 
         self._show_and_save_plotly(fig, name="sankey")
 
-    def visuualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
+    def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
         production = flw["bof_production => forming"] + flw["eaf_production => forming"]
         fabrication = flw["ip_market => fabrication"]
@@ -457,8 +457,14 @@ class SteelDataExporter(CommonDataExporter):
             flow = future_mfa.flows[flow_name][{"t": future_time}]
             flow.to_df().to_csv(f"data/steel/input/datasets/{parameter_name}.csv")
 
-        values = future_mfa.stocks["in_use"].get_outflow_by_cohort()[:, :n_historic_years, ...].sum(axis=1)
-        array = fd.FlodymArray(dims=future_mfa.stocks["in_use"].dims, values=values)[{"t": future_time}]
+        values = (
+            future_mfa.stocks["in_use"]
+            .get_outflow_by_cohort()[:, :n_historic_years, ...]
+            .sum(axis=1)
+        )
+        array = fd.FlodymArray(dims=future_mfa.stocks["in_use"].dims, values=values)[
+            {"t": future_time}
+        ]
         array.to_df().to_csv("data/steel/input/datasets/fixed_in_use_outflow.csv")
 
     def export_mfa(self, mfa):

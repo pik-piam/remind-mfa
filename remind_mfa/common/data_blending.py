@@ -8,7 +8,7 @@ def blend(
     target_dims: fd.DimensionSet,
     y_lower: fd.FlodymArray,
     y_upper: fd.FlodymArray,
-    x: Union[fd.FlodymArray, str], # str: dimension letter
+    x: Union[fd.FlodymArray, str],  # str: dimension letter
     x_lower: Union[fd.FlodymArray, int, float],
     x_upper: Union[fd.FlodymArray, int, float],
     type: str = "poly_mix",
