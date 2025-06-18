@@ -14,7 +14,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
-        self.check_flows(no_error=True)
+        self.check_flows(raise_error=False)
 
     def compute_in_use_stock(self, stock_projection: fd.FlodymArray):
         prm = self.parameters

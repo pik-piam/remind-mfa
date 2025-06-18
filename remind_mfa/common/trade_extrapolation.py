@@ -6,7 +6,7 @@ from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
 
 
-def predict_by_extrapolation(
+def extrapolate_trade(
     historic_trade: Trade,
     future_trade: Trade,
     scaler: fd.FlodymArray,

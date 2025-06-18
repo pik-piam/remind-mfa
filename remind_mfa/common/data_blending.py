@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Any
 
 import flodym as fd
 import numpy as np
@@ -8,37 +8,22 @@ def blend(
     target_dims: fd.DimensionSet,
     y_lower: fd.FlodymArray,
     y_upper: fd.FlodymArray,
-    x: fd.FlodymArray,
+    x: Union[fd.FlodymArray, str],  # str: dimension letter
     x_lower: Union[fd.FlodymArray, int, float],
     x_upper: Union[fd.FlodymArray, int, float],
     type: str = "poly_mix",
 ) -> fd.FlodymArray:
-    x_lower, x_upper = prepare_x_lower_upper(target_dims, x_lower, x_upper)
+    if isinstance(x, str):
+        x = fd.FlodymArray(dims=target_dims[(x,)], values=np.array(target_dims[x].items))
     x = x.cast_to(target_dims)
-    y_lower = y_lower.cast_to(target_dims)
-    y_upper = y_upper.cast_to(target_dims)
-    x_lower = x_lower.cast_to(target_dims)
-    x_upper = x_upper.cast_to(target_dims)
+    y_lower = prepare_array(y_lower, target_dims)
+    y_upper = prepare_array(y_upper, target_dims)
+    x_lower = prepare_array(x_lower, target_dims)
+    x_upper = prepare_array(x_upper, target_dims)
 
     x = (x - x_lower) / (x_upper - x_lower)
     a = fd.FlodymArray(dims=x.dims, values=blending_factor(x.values, type))
     return a * y_upper + (1 - a) * y_lower
-
-
-def blend_over_time(
-    target_dims: fd.DimensionSet,
-    y_lower: fd.FlodymArray,
-    y_upper: fd.FlodymArray,
-    t_lower: Union[fd.FlodymArray, int, float],
-    t_upper: Union[fd.FlodymArray, int, float],
-    type: str = "poly_mix",
-    time_letter: str = "t",
-) -> fd.FlodymArray:
-    t_lower, t_upper = prepare_x_lower_upper(target_dims, t_lower, t_upper)
-    t = fd.FlodymArray(
-        dims=target_dims[time_letter,], values=np.array(target_dims[time_letter].items)
-    )
-    return blend(target_dims, y_lower, y_upper, t, t_lower, t_upper, type)
 
 
 def blending_factor(x: np.ndarray, type: str) -> np.ndarray:
@@ -103,16 +88,12 @@ def blending_factor(x: np.ndarray, type: str) -> np.ndarray:
     return function_map[type](x)
 
 
-def prepare_x_lower_upper(
-    target_dims: fd.DimensionSet, x_lower, x_upper
-) -> tuple[fd.FlodymArray, fd.FlodymArray]:
-    if isinstance(x_lower, (int, float)):
-        x_lower = fd.FlodymArray(dims=target_dims[()], values=np.array(x_lower))
-    elif not isinstance(x_lower, fd.FlodymArray):
-        raise ValueError("x_lower must be either a FlodymArray or a scalar.")
-
-    if isinstance(x_upper, (int, float)):
-        x_upper = fd.FlodymArray(dims=target_dims[()], values=np.array(x_upper))
-    elif not isinstance(x_upper, fd.FlodymArray):
-        raise ValueError("x_upper must be either a FlodymArray or a scalar.")
-    return x_lower, x_upper
+def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
+    if isinstance(value, (int, float)):
+        array = fd.FlodymArray(dims=target_dims)
+        array[...] = value
+    elif isinstance(value, fd.FlodymArray):
+        array = value.cast_to(target_dims)
+    else:
+        raise ValueError("value must be either a FlodymArray or a scalar.")
+    return array

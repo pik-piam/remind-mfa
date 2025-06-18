@@ -2,7 +2,7 @@ import numpy as np
 import flodym as fd
 from copy import deepcopy
 
-from remind_mfa.common.data_blending import blend, blend_over_time
+from remind_mfa.common.data_blending import blend
 from remind_mfa.common.common_cfg import GeneralCfg
 from remind_mfa.common.data_extrapolations import LogSigmoidExtrapolation
 from remind_mfa.common.data_transformations import Bound, BoundList
@@ -10,31 +10,51 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.custom_data_reader import CustomDataReader
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.steel.steel_export import SteelDataExporter
-from remind_mfa.steel.steel_mfa_system_future import StockDrivenSteelMFASystem
-from remind_mfa.steel.steel_mfa_system_historic import InflowDrivenHistoricSteelMFASystem
-from remind_mfa.steel.steel_definition import get_definition
+from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
+from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
+from remind_mfa.steel.steel_definition import get_definition, SteelMFADefinition
 from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 
 class SteelModel:
 
     def __init__(self, cfg: GeneralCfg):
         self.cfg = cfg
-        self.definition = get_definition(self.cfg)
-        self.data_reader = CustomDataReader(
-            input_data_path=self.cfg.input_data_path, definition=self.definition
-        )
+
+    def run(self):
+        stock_driven = self.cfg.customization.mode == "stock_driven"
+        self.definition_future = get_definition(self.cfg, historic=False, stock_driven=stock_driven)
+        self.read_data(self.definition_future)
+        self.modify_parameters()
         self.data_writer = SteelDataExporter(
             cfg=self.cfg.visualization,
             do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
         )
-        self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(
-            self.definition.parameters, dims=self.dims
+        if stock_driven:
+            self.definition_historic = get_definition(self.cfg, historic=True, stock_driven=False)
+            self.historic_mfa = self.make_mfa(historic=True)
+            self.historic_mfa.compute()
+            stock_projection = self.get_long_term_stock()
+            historic_trade = self.historic_mfa.trade_set
+        else:
+            stock_projection = None
+            historic_trade = None
+
+        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
+        self.future_mfa.compute(stock_projection, historic_trade)
+
+        self.data_writer.export_mfa(mfa=self.future_mfa)
+        self.data_writer.visualize_results(model=self)
+
+    def read_data(self, definition: SteelMFADefinition):
+        self.data_reader = CustomDataReader(
+            input_data_path=self.cfg.input_data_path,
+            definition=definition,
         )
-        self.modify_parameters()
-        self.processes = fd.make_processes(self.definition.processes)
+        self.dims = self.data_reader.read_dimensions(definition.dimensions)
+        self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
@@ -90,31 +110,27 @@ class SteelModel:
                 "historical scrap consumption."
             ),
         )
-        scrap_rate_factor = fd.Parameter(dims=self.dims["t",])
-        scrap_rate_factor.values[:80] = 1.4
-        scrap_rate_factor.values[80:110] = np.linspace(1.4, 0.8, 30)
-        scrap_rate_factor.values[110:] = 0.8
+        scrap_rate_factor = blend(
+            target_dims=self.dims["t",],
+            y_lower=1.4,
+            y_upper=0.8,
+            x="t",
+            x_lower=1980,
+            x_upper=2010,
+            type="linear",
+        )
         self.parameters["forming_yield"] = fd.Parameter(
-            dims=self.dims["t", "i"],
-            values=(1 - scrap_rate_factor * (1 - self.parameters["forming_yield"])).values,
+            dims=self.dims["t",],
+            values=(
+                1 - scrap_rate_factor * (1 - self.parameters["forming_yield"].values.mean())
+            ).values,
         )
         self.parameters["fabrication_yield"] = fd.Parameter(
             dims=self.dims["t", "g"],
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
 
-    def run(self):
-        self.historic_mfa = self.make_historic_mfa()
-        self.historic_mfa.compute()
-
-        self.future_mfa = self.make_future_mfa()
-        future_stock = self.get_long_term_stock()
-        self.future_mfa.compute(future_stock, self.historic_mfa.trade_set)
-
-        self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.visualize_results(model=self)
-
-    def make_historic_mfa(self) -> InflowDrivenHistoricSteelMFASystem:
+    def make_mfa(self, historic: bool, mode: str = None) -> CommonMFASystem:
         """
         Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
         subtracting Losses in steel forming from production by IP data
@@ -125,41 +141,38 @@ class SteelModel:
         This equals the inflow into the in use stock
         via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
         """
+        if historic:
+            definition = self.definition_historic
+            mfasystem_class = SteelMFASystemHistoric
+        else:
+            definition = self.definition_future
+            mfasystem_class = SteelMFASystem
 
-        historic_dim_letters = tuple([d for d in self.dims.letters if d != "t"])
-        historic_dims = self.dims[historic_dim_letters]
-        historic_processes = [
-            "sysenv",
-            "forming",
-            "ip_market",
-            "good_market",
-            "fabrication",
-            "use",
-        ]
-        processes = fd.make_processes(historic_processes)
+        processes = fd.make_processes(definition.processes)
         flows = fd.make_empty_flows(
             processes=processes,
-            flow_definitions=[f for f in self.definition.flows if "h" in f.dim_letters],
-            dims=historic_dims,
+            flow_definitions=definition.flows,
+            dims=self.dims,
         )
         stocks = fd.make_empty_stocks(
             processes=processes,
-            stock_definitions=[s for s in self.definition.stocks if "h" in s.dim_letters],
-            dims=historic_dims,
+            stock_definitions=definition.stocks,
+            dims=self.dims,
         )
         trade_set = TradeSet.from_definitions(
-            definitions=[td for td in self.definition.trades if "h" in td.dim_letters],
-            dims=historic_dims,
+            definitions=definition.trades,
+            dims=self.dims,
         )
 
-        return InflowDrivenHistoricSteelMFASystem(
+        return mfasystem_class(
             cfg=self.cfg,
             parameters=self.parameters,
             processes=processes,
-            dims=historic_dims,
+            dims=self.dims,
             flows=flows,
             stocks=stocks,
             trade_set=trade_set,
+            mode=mode,
         )
 
     def get_long_term_stock(self) -> fd.FlodymArray:
@@ -290,38 +303,13 @@ class SteelModel:
         last_historical = historical_sector_splits[{"h": self.dims["h"].items[-1]}]
         historical_extrapolated = last_historical.cast_to(self.dims["t", "r", "g"])
         historical_extrapolated[{"t": self.dims["h"]}] = historical_sector_splits
-        sector_splits = blend_over_time(
+        sector_splits = blend(
             target_dims=self.dims["t", "r", "g"],
             y_lower=historical_extrapolated,
             y_upper=sector_split_theory,
-            t_lower=self.dims["h"].items[-1],
-            t_upper=self.dims["t"].items[-1],
+            x="t",
+            x_lower=self.dims["h"].items[-1],
+            x_upper=self.dims["t"].items[-1],
             type="converge_quadratic",
         )
         return sector_splits
-
-    def make_future_mfa(self) -> StockDrivenSteelMFASystem:
-        flows = fd.make_empty_flows(
-            processes=self.processes,
-            flow_definitions=[f for f in self.definition.flows if "t" in f.dim_letters],
-            dims=self.dims,
-        )
-        stocks = fd.make_empty_stocks(
-            processes=self.processes,
-            stock_definitions=[s for s in self.definition.stocks if "t" in s.dim_letters],
-            dims=self.dims,
-        )
-
-        trade_set = TradeSet.from_definitions(
-            definitions=[td for td in self.definition.trades if "t" in td.dim_letters],
-            dims=self.dims,
-        )
-
-        return StockDrivenSteelMFASystem(
-            dims=self.dims,
-            parameters=self.parameters,
-            processes=self.processes,
-            flows=flows,
-            stocks=stocks,
-            trade_set=trade_set,
-        )

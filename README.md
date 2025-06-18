@@ -9,13 +9,7 @@ REMIND-MFA has global coverage. Per default, it runs in 21 world regions. Howeve
 
 REMIND-MFA dependencies are managed with [pip](https://pypi.org/project/pip/).
 
-It builds on the [flodym](https://github.com/pik-piam/flodym) library.
-Currently, it is set up to run with a cloned source code repository of flodym.
-
-To install,
-
-- clone a flodym repository, and place it in a folder named `flodym` next to your remind-mfa folder.
-- run `python -m pip install remind-mfa`
+To install run `python -m pip install remind-mfa`
 
 ## Run
 

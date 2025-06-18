@@ -1,5 +1,6 @@
 from remind_mfa.common.base_model import RemindMFABaseModel
 import flodym as fd
+from typing import Optional
 
 from .data_extrapolations import Extrapolation
 
@@ -31,6 +32,7 @@ class ModelCustomization(RemindMFABaseModel):
     stock_extrapolation_class_name: str
     lifetime_model_name: str
     do_stock_extrapolation_by_category: bool = False
+    mode: Optional[str] = None
 
     @property
     def lifetime_model(self) -> fd.LifetimeModel:
@@ -46,6 +48,7 @@ class ExportCfg(RemindMFABaseModel):
     csv: bool = True
     pickle: bool = True
     assumptions: bool = True
+    future_input: bool = False
 
 
 class VisualizationCfg(RemindMFABaseModel):

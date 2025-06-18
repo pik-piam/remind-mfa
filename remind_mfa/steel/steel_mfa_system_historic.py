@@ -2,33 +2,24 @@ import sys
 import numpy as np
 import flodym as fd
 
-from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.data_blending import blend
 from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 
-class InflowDrivenHistoricSteelMFASystem(fd.MFASystem):
-    trade_set: TradeSet
+class SteelMFASystemHistoric(CommonMFASystem):
 
     def compute(self):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_trade()
+        self.fill_trade()
+        self.trade_set.balance(to="maximum")
         self.calc_sector_split()
         self.compute_flows()
         self.compute_in_use_stock()
         self.check_mass_balance()
-        self.check_flows(no_error=True)
-
-    def compute_trade(self):
-        """
-        Create a trade module that stores and calculates the trade flows between regions and sectors.
-        """
-        for name, trade in self.trade_set.markets.items():
-            trade.imports[...] = self.parameters[f"{name}_imports"]
-            trade.exports[...] = self.parameters[f"{name}_exports"]
-        self.trade_set.balance(to="maximum")
+        self.check_flows(raise_error=False)
 
     def compute_flows(self):
         prm = self.parameters
