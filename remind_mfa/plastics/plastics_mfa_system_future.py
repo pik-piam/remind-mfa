@@ -99,15 +99,19 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
         split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
+        #material_split = stk["in_use"].inflow.sum_over(("e", "g")).get_shares_over("m")
+        #carbon_per_good = split.sum_over("m")
 
-        flw["good_market => use"][...] = stk["in_use"].inflow
-        element_split = flw["good_market => use"].sum_over(("m",)).get_shares_over("e")
+        flw["good_market => imports"][...]  = trd["final"].imports
+        flw["exports => good_market"][...]  = trd["final"].exports
 
-        flw["imports => good_market"][...] = trd["final"].imports * element_split
-        flw["good_market => exports"][...] = trd["final"].exports * element_split
+        flw["imports => use"][...] =  flw["good_market => imports"][...] * split
+        flw["fabrication => exports"][...] = flw["exports => good_market"][...]
+
+        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["imports => use"][...]
+        
 
         # fmt: off
-        flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["final"].net_imports * element_split
 
         flw["use => eol"][...] = stk["in_use"].outflow
 
