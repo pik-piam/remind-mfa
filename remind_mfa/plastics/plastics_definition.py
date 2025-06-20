@@ -34,9 +34,9 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             "virginccu",
             "virgin",
             "fabrication",
-            "wasteimport",
-            "wasteexport",
-            "wastetrade",
+            "waste_market",
+            "waste_imports",
+            "waste_exports",
             "good_market",
             "final_imports",
             "final_exports",
@@ -99,10 +99,10 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("t","r")),
 
             # waste trade
-            fd.FlowDefinition(from_process="wastetrade", to_process="wasteimport", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="wasteimport", to_process="collected", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="wasteexport", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="wasteexport", to_process="wastetrade", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="waste_market", to_process="waste_imports", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="waste_imports", to_process="collected", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="collected", to_process="waste_exports", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="waste_exports", to_process="waste_market", dim_letters=("t","e","r","m")),
 
         ]
         # fmt: on
@@ -138,8 +138,8 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
-                name="wastetrade",
-                process="wastetrade",
+                name="waste_market",
+                process="waste_market",
                 dim_letters=("t", "e", "m"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
@@ -175,8 +175,8 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         fd.ParameterDefinition(name="final_his_imports", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="final_his_exports", dim_letters=("h", "r")),
 
-        fd.ParameterDefinition(name="wasteimport_rate", dim_letters=("t", "r", "g")),
-        fd.ParameterDefinition(name="wasteexport_rate", dim_letters=("t", "r", "g")),
+        fd.ParameterDefinition(name="waste_imports", dim_letters=("t", "r", "g")),
+        fd.ParameterDefinition(name="waste_exports", dim_letters=("t", "r", "g")),
         # virgin production rates
         fd.ParameterDefinition(name="bio_production_rate", dim_letters=("t", "r", "m")),
         fd.ParameterDefinition(name="daccu_production_rate", dim_letters=("t", "r", "m")),
@@ -188,7 +188,6 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         fd.ParameterDefinition(name="emission_capture_rate", dim_letters=("t",)),
         fd.ParameterDefinition(name="carbon_content_materials", dim_letters=("e", "m")),
         # for in-use stock
-        fd.ParameterDefinition(name="wasteimporttotal", dim_letters=("t", "g")),
         fd.ParameterDefinition(name="production", dim_letters=("h", "r", "g")),
         fd.ParameterDefinition(name="lifetime_mean", dim_letters=("r", "g")),
         fd.ParameterDefinition(name="lifetime_std", dim_letters=("r", "g")),
@@ -203,6 +202,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
     else:
         trades = [
             TradeDefinition(name="final", dim_letters=("t", "r")),
+            TradeDefinition(name="waste", dim_letters=("t", "r", "g")),
         ]
 
     return PlasticsMFADefinition(

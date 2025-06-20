@@ -19,6 +19,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         """
         Perform all computations for the MFA system.
         """
+        self.compute_trade()
         self.extrapolate_stock(historic_stock)
         self.transfer_to_simple_stock()
         self.extrapolate_trade(historic_trade)
@@ -26,6 +27,14 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(no_error=True)
+
+    def compute_trade(self):
+
+        for name, trade in self.trade_set.markets.items():
+            if name == "waste":
+                trade.imports[...] = self.parameters[f"{name}_imports"]
+                trade.exports[...] = self.parameters[f"{name}_exports"]
+        self.trade_set.balance(to="maximum")
 
     def extrapolate_stock(self, historic_stock: fd.Stock):
         saturation_level = 0.2 / 1e6  # t to Mt
@@ -115,27 +124,27 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["use => eol"][...] = stk["in_use"].outflow
 
-        flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wasteimporttotal"]  * material_element_split
-        flw["wasteexport => wastetrade"][...] = prm["wasteexport_rate"] * prm["wasteimporttotal"]  * material_element_split
-        flw["wasteimport => collected"][...] = flw["wastetrade => wasteimport"]
-        flw["collected => wasteexport"][...] = flw["wasteexport => wastetrade"]
+        flw["waste_market => waste_imports"][...] = trd["waste"].imports  * material_element_split
+        flw["waste_exports => waste_market"][...] = trd["waste"].exports  * material_element_split
+        flw["waste_imports => collected"][...] = flw["waste_market => waste_imports"]
+        flw["collected => waste_exports"][...] = flw["waste_exports => waste_market"]
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
-        flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["mechanical_recycling_rate"]
+        flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["mechanical_recycling_rate"]
         flw["reclmech => recl"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => recl"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
-        flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["chemical_recycling_rate"]
+        flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["chemical_recycling_rate"]
         flw["reclchem => recl"][...] = flw["collected => reclchem"]
 
-        flw["collected => incineration"][...] = (flw["eol => collected"] + flw["wasteimport => collected"] - flw["collected => wasteexport"]) * prm["incineration_rate"]
+        flw["collected => incineration"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["incineration_rate"]
 
         flw["collected => landfill"][...] = (
             flw["eol => collected"]
-            + flw["wasteimport => collected"]
-            - flw["collected => wasteexport"]
+            + flw["waste_imports => collected"]
+            - flw["collected => waste_exports"]
             - flw["collected => reclmech"]
             - flw["collected => reclchem"]
             - flw["collected => incineration"]
@@ -197,9 +206,9 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         stk["uncontrolled"].inflow[...] = flw["eol => mismanaged"] + flw["reclmech => uncontrolled"]
         stk["uncontrolled"].compute()
 
-        stk["wastetrade"].inflow[...] = flw["wasteexport => wastetrade"]
-        stk["wastetrade"].outflow[...] = flw["wastetrade => wasteimport"]
-        stk["wastetrade"].compute()
+        stk["waste_market"].inflow[...] = flw["waste_exports => waste_market"]
+        stk["waste_market"].outflow[...] = flw["waste_market => waste_imports"]
+        stk["waste_market"].compute()
 
         stk["good_market"].inflow[...] = flw["final_exports => good_market"]
         stk["good_market"].outflow[...] = flw["good_market => final_imports"]

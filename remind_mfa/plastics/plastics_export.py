@@ -36,9 +36,9 @@ class PlasticsDataExporter(CommonDataExporter):
         "emission": "Emissions",
         "captured": "Captured",
         "atmosphere": "Atmosphere",
-        "wasteimport": "Import waste",
-        "wasteexport": "Export waste",
-        "wastetrade": "Waste trade",
+        "waste_imports": "Wastes Imports",
+        "waste_exports": "Wastes Exports",
+        "waste_market": "Waste Market",
         "final_imports": "Final Imports",
         "final_exports": "Final Exports",
         "good_market": "Good Market",
@@ -281,8 +281,8 @@ class PlasticsDataExporter(CommonDataExporter):
             raise KeyError("The MFA system does not contain 'eol' in flows.")
         eol_data = (
             mfa.flows["eol => collected"]
-            + mfa.flows["wasteimport => collected"]
-            - mfa.flows["collected => wasteexport"]
+            + mfa.flows["waste_imports => collected"]
+            - mfa.flows["collected => waste_exports"]
         )
         df = eol_data.to_df(index=True)
         df_grouped = df.groupby(["Time", "Region", "Material"], as_index=True)["value"].sum()
