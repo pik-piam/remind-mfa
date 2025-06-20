@@ -22,7 +22,7 @@ visualization:
   sankey:
     do_visualize: True
     slice_dict:
-      t: 2050
+      t: 2020
     exclude_processes:
       - "sysenv"
     exclude_flows: [ ]

@@ -98,25 +98,25 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         }
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
-        split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
-        #material_split = stk["in_use"].inflow.sum_over(("e", "g")).get_shares_over("m")
+        material_element_split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
+        good_split = stk["in_use"].inflow.sum_over(("e", "m")).get_shares_over("g")
         #carbon_per_good = split.sum_over("m")
 
-        flw["good_market => imports"][...]  = trd["final"].imports
-        flw["exports => good_market"][...]  = trd["final"].exports
+        flw["good_market => final_imports"][...]  = trd["final"].imports
+        flw["final_exports => good_market"][...]  = trd["final"].exports
+        
+        flw["final_imports => use"][...] =  flw["good_market => final_imports"][...] * good_split * material_element_split
+        flw["fabrication => final_exports"][...] = flw["final_exports => good_market"][...]
 
-        flw["imports => use"][...] =  flw["good_market => imports"][...] * split
-        flw["fabrication => exports"][...] = flw["exports => good_market"][...]
-
-        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["imports => use"][...]
+        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["final_imports => use"][...]
         
 
         # fmt: off
 
         flw["use => eol"][...] = stk["in_use"].outflow
 
-        flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wasteimporttotal"]  * split
-        flw["wasteexport => wastetrade"][...] = prm["wasteexport_rate"] * prm["wasteimporttotal"]  * split
+        flw["wastetrade => wasteimport"][...] = prm["wasteimport_rate"] * prm["wasteimporttotal"]  * material_element_split
+        flw["wasteexport => wastetrade"][...] = prm["wasteexport_rate"] * prm["wasteimporttotal"]  * material_element_split
         flw["wasteimport => collected"][...] = flw["wastetrade => wasteimport"]
         flw["collected => wasteexport"][...] = flw["wasteexport => wastetrade"]
 
@@ -157,7 +157,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         flw["recl => fabrication"][...] = flw["reclmech => recl"] + flw["reclchem => recl"]
-        flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"]
+        flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"] + flw["fabrication => final_exports"] * good_split * material_element_split
 
         flw["virgindaccu => virgin"][...] = flw["virgin => fabrication"] * prm["daccu_production_rate"]
         flw["virginbio => virgin"][...] = flw["virgin => fabrication"] * prm["bio_production_rate"]
@@ -181,6 +181,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["atmosphere => virginbio"][...] = flw["virginbio => virgin"]
         flw["atmosphere => virgindaccu"][...] = flw["virgindaccu => virgin"]
         flw["sysenv => virginccu"][...] = flw["virginccu => virgin"] - aux["captured_2_virginccu_by_mat"]
+
         # fmt: on
 
     def compute_other_stocks(self):
@@ -199,6 +200,10 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         stk["wastetrade"].inflow[...] = flw["wasteexport => wastetrade"]
         stk["wastetrade"].outflow[...] = flw["wastetrade => wasteimport"]
         stk["wastetrade"].compute()
+
+        stk["good_market"].inflow[...] = flw["final_exports => good_market"]
+        stk["good_market"].outflow[...] = flw["good_market => final_imports"]
+        stk["good_market"].compute()
 
         stk["atmospheric"].inflow[...] = flw["emission => atmosphere"]
         stk["atmospheric"].outflow[...] = (

@@ -38,8 +38,8 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             "wasteexport",
             "wastetrade",
             "good_market",
-            "imports",
-            "exports",
+            "final_imports",
+            "final_exports",
             "recl",
             "reclmech",
             "reclchem",
@@ -73,10 +73,10 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="virgin", to_process="fabrication", dim_letters=("t","e","r","m")),
 
-            fd.FlowDefinition(from_process="fabrication", to_process="exports", dim_letters=("t","r")),
-            fd.FlowDefinition(from_process="exports", to_process="good_market", dim_letters=("t","r")),
-            fd.FlowDefinition(from_process="good_market", to_process="imports", dim_letters=("t","r")),
-            fd.FlowDefinition(from_process="imports", to_process="use", dim_letters=("t","e","r","m","g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="final_exports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="final_exports", to_process="good_market", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="good_market", to_process="final_imports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="final_imports", to_process="use", dim_letters=("t","e","r","m","g")),
             fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("t","e","r","m","g")),
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","m","g")),
             fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","m")),
@@ -95,6 +95,8 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             fd.FlowDefinition(from_process="emission", to_process="captured", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="emission", to_process="atmosphere", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="captured", to_process="virginccu", dim_letters=("t","e","r")),
+
+            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("t","r")),
 
             # waste trade
             fd.FlowDefinition(from_process="wastetrade", to_process="wasteimport", dim_letters=("t","e","r","m")),

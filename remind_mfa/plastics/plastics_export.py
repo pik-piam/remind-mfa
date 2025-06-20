@@ -39,21 +39,24 @@ class PlasticsDataExporter(CommonDataExporter):
         "wasteimport": "Import waste",
         "wasteexport": "Export waste",
         "wastetrade": "Waste trade",
+        "final_imports": "Final Imports",
+        "final_exports": "Final Exports",
+        "good_market": "Good Market",
     }
 
     def visualize_results(self, model: "PlasticsModel"):
-        self.export_eol_data_by_region_and_year(mfa=model.mfa)
-        self.export_use_data_by_region_and_year(mfa=model.mfa)
-        self.export_recycling_data_by_region_and_year(mfa=model.mfa)
+        self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
+        self.export_use_data_by_region_and_year(mfa=model.mfa_future)
+        self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
 
         if self.cfg.production["do_visualize"]:
-            self.visualize_production(mfa=model.mfa)
+            self.visualize_production(mfa=model.mfa_future)
 
         if self.cfg.use_stock["do_visualize"]:
-            self.visualize_stock(mfa=model.mfa, subplots_by_good=False)
+            self.visualize_stock(mfa=model.mfa_future, subplots_by_good=False)
 
         if self.cfg.sankey["do_visualize"]:
-            self.visualize_sankey(mfa=model.mfa)
+            self.visualize_sankey(mfa=model.mfa_future)
         self.stop_and_show()
 
     def visualize_production(self, mfa: fd.MFASystem):
