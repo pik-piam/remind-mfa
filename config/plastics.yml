@@ -24,7 +24,13 @@ visualization:
     slice_dict:
       t: 2020
     exclude_processes:
-      - "sysenv"
+      #- "sysenv"
+      - "waste_market"
+      - "primary_market"
+      - "intermediate_market"
+      - "manufactured_market"
+      - "good_market"
+
     exclude_flows: [ ]
   do_show_figs: True
   do_save_figs: False

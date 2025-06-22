@@ -33,7 +33,18 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             "virgindaccu",
             "virginccu",
             "virgin",
+            "polymerization",
+            "processing",
             "fabrication",
+            "primary_market",
+            "primary_imports",
+            "primary_exports",
+            "intermediate_market",
+            "intermediate_imports",
+            "intermediate_exports",
+            "manufactured_market",
+            "manufactured_imports",
+            "manufactured_exports",
             "waste_market",
             "waste_imports",
             "waste_exports",
@@ -71,14 +82,33 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             fd.FlowDefinition(from_process="virginbio", to_process="virgin", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virgin", to_process="fabrication", dim_letters=("t","e","r","m")),
-
+            # primary stages
+            fd.FlowDefinition(from_process="virgin", to_process="polymerization", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="virgin", to_process="primary_exports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="primary_exports", to_process="primary_market", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="primary_market", to_process="primary_imports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="primary_imports", to_process="virgin", dim_letters=("t","e","r","m")),
+            # polymerization stages
+            fd.FlowDefinition(from_process="polymerization", to_process="processing", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="polymerization", to_process="intermediate_exports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="intermediate_exports", to_process="intermediate_market", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="intermediate_market", to_process="intermediate_imports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="intermediate_imports", to_process="polymerization", dim_letters=("t","e","r","m")),
+            # processing stages
+            fd.FlowDefinition(from_process="processing", to_process="fabrication", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="processing", to_process="manufactured_exports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="manufactured_exports", to_process="manufactured_market", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="manufactured_market", to_process="manufactured_imports", dim_letters=("t","r")),
+            fd.FlowDefinition(from_process="manufactured_imports", to_process="processing", dim_letters=("t","e","r","m")),
+            # fabrication stages
             fd.FlowDefinition(from_process="fabrication", to_process="final_exports", dim_letters=("t","r")),
             fd.FlowDefinition(from_process="final_exports", to_process="good_market", dim_letters=("t","r")),
             fd.FlowDefinition(from_process="good_market", to_process="final_imports", dim_letters=("t","r")),
             fd.FlowDefinition(from_process="final_imports", to_process="use", dim_letters=("t","e","r","m","g")),
             fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("t","e","r","m","g")),
+            # use stage
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","m","g")),
+            # end-of-life stages
             fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="reclmech", dim_letters=("t","e","r","m")),
@@ -132,6 +162,24 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
+                name="primary_market",
+                process="primary_market",
+                dim_letters=("t",),
+                subclass=fd.SimpleFlowDrivenStock,
+            ),
+            fd.StockDefinition(
+                name="intermediate_market",
+                process="intermediate_market",
+                dim_letters=("t",),
+                subclass=fd.SimpleFlowDrivenStock,
+            ),
+            fd.StockDefinition(
+                name="manufactured_market",
+                process="manufactured_market",
+                dim_letters=("t",),
+                subclass=fd.SimpleFlowDrivenStock,
+            ),
+            fd.StockDefinition(
                 name="good_market",
                 process="good_market",
                 dim_letters=("t",),
@@ -172,6 +220,12 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         fd.ParameterDefinition(name="incineration_rate", dim_letters=("t", "r", "m")),
         fd.ParameterDefinition(name="landfill_rate", dim_letters=("t", "r", "m")),
         # trade
+        fd.ParameterDefinition(name="primary_his_imports", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="primary_his_exports", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="intermediate_his_imports", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="intermediate_his_exports", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="manufactured_his_imports", dim_letters=("h", "r")),
+        fd.ParameterDefinition(name="manufactured_his_exports", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="final_his_imports", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="final_his_exports", dim_letters=("h", "r")),
 
@@ -197,10 +251,16 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
 
     if historic:
         trades = [
+            TradeDefinition(name="primary_his", dim_letters=("h", "r")),
+            TradeDefinition(name="intermediate_his", dim_letters=("h", "r")),
+            TradeDefinition(name="manufactured_his", dim_letters=("h", "r")),
             TradeDefinition(name="final_his", dim_letters=("h", "r")),
         ]
     else:
         trades = [
+            TradeDefinition(name="primary", dim_letters=("t", "r")),
+            TradeDefinition(name="intermediate", dim_letters=("t", "r")),
+            TradeDefinition(name="manufactured", dim_letters=("t", "r")),
             TradeDefinition(name="final", dim_letters=("t", "r")),
             TradeDefinition(name="waste", dim_letters=("t", "r", "g")),
         ]

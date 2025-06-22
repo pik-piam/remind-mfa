@@ -80,13 +80,36 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         product_demand = self.stocks["in_use"].inflow
 
         predict_by_extrapolation(
+            historic_trade["primary_his"],
+            self.trade_set["primary"],
+            product_demand,
+            "imports",
+            balance_to="hmean",
+        )
+
+        predict_by_extrapolation(
+            historic_trade["intermediate_his"],
+            self.trade_set["intermediate"],
+            product_demand,
+            "imports",
+            balance_to="hmean",
+        )
+
+        predict_by_extrapolation(
+            historic_trade["manufactured_his"],
+            self.trade_set["manufactured"],
+            product_demand,
+            "imports",
+            balance_to="hmean",
+        )
+
+        predict_by_extrapolation(
             historic_trade["final_his"],
             self.trade_set["final"],
             product_demand,
             "imports",
             balance_to="hmean",
         )
-
         self.trade_set.balance(to="maximum")
 
     def compute_flows(self):
@@ -109,16 +132,30 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
         material_element_split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
         good_split = stk["in_use"].inflow.sum_over(("e", "m")).get_shares_over("g")
-        #carbon_per_good = split.sum_over("m")
+        material_element_split_noGood = stk["in_use"].inflow.sum_over(("g")).get_shares_over(("e", "m"))
+
+
+        flw["primary_market => primary_imports"][...]  = trd["primary"].imports
+        flw["primary_exports => primary_market"][...]  = trd["primary"].exports
+        flw["primary_imports => virgin"][...] = flw["primary_market => primary_imports"][...] * material_element_split_noGood
+        flw["virgin => primary_exports"][...] = flw["primary_exports => primary_market"][...]
+
+        flw["intermediate_market => intermediate_imports"][...]  = trd["intermediate"].imports
+        flw["intermediate_exports => intermediate_market"][...]  = trd["intermediate"].exports
+        flw["intermediate_imports => polymerization"][...] = flw["intermediate_market => intermediate_imports"][...] * material_element_split_noGood
+        flw["polymerization => intermediate_exports"][...] = flw["intermediate_exports => intermediate_market"][...]
+
+        flw["manufactured_market => manufactured_imports"][...]  = trd["manufactured"].imports
+        flw["manufactured_exports => manufactured_market"][...]  = trd["manufactured"].exports
+        flw["manufactured_imports => processing"][...] = flw["manufactured_market => manufactured_imports"][...] * material_element_split_noGood
+        flw["processing => manufactured_exports"][...] = flw["manufactured_exports => manufactured_market"][...]
 
         flw["good_market => final_imports"][...]  = trd["final"].imports
         flw["final_exports => good_market"][...]  = trd["final"].exports
-        
         flw["final_imports => use"][...] =  flw["good_market => final_imports"][...] * good_split * material_element_split
         flw["fabrication => final_exports"][...] = flw["final_exports => good_market"][...]
 
         flw["fabrication => use"][...] = stk["in_use"].inflow - flw["final_imports => use"][...]
-        
 
         # fmt: off
 
@@ -166,13 +203,16 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         flw["recl => fabrication"][...] = flw["reclmech => recl"] + flw["reclchem => recl"]
-        flw["virgin => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"] + flw["fabrication => final_exports"] * good_split * material_element_split
 
-        flw["virgindaccu => virgin"][...] = flw["virgin => fabrication"] * prm["daccu_production_rate"]
-        flw["virginbio => virgin"][...] = flw["virgin => fabrication"] * prm["bio_production_rate"]
+        flw["processing => fabrication"][...] = flw["fabrication => use"] - flw["recl => fabrication"] + flw["fabrication => final_exports"] * good_split * material_element_split
+        flw["polymerization => processing"][...] = flw["processing => fabrication"] - flw["manufactured_imports => processing"] + flw["processing => manufactured_exports"] * material_element_split_noGood
+        flw["virgin => polymerization"][...] = flw["polymerization => processing"] - flw["intermediate_imports => polymerization"] + flw["polymerization => intermediate_exports"] * material_element_split_noGood
 
-        aux["virgin_2_fabr_all_mat"][...] = flw["virgin => fabrication"]
-        aux["virgin_material_shares"][...] = flw["virgin => fabrication"] / aux["virgin_2_fabr_all_mat"]
+        flw["virgindaccu => virgin"][...] = flw["virgin => polymerization"] * prm["daccu_production_rate"]
+        flw["virginbio => virgin"][...] = flw["virgin => polymerization"] * prm["bio_production_rate"]
+
+        aux["virgin_2_fabr_all_mat"][...] = flw["virgin => polymerization"]
+        aux["virgin_material_shares"][...] = flw["virgin => polymerization"] / aux["virgin_2_fabr_all_mat"]
         aux["captured_2_virginccu_by_mat"][...] = flw["captured => virginccu"] * aux["virgin_material_shares"]
 
         flw["virginccu => virgin"]["C"] = aux["captured_2_virginccu_by_mat"]["C"]
@@ -180,10 +220,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["virginccu => virgin"]["Other Elements"] = flw["virginccu => virgin"]["C"] * aux["ratio_nonc_to_c"]
 
         flw["virginfoss => virgin"][...] = (
-            flw["virgin => fabrication"]
+            flw["virgin => polymerization"]
             - flw["virgindaccu => virgin"]
             - flw["virginbio => virgin"]
             - flw["virginccu => virgin"]
+            - flw["primary_imports => virgin"]
+            + flw["virgin => primary_exports"] * material_element_split_noGood
         )
 
         flw["sysenv => virginfoss"][...] = flw["virginfoss => virgin"]
