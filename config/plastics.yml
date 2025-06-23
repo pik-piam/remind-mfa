@@ -2,7 +2,7 @@
 model_class: 'plastics'
 
 # data sources
-input_data_path: 'data/plastics/input'
+input_data_path: '../simson_data/data/plastics/output'
 
 # model customization
 customization:
