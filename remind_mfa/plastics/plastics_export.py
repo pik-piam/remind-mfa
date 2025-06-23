@@ -274,38 +274,23 @@ class PlasticsDataExporter(CommonDataExporter):
     def export_eol_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"
     ):
-        if "use => eol" not in mfa.flows:
-            raise KeyError("The MFA system does not contain 'eol' in flows.")
         eol_data = (
             mfa.flows["eol => collected"]
             + mfa.flows["wasteimport => collected"]
             - mfa.flows["collected => wasteexport"]
         )
-        df = eol_data.to_df(index=True)
-        df_grouped = df.groupby(["Time", "Region", "Material"], as_index=True)["value"].sum()
-
-        df_grouped.to_csv(output_path, index=True)
+        df = eol_data.sum_to(("t", "r", "m")).to_df(index=True)
+        df.to_csv(self.export_path(output_path), index=True)
 
     def export_use_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "use_by_region_year.csv"
     ):
-        if "fabrication => use" not in mfa.flows:
-            raise KeyError(f"The MFA system does not contain 'use' in flows.")
-
-        df = mfa.flows["fabrication => use"].to_df(index=True)
-        df_grouped = df.groupby(["Time", "Region"], as_index=True)["value"].sum()
-
-        df_grouped.to_csv(output_path, index=True)
+        df = mfa.flows["fabrication => use"].sum_to(("t", "r")).to_df(index=True)
+        df.to_csv(self.export_path(output_path), index=True)
 
     def export_recycling_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "recycling_by_region_year.csv"
     ):
-
-        if "collected => reclmech" not in mfa.flows:
-            raise KeyError(f"The MFA system does not contain 'reclmech' in flows.")
         recl_data = mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]
-        df = recl_data.to_df(index=True)
-
-        df_grouped = df.groupby(["Time", "Region", "Material"], as_index=True)["value"].sum()
-
-        df_grouped.to_csv(output_path, index=True)
+        df = recl_data.sum_to(("t", "r", "m")).to_df(index=True)
+        df.to_csv(self.export_path(output_path), index=True)

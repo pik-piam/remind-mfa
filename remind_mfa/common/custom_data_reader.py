@@ -30,6 +30,6 @@ class CustomDataReader(fd.CompoundDataReader):
             parameter_files[parameter.name] = os.path.join(
                 self.input_data_path, "datasets", f"{parameter.name}.csv"
             )
-        parameter_reader = fd.CSVParameterReader(parameter_files)
+        parameter_reader = fd.CSVParameterReader(parameter_files, allow_extra_values=True)
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
