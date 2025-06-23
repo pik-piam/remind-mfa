@@ -9,11 +9,23 @@ REMIND-MFA has global coverage. Per default, it runs in 21 world regions. Howeve
 
 REMIND-MFA dependencies are managed with [pip](https://pypi.org/project/pip/).
 
-To install run `python -m pip install remind-mfa`
+To install, clone the repository and run
+
+```
+python -m pip install -r pyproject.toml
+```
+
+from the repository's main directory.
 
 ## Run
 
-To run a model, run `python run_remind_mfa.py [path to config]` from the main directory, where `[path to config]` is the path to a configuration file, such as `config/steel.yml`.
+To run a model, run
+
+```
+python run_remind_mfa.py [path to config]
+```
+
+from the main directory, where `[path to config]` is the path to a configuration file, such as `config/steel.yml`.
 
 You can change parameters for the run in these configuration files located in the `config` folder.
 
