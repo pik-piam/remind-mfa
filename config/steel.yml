@@ -49,4 +49,4 @@ output_path: 'data/steel/output'
 do_export:
   pickle: False
   csv: False
-  future_input: True
+  future_input: False
