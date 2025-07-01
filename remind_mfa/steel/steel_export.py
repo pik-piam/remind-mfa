@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from plotly import colors as plc
 import plotly.graph_objects as go
 import flodym as fd
@@ -453,9 +454,13 @@ class SteelDataExporter(CommonDataExporter):
             "imports => eol_market": "scrap_imports",
             "good_market => use": "in_use_inflow",
         }
+
+        if not os.path.exists(self.export_path("datasets")):
+            os.mkdir(self.export_path("datasets"))
+
         for flow_name, parameter_name in name_map.items():
             flow = future_mfa.flows[flow_name][{"t": future_time}]
-            flow.to_df().to_csv(f"data/steel/input/datasets/{parameter_name}.csv")
+            flow.to_df().to_csv(self.export_path(f"datasets/{parameter_name}.csv"))
 
         values = (
             future_mfa.stocks["in_use"]
@@ -465,7 +470,7 @@ class SteelDataExporter(CommonDataExporter):
         array = fd.FlodymArray(dims=future_mfa.stocks["in_use"].dims, values=values)[
             {"t": future_time}
         ]
-        array.to_df().to_csv("data/steel/input/datasets/fixed_in_use_outflow.csv")
+        array.to_df().to_csv(self.export_path("datasets/fixed_in_use_outflow.csv"))
 
     def export_mfa(self, mfa):
         super().export_mfa(mfa)
