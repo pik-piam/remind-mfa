@@ -13,6 +13,7 @@ customization:
 
 # visualization
 visualization:
+  do_visualize: False
   scrap_demand_supply:
     do_visualize: True
   sector_splits:

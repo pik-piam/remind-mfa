@@ -40,6 +40,8 @@ class SteelDataExporter(CommonDataExporter):
     }
 
     def visualize_results(self, model: "SteelModel"):
+        if not self.cfg.do_visualize:
+            return
         if self.cfg.production["do_visualize"]:
             self.visualize_production(mfa=model.future_mfa, regional=True)
             self.visualize_production(mfa=model.future_mfa, regional=False)

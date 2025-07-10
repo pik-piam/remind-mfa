@@ -53,6 +53,7 @@ class ExportCfg(RemindMFABaseModel):
 
 class VisualizationCfg(RemindMFABaseModel):
 
+    do_visualize: bool = True
     use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}

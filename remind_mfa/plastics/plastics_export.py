@@ -42,6 +42,8 @@ class PlasticsDataExporter(CommonDataExporter):
     }
 
     def visualize_results(self, model: "PlasticsModel"):
+        if not self.cfg.do_visualize:
+            return
         self.export_eol_data_by_region_and_year(mfa=model.mfa)
         self.export_use_data_by_region_and_year(mfa=model.mfa)
         self.export_recycling_data_by_region_and_year(mfa=model.mfa)
