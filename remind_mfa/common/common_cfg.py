@@ -49,6 +49,7 @@ class ExportCfg(RemindMFABaseModel):
     pickle: bool = True
     assumptions: bool = True
     future_input: bool = False
+    iamc: bool = False
 
 
 class VisualizationCfg(RemindMFABaseModel):
