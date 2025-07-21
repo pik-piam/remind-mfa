@@ -3,7 +3,7 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "remind-mfa"
+name = "remind_mfa"
 version = "0.1.0"
 authors = [
     {name = "Jakob Dürrwächter"},
@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["remind-mfa"]
+packages = ["remind_mfa"]
 
 [tool.uv.sources]
 flodym = { path = "../flodym", editable = true }

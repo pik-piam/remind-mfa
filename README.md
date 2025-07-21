@@ -1,13 +1,13 @@
-# REMIND-MFA
+# REMIND MFA
 
-REMIND-MFA includes top-down prospective material flow analysis (MFA) models for the basic materials cement, plastics, and steel.
+REMIND MFA includes top-down prospective material flow analysis (MFA) models for the basic materials cement, plastics, and steel.
 It is designed to provide material demands and flows for the integrated assessment model REMIND, and to provide global context for the scenario analysis in the [TRANSIENCE](https://www.transience.eu/) project.
 
-REMIND-MFA has global coverage. Per default, it runs in 21 world regions. However, due to its flexible design and [madrat](https://github.com/pik-piam/madrat)-based data input, both regional and temporal resolution can be adapted easily.
+REMIND MFA has global coverage. Per default, it runs in 21 world regions. However, due to its flexible design and [madrat](https://github.com/pik-piam/madrat)-based data input, both regional and temporal resolution can be adapted easily.
 
 ## Installation
 
-REMIND-MFA dependencies are managed with [pip](https://pypi.org/project/pip/).
+REMIND MFA dependencies are managed with [pip](https://pypi.org/project/pip/).
 
 To install, clone the repository and run
 
@@ -35,4 +35,4 @@ The data required to run the models is planned to be made accessible in the near
 
 ## Acknowledgements
 
-The development of REMIND-MFA was conducted within the TRANSIENCE project, grant number 101137606, funded by the European Commission within the Horizon Europe Research and Innovation Programme.
+The development of REMIND MFA was conducted within the TRANSIENCE project, grant number 101137606, funded by the European Commission within the Horizon Europe Research and Innovation Programme.

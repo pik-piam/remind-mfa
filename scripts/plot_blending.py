@@ -1,10 +1,10 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-# add remind-mfa to path
+# add remind_mfa to path
 import sys
 
-sys.path.append("../remind-mfa")
+sys.path.append("../remind_mfa")
 
 from remind_mfa.common.data_blending import blending_factor
 
