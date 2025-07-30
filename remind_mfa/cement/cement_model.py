@@ -76,20 +76,67 @@ class CementModel:
         )
 
     def get_long_term_stock(self) -> fd.FlodymArray:
-        # extrapolate in use stock to future
+        """Extrapolate in use stock to future. """
         indep_fit_dim_letters = ("r",)
-        sat_bound = Bound(var_name="saturation_level", lower_bound=200, upper_bound=200)
+
+        # saturation bound
+        sat_level = 180 # t concrete per capita
+        sat_bound = Bound(var_name="saturation_level", lower_bound=1, upper_bound=1)
         add_assumption_doc(
             type="ad-hoc fix",
-            value=200,
+            value=sat_level,
             name="Saturation level of in-use concrete stock",
             description="The saturation level of the in-use concrete stock is set to T/cap. "
             "This is slightly above current EU levels.",
         )
+
         bound_list = BoundList(
             bound_list=[sat_bound],
             target_dims=self.dims[indep_fit_dim_letters],
         )
+
+        # The following was an attempt to constraint the growth rate of the stock extrapolation
+        # This did not work so far and therefore needs a revisit.
+
+        # normalize historic stock to saturation level for extrapolation
+        # historic_stock = self.historic_mfa.stocks["historic_in_use"].stock / sat_level
+
+        # get individual extrapolation with only saturation bound
+        # individual_stock_extrapolation = StockExtrapolation(
+        #     historic_stock,
+        #     dims=self.dims,
+        #     parameters=self.parameters,
+        #     stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+        #     target_dim_letters=("t", "r"),
+        #     indep_fit_dim_letters=indep_fit_dim_letters,#
+        #     bound_list=bound_list,
+        # )
+
+        # stretch factor bound: China as upper bound
+        # cha_idx = self.historic_mfa.stocks["historic_in_use"].stock.dims["r"].items.index("CHA")
+        # stretch_factor_idx = 1
+        # cha_stretch_factor = individual_stock_extrapolation.extrapolation.fit_prms[cha_idx][stretch_factor_idx]
+        # stretch_bound = Bound(var_name="stretch_factor", lower_bound=0, upper_bound=cha_stretch_factor)
+        # add_assumption_doc(
+        #     type="expert guess",
+        #     value=cha_stretch_factor,
+        #     name="China stretch factor",
+        #     description="The stretch factor of China as the upper bound for any region. "
+        #     "No other region is expected to build their concrete stock faster than China."
+        # )
+
+        # # add bounds together
+        # bound_list = BoundList(
+        #     bound_list=[sat_bound, stretch_bound],
+        #     target_dims=self.dims[indep_fit_dim_letters],
+        # )
+
+
+        # after this, a stock extrapolation with updated bounds would be done
+        # Then, de-normalize some of the normalized values
+        # self.stock_handler.pure_prediction = self.stock_handler.pure_prediction * sat_level
+        # self.stock_handler.stocks = self.stock_handler.stocks * sat_level
+
         self.stock_handler = StockExtrapolation(
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
