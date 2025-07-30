@@ -22,13 +22,13 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["in_use"].stock = stock_projection
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["future_use_lifetime_mean"],
-            std=0.2 * prm["future_use_lifetime_mean"],
+            std=0.3 * prm["future_use_lifetime_mean"],
         )
         add_assumption_doc(
             type="expert guess",
-            value=0.2,
+            value=0.3,
             name="Standard deviation of future use lifetime",
-            description="The standard deviation of the future use lifetime is set to 20 percent of the mean.",
+            description="The standard deviation of the future use lifetime is set to 30 percent of the mean.",
         )
         stk["in_use"].compute()
 
