@@ -41,13 +41,13 @@ class CementDataExporter(CommonDataExporter):
         if self.cfg.extrapolation["do_visualize"]:
             self.visualize_extrapolation(model=model)
         if self.cfg.sd["do_visualize"]:
-            self.visualize_sd(model=model, material="concrete")
+            # self.visualize_sd(model=model, material="concrete")
             self.visualize_sd(model=model, material="cement")
-            self.visualize_sd(model=model, material="concrete", regional=False)
+            # self.visualize_sd(model=model, material="concrete", regional=False)
             self.visualize_sd(model=model, material="cement", regional=False)
-            self.visualize_sd(model=model, material="concrete", regional=True, per_capita=False)
-            self.visualize_sd(model=model, material="concrete", regional=False, per_capita=False)
-            # self.visualize_top_vs_bottom(model=model)
+            self.visualize_sd(model=model, material="cement", regional=True, per_capita=False)
+            self.visualize_sd(model=model, material="cement", regional=False, per_capita=False)
+            self.visualize_top_vs_bottom(model=model)
         self.stop_and_show()
 
     def visualize_production(
