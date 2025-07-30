@@ -81,7 +81,7 @@ class CementModel:
 
         # saturation bound
         sat_level = 180 # t concrete per capita
-        sat_bound = Bound(var_name="saturation_level", lower_bound=1, upper_bound=1)
+        sat_bound = Bound(var_name="saturation_level", lower_bound=sat_level, upper_bound=sat_level)
         add_assumption_doc(
             type="ad-hoc fix",
             value=sat_level,
