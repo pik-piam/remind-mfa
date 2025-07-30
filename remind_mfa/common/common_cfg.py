@@ -66,7 +66,7 @@ class CementVisualizationCfg(VisualizationCfg):
     cement_production: dict = {}
     concrete_production: dict = {}
     eol_stock: dict = {}
-
+    sd: dict = {}
 
 class SteelVisualizationCfg(VisualizationCfg):
 

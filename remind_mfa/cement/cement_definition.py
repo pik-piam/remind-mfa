@@ -93,7 +93,7 @@ def get_definition(cfg: GeneralCfg):
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="concrete_building_mi", dim_letters=("r", "f", "b")),
-        # fd.ParameterDefinition(name="building_split", dim_letters=("r", "b", "f")),
+        fd.ParameterDefinition(name="building_split", dim_letters=("r", "b", "f")),
         fd.ParameterDefinition(name="buildings_floorspace", dim_letters=("t", "r", "s")),
     ]
 
