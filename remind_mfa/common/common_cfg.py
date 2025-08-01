@@ -65,6 +65,7 @@ class VisualizationCfg(RemindMFABaseModel):
 
 class CementVisualizationCfg(VisualizationCfg):
 
+    consumption: dict = {}
     clinker_production: dict = {}
     cement_production: dict = {}
     concrete_production: dict = {}

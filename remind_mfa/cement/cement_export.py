@@ -23,16 +23,19 @@ class CementDataExporter(CommonDataExporter):
     }
 
     def visualize_results(self, model: "CementModel"):
+        if self.cfg.consumption["do_visualize"]:
+            self.visualize_consumption(mfa=model.future_mfa)
         if self.cfg.clinker_production["do_visualize"]:
             self.visualize_clinker_production(mfa=model.future_mfa)
         if self.cfg.cement_production["do_visualize"]:
+            # TODO this creates the same name for saving the figures
             self.visualize_cement_production(mfa=model.future_mfa, regional=False)
             self.visualize_cement_production(mfa=model.future_mfa, regional=True)
         if self.cfg.concrete_production["do_visualize"]:
             self.visualize_concrete_production(mfa=model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=False)
-            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
+            # self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
         if self.cfg.eol_stock["do_visualize"]:
             self.visualize_eol_stock(mfa=model.future_mfa)
         if self.cfg.sankey["do_visualize"]:
@@ -80,7 +83,7 @@ class CementDataExporter(CommonDataExporter):
 
     def visualize_clinker_production(self, mfa: fd.MFASystem):
         production = mfa.flows["clinker_production => cement_grinding"]
-        self.visualize_production(production, "Clinker")
+        self.visualize_production(mfa=mfa, production=production, name="Clinker")
 
     def visualize_cement_production(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["cement_grinding => concrete_production"]
@@ -88,7 +91,24 @@ class CementDataExporter(CommonDataExporter):
 
     def visualize_concrete_production(self, mfa: fd.MFASystem):
         production = mfa.flows["concrete_production => use"].sum_over("s")
-        self.visualize_production(production, "Concrete")
+        self.visualize_production(mfa=mfa, production=production, name="Concrete")
+
+    def visualize_consumption(self, mfa: fd.MFASystem):
+        import numpy as np
+        consumption = mfa.stocks["in_use"].inflow
+        sector_dim = consumption.dims.index("s")
+        consumption = consumption.apply(np.cumsum, kwargs={"axis": sector_dim})
+        ap = self.plotter_class(
+            array=consumption,
+            intra_line_dim="Time",
+            subplot_dim="Region",
+            linecolor_dim="Stock Type",
+            chart_type="area",
+            display_names=self._display_names,
+            title="Cement Consumption",
+        )
+        fig = ap.plot()
+        self.plot_and_save_figure(ap, "cement_consumption.png", do_plot=False)
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         over_gdp = self.cfg.eol_stock["over_gdp"]
