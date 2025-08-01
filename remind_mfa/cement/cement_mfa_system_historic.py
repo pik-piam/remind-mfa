@@ -25,11 +25,11 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         )
         stk["historic_cement_in_use"].lifetime_model.set_prms(
             mean=prm["historic_use_lifetime_mean"],
-            std=0.2 * prm["historic_use_lifetime_mean"],
+            std=0.4 * prm["historic_use_lifetime_mean"],
         )
         add_assumption_doc(
             type="expert guess",
-            value=0.2,
+            value=0.4,
             name="Standard deviation of historic use lifetime",
             description="The standard deviation of the historic use lifetime is set to 20 percent of the mean.",
         )
