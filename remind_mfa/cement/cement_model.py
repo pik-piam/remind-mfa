@@ -20,58 +20,66 @@ class CementModel:
 
     def __init__(self, cfg: GeneralCfg):
         self.cfg = cfg
-        self.definition = get_definition(self.cfg)
-        self.data_reader = CementDataReader(
-            input_data_path=self.cfg.input_data_path, definition=self.definition
-        )
+        self.definition_future = get_definition(self.cfg, historic=False)
+        # TODO why doe we only call future definition?
+        # Would it not make sense to also separater dims and parameters for historic and future?
+        self.read_data(self.definition_future)
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,
             do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
         )
-        self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(
-            self.definition.parameters, dims=self.dims
-        )
-        self.processes = fd.make_processes(self.definition.processes)
+
+        # hitoric mfa
+        self.definition_historic = get_definition(self.cfg, historic=True)
 
     def run(self):
         # historic mfa
-        self.historic_mfa = self.make_historic_mfa()
+        self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
+        stock_projection = self.get_long_term_stock()
 
         # future mfa
-        self.future_mfa = self.make_future_mfa()
-        future_stock = self.get_long_term_stock()
-        self.future_mfa.compute(future_stock)
+        self.future_mfa = self.make_mfa(historic=False)
+        self.future_mfa.compute(stock_projection)
 
         # visualization and export
         self.data_writer.export_mfa(mfa=self.future_mfa)
         self.data_writer.visualize_results(model=self)
 
-    def make_historic_mfa(self) -> InflowDrivenHistoricCementMFASystem:
-        historic_dim_letters = tuple([d for d in self.dims.letters if d != "t"])
-        historic_dims = self.dims[historic_dim_letters]
-        historic_processes = [
-            "sysenv",
-            "use",
-        ]
-        processes = fd.make_processes(historic_processes)
+    def read_data(self, definition: StockDrivenCementMFASystem):
+        self.data_reader = CementDataReader(
+            input_data_path=self.cfg.input_data_path,
+            definition=definition,
+        )
+        self.dims = self.data_reader.read_dimensions(definition.dimensions)
+        self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
+
+
+    def make_mfa(self, historic: bool) -> InflowDrivenHistoricCementMFASystem:
+        if historic:
+            definition = self.definition_historic
+            mfasystem_class = InflowDrivenHistoricCementMFASystem
+        else:
+            definition = self.definition_future
+            mfasystem_class = StockDrivenCementMFASystem
+
+        processes = fd.make_processes(definition.processes)
         flows = fd.make_empty_flows(
             processes=processes,
-            flow_definitions=[f for f in self.definition.flows if "h" in f.dim_letters],
-            dims=historic_dims,
+            flow_definitions=definition.flows,
+            dims=self.dims,
         )
         stocks = fd.make_empty_stocks(
             processes=processes,
-            stock_definitions=[s for s in self.definition.stocks if "h" in s.dim_letters],
-            dims=historic_dims,
+            stock_definitions=definition.stocks,
+            dims=self.dims,
         )
-        return InflowDrivenHistoricCementMFASystem(
+        return mfasystem_class(
             cfg=self.cfg,
             parameters=self.parameters,
             processes=processes,
-            dims=historic_dims,
+            dims=self.dims,
             flows=flows,
             stocks=stocks,
         )
@@ -170,23 +178,3 @@ class CementModel:
 
         total_in_use_stock = total_in_use_stock * self.parameters["use_split"]
         return total_in_use_stock
-
-    def make_future_mfa(self) -> StockDrivenCementMFASystem:
-        flows = fd.make_empty_flows(
-            processes=self.processes,
-            flow_definitions=[f for f in self.definition.flows if "t" in f.dim_letters],
-            dims=self.dims,
-        )
-        stocks = fd.make_empty_stocks(
-            processes=self.processes,
-            stock_definitions=[s for s in self.definition.stocks if "t" in s.dim_letters],
-            dims=self.dims,
-        )
-
-        return StockDrivenCementMFASystem(
-            dims=self.dims,
-            parameters=self.parameters,
-            processes=self.processes,
-            flows=flows,
-            stocks=stocks,
-        )
