@@ -21,11 +21,11 @@ visualization:
     do_visualize: True
     over_gdp: False
     per_capita: False
-  clinker_production:
+  prod_clinker:
     do_visualize: False
-  cement_production:
+  prod_cement:
     do_visualize: True
-  concrete_production:
+  prod_concrete:
     do_visualize: False
   sankey:
     do_visualize: True

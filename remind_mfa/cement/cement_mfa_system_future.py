@@ -40,7 +40,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk = self.stocks
 
         # go backwards from in-use stock
-        flw["concrete_production => use"][...] = stk["in_use"].inflow
+        flw["prod_concrete => use"][...] = stk["in_use"].inflow
         add_assumption_doc(
             type="ad-hoc fix",
             name="Regional concrete production is actually apparent consumption.",
@@ -55,25 +55,21 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             ),
         )
 
-        flw["cement_grinding => concrete_production"][...] = (
-            flw["concrete_production => use"] * prm["cement_ratio"]
+        flw["prod_cement => prod_concrete"][...] = (
+            flw["prod_concrete => use"] * prm["cement_ratio"]
         )
-        flw["clinker_production => cement_grinding"][...] = (
-            flw["cement_grinding => concrete_production"] * prm["clinker_ratio"]
+        flw["prod_clinker => prod_cement"][...] = (
+            flw["prod_cement => prod_concrete"] * prm["clinker_ratio"]
         )
-        flw["raw_meal_preparation => clinker_production"][...] = flw[
-            "clinker_production => cement_grinding"
+        flw["sysenv => prod_clinker"][...] = flw[
+            "prod_clinker => prod_cement"
         ]
 
         # sysenv flows for mass balance
-        flw["sysenv => raw_meal_preparation"][...] = flw[
-            "raw_meal_preparation => clinker_production"
-        ]
-        flw["sysenv => clinker_production"][...] = fd.FlodymArray(dims=self.dims["t", "r"])
-        flw["sysenv => cement_grinding"][...] = flw["cement_grinding => concrete_production"] * (
+        flw["sysenv => prod_cement"][...] = flw["prod_cement => prod_concrete"] * (
             1 - prm["clinker_ratio"]
         )
-        flw["sysenv => concrete_production"][...] = flw["concrete_production => use"] * (
+        flw["sysenv => prod_concrete"][...] = flw["prod_concrete => use"] * (
             1 - prm["cement_ratio"]
         )
 

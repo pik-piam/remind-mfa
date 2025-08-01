@@ -15,9 +15,9 @@ class CementDataExporter(CommonDataExporter):
     _display_names: dict = {
         "sysenv": "System environment",
         "raw_meal_preparation": "Raw meal preparation",
-        "clinker_production": "Clinker production",
-        "cement_grinding": "Cement grinding",
-        "concrete_production": "Concrete production",
+        "prod_clinker": "Clinker production",
+        "prod_cement": "Cement grinding",
+        "prod_concrete": "Concrete production",
         "use": "Use phase",
         "eol": "End of life",
     }
@@ -25,14 +25,14 @@ class CementDataExporter(CommonDataExporter):
     def visualize_results(self, model: "CementModel"):
         if self.cfg.consumption["do_visualize"]:
             self.visualize_consumption(mfa=model.future_mfa)
-        if self.cfg.clinker_production["do_visualize"]:
-            self.visualize_clinker_production(mfa=model.future_mfa)
-        if self.cfg.cement_production["do_visualize"]:
+        if self.cfg.prod_clinker["do_visualize"]:
+            self.visualize_prod_clinker(mfa=model.future_mfa)
+        if self.cfg.prod_cement["do_visualize"]:
             # TODO this creates the same name for saving the figures
-            self.visualize_cement_production(mfa=model.future_mfa, regional=False)
-            self.visualize_cement_production(mfa=model.future_mfa, regional=True)
-        if self.cfg.concrete_production["do_visualize"]:
-            self.visualize_concrete_production(mfa=model.future_mfa)
+            self.visualize_prod_cement(mfa=model.future_mfa, regional=False)
+            self.visualize_prod_cement(mfa=model.future_mfa, regional=True)
+        if self.cfg.prod_concrete["do_visualize"]:
+            self.visualize_prod_concrete(mfa=model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=False)
             # self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
@@ -81,16 +81,16 @@ class CementDataExporter(CommonDataExporter):
             ap_production, f"{name}_production{regional_tag}.png", do_plot=False
         )
 
-    def visualize_clinker_production(self, mfa: fd.MFASystem):
-        production = mfa.flows["clinker_production => cement_grinding"]
+    def visualize_prod_clinker(self, mfa: fd.MFASystem):
+        production = mfa.flows["prod_clinker => prod_cement"]
         self.visualize_production(mfa=mfa, production=production, name="Clinker")
 
-    def visualize_cement_production(self, mfa: fd.MFASystem, regional: bool = False):
-        production = mfa.flows["cement_grinding => concrete_production"]
+    def visualize_prod_cement(self, mfa: fd.MFASystem, regional: bool = False):
+        production = mfa.flows["prod_cement => prod_concrete"]
         self.visualize_production(mfa=mfa, production=production, name="Cement", regional=regional)
 
-    def visualize_concrete_production(self, mfa: fd.MFASystem):
-        production = mfa.flows["concrete_production => use"].sum_over("s")
+    def visualize_prod_concrete(self, mfa: fd.MFASystem):
+        production = mfa.flows["prod_concrete => use"].sum_over("s")
         self.visualize_production(mfa=mfa, production=production, name="Concrete")
 
     def visualize_consumption(self, mfa: fd.MFASystem):
