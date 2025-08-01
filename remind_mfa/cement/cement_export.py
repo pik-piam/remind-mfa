@@ -119,7 +119,8 @@ class CementDataExporter(CommonDataExporter):
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
         subplot_dim = "Stock Type" if subplots_by_stock_type else None
-        super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
+        stock = mfa.stocks["in_use"].stock * mfa.parameters["cement_ratio"]
+        super().visualize_use_stock(mfa, stock=stock, subplot_dim=subplot_dim)
 
     def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
         population = mfa.parameters["population"]
@@ -183,7 +184,7 @@ class CementDataExporter(CommonDataExporter):
         mfa = model.future_mfa
         per_capita = True  # TODO see where this shold go
         subplot_dim = "Region"
-        stock = mfa.stocks["in_use"].stock
+        stock = mfa.stocks["in_use"].stock * mfa.parameters["cement_ratio"]
         population = mfa.parameters["population"]
         x_array = None
 

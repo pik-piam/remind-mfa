@@ -58,7 +58,7 @@ def get_definition(cfg: GeneralCfg):
 
     stocks = [
         fd.StockDefinition(
-            name="historic_in_use",
+            name="historic_cement_in_use",
             process="use",
             dim_letters=("h", "r", "s"),
             subclass=fd.InflowDrivenDSM,

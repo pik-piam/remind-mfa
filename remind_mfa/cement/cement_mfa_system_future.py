@@ -20,7 +20,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         prm = self.parameters
         stk = self.stocks
 
-        stk["in_use"].stock = stock_projection
+        stk["in_use"].stock = stock_projection / prm["cement_ratio"]
+        
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["future_use_lifetime_mean"],
             std=0.2 * prm["future_use_lifetime_mean"],
