@@ -17,7 +17,7 @@ class CementDataExporter(CommonDataExporter):
         "raw_meal_preparation": "Raw meal preparation",
         "prod_clinker": "Clinker production",
         "prod_cement": "Cement grinding",
-        "prod_concrete": "Concrete production",
+        "prod_product": "Concrete production",
         "use": "Use phase",
         "eol": "End of life",
     }
@@ -31,8 +31,8 @@ class CementDataExporter(CommonDataExporter):
             # TODO this creates the same name for saving the figures
             self.visualize_prod_cement(mfa=model.future_mfa, regional=False)
             self.visualize_prod_cement(mfa=model.future_mfa, regional=True)
-        if self.cfg.prod_concrete["do_visualize"]:
-            self.visualize_prod_concrete(mfa=model.future_mfa)
+        if self.cfg.prod_product["do_visualize"]:
+            self.visualize_prod_product(mfa=model.future_mfa)
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=False)
             # self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
@@ -41,7 +41,11 @@ class CementDataExporter(CommonDataExporter):
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(mfa=model.future_mfa)
         if self.cfg.extrapolation["do_visualize"]:
-            self.visualize_extrapolation(model=model)
+            # self.visualize_extrapolation(model=model, show_extrapolation=False, show_future=False)
+            # self.visualize_extrapolation(model=model, show_future=False)
+            # self.visualize_extrapolation(model=model)
+            self.visualize_carbonation(mfa=model.future_mfa)
+            
         self.stop_and_show()
 
     def visualize_production(
@@ -54,16 +58,20 @@ class CementDataExporter(CommonDataExporter):
         x_label = "Year"
         y_label = "Production [t]"
         linecolor_dim = None
+        plot_letters = ["t"]
 
         if regional:
             subplot_dim = "Region"
             title = f"Regional {name} Production"
             regional_tag = "_regional"
+            plot_letters += ["r"]
         else:
             subplot_dim = None
             regional_tag = ""
             title = f"Global {name} Production"
-            production = production.sum_over("r")
+            
+        other_letters = tuple(letter for letter in production.dims.letters if letter not in plot_letters)
+        production = production.sum_over(other_letters)
 
         fig, ap_production = self.plot_history_and_future(
             mfa=mfa,
@@ -86,16 +94,19 @@ class CementDataExporter(CommonDataExporter):
         self.visualize_production(mfa=mfa, production=production, name="Clinker")
 
     def visualize_prod_cement(self, mfa: fd.MFASystem, regional: bool = False):
-        production = mfa.flows["prod_cement => prod_concrete"]
+        production = mfa.flows["prod_cement => prod_product"]
         self.visualize_production(mfa=mfa, production=production, name="Cement", regional=regional)
 
-    def visualize_prod_concrete(self, mfa: fd.MFASystem):
-        production = mfa.flows["prod_concrete => use"].sum_over("s")
-        self.visualize_production(mfa=mfa, production=production, name="Concrete")
+    def visualize_prod_product(self, mfa: fd.MFASystem):
+        production = mfa.flows["prod_product => use"].sum_over("s")
+        self.visualize_production(mfa=mfa, production=production, name="Product")
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         import numpy as np
-        consumption = mfa.stocks["in_use"].inflow
+        consumption = mfa.stocks["in_use"].inflow * mfa.parameters["cement_ratio"]
+        plot_letters = ["t", "r", "s"]
+        other_letters = tuple(letter for letter in consumption.dims.letters if letter not in plot_letters)
+        consumption = consumption.sum_over(other_letters)
         sector_dim = consumption.dims.index("s")
         consumption = consumption.apply(np.cumsum, kwargs={"axis": sector_dim})
         ap = self.plotter_class(
@@ -162,10 +173,10 @@ class CementDataExporter(CommonDataExporter):
     def visualize_global_stock_by_type(
         self, stock, x_array, population, x_label, y_label, title, per_capita
     ):
-        if "r" in stock.dims.letters:
-            stock = stock.sum_over("r")
+        plot_letters = ["t", "s"]
         stock = stock / population.sum_over("r") if per_capita else stock
-
+        other_letters = tuple(letter for letter in stock.dims.letters if letter not in plot_letters)
+        stock = stock.sum_over(other_letters)
         ap_stock = self.plotter_class(
             array=stock,
             intra_line_dim="Time",
@@ -180,7 +191,7 @@ class CementDataExporter(CommonDataExporter):
 
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
 
-    def visualize_extrapolation(self, model: "CementModel"):
+    def visualize_extrapolation(self, model: "CementModel", show_extrapolation: bool = True, show_future: bool = True):
         mfa = model.future_mfa
         per_capita = True  # TODO see where this shold go
         subplot_dim = "Region"
@@ -213,7 +224,7 @@ class CementDataExporter(CommonDataExporter):
         if per_capita:
             stock = stock / population
 
-        fig, ap_final_stock = self.plot_history_and_future(
+        fig, ap = self.plot_history_and_future(
             mfa=mfa,
             data_to_plot=stock,
             subplot_dim=subplot_dim,
@@ -222,23 +233,46 @@ class CementDataExporter(CommonDataExporter):
             y_label=y_label,
             title=title,
             line_label="Historic + Modelled Future",
+            future_stock=show_future
         )
 
         # extrapolation
-        ap_pure_prediction = self.plotter_class(
-            array=model.stock_handler.pure_prediction,
-            intra_line_dim="Time",
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            title=title,
-            fig=fig,
-            line_type="dot",
-            line_label="Pure Extrapolation",
+        if show_extrapolation:
+            ap = self.plotter_class(
+                array=model.stock_handler.pure_prediction,
+                intra_line_dim="Time",
+                subplot_dim=subplot_dim,
+                x_array=x_array,
+                title=title,
+                fig=fig,
+                line_type="dot",
+                line_label="Pure Extrapolation",
+            )
+            fig = ap.plot()
+
+        extrapolation_name = "_extrapolation" if show_extrapolation else ""
+        future_name = "_projection" if show_future else "_historic"
+        self.plot_and_save_figure(
+            ap,
+            f"cement_stocks{extrapolation_name}{future_name}.png",
+            do_plot=False,
         )
-        fig = ap_pure_prediction.plot()
+
+    def visualize_carbonation(self, mfa: fd.MFASystem):
+        annual_uptake = mfa.stocks["carbonated_co2"].inflow
+        cumulative_uptake = mfa.stocks["carbonated_co2"].stock
+        plot_letters = ["t"]
+        other_dimletters = tuple(letter for letter in annual_uptake.dims.letters if letter not in plot_letters)
+        annual_uptake = annual_uptake.sum_over(other_dimletters)
+
+        fig, ap = self.plot_history_and_future(
+            mfa=mfa,
+            data_to_plot=annual_uptake,
+            x_label="Year",
+            y_label="Annual Co2 Uptake [t]",
+            title="Co2 Uptake from Carbonation",
+        )
 
         self.plot_and_save_figure(
-            ap_pure_prediction,
-            f"stocks_extrapolation.png",
-            do_plot=False,
+            ap, "cement_carbonation_annual_uptake.png", do_plot=False
         )
