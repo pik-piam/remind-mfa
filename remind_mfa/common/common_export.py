@@ -74,7 +74,7 @@ class CommonDataExporter(RemindMFABaseModel):
         if self.cfg.do_show_figs:
             plotter.show()
         if self.cfg.do_save_figs:
-            plotter.save(self.figure_path(filename), width=2200, height=1300)
+            plotter.save(self.figure_path(filename), width=2200, height=1300, scale=3)
 
     def stop_and_show(self):
         if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
@@ -164,6 +164,7 @@ class CommonDataExporter(RemindMFABaseModel):
         x_label: Optional[str] = None,
         y_label: Optional[str] = None,
         title: Optional[str] = None,
+        future_stock: bool = True,
         **kwargs,
     ):
 
@@ -193,6 +194,22 @@ class CommonDataExporter(RemindMFABaseModel):
             hist_x_array = x_array[{"t": mfa.dims["h"]}]
             scatter_x_array = hist_x_array[{"h": last_year_dim}]
 
+        # Historic stock (solid)
+        ap = self.plotter_class(
+            array=hist,
+            intra_line_dim="Historic Time",
+            linecolor_dim=linecolor_dim,
+            subplot_dim=subplot_dim,
+            x_array=hist_x_array,
+            color_map=colors,
+            **kwargs,
+        )
+        fig = ap.plot()
+
+        if not future_stock:
+            # Hack to remove future line from the plot, but keep the axis range
+            colors = ['rgba(0,0,0,0)'] * len(colors)
+
         # Future stock (dotted)
         ap = self.plotter_class(
             array=data_to_plot,
@@ -200,6 +217,7 @@ class CommonDataExporter(RemindMFABaseModel):
             linecolor_dim=linecolor_dim,
             subplot_dim=subplot_dim,
             x_array=x_array,
+            fig=fig,
             title=title,
             color_map=colors,
             line_type="dot",
@@ -208,21 +226,8 @@ class CommonDataExporter(RemindMFABaseModel):
         )
         fig = ap.plot()
 
-        # Historic stock (solid)
-        ap_hist = self.plotter_class(
-            array=hist,
-            intra_line_dim="Historic Time",
-            linecolor_dim=linecolor_dim,
-            subplot_dim=subplot_dim,
-            x_array=hist_x_array,
-            fig=fig,
-            color_map=colors,
-            **kwargs,
-        )
-        fig = ap_hist.plot()
-
         # Last historic year (black dot)
-        ap_scatter = self.plotter_class(
+        ap = self.plotter_class(
             array=scatter,
             intra_line_dim="Last Historic Year",
             linecolor_dim=linecolor_dim,
@@ -236,6 +241,6 @@ class CommonDataExporter(RemindMFABaseModel):
             suppress_legend=True,
             **kwargs,
         )
-        fig = ap_scatter.plot()
+        fig = ap.plot()
 
-        return fig, ap_scatter
+        return fig, ap
