@@ -90,15 +90,29 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         flw["sysenv => prod_clinker"][...] = (
             flw["prod_clinker => prod_cement"] + flw["prod_clinker => atmosphere"]
         )
-
+        
         # carbonation
-        # f is fraction of cao in the end-use product
-        dims = stk["in_use"].dims.drop("t")
-        # TODO add propper clinker ratio in here
-        f = np.expand_dims((prm["cao_ratio"] * 0.85 * prm["cement_ratio"] * prm["cao_emission_factor"]).cast_to(dims).values, 0) #prm["clinker_ratio"]
-        k = np.expand_dims(prm["carbonation_rate"].cast_to(dims).values, 0)
-        thickness = np.expand_dims(prm["product_thickness"].cast_to(dims).values, 0)
-        density = np.expand_dims(prm["product_density"].cast_to(dims).values, 0)
+        carbonation = self.calc_carbonation()
+        flw["atmosphere => carbonation"][...] = carbonation
+        stk["carbonated_co2"].inflow[...] = flw["atmosphere => carbonation"]
+        stk["carbonated_co2"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "e"])
+        stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
+        stk["atmosphere"].compute()
+        stk["carbonated_co2"].compute()
+
+    def calc_carbonation(self) -> fd.FlodymArray:
+        stk = self.stocks
+        prm = self.parameters
+        
+        dims = stk["in_use"].dims
+
+        # Numpy calculations are unfortunately necessary. Therefore, we convert all flodym arrays to numpy arrays.
+        # To ensure that the dimensions are correct, we cast them to the stock dimensions before.
+        # f is fraction of cao times it's capability to take up co2 in the end-use product, clinker-to-cement ratio is included later
+        f_in = (prm["cao_ratio"] * prm["cement_ratio"] * prm["clinker_ratio"] * prm["cao_emission_factor"]).cast_to(dims).values
+        k_in = prm["carbonation_rate"].cast_to(dims).values
+        thickness_in = prm["product_thickness"].cast_to(dims).values
+        density_in = prm["product_density"].cast_to(dims).values
 
         carbonation = np.zeros(stk["in_use"].dims.shape)
         
@@ -107,8 +121,12 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             # differentiate stock by age cohorts
             ages, mass = self.get_stock_age_histogram(stk["in_use"], t)
             # mass is shape (t + 1, stocks.shape without time)
-            # ages needs to be reshaped to match all other variables (first dimension is age, rest empty)
-            ages = ages.reshape((-1,) + (1,) * dims.ndim)
+
+            # select only cohorts that are younger than (or equal to) t
+            f = f_in[:t + 1, ...]
+            k = k_in[:t + 1, ...]
+            thickness = thickness_in[:t + 1, ...]
+            density = density_in[:t + 1, ...]
 
             # area available for carbonation
             area = mass / (density * thickness)
@@ -132,21 +150,27 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             carbonation[t] = added_co2.sum(axis=(0))
 
         carbonation = fd.FlodymArray(dims=stk["in_use"].dims, values=carbonation)
-        
-        flw["atmosphere => carbonation"][...] = carbonation
-        stk["carbonated_co2"].inflow[...] = flw["atmosphere => carbonation"]
-        stk["carbonated_co2"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "e"])
-        stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
-        stk["atmosphere"].compute()
-        stk["carbonated_co2"].compute()
 
-    # TODO: this function could be moved to flodym
+        return carbonation
+
     @ staticmethod
-    def get_stock_age_histogram(stock: fd.DynamicStockModel, t: int) -> np.ndarray:
+    def get_stock_age_histogram(stock: fd.DynamicStockModel, t: int) -> tuple[np.ndarray, np.ndarray]:
         """
         Returns the histogram of ages of the stock at time step t.
         """
+        
+        stock_by_cohort = stock.get_stock_by_cohort()
+
+        # check if there are any cohorts older than system age
+        if not np.all(stock_by_cohort[t, t+1:, ...] == 0):
+            raise RuntimeError(f"Nonzero stock found at t={t} for cohorts older than system age!")
+
+        # select time t and all cohorts up to t from stock
+        stock_by_age = stock_by_cohort[t, : t + 1, ...]
+
         # Only consider cohorts c <= t
         ages = np.arange(t + 1)[::-1]  # age 0 is newest, t is oldest
-        stock_by_age = stock._stock_by_cohort[t, : t + 1, ...]
+        # reshape to match stock dimensions
+        ages = ages.reshape((-1,) + (1,) * (stock_by_age.ndim - 1))
+
         return ages, stock_by_age
