@@ -105,7 +105,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         for t in range(1, stk["in_use"]._n_t):
             
             # differentiate stock by age cohorts
-            ages, mass = stk["in_use"].get_stock_age_histogram(t)
+            ages, mass = self.get_stock_age_histogram(stk["in_use"], t)
             # mass is shape (t + 1, stocks.shape without time)
             # ages needs to be reshaped to match all other variables (first dimension is age, rest empty)
             ages = ages.reshape((-1,) + (1,) * dims.ndim)
@@ -139,3 +139,14 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
         stk["atmosphere"].compute()
         stk["carbonated_co2"].compute()
+
+    # TODO: this function could be moved to flodym
+    @ staticmethod
+    def get_stock_age_histogram(stock: fd.DynamicStockModel, t: int) -> np.ndarray:
+        """
+        Returns the histogram of ages of the stock at time step t.
+        """
+        # Only consider cohorts c <= t
+        ages = np.arange(t + 1)[::-1]  # age 0 is newest, t is oldest
+        stock_by_age = stock._stock_by_cohort[t, : t + 1, ...]
+        return ages, stock_by_age
