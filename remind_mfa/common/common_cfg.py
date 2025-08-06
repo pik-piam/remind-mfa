@@ -68,7 +68,7 @@ class CementVisualizationCfg(VisualizationCfg):
     consumption: dict = {}
     prod_clinker: dict = {}
     prod_cement: dict = {}
-    prod_concrete: dict = {}
+    prod_product: dict = {}
     eol_stock: dict = {}
 
 

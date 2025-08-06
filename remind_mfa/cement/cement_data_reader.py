@@ -7,4 +7,5 @@ class CementDataReader(CustomDataReader):
         "Historic Time": "historic_years",
         "Region": "regions",
         "Stock Type": "stock_types",
+        "End-use Material": "end_use_materials",
     }
