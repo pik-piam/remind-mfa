@@ -21,7 +21,7 @@ class CementModel:
     def __init__(self, cfg: GeneralCfg):
         self.cfg = cfg
         self.definition_future = get_definition(self.cfg, historic=False)
-        # TODO why doe we only call future definition?
+        # TODO why do we only call future definition?
         # Would it not make sense to also separater dims and parameters for historic and future?
         self.read_data(self.definition_future)
         self.data_writer = CementDataExporter(
@@ -30,7 +30,7 @@ class CementModel:
             output_path=self.cfg.output_path,
         )
 
-        # hitoric mfa
+        # historic mfa
         self.definition_historic = get_definition(self.cfg, historic=True)
 
     def run(self):
@@ -85,7 +85,8 @@ class CementModel:
         )
 
     def get_long_term_stock(self) -> fd.FlodymArray:
-        # extrapolate in use stock to future
+        """Extrapolate in use stock to future."""
+        
         indep_fit_dim_letters = ("r",)
 
         # 1) constrain saturation level

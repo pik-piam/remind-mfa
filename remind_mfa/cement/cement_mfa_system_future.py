@@ -174,3 +174,4 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         ages = ages.reshape((-1,) + (1,) * (stock_by_age.ndim - 1))
 
         return ages, stock_by_age
+    
