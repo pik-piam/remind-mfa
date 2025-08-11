@@ -261,13 +261,15 @@ class CementDataExporter(CommonDataExporter):
     def visualize_carbonation(self, mfa: fd.MFASystem):
         annual_uptake = mfa.stocks["carbonated_co2"].inflow
         cumulative_uptake = mfa.stocks["carbonated_co2"].stock
-        plot_letters = ["t"]
+        linecolor_dimletter = "End-use Material"
+        plot_letters = ["t", "e"]
         other_dimletters = tuple(letter for letter in annual_uptake.dims.letters if letter not in plot_letters)
         annual_uptake = annual_uptake.sum_over(other_dimletters)
 
         fig, ap = self.plot_history_and_future(
             mfa=mfa,
             data_to_plot=annual_uptake,
+            linecolor_dim=linecolor_dimletter,
             x_label="Year",
             y_label="Annual Co2 Uptake [t]",
             title="Co2 Uptake from Carbonation",
@@ -276,3 +278,4 @@ class CementDataExporter(CommonDataExporter):
         self.plot_and_save_figure(
             ap, "cement_carbonation_annual_uptake.png", do_plot=False
         )
+

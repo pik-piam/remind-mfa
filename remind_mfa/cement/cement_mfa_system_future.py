@@ -109,7 +109,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # Numpy calculations are unfortunately necessary. Therefore, we convert all flodym arrays to numpy arrays.
         # To ensure that the dimensions are correct, we cast them to the stock dimensions before.
         # f is fraction of cao times it's capability to take up co2 in the end-use product, clinker-to-cement ratio is included later
-        f_in = (prm["cao_ratio"] * prm["cement_ratio"] * prm["clinker_ratio"] * prm["cao_emission_factor"]).cast_to(dims).values
+        # 75 % of carbonated concrete is calcium carbonate (from CaO) (Pade et al. 2007)
+        f_in = (prm["cao_ratio"] * prm["cement_ratio"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * 0.75).cast_to(dims).values
         k_in = prm["carbonation_rate"].cast_to(dims).values
         thickness_in = prm["product_thickness"].cast_to(dims).values
         density_in = prm["product_density"].cast_to(dims).values
@@ -175,3 +176,11 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         return ages, stock_by_age
     
+    @staticmethod
+    def uptake_CKD(CKD, clinker_to_cement_ratio, cao_ratio, landfilled_ratio, cao_carbonation_proportion, cao_emission_factor):
+        return CKD * clinker_to_cement_ratio * cao_ratio * landfilled_ratio * cao_carbonation_proportion * cao_emission_factor
+
+    @staticmethod
+    def uptake_construction_waste():
+        return None
+
