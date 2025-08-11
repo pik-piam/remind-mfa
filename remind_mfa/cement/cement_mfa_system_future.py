@@ -20,7 +20,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         prm = self.parameters
         stk = self.stocks
 
-        stk["in_use"].stock = cement_stock_projection * prm["cement_use_split"] / prm["cement_ratio"]
+        stk["in_use"].stock = cement_stock_projection * prm["cement_use_split"] / prm["cement_ratio"] * prm["concrete_strength_split"]
         
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["future_use_lifetime_mean"],
@@ -78,7 +78,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # eol
         flw["use => eol"][...] = stk["in_use"].outflow
         stk["eol"].inflow[...] = flw["use => eol"]
-        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s", "e"])
+        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s", "e", "c"])
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
 
@@ -110,8 +110,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # To ensure that the dimensions are correct, we cast them to the stock dimensions before.
         # f is fraction of cao times it's capability to take up co2 in the end-use product, clinker-to-cement ratio is included later
         # 75 % of carbonated concrete is calcium carbonate (from CaO) (Pade et al. 2007)
-        f_in = (prm["cao_ratio"] * prm["cement_ratio"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * 0.75).cast_to(dims).values
-        k_in = prm["carbonation_rate"].cast_to(dims).values
+        f_in = (prm["cao_ratio"] * prm["cement_ratio"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]).cast_to(dims).values
+        k_in = (prm["carbonation_rate"] * prm["carbonation_rate_coating"] * prm["carbonation_rate_additives"] * prm["carbonation_rate_co2"]).cast_to(dims).values
         thickness_in = prm["product_thickness"].cast_to(dims).values
         density_in = prm["product_density"].cast_to(dims).values
 

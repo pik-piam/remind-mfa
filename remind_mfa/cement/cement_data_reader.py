@@ -8,4 +8,5 @@ class CementDataReader(CustomDataReader):
         "Region": "regions",
         "Stock Type": "stock_types",
         "End-use Material": "end_use_materials",
+        "Strength Class": "strength_classes",
     }
