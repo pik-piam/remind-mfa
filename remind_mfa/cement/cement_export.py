@@ -14,10 +14,9 @@ class CementDataExporter(CommonDataExporter):
 
     _display_names: dict = {
         "sysenv": "System environment",
-        "raw_meal_preparation": "Raw meal preparation",
-        "prod_clinker": "Clinker production",
-        "prod_cement": "Cement grinding",
-        "prod_product": "Concrete production",
+        "prod_clinker": "Production: Clinker",
+        "prod_cement": "Production: Cement",
+        "prod_product": "Production: Product",
         "use": "Use phase",
         "eol": "End of life",
     }
@@ -261,8 +260,8 @@ class CementDataExporter(CommonDataExporter):
     def visualize_carbonation(self, mfa: fd.MFASystem):
         annual_uptake = mfa.stocks["carbonated_co2"].inflow
         cumulative_uptake = mfa.stocks["carbonated_co2"].stock
-        linecolor_dimletter = "End-use Material"
-        plot_letters = ["t", "e"]
+        linecolor_dimletter = "Product Material"
+        plot_letters = ["t", "m"]
         other_dimletters = tuple(letter for letter in annual_uptake.dims.letters if letter not in plot_letters)
         annual_uptake = annual_uptake.sum_over(other_dimletters)
 

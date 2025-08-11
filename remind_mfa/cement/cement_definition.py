@@ -11,8 +11,8 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
-        fd.DimensionDefinition(name="End-use Material", dim_letter="e", dtype=str),
-        fd.DimensionDefinition(name="Strength Class", dim_letter="c", dtype=str),
+        fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
+        fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
     ]
 
     # 2) Processes
@@ -42,18 +42,18 @@ def get_definition(cfg: GeneralCfg, historic: bool):
     else:
         flows = [
             # historic flows
-            fd.FlowDefinition(from_process="sysenv", to_process="prod_clinker", dim_letters=("t", "r", "e")),
-            fd.FlowDefinition(from_process="prod_clinker", to_process="prod_cement", dim_letters=("t", "r", "e")),
-            fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("t", "r", "e")),
-            fd.FlowDefinition(from_process="prod_cement", to_process="prod_product", dim_letters=("t", "r", "e")),
-            fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "e")),
-            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "e", "c")),
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "e", "c")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "e", "c")),
+            fd.FlowDefinition(from_process="sysenv", to_process="prod_clinker", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="prod_clinker", to_process="prod_cement", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="prod_cement", to_process="prod_product", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "a")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "a")),
             # atmosphere
-            fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "e")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="sysenv", dim_letters=("t", "r", "e")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "e")),
+            fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="atmosphere", to_process="sysenv", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m")),
         ]
 
     # 4) Stocks
@@ -73,26 +73,26 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.StockDefinition(
                 name="in_use",
                 process="use",
-                dim_letters=("t", "r", "s", "e", "c"),
+                dim_letters=("t", "r", "s", "m", "a"),
                 subclass=fd.StockDrivenDSM,
                 lifetime_model_class=cfg.customization.lifetime_model,
             ),
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "s", "e", "c"),
+                dim_letters=("t", "r", "s", "m", "a"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
                 name="atmosphere",
                 process="atmosphere",
-                dim_letters=("t", "r", "e"),
+                dim_letters=("t", "r", "m"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
                 name="carbonated_co2",
                 process="carbonation",
-                dim_letters=("t", "r", "e"),
+                dim_letters=("t", "r", "m"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
         ]
@@ -100,29 +100,32 @@ def get_definition(cfg: GeneralCfg, historic: bool):
     # 5) Parameters
     parameters = [
         # common parameters
-        fd.ParameterDefinition(name="use_split", dim_letters=("s",)),
+        fd.ParameterDefinition(name="use_split", dim_letters=("s",)), # manual (guess)
         # historic parameters
         fd.ParameterDefinition(name="cement_production", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="cement_trade", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="historic_use_lifetime_mean", dim_letters=("h", "r", "s")),
         # future parameters
-        fd.ParameterDefinition(name="clinker_ratio", dim_letters=("t", "r")),
-        fd.ParameterDefinition(name="cement_ratio", dim_letters=("e",)),
-        fd.ParameterDefinition(name="future_use_lifetime_mean", dim_letters=("t", "r", "s")),
+        fd.ParameterDefinition(name="clinker_ratio", dim_letters=("t", "r")), # manual (extrapolated)
+        fd.ParameterDefinition(name="future_use_lifetime_mean", dim_letters=("t", "r", "s")), # manual (extrapolated)
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
-        fd.ParameterDefinition(name="cement_use_split", dim_letters=("r", "e")),
         # carbonation parameters
-        fd.ParameterDefinition(name="cao_ratio", dim_letters=()),
-        fd.ParameterDefinition(name="product_density", dim_letters=("e",)),
-        fd.ParameterDefinition(name="carbonation_rate", dim_letters=("r", "c")),
-        fd.ParameterDefinition(name="product_thickness", dim_letters=("e",)), # add new data
-        fd.ParameterDefinition(name="cao_emission_factor", dim_letters=()),
-        fd.ParameterDefinition(name="cao_carbonation_share", dim_letters=("r", "e")),
-        fd.ParameterDefinition(name="concrete_strength_split", dim_letters=("r", "c")),
+        fd.ParameterDefinition(name="cao_ratio", dim_letters=()), # manual (guess)
+        fd.ParameterDefinition(name="cao_emission_factor", dim_letters=()), # manual (fixed)
+        fd.ParameterDefinition(name="product_density", dim_letters=("m",)), # manual (guess)
+
+        fd.ParameterDefinition(name="carbonation_rate", dim_letters=("r", "a")),
         fd.ParameterDefinition(name="carbonation_rate_coating", dim_letters=("r",)),
         fd.ParameterDefinition(name="carbonation_rate_co2", dim_letters=("r",)),
         fd.ParameterDefinition(name="carbonation_rate_additives", dim_letters=("r",)),
+
+        fd.ParameterDefinition(name="product_thickness", dim_letters=("r", "a")),
+        fd.ParameterDefinition(name="cao_carbonation_share", dim_letters=("r", "m")),
+        fd.ParameterDefinition(name="product_cement_content", dim_letters=("r", "a")), # TODO rename to product_cement_density
+        fd.ParameterDefinition(name="product_application_split", dim_letters=("r", "a")),
+        fd.ParameterDefinition(name="product_material_split", dim_letters=("r", "m",)),
+        fd.ParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a")),
     ]
     
 

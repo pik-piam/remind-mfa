@@ -19,9 +19,16 @@ class StockDrivenCementMFASystem(fd.MFASystem):
     def compute_in_use_stock(self, cement_stock_projection: fd.FlodymArray):
         prm = self.parameters
         stk = self.stocks
+        cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
-        stk["in_use"].stock = cement_stock_projection * prm["cement_use_split"] / prm["cement_ratio"] * prm["concrete_strength_split"]
-        
+        stk["in_use"].stock = (
+            cement_stock_projection 
+            * prm["product_material_split"]
+            * prm["product_material_application_transform"]
+            * prm["product_application_split"]
+            / cement_ratio
+        )
+
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["future_use_lifetime_mean"],
             std=0.4 * prm["future_use_lifetime_mean"],
@@ -38,6 +45,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
+        cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
         # go backwards from in-use stock
         flw["prod_product => use"][...] = stk["in_use"].inflow
@@ -57,7 +65,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         )
 
         flw["prod_cement => prod_product"][...] = (
-            flw["prod_product => use"] * prm["cement_ratio"] 
+            flw["prod_product => use"] * cement_ratio
         )
         flw["prod_clinker => prod_cement"][...] = (
             flw["prod_cement => prod_product"] * prm["clinker_ratio"]
@@ -67,7 +75,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             1 - prm["clinker_ratio"]
         )
         flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (
-            1 - prm["cement_ratio"]
+            1 - cement_ratio
         )
 
     def compute_other_stocks(self):
@@ -78,7 +86,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # eol
         flw["use => eol"][...] = stk["in_use"].outflow
         stk["eol"].inflow[...] = flw["use => eol"]
-        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s", "e", "c"])
+        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s", "m", "a"])
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
 
@@ -95,7 +103,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         carbonation = self.calc_carbonation()
         flw["atmosphere => carbonation"][...] = carbonation
         stk["carbonated_co2"].inflow[...] = flw["atmosphere => carbonation"]
-        stk["carbonated_co2"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "e"])
+        stk["carbonated_co2"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "m"])
         stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
         stk["atmosphere"].compute()
         stk["carbonated_co2"].compute()
@@ -108,12 +116,11 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         # Numpy calculations are unfortunately necessary. Therefore, we convert all flodym arrays to numpy arrays.
         # To ensure that the dimensions are correct, we cast them to the stock dimensions before.
-        # f is fraction of cao times it's capability to take up co2 in the end-use product, clinker-to-cement ratio is included later
-        # 75 % of carbonated concrete is calcium carbonate (from CaO) (Pade et al. 2007)
-        f_in = (prm["cao_ratio"] * prm["cement_ratio"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]).cast_to(dims).values
+        # f describes the available density of CaO in product available for carbonation 
+        f_in = (prm["cao_ratio"] * prm["product_cement_content"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]).cast_to(dims).values
+        # k is the carbonation rate (mm/sqrt(year))
         k_in = (prm["carbonation_rate"] * prm["carbonation_rate_coating"] * prm["carbonation_rate_additives"] * prm["carbonation_rate_co2"]).cast_to(dims).values
         thickness_in = prm["product_thickness"].cast_to(dims).values
-        density_in = prm["product_density"].cast_to(dims).values
 
         carbonation = np.zeros(stk["in_use"].dims.shape)
         
@@ -127,10 +134,9 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             f = f_in[:t + 1, ...]
             k = k_in[:t + 1, ...]
             thickness = thickness_in[:t + 1, ...]
-            density = density_in[:t + 1, ...]
 
             # area available for carbonation
-            area = mass / (density * thickness)
+            area_density = mass / thickness
             
             # already carbonated depth (from previous year)
             d = np.sqrt(np.maximum(ages - 1, 0)) * k
@@ -145,7 +151,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             d_add = np.where(d_add > d_available, d_available, d_add)
 
             # calculated co2 removed from atmosphere by carbonation
-            added_co2 = d_add * f * area
+            added_co2 = d_add * f * area_density
 
             # sum over all age cohorts
             carbonation[t] = added_co2.sum(axis=(0))
