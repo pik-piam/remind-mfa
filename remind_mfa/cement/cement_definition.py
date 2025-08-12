@@ -44,8 +44,10 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             # historic flows
             fd.FlowDefinition(from_process="sysenv", to_process="prod_clinker", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="prod_clinker", to_process="prod_cement", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="prod_clinker", to_process="sysenv", dim_letters=("t", "r", "m")), #CKD production
             fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="prod_cement", to_process="prod_product", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r", "m")), # cement losses
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "a")),
@@ -126,6 +128,8 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.ParameterDefinition(name="product_application_split", dim_letters=("r", "a")),
         fd.ParameterDefinition(name="product_material_split", dim_letters=("r", "m",)),
         fd.ParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a")),
+        fd.ParameterDefinition(name="cement_losses", dim_letters=("r",)),
+        fd.ParameterDefinition(name="clinker_losses", dim_letters=("r",)),
     ]
     
 

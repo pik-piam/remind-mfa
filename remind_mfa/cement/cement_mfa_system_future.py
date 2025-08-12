@@ -67,12 +67,18 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         flw["prod_cement => prod_product"][...] = (
             flw["prod_product => use"] * cement_ratio
         )
+        flw["prod_cement => sysenv"][...] = (
+            flw["prod_cement => prod_product"] * (prm["cement_losses"] / (1 - prm["cement_losses"]))
+        )
         flw["prod_clinker => prod_cement"][...] = (
-            flw["prod_cement => prod_product"] * prm["clinker_ratio"]
+            (flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]) * prm["clinker_ratio"]
+        )
+        flw["prod_clinker => sysenv"][...] = (
+            flw["prod_clinker => prod_cement"] * prm["clinker_losses"]
         )
         # sysenv flows for mass balance
-        flw["sysenv => prod_cement"][...] = flw["prod_cement => prod_product"] * (
-            1 - prm["clinker_ratio"]
+        flw["sysenv => prod_cement"][...] = (
+            (flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]) * (1 - prm["clinker_ratio"])
         )
         flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (
             1 - cement_ratio
@@ -96,7 +102,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         )
         stk["atmosphere"].inflow = flw["prod_clinker => atmosphere"]
         flw["sysenv => prod_clinker"][...] = (
-            flw["prod_clinker => prod_cement"] + flw["prod_clinker => atmosphere"]
+            flw["prod_clinker => prod_cement"] + flw["prod_clinker => atmosphere"] + flw["prod_clinker => sysenv"]
         )
         
         # carbonation

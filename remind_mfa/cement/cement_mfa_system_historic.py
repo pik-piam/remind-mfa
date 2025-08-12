@@ -17,7 +17,7 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
     def compute_in_use_stock(self):
         prm = self.parameters
         stk = self.stocks
-        cement_consumption = prm["cement_production"] - prm["cement_trade"]
+        cement_consumption = (1 - prm["cement_losses"]) * (prm["cement_production"] - prm["cement_trade"])
 
         # in use
         stk["historic_cement_in_use"].inflow[...] = (
