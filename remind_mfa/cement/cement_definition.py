@@ -102,7 +102,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
     # 5) Parameters
     parameters = [
         # common parameters
-        fd.ParameterDefinition(name="use_split", dim_letters=("s",)), # manual (guess)
+        fd.ParameterDefinition(name="stock_type_split", dim_letters=("r", "s",)), # manual (guess)
         # historic parameters
         fd.ParameterDefinition(name="cement_production", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="cement_trade", dim_letters=("h", "r")),

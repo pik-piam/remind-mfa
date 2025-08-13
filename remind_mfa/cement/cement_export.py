@@ -1,6 +1,7 @@
 from plotly import colors as plc
 import flodym as fd
 from typing import TYPE_CHECKING
+import numpy as np
 
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_cfg import CementVisualizationCfg
@@ -101,8 +102,9 @@ class CementDataExporter(CommonDataExporter):
         self.visualize_production(mfa=mfa, production=production, name="Product")
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        import numpy as np
-        consumption = mfa.stocks["in_use"].inflow * mfa.parameters["cement_ratio"]
+        # TODO find better way to implement cement_ratio
+        cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
+        consumption = mfa.stocks["in_use"].inflow * cement_ratio
         plot_letters = ["t", "r", "s"]
         other_letters = tuple(letter for letter in consumption.dims.letters if letter not in plot_letters)
         consumption = consumption.sum_over(other_letters)
@@ -129,7 +131,8 @@ class CementDataExporter(CommonDataExporter):
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
         subplot_dim = "Stock Type" if subplots_by_stock_type else None
-        stock = mfa.stocks["in_use"].stock * mfa.parameters["cement_ratio"]
+        cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
+        stock = mfa.stocks["in_use"].stock * cement_ratio
         super().visualize_use_stock(mfa, stock=stock, subplot_dim=subplot_dim)
 
     def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
@@ -194,7 +197,8 @@ class CementDataExporter(CommonDataExporter):
         mfa = model.future_mfa
         per_capita = True  # TODO see where this shold go
         subplot_dim = "Region"
-        stock = mfa.stocks["in_use"].stock * mfa.parameters["cement_ratio"]
+        cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
+        stock = mfa.stocks["in_use"].stock * cement_ratio
         population = mfa.parameters["population"]
         x_array = None
 

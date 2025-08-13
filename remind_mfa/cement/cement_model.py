@@ -177,5 +177,5 @@ class CementModel:
 
         total_in_use_stock = self.stock_handler.stocks
 
-        total_in_use_stock = total_in_use_stock * self.parameters["use_split"]
+        total_in_use_stock = total_in_use_stock * self.parameters["stock_type_split"]
         return total_in_use_stock
