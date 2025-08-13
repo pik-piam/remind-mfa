@@ -25,7 +25,7 @@ visualization:
     do_visualize: False
   prod_cement:
     do_visualize: True
-  prod_concrete:
+  prod_product:
     do_visualize: False
   sankey:
     do_visualize: True
