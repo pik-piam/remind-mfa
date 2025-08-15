@@ -9,4 +9,6 @@ class CementDataReader(CustomDataReader):
         "Stock Type": "stock_types",
         "Product Material": "product_materials",
         "Product Application": "product_applications",
+        "Waste Type": "waste_types",
+        "Waste Size": "waste_sizes",
     }

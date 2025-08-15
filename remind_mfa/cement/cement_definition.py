@@ -13,6 +13,8 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
+        fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
+        fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
     ]
 
     # 2) Processes
@@ -28,6 +30,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             "prod_cement",
             "prod_product",
             "use",
+            "demolition",
             "eol",
             "atmosphere",
             "carbonation"
@@ -50,8 +53,9 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r", "m")), # cement losses
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "a")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "a")),
+            fd.FlowDefinition(from_process="use", to_process="demolition", dim_letters=("t", "r", "s", "m", "a", "w", "p")),
+            fd.FlowDefinition(from_process="demolition", to_process="eol", dim_letters=("t", "r", "s", "m", "a", "w", "p")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "a", "w", "p")),
             # atmosphere
             fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="atmosphere", to_process="sysenv", dim_letters=("t", "r", "m")),
@@ -80,9 +84,16 @@ def get_definition(cfg: GeneralCfg, historic: bool):
                 lifetime_model_class=cfg.customization.lifetime_model,
             ),
             fd.StockDefinition(
+                name="demolition",
+                process="demolition",
+                dim_letters=("t", "r", "s", "m", "a", "w", "p"),
+                subclass=fd.InflowDrivenDSM,
+                lifetime_model_class=fd.TruncatedWeibullLifetime,
+            ),
+            fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "s", "m", "a"),
+                dim_letters=("t", "r", "s", "m", "a", "w", "p"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
@@ -114,7 +125,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
         # carbonation parameters
         fd.ParameterDefinition(name="cao_ratio", dim_letters=()), # manual (guess)
-        fd.ParameterDefinition(name="cao_emission_factor", dim_letters=()), # manual (fixed)
+        fd.ParameterDefinition(name="cao_emission_factor", dim_letters=()), # manual (calculated)
         fd.ParameterDefinition(name="product_density", dim_letters=("m",)), # manual (guess)
 
         fd.ParameterDefinition(name="carbonation_rate", dim_letters=("r", "a")),
@@ -130,6 +141,10 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.ParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a")),
         fd.ParameterDefinition(name="cement_losses", dim_letters=("r",)),
         fd.ParameterDefinition(name="clinker_losses", dim_letters=("r",)),
+        fd.ParameterDefinition(name="waste_type_split", dim_letters=("r", "w")),
+        fd.ParameterDefinition(name="waste_size_share", dim_letters=("r", "w", "p")),
+        fd.ParameterDefinition(name="waste_size_min", dim_letters=("w", "p")),  # manual (from Xi2016 categories)
+        fd.ParameterDefinition(name="waste_size_max", dim_letters=("w", "p",)),  # manual (from Xi2016 categories)
     ]
     
 

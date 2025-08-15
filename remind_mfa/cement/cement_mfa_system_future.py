@@ -89,10 +89,21 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk = self.stocks
         prm = self.parameters
 
+        # demolition
+        flw["use => demolition"][...] = stk["in_use"].outflow * prm["waste_type_split"] * prm["waste_size_share"]
+        stk["demolition"].inflow[...] = flw["use => demolition"]
+        stk["demolition"].lifetime_model.set_prms(
+            weibull_shape=4,
+            weibull_scale=0.5,
+            min_lifetime=0.1,
+            max_lifetime=0.8
+        )
+        stk["demolition"].compute()
+
         # eol
-        flw["use => eol"][...] = stk["in_use"].outflow
-        stk["eol"].inflow[...] = flw["use => eol"]
-        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s", "m", "a"])
+        flw["demolition => eol"][...] = stk["demolition"].outflow
+        stk["eol"].inflow[...] = flw["demolition => eol"]
+        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s", "m", "a", "w", "p"])
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
 
