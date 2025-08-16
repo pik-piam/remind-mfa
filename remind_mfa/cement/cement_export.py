@@ -123,11 +123,13 @@ class CementDataExporter(CommonDataExporter):
         self.plot_and_save_figure(ap, "cement_consumption.png", do_plot=False)
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
-        over_gdp = self.cfg.eol_stock["over_gdp"]
-        per_capita = self.cfg.eol_stock["per_capita"]
-        stock = mfa.stocks["eol"].stock
+        # over_gdp = self.cfg.eol_stock["over_gdp"]
+        # per_capita = self.cfg.eol_stock["per_capita"]
+        # stock = mfa.stocks["eol"].stock
 
-        self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
+        # self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
+        # TODO EOL visualization does not make sense by stock type
+        pass
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
         subplot_dim = "Stock Type" if subplots_by_stock_type else None

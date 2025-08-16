@@ -53,9 +53,9 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r", "m")), # cement losses
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
-            fd.FlowDefinition(from_process="use", to_process="demolition", dim_letters=("t", "r", "s", "m", "a", "w")),
-            fd.FlowDefinition(from_process="demolition", to_process="eol", dim_letters=("t", "r", "s", "m", "a", "w")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "a", "w")),
+            fd.FlowDefinition(from_process="use", to_process="demolition", dim_letters=("t", "r", "m", "a", "w")),
+            fd.FlowDefinition(from_process="demolition", to_process="eol", dim_letters=("t", "r", "m", "a", "w")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a", "w")),
             # atmosphere
             fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="atmosphere", to_process="sysenv", dim_letters=("t", "r", "m")),
@@ -86,14 +86,14 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.StockDefinition(
                 name="demolition",
                 process="demolition",
-                dim_letters=("t", "r", "s", "m", "a", "w"),
+                dim_letters=("t", "r", "m", "a", "w"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.TruncatedWeibullLifetime,
             ),
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "s", "m", "a", "w"),
+                dim_letters=("t", "r", "m", "a", "w"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
