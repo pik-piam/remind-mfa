@@ -90,7 +90,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         prm = self.parameters
 
         # demolition
-        flw["use => demolition"][...] = stk["in_use"].outflow * prm["waste_type_split"] * prm["waste_size_share"]
+        flw["use => demolition"][...] = stk["in_use"].outflow * prm["waste_type_split"]
         stk["demolition"].inflow[...] = flw["use => demolition"]
         stk["demolition"].lifetime_model.set_prms(
             weibull_shape=4,
