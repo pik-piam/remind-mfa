@@ -16,6 +16,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         # carbonation dimensions
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
+        # TODO add? fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
     ]
 
     # 2) Processes
@@ -125,7 +126,9 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
         # carbonation parameters
-        fd.ParameterDefinition(name="cao_ratio", dim_letters=()), # manual (guess)
+        fd.ParameterDefinition(name="clinker_cao_ratio", dim_letters=("r",)),
+        fd.ParameterDefinition(name="ckd_cao_ratio", dim_letters=("r",)),
+        fd.ParameterDefinition(name="ckd_landfill_share", dim_letters=("r",)),
         fd.ParameterDefinition(name="cao_emission_factor", dim_letters=()), # manual (calculated)
         fd.ParameterDefinition(name="product_density", dim_letters=("m",)), # manual (guess)
 

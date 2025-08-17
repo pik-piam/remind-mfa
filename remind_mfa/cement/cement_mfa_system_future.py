@@ -13,6 +13,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.compute_in_use_stock(stock_projection)
         self.compute_flows()
         self.compute_other_stocks()
+        self.compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
@@ -87,7 +88,6 @@ class StockDrivenCementMFASystem(fd.MFASystem):
     def compute_other_stocks(self):
         flw = self.flows
         stk = self.stocks
-        prm = self.parameters
 
         # demolition
         flw["use => demolition"][...] = stk["in_use"].outflow
@@ -107,9 +107,16 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
 
+    def compute_carbon_flow(self):
+        flw = self.flows
+        stk = self.stocks
+        prm = self.parameters
+
         # emissions
         flw["prod_clinker => atmosphere"][...] = (
-            flw["prod_clinker => prod_cement"] * self.parameters["cao_ratio"] * prm["cao_emission_factor"]
+            (flw["prod_clinker => prod_cement"] * prm["clinker_cao_ratio"] # clinker
+            + flw["prod_clinker => sysenv"] * prm["ckd_cao_ratio"]) # CKD
+            * prm["cao_emission_factor"]
         )
         stk["atmosphere"].inflow = flw["prod_clinker => atmosphere"]
         flw["sysenv => prod_clinker"][...] = (
@@ -122,10 +129,45 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["carbonated_co2"].inflow[...] = flw["atmosphere => carbonation"]
         stk["carbonated_co2"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "m"])
         stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
+
         stk["atmosphere"].compute()
         stk["carbonated_co2"].compute()
+    
+    def calc_carbonation(self, ) -> fd.FlodymArray:
+        ckd = self.uptake_CKD()
+        construction_waste = self.uptake_construction_waste()
+        in_use = self.uptake_in_use()
+        demolition = self.uptake_demolition()
+        eol = self.uptake_eol()
 
-    def calc_carbonation(self) -> fd.FlodymArray:
+        # TODO: add carbonation location dimension
+        combined_uptake = ckd + construction_waste + in_use + demolition + eol
+        return combined_uptake
+
+    def uptake_CKD(self):
+        """
+        Assumes that 100 % of CaO in CKD is available for carbonation.
+        Assumes that full carbonation takes 1 year.
+        """
+        prm = self.parameters
+        ckd_prod = self.flows["prod_cement => sysenv"]
+        uptake = ckd_prod * prm["ckd_landfill_share"] * prm["ckd_cao_ratio"] * prm["cao_emission_factor"]
+        return uptake
+
+    def uptake_construction_waste(self):
+        """
+        Calculated in terms of cement.
+        Assumes that full carbonation takes 5 years and happens uniformly over that time.
+        """
+        prm = self.parameters
+        # TODO only waste used for concrete
+        cwaste_prod = self.flows["prod_cement => sysenv"]
+        annual_carbonation_fraction = 0.2
+        cao_content = cwaste_prod * prm["clinker_ratio"] * prm["clinker_cao_ratio"]
+        uptake = cao_content * annual_carbonation_fraction  * prm["cao_carbonation_share"] * prm["cao_emission_factor"]
+        return uptake
+
+    def uptake_in_use(self) -> fd.FlodymArray:
         stk = self.stocks
         prm = self.parameters
         
@@ -134,7 +176,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # Numpy calculations are unfortunately necessary. Therefore, we convert all flodym arrays to numpy arrays.
         # To ensure that the dimensions are correct, we cast them to the stock dimensions before.
         # f describes the available density of CaO in product available for carbonation 
-        f_in = (prm["cao_ratio"] * prm["product_cement_content"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]).cast_to(dims).values
+        f_in = (prm["clinker_cao_ratio"] * prm["product_cement_content"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]).cast_to(dims).values
         # k is the carbonation rate (mm/sqrt(year))
         k_in = (prm["carbonation_rate"] * prm["carbonation_rate_coating"] * prm["carbonation_rate_additives"] * prm["carbonation_rate_co2"]).cast_to(dims).values
         thickness_in = prm["product_thickness"].cast_to(dims).values
@@ -173,9 +215,9 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             # sum over all age cohorts
             carbonation[t] = added_co2.sum(axis=(0))
 
-        carbonation = fd.FlodymArray(dims=stk["in_use"].dims, values=carbonation)
+        uptake = fd.FlodymArray(dims=stk["in_use"].dims, values=carbonation)
 
-        return carbonation
+        return uptake
 
     @ staticmethod
     def get_stock_age_histogram(stock: fd.DynamicStockModel, t: int) -> tuple[np.ndarray, np.ndarray]:
@@ -198,12 +240,9 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         ages = ages.reshape((-1,) + (1,) * (stock_by_age.ndim - 1))
 
         return ages, stock_by_age
-    
-    @staticmethod
-    def uptake_CKD(CKD, clinker_to_cement_ratio, cao_ratio, landfilled_ratio, cao_carbonation_proportion, cao_emission_factor):
-        return CKD * clinker_to_cement_ratio * cao_ratio * landfilled_ratio * cao_carbonation_proportion * cao_emission_factor
 
-    @staticmethod
-    def uptake_construction_waste():
-        return None
+    def uptake_demolition(self):
+        return fd.FlodymArray(dims=self.dims["t", "r", "m"])
 
+    def uptake_eol(self):
+        return fd.FlodymArray(dims=self.dims["t", "r", "m"])
