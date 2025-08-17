@@ -13,6 +13,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
+        # carbonation dimensions
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
     ]
@@ -53,9 +54,9 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r", "m")), # cement losses
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
-            fd.FlowDefinition(from_process="use", to_process="demolition", dim_letters=("t", "r", "m", "a", "w")),
-            fd.FlowDefinition(from_process="demolition", to_process="eol", dim_letters=("t", "r", "m", "a", "w")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a", "w")),
+            fd.FlowDefinition(from_process="use", to_process="demolition", dim_letters=("t", "r", "m", "a")),
+            fd.FlowDefinition(from_process="demolition", to_process="eol", dim_letters=("t", "r", "m", "a")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a")),
             # atmosphere
             fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="atmosphere", to_process="sysenv", dim_letters=("t", "r", "m")),
@@ -86,14 +87,14 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.StockDefinition(
                 name="demolition",
                 process="demolition",
-                dim_letters=("t", "r", "m", "a", "w"),
+                dim_letters=("t", "r", "m", "a"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.TruncatedWeibullLifetime,
             ),
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "m", "a", "w"),
+                dim_letters=("t", "r", "m", "a"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
