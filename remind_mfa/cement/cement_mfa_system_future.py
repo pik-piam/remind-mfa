@@ -123,13 +123,14 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["carbonated_co2"].compute()
     
     def calc_carbonation(self, ) -> fd.FlodymArray:
-        f_in_use = self.get_available_cao()
-        k_in_use = self.get_eff_carbonation_rate()
+        f = self.get_available_cao()
+        k_free = self.get_eff_carbonation_rate(type="free")
+        k_buried = self.get_eff_carbonation_rate(type="buried")
 
         ckd = self.uptake_CKD()
         construction_waste = self.uptake_construction_waste()
-        in_use = self.uptake_in_use(f_in=f_in_use, k_in=k_in_use)
-        eol = self.uptake_eol(k_in_use, f_in_use) # TODO change to (partly) buried f
+        in_use = self.uptake_in_use(f_in=f, k_free_in=k_free)
+        eol = self.uptake_eol(f_in=f, k_free_in=k_free, k_buried_in=k_buried)
 
         # TODO: add carbonation location dimension
         combined_uptake = ckd + construction_waste + in_use + eol
@@ -158,7 +159,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         uptake = cao_content * annual_carbonation_fraction  * prm["cao_carbonation_share"] * prm["cao_emission_factor"]
         return uptake
 
-    def uptake_in_use(self, f_in: fd.FlodymArray, k_in: fd.FlodymArray) -> fd.FlodymArray:
+    def uptake_in_use(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray) -> fd.FlodymArray:
         stk = self.stocks["in_use"]
         stk_dims = stk.dims
 
@@ -168,7 +169,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # f describes the available density of CaO in product available for carbonation 
         f_in = f_in.cast_values_to(stk_dims)
         # k is the carbonation rate (mm/sqrt(year))
-        k_in = k_in.cast_values_to(stk_dims)
+        k_free_in = k_free_in.cast_values_to(stk_dims)
         thickness_in = self.parameters["product_thickness"].cast_values_to(stk_dims)
 
         carbonation = np.zeros(stk.dims.shape)
@@ -181,7 +182,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
             # select only cohorts that are younger than (or equal to) t
             f = f_in[:t + 1, ...]
-            k = k_in[:t + 1, ...]
+            k = k_free_in[:t + 1, ...]
             thickness = thickness_in[:t + 1, ...]
 
             # area available for carbonation
@@ -218,12 +219,22 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         return f
         
     
-    def get_eff_carbonation_rate(self) -> fd.FlodymArray:
+    def get_eff_carbonation_rate(self, type) -> fd.FlodymArray:
         """
         Returns the effective carbonation rate for the in-use stock.
         """
         prm = self.parameters
-        k = prm["carbonation_rate"] * prm["carbonation_rate_coating"] * prm["carbonation_rate_additives"] * prm["carbonation_rate_co2"]
+
+        if type == "free":
+            rate = self.parameters["carbonation_rate"]
+            multiplier = prm["carbonation_rate_coating"] * prm["carbonation_rate_additives"] * prm["carbonation_rate_co2"]
+        elif type == "buried":
+            rate = self.parameters["carbonation_rate_buried"]
+            multiplier = 1
+        else:
+            raise ValueError(f"Unknown carbonation type: {type}. Must be either 'free' or 'buried'.")
+        
+        k = rate * multiplier
         return k
 
 
@@ -268,10 +279,11 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         return ages, data_by_age
 
-    def uptake_eol(self, k_in_use_into: fd.FlodymArray, f_in_use_into: fd.FlodymArray) -> fd.FlodymArray:
+    def uptake_eol(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray, k_buried_in: fd.FlodymArray) -> fd.FlodymArray:
         # consider only left over volume after carbonation durin in-use and demolition
         # I could have fixed lifetime for demolition
 
+        # TODO add differentiation of carbonation rate by recycled/buried
         # waste is either recycled (= going to new concret as filler) or buried (= landfill/road base, asphalt)
         # recycled = X88, buried = 1 - recycled
 
@@ -288,10 +300,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         prm = self.parameters
         stk_in_use = self.stocks["in_use"]
-        k_in_use_in = k_in_use_into.cast_values_to(stk_in_use.dims)
-        k_buried_into = k_in_use_into # TODO update with buried carbonation rate
-        k_buried_in = k_buried_into.cast_values_to(stk_in_use.dims)
-        f_in_use_in = f_in_use_into.cast_values_to(stk_in_use.dims)
+        k_free_arr = k_free_in.cast_values_to(stk_in_use.dims)
+        f_in_arr = f_in.cast_values_to(stk_in_use.dims)
         thickness_in = self.parameters["product_thickness"].cast_values_to(stk_in_use.dims)
 
         uncarbonated_inflow = np.zeros(stk_in_use.dims.shape)
@@ -302,13 +312,14 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             ages, inflow = self.get_age_distribution(self.stocks["in_use"], t, data_type="outflow")
 
             # (2) get carbonation depth by cohort
-            k_in_use = k_in_use_in[:t + 1, ...]
-            d_in_use = np.sqrt(np.maximum(ages - 1, 0)) * k_in_use
+            k_free = k_free_arr[:t + 1, ...]
+            d_in_use = np.sqrt(np.maximum(ages - 1, 0)) * k_free
 
             # (3) calculate uncarbonated mass by cohort
             thickness = thickness_in[:t + 1, ...]
             d_available = np.maximum(thickness - d_in_use, 0)
             uncarbonated_fraction = d_available / thickness
+
             # sum over all age cohorts, convert to flodym array
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
         
@@ -323,8 +334,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         uncarbonated_inflow.cast_values_to(new_dims)
         a = prm["waste_size_min"].cast_values_to(new_dims)
         b = prm["waste_size_max"].cast_values_to(new_dims)
-        k_buried_in = k_buried_into.cast_values_to(new_dims)
-        f_in_use_in = f_in_use_into.cast_values_to(new_dims)
+        k_buried_arr = k_buried_in.cast_values_to(new_dims)
+        f_in_arr = f_in.cast_values_to(new_dims)
 
         carbonation = np.zeros(self.stocks["eol"].dims.shape)
 
@@ -335,8 +346,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             ages = ages.reshape((-1,) + (1,) * (new_dims.ndim - 1))
             
             # TODO separate this into a function
-            k_buried = k_buried_in[:t + 1, ...]
-            f_in_use = f_in_use_in[:t + 1, ...]
+            k_buried = k_buried_arr[:t + 1, ...]
+            f_in_use = f_in_arr[:t + 1, ...]
             # already carbonated depth (from previous year)
             d = np.sqrt(np.maximum(ages - 1, 0)) * k_buried
             # additional depth after one year of carbonation

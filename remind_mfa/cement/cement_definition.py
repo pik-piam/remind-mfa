@@ -126,6 +126,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.ParameterDefinition(name="product_density", dim_letters=("m",)), # manual (guess)
 
         fd.ParameterDefinition(name="carbonation_rate", dim_letters=("r", "a")),
+        fd.ParameterDefinition(name="carbonation_rate_buried", dim_letters=("r", "a")),
         fd.ParameterDefinition(name="carbonation_rate_coating", dim_letters=("r",)),
         fd.ParameterDefinition(name="carbonation_rate_co2", dim_letters=("r",)),
         fd.ParameterDefinition(name="carbonation_rate_additives", dim_letters=("r",)),
