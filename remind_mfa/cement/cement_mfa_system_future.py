@@ -344,15 +344,16 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
             a_cut = a[:t + 1, ...]
             b_cut = b[:t + 1, ...]
-            new_carbonated_fraction = self.get_volume_sphere_slice(a_cut, b_cut, d, d_add)
-            new_carbonated_mass = new_carbonated_fraction * mass[t]
+            new_carbonated_volume = self.get_volume_sphere_slice(a_cut, b_cut, d, d_add)
+            new_carbonated_share = new_carbonated_volume / self.get_volume_sphere(a_cut, b_cut)
+            new_carbonated_mass = new_carbonated_share * mass[t]
             added_co2 = new_carbonated_mass * f_in_use
             carbonation[t] = added_co2.sum(axis=(0,-2, -1))
 
         return fd.FlodymArray(dims=self.stocks["eol"].dims, values=carbonation)
     
     @staticmethod
-    def get_volume_sphere_slice(a : fd.FlodymArray, b: fd.FlodymArray, d: fd.FlodymArray, dadd: fd.FlodymArray) -> fd.FlodymArray:
+    def get_volume_sphere_slice(a : np.ndarray, b: np.ndarray, d: np.ndarray, dadd: np.ndarray) -> np.ndarray:
         """
         Calculate the volume of a spherical shell with thickness dadd,
         which is located a distance d from the outside of the sphere.
@@ -371,3 +372,20 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         large_sphere = np.maximum(rmax - d, 0) ** 4 - np.maximum(rmin - d, 0) ** 4
         small_sphere = np.maximum(rmax - d - dadd, 0) ** 4 - np.maximum(rmin - d - dadd, 0) ** 4
         return factor * (large_sphere - small_sphere)
+    
+    @staticmethod
+    def get_volume_sphere(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        """
+        Calculate the volume of a sphere with radius distributed uniformly between a/2 and b/2.
+        """
+        rmin = a / 2
+        rmax = b / 2
+
+        # sanity checks
+        if np.any(rmin < 0) or np.any(rmax < 0):
+            raise ValueError("All parameters must be non-negative.")
+        if (rmin >= rmax).any():
+            raise ValueError("rmin must be smaller than rmax.")
+
+        factor = np.pi / (3 * (rmax - rmin))
+        return factor * (rmax ** 4 - rmin ** 4)
