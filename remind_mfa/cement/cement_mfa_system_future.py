@@ -335,6 +335,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         a = prm["waste_size_min"].cast_values_to(new_dims)
         b = prm["waste_size_max"].cast_values_to(new_dims)
         k_buried_arr = k_buried_in.cast_values_to(new_dims)
+        k_free_arr = k_free_in.cast_values_to(new_dims)
         f_in_arr = f_in.cast_values_to(new_dims)
 
         carbonation = np.zeros(self.stocks["eol"].dims.shape)
@@ -342,19 +343,29 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # (4) calculate carbonation following spherical particle model
         for t in range(1, self.stocks["in_use"]._n_t):
 
-            ages = np.arange(t + 1)[::-1]
+            ages = np.arange(1, t + 1)[::-1]
             ages = ages.reshape((-1,) + (1,) * (new_dims.ndim - 1))
             
             # TODO separate this into a function
-            k_buried = k_buried_arr[:t + 1, ...]
-            f_in_use = f_in_arr[:t + 1, ...]
-            # already carbonated depth (from previous year)
-            d = np.sqrt(np.maximum(ages - 1, 0)) * k_buried
-            # additional depth after one year of carbonation
-            d_add = np.sqrt(ages) * k_buried - d
+            k_free = k_free_arr[1:t + 1, ...] # TODO actually use this for recycled concrete.
+            k_buried = k_buried_arr[1:t + 1, ...]
+            f_in_use = f_in_arr[1:t + 1, ...]
 
-            a_cut = a[:t + 1, ...]
-            b_cut = b[:t + 1, ...]
+            # integrate demolition uptake: for demolition_time, carbonation is happening freely, then buried
+            demolition_time = 0.4 # years, based on Cao2024
+            np.full_like(ages, demolition_time, dtype=np.float64)
+            ages = ages - 1 + demolition_time
+
+            # already carbonated depth (from previous year).
+            previous_ages = np.maximum(ages - 1, 0)
+            # demolition_time only applies if cohort is old enough
+            previous_demolition_time = np.where(previous_ages >= 0, demolition_time, np.maximum(ages - 1 + demolition_time, 0))
+            d = np.sqrt(previous_demolition_time * k_free ** 2 + previous_ages * k_buried ** 2)
+            # additional depth after one year of carbonation
+            d_add = np.sqrt(demolition_time * k_free ** 2 + ages * k_buried ** 2) - d
+
+            a_cut = a[1:t + 1, ...]
+            b_cut = b[1:t + 1, ...]
             new_carbonated_volume = self.get_volume_sphere_slice(a_cut, b_cut, d, d_add)
             new_carbonated_share = new_carbonated_volume / self.get_volume_sphere(a_cut, b_cut)
             new_carbonated_mass = new_carbonated_share * mass[t]
