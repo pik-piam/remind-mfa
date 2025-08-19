@@ -89,21 +89,10 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         flw = self.flows
         stk = self.stocks
 
-        # demolition
-        flw["use => demolition"][...] = stk["in_use"].outflow
-        stk["demolition"].inflow[...] = flw["use => demolition"]
-        stk["demolition"].lifetime_model.set_prms(
-            weibull_shape=4,
-            weibull_scale=0.5,
-            min_lifetime=0.1,
-            max_lifetime=0.8
-        )
-        stk["demolition"].compute()
-
         # eol
-        flw["demolition => eol"][...] = stk["demolition"].outflow
-        stk["eol"].inflow[...] = flw["demolition => eol"]
-        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s", "m", "a"])
+        flw["use => eol"][...] = stk["in_use"].outflow
+        stk["eol"].inflow[...] = flw["use => eol"]
+        stk["eol"].lifetime_model.set_prms(mean=np.inf)
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
 
@@ -134,14 +123,16 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["carbonated_co2"].compute()
     
     def calc_carbonation(self, ) -> fd.FlodymArray:
+        f_in_use = self.get_available_cao()
+        k_in_use = self.get_eff_carbonation_rate()
+
         ckd = self.uptake_CKD()
         construction_waste = self.uptake_construction_waste()
-        in_use = self.uptake_in_use()
-        demolition = self.uptake_demolition()
-        eol = self.uptake_eol()
+        in_use = self.uptake_in_use(f_in=f_in_use, k_in=k_in_use)
+        eol = self.uptake_eol(k_in_use, f_in_use) # TODO change to (partly) buried f
 
         # TODO: add carbonation location dimension
-        combined_uptake = ckd + construction_waste + in_use + demolition + eol
+        combined_uptake = ckd + construction_waste + in_use + eol
         return combined_uptake
 
     def uptake_CKD(self):
@@ -167,26 +158,25 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         uptake = cao_content * annual_carbonation_fraction  * prm["cao_carbonation_share"] * prm["cao_emission_factor"]
         return uptake
 
-    def uptake_in_use(self) -> fd.FlodymArray:
-        stk = self.stocks
-        prm = self.parameters
-        
-        dims = stk["in_use"].dims
+    def uptake_in_use(self, f_in: fd.FlodymArray, k_in: fd.FlodymArray) -> fd.FlodymArray:
+        stk = self.stocks["in_use"]
+        stk_dims = stk.dims
 
         # Numpy calculations are unfortunately necessary. Therefore, we convert all flodym arrays to numpy arrays.
-        # To ensure that the dimensions are correct, we cast them to the stock dimensions before.
-        # f describes the available density of CaO in product available for carbonation 
-        f_in = (prm["clinker_cao_ratio"] * prm["product_cement_content"] * prm["clinker_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]).cast_to(dims).values
-        # k is the carbonation rate (mm/sqrt(year))
-        k_in = (prm["carbonation_rate"] * prm["carbonation_rate_coating"] * prm["carbonation_rate_additives"] * prm["carbonation_rate_co2"]).cast_to(dims).values
-        thickness_in = prm["product_thickness"].cast_to(dims).values
+        # To ensure that the dimensions are correct, we cast them to the stock dimensions.
 
-        carbonation = np.zeros(stk["in_use"].dims.shape)
+        # f describes the available density of CaO in product available for carbonation 
+        f_in = f_in.cast_values_to(stk_dims)
+        # k is the carbonation rate (mm/sqrt(year))
+        k_in = k_in.cast_values_to(stk_dims)
+        thickness_in = self.parameters["product_thickness"].cast_values_to(stk_dims)
+
+        carbonation = np.zeros(stk.dims.shape)
         
-        for t in range(1, stk["in_use"]._n_t):
+        for t in range(1, stk._n_t):
             
             # differentiate stock by age cohorts
-            ages, mass = self.get_stock_age_histogram(stk["in_use"], t)
+            ages, mass = self.get_age_distribution(stk, t)
             # mass is shape (t + 1, stocks.shape without time)
 
             # select only cohorts that are younger than (or equal to) t
@@ -215,34 +205,169 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             # sum over all age cohorts
             carbonation[t] = added_co2.sum(axis=(0))
 
-        uptake = fd.FlodymArray(dims=stk["in_use"].dims, values=carbonation)
+        uptake = fd.FlodymArray(dims=stk_dims, values=carbonation)
 
         return uptake
-
-    @ staticmethod
-    def get_stock_age_histogram(stock: fd.DynamicStockModel, t: int) -> tuple[np.ndarray, np.ndarray]:
+    
+    def get_available_cao(self) -> fd.FlodymArray:
         """
-        Returns the histogram of ages of the stock at time step t.
+        Returns the available CaO for carbonation in the in-use stock.
+        """
+        prm = self.parameters
+        f = prm["product_cement_content"] * prm["clinker_ratio"] * prm["clinker_cao_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]
+        return f
+        
+    
+    def get_eff_carbonation_rate(self) -> fd.FlodymArray:
+        """
+        Returns the effective carbonation rate for the in-use stock.
+        """
+        prm = self.parameters
+        k = prm["carbonation_rate"] * prm["carbonation_rate_coating"] * prm["carbonation_rate_additives"] * prm["carbonation_rate_co2"]
+        return k
+
+
+    @staticmethod
+    def get_age_distribution(stock: fd.DynamicStockModel, t: int, data_type: str = "stock") -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns the histogram of ages of either stock or outflow at time step t.
+        
+        Parameters
+        ----------
+        stock : fd.DynamicStockModel
+            The stock model object
+        t : int
+            The time step to analyze
+        data_type : str, optional
+            Type of data to retrieve: "stock" or "outflow", by default "stock"
+            
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            A tuple containing (ages, values_by_age)
         """
         
-        stock_by_cohort = stock.get_stock_by_cohort()
-
+        if data_type == "stock":
+            data_by_cohort = stock.get_stock_by_cohort()
+        elif data_type == "outflow":
+            data_by_cohort = stock.get_outflow_by_cohort()
+        else:
+            raise ValueError(f"Unknown data_type: {data_type}. Must be either 'stock' or 'outflow'")
+        
         # check if there are any cohorts older than system age
-        if not np.all(stock_by_cohort[t, t+1:, ...] == 0):
-            raise RuntimeError(f"Nonzero stock found at t={t} for cohorts older than system age!")
+        if not np.all(data_by_cohort[t, t+1:, ...] == 0):
+            raise RuntimeError(f"Nonzero {data_type} found at t={t} for cohorts older than system age!")
 
-        # select time t and all cohorts up to t from stock
-        stock_by_age = stock_by_cohort[t, : t + 1, ...]
+        # select time t and all cohorts up to t from data
+        data_by_age = data_by_cohort[t, : t + 1, ...]
 
         # Only consider cohorts c <= t
         ages = np.arange(t + 1)[::-1]  # age 0 is newest, t is oldest
-        # reshape to match stock dimensions
-        ages = ages.reshape((-1,) + (1,) * (stock_by_age.ndim - 1))
+        # reshape to match data dimensions
+        ages = ages.reshape((-1,) + (1,) * (data_by_age.ndim - 1))
 
-        return ages, stock_by_age
+        return ages, data_by_age
 
-    def uptake_demolition(self):
-        return fd.FlodymArray(dims=self.dims["t", "r", "m"])
+    def uptake_eol(self, k_in_use_into: fd.FlodymArray, f_in_use_into: fd.FlodymArray) -> fd.FlodymArray:
+        # consider only left over volume after carbonation durin in-use and demolition
+        # I could have fixed lifetime for demolition
 
-    def uptake_eol(self):
-        return fd.FlodymArray(dims=self.dims["t", "r", "m"])
+        # waste is either recycled (= going to new concret as filler) or buried (= landfill/road base, asphalt)
+        # recycled = X88, buried = 1 - recycled
+
+        # (1) get outflow by cohort
+        # (2) get carbonation depth by cohort
+        # (3) calculate uncarbonated fraction by cohort
+        # (4) calculate carbonation following spherical particle model
+
+        # particles smaller than 2d are carbonated fully (size measured by diameter)
+        # particles with min smaller than 2d but max larger than 2d:
+            # until 2d carbonated fully (1)
+            # 2d - max carbonated in shell
+        # particles with min larger than 2d: carbonated in shell
+
+        prm = self.parameters
+        stk_in_use = self.stocks["in_use"]
+        k_in_use_in = k_in_use_into.cast_values_to(stk_in_use.dims)
+        k_buried_into = k_in_use_into # TODO update with buried carbonation rate
+        k_buried_in = k_buried_into.cast_values_to(stk_in_use.dims)
+        f_in_use_in = f_in_use_into.cast_values_to(stk_in_use.dims)
+        thickness_in = self.parameters["product_thickness"].cast_values_to(stk_in_use.dims)
+
+        uncarbonated_inflow = np.zeros(stk_in_use.dims.shape)
+
+        for t in range(1, self.stocks["in_use"]._n_t):
+            
+            # (1) get outflow by cohort
+            ages, inflow = self.get_age_distribution(self.stocks["in_use"], t, data_type="outflow")
+
+            # (2) get carbonation depth by cohort
+            k_in_use = k_in_use_in[:t + 1, ...]
+            d_in_use = np.sqrt(np.maximum(ages - 1, 0)) * k_in_use
+
+            # (3) calculate uncarbonated mass by cohort
+            thickness = thickness_in[:t + 1, ...]
+            d_available = np.maximum(thickness - d_in_use, 0)
+            uncarbonated_fraction = d_available / thickness
+            # sum over all age cohorts, convert to flodym array
+            uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
+        
+        uncarbonated_inflow = fd.FlodymArray(dims=stk_in_use.dims, values=uncarbonated_inflow)
+
+        new_dims = self.stocks["eol"].dims.union_with(prm["waste_size_min"].dims)
+        sum_dims = self.stocks["eol"].dims.intersect_with(new_dims)
+        uncarbonated_inflow = uncarbonated_inflow.sum_to(sum_dims)
+        # waste size share is given by mass
+        mass = (uncarbonated_inflow * prm["waste_type_split"] * prm["waste_size_share"]).cast_values_to(new_dims)
+        
+        uncarbonated_inflow.cast_values_to(new_dims)
+        a = prm["waste_size_min"].cast_values_to(new_dims)
+        b = prm["waste_size_max"].cast_values_to(new_dims)
+        k_buried_in = k_buried_into.cast_values_to(new_dims)
+        f_in_use_in = f_in_use_into.cast_values_to(new_dims)
+
+        carbonation = np.zeros(self.stocks["eol"].dims.shape)
+
+        # (4) calculate carbonation following spherical particle model
+        for t in range(1, self.stocks["in_use"]._n_t):
+
+            ages = np.arange(t + 1)[::-1]
+            ages = ages.reshape((-1,) + (1,) * (new_dims.ndim - 1))
+            
+            # TODO separate this into a function
+            k_buried = k_buried_in[:t + 1, ...]
+            f_in_use = f_in_use_in[:t + 1, ...]
+            # already carbonated depth (from previous year)
+            d = np.sqrt(np.maximum(ages - 1, 0)) * k_buried
+            # additional depth after one year of carbonation
+            d_add = np.sqrt(ages) * k_buried - d
+
+            a_cut = a[:t + 1, ...]
+            b_cut = b[:t + 1, ...]
+            new_carbonated_fraction = self.get_volume_sphere_slice(a_cut, b_cut, d, d_add)
+            new_carbonated_mass = new_carbonated_fraction * mass[t]
+            added_co2 = new_carbonated_mass * f_in_use
+            carbonation[t] = added_co2.sum(axis=(0,-2, -1))
+
+        return fd.FlodymArray(dims=self.stocks["eol"].dims, values=carbonation)
+    
+    @staticmethod
+    def get_volume_sphere_slice(a : fd.FlodymArray, b: fd.FlodymArray, d: fd.FlodymArray, dadd: fd.FlodymArray) -> fd.FlodymArray:
+        """
+        Calculate the volume of a spherical shell with thickness dadd,
+        which is located a distance d from the outside of the sphere.
+        The sphere radius is distributed unifomly between a/2 and b/2.
+        """
+        rmin = a/2
+        rmax = b/2
+
+        # sanity checks
+        if np.any(rmin < 0) or np.any(rmax < 0) or np.any(d < 0) or np.any(dadd < 0):
+            raise ValueError("All parameters must be non-negative.")
+        if (rmin >= rmax).any():
+            raise ValueError("rmin must be smaller than rmax.")
+
+        factor = np.pi / (3 * (rmax - rmin))
+        large_sphere = np.maximum(rmax - d, 0) ** 4 - np.maximum(rmin - d, 0) ** 4
+        small_sphere = np.maximum(rmax - d - dadd, 0) ** 4 - np.maximum(rmin - d - dadd, 0) ** 4
+        return factor * (large_sphere - small_sphere)

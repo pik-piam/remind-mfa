@@ -16,7 +16,8 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         # carbonation dimensions
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
-        # TODO add? fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
+        # TODO add? fd.DimensionDefinition(name="Carbonation Location", dim_letter="l", dtype=str),
+        # TODO add? fd.DimensionDefinition(name="Carbonation Status", dim_letter="c", dtype=str),
     ]
 
     # 2) Processes
@@ -32,7 +33,6 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             "prod_cement",
             "prod_product",
             "use",
-            "demolition",
             "eol",
             "atmosphere",
             "carbonation"
@@ -55,8 +55,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r", "m")), # cement losses
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
-            fd.FlowDefinition(from_process="use", to_process="demolition", dim_letters=("t", "r", "m", "a")),
-            fd.FlowDefinition(from_process="demolition", to_process="eol", dim_letters=("t", "r", "m", "a")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "m", "a")),
             fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a")),
             # atmosphere
             fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")),
@@ -86,17 +85,11 @@ def get_definition(cfg: GeneralCfg, historic: bool):
                 lifetime_model_class=cfg.customization.lifetime_model,
             ),
             fd.StockDefinition(
-                name="demolition",
-                process="demolition",
-                dim_letters=("t", "r", "m", "a"),
-                subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=fd.TruncatedWeibullLifetime,
-            ),
-            fd.StockDefinition(
                 name="eol",
                 process="eol",
                 dim_letters=("t", "r", "m", "a"),
-                subclass=fd.SimpleFlowDrivenStock,
+                subclass=fd.InflowDrivenDSM,
+                lifetime_model_class=fd.FixedLifetime,
             ),
             fd.StockDefinition(
                 name="atmosphere",
