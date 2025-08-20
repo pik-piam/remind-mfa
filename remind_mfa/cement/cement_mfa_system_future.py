@@ -69,15 +69,19 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         flw["prod_cement => prod_product"][...] = (
             flw["prod_product => use"] * cement_ratio
         )
+        # cement losses are on top of the inflow of stock, but are relative to total cement production
         flw["prod_cement => sysenv"][...] = (
             flw["prod_cement => prod_product"] * (prm["cement_losses"] / (1 - prm["cement_losses"]))
         )
+        # clinker production is based on cement production
         flw["prod_clinker => prod_cement"][...] = (
             (flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]) * prm["clinker_ratio"]
         )
+        # clinker losses (CKD) are on top of clinker production.
         flw["prod_clinker => sysenv"][...] = (
             flw["prod_clinker => prod_cement"] * prm["clinker_losses"]
         )
+
         # sysenv flows for mass balance
         flw["sysenv => prod_cement"][...] = (
             (flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]) * (1 - prm["clinker_ratio"])
@@ -102,7 +106,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk = self.stocks
         prm = self.parameters
 
-        # emissions
+        # emissions (process only)
         flw["prod_clinker => atmosphere"][...] = (
             (flw["prod_clinker => prod_cement"] * prm["clinker_cao_ratio"] # clinker
             + flw["prod_clinker => sysenv"] * prm["ckd_cao_ratio"]) # CKD
@@ -144,7 +148,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         Assumes that full carbonation takes 1 year.
         """
         prm = self.parameters
-        ckd_prod = self.flows["prod_cement => sysenv"]
+        ckd_prod = self.flows["prod_clinker => sysenv"]
         uptake = ckd_prod * prm["ckd_landfill_share"] * prm["ckd_cao_ratio"] * prm["cao_emission_factor"]
         return uptake
 
