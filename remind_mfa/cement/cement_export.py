@@ -266,8 +266,8 @@ class CementDataExporter(CommonDataExporter):
     def visualize_carbonation(self, mfa: fd.MFASystem):
         annual_uptake = mfa.stocks["carbonated_co2"].inflow
         cumulative_uptake = mfa.stocks["carbonated_co2"].stock
-        linecolor_dimletter = "Product Material"
-        plot_letters = ["t", "m"]
+        linecolor_dimletter = "Carbonation Location"
+        plot_letters = ["t", "c"]
         other_dimletters = tuple(letter for letter in annual_uptake.dims.letters if letter not in plot_letters)
         annual_uptake = annual_uptake.sum_over(other_dimletters)
 

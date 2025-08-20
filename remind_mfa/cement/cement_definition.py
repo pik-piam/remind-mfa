@@ -16,7 +16,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         # carbonation dimensions
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
-        # TODO add? fd.DimensionDefinition(name="Carbonation Location", dim_letter="l", dtype=str),
+        fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
         # TODO add? fd.DimensionDefinition(name="Carbonation Status", dim_letter="c", dtype=str),
     ]
 
@@ -59,8 +59,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a")),
             # atmosphere
             fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="sysenv", dim_letters=("t", "r", "m")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m")),
+            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m", "c")),
         ]
 
     # 4) Stocks
@@ -100,8 +99,9 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.StockDefinition(
                 name="carbonated_co2",
                 process="carbonation",
-                dim_letters=("t", "r", "m"),
-                subclass=fd.SimpleFlowDrivenStock,
+                dim_letters=("t", "r", "m", "c"),
+                subclass=fd.InflowDrivenDSM,
+                lifetime_model_class=fd.FixedLifetime,
             ),
         ]
 

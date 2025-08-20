@@ -20,6 +20,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
     def compute_in_use_stock(self, cement_stock_projection: fd.FlodymArray):
         prm = self.parameters
         stk = self.stocks
+        # TODO calculate cement_ratio directly in mrindustry
         cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
         stk["in_use"].stock = (
@@ -116,25 +117,26 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         carbonation = self.calc_carbonation()
         flw["atmosphere => carbonation"][...] = carbonation
         stk["carbonated_co2"].inflow[...] = flw["atmosphere => carbonation"]
-        stk["carbonated_co2"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "m"])
-        stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
-
-        stk["atmosphere"].compute()
+        stk["carbonated_co2"].lifetime_model.set_prms(mean=np.inf)
         stk["carbonated_co2"].compute()
+
+        stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
+        stk["atmosphere"].compute()
+        
     
-    def calc_carbonation(self, ) -> fd.FlodymArray:
+    def calc_carbonation(self) -> fd.FlodymArray:
         f = self.get_available_cao()
         k_free = self.get_eff_carbonation_rate(type="free")
         k_buried = self.get_eff_carbonation_rate(type="buried")
 
-        ckd = self.uptake_CKD()
-        construction_waste = self.uptake_construction_waste()
-        in_use = self.uptake_in_use(f_in=f, k_free_in=k_free)
-        eol = self.uptake_eol(f_in=f, k_free_in=k_free, k_buried_in=k_buried)
+        uptake = fd.FlodymArray(dims=self.stocks["carbonated_co2"].dims)
 
-        # TODO: add carbonation location dimension
-        combined_uptake = ckd + construction_waste + in_use + eol
-        return combined_uptake
+        uptake["CKD"] = self.uptake_CKD()
+        uptake["Construction Waste"] = self.uptake_construction_waste()
+        uptake["In-Use Stock"] = self.uptake_in_use(f_in=f, k_free_in=k_free)
+        uptake["End-of-Life Stock"] = self.uptake_eol(f_in=f, k_free_in=k_free, k_buried_in=k_buried)
+
+        return uptake
 
     def uptake_CKD(self):
         """
