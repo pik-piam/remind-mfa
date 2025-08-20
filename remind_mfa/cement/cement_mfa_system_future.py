@@ -154,12 +154,22 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         Assumes that full carbonation takes 5 years and happens uniformly over that time.
         """
         prm = self.parameters
-        # TODO only waste used for concrete
         cwaste_prod = self.flows["prod_cement => sysenv"]
         annual_carbonation_fraction = 0.2
         cao_content = cwaste_prod * prm["clinker_ratio"] * prm["clinker_cao_ratio"]
-        uptake = cao_content * annual_carbonation_fraction  * prm["cao_carbonation_share"] * prm["cao_emission_factor"]
-        return uptake
+        uptake_one_year = cao_content * annual_carbonation_fraction  * prm["cao_carbonation_share"] * prm["cao_emission_factor"]
+
+        # sum uptake over 5 years
+        window_size = int(1/annual_carbonation_fraction)
+        uptake_one_year_arr = uptake_one_year.cast_values_to(self.stocks["atmosphere"].dims)
+        
+        # TODO put this into a utility function
+        pad_width = [(window_size - 1, 0)] + [(0, 0)] * (uptake_one_year_arr.ndim - 1)
+        uptake_one_year_arr_padded = np.pad(uptake_one_year_arr, pad_width, mode="constant")
+        window = np.lib.stride_tricks.sliding_window_view(uptake_one_year_arr_padded, window_shape = window_size, axis=0)
+        uptake_five_years_arr = np.sum(window, axis=-1)
+        uptake_five_years = fd.FlodymArray(dims=self.stocks["atmosphere"].dims, values=uptake_five_years_arr)
+        return uptake_five_years
 
     def uptake_in_use(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray) -> fd.FlodymArray:
         stk = self.stocks["in_use"]
