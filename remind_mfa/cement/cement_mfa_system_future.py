@@ -167,10 +167,10 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # To ensure that the dimensions are correct, we cast them to the stock dimensions.
 
         # f describes the available density of CaO in product available for carbonation 
-        f_in = f_in.cast_values_to(stk_dims)
+        f_in_arr = f_in.cast_values_to(stk_dims)
         # k is the carbonation rate (mm/sqrt(year))
-        k_free_in = k_free_in.cast_values_to(stk_dims)
-        thickness_in = self.parameters["product_thickness"].cast_values_to(stk_dims)
+        k_free_in_arr = k_free_in.cast_values_to(stk_dims)
+        thickness_arr = self.parameters["product_thickness"].cast_values_to(stk_dims)
 
         carbonation = np.zeros(stk.dims.shape)
         
@@ -181,14 +181,17 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             # mass is shape (t + 1, stocks.shape without time)
 
             # select only cohorts that are younger than (or equal to) t
-            f = f_in[:t + 1, ...]
-            k = k_free_in[:t + 1, ...]
-            thickness = thickness_in[:t + 1, ...]
+            # TODO remove first cohort, adjust ages/mass from get_age_distribution accordingly
+            # We can do this because in first cohort, age is 0, so no carbonation has happened yet.
+            f = f_in_arr[:t + 1, ...]
+            k = k_free_in_arr[:t + 1, ...]
+            thickness = thickness_arr[:t + 1, ...]
 
             # area available for carbonation
             area_density = mass / thickness
             
             # already carbonated depth (from previous year)
+            # TODO this calculation could be taken from previous step in loop
             d = np.sqrt(np.maximum(ages - 1, 0)) * k
 
             # additional depth after one year of carbonation
@@ -215,7 +218,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         Returns the available CaO for carbonation in the in-use stock.
         """
         prm = self.parameters
-        f = prm["product_cement_content"] * prm["clinker_ratio"] * prm["clinker_cao_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]
+        cement_ratio = prm["product_cement_content"] / prm["product_density"]
+        f = cement_ratio * prm["clinker_ratio"] * prm["clinker_cao_ratio"] * prm["cao_emission_factor"] * prm["cao_carbonation_share"]
         return f
         
     
@@ -354,7 +358,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             # integrate demolition uptake: for demolition_time, carbonation is happening freely, then buried
             demolition_time = 0.4 # years, based on Cao2024
             np.full_like(ages, demolition_time, dtype=np.float64)
-            ages = ages - 1 + demolition_time
+            ages = ages - demolition_time
 
             # already carbonated depth (from previous year).
             previous_ages = np.maximum(ages - 1, 0)
