@@ -338,19 +338,19 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         for t in range(1, self.stocks["in_use"]._n_t):
             
-            # (1) get outflow by cohort
+            # (I1) get outflow by cohort
             ages, inflow = self.get_age_distribution(self.stocks["in_use"], t, data_type="outflow")
 
-            # (2) get carbonation depth by cohort
+            # (I2) get carbonation depth by cohort
             k_free = k_free_arr[:t + 1, ...]
             d_in_use = np.sqrt(np.maximum(ages - 1, 0)) * k_free
 
-            # (3) calculate uncarbonated mass by cohort
+            # (I3) calculate uncarbonated mass by cohort
             thickness = thickness_in[:t + 1, ...]
             d_available = np.maximum(thickness - d_in_use, 0)
             uncarbonated_fraction = d_available / thickness
 
-            # sum over all age cohorts, convert to flodym array
+            # (I4) sum over all age cohorts, convert to flodym array
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
         
         uncarbonated_inflow = fd.FlodymArray(dims=stk_in_use.dims, values=uncarbonated_inflow)
@@ -362,24 +362,28 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         uncarbonated_inflow = uncarbonated_inflow.sum_to(eol_dims) * prm["waste_type_split"] * prm["waste_size_share"]
 
         # create new age dimension
+        # TODO: replace ages creation with np.arange() but fd.DimensionSet fails as it doesn't accept it as int
+        # when dtype = np.int64 selcted, the printing agedim becomes very ugly 
         ages = [i for i in range(self.stocks["in_use"]._n_t)]
         agedim = fd.Dimension(name="age", letter="u", items=ages, dtype=int)
         agedimset = fd.DimensionSet(dim_list=[agedim])
-
-        sqrt_age = fd.FlodymArray(dims=agedimset, values=np.sqrt(ages))
+        age = fd.FlodymArray(dims=agedimset, values=np.array(ages), dtype=float)
         
-        # (new 1) calculate d from demolition
+        # (II1) calculate t from demolition
         demolition_time = 0.4  # years, based on Cao2024
-        d_dem = np.sqrt(demolition_time) * k_free_arr
+        demolition_age = fd.FlodymArray(dims=agedimset, values=np.full_like(ages, demolition_time, dtype=float))
+        
+        # equivalent age after demolition that the waste would have needed if carbonated buried
+        equivalent_demolition_age = demolition_age * (k_free_in / k_buried_in) ** 2
+        age_after_demolition = equivalent_demolition_age + age - demolition_time
 
-        # (new 2) calculated d from buried carbonation, taking into account previous "time" from (new 1)
-            # this could work with convolution
-        d = k_buried_in * sqrt_age
+        # (II2) calculated d from buried carbonation, taking into account previous "time" from (new 1)
+        d = k_buried_in * age_after_demolition.apply(np.sqrt)
 
-        # (new 3) calculate d_add by np.diff
+        # (II3) calculate d_add by np.diff
         d_add = d.apply(np.diff, kwargs={"prepend":0, "axis":-1})  # prepend 0 to match dimensions
 
-        # (new 4) calculate carbonation volume by spherical particle model
+        # (II4) calculate carbonation volume by spherical particle model
         a = prm["waste_size_min"]
         b = prm["waste_size_max"]
         sphere_volume = self.get_volume_sphere(a, b)
