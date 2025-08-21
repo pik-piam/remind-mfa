@@ -327,10 +327,11 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             # 2d - max carbonated in shell
         # particles with min larger than 2d: carbonated in shell
 
+        # (I) calculate uncarbonated inflow from in-use stock
+
         prm = self.parameters
         stk_in_use = self.stocks["in_use"]
         k_free_arr = k_free_in.cast_values_to(stk_in_use.dims)
-        f_in_arr = f_in.cast_values_to(stk_in_use.dims)
         thickness_in = self.parameters["product_thickness"].cast_values_to(stk_in_use.dims)
 
         uncarbonated_inflow = np.zeros(stk_in_use.dims.shape)
@@ -354,78 +355,148 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         
         uncarbonated_inflow = fd.FlodymArray(dims=stk_in_use.dims, values=uncarbonated_inflow)
 
-        new_dims = self.stocks["eol"].dims.union_with(prm["waste_size_min"].dims)
-        sum_dims = self.stocks["eol"].dims.intersect_with(new_dims)
-        uncarbonated_inflow = uncarbonated_inflow.sum_to(sum_dims)
-        # waste size share is given by mass
-        mass = (uncarbonated_inflow * prm["waste_type_split"] * prm["waste_size_share"]).cast_values_to(new_dims)
+        # (II) calculate further carbonation in EOL stock
+
+        eol_dims = self.stocks["eol"].dims
+        # split inflow by waste type and size, reduce unnecessary dimensions
+        uncarbonated_inflow = uncarbonated_inflow.sum_to(eol_dims) * prm["waste_type_split"] * prm["waste_size_share"]
+
+        # create new age dimension
+        ages = [i for i in range(self.stocks["in_use"]._n_t)]
+        agedim = fd.Dimension(name="age", letter="u", items=ages, dtype=int)
+        agedimset = fd.DimensionSet(dim_list=[agedim])
+
+        sqrt_age = fd.FlodymArray(dims=agedimset, values=np.sqrt(ages))
         
-        uncarbonated_inflow.cast_values_to(new_dims)
-        a = prm["waste_size_min"].cast_values_to(new_dims)
-        b = prm["waste_size_max"].cast_values_to(new_dims)
-        k_buried_arr = k_buried_in.cast_values_to(new_dims)
-        k_free_arr = k_free_in.cast_values_to(new_dims)
-        f_in_arr = f_in.cast_values_to(new_dims)
+        # (new 1) calculate d from demolition
+        demolition_time = 0.4  # years, based on Cao2024
+        d_dem = np.sqrt(demolition_time) * k_free_arr
 
-        carbonation = np.zeros(self.stocks["eol"].dims.shape)
+        # (new 2) calculated d from buried carbonation, taking into account previous "time" from (new 1)
+            # this could work with convolution
+        d = k_buried_in * sqrt_age
 
-        # (4) calculate carbonation following spherical particle model
-        for t in range(1, self.stocks["in_use"]._n_t):
+        # (new 3) calculate d_add by np.diff
+        d_add = d.apply(np.diff, kwargs={"prepend":0, "axis":-1})  # prepend 0 to match dimensions
 
-            ages = np.arange(1, t + 1)[::-1]
-            ages = ages.reshape((-1,) + (1,) * (new_dims.ndim - 1))
+        # (new 4) calculate carbonation volume by spherical particle model
+        a = prm["waste_size_min"]
+        b = prm["waste_size_max"]
+        sphere_volume = self.get_volume_sphere(a, b)
+        new_carbonated_volume = self.get_volume_sphere_slice(a, b, d, d_add)
+        new_carbonated_share = new_carbonated_volume / sphere_volume
+
+        new_carbonated_mass = self.convolute(new_carbonated_share, uncarbonated_inflow)
+        # sum frequently to avoid dimension overhead
+        added_co2 = new_carbonated_mass.sum_to(eol_dims.union_with(f_in.dims)) * f_in
+        carbonation = added_co2.sum_to(eol_dims)
+
+        # # (4) calculate carbonation following spherical particle model
+        # for t in range(1, self.stocks["in_use"]._n_t):
+
+        #     ages = np.arange(1, t + 1)[::-1]
+        #     ages = ages.reshape((-1,) + (1,) * (new_dims.ndim - 1))
             
-            # TODO separate this into a function
-            k_free = k_free_arr[1:t + 1, ...] # TODO actually use this for recycled concrete.
-            k_buried = k_buried_arr[1:t + 1, ...]
-            f_in_use = f_in_arr[1:t + 1, ...]
+        #     # TODO separate this into a function
+        #     k_free = k_free_arr[1:t + 1, ...] # TODO actually use this for recycled concrete.
+        #     k_buried = k_buried_arr[1:t + 1, ...]
+        #     f_in_use = f_in_arr[1:t + 1, ...]
 
-            # integrate demolition uptake: for demolition_time, carbonation is happening freely, then buried
-            demolition_time = 0.4 # years, based on Cao2024
-            np.full_like(ages, demolition_time, dtype=np.float64)
-            ages = ages - demolition_time
+        #     # integrate demolition uptake: for demolition_time, carbonation is happening freely, then buried
+        #     demolition_time = 0.4 # years, based on Cao2024
+        #     np.full_like(ages, demolition_time, dtype=np.float64)
+        #     ages = ages - demolition_time
 
-            # already carbonated depth (from previous year).
-            previous_ages = np.maximum(ages - 1, 0)
-            # demolition_time only applies if cohort is old enough
-            previous_demolition_time = np.where(previous_ages >= 0, demolition_time, np.maximum(ages - 1 + demolition_time, 0))
-            d = np.sqrt(previous_demolition_time * k_free ** 2 + previous_ages * k_buried ** 2)
-            # additional depth after one year of carbonation
-            d_add = np.sqrt(demolition_time * k_free ** 2 + ages * k_buried ** 2) - d
+        #     # already carbonated depth (from previous year).
+        #     previous_ages = np.maximum(ages - 1, 0)
+        #     # demolition_time only applies if cohort is old enough
+        #     previous_demolition_time = np.where(previous_ages >= 0, demolition_time, np.maximum(ages - 1 + demolition_time, 0))
+        #     d = np.sqrt(previous_demolition_time * k_free ** 2 + previous_ages * k_buried ** 2)
+        #     # additional depth after one year of carbonation
+        #     d_add = np.sqrt(demolition_time * k_free ** 2 + ages * k_buried ** 2) - d
 
-            a_cut = a[1:t + 1, ...]
-            b_cut = b[1:t + 1, ...]
-            new_carbonated_volume = self.get_volume_sphere_slice(a_cut, b_cut, d, d_add)
-            new_carbonated_share = new_carbonated_volume / self.get_volume_sphere(a_cut, b_cut)
-            new_carbonated_mass = new_carbonated_share * mass[t]
-            added_co2 = new_carbonated_mass * f_in_use
-            carbonation[t] = added_co2.sum(axis=(0,-2, -1))
+        #     a_cut = a[1:t + 1, ...]
+        #     b_cut = b[1:t + 1, ...]
+        #     new_carbonated_volume = self.get_volume_sphere_slice(a_cut, b_cut, d, d_add)
+        #     new_carbonated_share = new_carbonated_volume / self.get_volume_sphere(a_cut, b_cut)
+        #     new_carbonated_mass = new_carbonated_share * mass[t]
+        #     added_co2 = new_carbonated_mass * f_in_use
+        #     carbonation[t] = added_co2.sum(axis=(0,-2, -1))
 
-        return fd.FlodymArray(dims=self.stocks["eol"].dims, values=carbonation)
+        return carbonation
     
     @staticmethod
-    def get_volume_sphere_slice(a : np.ndarray, b: np.ndarray, d: np.ndarray, dadd: np.ndarray) -> np.ndarray:
+    def convolute(inflow: fd.FlodymArray, kernel: fd.FlodymArray, test_mask: bool = False) -> fd.FlodymArray:
+        
+        # calculate product: for every time t, get information for all ages
+        product = inflow * kernel
+        product_arr = product.values
+
+        # find time and age dimensions
+        time_idx = product.dims.index("t")
+        age_idx = product.dims.index("u")
+
+        shape = product.shape[time_idx]
+        assert shape == product.shape[age_idx], "Time and age dimensions are expected to be the same length."
+
+        # create mask: later used to select only values where age <= time
+        mask = np.tri(shape, shape, dtype=int).T # lower triangular matrix
+        mask_shape = [1]*product.dims.ndim # create mask shape
+        mask_shape[time_idx] = shape
+        mask_shape[age_idx] = shape
+        mask = mask.reshape(mask_shape)
+
+        # optional: test if mask orientation is correct
+        if test_mask:
+            for a in range(shape):
+                for t in range(shape):
+                    # build indices for broadcasting
+                    idx = [0]*product_arr.ndim
+                    idx[time_idx] = t
+                    idx[age_idx] = a
+                    val = mask[tuple(idx)]
+                    expected = 1 if a <= t else 0
+                    assert val == expected, f"Mask error at age {a}, time {t}: got {val}, expected {expected}"
+
+        # apply mask to product array, and sum over age dimension
+        conv = np.sum(product_arr * mask, axis=age_idx)
+
+        # save convolution in new flodym array without age dimension
+        dims_out = product.dims.drop("u") 
+        conv_out = fd.FlodymArray(dims=dims_out, values=conv)
+
+        return conv_out
+        
+    @staticmethod
+    def get_volume_sphere_slice(a : fd.FlodymArray, b: fd.FlodymArray, d: fd.FlodymArray, dadd: fd.FlodymArray) -> fd.FlodymArray:
         """
         Calculate the volume of a spherical shell with thickness dadd,
         which is located a distance d from the outside of the sphere.
         The sphere radius is distributed unifomly between a/2 and b/2.
         """
+        # get all inputs to the same dimensions
+        dims = a.dims.union_with(b.dims).union_with(d.dims).union_with(dadd.dims)
+        a = a.cast_to(dims)
+        b = b.cast_to(dims)
+        d = d.cast_to(dims)
+        dadd = dadd.cast_to(dims)
+
         rmin = a/2
         rmax = b/2
 
         # sanity checks
-        if np.any(rmin < 0) or np.any(rmax < 0) or np.any(d < 0) or np.any(dadd < 0):
+        if np.any(rmin.values < 0) or np.any(rmax.values < 0) or np.any(d.values < 0) or np.any(dadd.values < 0):
             raise ValueError("All parameters must be non-negative.")
-        if (rmin >= rmax).any():
+        if (rmin.values >= rmax.values).any():
             raise ValueError("rmin must be smaller than rmax.")
 
         factor = np.pi / (3 * (rmax - rmin))
-        large_sphere = np.maximum(rmax - d, 0) ** 4 - np.maximum(rmin - d, 0) ** 4
-        small_sphere = np.maximum(rmax - d - dadd, 0) ** 4 - np.maximum(rmin - d - dadd, 0) ** 4
+        large_sphere = (rmax - d).maximum(0) ** 4 - (rmin - d).maximum(0) ** 4
+        small_sphere = (rmax - d - dadd).maximum(0) ** 4 -(rmin - d - dadd).maximum(0) ** 4
         return factor * (large_sphere - small_sphere)
     
     @staticmethod
-    def get_volume_sphere(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    def get_volume_sphere(a: fd.FlodymArray, b: fd.FlodymArray) -> fd.FlodymArray:
         """
         Calculate the volume of a sphere with radius distributed uniformly between a/2 and b/2.
         """
@@ -433,9 +504,9 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         rmax = b / 2
 
         # sanity checks
-        if np.any(rmin < 0) or np.any(rmax < 0):
+        if np.any(rmin.values < 0) or np.any(rmax.values < 0):
             raise ValueError("All parameters must be non-negative.")
-        if (rmin >= rmax).any():
+        if (rmin.values >= rmax.values).any():
             raise ValueError("rmin must be smaller than rmax.")
 
         factor = np.pi / (3 * (rmax - rmin))
