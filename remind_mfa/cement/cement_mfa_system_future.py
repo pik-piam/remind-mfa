@@ -309,25 +309,16 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         return ages, data_by_age
 
     def uptake_eol(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray, k_buried_in: fd.FlodymArray) -> fd.FlodymArray:
-        # consider only left over volume after carbonation durin in-use and demolition
-        # I could have fixed lifetime for demolition
-
-        # TODO add differentiation of carbonation rate by recycled/buried
-        # waste is either recycled (= going to new concret as filler) or buried (= landfill/road base, asphalt)
-        # recycled = X88, buried = 1 - recycled
-
-        # (1) get outflow by cohort
-        # (2) get carbonation depth by cohort
-        # (3) calculate uncarbonated fraction by cohort
-        # (4) calculate carbonation following spherical particle model
-
-        # particles smaller than 2d are carbonated fully (size measured by diameter)
-        # particles with min smaller than 2d but max larger than 2d:
-            # until 2d carbonated fully (1)
-            # 2d - max carbonated in shell
-        # particles with min larger than 2d: carbonated in shell
-
-        # (I) calculate uncarbonated inflow from in-use stock
+        """
+        Carbonation of end-of-life stock.
+        First (I), outflow from in-use stock is calculated that has not been carbonated yet.
+        Then (II), carbonation during end-of-life is calculated.
+        Here, the concrete is assumed to be crushed into spherical particles.
+        First, for 0.4 years, particles are assumed to be exposed to air (demolition).
+        After that, they are used for different waste categories, where they are either recycled or buried.
+        This influences their carbonation rate (k).
+        The total carbonation in each year is calculated by convolution, assuming that all previous inflows contribute.
+        """
 
         prm = self.parameters
         stk_in_use = self.stocks["in_use"]
@@ -377,60 +368,35 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         equivalent_demolition_age = demolition_age * (k_free_in / k_buried_in) ** 2
         age_after_demolition = equivalent_demolition_age + age - demolition_time
 
-        # (II2) calculated d from buried carbonation, taking into account previous "time" from (new 1)
-        d = k_buried_in * age_after_demolition.apply(np.sqrt)
+        # (II2) calculated d from carbonation during eol
+        # create effective k with waste dimension: recycled concrete is exposed to air, rest buried
+        k = k_buried_in.cast_to(k_buried_in.dims.union_with(fd.DimensionSet(dim_list=[prm["waste_type_split"].dims["w"]])))
+        k["new concrete"] = k_free_in
+        d = k * age_after_demolition.apply(np.sqrt)
 
-        # (II3) calculate d_add by np.diff
+        # (II3) calculate added carbonation depth beteen two time steps
         d_add = d.apply(np.diff, kwargs={"prepend":0, "axis":-1})  # prepend 0 to match dimensions
 
-        # (II4) calculate carbonation volume by spherical particle model
+        # (II4) convert carbonation depth to volume by spherical particle model
         a = prm["waste_size_min"]
         b = prm["waste_size_max"]
         sphere_volume = self.get_volume_sphere(a, b)
         new_carbonated_volume = self.get_volume_sphere_slice(a, b, d, d_add)
         new_carbonated_share = new_carbonated_volume / sphere_volume
 
+        # (II5) calc carbonated mass in each year by convolution and subsequently convert to CO2
         new_carbonated_mass = self.convolute(new_carbonated_share, uncarbonated_inflow)
         # sum frequently to avoid dimension overhead
         added_co2 = new_carbonated_mass.sum_to(eol_dims.union_with(f_in.dims)) * f_in
         carbonation = added_co2.sum_to(eol_dims)
 
-        # # (4) calculate carbonation following spherical particle model
-        # for t in range(1, self.stocks["in_use"]._n_t):
-
-        #     ages = np.arange(1, t + 1)[::-1]
-        #     ages = ages.reshape((-1,) + (1,) * (new_dims.ndim - 1))
-            
-        #     # TODO separate this into a function
-        #     k_free = k_free_arr[1:t + 1, ...] # TODO actually use this for recycled concrete.
-        #     k_buried = k_buried_arr[1:t + 1, ...]
-        #     f_in_use = f_in_arr[1:t + 1, ...]
-
-        #     # integrate demolition uptake: for demolition_time, carbonation is happening freely, then buried
-        #     demolition_time = 0.4 # years, based on Cao2024
-        #     np.full_like(ages, demolition_time, dtype=np.float64)
-        #     ages = ages - demolition_time
-
-        #     # already carbonated depth (from previous year).
-        #     previous_ages = np.maximum(ages - 1, 0)
-        #     # demolition_time only applies if cohort is old enough
-        #     previous_demolition_time = np.where(previous_ages >= 0, demolition_time, np.maximum(ages - 1 + demolition_time, 0))
-        #     d = np.sqrt(previous_demolition_time * k_free ** 2 + previous_ages * k_buried ** 2)
-        #     # additional depth after one year of carbonation
-        #     d_add = np.sqrt(demolition_time * k_free ** 2 + ages * k_buried ** 2) - d
-
-        #     a_cut = a[1:t + 1, ...]
-        #     b_cut = b[1:t + 1, ...]
-        #     new_carbonated_volume = self.get_volume_sphere_slice(a_cut, b_cut, d, d_add)
-        #     new_carbonated_share = new_carbonated_volume / self.get_volume_sphere(a_cut, b_cut)
-        #     new_carbonated_mass = new_carbonated_share * mass[t]
-        #     added_co2 = new_carbonated_mass * f_in_use
-        #     carbonation[t] = added_co2.sum(axis=(0,-2, -1))
-
         return carbonation
     
     @staticmethod
     def convolute(inflow: fd.FlodymArray, kernel: fd.FlodymArray, test_mask: bool = False) -> fd.FlodymArray:
+        """
+        Convolution of two FlodymArrays, where inflow should contain a time dimension and kernel an age dimension.
+        """
         
         # calculate product: for every time t, get information for all ages
         product = inflow * kernel
