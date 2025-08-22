@@ -13,6 +13,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.compute_in_use_stock(stock_projection)
         self.compute_flows()
         self.compute_other_stocks()
+        # TODO carbon flow calculation should be made optional du to computational cost
         self.compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
@@ -129,15 +130,17 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         
     
     def calc_carbonation(self) -> fd.FlodymArray:
+        # get parameters for calculation
         f = self.get_available_cao()
         k_free = self.get_eff_carbonation_rate(type="free")
         k_buried = self.get_eff_carbonation_rate(type="buried")
 
+        # collect uptake from all sources
         uptake = fd.FlodymArray(dims=self.stocks["carbonated_co2"].dims)
-
         uptake["CKD"] = self.uptake_CKD()
         uptake["Construction Waste"] = self.uptake_construction_waste()
         uptake["In-Use Stock"] = self.uptake_in_use(f_in=f, k_free_in=k_free)
+        # TODO potentially differentiate between demolition and eol
         uptake["End-of-Life Stock"] = self.uptake_eol(f_in=f, k_free_in=k_free, k_buried_in=k_buried)
 
         return uptake
@@ -168,13 +171,17 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # sum uptake over 5 years
         window_size = int(1/annual_carbonation_fraction)
         uptake_one_year_arr = uptake_one_year.cast_values_to(self.stocks["atmosphere"].dims)
-        uptake_five_years_arr = self.rolling_sum(uptake_one_year_arr, window_size)
+        uptake_five_years_arr = self.windowed_sum(uptake_one_year_arr, window_size)
         uptake_five_years = fd.FlodymArray(dims=self.stocks["atmosphere"].dims, values=uptake_five_years_arr)
                 
         return uptake_five_years
 
     @staticmethod
-    def rolling_sum(arr: np.ndarray, window: int):
+    def windowed_sum(arr: np.ndarray, window: int):
+        """
+        Calculates the rolling sum over axis 0 with window size `window`, i.e. only entries within window are cumulated.
+        For the first window-1 rows, returns the cumulative sum (partial window).
+        """
         if window <= 1:
             return arr
         c = np.cumsum(arr, axis=0)
@@ -185,6 +192,13 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         return out
 
     def uptake_in_use(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray) -> fd.FlodymArray:
+        """
+        Uptake of CO2 by the in-use stock.
+        Product mass is assumed to be distributed over thickness, leaving a free surface for carbonation.
+        The carbonation depth is calculated following Fick's diffusion law, but cannot exceed the product thickness.
+        The total carbonation in each year is calculated by collecting all contributions from previous years.
+        """
+        # TODO can in-use and eol uptake share code?
         
         stk = self.stocks["in_use"]
         stk_dims = stk.dims
@@ -195,39 +209,76 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         agedimset = fd.DimensionSet(dim_list=[agedim])
         age = fd.FlodymArray(dims=agedimset, values=np.array(ages), dtype=float)
 
-        # prepare relative carbonation per age
+        # (I) prepare relative carbonation per age
+        # carbonation depth as per Fick's law
         d = age.apply(np.sqrt) * k_free_in
-        d_add = - d.apply(np.diff, kwargs={"prepend": 0, "axis": d.dims.index("u")})
+        # additional depth per year of aging (minus needed as ages are moving oldest to youngest)
+        d_add = - d.apply(np.diff, kwargs={"append": 0, "axis": d.dims.index("u")})
+        # available thickness that has not been carbonated yet
         thickness = self.parameters["product_thickness"].cast_to(d.dims)
         d_available = (thickness - d).maximum(0)
+        self.shift_with_zero(d_available, axis="u", inplace=True)
+        # correct d_add by available thickness
         d_add = d_add.minimum(d_available)
+        # share of product that carbonates for each age
         rel_add = d_add / self.parameters["product_thickness"]
 
-        # calculate carbonation for each time step
+        # (II) calculate carbonation for each time step
         # TODO: vectorize this to improve performance
         carbonation = fd.FlodymArray(dims=stk_dims)
 
         for t in range(1, stk._n_t):
-
+            # prepare dimension slices according to the current time step
+            # TODO dynamically select dimension letters based on what is available
             sliced_age_dim = fd.Dimension(name="sliced age", letter="n", items=ages[len(ages)-t-1:], dtype=int)
             sliced_agedimset = fd.DimensionSet(dim_list=[sliced_age_dim])
             sliced_t_dim = fd.Dimension(name="sliced time", letter="o", items=stk_dims["t"].items[:t+1], dtype=int)
 
+            # TODO rewrite age disribution since age might not be needed anymore?
+            # get age cohort of products at time t
             _, mass_values = self.get_age_distribution(stk, t)
             mass_dims = sliced_agedimset.union_with(stk.dims).drop("t")
             mass = fd.FlodymArray(dims=mass_dims, values=mass_values)
 
             # slice parameters as necessary
             rel_add_sliced = rel_add[{"u": sliced_age_dim}]
-            f_sliced = f_in[{"t": sliced_t_dim}] # the product
+            f_sliced = f_in[{"t": sliced_t_dim}] # time dimension from time-dependent clinker ratio
             f_sliced.dims.replace("o", sliced_age_dim, inplace=True)
 
+            # calculate carbonated mass convert to CO2
             carbonated_mass = mass * rel_add_sliced
             carbonated_co2 = carbonated_mass * f_sliced
             carbonation[{"t": stk_dims["t"].items[t]}] = carbonated_co2.sum_over("n")
 
         return carbonation
     
+    @staticmethod
+    def shift_with_zero(a: fd.FlodymArray, axis: str, direction: str = "backward", inplace: bool = False) -> fd.FlodymArray:
+        """
+        Shift FlodymArray inplace by one along axis, inserting zeros.
+        direction="forward": result[1:] = a[:-1]
+        direction="backward": result[:-1] = a[1:]
+        """
+        axis = a.dims.index(axis)
+        out = np.zeros_like(a.values)
+        tgt = [slice(None)] * out.ndim
+        src = [slice(None)] * out.ndim
+        if direction == "forward":
+            tgt[axis] = slice(1, None)
+            src[axis] = slice(0, -1)
+        elif direction == "backward":
+            tgt[axis] = slice(0, -1)
+            src[axis] = slice(1, None)
+        else:
+            raise ValueError("direction must be 'forward' or 'backward'")
+        out[tuple(tgt)] = a.values[tuple(src)]
+
+        if inplace:
+            a.values = out
+            return
+        else:
+            return fd.FlodymArray(dims=a.dims, values=out)
+        
     def get_available_cao(self) -> fd.FlodymArray:
         """
         Returns the available CaO for carbonation in the in-use stock.
@@ -307,7 +358,6 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         First, for 0.4 years, particles are assumed to be exposed to air (demolition).
         After that, they are used for different waste categories, where they are either recycled or buried.
         This influences their carbonation rate (k).
-        The total carbonation in each year is calculated by convolution, assuming that all previous inflows contribute.
         """
 
         prm = self.parameters
@@ -345,11 +395,12 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         # create new age dimension
         # TODO: replace ages creation with np.arange() but fd.DimensionSet fails as it doesn't accept it as int
         # when dtype = np.int64 selcted, the printing agedim becomes very ugly 
-        ages = [i for i in range(self.stocks["in_use"]._n_t)]
+        ages = [i for i in range(self.stocks["in_use"]._n_t)][::-1]
         agedim = fd.Dimension(name="age", letter="u", items=ages, dtype=int)
         agedimset = fd.DimensionSet(dim_list=[agedim])
         age = fd.FlodymArray(dims=agedimset, values=np.array(ages), dtype=float)
         
+        # TODO like in uptake_in_use, the zeroth year should not see carbonation, implement this using shift_with_zero
         # (II1) calculate t from demolition
         demolition_time = 0.4  # years, based on Cao2024
         demolition_age = fd.FlodymArray(dims=agedimset, values=np.full_like(ages, demolition_time, dtype=float))
@@ -365,70 +416,39 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         d = k * age_after_demolition.apply(np.sqrt)
 
         # (II3) calculate added carbonation depth beteen two time steps
-        d_add = d.apply(np.diff, kwargs={"prepend":0, "axis":d.dims.index("u")})  # prepend 0 to match dimensions
+        d_add = - d.apply(np.diff, kwargs={"append":0, "axis":d.dims.index("u")})  # append 0 to match dimensions
 
         # (II4) convert carbonation depth to volume by spherical particle model
         a = prm["waste_size_min"]
         b = prm["waste_size_max"]
         sphere_volume = self.get_volume_sphere(a, b)
-        new_carbonated_volume = self.get_volume_sphere_slice(a, b, d, d_add)
-        new_carbonated_share = new_carbonated_volume / sphere_volume
+        carbonation_volume = self.get_volume_sphere_slice(a, b, d, d_add)
+        carbonation_share = carbonation_volume / sphere_volume
 
-        # (II5) calc carbonated mass in each year by convolution and subsequently convert to CO2
-        new_carbonated_mass = self.convolute(new_carbonated_share, uncarbonated_inflow)
-        # sum frequently to avoid dimension overhead
+        # (II5) calc carbonated product mass in each year by hard-coded convolution and subsequently convert to CO2
+        new_carbonated_mass = fd.FlodymArray(dims=eol_dims)
+        for i, t in enumerate(eol_dims["t"].items):
+            # prepare dimensions accoring to the current time step
+            sliced_age_dim = fd.Dimension(name="sliced age", letter="n", items=carbonation_share.dims["u"].items[len(ages) - i - 1:], dtype=int)
+            sliced_t_dim = fd.Dimension(name="sliced time", letter="o", items=eol_dims["t"].items[:i+1], dtype=int)
+
+            # slice with new dimensions
+            sliced_carbonation_share = carbonation_share[{"u": sliced_age_dim}]
+            # time of inflow can be directly translated to age (earliest inflow, oldest age)
+            sliced_uncarbonated_inflow = uncarbonated_inflow[{"t": sliced_t_dim}]
+            sliced_uncarbonated_inflow.dims.replace("o", sliced_age_dim, inplace=True)
+
+            # calculate carbonated mass and sum over cohorts
+            carbonated_mass = sliced_carbonation_share * sliced_uncarbonated_inflow
+            new_carbonated_mass[{"t": t}] = carbonated_mass.sum_over("n")
+        
+        # (II6) translate carbonated product mass to co2, sum frequently to reduce dimension overhead
         added_co2 = new_carbonated_mass.sum_to(eol_dims.union_with(f_in.dims)) * f_in
-        carbonation = added_co2.sum_to(eol_dims)
+        uptake = added_co2.sum_to(eol_dims)
 
-        return carbonation
-    
-    @staticmethod
-    def convolute(inflow: fd.FlodymArray, kernel: fd.FlodymArray, test_mask: bool = False) -> fd.FlodymArray:
-        """
-        Convolution of two FlodymArrays, where inflow should contain a time dimension and kernel an age dimension.
-        """
+        return uptake
         
-        # calculate product: for every time t, get information for all ages
-        product = inflow * kernel
-        product_arr = product.values
-
-        # find time and age dimensions
-        time_idx = product.dims.index("t")
-        age_idx = product.dims.index("u")
-
-        shape = product.shape[time_idx]
-        assert shape == product.shape[age_idx], "Time and age dimensions are expected to be the same length."
-
-        # create mask: later used to select only values where age <= time
-        mask = np.tri(shape, shape, dtype=int).T # lower triangular matrix
-        mask_shape = [1]*product.dims.ndim # create mask shape
-        mask_shape[time_idx] = shape
-        mask_shape[age_idx] = shape
-        mask = mask.reshape(mask_shape)
-
-        # optional: test if mask orientation is correct
-        if test_mask:
-            for a in range(shape):
-                for t in range(shape):
-                    # build indices for broadcasting
-                    idx = [0]*product_arr.ndim
-                    idx[time_idx] = t
-                    idx[age_idx] = a
-                    val = mask[tuple(idx)]
-                    expected = 1 if a <= t else 0
-                    assert val == expected, f"Mask error at age {a}, time {t}: got {val}, expected {expected}"
-
-        # apply mask to product array, and sum over age dimension
-        conv = np.sum(product_arr * mask, axis=age_idx)
-
-        # save convolution in new flodym array without age dimension
-        dims_out = product.dims.drop("u") 
-        conv_out = fd.FlodymArray(dims=dims_out, values=conv)
-
-        return conv_out
-        
-    @staticmethod
-    def get_volume_sphere_slice(a : fd.FlodymArray, b: fd.FlodymArray, d: fd.FlodymArray, dadd: fd.FlodymArray) -> fd.FlodymArray:
+    def get_volume_sphere_slice(self, a : fd.FlodymArray, b: fd.FlodymArray, d: fd.FlodymArray, dadd: fd.FlodymArray) -> fd.FlodymArray:
         """
         Calculate the volume of a spherical shell with thickness dadd,
         which is located a distance d from the outside of the sphere.
@@ -441,6 +461,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         d = d.cast_to(dims)
         dadd = dadd.cast_to(dims)
 
+        # radii from diameters
         rmin = a/2
         rmax = b/2
 
