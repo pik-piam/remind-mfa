@@ -185,58 +185,48 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         return out
 
     def uptake_in_use(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray) -> fd.FlodymArray:
+        
         stk = self.stocks["in_use"]
         stk_dims = stk.dims
 
-        # Numpy calculations are unfortunately necessary. Therefore, we convert all flodym arrays to numpy arrays.
-        # To ensure that the dimensions are correct, we cast them to the stock dimensions.
+        # create age dimension
+        ages = [i for i in range(stk._n_t)][::-1]
+        agedim = fd.Dimension(name="age", letter="u", items=ages, dtype=int)
+        agedimset = fd.DimensionSet(dim_list=[agedim])
+        age = fd.FlodymArray(dims=agedimset, values=np.array(ages), dtype=float)
 
-        # f describes the available density of CaO in product available for carbonation 
-        f_in_arr = f_in.cast_values_to(stk_dims)
-        # k is the carbonation rate (mm/sqrt(year))
-        k_free_in_arr = k_free_in.cast_values_to(stk_dims)
-        thickness_arr = self.parameters["product_thickness"].cast_values_to(stk_dims)
+        # prepare relative carbonation per age
+        d = age.apply(np.sqrt) * k_free_in
+        d_add = - d.apply(np.diff, kwargs={"prepend": 0, "axis": d.dims.index("u")})
+        thickness = self.parameters["product_thickness"].cast_to(d.dims)
+        d_available = (thickness - d).maximum(0)
+        d_add = d_add.minimum(d_available)
+        rel_add = d_add / self.parameters["product_thickness"]
 
-        carbonation = np.zeros(stk.dims.shape)
-        
+        # calculate carbonation for each time step
+        # TODO: vectorize this to improve performance
+        carbonation = fd.FlodymArray(dims=stk_dims)
+
         for t in range(1, stk._n_t):
-            
-            # differentiate stock by age cohorts
-            ages, mass = self.get_age_distribution(stk, t)
-            # mass is shape (t + 1, stocks.shape without time)
 
-            # select only cohorts that are younger than (or equal to) t
-            # TODO remove first cohort, adjust ages/mass from get_age_distribution accordingly
-            # We can do this because in first cohort, age is 0, so no carbonation has happened yet.
-            f = f_in_arr[:t + 1, ...]
-            k = k_free_in_arr[:t + 1, ...]
-            thickness = thickness_arr[:t + 1, ...]
+            sliced_age_dim = fd.Dimension(name="sliced age", letter="n", items=ages[len(ages)-t-1:], dtype=int)
+            sliced_agedimset = fd.DimensionSet(dim_list=[sliced_age_dim])
+            sliced_t_dim = fd.Dimension(name="sliced time", letter="o", items=stk_dims["t"].items[:t+1], dtype=int)
 
-            # area available for carbonation
-            area_density = mass / thickness
-            
-            # already carbonated depth (from previous year)
-            # TODO this calculation could be taken from previous step in loop
-            d = np.sqrt(np.maximum(ages - 1, 0)) * k
+            _, mass_values = self.get_age_distribution(stk, t)
+            mass_dims = sliced_agedimset.union_with(stk.dims).drop("t")
+            mass = fd.FlodymArray(dims=mass_dims, values=mass_values)
 
-            # additional depth after one year of carbonation
-            d_add = np.sqrt(ages) * k - d
-            
-            # maximum available depth for carbonation
-            d_available = np.maximum(thickness - d, 0)
+            # slice parameters as necessary
+            rel_add_sliced = rel_add[{"u": sliced_age_dim}]
+            f_sliced = f_in[{"t": sliced_t_dim}] # the product
+            f_sliced.dims.replace("o", sliced_age_dim, inplace=True)
 
-            # fill co2 in avaiable depth if previously calculated additional depth is too large
-            d_add = np.where(d_add > d_available, d_available, d_add)
+            carbonated_mass = mass * rel_add_sliced
+            carbonated_co2 = carbonated_mass * f_sliced
+            carbonation[{"t": stk_dims["t"].items[t]}] = carbonated_co2.sum_over("n")
 
-            # calculated co2 removed from atmosphere by carbonation
-            added_co2 = d_add * f * area_density
-
-            # sum over all age cohorts
-            carbonation[t] = added_co2.sum(axis=(0))
-
-        uptake = fd.FlodymArray(dims=stk_dims, values=carbonation)
-
-        return uptake
+        return carbonation
     
     def get_available_cao(self) -> fd.FlodymArray:
         """
@@ -375,7 +365,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         d = k * age_after_demolition.apply(np.sqrt)
 
         # (II3) calculate added carbonation depth beteen two time steps
-        d_add = d.apply(np.diff, kwargs={"prepend":0, "axis":-1})  # prepend 0 to match dimensions
+        d_add = d.apply(np.diff, kwargs={"prepend":0, "axis":d.dims.index("u")})  # prepend 0 to match dimensions
 
         # (II4) convert carbonation depth to volume by spherical particle model
         a = prm["waste_size_min"]
