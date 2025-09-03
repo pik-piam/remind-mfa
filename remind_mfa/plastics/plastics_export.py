@@ -161,12 +161,12 @@ class PlasticsDataExporter(CommonDataExporter):
         )
         fig = ap_scatter_stock.plot()
 
-        if self.cfg.plotting_engine == "plotly":
-            fig.update_xaxes(type="log", range=[3, 5])
-        elif self.cfg.plotting_engine == "pyplot":
-            for ax in fig.get_axes():
-                ax.set_xscale("log")
-                ax.set_xlim(1e3, 1e5)
+        # if self.cfg.plotting_engine == "plotly":
+        #     fig.update_xaxes(type="log", range=[3, 5])
+        # elif self.cfg.plotting_engine == "pyplot":
+        #     for ax in fig.get_axes():
+        #         ax.set_xscale("log")
+        #         ax.set_xlim(1e3, 1e5)
 
         self.plot_and_save_figure(
             ap_scatter_stock,
