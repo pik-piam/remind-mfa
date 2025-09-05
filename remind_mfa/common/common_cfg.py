@@ -58,6 +58,7 @@ class VisualizationCfg(RemindMFABaseModel):
     use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}
+    flows: dict = {"do_visualize": False}
     extrapolation: dict = {"do_visualize": False}
     do_show_figs: bool = True
     do_save_figs: bool = False

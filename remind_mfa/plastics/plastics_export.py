@@ -3,6 +3,7 @@ import numpy as np
 
 from plotly import colors as plc
 import plotly.graph_objects as go
+import pyam
 from typing import TYPE_CHECKING
 import flodym.export as fde
 
@@ -47,18 +48,67 @@ class PlasticsDataExporter(CommonDataExporter):
         self.export_eol_data_by_region_and_year(mfa=model.mfa)
         self.export_use_data_by_region_and_year(mfa=model.mfa)
         self.export_recycling_data_by_region_and_year(mfa=model.mfa)
+        if self.do_export.iamc:
+            self.write_iamc(mfa=model.mfa)
 
         if self.cfg.production["do_visualize"]:
-            self.visualize_production(mfa=model.mfa)
+            self.visualize_demand(mfa=model.mfa)
 
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.mfa, subplots_by_good=False)
 
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(mfa=model.mfa)
+
+        if self.cfg.flows["do_visualize"]:
+            self.visualize_flow(mfa=model.mfa, flow=model.mfa.flows["virgin => fabrication"], name="Primary production", subplot_dim_letter="m")
+            self.visualize_flow(mfa=model.mfa, flow=model.mfa.flows["recl => fabrication"], name="Secondary production", subplot_dim_letter="m")
+
         self.stop_and_show()
 
-    def visualize_production(self, mfa: fd.MFASystem):
+    def visualize_flow(
+        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, subplot_dim_letter = ()
+    ):
+
+        x_array = None
+        x_label = "Year"
+        y_label = "Flow [Mt]"
+        linecolor_dim = None
+        sum_dims = tuple(x for x in flow.dims.letters if x not in (subplot_dim_letter, "t"))
+        flow = flow.sum_over(sum_dims)
+
+        if subplot_dim_letter == "r":
+            subplot_dim = "Region"
+            title = f"Regional {name} Flow"
+            tag = "_regional"
+        elif subplot_dim_letter == "m":
+            subplot_dim = "Material"
+            title = f"Material {name} Flow"
+            tag = "_perMaterial"
+        elif subplot_dim_letter == "g":
+            subplot_dim = "Good"
+            title = f"Good {name} Flow"
+            tag = "_perGood"
+        else:
+            subplot_dim = None
+            tag = ""
+            title = f"Global {name} Flow"
+
+        ap = self.plotter_class(
+            array=flow,
+            intra_line_dim="Time",
+            linecolor_dim=linecolor_dim,
+            subplot_dim=subplot_dim,
+            x_array=x_array,
+            title=title,
+            line_type="dot",
+            suppress_legend=True,
+            x_label=x_label,
+            y_label=y_label,
+        )
+        self.plot_and_save_figure(ap, f"{name}_flow{tag}.png")
+
+    def visualize_demand(self, mfa: fd.MFASystem):
         ap_modeled = self.plotter_class(
             array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e")),
             intra_line_dim="Time",
@@ -71,13 +121,13 @@ class PlasticsDataExporter(CommonDataExporter):
             array=mfa.parameters["production"].sum_over("r"),
             intra_line_dim="Historic Time",
             subplot_dim="Good",
-            line_label="Historic Production",
+            line_label="Historic Demand",
             fig=fig,
             xlabel="Year",
-            ylabel="Production [Mt]",
+            ylabel="Demand [Mt]",
             display_names=self._display_names,
         )
-        self.plot_and_save_figure(ap_historic, "production.png")
+        self.plot_and_save_figure(ap_historic, "demand.png")
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         per_capita = self.cfg.use_stock["per_capita"]
@@ -296,3 +346,114 @@ class PlasticsDataExporter(CommonDataExporter):
         recl_data = mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]
         df = recl_data.sum_to(("t", "r", "m")).to_df(index=True)
         df.to_csv(self.export_path(output_path), index=True)
+
+    def write_iamc(self, mfa: fd.MFASystem):
+
+        model = "REMIND 3.0"
+        scenario = "SSP2_NPi"
+        constants = {"model": model, "scenario": scenario}
+
+        # production
+        ## primary production
+        prod_virgin = mfa.flows["virgin => fabrication"].sum_to(('t','r'))
+        prod_virgin_df = self.to_iamc_df(prod_virgin)
+        prod_virgin_idf = pyam.IamDataFrame(
+            prod_virgin_df,
+            variable="Production|Chemicals|Plastics|Primary",
+            unit="Mt/yr",
+            **constants,
+        )
+        ## secondary production
+        prod_recl = mfa.flows["recl => fabrication"].sum_to(('t','r'))
+        prod_recl_df = self.to_iamc_df(prod_recl)
+        prod_recl_idf = pyam.IamDataFrame(
+            prod_recl_df,
+            variable="Production|Chemicals|Plastics|Secondary",
+            unit="Mt/yr",
+            **constants,
+        )
+        ## total production
+        prod_idf = pyam.concat([
+            prod_virgin_idf,
+            prod_recl_idf,
+        ])
+        prod_idf.aggregate(
+            variable="Production|Chemicals|Plastics",
+            append=True,
+        )
+
+        # demand
+        ## demand by good
+        plastic_demand_by_good = mfa.flows["fabrication => use"].sum_to(('t','r','g'))
+        demand_df = self.to_iamc_df(plastic_demand_by_good)
+        demand_df["variable"] = "Material Demand|Chemicals|Plastics|" + demand_df["Good"]
+        demand_df = demand_df.drop(columns=["Good"])
+        demand_idf = pyam.IamDataFrame(
+            demand_df,
+            unit="Mt/yr",
+            **constants,
+        )
+        demand_idf.aggregate(
+            variable="Material Demand|Chemicals|Plastics",
+            append=True,
+        )
+        ## demand by origin (primary/secondary) and good
+        recycled = mfa.flows["recl => fabrication"]/(mfa.flows["recl => fabrication"]+mfa.flows["virgin => fabrication"])
+        ### primary production
+        plastic_demand_virgin = mfa.flows["fabrication => use"] * (1 - recycled)
+        demand_virgin_df = self.to_iamc_df(plastic_demand_virgin.sum_to(('t','r','g')))
+        demand_virgin_df["variable"] = "Material Demand|Chemicals|Plastics|Primary|" + demand_virgin_df["Good"]
+        demand_virgin_df = demand_virgin_df.drop(columns=["Good"])
+        demand_virgin_idf = pyam.IamDataFrame(
+            demand_virgin_df,
+            unit="Mt/yr",
+            **constants,
+        )
+        demand_virgin_idf.aggregate(
+            variable="Material Demand|Chemicals|Plastics|Primary",
+            append=True,
+        )
+        ### secondary production
+        plastic_demand_recl = mfa.flows["fabrication => use"] * recycled
+        demand_recl_df = self.to_iamc_df(plastic_demand_recl.sum_to(('t','r','g')))
+        demand_recl_df["variable"] = "Material Demand|Chemicals|Plastics|Secondary|" + demand_recl_df["Good"]
+        demand_recl_df = demand_recl_df.drop(columns=["Good"])
+        demand_recl_idf = pyam.IamDataFrame(
+            demand_recl_df,
+            unit="Mt/yr",
+            **constants,
+        )
+        demand_recl_idf.aggregate(
+            variable="Material Demand|Chemicals|Plastics|Secondary",
+            append=True,
+        )
+        demand_origin_idf = pyam.concat([
+            demand_virgin_idf,
+            demand_recl_idf,
+        ])  
+        # demand_origin_idf.aggregate(
+        #     variable="Material Demand|Chemicals|Plastics",
+        #     append=True,
+        # )              
+        
+        idf = pyam.concat([
+            prod_idf,
+            demand_idf,
+            demand_origin_idf,
+        ])
+        idf.aggregate_region(
+            variable=idf.variable,
+            region="World",
+            append=True,
+        )
+
+        idf.to_excel(self.export_path(f"output_iamc.xlsx"))
+
+
+    @staticmethod
+    def to_iamc_df(array: fd.FlodymArray):
+        time_items = list(range(2025, 2101)) # TODO: more flexible
+        time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
+        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
+        df = df.rename(columns={"Region": "region"})
+        return df
