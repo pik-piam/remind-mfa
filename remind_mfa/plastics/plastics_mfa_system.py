@@ -44,14 +44,19 @@ class PlasticsMFASystem(fd.MFASystem):
             ],
             target_dims=self.dims[()],
         )
-        stock_handler = StockExtrapolation(
+        self.stock_handler = StockExtrapolation(
             self.stocks["in_use_historic"].stock,
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
-            bound_list=bound_list,
+            do_gdppc_time_regression=self.cfg.customization.do_gdppc_time_regression,
+            target_dim_letters=(
+                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+            ),
+            #bound_list=bound_list,
+            indep_fit_dim_letters=("g"),
         )
-        in_use_stock = stock_handler.stocks
+        in_use_stock = self.stock_handler.stocks
         self.stocks["in_use_dsm"].stock[...] = in_use_stock
         self.stocks["in_use_dsm"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]

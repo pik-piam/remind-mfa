@@ -196,7 +196,7 @@ class StockExtrapolation:
 
         # save extrapolation data for later analysis
         self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
-        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
+        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters,]
         parameter_names = fd.Dimension(
             name="Parameter Names", letter="p", items=extrapolation.prm_names
         )
@@ -210,7 +210,9 @@ class StockExtrapolation:
         self.stocks[...] = self.stocks_pc * self.pop
 
     def gdp_time_regression(self, gdppc):
-        # ToDo
+        time = np.array(self.dims["t"].items)
+        # ToDo make this more flexible; ideally the parameter is calculated within this function or at least given as an argument
+        gdppc[...] = np.log10(gdppc[...])*70 + time[:, None, None]
         return gdppc
     
     def gaussian_correction(
