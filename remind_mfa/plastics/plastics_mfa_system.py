@@ -31,18 +31,23 @@ class PlasticsMFASystem(fd.MFASystem):
         self.stocks["in_use_historic"].compute()
 
     def compute_in_use_dsm(self):
-        saturation_level = 0.2 / 1e6  # t to Mt
+        #saturation_level = 0.2 / 1e6  # t to Mt
+        #helper flodym array with dimensions of indep_fit_dim_letters
+        indep_fit_dim_letters = ("g")
+        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters,], values = np.zeros(self.dims[indep_fit_dim_letters,].shape))
+        stock_pc = self.stocks["in_use_historic"].stock / self.parameters["population"]
+        saturation_level = stock_pc.maximum(lower_bound)
         sat_bound = Bound(
             var_name="saturation_level",
-            lower_bound=saturation_level,
-            upper_bound=saturation_level * 3,
-            dims=self.dims[()],
+            lower_bound=lower_bound.values,
+            upper_bound=saturation_level.values,
+            dims=saturation_level.dims,
         )
         bound_list = BoundList(
             bound_list=[
                 sat_bound,
             ],
-            target_dims=self.dims[()],
+            target_dims=self.dims[indep_fit_dim_letters,],
         )
         self.stock_handler = StockExtrapolation(
             self.stocks["in_use_historic"].stock,
@@ -53,8 +58,8 @@ class PlasticsMFASystem(fd.MFASystem):
             target_dim_letters=(
                 "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
-            #bound_list=bound_list,
-            indep_fit_dim_letters=("g"),
+            bound_list=bound_list,
+            indep_fit_dim_letters=indep_fit_dim_letters,
         )
         in_use_stock = self.stock_handler.stocks
         self.stocks["in_use_dsm"].stock[...] = in_use_stock

@@ -335,6 +335,7 @@ class PlasticsDataExporter(CommonDataExporter):
             fig=fig,
             line_type="dot",
             #line_label="Pure Extrapolation",
+            color_map=ap_final_stock.color_map*2,
         )
         fig = ap_pure_prediction.plot()
 
