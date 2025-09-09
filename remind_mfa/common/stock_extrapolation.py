@@ -23,6 +23,7 @@ class StockExtrapolation:
         indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
         bound_list: BoundList = BoundList(),
         do_gdppc_accumulation: bool = True,
+        do_gdppc_time_regression: bool = False,
         stock_correction: str = "gaussian_first_order",
     ):
         """
@@ -47,6 +48,7 @@ class StockExtrapolation:
         self.set_dims(indep_fit_dim_letters)
         self.bound_list = bound_list
         self.do_gdppc_accumulation = do_gdppc_accumulation
+        self.do_gdppc_time_regression = do_gdppc_time_regression
         self.stock_correction = stock_correction
         self.extrapolate()
 
@@ -151,6 +153,16 @@ class StockExtrapolation:
         for i in range(n_deriv + 5):
             gdppc[i_2025 - i, ...] = gdppc[i_2025 - i + 1, ...] * growth
 
+        if self.do_gdppc_time_regression:
+            gdppc = self.gdp_time_regression(gdppc)
+            add_assumption_doc(
+                type="model assumption",
+                name="Usage of time and GDP per capita as regression predictors",
+                description=(
+                    "GDPpc and Year is used as a combined predictor in stock extrapolation. "
+                ),
+            )
+
         extrapolation = self.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
             predictor_values=gdppc,
@@ -184,7 +196,10 @@ class StockExtrapolation:
 
         # save extrapolation data for later analysis
         self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
-        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
+        if self.indep_fit_dim_letters:
+            parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters,]
+        else:
+            parameter_dims = fd.DimensionSet(dim_list=[])
         parameter_names = fd.Dimension(
             name="Parameter Names", letter="p", items=extrapolation.prm_names
         )
@@ -197,6 +212,12 @@ class StockExtrapolation:
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
 
+    def gdp_time_regression(self, gdppc):
+        time = np.array(self.dims["t"].items)
+        # ToDo make this more flexible; ideally the parameter is calculated within this function or at least given as an argument
+        gdppc[...] = np.log10(gdppc[...])*70 + time[:, None, None]
+        return gdppc
+    
     def gaussian_correction(
         self, historic: np.ndarray, prediction: np.ndarray, n: int = 5
     ) -> np.ndarray:

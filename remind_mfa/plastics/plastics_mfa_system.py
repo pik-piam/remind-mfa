@@ -37,27 +37,37 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.trade_set.balance(to="maximum")
 
     def extrapolate_stock(self, historic_stock: fd.Stock):
-        saturation_level = 0.2 / 1e6  # t to Mt
+        #saturation_level = 0.2 / 1e6  # t to Mt
+        #helper flodym array with dimensions of indep_fit_dim_letters
+        indep_fit_dim_letters = ("g")
+        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters,], values = np.zeros(self.dims[indep_fit_dim_letters,].shape))
+        stock_pc = self.stocks["in_use_historic"].stock / self.parameters["population"]
+        saturation_level = stock_pc.maximum(lower_bound)
         sat_bound = Bound(
             var_name="saturation_level",
-            lower_bound=saturation_level,
-            upper_bound=saturation_level * 3,
-            dims=self.dims[()],
+            lower_bound=lower_bound.values,
+            upper_bound=saturation_level.values,
+            dims=saturation_level.dims,
         )
         bound_list = BoundList(
             bound_list=[
                 sat_bound,
             ],
-            target_dims=self.dims[()],
+            target_dims=self.dims[indep_fit_dim_letters,],
         )
-        stock_handler = StockExtrapolation(
+        self.stock_handler = StockExtrapolation(
             historic_stocks=historic_stock.stock,
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            do_gdppc_time_regression=self.cfg.customization.do_gdppc_time_regression,
+            target_dim_letters=(
+                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+            ),
             bound_list=bound_list,
+            indep_fit_dim_letters=indep_fit_dim_letters,
         )
-        in_use_stock = stock_handler.stocks
+        in_use_stock = self.stock_handler.stocks
         self.stocks["in_use_dsm"].stock[...] = in_use_stock
         self.stocks["in_use_dsm"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]

@@ -68,6 +68,9 @@ class PlasticsDataExporter(CommonDataExporter):
         if self.cfg.production["do_visualize"]:
             self.visualize_demand(mfa=model.mfa_future)
 
+        if self.cfg.extrapolation["do_visualize"]:
+            self.visualize_extrapolation(model=model)
+
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.mfa_future, subplots_by_good=False)
 
@@ -234,12 +237,12 @@ class PlasticsDataExporter(CommonDataExporter):
         )
         fig = ap_scatter_stock.plot()
 
-        if self.cfg.plotting_engine == "plotly":
-            fig.update_xaxes(type="log", range=[3, 5])
-        elif self.cfg.plotting_engine == "pyplot":
-            for ax in fig.get_axes():
-                ax.set_xscale("log")
-                ax.set_xlim(1e3, 1e5)
+        # if self.cfg.plotting_engine == "plotly":
+        #     fig.update_xaxes(type="log", range=[3, 5])
+        # elif self.cfg.plotting_engine == "pyplot":
+        #     for ax in fig.get_axes():
+        #         ax.set_xscale("log")
+        #         ax.set_xlim(1e3, 1e5)
 
         self.plot_and_save_figure(
             ap_scatter_stock,
@@ -343,6 +346,77 @@ class PlasticsDataExporter(CommonDataExporter):
         fig.update_yaxes(visible=False)
 
         self._show_and_save_plotly(fig, name="sankey")
+
+    def visualize_extrapolation(self, model: "PlasticsModel"):
+        mfa = model.mfa
+        per_capita = True
+        subplot_dim = "Region"
+        linecolor_dim = "Good"
+        stock = mfa.stocks["in_use"].stock
+        population = mfa.parameters["population"]
+        x_array = None
+
+        pc_str = "pC" if per_capita else ""
+        x_label = "Year"
+        y_label = f"Stock{pc_str} [t]"
+        title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
+        if self.cfg.use_stock["over_gdp"]:
+            title = title + f" over GDP{pc_str}"
+            x_label = f"GDP/PPP{pc_str} [2005 USD]"
+            x_array = mfa.parameters["gdppc"]
+            if not per_capita:
+                x_array = x_array * population
+
+        dimlist = ["t"]
+        if subplot_dim is not None:
+            subplot_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
+            )
+            dimlist.append(subplot_dimletter)
+        if linecolor_dim is not None:
+            linecolor_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
+            )
+            dimlist.append(linecolor_dimletter)
+
+        other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
+        stock = stock.sum_over(other_dimletters)
+
+        if per_capita:
+            stock = stock / population
+
+        fig, ap_final_stock = self.plot_history_and_future(
+            mfa=mfa,
+            data_to_plot=stock,
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            x_array=x_array.cast_to(stock.dims),
+            x_label=x_label,
+            y_label=y_label,
+            title=title,
+            #line_label="Historic + Modelled Future",
+        )
+
+        # extrapolation
+        ap_pure_prediction = self.plotter_class(
+            array=model.mfa.stock_handler.pure_prediction,
+            intra_line_dim="Time",
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            x_array=x_array.cast_to(model.mfa.stock_handler.pure_prediction.dims),
+            title=title,
+            fig=fig,
+            line_type="dot",
+            #line_label="Pure Extrapolation",
+            color_map=ap_final_stock.color_map*2,
+        )
+        fig = ap_pure_prediction.plot()
+
+        self.plot_and_save_figure(
+            ap_pure_prediction,
+            f"stocks_extrapolation.png",
+            do_plot=False,
+        )
 
     def export_eol_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"
