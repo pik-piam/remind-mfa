@@ -348,7 +348,7 @@ class PlasticsDataExporter(CommonDataExporter):
         self._show_and_save_plotly(fig, name="sankey")
 
     def visualize_extrapolation(self, model: "PlasticsModel"):
-        mfa = model.mfa
+        mfa = model.mfa_future
         per_capita = True
         subplot_dim = "Region"
         linecolor_dim = "Good"
@@ -399,11 +399,11 @@ class PlasticsDataExporter(CommonDataExporter):
 
         # extrapolation
         ap_pure_prediction = self.plotter_class(
-            array=model.mfa.stock_handler.pure_prediction,
+            array=mfa.stock_handler.pure_prediction,
             intra_line_dim="Time",
             subplot_dim=subplot_dim,
             linecolor_dim=linecolor_dim,
-            x_array=x_array.cast_to(model.mfa.stock_handler.pure_prediction.dims),
+            x_array=x_array.cast_to(mfa.stock_handler.pure_prediction.dims),
             title=title,
             fig=fig,
             line_type="dot",
