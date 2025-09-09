@@ -298,7 +298,7 @@ class PlasticsDataExporter(CommonDataExporter):
         df = eol_data.to_df(index=True)
         df_grouped = df.groupby(["Time", "Region", "Material"], as_index=True)["value"].sum()
 
-        df_grouped.to_csv(output_path, index=True)
+        df_grouped.to_csv(self.export_path(output_path), index=True)
 
     def export_use_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "use_by_region_year.csv"
@@ -309,7 +309,7 @@ class PlasticsDataExporter(CommonDataExporter):
         df = mfa.flows["fabrication => use"].to_df(index=True)
         df_grouped = df.groupby(["Time", "Region"], as_index=True)["value"].sum()
 
-        df_grouped.to_csv(output_path, index=True)
+        df_grouped.to_csv(self.export_path(output_path), index=True)
 
     def export_recycling_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "recycling_by_region_year.csv"
@@ -322,4 +322,4 @@ class PlasticsDataExporter(CommonDataExporter):
 
         df_grouped = df.groupby(["Time", "Region", "Material"], as_index=True)["value"].sum()
 
-        df_grouped.to_csv(output_path, index=True)
+        df_grouped.to_csv(self.export_path(output_path), index=True)
