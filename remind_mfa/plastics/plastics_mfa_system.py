@@ -4,7 +4,7 @@ import numpy as np
 
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.custom_data_reader import CustomDataReader
-from remind_mfa.common.trade_extrapolation import predict_by_extrapolation
+from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.common_cfg import PlasticsCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
@@ -79,7 +79,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         product_demand = self.stocks["in_use"].inflow
 
-        predict_by_extrapolation(
+        extrapolate_trade(
             historic_trade["primary_his"],
             self.trade_set["primary"],
             product_demand,
@@ -87,7 +87,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             balance_to="hmean",
         )
 
-        predict_by_extrapolation(
+        extrapolate_trade(
             historic_trade["intermediate_his"],
             self.trade_set["intermediate"],
             product_demand,
@@ -95,7 +95,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             balance_to="hmean",
         )
 
-        predict_by_extrapolation(
+        extrapolate_trade(
             historic_trade["manufactured_his"],
             self.trade_set["manufactured"],
             product_demand,
@@ -103,7 +103,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             balance_to="hmean",
         )
 
-        predict_by_extrapolation(
+        extrapolate_trade(
             historic_trade["final_his"],
             self.trade_set["final"],
             product_demand,
