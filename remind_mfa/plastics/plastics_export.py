@@ -23,6 +23,8 @@ class PlasticsDataExporter(CommonDataExporter):
         "virgindaccu": "Prim(daccu)",
         "virginccu": "Prim(ccu)",
         "virgin": "Prim(total)",
+        "polymerization": "Poly",
+        "processing": "Proc",
         "fabrication": "Fabri",
         "recl": "Recycling(total)",
         "reclmech": "Mech recycling",
@@ -37,32 +39,44 @@ class PlasticsDataExporter(CommonDataExporter):
         "emission": "Emissions",
         "captured": "Captured",
         "atmosphere": "Atmosphere",
-        "wasteimport": "Import waste",
-        "wasteexport": "Export waste",
-        "wastetrade": "Waste trade",
+        "waste_imports": "Wastes Imports",
+        "waste_exports": "Wastes Exports",
+        "waste_market": "Waste Market",
+        "primary_imports": "Prim Imports",
+        "primary_exports": "Prim Exports",
+        "primary_market": "Prim Market",
+        "intermediate_imports": "Inter Imports",
+        "intermediate_exports": "Inter Exports",
+        "intermediate_market": "Inter Market",
+        "manufactured_imports": "Manu Imports",
+        "manufactured_exports": "Manu Exports",
+        "manufactured_market": "Manu Market",
+        "final_imports": "Final Imports",
+        "final_exports": "Final Exports",
+        "good_market": "Good Market",
     }
 
     def visualize_results(self, model: "PlasticsModel"):
         if not self.cfg.do_visualize:
             return
-        self.export_eol_data_by_region_and_year(mfa=model.mfa)
-        self.export_use_data_by_region_and_year(mfa=model.mfa)
-        self.export_recycling_data_by_region_and_year(mfa=model.mfa)
+        self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
+        self.export_use_data_by_region_and_year(mfa=model.mfa_future)
+        self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
         if self.do_export.iamc:
-            self.write_iamc(mfa=model.mfa)
+            self.write_iamc(mfa=model.mfa_future)
 
         if self.cfg.production["do_visualize"]:
-            self.visualize_demand(mfa=model.mfa)
+            self.visualize_demand(mfa=model.mfa_future)
 
         if self.cfg.use_stock["do_visualize"]:
-            self.visualize_stock(mfa=model.mfa, subplots_by_good=False)
+            self.visualize_stock(mfa=model.mfa_future, subplots_by_good=False)
 
         if self.cfg.sankey["do_visualize"]:
-            self.visualize_sankey(mfa=model.mfa)
+            self.visualize_sankey(mfa=model.mfa_future)
 
         if self.cfg.flows["do_visualize"]:
-            self.visualize_flow(mfa=model.mfa, flow=model.mfa.flows["virgin => fabrication"], name="Primary production", subplot_dim_letter="m")
-            self.visualize_flow(mfa=model.mfa, flow=model.mfa.flows["recl => fabrication"], name="Secondary production", subplot_dim_letter="m")
+            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.flows["virgin => fabrication"], name="Primary production", subplot_dim_letter="m")
+            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.flows["recl => fabrication"], name="Secondary production", subplot_dim_letter="m")
 
         self.stop_and_show()
 
@@ -328,8 +342,8 @@ class PlasticsDataExporter(CommonDataExporter):
     ):
         eol_data = (
             mfa.flows["eol => collected"]
-            + mfa.flows["wasteimport => collected"]
-            - mfa.flows["collected => wasteexport"]
+            + mfa.flows["waste_imports => collected"]
+            - mfa.flows["collected => waste_exports"]
         )
         df = eol_data.sum_to(("t", "r", "m")).to_df(index=True)
         df.to_csv(self.export_path(output_path), index=True)
