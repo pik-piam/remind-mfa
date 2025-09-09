@@ -75,32 +75,40 @@ class PlasticsDataExporter(CommonDataExporter):
             self.visualize_sankey(mfa=model.mfa_future)
 
         if self.cfg.flows["do_visualize"]:
-            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.flows["virgin => fabrication"], name="Primary production", subplot_dim_letter="m")
-            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.flows["recl => fabrication"], name="Secondary production", subplot_dim_letter="m")
+            primary_production = model.mfa_future.flows["virginfoss => virgin"] + model.mfa_future.flows["virginbio => virgin"] + model.mfa_future.flows["virgindaccu => virgin"] + model.mfa_future.flows["virginccu => virgin"]
+            self.visualize_flow(mfa=model.mfa_future, flow=primary_production, name="Primary production", subplot_dim="Material")
+            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.flows["recl => fabrication"], name="Secondary production", subplot_dim="Material")
+            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.stocks["in_use"].inflow, name="Demand", subplot_dim="Region", linecolor_dim="Good")
 
         self.stop_and_show()
 
     def visualize_flow(
-        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, subplot_dim_letter = ()
+        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, subplot_dim = None, linecolor_dim = None
     ):
 
         x_array = None
         x_label = "Year"
         y_label = "Flow [Mt]"
-        linecolor_dim = None
-        sum_dims = tuple(x for x in flow.dims.letters if x not in (subplot_dim_letter, "t"))
+        subplot_dimletter = ()
+        linecolor_dimletter = ()
+        if subplot_dim is not None:
+            subplot_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
+            )
+        if linecolor_dim is not None:
+            linecolor_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
+            )
+        sum_dims = tuple(x for x in flow.dims.letters if x not in (subplot_dimletter, linecolor_dimletter, "t"))
         flow = flow.sum_over(sum_dims)
 
-        if subplot_dim_letter == "r":
-            subplot_dim = "Region"
+        if subplot_dim == "Region":
             title = f"Regional {name} Flow"
             tag = "_regional"
-        elif subplot_dim_letter == "m":
-            subplot_dim = "Material"
+        elif subplot_dim == "Material":
             title = f"Material {name} Flow"
             tag = "_perMaterial"
-        elif subplot_dim_letter == "g":
-            subplot_dim = "Good"
+        elif subplot_dim == "Good":
             title = f"Good {name} Flow"
             tag = "_perGood"
         else:
@@ -116,7 +124,6 @@ class PlasticsDataExporter(CommonDataExporter):
             x_array=x_array,
             title=title,
             line_type="dot",
-            suppress_legend=True,
             x_label=x_label,
             y_label=y_label,
         )
@@ -369,8 +376,11 @@ class PlasticsDataExporter(CommonDataExporter):
 
         # production
         ## primary production
-        prod_virgin = mfa.flows["virgin => fabrication"].sum_to(('t','r'))
-        prod_virgin_df = self.to_iamc_df(prod_virgin)
+        prod_virgin = (mfa.flows["virginfoss => virgin"] + 
+                       mfa.flows["virginbio => virgin"] + 
+                       mfa.flows["virgindaccu => virgin"] + 
+                       mfa.flows["virginccu => virgin"])
+        prod_virgin_df = self.to_iamc_df(prod_virgin.sum_to(('t','r')))
         prod_virgin_idf = pyam.IamDataFrame(
             prod_virgin_df,
             variable="Production|Chemicals|Plastics|Primary",
@@ -378,8 +388,8 @@ class PlasticsDataExporter(CommonDataExporter):
             **constants,
         )
         ## secondary production
-        prod_recl = mfa.flows["recl => fabrication"].sum_to(('t','r'))
-        prod_recl_df = self.to_iamc_df(prod_recl)
+        prod_recl = mfa.flows["recl => fabrication"]
+        prod_recl_df = self.to_iamc_df(prod_recl.sum_to(('t','r')))
         prod_recl_idf = pyam.IamDataFrame(
             prod_recl_df,
             variable="Production|Chemicals|Plastics|Secondary",
@@ -398,7 +408,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
         # demand
         ## demand by good
-        plastic_demand_by_good = mfa.flows["fabrication => use"].sum_to(('t','r','g'))
+        plastic_demand_by_good = mfa.stocks["in_use"].inflow.sum_to(('t','r','g'))
         demand_df = self.to_iamc_df(plastic_demand_by_good)
         demand_df["variable"] = "Material Demand|Chemicals|Plastics|" + demand_df["Good"]
         demand_df = demand_df.drop(columns=["Good"])
@@ -412,9 +422,9 @@ class PlasticsDataExporter(CommonDataExporter):
             append=True,
         )
         ## demand by origin (primary/secondary) and good
-        recycled = mfa.flows["recl => fabrication"]/(mfa.flows["recl => fabrication"]+mfa.flows["virgin => fabrication"])
-        ### primary production
-        plastic_demand_virgin = mfa.flows["fabrication => use"] * (1 - recycled)
+        recycled = prod_recl / (prod_virgin + prod_recl)
+        ### primary
+        plastic_demand_virgin = mfa.stocks["in_use"].inflow * (1 - recycled)
         demand_virgin_df = self.to_iamc_df(plastic_demand_virgin.sum_to(('t','r','g')))
         demand_virgin_df["variable"] = "Material Demand|Chemicals|Plastics|Primary|" + demand_virgin_df["Good"]
         demand_virgin_df = demand_virgin_df.drop(columns=["Good"])
@@ -427,8 +437,8 @@ class PlasticsDataExporter(CommonDataExporter):
             variable="Material Demand|Chemicals|Plastics|Primary",
             append=True,
         )
-        ### secondary production
-        plastic_demand_recl = mfa.flows["fabrication => use"] * recycled
+        ### secondary
+        plastic_demand_recl = mfa.stocks["in_use"].inflow * recycled
         demand_recl_df = self.to_iamc_df(plastic_demand_recl.sum_to(('t','r','g')))
         demand_recl_df["variable"] = "Material Demand|Chemicals|Plastics|Secondary|" + demand_recl_df["Good"]
         demand_recl_df = demand_recl_df.drop(columns=["Good"])

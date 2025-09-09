@@ -21,7 +21,7 @@ visualization:
   production:
     do_visualize: False
   sankey:
-    do_visualize: False
+    do_visualize: True
     slice_dict:
       t: 2020
     exclude_processes:
