@@ -26,7 +26,7 @@ visualization:
   extrapolation:
     do_visualize: True
   sankey:
-    do_visualize: False
+    do_visualize: True
     slice_dict:
       t: 2020
     exclude_processes:

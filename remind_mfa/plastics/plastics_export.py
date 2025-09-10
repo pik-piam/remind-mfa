@@ -75,32 +75,8 @@ class PlasticsDataExporter(CommonDataExporter):
         if self.cfg.extrapolation["do_visualize"]:
             self.visualize_extrapolation(model=model)
 
-            # 绘制annual production堆积面积图
-            fig_production = self.plot_annual_production_stacked_area(
-                mfa=model.mfa_future,
-                per_capita=False,
-                by_region=False,
-                save_path="annual_production_by_good_type.png" if self.cfg.do_save_figs else None
-            )
-
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.mfa_future, subplots_by_good=False)
-            # 绘制按Good type分类的stock堆积面积图
-            fig = self.plot_stocks_by_good_type_stacked_area(
-                mfa=model.mfa_future,
-                stock_name="in_use",  # 使用有Good维度的stock
-                per_capita=False,
-                by_region=False,
-                save_path="stocks_by_good_type.png" if self.cfg.do_save_figs else None
-            )
-
-            # 绘制annual waste generation堆积面积图
-            fig_waste = self.plot_annual_waste_generation_stacked_area(
-                mfa=model.mfa_future,
-                per_capita=False,
-                by_region=False,
-                save_path="annual_waste_generation_by_good_type.png" if self.cfg.do_save_figs else None
-            )
 
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(mfa=model.mfa_future)
@@ -523,7 +499,8 @@ class PlasticsDataExporter(CommonDataExporter):
             **constants,
         )
         ## secondary production
-        prod_recl = mfa.flows["recl => fabrication"]
+        prod_recl = (mfa.flows["reclmech => fabrication"] + 
+                     mfa.flows["reclchem => processing"])
         prod_recl_df = self.to_iamc_df(prod_recl.sum_to(('t','r')))
         prod_recl_idf = pyam.IamDataFrame(
             prod_recl_df,
