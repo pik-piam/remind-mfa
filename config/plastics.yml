@@ -28,7 +28,6 @@ visualization:
       - "waste_market"
       - "primary_market"
       - "intermediate_market"
-      - "manufactured_market"
       - "good_market"
 
     exclude_flows: [ ]

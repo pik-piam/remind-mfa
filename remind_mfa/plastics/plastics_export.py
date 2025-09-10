@@ -28,7 +28,6 @@ class PlasticsDataExporter(CommonDataExporter):
         "virgindaccu": "Prim(daccu)",
         "virginccu": "Prim(ccu)",
         "virgin": "Prim(total)",
-        "polymerization": "Poly",
         "processing": "Proc",
         "fabrication": "Fabri",
         "recl": "Recycling(total)",
@@ -53,9 +52,6 @@ class PlasticsDataExporter(CommonDataExporter):
         "intermediate_imports": "Inter Imports",
         "intermediate_exports": "Inter Exports",
         "intermediate_market": "Inter Market",
-        "manufactured_imports": "Manu Imports",
-        "manufactured_exports": "Manu Exports",
-        "manufactured_market": "Manu Market",
         "final_imports": "Final Imports",
         "final_exports": "Final Exports",
         "good_market": "Good Market",
@@ -376,7 +372,6 @@ class PlasticsDataExporter(CommonDataExporter):
             return None
 
         stock = mfa.stocks[stock_name].stock
-        print(f"Processing stock '{stock_name}': dims={stock.dims.letters}, shape={stock.shape}")
         if "g" not in stock.dims.letters:
             print(f"Error: Stock '{stock_name}' does not have 'g' (Good) dimension")
             return None
@@ -399,14 +394,12 @@ class PlasticsDataExporter(CommonDataExporter):
         sum_dims_s = [d for d in stock_data.dims.letters if d not in keep_dims]
         if sum_dims_s:
             stock_data = stock_data.sum_over(sum_dims_s)
-            print(f"Summed stock over dims: {sum_dims_s} -> new shape: {stock_data.shape}")
 
         if prod is not None:
             # Production overlay needs totals over 'g' (and others except t,r)
             sum_dims_p = [d for d in prod.dims.letters if d not in {"t", "r"}]
             if sum_dims_p:
                 prod = prod.sum_over(sum_dims_p)
-                print(f"Summed production over dims: {sum_dims_p} -> new shape: {prod.shape}")
 
         # ---------- Labels and colors ----------
         display_names = getattr(self, "_display_names", {})
@@ -598,7 +591,6 @@ class PlasticsDataExporter(CommonDataExporter):
             return None
 
         prod = mfa.stocks["in_use"].inflow
-        print(f"Processing production data: dims={prod.dims.letters}, shape={prod.shape}")
 
         if "g" not in prod.dims.letters:
             print("Error: Production data does not have 'g' (Good) dimension")
@@ -615,7 +607,6 @@ class PlasticsDataExporter(CommonDataExporter):
         sum_dims = [d for d in prod.dims.letters if d not in keep_dims]
         if sum_dims:
             prod = prod.sum_over(sum_dims)
-            print(f"Summed over dimensions: {sum_dims} -> new shape: {prod.shape}")
 
         # ---------- Labels and colors ----------
         display_names = getattr(self, "_display_names", {})
@@ -761,7 +752,7 @@ class PlasticsDataExporter(CommonDataExporter):
             return None
 
         waste = mfa.stocks["in_use"].outflow
-        print(f"Processing waste generation data: dims={waste.dims.letters}, shape={waste.shape}")
+
         if "g" not in waste.dims.letters:
             print("Error: Waste generation data does not have 'g' (Good) dimension")
             return None
@@ -781,14 +772,12 @@ class PlasticsDataExporter(CommonDataExporter):
         sum_dims_w = [d for d in waste.dims.letters if d not in keep_dims]
         if sum_dims_w:
             waste = waste.sum_over(sum_dims_w)
-            print(f"Summed waste over dims: {sum_dims_w} -> new shape: {waste.shape}")
 
         if prod is not None:
             # For production overlay we only need totals over 'g' (and other dims except t,r)
             sum_dims_p = [d for d in prod.dims.letters if d not in {"t", "r"}]
             if sum_dims_p:
                 prod = prod.sum_over(sum_dims_p)
-                print(f"Summed production over dims: {sum_dims_p} -> new shape: {prod.shape}")
 
         # ---------- Labels and colors ----------
         display_names = getattr(self, "_display_names", {})
