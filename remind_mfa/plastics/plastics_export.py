@@ -30,7 +30,6 @@ class PlasticsDataExporter(CommonDataExporter):
         "virgin": "Prim(total)",
         "processing": "Proc",
         "fabrication": "Fabri",
-        "recl": "Recycling(total)",
         "reclmech": "Mech recycling",
         "reclchem": "Chem recycling",
         "use": "Use Phase",
@@ -259,8 +258,8 @@ class PlasticsDataExporter(CommonDataExporter):
             {
                 fn: recycle_color
                 for fn, f in mfa.flows.items()
-                if f.from_process.name in ("reclmech", "reclchem", "recl")
-                or f.to_process.name in ("reclmech", "reclchem", "recl")
+                if f.from_process.name in ("reclmech", "reclchem")
+                or f.to_process.name in ("reclmech", "reclchem")
             }
         )
 

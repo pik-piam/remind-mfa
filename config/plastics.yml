@@ -25,7 +25,7 @@ visualization:
       t: 2020
     exclude_processes:
       #- "sysenv"
-      - "waste_market"
+      #- "waste_market"
       - "primary_market"
       - "intermediate_market"
       - "good_market"
