@@ -19,13 +19,14 @@ visualization:
     # options: 'time', 'gdppc'
     # over: 'gdppc'
     over_gdp: True
+    acc: True
     per_capita: True
   production:
     do_visualize: True
   extrapolation:
     do_visualize: True
   sankey:
-    do_visualize: True
+    do_visualize: False
     slice_dict:
       t: 2020
     exclude_processes:
@@ -38,7 +39,7 @@ visualization:
 
     exclude_flows: [ ]
   flows:
-    do_visualize: True
+    do_visualize: False
   do_show_figs: True
   do_save_figs: False
 

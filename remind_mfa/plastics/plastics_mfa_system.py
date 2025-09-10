@@ -42,7 +42,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         indep_fit_dim_letters = ("g")
         lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters,], values = np.zeros(self.dims[indep_fit_dim_letters,].shape))
         stock_pc = historic_stock.stock / self.parameters["population"]
-        saturation_level = stock_pc.maximum(lower_bound)
+        saturation_level = fd.FlodymArray(dims=stock_pc.dims[indep_fit_dim_letters,], values = np.max(stock_pc.values, axis=(0,1,3)))
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=lower_bound.values,

@@ -59,9 +59,12 @@ class PlasticsDataExporter(CommonDataExporter):
     def visualize_results(self, model: "PlasticsModel"):
         if not self.cfg.do_visualize:
             return
+        
         self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
         self.export_use_data_by_region_and_year(mfa=model.mfa_future)
         self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
+        self.export_stock_extrapolation(model=model)
+        
         if self.do_export.iamc:
             self.write_iamc(mfa=model.mfa_future)
 
@@ -142,7 +145,7 @@ class PlasticsDataExporter(CommonDataExporter):
         )
         fig = ap_modeled.plot()
         ap_historic = self.plotter_class(
-            array=mfa.parameters["production"].sum_over("r"),
+            array=mfa.parameters["production"].sum_over(("r")),
             intra_line_dim="Historic Time",
             subplot_dim="Good",
             line_label="Historic Demand",
@@ -152,6 +155,20 @@ class PlasticsDataExporter(CommonDataExporter):
             display_names=self._display_names,
         )
         self.plot_and_save_figure(ap_historic, "demand.png")
+
+        demand = mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e"))
+        good_dim = demand.dims.index("g")
+        demand = demand.apply(np.cumsum, kwargs={"axis": good_dim})
+        ap = self.plotter_class(
+            array=demand,
+            intra_line_dim="Time",
+            linecolor_dim="Good",
+            chart_type="area",
+            display_names=self._display_names,
+            title="Demand [Mt]",
+        )
+        fig = ap.plot()
+        self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         per_capita = self.cfg.use_stock["per_capita"]
@@ -349,10 +366,10 @@ class PlasticsDataExporter(CommonDataExporter):
 
     def visualize_extrapolation(self, model: "PlasticsModel"):
         mfa = model.mfa_future
-        per_capita = True
-        subplot_dim = "Region"
+        per_capita = self.cfg.use_stock["per_capita"]
+        subplot_dim =  "Region"
         linecolor_dim = "Good"
-        stock = mfa.stocks["in_use"].stock
+        stock = mfa.stocks["in_use"].stock 
         population = mfa.parameters["population"]
         x_array = None
 
@@ -360,13 +377,7 @@ class PlasticsDataExporter(CommonDataExporter):
         x_label = "Year"
         y_label = f"Stock{pc_str} [t]"
         title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
-        if self.cfg.use_stock["over_gdp"]:
-            title = title + f" over GDP{pc_str}"
-            x_label = f"GDP/PPP{pc_str} [2005 USD]"
-            x_array = mfa.parameters["gdppc"]
-            if not per_capita:
-                x_array = x_array * population
-
+        
         dimlist = ["t"]
         if subplot_dim is not None:
             subplot_dimletter = next(
@@ -380,7 +391,19 @@ class PlasticsDataExporter(CommonDataExporter):
             dimlist.append(linecolor_dimletter)
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        stock = stock.sum_over(other_dimletters)
+        stock = stock.sum_over(other_dimletters) * 1000 * 1000
+        other_dimletters = tuple(letter for letter in model.mfa_future.stock_handler.pure_prediction.dims.letters if letter not in dimlist)
+        pure_prediction = model.mfa_future.stock_handler.pure_prediction.sum_over(other_dimletters) * 1000 * 1000
+
+        if self.cfg.use_stock["over_gdp"]:
+            title = title + f" over GDP{pc_str}"
+            x_label = f"GDP/PPP{pc_str} [2005 USD]"
+            x_array = mfa.parameters["gdppc"].cast_to(stock.dims)
+            if self.cfg.use_stock["acc"]:
+                x_array[...] = np.maximum.accumulate(x_array.values, axis=0)
+                x_label = f"GDPacc/PPP{pc_str} [2005 USD]"
+            if not per_capita:
+                x_array = x_array * population
 
         if per_capita:
             stock = stock / population
@@ -390,7 +413,7 @@ class PlasticsDataExporter(CommonDataExporter):
             data_to_plot=stock,
             subplot_dim=subplot_dim,
             linecolor_dim=linecolor_dim,
-            x_array=x_array.cast_to(stock.dims),
+            x_array=x_array,
             x_label=x_label,
             y_label=y_label,
             title=title,
@@ -399,11 +422,13 @@ class PlasticsDataExporter(CommonDataExporter):
 
         # extrapolation
         ap_pure_prediction = self.plotter_class(
-            array=mfa.stock_handler.pure_prediction,
+            array=pure_prediction,
             intra_line_dim="Time",
             subplot_dim=subplot_dim,
             linecolor_dim=linecolor_dim,
-            x_array=x_array.cast_to(mfa.stock_handler.pure_prediction.dims),
+            x_array=x_array,
+            x_label=x_label,
+            y_label=y_label,
             title=title,
             fig=fig,
             line_type="dot",
@@ -412,11 +437,22 @@ class PlasticsDataExporter(CommonDataExporter):
         )
         fig = ap_pure_prediction.plot()
 
+        if self.cfg.plotting_engine == "plotly" and self.cfg.use_stock["over_gdp"]:
+            fig.update_xaxes(title=x_label, type="log")
+        elif self.cfg.plotting_engine == "pyplot" and self.cfg.use_stock["over_gdp"]:
+            for ax in fig.get_axes():
+                ax.set_xscale("log")
+                ax.set_xlabel(x_label)
+
         self.plot_and_save_figure(
             ap_pure_prediction,
             f"stocks_extrapolation.png",
             do_plot=False,
         )
+
+    def export_stock_extrapolation(self, model: "PlasticsModel"):
+        model.mfa_future.stock_handler.pure_parameters.to_df().to_csv(self.export_path("stock_extrapolation_parameters.csv"))
+        model.mfa_future.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(self.export_path("stock_extrapolation_saturationLevel.csv"))
 
     def export_eol_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"
