@@ -15,31 +15,31 @@ customization:
 visualization:
   do_visualize: False
   scrap_demand_supply:
-    do_visualize: True
-  sector_splits:
-    do_visualize: True
-  use_stock:
-    do_visualize: True
-    over_gdp: True
-    per_capita: True
-  gdppc:
-    do_visualize: True
-    per_capita: True
-  production:
-    do_visualize: True
-  consumption:
-    do_visualize: True
-  trade:
-    do_visualize: True
-  sankey:
     do_visualize: False
+  sector_splits:
+    do_visualize: False
+  use_stock:
+    do_visualize: False
+    over_gdp: False
+    per_capita: False
+  gdppc:
+    do_visualize: False
+    per_capita: False
+  production:
+    do_visualize: False
+  consumption:
+    do_visualize: False
+  trade:
+    do_visualize: False
+  sankey:
+    do_visualize: True
     slice_dict:
-      t: 2020
+      t: 2050
       # r: 'USA'
     exclude_processes:
       - "sysenv"
-      - "imports"
-      - "exports"
+      #- "imports"
+      #- "exports"
     exclude_flows: [ ]
   do_show_figs: True
   do_save_figs: False

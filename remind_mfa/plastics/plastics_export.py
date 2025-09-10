@@ -2,10 +2,16 @@ import flodym as fd
 import numpy as np
 
 from plotly import colors as plc
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import pyam
 from typing import TYPE_CHECKING
 import flodym.export as fde
+from typing import Any, List, Optional
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import plotly.colors as pc
+
 
 from remind_mfa.common.common_export import CommonDataExporter
 
@@ -23,10 +29,8 @@ class PlasticsDataExporter(CommonDataExporter):
         "virgindaccu": "Prim(daccu)",
         "virginccu": "Prim(ccu)",
         "virgin": "Prim(total)",
-        "polymerization": "Poly",
         "processing": "Proc",
         "fabrication": "Fabri",
-        "recl": "Recycling(total)",
         "reclmech": "Mech recycling",
         "reclchem": "Chem recycling",
         "use": "Use Phase",
@@ -48,9 +52,6 @@ class PlasticsDataExporter(CommonDataExporter):
         "intermediate_imports": "Inter Imports",
         "intermediate_exports": "Inter Exports",
         "intermediate_market": "Inter Market",
-        "manufactured_imports": "Manu Imports",
-        "manufactured_exports": "Manu Exports",
-        "manufactured_market": "Manu Market",
         "final_imports": "Final Imports",
         "final_exports": "Final Exports",
         "good_market": "Good Market",
@@ -74,8 +75,32 @@ class PlasticsDataExporter(CommonDataExporter):
         if self.cfg.extrapolation["do_visualize"]:
             self.visualize_extrapolation(model=model)
 
+            # 绘制annual production堆积面积图
+            fig_production = self.plot_annual_production_stacked_area(
+                mfa=model.mfa_future,
+                per_capita=False,
+                by_region=False,
+                save_path="annual_production_by_good_type.png" if self.cfg.do_save_figs else None
+            )
+
         if self.cfg.use_stock["do_visualize"]:
             self.visualize_stock(mfa=model.mfa_future, subplots_by_good=False)
+            # 绘制按Good type分类的stock堆积面积图
+            fig = self.plot_stocks_by_good_type_stacked_area(
+                mfa=model.mfa_future,
+                stock_name="in_use",  # 使用有Good维度的stock
+                per_capita=False,
+                by_region=False,
+                save_path="stocks_by_good_type.png" if self.cfg.do_save_figs else None
+            )
+
+            # 绘制annual waste generation堆积面积图
+            fig_waste = self.plot_annual_waste_generation_stacked_area(
+                mfa=model.mfa_future,
+                per_capita=False,
+                by_region=False,
+                save_path="annual_waste_generation_by_good_type.png" if self.cfg.do_save_figs else None
+            )
 
         if self.cfg.sankey["do_visualize"]:
             self.visualize_sankey(mfa=model.mfa_future)
@@ -312,8 +337,8 @@ class PlasticsDataExporter(CommonDataExporter):
             {
                 fn: recycle_color
                 for fn, f in mfa.flows.items()
-                if f.from_process.name in ("reclmech", "reclchem", "recl")
-                or f.to_process.name in ("reclmech", "reclchem", "recl")
+                if f.from_process.name in ("reclmech", "reclchem")
+                or f.to_process.name in ("reclmech", "reclchem")
             }
         )
 
@@ -340,7 +365,7 @@ class PlasticsDataExporter(CommonDataExporter):
         legend_entries = [
             (production_color, "Production"),
             (eol_color, "End-of-Life"),
-            (recycle_color, "Recycling"),
+            (recycle_color, "Use"),
             (emission_color, "Losses"),
             (trade_color, "Trade"),
         ]
