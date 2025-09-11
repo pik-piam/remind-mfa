@@ -15,7 +15,7 @@ customization:
 visualization:
   do_visualize: True
   use_stock:
-    do_visualize: False
+    do_visualize: True
     # options: 'time', 'gdppc'
     # over: 'gdppc'
     over_gdp: True
@@ -40,7 +40,7 @@ visualization:
   flows:
     do_visualize: False
   do_show_figs: True
-  do_save_figs: False
+  do_save_figs: True
 
 # data export
 output_path: 'data/plastics/output'

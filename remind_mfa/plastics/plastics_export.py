@@ -1,5 +1,6 @@
 import flodym as fd
 import numpy as np
+import pandas as pd
 
 from plotly import colors as plc
 from plotly.subplots import make_subplots
@@ -65,6 +66,7 @@ class PlasticsDataExporter(CommonDataExporter):
         self.export_use_data_by_region_and_year(mfa=model.mfa_future)
         self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
         self.export_stock_extrapolation(model=model)
+        self.export_stock(mfa=model.mfa_historic)
         
         if self.do_export.iamc:
             self.write_iamc(mfa=model.mfa_future)
@@ -172,6 +174,21 @@ class PlasticsDataExporter(CommonDataExporter):
         self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
+
+        stock = mfa.stocks["in_use"].stock.sum_over(("r", "m", "e"))
+        good_dim = stock.dims.index("g")
+        stock = stock.apply(np.cumsum, kwargs={"axis": good_dim})
+        ap = self.plotter_class(
+            array=stock,
+            intra_line_dim="Time",
+            linecolor_dim="Good",
+            chart_type="area",
+            display_names=self._display_names,
+            title="Stock [Mt]",
+        )
+        fig = ap.plot()
+        self.plot_and_save_figure(ap, "stock_stacked.png", do_plot=False)
+
         per_capita = self.cfg.use_stock["per_capita"]
 
         stock = mfa.stocks["in_use"].stock * 1000 * 1000
@@ -447,13 +464,22 @@ class PlasticsDataExporter(CommonDataExporter):
 
         self.plot_and_save_figure(
             ap_pure_prediction,
-            f"stocks_extrapolation.png",
+            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock["over_gdp"] else '_overTime'}.png",
             do_plot=False,
         )
 
     def export_stock_extrapolation(self, model: "PlasticsModel"):
         model.mfa_future.stock_handler.pure_parameters.to_df().to_csv(self.export_path("stock_extrapolation_parameters.csv"))
         model.mfa_future.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(self.export_path("stock_extrapolation_saturationLevel.csv"))
+
+    def export_stock(self, mfa: fd.MFASystem):
+        inflow = mfa.stocks["in_use_historic"].inflow.sum_to(('g','h')).to_df()
+        inflow["variable"] = "inflow"
+        outflow = mfa.stocks["in_use_historic"].outflow.sum_to(('g','h')).to_df()
+        outflow["variable"] = "outflow"
+        stock = mfa.stocks["in_use_historic"].stock.sum_to(('g','h')).to_df()
+        stock["variable"] = "stock"
+        pd.concat([inflow, outflow, stock]).to_csv(self.export_path("stock.csv"))
 
     def export_eol_data_by_region_and_year(
         self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"
