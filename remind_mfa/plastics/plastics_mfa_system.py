@@ -37,24 +37,58 @@ class PlasticsMFASystemFuture(fd.MFASystem):
     #     self.trade_set.balance(to="maximum")
 
     def extrapolate_stock(self, historic_stock: fd.Stock):
-        #saturation_level = 0.2 / 1e6  # t to Mt
-        #helper flodym array with dimensions of indep_fit_dim_letters
-        indep_fit_dim_letters = ("g")
-        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters,], values = np.zeros(self.dims[indep_fit_dim_letters,].shape))
+        """
+        Stock extrapolation is first done per good over all regions;
+        upper bound of saturation level is set as the maximum historic stock per capita;
+        stock extrapolation is then repeated per region and good, using the maximum of the previously fitted global saturation level 
+        and the maximum historic stock per capita in the respective region as upper bound.
+        """
         historic_pop = self.parameters["population"][{"t": self.dims["h"]}]
         stock_pc = historic_stock.stock / historic_pop
-        saturation_level = fd.FlodymArray(dims=stock_pc.dims[indep_fit_dim_letters,], values = np.max(stock_pc.values, axis=(0,1)))
+        # First extrapolation to get global saturation levels
+        indep_fit_dim_letters = ("g",)
+        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], values = np.zeros(self.dims[indep_fit_dim_letters].shape))
+        upper_bound = fd.FlodymArray(dims=stock_pc.dims[indep_fit_dim_letters], values = np.max(stock_pc.values, axis=(0,1)))
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=lower_bound.values,
-            upper_bound=saturation_level.values,
-            dims=saturation_level.dims,
+            upper_bound=upper_bound.values,
+            dims=lower_bound.dims,
         )
         bound_list = BoundList(
             bound_list=[
                 sat_bound,
             ],
-            target_dims=self.dims[indep_fit_dim_letters,],
+            target_dims=self.dims[indep_fit_dim_letters],
+        )
+        stock_handler = StockExtrapolation(
+            historic_stocks=historic_stock.stock,
+            dims=self.dims,
+            parameters=self.parameters,
+            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            do_gdppc_time_regression=self.cfg.customization.do_gdppc_time_regression,
+            target_dim_letters=(
+                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+            ),
+            bound_list=bound_list,
+            indep_fit_dim_letters=indep_fit_dim_letters,
+        )
+        # Second extrapolation per region and good, using the maximum of the previously fitted global saturation level 
+        # and the maximum historic stock per capita in the respective region as upper bound
+        indep_fit_dim_letters = ("r", "g")
+        saturation_level = stock_handler.pure_parameters["saturation_level"].cast_to(self.dims[indep_fit_dim_letters])
+        upper_bound_sat = saturation_level.maximum(fd.FlodymArray(dims=stock_pc.dims[indep_fit_dim_letters], values = np.max(stock_pc.values, axis=0)))
+        sat_bound = Bound(
+            var_name="saturation_level",
+            lower_bound=upper_bound_sat.values,
+            upper_bound=upper_bound_sat.values,
+            dims=upper_bound_sat.dims,
+        )
+        bound_list = BoundList(
+            bound_list=[
+                sat_bound,
+            ],
+            target_dims=self.dims[indep_fit_dim_letters],
         )
         self.stock_handler = StockExtrapolation(
             historic_stocks=historic_stock.stock,

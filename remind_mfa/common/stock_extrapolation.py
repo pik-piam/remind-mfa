@@ -197,7 +197,7 @@ class StockExtrapolation:
         # save extrapolation data for later analysis
         self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
         if self.indep_fit_dim_letters:
-            parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters,]
+            parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
         else:
             parameter_dims = fd.DimensionSet(dim_list=[])
         parameter_names = fd.Dimension(
