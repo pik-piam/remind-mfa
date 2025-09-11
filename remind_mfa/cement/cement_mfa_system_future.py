@@ -1,10 +1,16 @@
 import numpy as np
 import flodym as fd
+from enum import Enum
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
+class CementMode(str, Enum):
+    base = "base"
+    carbon_flow = "carbon_flow"
 
 class StockDrivenCementMFASystem(fd.MFASystem):
+    
+    mode: CementMode
 
     def compute(self, stock_projection: fd.FlodymArray):
         """
@@ -13,8 +19,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.compute_in_use_stock(stock_projection)
         self.compute_flows()
         self.compute_other_stocks()
-        # TODO carbon flow calculation should be made optional du to computational cost
-        self.compute_carbon_flow()
+        if self.carbon_flow:
+            self.compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
@@ -84,6 +90,9 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         )
 
         # sysenv flows for mass balance
+        flw["sysenv => prod_clinker"][...] = (
+            flw["prod_clinker => prod_cement"] + flw["prod_clinker => sysenv"]
+        )
         flw["sysenv => prod_cement"][...] = (
             (flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]) * (1 - prm["clinker_ratio"])
         )
@@ -114,6 +123,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             * prm["cao_emission_factor"]
         )
         stk["atmosphere"].inflow = flw["prod_clinker => atmosphere"]
+        # overwrite previous sysenv clinker flow to include emissions
         flw["sysenv => prod_clinker"][...] = (
             flw["prod_clinker => prod_cement"] + flw["prod_clinker => atmosphere"] + flw["prod_clinker => sysenv"]
         )
@@ -492,3 +502,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         factor = np.pi / (3 * (rmax - rmin))
         return factor * (rmax ** 4 - rmin ** 4)
+    
+    @property
+    def carbon_flow(self) -> bool:
+        return self.mode == CementMode.carbon_flow

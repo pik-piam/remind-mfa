@@ -6,6 +6,7 @@ input_data_path: '../simson_data/data/cement/output'
 
 # model customization
 customization:
+  mode: 'base'
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
 
@@ -40,7 +41,7 @@ visualization:
   extrapolation:
     do_visualize: False
   carbonation:
-    do_visualize: True
+    do_visualize: False
   do_show_figs: True
   do_save_figs: False
   plotting_engine: 'plotly'

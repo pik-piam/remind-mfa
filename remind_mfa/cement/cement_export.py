@@ -2,9 +2,11 @@ from plotly import colors as plc
 import flodym as fd
 from typing import TYPE_CHECKING
 import numpy as np
+import logging
 
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_cfg import CementVisualizationCfg
+from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 
 if TYPE_CHECKING:
     from remind_mfa.cement.cement_model import CementModel
@@ -23,28 +25,32 @@ class CementDataExporter(CommonDataExporter):
     }
 
     def visualize_results(self, model: "CementModel"):
+        mfa: StockDrivenCementMFASystem = model.future_mfa
         if self.cfg.consumption["do_visualize"]:
-            self.visualize_consumption(mfa=model.future_mfa)
+            self.visualize_consumption(mfa=mfa)
         if self.cfg.prod_clinker["do_visualize"]:
-            self.visualize_prod_clinker(mfa=model.future_mfa)
+            self.visualize_prod_clinker(mfa=mfa)
         if self.cfg.prod_cement["do_visualize"]:
-            self.visualize_prod_cement(mfa=model.future_mfa, regional=False)
-            self.visualize_prod_cement(mfa=model.future_mfa, regional=True)
+            self.visualize_prod_cement(mfa=mfa, regional=False)
+            self.visualize_prod_cement(mfa=mfa, regional=True)
         if self.cfg.prod_product["do_visualize"]:
-            self.visualize_prod_product(mfa=model.future_mfa)
+            self.visualize_prod_product(mfa=mfa)
         if self.cfg.use_stock["do_visualize"]:
-            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=False)
-            # self.visualize_use_stock(mfa=model.future_mfa, subplots_by_stock_type=True)
+            self.visualize_use_stock(mfa=mfa, subplots_by_stock_type=False)
+            # self.visualize_use_stock(mfa=mfa, subplots_by_stock_type=True)
         if self.cfg.eol_stock["do_visualize"]:
-            self.visualize_eol_stock(mfa=model.future_mfa)
+            self.visualize_eol_stock(mfa=mfa)
         if self.cfg.sankey["do_visualize"]:
-            self.visualize_sankey(mfa=model.future_mfa)
+            self.visualize_sankey(mfa=mfa)
         if self.cfg.extrapolation["do_visualize"]:
             # self.visualize_extrapolation(model=model, show_extrapolation=False, show_future=False)
             # self.visualize_extrapolation(model=model, show_future=False)
             self.visualize_extrapolation(model=model)
         if self.cfg.carbonation["do_visualize"]:
-            self.visualize_carbonation(mfa=model.future_mfa)
+            if not mfa.carbon_flow:
+                logging.warning("Carbonation visualization requested, but carbonation calculation not activated.")
+            else:
+                self.visualize_carbonation(mfa=mfa)
             
         self.stop_and_show()
 

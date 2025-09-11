@@ -40,7 +40,7 @@ class CementModel:
         stock_projection = self.get_long_term_stock()
 
         # future mfa
-        self.future_mfa = self.make_mfa(historic=False)
+        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
         self.future_mfa.compute(stock_projection)
 
         # visualization and export
@@ -56,7 +56,7 @@ class CementModel:
         self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
 
 
-    def make_mfa(self, historic: bool) -> InflowDrivenHistoricCementMFASystem:
+    def make_mfa(self, historic: bool, mode: str = None) -> InflowDrivenHistoricCementMFASystem:
         if historic:
             definition = self.definition_historic
             mfasystem_class = InflowDrivenHistoricCementMFASystem
@@ -82,6 +82,7 @@ class CementModel:
             dims=self.dims,
             flows=flows,
             stocks=stocks,
+            mode=mode,
         )
 
     def get_long_term_stock(self) -> fd.FlodymArray:
