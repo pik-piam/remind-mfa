@@ -28,7 +28,6 @@ class CementDataExporter(CommonDataExporter):
         if self.cfg.prod_clinker["do_visualize"]:
             self.visualize_prod_clinker(mfa=model.future_mfa)
         if self.cfg.prod_cement["do_visualize"]:
-            # TODO this creates the same name for saving the figures
             self.visualize_prod_cement(mfa=model.future_mfa, regional=False)
             self.visualize_prod_cement(mfa=model.future_mfa, regional=True)
         if self.cfg.prod_product["do_visualize"]:
@@ -43,7 +42,8 @@ class CementDataExporter(CommonDataExporter):
         if self.cfg.extrapolation["do_visualize"]:
             # self.visualize_extrapolation(model=model, show_extrapolation=False, show_future=False)
             # self.visualize_extrapolation(model=model, show_future=False)
-            # self.visualize_extrapolation(model=model)
+            self.visualize_extrapolation(model=model)
+        if self.cfg.carbonation["do_visualize"]:
             self.visualize_carbonation(mfa=model.future_mfa)
             
         self.stop_and_show()
@@ -67,7 +67,7 @@ class CementDataExporter(CommonDataExporter):
             plot_letters += ["r"]
         else:
             subplot_dim = None
-            regional_tag = ""
+            regional_tag = "_global"
             title = f"Global {name} Production"
             
         other_letters = tuple(letter for letter in production.dims.letters if letter not in plot_letters)
@@ -270,15 +270,19 @@ class CementDataExporter(CommonDataExporter):
         plot_letters = ["t", "c"]
         other_dimletters = tuple(letter for letter in annual_uptake.dims.letters if letter not in plot_letters)
         annual_uptake = annual_uptake.sum_over(other_dimletters)
+        annual_uptake = annual_uptake.apply(np.cumsum, kwargs={"axis": annual_uptake.dims.index("c")})
 
-        fig, ap = self.plot_history_and_future(
-            mfa=mfa,
-            data_to_plot=annual_uptake,
+        ap = self.plotter_class(
+            array=annual_uptake,
+            intra_line_dim="Time",
             linecolor_dim=linecolor_dimletter,
+            chart_type="area",
+            display_names=self._display_names,
             x_label="Year",
             y_label="Annual Co2 Uptake [t]",
             title="Co2 Uptake from Carbonation",
         )
+        fig = ap.plot()
 
         self.plot_and_save_figure(
             ap, "cement_carbonation_annual_uptake.png", do_plot=False

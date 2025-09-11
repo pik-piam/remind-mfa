@@ -38,6 +38,8 @@ visualization:
       - "sysenv"
     exclude_flows: [ ]
   extrapolation:
+    do_visualize: False
+  carbonation:
     do_visualize: True
   do_show_figs: True
   do_save_figs: False
