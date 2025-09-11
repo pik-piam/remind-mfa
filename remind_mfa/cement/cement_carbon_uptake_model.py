@@ -78,25 +78,10 @@ class CementCarbonUptakeModel(BaseModel):
         # sum uptake over 5 years
         window_size = int(1/annual_carbonation_fraction)
         uptake_one_year_arr = uptake_one_year.cast_values_to(self.stocks["atmosphere"].dims)
-        uptake_five_years_arr = self.windowed_sum(uptake_one_year_arr, window_size)
+        uptake_five_years_arr = windowed_sum(uptake_one_year_arr, window_size)
         uptake_five_years = fd.FlodymArray(dims=self.stocks["atmosphere"].dims, values=uptake_five_years_arr)
                 
         return uptake_five_years
-
-    @staticmethod
-    def windowed_sum(arr: np.ndarray, window: int):
-        """
-        Calculates the rolling sum over axis 0 with window size `window`, i.e. only entries within window are cumulated.
-        For the first window-1 rows, returns the cumulative sum (partial window).
-        """
-        if window <= 1:
-            return arr
-        c = np.cumsum(arr, axis=0)
-        # the first entries are already correct
-        out = c.copy()
-        # for the rest, subtract everything before the window
-        out[window:] = c[window:] - c[:-window]
-        return out
 
     def uptake_in_use(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray) -> fd.FlodymArray:
         """
@@ -124,7 +109,7 @@ class CementCarbonUptakeModel(BaseModel):
         # available thickness that has not been carbonated yet
         thickness = self.parameters["product_thickness"].cast_to(d.dims)
         d_available = (thickness - d).maximum(0)
-        self.shift_with_zero(d_available, axis="u", inplace=True)
+        shift_with_zero(d_available, axis="u", inplace=True)
         # correct d_add by available thickness
         d_add = d_add.minimum(d_available)
         # share of product that carbonates for each age
@@ -143,7 +128,7 @@ class CementCarbonUptakeModel(BaseModel):
 
             # TODO rewrite age disribution since age might not be needed anymore?
             # get age cohort of products at time t
-            _, mass_values = self.get_age_distribution(stk, t)
+            _, mass_values = get_age_distribution(stk, t)
             mass_dims = sliced_agedimset.union_with(stk.dims).drop("t")
             mass = fd.FlodymArray(dims=mass_dims, values=mass_values)
 
@@ -158,33 +143,6 @@ class CementCarbonUptakeModel(BaseModel):
             carbonation[{"t": stk_dims["t"].items[t]}] = carbonated_co2.sum_over("n")
 
         return carbonation
-    
-    @staticmethod
-    def shift_with_zero(a: fd.FlodymArray, axis: str, direction: str = "backward", inplace: bool = False) -> fd.FlodymArray:
-        """
-        Shift FlodymArray inplace by one along axis, inserting zeros.
-        direction="forward": result[1:] = a[:-1]
-        direction="backward": result[:-1] = a[1:]
-        """
-        axis = a.dims.index(axis)
-        out = np.zeros_like(a.values)
-        tgt = [slice(None)] * out.ndim
-        src = [slice(None)] * out.ndim
-        if direction == "forward":
-            tgt[axis] = slice(1, None)
-            src[axis] = slice(0, -1)
-        elif direction == "backward":
-            tgt[axis] = slice(0, -1)
-            src[axis] = slice(1, None)
-        else:
-            raise ValueError("direction must be 'forward' or 'backward'")
-        out[tuple(tgt)] = a.values[tuple(src)]
-
-        if inplace:
-            a.values = out
-            return
-        else:
-            return fd.FlodymArray(dims=a.dims, values=out)
         
     def get_available_cao(self) -> fd.FlodymArray:
         """
@@ -214,48 +172,6 @@ class CementCarbonUptakeModel(BaseModel):
         k = rate * multiplier
         return k
 
-
-    @staticmethod
-    def get_age_distribution(stock: fd.DynamicStockModel, t: int, data_type: str = "stock") -> tuple[np.ndarray, np.ndarray]:
-        """
-        Returns the histogram of ages of either stock or outflow at time step t.
-        
-        Parameters
-        ----------
-        stock : fd.DynamicStockModel
-            The stock model object
-        t : int
-            The time step to analyze
-        data_type : str, optional
-            Type of data to retrieve: "stock" or "outflow", by default "stock"
-            
-        Returns
-        -------
-        tuple[np.ndarray, np.ndarray]
-            A tuple containing (ages, values_by_age)
-        """
-        
-        if data_type == "stock":
-            data_by_cohort = stock.get_stock_by_cohort()
-        elif data_type == "outflow":
-            data_by_cohort = stock.get_outflow_by_cohort()
-        else:
-            raise ValueError(f"Unknown data_type: {data_type}. Must be either 'stock' or 'outflow'")
-        
-        # check if there are any cohorts older than system age
-        if not np.all(data_by_cohort[t, t+1:, ...] == 0):
-            raise RuntimeError(f"Nonzero {data_type} found at t={t} for cohorts older than system age!")
-
-        # select time t and all cohorts up to t from data
-        data_by_age = data_by_cohort[t, : t + 1, ...]
-
-        # Only consider cohorts c <= t
-        ages = np.arange(t + 1)[::-1]  # age 0 is newest, t is oldest
-        # reshape to match data dimensions
-        ages = ages.reshape((-1,) + (1,) * (data_by_age.ndim - 1))
-
-        return ages, data_by_age
-
     def uptake_eol(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray, k_buried_in: fd.FlodymArray) -> fd.FlodymArray:
         """
         Carbonation of end-of-life stock.
@@ -277,7 +193,7 @@ class CementCarbonUptakeModel(BaseModel):
         for t in range(1, self.stocks["in_use"]._n_t):
             
             # (I1) get outflow by cohort
-            ages, inflow = self.get_age_distribution(self.stocks["in_use"], t, data_type="outflow")
+            ages, inflow = get_age_distribution(self.stocks["in_use"], t, data_type="outflow")
 
             # (I2) get carbonation depth by cohort
             k_free = k_free_arr[:t + 1, ...]
@@ -328,8 +244,8 @@ class CementCarbonUptakeModel(BaseModel):
         # (II4) convert carbonation depth to volume by spherical particle model
         a = prm["waste_size_min"]
         b = prm["waste_size_max"]
-        sphere_volume = self.get_volume_sphere(a, b)
-        carbonation_volume = self.get_volume_sphere_slice(a, b, d, d_add)
+        sphere_volume = get_volume_sphere(a, b)
+        carbonation_volume = get_volume_sphere_slice(a, b, d, d_add)
         carbonation_share = carbonation_volume / sphere_volume
 
         # (II5) calc carbonated product mass in each year by hard-coded convolution and subsequently convert to CO2
@@ -355,47 +271,129 @@ class CementCarbonUptakeModel(BaseModel):
 
         return uptake
         
-    def get_volume_sphere_slice(self, a : fd.FlodymArray, b: fd.FlodymArray, d: fd.FlodymArray, dadd: fd.FlodymArray) -> fd.FlodymArray:
-        """
-        Calculate the volume of a spherical shell with thickness dadd,
-        which is located a distance d from the outside of the sphere.
-        The sphere radius is distributed unifomly between a/2 and b/2.
-        """
-        # get all inputs to the same dimensions
-        dims = a.dims.union_with(b.dims).union_with(d.dims).union_with(dadd.dims)
-        a = a.cast_to(dims)
-        b = b.cast_to(dims)
-        d = d.cast_to(dims)
-        dadd = dadd.cast_to(dims)
 
-        # radii from diameters
-        rmin = a/2
-        rmax = b/2
+# Utitly functions
 
-        # sanity checks
-        if np.any(rmin.values < 0) or np.any(rmax.values < 0) or np.any(d.values < 0) or np.any(dadd.values < 0):
-            raise ValueError("All parameters must be non-negative.")
-        if (rmin.values >= rmax.values).any():
-            raise ValueError("rmin must be smaller than rmax.")
+def get_volume_sphere_slice(a : fd.FlodymArray, b: fd.FlodymArray, d: fd.FlodymArray, dadd: fd.FlodymArray) -> fd.FlodymArray:
+    """
+    Calculate the volume of a spherical shell with thickness dadd,
+    which is located a distance d from the outside of the sphere.
+    The sphere radius is distributed unifomly between a/2 and b/2.
+    """
+    # get all inputs to the same dimensions
+    dims = a.dims.union_with(b.dims).union_with(d.dims).union_with(dadd.dims)
+    a = a.cast_to(dims)
+    b = b.cast_to(dims)
+    d = d.cast_to(dims)
+    dadd = dadd.cast_to(dims)
 
-        factor = np.pi / (3 * (rmax - rmin))
-        large_sphere = (rmax - d).maximum(0) ** 4 - (rmin - d).maximum(0) ** 4
-        small_sphere = (rmax - d - dadd).maximum(0) ** 4 -(rmin - d - dadd).maximum(0) ** 4
-        return factor * (large_sphere - small_sphere)
+    # radii from diameters
+    rmin = a/2
+    rmax = b/2
+
+    # sanity checks
+    if np.any(rmin.values < 0) or np.any(rmax.values < 0) or np.any(d.values < 0) or np.any(dadd.values < 0):
+        raise ValueError("All parameters must be non-negative.")
+    if (rmin.values >= rmax.values).any():
+        raise ValueError("rmin must be smaller than rmax.")
+
+    factor = np.pi / (3 * (rmax - rmin))
+    large_sphere = (rmax - d).maximum(0) ** 4 - (rmin - d).maximum(0) ** 4
+    small_sphere = (rmax - d - dadd).maximum(0) ** 4 -(rmin - d - dadd).maximum(0) ** 4
+    return factor * (large_sphere - small_sphere)
+
+def get_volume_sphere(a: fd.FlodymArray, b: fd.FlodymArray) -> fd.FlodymArray:
+    """
+    Calculate the volume of a sphere with radius distributed uniformly between a/2 and b/2.
+    """
+    rmin = a / 2
+    rmax = b / 2
+
+    # sanity checks
+    if np.any(rmin.values < 0) or np.any(rmax.values < 0):
+        raise ValueError("All parameters must be non-negative.")
+    if (rmin.values >= rmax.values).any():
+        raise ValueError("rmin must be smaller than rmax.")
+
+    factor = np.pi / (3 * (rmax - rmin))
+    return factor * (rmax ** 4 - rmin ** 4)    
+
+def windowed_sum(arr: np.ndarray, window: int):
+    """
+    Calculates the rolling sum over axis 0 with window size `window`, i.e. only entries within window are cumulated.
+    For the first window-1 rows, returns the cumulative sum (partial window).
+    """
+    if window <= 1:
+        return arr
+    c = np.cumsum(arr, axis=0)
+    # the first entries are already correct
+    out = c.copy()
+    # for the rest, subtract everything before the window
+    out[window:] = c[window:] - c[:-window]
+    return out
+
+def shift_with_zero(a: fd.FlodymArray, axis: str, direction: str = "backward", inplace: bool = False) -> fd.FlodymArray:
+    """
+    Shift FlodymArray inplace by one along axis, inserting zeros.
+    direction="forward": result[1:] = a[:-1]
+    direction="backward": result[:-1] = a[1:]
+    """
+    axis = a.dims.index(axis)
+    out = np.zeros_like(a.values)
+    tgt = [slice(None)] * out.ndim
+    src = [slice(None)] * out.ndim
+    if direction == "forward":
+        tgt[axis] = slice(1, None)
+        src[axis] = slice(0, -1)
+    elif direction == "backward":
+        tgt[axis] = slice(0, -1)
+        src[axis] = slice(1, None)
+    else:
+        raise ValueError("direction must be 'forward' or 'backward'")
+    out[tuple(tgt)] = a.values[tuple(src)]
+
+    if inplace:
+        a.values = out
+        return
+    else:
+        return fd.FlodymArray(dims=a.dims, values=out)
     
-    @staticmethod
-    def get_volume_sphere(a: fd.FlodymArray, b: fd.FlodymArray) -> fd.FlodymArray:
-        """
-        Calculate the volume of a sphere with radius distributed uniformly between a/2 and b/2.
-        """
-        rmin = a / 2
-        rmax = b / 2
+def get_age_distribution(stock: fd.DynamicStockModel, t: int, data_type: str = "stock") -> tuple[np.ndarray, np.ndarray]:
+    """
+    Returns the histogram of ages of either stock or outflow at time step t.
+    
+    Parameters
+    ----------
+    stock : fd.DynamicStockModel
+        The stock model object
+    t : int
+        The time step to analyze
+    data_type : str, optional
+        Type of data to retrieve: "stock" or "outflow", by default "stock"
+        
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        A tuple containing (ages, values_by_age)
+    """
+    
+    if data_type == "stock":
+        data_by_cohort = stock.get_stock_by_cohort()
+    elif data_type == "outflow":
+        data_by_cohort = stock.get_outflow_by_cohort()
+    else:
+        raise ValueError(f"Unknown data_type: {data_type}. Must be either 'stock' or 'outflow'")
+    
+    # check if there are any cohorts older than system age
+    if not np.all(data_by_cohort[t, t+1:, ...] == 0):
+        raise RuntimeError(f"Nonzero {data_type} found at t={t} for cohorts older than system age!")
 
-        # sanity checks
-        if np.any(rmin.values < 0) or np.any(rmax.values < 0):
-            raise ValueError("All parameters must be non-negative.")
-        if (rmin.values >= rmax.values).any():
-            raise ValueError("rmin must be smaller than rmax.")
+    # select time t and all cohorts up to t from data
+    data_by_age = data_by_cohort[t, : t + 1, ...]
 
-        factor = np.pi / (3 * (rmax - rmin))
-        return factor * (rmax ** 4 - rmin ** 4)
+    # Only consider cohorts c <= t
+    ages = np.arange(t + 1)[::-1]  # age 0 is newest, t is oldest
+    # reshape to match data dimensions
+    ages = ages.reshape((-1,) + (1,) * (data_by_age.ndim - 1))
+
+    return ages, data_by_age
