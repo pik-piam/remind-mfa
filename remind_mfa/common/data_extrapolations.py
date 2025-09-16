@@ -247,6 +247,6 @@ class LogSigmoidExtrapolation(SigmoidExtrapolation):
         return SigmoidExtrapolation.func(np.log10(x), log_prms)
 
     def initial_guess(self, predictor_values, data_to_extrapolate):
-        log_guess =  super().initial_guess(np.log10(predictor_values), data_to_extrapolate)
-        log_guess[2] = 10 ** log_guess[2] # Convert x_offset back to real space
+        log_guess = super().initial_guess(np.log10(predictor_values), data_to_extrapolate)
+        log_guess[2] = 10 ** log_guess[2]  # Convert x_offset back to real space
         return log_guess

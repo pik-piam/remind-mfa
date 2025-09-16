@@ -34,7 +34,7 @@ class Bound(RemindMFABaseModel):
         for field in required_fields:
             if field not in data:
                 raise ValueError(f"Missing required field: {field}")
-        
+
         # extract variables
         var_name = data.get("var_name")
         dims = data.get("dims")
@@ -54,7 +54,7 @@ class Bound(RemindMFABaseModel):
             "upper_bound": fd.FlodymArray(dims=dims, values=upper, name="upper_bound"),
             "dims": dims,
         }
-    
+
     @staticmethod
     def _extract_bound_array(input_val, dims, bound_name):
         """
@@ -66,7 +66,9 @@ class Bound(RemindMFABaseModel):
             if dims is None:
                 dims = input_val.dims
             elif input_val.dims != dims:
-                raise ValueError(f"{bound_name.capitalize()} bound dimensions {input_val.dims} do not match expected dims {dims}.")
+                raise ValueError(
+                    f"{bound_name.capitalize()} bound dimensions {input_val.dims} do not match expected dims {dims}."
+                )
             return input_val.values.copy().astype(np.float64), dims
         else:
             return np.array(input_val, dtype=np.float64), dims

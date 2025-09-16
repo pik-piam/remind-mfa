@@ -48,10 +48,12 @@ class CementDataExporter(CommonDataExporter):
             self.visualize_extrapolation(model=model)
         if self.cfg.carbonation["do_visualize"]:
             if not mfa.carbon_flow:
-                logging.warning("Carbonation visualization requested, but carbonation calculation not activated.")
+                logging.warning(
+                    "Carbonation visualization requested, but carbonation calculation not activated."
+                )
             else:
                 self.visualize_carbonation(mfa=mfa)
-            
+
         self.stop_and_show()
 
     def visualize_production(
@@ -75,8 +77,10 @@ class CementDataExporter(CommonDataExporter):
             subplot_dim = None
             regional_tag = "_global"
             title = f"Global {name} Production"
-            
-        other_letters = tuple(letter for letter in production.dims.letters if letter not in plot_letters)
+
+        other_letters = tuple(
+            letter for letter in production.dims.letters if letter not in plot_letters
+        )
         production = production.sum_over(other_letters)
 
         fig, ap_production = self.plot_history_and_future(
@@ -111,7 +115,9 @@ class CementDataExporter(CommonDataExporter):
         cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
         consumption = mfa.stocks["in_use"].inflow * cement_ratio
         plot_letters = ["t", "r", "s"]
-        other_letters = tuple(letter for letter in consumption.dims.letters if letter not in plot_letters)
+        other_letters = tuple(
+            letter for letter in consumption.dims.letters if letter not in plot_letters
+        )
         consumption = consumption.sum_over(other_letters)
         sector_dim = consumption.dims.index("s")
         consumption = consumption.apply(np.cumsum, kwargs={"axis": sector_dim})
@@ -194,7 +200,9 @@ class CementDataExporter(CommonDataExporter):
 
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
 
-    def visualize_extrapolation(self, model: "CementModel", show_extrapolation: bool = True, show_future: bool = True):
+    def visualize_extrapolation(
+        self, model: "CementModel", show_extrapolation: bool = True, show_future: bool = True
+    ):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock["per_capita"]
         subplot_dim = "Region"
@@ -231,7 +239,6 @@ class CementDataExporter(CommonDataExporter):
         else:
             extrapolation = extrapolation * population
 
-
         fig, ap = self.plot_history_and_future(
             mfa=mfa,
             data_to_plot=stock,
@@ -241,9 +248,9 @@ class CementDataExporter(CommonDataExporter):
             y_label=y_label,
             title=title,
             line_label="Historic + Modelled Future",
-            future_stock=show_future
+            future_stock=show_future,
         )
-            
+
         if show_extrapolation:
             ap = self.plotter_class(
                 array=extrapolation,
@@ -270,9 +277,13 @@ class CementDataExporter(CommonDataExporter):
         cumulative_uptake = mfa.stocks["carbonated_co2"].stock
         linecolor_dimletter = "Carbonation Location"
         plot_letters = ["t", "c"]
-        other_dimletters = tuple(letter for letter in annual_uptake.dims.letters if letter not in plot_letters)
+        other_dimletters = tuple(
+            letter for letter in annual_uptake.dims.letters if letter not in plot_letters
+        )
         annual_uptake = annual_uptake.sum_over(other_dimletters)
-        annual_uptake = annual_uptake.apply(np.cumsum, kwargs={"axis": annual_uptake.dims.index("c")})
+        annual_uptake = annual_uptake.apply(
+            np.cumsum, kwargs={"axis": annual_uptake.dims.index("c")}
+        )
 
         ap = self.plotter_class(
             array=annual_uptake,
@@ -286,7 +297,4 @@ class CementDataExporter(CommonDataExporter):
         )
         fig = ap.plot()
 
-        self.plot_and_save_figure(
-            ap, "cement_carbonation_annual_uptake.png", do_plot=False
-        )
-
+        self.plot_and_save_figure(ap, "cement_carbonation_annual_uptake.png", do_plot=False)

@@ -208,7 +208,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         if not future_stock:
             # Hack to remove future line from the plot, but keep the axis range
-            colors = ['rgba(0,0,0,0)'] * len(colors)
+            colors = ["rgba(0,0,0,0)"] * len(colors)
 
         # Future stock (dotted)
         ap = self.plotter_class(

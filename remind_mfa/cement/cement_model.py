@@ -54,7 +54,6 @@ class CementModel:
         self.dims = self.data_reader.read_dimensions(definition.dimensions)
         self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
 
-
     def make_mfa(self, historic: bool, mode: str = None) -> InflowDrivenHistoricCementMFASystem:
         if historic:
             definition = self.definition_historic
@@ -86,7 +85,7 @@ class CementModel:
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         """Extrapolate in use stock to future."""
-        
+
         indep_fit_dim_letters = ("r",)
 
         # 1) constrain saturation level
@@ -108,13 +107,20 @@ class CementModel:
         )
 
         # 2) constrain growth rate
-        max_growth_rate = 25 # t/cap per tenfold GDP increase, inferred from China #self.get_max_growth_rate()
+        max_growth_rate = (
+            25  # t/cap per tenfold GDP increase, inferred from China #self.get_max_growth_rate()
+        )
         max_stretch_factor = 4 * max_growth_rate / region_sat
-        min_stretch_factor = fd.FlodymArray(dims=self.dims[("r",)], values=np.zeros_like(max_stretch_factor.values))
-        
+        min_stretch_factor = fd.FlodymArray(
+            dims=self.dims[("r",)], values=np.zeros_like(max_stretch_factor.values)
+        )
+
         # remove stretch factor limitations in industrialized regions
         industrialized_regions = ["EUR", "NEU", "CAZ", "CHA", "JPN", "USA"]
-        ind_indices = [self.historic_mfa.stocks["historic_cement_in_use"].stock.dims["r"].items.index(r) for r in industrialized_regions]
+        ind_indices = [
+            self.historic_mfa.stocks["historic_cement_in_use"].stock.dims["r"].items.index(r)
+            for r in industrialized_regions
+        ]
         max_stretch_factor.values[ind_indices] = np.inf
 
         stretch_bound = Bound(
@@ -132,10 +138,10 @@ class CementModel:
             "The maximum growth rate informs the upper bound of the stretch factor in the stock extrapolation "
             "for countries with low historic stock levels. ",
         )
-        
+
         # 3) constrain offset
         # Currently, this does not change anything as no region seems to be faster given the above constraints
-        min_offset = 8.8e3 # $gdppc at which 50% of saturation is reached, inferred from China (fastest region)
+        min_offset = 8.8e3  # $gdppc at which 50% of saturation is reached, inferred from China (fastest region)
         offset_bound = Bound(
             var_name="x_offset",
             lower_bound=min_offset,
@@ -147,7 +153,7 @@ class CementModel:
             value=min_offset,
             name="Minimum offset of in-use cement stock extrapolation",
             description="The minimum offset of the in-use cement stock ($gdppc where 50 percent of saturation is reached) "
-            "is set based on historic trends in China which has grown its stock at the lowest GDP levels. "
+            "is set based on historic trends in China which has grown its stock at the lowest GDP levels. ",
         )
 
         # 4) combine bounds

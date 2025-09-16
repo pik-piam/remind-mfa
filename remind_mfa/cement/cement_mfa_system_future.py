@@ -5,12 +5,14 @@ from enum import Enum
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
 
+
 class CementMode(str, Enum):
     base = "base"
     carbon_flow = "carbon_flow"
 
+
 class StockDrivenCementMFASystem(fd.MFASystem):
-    
+
     mode: CementMode
 
     def compute(self, stock_projection: fd.FlodymArray):
@@ -31,7 +33,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
         stk["in_use"].stock = (
-            cement_stock_projection 
+            cement_stock_projection
             * prm["product_material_split"]
             * prm["product_material_application_transform"]
             * prm["product_application_split"]
@@ -74,17 +76,15 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             ),
         )
 
-        flw["prod_cement => prod_product"][...] = (
-            flw["prod_product => use"] * cement_ratio
-        )
+        flw["prod_cement => prod_product"][...] = flw["prod_product => use"] * cement_ratio
         # cement losses are on top of the inflow of stock, but are relative to total cement production
-        flw["prod_cement => sysenv"][...] = (
-            flw["prod_cement => prod_product"] * (prm["cement_losses"] / (1 - prm["cement_losses"]))
+        flw["prod_cement => sysenv"][...] = flw["prod_cement => prod_product"] * (
+            prm["cement_losses"] / (1 - prm["cement_losses"])
         )
         # clinker production is based on cement production
         flw["prod_clinker => prod_cement"][...] = (
-            (flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]) * prm["clinker_ratio"]
-        )
+            flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]
+        ) * prm["clinker_ratio"]
         # clinker losses (CKD) are on top of clinker production.
         flw["prod_clinker => sysenv"][...] = (
             flw["prod_clinker => prod_cement"] * prm["clinker_losses"]
@@ -95,11 +95,9 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             flw["prod_clinker => prod_cement"] + flw["prod_clinker => sysenv"]
         )
         flw["sysenv => prod_cement"][...] = (
-            (flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]) * (1 - prm["clinker_ratio"])
-        )
-        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (
-            1 - cement_ratio
-        )
+            flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]
+        ) * (1 - prm["clinker_ratio"])
+        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - cement_ratio)
 
     def compute_other_stocks(self):
         flw = self.flows
@@ -111,7 +109,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["eol"].lifetime_model.set_prms(mean=np.inf)
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
-    
+
     @property
     def carbon_flow(self) -> bool:
         return self.mode == CementMode.carbon_flow
