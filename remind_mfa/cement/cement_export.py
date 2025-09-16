@@ -203,7 +203,7 @@ class CementDataExporter(CommonDataExporter):
 
     def visualize_extrapolation(self, model: "CementModel", show_extrapolation: bool = True, show_future: bool = True):
         mfa = model.future_mfa
-        per_capita = True  # TODO see where this shold go
+        per_capita = self.cfg.use_stock["per_capita"]
         subplot_dim = "Region"
         cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
         stock = mfa.stocks["in_use"].stock * cement_ratio
@@ -231,9 +231,13 @@ class CementDataExporter(CommonDataExporter):
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
         stock = stock.sum_over(other_dimletters)
+        extrapolation = model.stock_handler.pure_prediction
 
         if per_capita:
             stock = stock / population
+        else:
+            extrapolation = extrapolation * population
+
 
         fig, ap = self.plot_history_and_future(
             mfa=mfa,
@@ -246,11 +250,10 @@ class CementDataExporter(CommonDataExporter):
             line_label="Historic + Modelled Future",
             future_stock=show_future
         )
-
-        # extrapolation
+            
         if show_extrapolation:
             ap = self.plotter_class(
-                array=model.stock_handler.pure_prediction,
+                array=extrapolation,
                 intra_line_dim="Time",
                 subplot_dim=subplot_dim,
                 x_array=x_array,
