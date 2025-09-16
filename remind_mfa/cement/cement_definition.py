@@ -17,7 +17,6 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
         fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
-        # TODO add? fd.DimensionDefinition(name="Carbonation Status", dim_letter="c", dtype=str),
     ]
 
     # 2) Processes
@@ -133,7 +132,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
 
         fd.ParameterDefinition(name="product_thickness", dim_letters=("r", "a")),
         fd.ParameterDefinition(name="cao_carbonation_share", dim_letters=("r", "m")),
-        fd.ParameterDefinition(name="product_cement_content", dim_letters=("r", "a")), # TODO rename to product_cement_density
+        fd.ParameterDefinition(name="product_cement_content", dim_letters=("r", "a")),
         fd.ParameterDefinition(name="product_application_split", dim_letters=("r", "a")),
         fd.ParameterDefinition(name="product_material_split", dim_letters=("r", "m",)),
         fd.ParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a")),

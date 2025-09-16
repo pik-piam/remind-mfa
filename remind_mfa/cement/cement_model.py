@@ -21,8 +21,7 @@ class CementModel:
     def __init__(self, cfg: GeneralCfg):
         self.cfg = cfg
         self.definition_future = get_definition(self.cfg, historic=False)
-        # TODO why do we only call future definition?
-        # Would it not make sense to also separater dims and parameters for historic and future?
+        # all important data is in future mfa
         self.read_data(self.definition_future)
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,
@@ -118,7 +117,6 @@ class CementModel:
         ind_indices = [self.historic_mfa.stocks["historic_cement_in_use"].stock.dims["r"].items.index(r) for r in industrialized_regions]
         max_stretch_factor.values[ind_indices] = np.inf
 
-        # TODO adjust Bound to allow one float and one array
         stretch_bound = Bound(
             var_name="stretch_factor",
             lower_bound=min_stretch_factor,

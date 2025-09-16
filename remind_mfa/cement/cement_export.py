@@ -108,7 +108,6 @@ class CementDataExporter(CommonDataExporter):
         self.visualize_production(mfa=mfa, production=production, name="Product")
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        # TODO find better way to implement cement_ratio
         cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
         consumption = mfa.stocks["in_use"].inflow * cement_ratio
         plot_letters = ["t", "r", "s"]
@@ -129,12 +128,6 @@ class CementDataExporter(CommonDataExporter):
         self.plot_and_save_figure(ap, "cement_consumption.png", do_plot=False)
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
-        # over_gdp = self.cfg.eol_stock["over_gdp"]
-        # per_capita = self.cfg.eol_stock["per_capita"]
-        # stock = mfa.stocks["eol"].stock
-
-        # self.visualize_stock(mfa, stock, over_gdp, per_capita, "EOL")
-        # TODO EOL visualization does not make sense by stock type
         pass
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):

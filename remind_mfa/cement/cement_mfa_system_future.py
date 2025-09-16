@@ -21,18 +21,13 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.compute_flows()
         self.compute_other_stocks()
         if self.carbon_flow:
-            CementCarbonUptakeModel(
-                flows=self.flows,
-                stocks=self.stocks,
-                parameters=self.parameters,
-            ).compute_carbon_flow()
+            CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
     def compute_in_use_stock(self, cement_stock_projection: fd.FlodymArray):
         prm = self.parameters
         stk = self.stocks
-        # TODO calculate cement_ratio directly in mrindustry
         cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
         stk["in_use"].stock = (
@@ -43,13 +38,14 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             / cement_ratio
         )
 
+        lifetime_rel_std = 0.4
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["future_use_lifetime_mean"],
-            std=0.4 * prm["future_use_lifetime_mean"],
+            std=lifetime_rel_std * prm["future_use_lifetime_mean"],
         )
         add_assumption_doc(
             type="expert guess",
-            value=0.4,
+            value=lifetime_rel_std,
             name="Standard deviation of future use lifetime",
             description="The standard deviation of the future use lifetime is set to 20 percent of the mean.",
         )
