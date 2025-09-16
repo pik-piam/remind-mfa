@@ -49,7 +49,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             type="expert guess",
             value=lifetime_rel_std,
             name="Standard deviation of future use lifetime",
-            description="The standard deviation of the future use lifetime is set to 20 percent of the mean.",
+            description=f"The standard deviation of the future use lifetime is set to {int(lifetime_rel_std * 100)} percent of the mean.",
         )
         stk["in_use"].compute()
 

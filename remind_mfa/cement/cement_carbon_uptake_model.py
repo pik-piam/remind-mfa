@@ -305,12 +305,12 @@ class CementCarbonUptakeModel(BaseModel):
         age = fd.FlodymArray(dims=agedimset, values=np.array(ages), dtype=float)
 
         # (II1) calculate t from demolition
-        demolition_time = 0.4
+        demolition_time = 0.4 # years
         add_assumption_doc(
             type="literature value",
             name="Lifetime of cement products in demolition phase.",
             value=demolition_time,
-            description="Based on Cao2024, cement products are assumed to be exposed to air for 0.4 years after demolition, before they are either recycled or buried.",
+            description=f"Based on Cao2024, cement products are assumed to be exposed to air for {demolition_time:.1f} years after demolition, before they are either recycled or buried.",
         )
         demolition_age = fd.FlodymArray(
             dims=agedimset, values=np.full_like(ages, demolition_time, dtype=float)

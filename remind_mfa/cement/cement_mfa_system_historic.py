@@ -32,7 +32,7 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
             type="expert guess",
             value=lifetime_rel_std,
             name="Standard deviation of historic use lifetime",
-            description="The standard deviation of the historic use lifetime is set to 20 percent of the mean.",
+            description=f"The standard deviation of the historic use lifetime is set to {int(lifetime_rel_std * 100)} of the mean.",
         )
         stk["historic_cement_in_use"].compute()
 
