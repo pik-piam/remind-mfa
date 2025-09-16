@@ -80,11 +80,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             fd.FlowDefinition(
                 from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")
             ),
-            fd.FlowDefinition(
-                from_process="atmosphere",
-                to_process="carbonation",
-                dim_letters=("t", "r", "m", "c"),
-            ),
+            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m", "c")),
         ]
 
     # 4) Stocks
@@ -173,7 +169,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             dim_letters=(
                 "r",
                 "m",
-            ),
+            )
         ),
         fd.ParameterDefinition(
             name="product_material_application_transform", dim_letters=("m", "a")
@@ -189,7 +185,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             name="waste_size_max",
             dim_letters=(
                 "w",
-                "p",
+                "p"
             ),
         ),  # manual (from Xi2016 categories)
     ]
