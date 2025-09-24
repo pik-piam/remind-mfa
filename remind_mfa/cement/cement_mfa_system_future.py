@@ -7,8 +7,8 @@ from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
 
 
 class CementMode(str, Enum):
-    base = "base"
-    carbon_flow = "carbon_flow"
+    BASE = "base"
+    CARBON_FLOW = "carbon_flow"
 
 
 class StockDrivenCementMFASystem(fd.MFASystem):
@@ -41,15 +41,15 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         )
 
         lifetime_rel_std = 0.4
-        stk["in_use"].lifetime_model.set_prms(
-            mean=prm["future_use_lifetime_mean"],
-            std=lifetime_rel_std * prm["future_use_lifetime_mean"],
-        )
         add_assumption_doc(
             type="expert guess",
             value=lifetime_rel_std,
             name="Standard deviation of future use lifetime",
             description=f"The standard deviation of the future use lifetime is set to {int(lifetime_rel_std * 100)} percent of the mean.",
+        )
+        stk["in_use"].lifetime_model.set_prms(
+            mean=prm["future_use_lifetime_mean"],
+            std=lifetime_rel_std * prm["future_use_lifetime_mean"],
         )
         stk["in_use"].compute()
 
@@ -112,4 +112,4 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
     @property
     def carbon_flow(self) -> bool:
-        return self.mode == CementMode.carbon_flow
+        return self.mode == CementMode.CARBON_FLOW

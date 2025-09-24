@@ -194,6 +194,21 @@ class CommonDataExporter(RemindMFABaseModel):
             hist_x_array = x_array[{"t": mfa.dims["h"]}]
             scatter_x_array = hist_x_array[{"h": last_year_dim}]
 
+        # Future stock (dotted)
+        ap = self.plotter_class(
+            array=data_to_plot,
+            intra_line_dim="Time",
+            linecolor_dim=linecolor_dim,
+            subplot_dim=subplot_dim,
+            x_array=x_array,
+            title=title,
+            color_map=colors,
+            line_type="dot",
+            suppress_legend=True,
+            **kwargs,
+        )
+        fig = ap.plot()
+
         # Historic stock (solid)
         ap = self.plotter_class(
             array=hist,
@@ -202,6 +217,7 @@ class CommonDataExporter(RemindMFABaseModel):
             subplot_dim=subplot_dim,
             x_array=hist_x_array,
             color_map=colors,
+            fig=fig,
             **kwargs,
         )
         fig = ap.plot()
@@ -209,22 +225,6 @@ class CommonDataExporter(RemindMFABaseModel):
         if not future_stock:
             # Hack to remove future line from the plot, but keep the axis range
             colors = ["rgba(0,0,0,0)"] * len(colors)
-
-        # Future stock (dotted)
-        ap = self.plotter_class(
-            array=data_to_plot,
-            intra_line_dim="Time",
-            linecolor_dim=linecolor_dim,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            fig=fig,
-            title=title,
-            color_map=colors,
-            line_type="dot",
-            suppress_legend=True,
-            **kwargs,
-        )
-        fig = ap.plot()
 
         # Last historic year (black dot)
         ap = self.plotter_class(
