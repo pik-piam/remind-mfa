@@ -1,8 +1,9 @@
 import os
+import tarfile
 import flodym as fd
 
 
-class REMINDMFAReader(fd.CompoundDataReader):
+class MrindustryDataReader(fd.CompoundDataReader):
     dimension_map = {
         "Time": "time_in_years",
         "Historic Time": "historic_years",
@@ -14,9 +15,24 @@ class REMINDMFAReader(fd.CompoundDataReader):
         "Scenario": "scenarios",
     }
 
-    def __init__(self, input_data_path, definition: fd.MFADefinition):
+    def __init__(self, input_data_path, tgz_filename, definition: fd.MFADefinition):
         self.input_data_path = input_data_path
 
+        # prepare directory for extracted input data
+        self.extracted_input_data_path = os.path.join(self.input_data_path, "input_data")
+        os.makedirs(self.extracted_input_data_path, exist_ok=True)
+        version = tgz_filename.replace(".tgz", "")
+        version_file_path = os.path.join(self.extracted_input_data_path, "version.txt")
+
+        # check if extraction is needed
+        should_extract = True
+        if os.path.exists(version_file_path):
+            with open(version_file_path, "r") as f:
+                current_version = f.read()
+                if current_version == version:
+                    should_extract = False
+
+        # dimensions
         dimension_files = {}
         for dimension in definition.dimensions:
             dimension_filename = self.dimension_map[dimension.name]
@@ -25,15 +41,27 @@ class REMINDMFAReader(fd.CompoundDataReader):
             )
         dimension_reader = fd.CSVDimensionReader(dimension_files)
 
+        if should_extract:
+            # extract files from tgz and save in directory
+            tgz_path = os.path.join(self.input_data_path, tgz_filename)
+            if not os.path.exists(tgz_path):
+                raise FileNotFoundError(f"TGZ file not found: {tgz_path}")
+
+            with tarfile.open(tgz_path, "r:gz") as tar:
+                tar.extractall(path=self.extracted_input_data_path)
+
+            with open(version_file_path, "w") as f:
+                f.write(version)
+        
+        # parameters
         parameter_files = {}
         for parameter in definition.parameters:
             parameter_files[parameter.name] = os.path.join(
-                self.input_data_path, "datasets", f"{parameter.name}.cs4r"
+                self.temp_dir, "datasets", f"{parameter.name}.cs4r"
             )
         parameter_reader = CS4RParameterReader(parameter_files, allow_extra_values=True)
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
-        print("test")
 
 
 class CS4RParameterReader(fd.CSVParameterReader):

@@ -20,7 +20,9 @@ class CementModel:
         self.cfg = cfg
         self.definition = get_definition(self.cfg)
         self.data_reader = CementDataReader(
-            input_data_path=self.cfg.input_data_path, definition=self.definition
+            input_data_path=self.cfg.input_data_path,
+            tgz_filename=self.cfg.tgz_filename,
+            definition=self.definition,
         )
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,

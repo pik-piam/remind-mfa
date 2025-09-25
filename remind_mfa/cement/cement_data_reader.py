@@ -1,7 +1,7 @@
-from remind_mfa.common.custom_data_reader import REMINDMFAReader
+from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
 
 
-class CementDataReader(REMINDMFAReader):
+class CementDataReader(MrindustryDataReader):
     dimension_map = {
         "Time": "time_in_years",
         "Historic Time": "historic_years",

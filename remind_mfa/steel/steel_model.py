@@ -7,7 +7,7 @@ from remind_mfa.common.common_cfg import GeneralCfg
 from remind_mfa.common.data_extrapolations import LogSigmoidExtrapolation
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.custom_data_reader import REMINDMFAReader
+from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.steel.steel_export import SteelDataExporter
 from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
@@ -49,8 +49,9 @@ class SteelModel:
         self.data_writer.visualize_results(model=self)
 
     def read_data(self, definition: SteelMFADefinition):
-        self.data_reader = REMINDMFAReader(
+        self.data_reader = MrindustryDataReader(
             input_data_path=self.cfg.input_data_path,
+            tgz_filename=self.cfg.tgz_filename,
             definition=definition,
         )
         self.dims = self.data_reader.read_dimensions(definition.dimensions)

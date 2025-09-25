@@ -3,6 +3,7 @@ model_class: 'cement'
 
 # data sources
 input_data_path: '../simson_data/data/cement/output'
+input_data_version: 'rev0_h12_f2bbc4c5_mfa'
 
 # model customization
 customization:

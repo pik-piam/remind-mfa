@@ -89,6 +89,7 @@ class GeneralCfg(RemindMFABaseModel):
 
     model_class: str
     input_data_path: str
+    input_data_version: str
     customization: ModelCustomization
     visualization: VisualizationCfg
     output_path: str
