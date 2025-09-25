@@ -27,10 +27,8 @@ class CementCarbonUptakeModel(BaseModel):
         # emissions (process only)
         flw["prod_clinker => atmosphere"][...] = (
             flw["prod_clinker => prod_cement"] * prm["clinker_cao_ratio"]  # clinker
-            + flw["prod_clinker => sysenv"] * prm["ckd_cao_ratio"]
-        ) * prm[  # CKD
-            "cao_emission_factor"
-        ]
+            + flw["prod_clinker => sysenv"] * prm["ckd_cao_ratio"]  # CKD
+        ) * prm["cao_emission_factor"]
         stk["atmosphere"].inflow = flw["prod_clinker => atmosphere"]
         # overwrite previous sysenv clinker flow to include emissions
         flw["sysenv => prod_clinker"][...] = (
