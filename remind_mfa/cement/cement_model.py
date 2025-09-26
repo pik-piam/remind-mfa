@@ -10,6 +10,7 @@ from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_data_reader import CementDataReader
 from remind_mfa.cement.cement_export import CementDataExporter
+from remind_mfa.cement.cement_scenarios import ScenarioManager
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
@@ -33,6 +34,7 @@ class CementModel:
         self.parameters = self.data_reader.read_parameters(
             self.definition.parameters, dims=self.dims
         )
+        self.parameters = ScenarioManager().apply_scenarios(self.parameters)
         self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
