@@ -1,5 +1,6 @@
 import os
 import tarfile
+import pandas as pd
 import flodym as fd
 
 
@@ -39,7 +40,8 @@ class MrindustryDataReader(fd.CompoundDataReader):
             dimension_files[dimension.name] = os.path.join(
                 self.input_data_path, "dimensions", f"{dimension_filename}.csv"
             )
-        dimension_reader = fd.CSVDimensionReader(dimension_files)
+        # TODO: tgz has to be handed to DimensionReader
+        dimension_reader = MrindustryDimensionReader(dimension_files)
 
         if should_extract:
             # extract files from tgz and save in directory
@@ -59,12 +61,26 @@ class MrindustryDataReader(fd.CompoundDataReader):
             parameter_files[parameter.name] = os.path.join(
                 self.temp_dir, "datasets", f"{parameter.name}.cs4r"
             )
-        parameter_reader = CS4RParameterReader(parameter_files, allow_extra_values=True)
+        parameter_reader = MrindustryParameterReader(parameter_files, allow_extra_values=True)
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
 
+class MrindustryDimensionReader(fd.CSVDimensionReader):
+    """
+    Custom dimension reader that reads Region dimensions from mrindustry regionmapping .csv.
+    Everything else works as in flodym.CSVDimensionReader.
+    """
+    
+    def __init__(self):
+        # TODO: implement
+        pass
 
-class CS4RParameterReader(fd.CSVParameterReader):
+    def read_dimension(self):
+        # TODO: implement
+        pass
+
+
+class MrindustryParameterReader(fd.CSVParameterReader):
     """
     Custom parameter reader for .cs4r files that extracts header and skiprows information from the file.
     Everything else inherited from flodym.CSVParameterReader.
@@ -85,7 +101,7 @@ class CS4RParameterReader(fd.CSVParameterReader):
     @staticmethod
     def extract_cs4r_info(filepath: str):
         """Extract header and skiprows from .cs4r file."""
-        pre_str = "(dimensions: "
+        pre_str = "dimensions: ("
         post_str = ")"
         with open(filepath, 'r') as file:
             for idx, line in enumerate(file):
