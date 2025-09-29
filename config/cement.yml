@@ -5,7 +5,11 @@ model_class: 'cement'
 madrat_output_path: '../madrat_wd/output'
 input_data_path: '../simson_data/data/cement/output'
 input_data_version: 'rev3_h12_f25cc25c_mfa'
-force_extract: True
+
+# parameter scenario
+scenario:
+  clinker_ratio: 'constant'
+  use_lifetime_mean: 'constant'
 
 # model customization
 customization:

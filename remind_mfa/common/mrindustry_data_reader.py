@@ -22,13 +22,11 @@ class MrindustryDataReader(fd.CompoundDataReader):
                  input_data_path: str,
                  input_data_version: str,
                  definition: fd.MFADefinition,
-                 force_extract: bool
         ):
         self.madrat_output_path = madrat_output_path
         self.input_data_path = input_data_path
         self.input_data_version = input_data_version
         self.definition = definition
-        self.force_extract = force_extract
         self.prepare_input_readers()
 
     def prepare_input_readers(self):
@@ -40,7 +38,7 @@ class MrindustryDataReader(fd.CompoundDataReader):
 
         # check if extraction is needed
         should_extract = True
-        if not self.force_extract and os.path.exists(version_file_path):
+        if os.path.exists(version_file_path):
             with open(version_file_path, "r") as f:
                 current_version = f.read()
                 if current_version == self.input_data_version:

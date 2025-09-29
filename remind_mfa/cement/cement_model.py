@@ -10,7 +10,7 @@ from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_data_reader import CementDataReader
 from remind_mfa.cement.cement_export import CementDataExporter
-from remind_mfa.cement.cement_scenarios import ScenarioManager
+from remind_mfa.cement.cement_scenarios import CementScenarioManager
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
@@ -25,7 +25,6 @@ class CementModel:
             input_data_path=self.cfg.input_data_path,
             input_data_version=self.cfg.input_data_version,
             definition=self.definition,
-            force_extract=self.cfg.force_extract,
         )
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,
@@ -44,8 +43,7 @@ class CementModel:
         self.historic_mfa.compute()
 
         # apply scenarios to parameters for future mfa
-        # TODO hand over scenario cfg with scenario selection for each parameter
-        self.parameters = ScenarioManager(self.dims["t"]).apply_scenarios(self.parameters)
+        self.parameters = CementScenarioManager(self.cfg, self.dims["t"]).apply_scenarios(self.parameters)
 
         # future mfa
         self.future_mfa = self.make_future_mfa()
