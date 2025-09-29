@@ -88,8 +88,10 @@ class PlasticsVisualizationCfg(VisualizationCfg):
 class GeneralCfg(RemindMFABaseModel):
 
     model_class: str
+    madrat_output_path: str
     input_data_path: str
     input_data_version: str
+    force_extract: bool
     customization: ModelCustomization
     visualization: VisualizationCfg
     output_path: str

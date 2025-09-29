@@ -22,8 +22,8 @@ class StockDrivenCementMFASystem(fd.MFASystem):
 
         stk["in_use"].stock = stock_projection
         stk["in_use"].lifetime_model.set_prms(
-            mean=prm["future_use_lifetime_mean"],
-            std=0.2 * prm["future_use_lifetime_mean"],
+            mean=prm["use_lifetime_mean"],
+            std=0.2 * prm["use_lifetime_mean"],
         )
         add_assumption_doc(
             type="expert guess",

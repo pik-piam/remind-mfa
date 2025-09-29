@@ -1,4 +1,5 @@
 import os
+import glob
 import tarfile
 import pandas as pd
 import flodym as fd
@@ -16,36 +17,38 @@ class MrindustryDataReader(fd.CompoundDataReader):
         "Scenario": "scenarios",
     }
 
-    def __init__(self, input_data_path, tgz_filename, definition: fd.MFADefinition):
+    def __init__(self,
+                 madrat_output_path: str,
+                 input_data_path: str,
+                 input_data_version: str,
+                 definition: fd.MFADefinition,
+                 force_extract: bool
+        ):
+        self.madrat_output_path = madrat_output_path
         self.input_data_path = input_data_path
+        self.input_data_version = input_data_version
+        self.definition = definition
+        self.force_extract = force_extract
+        self.prepare_input_readers()
+
+    def prepare_input_readers(self):
 
         # prepare directory for extracted input data
         self.extracted_input_data_path = os.path.join(self.input_data_path, "input_data")
         os.makedirs(self.extracted_input_data_path, exist_ok=True)
-        version = tgz_filename.replace(".tgz", "")
         version_file_path = os.path.join(self.extracted_input_data_path, "version.txt")
 
         # check if extraction is needed
         should_extract = True
-        if os.path.exists(version_file_path):
+        if not self.force_extract and os.path.exists(version_file_path):
             with open(version_file_path, "r") as f:
                 current_version = f.read()
-                if current_version == version:
+                if current_version == self.input_data_version:
                     should_extract = False
-
-        # dimensions
-        dimension_files = {}
-        for dimension in definition.dimensions:
-            dimension_filename = self.dimension_map[dimension.name]
-            dimension_files[dimension.name] = os.path.join(
-                self.input_data_path, "dimensions", f"{dimension_filename}.csv"
-            )
-        # TODO: tgz has to be handed to DimensionReader
-        dimension_reader = MrindustryDimensionReader(dimension_files)
-
+        
         if should_extract:
             # extract files from tgz and save in directory
-            tgz_path = os.path.join(self.input_data_path, tgz_filename)
+            tgz_path = os.path.join(self.madrat_output_path, self.input_data_version + ".tgz")
             if not os.path.exists(tgz_path):
                 raise FileNotFoundError(f"TGZ file not found: {tgz_path}")
 
@@ -53,13 +56,33 @@ class MrindustryDataReader(fd.CompoundDataReader):
                 tar.extractall(path=self.extracted_input_data_path)
 
             with open(version_file_path, "w") as f:
-                f.write(version)
-        
+                f.write(self.input_data_version)
+
+        # dimensions
+        dimension_files = {}
+        for dimension in self.definition.dimensions:
+            dimension_filename = self.dimension_map[dimension.name]
+            dimension_files[dimension.name] = os.path.join(
+                self.input_data_path, "dimensions", f"{dimension_filename}.csv"
+            )
+        # Special case for Region dimensions
+        if "Region" in dimension_files:
+            regionfiles = sorted(glob.glob(os.path.join(self.extracted_input_data_path, "regionmapping*.csv")))
+            if not regionfiles:
+                raise FileNotFoundError(f"No regionmapping*.csv found in {self.input_data_path}")
+            if len(regionfiles) > 1:
+                raise ValueError(
+                    f"Expected exactly one regionmapping*.csv in {self.input_data_path}, found: "
+                    f"{[os.path.basename(m) for m in regionfiles]}"
+                )
+            dimension_files["Region"] = regionfiles[0]
+        dimension_reader = MrindustryDimensionReader(dimension_files)
+
         # parameters
         parameter_files = {}
-        for parameter in definition.parameters:
+        for parameter in self.definition.parameters:
             parameter_files[parameter.name] = os.path.join(
-                self.temp_dir, "datasets", f"{parameter.name}.cs4r"
+                self.extracted_input_data_path, f"{parameter.name}.cs4r"
             )
         parameter_reader = MrindustryParameterReader(parameter_files, allow_extra_values=True)
 
@@ -70,14 +93,15 @@ class MrindustryDimensionReader(fd.CSVDimensionReader):
     Custom dimension reader that reads Region dimensions from mrindustry regionmapping .csv.
     Everything else works as in flodym.CSVDimensionReader.
     """
-    
-    def __init__(self):
-        # TODO: implement
-        pass
 
-    def read_dimension(self):
-        # TODO: implement
-        pass
+    def read_dimension(self, definition: fd.DimensionDefinition):
+        if definition.name == "Region":
+            path = self.dimension_files[definition.name]
+            df = pd.read_csv(path, delimiter=';')
+            unique_regions = df["RegionCode"].unique()
+            return fd.Dimension.from_np(unique_regions, definition)
+        else:
+            return super().read_dimension(definition)
 
 
 class MrindustryParameterReader(fd.CSVParameterReader):
@@ -88,7 +112,7 @@ class MrindustryParameterReader(fd.CSVParameterReader):
 
     def read_parameter_values(self, parameter_name: str, dims):
         self.pre_read_parameter_values(parameter_name)
-        super().read_parameter_values(parameter_name, dims)
+        return super().read_parameter_values(parameter_name, dims)
         
     def pre_read_parameter_values(self, parameter_name: str):
         """Extract header and skiprows from .cs4r file and set read_csv_kwargs accordingly."""
@@ -114,6 +138,5 @@ class MrindustryParameterReader(fd.CSVParameterReader):
                     if header is None:
                         raise ValueError(f"No header line found in {filepath}")
                     break
-        header_line_count = idx + 1
-        return header, header_line_count
+        return header, idx
 

@@ -2,8 +2,10 @@
 model_class: 'cement'
 
 # data sources
+madrat_output_path: '../madrat_wd/output'
 input_data_path: '../simson_data/data/cement/output'
-input_data_version: 'rev0_h12_f2bbc4c5_mfa'
+input_data_version: 'rev3_h12_f25cc25c_mfa'
+force_extract: True
 
 # model customization
 customization:

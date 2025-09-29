@@ -56,6 +56,7 @@ def get_definition(cfg: GeneralCfg):
         fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s")),
     ]
 
+    # TODO remove historic_in_use stock, just use in_use, later change from h to t dimension
     stocks = [
         fd.StockDefinition(
             name="historic_in_use",
@@ -83,11 +84,10 @@ def get_definition(cfg: GeneralCfg):
     parameters = [
         fd.ParameterDefinition(name="cement_production", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="cement_trade", dim_letters=("h", "r")),
-        fd.ParameterDefinition(name="clinker_ratio", dim_letters=("t", "r")),
+        fd.ParameterDefinition(name="clinker_ratio", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="cement_ratio", dim_letters=()),
         fd.ParameterDefinition(name="use_split", dim_letters=("s",)),
-        fd.ParameterDefinition(name="historic_use_lifetime_mean", dim_letters=("h", "r", "s")),
-        fd.ParameterDefinition(name="future_use_lifetime_mean", dim_letters=("t", "r", "s")),
+        fd.ParameterDefinition(name="use_lifetime_mean", dim_letters=("h", "r", "s")),
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
     ]

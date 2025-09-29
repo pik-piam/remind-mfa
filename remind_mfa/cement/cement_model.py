@@ -21,9 +21,11 @@ class CementModel:
         self.cfg = cfg
         self.definition = get_definition(self.cfg)
         self.data_reader = CementDataReader(
+            madrat_output_path=self.cfg.madrat_output_path,
             input_data_path=self.cfg.input_data_path,
-            tgz_filename=self.cfg.tgz_filename,
+            input_data_version=self.cfg.input_data_version,
             definition=self.definition,
+            force_extract=self.cfg.force_extract,
         )
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,
@@ -34,13 +36,16 @@ class CementModel:
         self.parameters = self.data_reader.read_parameters(
             self.definition.parameters, dims=self.dims
         )
-        self.parameters = ScenarioManager().apply_scenarios(self.parameters)
         self.processes = fd.make_processes(self.definition.processes)
 
     def run(self):
         # historic mfa
         self.historic_mfa = self.make_historic_mfa()
         self.historic_mfa.compute()
+
+        # apply scenarios to parameters for future mfa
+        # TODO hand over scenario cfg with scenario selection for each parameter
+        self.parameters = ScenarioManager(self.dims["t"]).apply_scenarios(self.parameters)
 
         # future mfa
         self.future_mfa = self.make_future_mfa()
