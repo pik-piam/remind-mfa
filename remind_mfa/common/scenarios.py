@@ -2,7 +2,7 @@ import flodym as fd
 from abc import ABC, abstractmethod
 from typing import Optional, Dict
 
-from .common_cfg import GeneralCfg
+from remind_mfa.common.common_cfg import GeneralCfg
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 class ScenarioStrategy(ABC):
