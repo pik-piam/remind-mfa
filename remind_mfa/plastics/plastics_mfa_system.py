@@ -200,13 +200,13 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["mechanical_recycling_rate"]
-        flw["reclmech => fabrication"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
-        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => fabrication"]
+        flw["reclmech => processing"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => processing"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
         flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["chemical_recycling_rate"]
-        flw["reclchem => processing"][...] = flw["collected => reclchem"]
+        flw["reclchem => virgin"][...] = flw["collected => reclchem"]
 
         flw["collected => incineration"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["incineration_rate"]
 
@@ -235,8 +235,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         flw["processing => fabrication"][...] = (
-            flw["fabrication => use"] 
-            - flw["reclmech => fabrication"] 
+            flw["fabrication => use"]
             + flw["fabrication => final_exports"] 
             - flw["intermediate_imports => fabrication"]
         )
@@ -245,7 +244,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             flw["processing => fabrication"] 
             - flw["primary_imports => processing"] 
             + flw["processing => intermediate_exports"]
-            - flw["reclchem => processing"]  
+            - flw["reclmech => processing"] 
         )
 
         flw["virgindaccu => virgin"][...] = flw["virgin => processing"] * prm["daccu_production_rate"]
@@ -264,6 +263,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             - flw["virgindaccu => virgin"]
             - flw["virginbio => virgin"]
             - flw["virginccu => virgin"]
+            - flw["reclchem => virgin"] 
             + flw["virgin => primary_exports"]
         )
 

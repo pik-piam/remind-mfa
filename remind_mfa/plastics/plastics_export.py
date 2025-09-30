@@ -525,8 +525,8 @@ class PlasticsDataExporter(CommonDataExporter):
             **constants,
         )
         ## secondary production
-        prod_recl = (mfa.flows["reclmech => fabrication"] + 
-                     mfa.flows["reclchem => processing"])
+        prod_recl = (mfa.flows["reclmech => processing"] + 
+                     mfa.flows["reclchem => virgin"])
         prod_recl_df = self.to_iamc_df(prod_recl.sum_to(('t','r')))
         prod_recl_idf = pyam.IamDataFrame(
             prod_recl_df,
