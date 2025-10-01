@@ -51,7 +51,7 @@ class Assumption(RemindMFABaseModel):
         "integer number",
         "expert guess",
         "literature value",
-        "model switch"
+        "model switch",
     ]
 
     @field_validator("type", mode="after")

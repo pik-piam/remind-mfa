@@ -43,7 +43,9 @@ class CementModel:
         self.historic_mfa.compute()
 
         # apply scenarios to parameters for future mfa
-        self.parameters = ParameterExtensionManager(self.cfg, self.dims["t"]).apply_prm_extensions(self.parameters)
+        self.parameters = ParameterExtensionManager(self.cfg, self.dims["t"]).apply_prm_extensions(
+            self.parameters
+        )
 
         # future mfa
         self.future_mfa = self.make_future_mfa()

@@ -44,7 +44,7 @@ class ModelSwitches(RemindMFABaseModel):
     def stock_extrapolation_class(self) -> type[Extrapolation]:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
-    
+
     @property
     def parameter_extension_classes(self) -> Optional[dict[str, type[ParameterExtension]]]:
         """Check if the given parameter extension classes are valid subclasses of ParameterExtension and return them."""

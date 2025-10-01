@@ -17,12 +17,13 @@ class MrindustryDataReader(fd.CompoundDataReader):
         "Scenario": "scenarios",
     }
 
-    def __init__(self,
-                 madrat_output_path: str,
-                 input_data_path: str,
-                 input_data_version: str,
-                 definition: fd.MFADefinition,
-        ):
+    def __init__(
+        self,
+        madrat_output_path: str,
+        input_data_path: str,
+        input_data_version: str,
+        definition: fd.MFADefinition,
+    ):
         self.madrat_output_path = madrat_output_path
         self.input_data_path = input_data_path
         self.input_data_version = input_data_version
@@ -43,7 +44,7 @@ class MrindustryDataReader(fd.CompoundDataReader):
                 current_version = f.read()
                 if current_version == self.input_data_version:
                     should_extract = False
-        
+
         if should_extract:
             # extract files from tgz and save in directory
             tgz_path = os.path.join(self.madrat_output_path, self.input_data_version + ".tgz")
@@ -65,7 +66,9 @@ class MrindustryDataReader(fd.CompoundDataReader):
             )
         # Special case for Region dimensions
         if "Region" in dimension_files:
-            regionfiles = sorted(glob.glob(os.path.join(self.extracted_input_data_path, "regionmapping*.csv")))
+            regionfiles = sorted(
+                glob.glob(os.path.join(self.extracted_input_data_path, "regionmapping*.csv"))
+            )
             if not regionfiles:
                 raise FileNotFoundError(f"No regionmapping*.csv found in {self.input_data_path}")
             if len(regionfiles) > 1:
@@ -86,6 +89,7 @@ class MrindustryDataReader(fd.CompoundDataReader):
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
 
+
 class MrindustryDimensionReader(fd.CSVDimensionReader):
     """
     Custom dimension reader that reads Region dimensions from mrindustry regionmapping .csv.
@@ -95,7 +99,7 @@ class MrindustryDimensionReader(fd.CSVDimensionReader):
     def read_dimension(self, definition: fd.DimensionDefinition):
         if definition.name == "Region":
             path = self.dimension_files[definition.name]
-            df = pd.read_csv(path, delimiter=';')
+            df = pd.read_csv(path, delimiter=";")
             unique_regions = df["RegionCode"].unique()
             return fd.Dimension.from_np(unique_regions, definition)
         else:
@@ -111,7 +115,7 @@ class MrindustryParameterReader(fd.CSVParameterReader):
     def read_parameter_values(self, parameter_name: str, dims):
         self.pre_read_parameter_values(parameter_name)
         return super().read_parameter_values(parameter_name, dims)
-        
+
     def pre_read_parameter_values(self, parameter_name: str):
         """Extract header and skiprows from .cs4r file and set read_csv_kwargs accordingly."""
         if self.parameter_filenames is None:
@@ -125,16 +129,15 @@ class MrindustryParameterReader(fd.CSVParameterReader):
         """Extract header and skiprows from .cs4r file."""
         pre_str = "dimensions: ("
         post_str = ")"
-        with open(filepath, 'r') as file:
+        with open(filepath, "r") as file:
             for idx, line in enumerate(file):
-                if line.startswith('*'):
+                if line.startswith("*"):
                     if pre_str in line:
                         # extract header between pre_str and post_str
                         header_str = line.split(pre_str)[1].split(post_str)[0]
-                        header = [dim.strip() for dim in header_str.split(',')]
+                        header = [dim.strip() for dim in header_str.split(",")]
                 else:
                     if header is None:
                         raise ValueError(f"No header line found in {filepath}")
                     break
         return header, idx
-
