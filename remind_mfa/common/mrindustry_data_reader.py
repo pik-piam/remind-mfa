@@ -23,11 +23,15 @@ class MrindustryDataReader(fd.CompoundDataReader):
         input_data_path: str,
         input_data_version: str,
         definition: fd.MFADefinition,
+        allow_missing_values: bool = False,
+        allow_extra_values: bool = False,
     ):
         self.madrat_output_path = madrat_output_path
         self.input_data_path = input_data_path
         self.input_data_version = input_data_version
         self.definition = definition
+        self.allow_missing_values = allow_missing_values
+        self.allow_extra_values = allow_extra_values
         self.prepare_input_readers()
 
     def prepare_input_readers(self):
@@ -85,7 +89,7 @@ class MrindustryDataReader(fd.CompoundDataReader):
             parameter_files[parameter.name] = os.path.join(
                 self.extracted_input_data_path, f"{parameter.name}.cs4r"
             )
-        parameter_reader = MrindustryParameterReader(parameter_files, allow_extra_values=True)
+        parameter_reader = MrindustryParameterReader(parameter_files, allow_extra_values=self.allow_extra_values, allow_missing_values=self.allow_missing_values)
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
 

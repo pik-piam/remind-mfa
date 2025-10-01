@@ -25,6 +25,7 @@ class CementModel:
             input_data_path=self.cfg.input_data_path,
             input_data_version=self.cfg.input_data_version,
             definition=self.definition,
+            allow_extra_values=True,
         )
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,

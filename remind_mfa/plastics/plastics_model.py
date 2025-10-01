@@ -8,7 +8,7 @@ from .plastics_mfa_system_historic import PlasticsMFASystemHistoric
 from .plastics_export import PlasticsDataExporter
 from .plastics_definition import get_definition, PlasticsMFADefinition
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
 
 class PlasticsModel:
 
@@ -25,8 +25,10 @@ class PlasticsModel:
 
     def read_data(self):
 
-        self.data_reader = CustomDataReader(
+        self.data_reader = MrindustryDataReader(
+            madrat_output_path=self.cfg.madrat_output_path,
             input_data_path=self.cfg.input_data_path,
+            input_data_version=self.cfg.input_data_version,
             definition=self.definition_future,
             allow_missing_values=True,
             allow_extra_values=True,
