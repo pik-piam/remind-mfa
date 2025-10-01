@@ -5,7 +5,7 @@ model_class: 'plastics'
 input_data_path: '../simson_data/data/plastics/output'
 
 # model customization
-customization:
+model_switches:
   stock_extrapolation_class_name: 'SigmoidExtrapolation'
   do_gdppc_time_regression: True # if True, gdppc is already log-transformed, so do not choose 'LogSigmoidExtrapolation'
   lifetime_model_name: 'NormalLifetime'
