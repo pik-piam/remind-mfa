@@ -3,7 +3,7 @@ import flodym as fd
 from typing import Optional
 
 from .data_extrapolations import Extrapolation
-from .scenarios import ParameterExtension
+from .parameter_extension import ParameterExtension
 
 
 IMPLEMENTED_MODELS = [
