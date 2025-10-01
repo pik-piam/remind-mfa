@@ -6,7 +6,7 @@ from remind_mfa.cement.cement_definition import get_definition
 from remind_mfa.cement.cement_mfa_system_historic import (
     InflowDrivenHistoricCementMFASystem,
 )
-from remind_mfa.common.parameter_extension import ParameterExtensionManager
+from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_data_reader import CementDataReader
@@ -43,7 +43,7 @@ class CementModel:
         self.historic_mfa.compute()
 
         # apply scenarios to parameters for future mfa
-        self.parameters = ParameterExtensionManager(self.cfg, self.dims["t"]).apply_prm_extensions(
+        self.parameters = ParameterExtrapolationManager(self.cfg, self.dims["t"]).apply_prm_extrapolation(
             self.parameters
         )
 
