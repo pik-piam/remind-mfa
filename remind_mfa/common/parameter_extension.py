@@ -1,22 +1,22 @@
 import flodym as fd
 from abc import ABC, abstractmethod
-from typing import Optional, Dict
-
-from remind_mfa.common.common_cfg import GeneralCfg
+from typing import Dict, TYPE_CHECKING
+if TYPE_CHECKING:
+    from remind_mfa.common.common_cfg import GeneralCfg
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
-class ScenarioStrategy(ABC):
-    """Base class for scenario strategies. Based on this class, new scenarios can be implemented."""
+class ParameterExtension(ABC):
+    """Base class from which new parameter extensions can be implemented."""
 
     @abstractmethod
     def apply(self, parameter: fd.Parameter, extended_time: fd.Dimension) -> fd.Parameter:
-        """Apply the scenario to the parameter."""
+        """Apply the extensions to the parameter."""
         pass
     
     @property
     @abstractmethod
     def description(self) -> str:
-        """Return a description of the scenario."""
+        """Return a description of the extension."""
         pass
 
     def initialize_new_param(self, parameter: fd.Parameter, extended_time: fd.Dimension) -> fd.Parameter:
@@ -34,12 +34,12 @@ class ScenarioStrategy(ABC):
         return new_param
         
 
-class ConstantScenario(ScenarioStrategy):
+class ConstantExtension(ParameterExtension):
     """Keep parameter constant at last observed value."""
     
     def apply(self, parameter: fd.Parameter, extended_time: fd.Dimension) -> fd.Parameter:
         add_assumption_doc(
-            type="scenario",
+            type="model switch",
             name=f"Keep {parameter.name} constant",
             description=self.description,
         )
@@ -58,54 +58,30 @@ class ConstantScenario(ScenarioStrategy):
     @property
     def description(self) -> str:
         return "Parameter is kept constant into the future at last observed value."
-    
-
-class ScenarioRegistry:
-    """Registry of named scenarios. Used to look up scenarios by name and connect them to their scenario implementation."""
-    
-    def __init__(self):
-        self._scenarios = {}
-        self._register_defaults()
-    
-    @abstractmethod
-    def _register_defaults(self):
-        """Register default scenarios."""
-        pass
-    
-    def register(self, name: str, scenario: ScenarioStrategy) -> None:
-        """Register a new scenario."""
-        self._scenarios[name] = scenario
-
-    def get(self, name: str) -> Optional[ScenarioStrategy]:
-        """Get a scenario by name."""
-        return self._scenarios.get(name)
 
 
-class ScenarioManager:
-    """Manager for applying parameter scenarios in cement models."""
+class ParameterExtensionManager:
+    """Manager for applying parameter extensions in cement models."""
         
     def __init__(self,
-                 cfg: GeneralCfg,
+                 cfg: "GeneralCfg",
                  extended_time: fd.Dimension,
-                 registry: Optional[ScenarioRegistry] = None,
                 ):
-        self.scenarios = cfg.scenario
+        self.parameter_extension_classes = cfg.model_switches.parameter_extension_classes
         self.extended_time = extended_time
-        self.registry = registry or ScenarioRegistry()
     
-    def apply_scenarios(self, parameters: Dict[str, fd.Parameter],) -> Dict[str, fd.Parameter]:
-        """Apply parameter scenarios to parameters. Only those registed in with a scenario in scenario registry are modified."""
+    def apply_prm_extensions(self, parameters: Dict[str, fd.Parameter],) -> Dict[str, fd.Parameter]:
+        """Apply parameter extensions to parameters. Only those listed in parameter_extension in config model switches are adjusted."""
         
         modified_parameters = parameters.copy()
+
+        if self.parameter_extension_classes is None:
+            return modified_parameters
         
-        for param_name, scenario_name in self.scenarios.items():
+        for param_name, extension_class in self.parameter_extension_classes.items():
             if param_name not in modified_parameters:
                 raise ValueError(f"Parameter '{param_name}' not found in parameters.")
                 
-            scenario = self.registry.get(scenario_name)
-            if not scenario:
-                raise ValueError(f"Scenario '{scenario_name}' not found in registry.")
-                
-            modified_parameters[param_name] = scenario.apply(modified_parameters[param_name], self.extended_time)
+            modified_parameters[param_name] = extension_class().apply(modified_parameters[param_name], self.extended_time)
         
         return modified_parameters

@@ -6,11 +6,11 @@ from remind_mfa.cement.cement_definition import get_definition
 from remind_mfa.cement.cement_mfa_system_historic import (
     InflowDrivenHistoricCementMFASystem,
 )
+from remind_mfa.common.scenarios import ParameterExtensionManager
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_data_reader import CementDataReader
 from remind_mfa.cement.cement_export import CementDataExporter
-from remind_mfa.cement.cement_scenarios import CementScenarioManager
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
@@ -43,7 +43,7 @@ class CementModel:
         self.historic_mfa.compute()
 
         # apply scenarios to parameters for future mfa
-        self.parameters = CementScenarioManager(self.cfg, self.dims["t"]).apply_scenarios(self.parameters)
+        self.parameters = ParameterExtensionManager(self.cfg, self.dims["t"]).apply_prm_extensions(self.parameters)
 
         # future mfa
         self.future_mfa = self.make_future_mfa()
@@ -102,7 +102,7 @@ class CementModel:
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
             target_dim_letters=("t", "r"),
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,

@@ -48,7 +48,7 @@ class PlasticsMFASystem(fd.MFASystem):
             self.stocks["in_use_historic"].stock,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
             bound_list=bound_list,
         )
         in_use_stock = stock_handler.stocks

@@ -3,6 +3,7 @@ import flodym as fd
 from typing import Optional
 
 from .data_extrapolations import Extrapolation
+from .scenarios import ParameterExtension
 
 
 IMPLEMENTED_MODELS = [
@@ -27,21 +28,33 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
-class ModelCustomization(RemindMFABaseModel):
+class ModelSwitches(RemindMFABaseModel):
 
     stock_extrapolation_class_name: str
     lifetime_model_name: str
     do_stock_extrapolation_by_category: bool = False
     mode: Optional[str] = None
+    parameter_extension: Optional[dict[str, str]] = None
 
     @property
-    def lifetime_model(self) -> fd.LifetimeModel:
+    def lifetime_model(self) -> type[fd.LifetimeModel]:
         return choose_subclass_by_name(self.lifetime_model_name, fd.LifetimeModel)
 
     @property
-    def stock_extrapolation_class(self) -> Extrapolation:
+    def stock_extrapolation_class(self) -> type[Extrapolation]:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
+    
+    @property
+    def parameter_extension_classes(self) -> Optional[dict[str, type[ParameterExtension]]]:
+        """Check if the given parameter extension classes are valid subclasses of ParameterExtension and return them."""
+        if self.parameter_extension is None:
+            return None
+
+        classes = {}
+        for param_name, class_name in self.parameter_extension.items():
+            classes[param_name] = choose_subclass_by_name(class_name, ParameterExtension)
+        return classes
 
 
 class ExportCfg(RemindMFABaseModel):
@@ -91,8 +104,7 @@ class GeneralCfg(RemindMFABaseModel):
     madrat_output_path: str
     input_data_path: str
     input_data_version: str
-    scenario: dict
-    customization: ModelCustomization
+    model_switches: ModelSwitches
     visualization: VisualizationCfg
     output_path: str
     do_export: ExportCfg

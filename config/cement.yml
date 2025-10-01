@@ -6,15 +6,13 @@ madrat_output_path: '../madrat_wd/output'
 input_data_path: '../simson_data/data/cement/output'
 input_data_version: 'rev4_h12_f25cc25c_mfa'
 
-# parameter scenario
-scenario:
-  clinker_ratio: 'constant'
-  use_lifetime_mean: 'constant'
-
 # model customization
-customization:
+model_switches:
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
+  parameter_extension:
+    clinker_ratio: 'ConstantExtension'
+    use_lifetime_mean: 'ConstantExtension'
 
 # visualization
 visualization:
