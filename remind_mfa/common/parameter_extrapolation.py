@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from remind_mfa.common.common_cfg import GeneralCfg
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
+
 class ParameterExtrapolation(ABC):
     """Base class from which new parameter extrapolations can be implemented."""
 
@@ -20,20 +21,20 @@ class ParameterExtrapolation(ABC):
         """Return a description of the extrapopation."""
         raise NotImplementedError
 
-    def extrapolate(
-        self, parameter: fd.Parameter, extended_time: fd.Dimension
-    ) -> fd.Parameter:
+    def extrapolate(self, parameter: fd.Parameter, extended_time: fd.Dimension) -> fd.Parameter:
         """Extrapolate parameter to extended time dimension, fill with future values using extrapolation method."""
-        
+
         new_param = self.initialize_empty_parameter(parameter, extended_time)
         new_param = self.fill_future_values(parameter, new_param)
         # overwrite historic values with old parameter values
         new_param[{"t": parameter.dims["h"]}] = parameter
-    
+
         return new_param
 
     @staticmethod
-    def initialize_empty_parameter(parameter: fd.Parameter, extended_time: fd.Dimension) -> fd.Parameter:
+    def initialize_empty_parameter(
+        parameter: fd.Parameter, extended_time: fd.Dimension
+    ) -> fd.Parameter:
         """Initialize a new parameter with extended time dimension."""
 
         if not "h" in parameter.dims.letters:
@@ -47,10 +48,13 @@ class ParameterExtrapolation(ABC):
         new_param = fd.Parameter(dims=new_dims, name=parameter.name)
         return new_param
 
+
 class ConstantExtrapolation(ParameterExtrapolation):
     """Keep parameter constant at last observed value."""
 
-    def fill_future_values(self, old_param: fd.Parameter, new_param: fd.FlodymArray) -> fd.Parameter:
+    def fill_future_values(
+        self, old_param: fd.Parameter, new_param: fd.FlodymArray
+    ) -> fd.Parameter:
         add_assumption_doc(
             type="model switch",
             name=f"Keep {old_param.name} constant",
