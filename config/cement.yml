@@ -10,9 +10,9 @@ input_data_version: 'rev4_h12_f25cc25c_mfa'
 model_switches:
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
-  parameter_extension:
-    clinker_ratio: 'ConstantExtension'
-    use_lifetime_mean: 'ConstantExtension'
+  parameter_extrapolation:
+    clinker_ratio: 'ConstantExtrapolation'
+    use_lifetime_mean: 'ConstantExtrapolation'
 
 # visualization
 visualization:

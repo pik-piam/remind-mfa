@@ -3,7 +3,7 @@ import flodym as fd
 from typing import Optional
 
 from .data_extrapolations import Extrapolation
-from .parameter_extension import ParameterExtension
+from .parameter_extrapolation import ParameterExtrapolation
 
 
 IMPLEMENTED_MODELS = [
@@ -35,7 +35,7 @@ class ModelSwitches(RemindMFABaseModel):
     do_stock_extrapolation_by_category: bool = False
     do_gdppc_time_regression: bool = False
     mode: Optional[str] = None
-    parameter_extension: Optional[dict[str, str]] = None
+    parameter_extrapolation: Optional[dict[str, str]] = None
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
@@ -47,14 +47,14 @@ class ModelSwitches(RemindMFABaseModel):
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
 
     @property
-    def parameter_extension_classes(self) -> Optional[dict[str, type[ParameterExtension]]]:
-        """Check if the given parameter extension classes are valid subclasses of ParameterExtension and return them."""
-        if self.parameter_extension is None:
+    def parameter_extrapolation_classes(self) -> Optional[dict[str, type[ParameterExtrapolation]]]:
+        """Check if the given parameter extrapolation classes are valid subclasses of ParameterExtrapolation and return them."""
+        if self.parameter_extrapolation is None:
             return None
 
         classes = {}
-        for param_name, class_name in self.parameter_extension.items():
-            classes[param_name] = choose_subclass_by_name(class_name, ParameterExtension)
+        for param_name, class_name in self.parameter_extrapolation.items():
+            classes[param_name] = choose_subclass_by_name(class_name, ParameterExtrapolation)
         return classes
 
 
