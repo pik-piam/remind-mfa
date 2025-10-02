@@ -2,7 +2,9 @@
 model_class: 'plastics'
 
 # data sources
+madrat_output_path: '../../madrat/output'
 input_data_path: '../simson_data/data/plastics/output'
+input_data_version: 'rev0_h12_d499589e_mfa'
 
 # model customization
 model_switches:

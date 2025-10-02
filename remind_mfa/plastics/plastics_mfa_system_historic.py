@@ -26,7 +26,7 @@ class PlasticsMFASystemHistoric(fd.MFASystem):
         # self.check_flows(no_error=True)
 
     def compute_historic_stock(self):
-        self.stocks["in_use_historic"].inflow[...] = self.parameters["production"]
+        self.stocks["in_use_historic"].inflow[...] = self.parameters["consumption"]
         self.stocks["in_use_historic"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )

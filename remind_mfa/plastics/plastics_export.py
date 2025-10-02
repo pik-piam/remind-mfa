@@ -148,7 +148,7 @@ class PlasticsDataExporter(CommonDataExporter):
         )
         fig = ap_modeled.plot()
         ap_historic = self.plotter_class(
-            array=mfa.parameters["production"].sum_over(("r")),
+            array=mfa.parameters["consumption"].sum_over(("r")),
             intra_line_dim="Historic Time",
             subplot_dim="Good",
             line_label="Historic Demand",
