@@ -215,9 +215,9 @@ class StockExtrapolation:
     def gdp_time_regression(self, gdppc):
         time = np.array(self.dims["t"].items)
         # ToDo make this more flexible; ideally the parameter is calculated within this function or at least given as an argument
-        gdppc[...] = np.log10(gdppc[...])*70 + time[:, None, None]
+        gdppc[...] = np.log10(gdppc[...]) * 70 + time[:, None, None]
         return gdppc
-    
+
     def gaussian_correction(
         self, historic: np.ndarray, prediction: np.ndarray, n: int = 5
     ) -> np.ndarray:

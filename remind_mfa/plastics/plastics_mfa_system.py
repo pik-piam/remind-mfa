@@ -40,15 +40,20 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         """
         Stock extrapolation is first done per good over all regions;
         upper bound of saturation level is set as the maximum historic stock per capita;
-        stock extrapolation is then repeated per region and good, using the maximum of the previously fitted global saturation level 
+        stock extrapolation is then repeated per region and good, using the maximum of the previously fitted global saturation level
         and the maximum historic stock per capita in the respective region as upper bound.
         """
         historic_pop = self.parameters["population"][{"t": self.dims["h"]}]
         stock_pc = historic_stock.stock / historic_pop
         # First extrapolation to get global saturation levels
         indep_fit_dim_letters = ("g",)
-        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], values = np.zeros(self.dims[indep_fit_dim_letters].shape))
-        upper_bound = fd.FlodymArray(dims=stock_pc.dims[indep_fit_dim_letters], values = np.max(stock_pc.values, axis=(0,1)))
+        lower_bound = fd.FlodymArray(
+            dims=self.dims[indep_fit_dim_letters],
+            values=np.zeros(self.dims[indep_fit_dim_letters].shape),
+        )
+        upper_bound = fd.FlodymArray(
+            dims=stock_pc.dims[indep_fit_dim_letters], values=np.max(stock_pc.values, axis=(0, 1))
+        )
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=lower_bound.values,
@@ -73,11 +78,17 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             bound_list=bound_list,
             indep_fit_dim_letters=indep_fit_dim_letters,
         )
-        # Second extrapolation per region and good, using the maximum of the previously fitted global saturation level 
+        # Second extrapolation per region and good, using the maximum of the previously fitted global saturation level
         # and the maximum historic stock per capita in the respective region as upper bound
         indep_fit_dim_letters = ("r", "g")
-        saturation_level = stock_handler.pure_parameters["saturation_level"].cast_to(self.dims[indep_fit_dim_letters])
-        upper_bound_sat = saturation_level.maximum(fd.FlodymArray(dims=stock_pc.dims[indep_fit_dim_letters], values = np.max(stock_pc.values, axis=0)))
+        saturation_level = stock_handler.pure_parameters["saturation_level"].cast_to(
+            self.dims[indep_fit_dim_letters]
+        )
+        upper_bound_sat = saturation_level.maximum(
+            fd.FlodymArray(
+                dims=stock_pc.dims[indep_fit_dim_letters], values=np.max(stock_pc.values, axis=0)
+            )
+        )
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=upper_bound_sat.values,
@@ -170,21 +181,39 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         material_element_split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
         good_split = stk["in_use"].inflow.sum_over(("e", "m")).get_shares_over("g")
         good_split_eol = stk["in_use"].outflow.sum_over(("e", "m")).get_shares_over("g")
-        material_element_split_noGood = stk["in_use"].inflow.sum_over(("g")).get_shares_over(("e", "m"))
+        material_element_split_noGood = (
+            stk["in_use"].inflow.sum_over(("g")).get_shares_over(("e", "m"))
+        )
 
-        flw["primary_market => primary_imports"][...]  = trd["primary"].imports * material_element_split_noGood
-        flw["primary_exports => primary_market"][...]  = trd["primary"].exports * material_element_split_noGood
+        flw["primary_market => primary_imports"][...] = (
+            trd["primary"].imports * material_element_split_noGood
+        )
+        flw["primary_exports => primary_market"][...] = (
+            trd["primary"].exports * material_element_split_noGood
+        )
         flw["primary_imports => processing"][...] = flw["primary_market => primary_imports"][...]
         flw["virgin => primary_exports"][...] = flw["primary_exports => primary_market"][...]
 
-        flw["intermediate_market => intermediate_imports"][...]  = trd["intermediate"].imports * good_split * material_element_split
-        flw["intermediate_exports => intermediate_market"][...]  = trd["intermediate"].exports * material_element_split_noGood
-        flw["intermediate_imports => fabrication"][...] = flw["intermediate_market => intermediate_imports"][...]
-        flw["processing => intermediate_exports"][...] = flw["intermediate_exports => intermediate_market"][...]
-        
-        flw["good_market => final_imports"][...]  = trd["final"].imports * good_split * material_element_split
-        flw["final_exports => good_market"][...]  = trd["final"].exports * good_split * material_element_split
-        flw["final_imports => use"][...] =  flw["good_market => final_imports"][...]
+        flw["intermediate_market => intermediate_imports"][...] = (
+            trd["intermediate"].imports * good_split * material_element_split
+        )
+        flw["intermediate_exports => intermediate_market"][...] = (
+            trd["intermediate"].exports * material_element_split_noGood
+        )
+        flw["intermediate_imports => fabrication"][...] = flw[
+            "intermediate_market => intermediate_imports"
+        ][...]
+        flw["processing => intermediate_exports"][...] = flw[
+            "intermediate_exports => intermediate_market"
+        ][...]
+
+        flw["good_market => final_imports"][...] = (
+            trd["final"].imports * good_split * material_element_split
+        )
+        flw["final_exports => good_market"][...] = (
+            trd["final"].exports * good_split * material_element_split
+        )
+        flw["final_imports => use"][...] = flw["good_market => final_imports"][...]
         flw["fabrication => final_exports"][...] = flw["final_exports => good_market"][...]
 
         flw["fabrication => use"][...] = stk["in_use"].inflow - flw["final_imports => use"][...]
@@ -236,15 +265,15 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["processing => fabrication"][...] = (
             flw["fabrication => use"]
-            + flw["fabrication => final_exports"] 
+            + flw["fabrication => final_exports"]
             - flw["intermediate_imports => fabrication"]
         )
 
         flw["virgin => processing"][...] = (
-            flw["processing => fabrication"] 
-            - flw["primary_imports => processing"] 
+            flw["processing => fabrication"]
+            - flw["primary_imports => processing"]
             + flw["processing => intermediate_exports"]
-            - flw["reclmech => processing"] 
+            - flw["reclmech => processing"]
         )
 
         flw["virgindaccu => virgin"][...] = flw["virgin => processing"] * prm["daccu_production_rate"]
@@ -263,7 +292,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             - flw["virgindaccu => virgin"]
             - flw["virginbio => virgin"]
             - flw["virginccu => virgin"]
-            - flw["reclchem => virgin"] 
+            - flw["reclchem => virgin"]
             + flw["virgin => primary_exports"]
         )
 

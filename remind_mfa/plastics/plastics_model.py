@@ -10,6 +10,7 @@ from .plastics_definition import get_definition, PlasticsMFADefinition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.custom_data_reader import CustomDataReader
 
+
 class PlasticsModel:
 
     def __init__(self, cfg: GeneralCfg):
@@ -62,8 +63,9 @@ class PlasticsModel:
             self.definition_future.parameters, dims=self.dims
         )
 
-
-    def make_mfa(self, definition: PlasticsMFADefinition, mfasystem_class: type) -> PlasticsMFASystemFuture:
+    def make_mfa(
+        self, definition: PlasticsMFADefinition, mfasystem_class: type
+    ) -> PlasticsMFASystemFuture:
 
         processes = fd.make_processes(definition.processes)
 
@@ -74,7 +76,7 @@ class PlasticsModel:
         )
         stocks = fd.make_empty_stocks(
             processes=processes,
-            stock_definitions = definition.stocks,
+            stock_definitions=definition.stocks,
             dims=self.dims,
         )
 
@@ -94,8 +96,12 @@ class PlasticsModel:
         )
 
     def run(self):
-        self.mfa_historic = self.make_mfa(self.definition_historic, mfasystem_class=PlasticsMFASystemHistoric)
-        self.mfa_future = self.make_mfa(self.definition_future, mfasystem_class=PlasticsMFASystemFuture)
+        self.mfa_historic = self.make_mfa(
+            self.definition_historic, mfasystem_class=PlasticsMFASystemHistoric
+        )
+        self.mfa_future = self.make_mfa(
+            self.definition_future, mfasystem_class=PlasticsMFASystemFuture
+        )
         self.mfa_historic.compute()
         self.mfa_future.compute(
             historic_stock=self.mfa_historic.stocks["in_use_historic"],

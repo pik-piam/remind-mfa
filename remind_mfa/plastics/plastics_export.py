@@ -61,13 +61,13 @@ class PlasticsDataExporter(CommonDataExporter):
     def visualize_results(self, model: "PlasticsModel"):
         if not self.cfg.do_visualize:
             return
-        
+
         self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
         self.export_use_data_by_region_and_year(mfa=model.mfa_future)
         self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
         self.export_stock_extrapolation(model=model)
         self.export_stock(mfa=model.mfa_historic)
-        
+
         if self.do_export.iamc:
             self.write_iamc(mfa=model.mfa_future)
 
@@ -84,15 +84,36 @@ class PlasticsDataExporter(CommonDataExporter):
             self.visualize_sankey(mfa=model.mfa_future)
 
         if self.cfg.flows["do_visualize"]:
-            primary_production = model.mfa_future.flows["virginfoss => virgin"] + model.mfa_future.flows["virginbio => virgin"] + model.mfa_future.flows["virgindaccu => virgin"] + model.mfa_future.flows["virginccu => virgin"]
-            self.visualize_flow(mfa=model.mfa_future, flow=primary_production, name="Primary production", subplot_dim="Material")
-            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.flows["recl => fabrication"], name="Secondary production", subplot_dim="Material")
-            self.visualize_flow(mfa=model.mfa_future, flow=model.mfa_future.stocks["in_use"].inflow, name="Demand", subplot_dim="Region", linecolor_dim="Good")
+            primary_production = (
+                model.mfa_future.flows["virginfoss => virgin"]
+                + model.mfa_future.flows["virginbio => virgin"]
+                + model.mfa_future.flows["virgindaccu => virgin"]
+                + model.mfa_future.flows["virginccu => virgin"]
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=primary_production,
+                name="Primary production",
+                subplot_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["recl => fabrication"],
+                name="Secondary production",
+                subplot_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.stocks["in_use"].inflow,
+                name="Demand",
+                subplot_dim="Region",
+                linecolor_dim="Good",
+            )
 
         self.stop_and_show()
 
     def visualize_flow(
-        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, subplot_dim = None, linecolor_dim = None
+        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, subplot_dim=None, linecolor_dim=None
     ):
 
         x_array = None
@@ -108,7 +129,9 @@ class PlasticsDataExporter(CommonDataExporter):
             linecolor_dimletter = next(
                 dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
             )
-        sum_dims = tuple(x for x in flow.dims.letters if x not in (subplot_dimletter, linecolor_dimletter, "t"))
+        sum_dims = tuple(
+            x for x in flow.dims.letters if x not in (subplot_dimletter, linecolor_dimletter, "t")
+        )
         flow = flow.sum_over(sum_dims)
 
         if subplot_dim == "Region":
@@ -385,9 +408,9 @@ class PlasticsDataExporter(CommonDataExporter):
     def visualize_extrapolation(self, model: "PlasticsModel"):
         mfa = model.mfa_future
         per_capita = self.cfg.use_stock["per_capita"]
-        subplot_dim =  "Region"
+        subplot_dim = "Region"
         linecolor_dim = "Good"
-        stock = mfa.stocks["in_use"].stock 
+        stock = mfa.stocks["in_use"].stock
         population = mfa.parameters["population"]
         x_array = None
 
@@ -395,7 +418,7 @@ class PlasticsDataExporter(CommonDataExporter):
         x_label = "Year"
         y_label = f"Stock{pc_str} [t]"
         title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
-        
+
         dimlist = ["t"]
         if subplot_dim is not None:
             subplot_dimletter = next(
@@ -410,8 +433,14 @@ class PlasticsDataExporter(CommonDataExporter):
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
         stock = stock.sum_over(other_dimletters) * 1000 * 1000
-        other_dimletters = tuple(letter for letter in model.mfa_future.stock_handler.pure_prediction.dims.letters if letter not in dimlist)
-        pure_prediction = model.mfa_future.stock_handler.pure_prediction.sum_over(other_dimletters) * 1000 * 1000
+        other_dimletters = tuple(
+            letter
+            for letter in model.mfa_future.stock_handler.pure_prediction.dims.letters
+            if letter not in dimlist
+        )
+        pure_prediction = (
+            model.mfa_future.stock_handler.pure_prediction.sum_over(other_dimletters) * 1000 * 1000
+        )
 
         if self.cfg.use_stock["over_gdp"]:
             title = title + f" over GDP{pc_str}"
@@ -435,7 +464,7 @@ class PlasticsDataExporter(CommonDataExporter):
             x_label=x_label,
             y_label=y_label,
             title=title,
-            #line_label="Historic + Modelled Future",
+            # line_label="Historic + Modelled Future",
         )
 
         # extrapolation
@@ -450,8 +479,8 @@ class PlasticsDataExporter(CommonDataExporter):
             title=title,
             fig=fig,
             line_type="dot",
-            #line_label="Pure Extrapolation",
-            color_map=ap_final_stock.color_map*2,
+            # line_label="Pure Extrapolation",
+            color_map=ap_final_stock.color_map * 2,
         )
         fig = ap_pure_prediction.plot()
 
@@ -469,15 +498,19 @@ class PlasticsDataExporter(CommonDataExporter):
         )
 
     def export_stock_extrapolation(self, model: "PlasticsModel"):
-        model.mfa_future.stock_handler.pure_parameters.to_df().to_csv(self.export_path("stock_extrapolation_parameters.csv"))
-        model.mfa_future.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(self.export_path("stock_extrapolation_saturationLevel.csv"))
+        model.mfa_future.stock_handler.pure_parameters.to_df().to_csv(
+            self.export_path("stock_extrapolation_parameters.csv")
+        )
+        model.mfa_future.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
+            self.export_path("stock_extrapolation_saturationLevel.csv")
+        )
 
     def export_stock(self, mfa: fd.MFASystem):
-        inflow = mfa.stocks["in_use_historic"].inflow.sum_to(('g','h')).to_df()
+        inflow = mfa.stocks["in_use_historic"].inflow.sum_to(("g", "h")).to_df()
         inflow["variable"] = "inflow"
-        outflow = mfa.stocks["in_use_historic"].outflow.sum_to(('g','h')).to_df()
+        outflow = mfa.stocks["in_use_historic"].outflow.sum_to(("g", "h")).to_df()
         outflow["variable"] = "outflow"
-        stock = mfa.stocks["in_use_historic"].stock.sum_to(('g','h')).to_df()
+        stock = mfa.stocks["in_use_historic"].stock.sum_to(("g", "h")).to_df()
         stock["variable"] = "stock"
         pd.concat([inflow, outflow, stock]).to_csv(self.export_path("stock.csv"))
 
@@ -513,11 +546,13 @@ class PlasticsDataExporter(CommonDataExporter):
 
         # production
         ## primary production
-        prod_virgin = (mfa.flows["virginfoss => virgin"] + 
-                       mfa.flows["virginbio => virgin"] + 
-                       mfa.flows["virgindaccu => virgin"] + 
-                       mfa.flows["virginccu => virgin"])
-        prod_virgin_df = self.to_iamc_df(prod_virgin.sum_to(('t','r')))
+        prod_virgin = (
+            mfa.flows["virginfoss => virgin"]
+            + mfa.flows["virginbio => virgin"]
+            + mfa.flows["virgindaccu => virgin"]
+            + mfa.flows["virginccu => virgin"]
+        )
+        prod_virgin_df = self.to_iamc_df(prod_virgin.sum_to(("t", "r")))
         prod_virgin_idf = pyam.IamDataFrame(
             prod_virgin_df,
             variable="Production|Chemicals|Plastics|Primary",
@@ -525,9 +560,8 @@ class PlasticsDataExporter(CommonDataExporter):
             **constants,
         )
         ## secondary production
-        prod_recl = (mfa.flows["reclmech => processing"] + 
-                     mfa.flows["reclchem => virgin"])
-        prod_recl_df = self.to_iamc_df(prod_recl.sum_to(('t','r')))
+        prod_recl = mfa.flows["reclmech => processing"] + mfa.flows["reclchem => virgin"]
+        prod_recl_df = self.to_iamc_df(prod_recl.sum_to(("t", "r")))
         prod_recl_idf = pyam.IamDataFrame(
             prod_recl_df,
             variable="Production|Chemicals|Plastics|Secondary",
@@ -535,10 +569,12 @@ class PlasticsDataExporter(CommonDataExporter):
             **constants,
         )
         ## total production
-        prod_idf = pyam.concat([
-            prod_virgin_idf,
-            prod_recl_idf,
-        ])
+        prod_idf = pyam.concat(
+            [
+                prod_virgin_idf,
+                prod_recl_idf,
+            ]
+        )
         prod_idf.aggregate(
             variable="Production|Chemicals|Plastics",
             append=True,
@@ -546,7 +582,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
         # demand
         ## demand by good
-        plastic_demand_by_good = mfa.stocks["in_use"].inflow.sum_to(('t','r','g'))
+        plastic_demand_by_good = mfa.stocks["in_use"].inflow.sum_to(("t", "r", "g"))
         demand_df = self.to_iamc_df(plastic_demand_by_good)
         demand_df["variable"] = "Material Demand|Chemicals|Plastics|" + demand_df["Good"]
         demand_df = demand_df.drop(columns=["Good"])
@@ -563,8 +599,10 @@ class PlasticsDataExporter(CommonDataExporter):
         recycled = prod_recl / (prod_virgin + prod_recl)
         ### primary
         plastic_demand_virgin = mfa.stocks["in_use"].inflow * (1 - recycled)
-        demand_virgin_df = self.to_iamc_df(plastic_demand_virgin.sum_to(('t','r','g')))
-        demand_virgin_df["variable"] = "Material Demand|Chemicals|Plastics|Primary|" + demand_virgin_df["Good"]
+        demand_virgin_df = self.to_iamc_df(plastic_demand_virgin.sum_to(("t", "r", "g")))
+        demand_virgin_df["variable"] = (
+            "Material Demand|Chemicals|Plastics|Primary|" + demand_virgin_df["Good"]
+        )
         demand_virgin_df = demand_virgin_df.drop(columns=["Good"])
         demand_virgin_idf = pyam.IamDataFrame(
             demand_virgin_df,
@@ -577,8 +615,10 @@ class PlasticsDataExporter(CommonDataExporter):
         )
         ### secondary
         plastic_demand_recl = mfa.stocks["in_use"].inflow * recycled
-        demand_recl_df = self.to_iamc_df(plastic_demand_recl.sum_to(('t','r','g')))
-        demand_recl_df["variable"] = "Material Demand|Chemicals|Plastics|Secondary|" + demand_recl_df["Good"]
+        demand_recl_df = self.to_iamc_df(plastic_demand_recl.sum_to(("t", "r", "g")))
+        demand_recl_df["variable"] = (
+            "Material Demand|Chemicals|Plastics|Secondary|" + demand_recl_df["Good"]
+        )
         demand_recl_df = demand_recl_df.drop(columns=["Good"])
         demand_recl_idf = pyam.IamDataFrame(
             demand_recl_df,
@@ -589,20 +629,24 @@ class PlasticsDataExporter(CommonDataExporter):
             variable="Material Demand|Chemicals|Plastics|Secondary",
             append=True,
         )
-        demand_origin_idf = pyam.concat([
-            demand_virgin_idf,
-            demand_recl_idf,
-        ])  
+        demand_origin_idf = pyam.concat(
+            [
+                demand_virgin_idf,
+                demand_recl_idf,
+            ]
+        )
         # demand_origin_idf.aggregate(
         #     variable="Material Demand|Chemicals|Plastics",
         #     append=True,
-        # )              
-        
-        idf = pyam.concat([
-            prod_idf,
-            demand_idf,
-            demand_origin_idf,
-        ])
+        # )
+
+        idf = pyam.concat(
+            [
+                prod_idf,
+                demand_idf,
+                demand_origin_idf,
+            ]
+        )
         idf.aggregate_region(
             variable=idf.variable,
             region="World",
@@ -611,10 +655,9 @@ class PlasticsDataExporter(CommonDataExporter):
 
         idf.to_excel(self.export_path(f"output_iamc.xlsx"))
 
-
     @staticmethod
     def to_iamc_df(array: fd.FlodymArray):
-        time_items = list(range(2025, 2101)) # TODO: more flexible
+        time_items = list(range(2025, 2101))  # TODO: more flexible
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
         df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
         df = df.rename(columns={"Region": "region"})
