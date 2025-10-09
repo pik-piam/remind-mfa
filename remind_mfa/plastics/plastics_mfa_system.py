@@ -152,6 +152,14 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         )
 
         extrapolate_trade(
+            historic_trade["manufactured_his"],
+            self.trade_set["manufactured"],
+            product_demand,
+            "imports",
+            balance_to="hmean",
+        )
+
+        extrapolate_trade(
             historic_trade["final_his"],
             self.trade_set["final"],
             product_demand,
@@ -194,11 +202,11 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["primary_imports => processing"][...] = flw["primary_market => primary_imports"][...]
         flw["virgin => primary_exports"][...] = flw["primary_exports => primary_market"][...]
 
-        flw["intermediate_market => intermediate_imports"][...] = (
-            trd["intermediate"].imports * good_split * material_element_split
+        flw["intermediate_market => intermediate_imports"][...] = ((
+            trd["intermediate"].imports + trd["manufactured"].imports) * good_split * material_element_split
         )
-        flw["intermediate_exports => intermediate_market"][...] = (
-            trd["intermediate"].exports * material_element_split_noGood
+        flw["intermediate_exports => intermediate_market"][...] = ((
+            trd["intermediate"].exports + trd["manufactured"].exports) * material_element_split_noGood
         )
         flw["intermediate_imports => fabrication"][...] = flw[
             "intermediate_market => intermediate_imports"
