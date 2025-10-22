@@ -6,11 +6,14 @@ input_data_path: '../simson_data/data/cement/output'
 
 # model customization
 customization:
+  mode: 'base' # can be "base", "carbon_flow"
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
 
 # visualization
 visualization:
+  consumption:
+    do_visualize: True
   use_stock:
     do_visualize: True
     over_gdp: True
@@ -19,11 +22,11 @@ visualization:
     do_visualize: True
     over_gdp: False
     per_capita: False
-  clinker_production:
+  prod_clinker:
     do_visualize: False
-  cement_production:
+  prod_cement:
     do_visualize: True
-  concrete_production:
+  prod_product:
     do_visualize: False
   sankey:
     do_visualize: True
@@ -36,7 +39,9 @@ visualization:
       - "sysenv"
     exclude_flows: [ ]
   extrapolation:
-    do_visualize: True
+    do_visualize: False
+  carbonation:
+    do_visualize: False
   do_show_figs: True
   do_save_figs: False
   plotting_engine: 'plotly'

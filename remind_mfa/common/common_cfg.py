@@ -65,10 +65,12 @@ class VisualizationCfg(RemindMFABaseModel):
 
 class CementVisualizationCfg(VisualizationCfg):
 
-    clinker_production: dict = {}
-    cement_production: dict = {}
-    concrete_production: dict = {}
+    consumption: dict = {}
+    prod_clinker: dict = {}
+    prod_cement: dict = {}
+    prod_product: dict = {}
     eol_stock: dict = {}
+    carbonation: dict = {}
 
 
 class SteelVisualizationCfg(VisualizationCfg):

@@ -151,13 +151,13 @@ class StockExtrapolation:
         for i in range(n_deriv + 5):
             gdppc[i_2025 - i, ...] = gdppc[i_2025 - i + 1, ...] * growth
 
-        extrapolation = self.stock_extrapolation_class(
+        self.extrapolation = self.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
             predictor_values=gdppc,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
         )
-        pure_prediction = extrapolation.regress()
+        pure_prediction = self.extrapolation.regress()
 
         if self.stock_correction == "gaussian_first_order":
             prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction, n_deriv)
@@ -184,12 +184,6 @@ class StockExtrapolation:
 
         # save extrapolation data for later analysis
         self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
-        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
-        parameter_names = fd.Dimension(
-            name="Parameter Names", letter="p", items=extrapolation.prm_names
-        )
-        parameter_dims = parameter_dims.expand_by([parameter_names])
-        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation._fit_prms)
 
         prediction_out[:n_historic, ...] = historic_in
         self.stocks_pc.set_values(prediction_out)
