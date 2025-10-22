@@ -23,7 +23,7 @@ class MrindustryDataReader(fd.CompoundDataReader):
         self,
         cfg: GeneralCfg,
         definition: fd.MFADefinition,
-    ):  
+    ):
         self.model_class = cfg.model_class
         self.madrat_output_path = cfg.madrat_output_path
         self.input_data_path = cfg.input_data_path
@@ -84,9 +84,12 @@ class MrindustryDataReader(fd.CompoundDataReader):
         parameter_prefix = self.model_class[:2]
         parameter_files = {}
         for parameter in self.definition.parameters:
-            material_specific_file =  os.path.join(self.extracted_input_data_path, f"{parameter_prefix}_{parameter.name}.cs4r")
+            material_specific_file = os.path.join(
+                self.extracted_input_data_path, f"{parameter_prefix}_{parameter.name}.cs4r"
+            )
             parameter_files[parameter.name] = (
-                material_specific_file if os.path.exists(material_specific_file) 
+                material_specific_file
+                if os.path.exists(material_specific_file)
                 # fall back to common parameters
                 else os.path.join(self.extracted_input_data_path, f"co_{parameter.name}.cs4r")
             )
