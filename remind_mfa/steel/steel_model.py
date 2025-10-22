@@ -50,7 +50,7 @@ class SteelModel:
 
     def read_data(self, definition: SteelMFADefinition):
         self.data_reader = MrindustryDataReader(
-            input_data_path=self.cfg.input_data_path,
+            cfg=self.cfg,
             definition=definition,
         )
         self.dims = self.data_reader.read_dimensions(definition.dimensions)

@@ -4,6 +4,8 @@ import tarfile
 import pandas as pd
 import flodym as fd
 
+from remind_mfa.common.common_cfg import GeneralCfg
+
 
 class MrindustryDataReader(fd.CompoundDataReader):
     dimension_map = {
@@ -19,14 +21,13 @@ class MrindustryDataReader(fd.CompoundDataReader):
 
     def __init__(
         self,
-        madrat_output_path: str,
-        input_data_path: str,
-        input_data_version: str,
+        cfg: GeneralCfg,
         definition: fd.MFADefinition,
-    ):
-        self.madrat_output_path = madrat_output_path
-        self.input_data_path = input_data_path
-        self.input_data_version = input_data_version
+    ):  
+        self.model_class = cfg.model_class
+        self.madrat_output_path = cfg.madrat_output_path
+        self.input_data_path = cfg.input_data_path
+        self.input_data_version = cfg.input_data_version
         self.definition = definition
         self.prepare_input_readers()
 
@@ -80,10 +81,14 @@ class MrindustryDataReader(fd.CompoundDataReader):
         dimension_reader = MrindustryDimensionReader(dimension_files)
 
         # parameters
+        parameter_prefix = self.model_class[:2]
         parameter_files = {}
         for parameter in self.definition.parameters:
-            parameter_files[parameter.name] = os.path.join(
-                self.extracted_input_data_path, f"{parameter.name}.cs4r"
+            material_specific_file =  os.path.join(self.extracted_input_data_path, f"{parameter_prefix}_{parameter.name}.cs4r")
+            parameter_files[parameter.name] = (
+                material_specific_file if os.path.exists(material_specific_file) 
+                # fall back to common parameters
+                else os.path.join(self.extracted_input_data_path, f"co_{parameter.name}.cs4r")
             )
         parameter_reader = MrindustryParameterReader(parameter_files, allow_extra_values=True)
 
