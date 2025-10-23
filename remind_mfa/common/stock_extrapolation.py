@@ -8,9 +8,11 @@ from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
+
 class RegressOverMode(str, Enum):
     gdppc = "gdppc"
     loggdppc_time_weighted_sum = "loggdppc_time_weighted_sum"
+
 
 class StockExtrapolation:
     """
@@ -29,7 +31,7 @@ class StockExtrapolation:
         indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
         bound_list: BoundList = BoundList(),
         do_gdppc_accumulation: bool = True,
-        regress_over: str = 'gdppc',
+        regress_over: str = "gdppc",
         weight: Optional[float] = None,
         stock_correction: str = "gaussian_first_order",
     ):

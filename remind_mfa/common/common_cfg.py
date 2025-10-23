@@ -32,7 +32,7 @@ class ModelCustomization(RemindMFABaseModel):
     stock_extrapolation_class_name: str
     lifetime_model_name: str
     do_stock_extrapolation_by_category: bool = False
-    regress_over: str = 'gdppc'
+    regress_over: str = "gdppc"
     mode: Optional[str] = None
 
     @property
