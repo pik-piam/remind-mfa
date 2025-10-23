@@ -207,66 +207,54 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             stk["in_use"].inflow.sum_over(("g")).get_shares_over(("e", "m"))
         )
 
-        flw["primary_market => primary_imports"][...] = (
+        flw["primary_market => processing"][...] = (
             trd["primary"].imports * material_element_split_noGood
         )
-        flw["primary_exports => primary_market"][...] = (
+        flw["virgin => primary_market"][...] = (
             trd["primary"].exports * material_element_split_noGood
         )
-        flw["primary_imports => processing"][...] = flw["primary_market => primary_imports"][...]
-        flw["virgin => primary_exports"][...] = flw["primary_exports => primary_market"][...]
 
-        flw["intermediate_market => intermediate_imports"][...] = (
+        flw["intermediate_market => fabrication"][...] = (
             (trd["intermediate"].imports + trd["manufactured"].imports)
             * good_split
             * material_element_split
         )
-        flw["intermediate_exports => intermediate_market"][...] = (
+        flw["processing => intermediate_market"][...] = (
             trd["intermediate"].exports + trd["manufactured"].exports
         ) * material_element_split_noGood
-        flw["intermediate_imports => fabrication"][...] = flw[
-            "intermediate_market => intermediate_imports"
-        ][...]
-        flw["processing => intermediate_exports"][...] = flw[
-            "intermediate_exports => intermediate_market"
-        ][...]
 
-        flw["good_market => final_imports"][...] = (
+        flw["good_market => use"][...] = (
             trd["final"].imports * good_split * material_element_split
         )
-        flw["final_exports => good_market"][...] = (
+        flw["fabrication => good_market"][...] = (
             trd["final"].exports * good_split * material_element_split
         )
-        flw["final_imports => use"][...] = flw["good_market => final_imports"][...]
-        flw["fabrication => final_exports"][...] = flw["final_exports => good_market"][...]
 
-        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["final_imports => use"][...]
+        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"][...]
 
         # fmt: off
 
         flw["use => eol"][...] = stk["in_use"].outflow
 
-        flw["waste_market => waste_imports"][...] = prm["waste_imports"] * good_split_eol * material_element_split
-        flw["waste_exports => waste_market"][...] = prm["waste_exports"] * good_split_eol * material_element_split
-        flw["waste_imports => collected"][...] = flw["waste_market => waste_imports"]
-        flw["collected => waste_exports"][...] = flw["waste_exports => waste_market"]
+        flw["waste_market => collected"][...] = prm["waste_imports"] * good_split_eol * material_element_split
+        flw["collected => waste_market"][...] = prm["waste_exports"] * good_split_eol * material_element_split
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
-        flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["mechanical_recycling_rate"]
+        flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["mechanical_recycling_rate"]
         flw["reclmech => processing"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => processing"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
-        flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["chemical_recycling_rate"]
+        flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["chemical_recycling_rate"]
         flw["reclchem => virgin"][...] = flw["collected => reclchem"]
 
-        flw["collected => incineration"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["incineration_rate"]
+        flw["collected => incineration"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["incineration_rate"]
 
         flw["collected => landfill"][...] = (
             flw["eol => collected"]
-            + flw["waste_imports => collected"]
-            - flw["collected => waste_exports"]
+            + flw["waste_market => collected"]
+            - flw["collected => waste_market"]
             - flw["collected => reclmech"]
             - flw["collected => reclchem"]
             - flw["collected => incineration"]
@@ -289,14 +277,14 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["processing => fabrication"][...] = (
             flw["fabrication => use"]
-            + flw["fabrication => final_exports"]
-            - flw["intermediate_imports => fabrication"]
+            + flw["fabrication => good_market"]
+            - flw["intermediate_market => fabrication"]
         )
 
         flw["virgin => processing"][...] = (
             flw["processing => fabrication"]
-            - flw["primary_imports => processing"]
-            + flw["processing => intermediate_exports"]
+            - flw["primary_market => processing"]
+            + flw["processing => intermediate_market"]
             - flw["reclmech => processing"]
         )
 
@@ -317,7 +305,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             - flw["virginbio => virgin"]
             - flw["virginccu => virgin"]
             - flw["reclchem => virgin"]
-            + flw["virgin => primary_exports"]
+            + flw["virgin => primary_market"]
         )
 
         flw["sysenv => virginfoss"][...] = flw["virginfoss => virgin"]
@@ -340,20 +328,20 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         stk["uncontrolled"].inflow[...] = flw["eol => mismanaged"] + flw["reclmech => uncontrolled"]
         stk["uncontrolled"].compute()
 
-        stk["waste_market"].inflow[...] = flw["waste_exports => waste_market"]
-        stk["waste_market"].outflow[...] = flw["waste_market => waste_imports"]
+        stk["waste_market"].inflow[...] = flw["collected => waste_market"]
+        stk["waste_market"].outflow[...] = flw["waste_market => collected"]
         stk["waste_market"].compute()
 
-        stk["primary_market"].inflow[...] = flw["primary_exports => primary_market"]
-        stk["primary_market"].outflow[...] = flw["primary_market => primary_imports"]
+        stk["primary_market"].inflow[...] = flw["virgin => primary_market"]
+        stk["primary_market"].outflow[...] = flw["primary_market => processing"]
         stk["primary_market"].compute()
 
-        stk["intermediate_market"].inflow[...] = flw["intermediate_exports => intermediate_market"]
-        stk["intermediate_market"].outflow[...] = flw["intermediate_market => intermediate_imports"]
+        stk["intermediate_market"].inflow[...] = flw["processing => intermediate_market"]
+        stk["intermediate_market"].outflow[...] = flw["intermediate_market => fabrication"]
         stk["intermediate_market"].compute()
 
-        stk["good_market"].inflow[...] = flw["final_exports => good_market"]
-        stk["good_market"].outflow[...] = flw["good_market => final_imports"]
+        stk["good_market"].inflow[...] = flw["fabrication => good_market"]
+        stk["good_market"].outflow[...] = flw["good_market => use"]
         stk["good_market"].compute()
 
         stk["atmospheric"].inflow[...] = flw["emission => atmosphere"]

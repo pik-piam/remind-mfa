@@ -519,8 +519,8 @@ class PlasticsDataExporter(CommonDataExporter):
     ):
         eol_data = (
             mfa.flows["eol => collected"]
-            + mfa.flows["waste_imports => collected"]
-            - mfa.flows["collected => waste_exports"]
+            + mfa.flows["waste_market => collected"]
+            - mfa.flows["collected => waste_market"]
         )
         df = eol_data.sum_to(("t", "r", "m")).to_df(index=True)
         df.to_csv(self.export_path(output_path), index=True)
