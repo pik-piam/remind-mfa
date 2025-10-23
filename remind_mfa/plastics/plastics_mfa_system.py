@@ -120,7 +120,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             regress_over=self.cfg.customization.regress_over,
-            weight = weight,
+            weight=weight,
             target_dim_letters=(
                 "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
