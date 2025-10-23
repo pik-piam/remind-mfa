@@ -23,7 +23,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         # self.compute_trade()
         self.extrapolate_stock(historic_stock)
         self.transfer_to_simple_stock()
-        self.extrapolate_trade(historic_trade)
+        self.extrapolate_trades(historic_trade)
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
@@ -145,7 +145,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
         self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split
 
-    def extrapolate_trade(self, historic_trade: TradeSet):
+    def extrapolate_trades(self, historic_trade: TradeSet):
 
         product_demand = self.stocks["in_use"].inflow
 
@@ -180,7 +180,6 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             "imports",
             balance_to="hmean",
         )
-        self.trade_set.balance(to="maximum")
 
     def compute_flows(self):
 
@@ -213,15 +212,18 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["virgin => primary_market"][...] = (
             trd["primary"].exports * material_element_split_noGood
         )
+        flw["sysenv => primary_market"][...] = flw["primary_market => processing"][...]
+        flw["primary_market => sysenv"][...] = flw["virgin => primary_market"][...]
 
         flw["intermediate_market => fabrication"][...] = (
             (trd["intermediate"].imports + trd["manufactured"].imports)
-            * good_split
-            * material_element_split
+            * material_element_split_noGood
         )
         flw["processing => intermediate_market"][...] = (
             trd["intermediate"].exports + trd["manufactured"].exports
         ) * material_element_split_noGood
+        flw["sysenv => intermediate_market"][...] = flw["intermediate_market => fabrication"][...]
+        flw["intermediate_market => sysenv"][...] = flw["processing => intermediate_market"][...]
 
         flw["good_market => use"][...] = (
             trd["final"].imports * good_split * material_element_split
@@ -229,6 +231,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["fabrication => good_market"][...] = (
             trd["final"].exports * good_split * material_element_split
         )
+        flw["sysenv => good_market"][...] = flw["good_market => use"][...]
+        flw["good_market => sysenv"][...] = flw["fabrication => good_market"][...]
 
         flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"][...]
 
@@ -238,6 +242,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["waste_market => collected"][...] = prm["waste_imports"] * good_split_eol * material_element_split
         flw["collected => waste_market"][...] = prm["waste_exports"] * good_split_eol * material_element_split
+        flw["sysenv => waste_market"][...] = flw["waste_market => collected"][...]
+        flw["waste_market => sysenv"][...] = flw["collected => waste_market"][...]
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["mechanical_recycling_rate"]
@@ -327,22 +333,6 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         stk["uncontrolled"].inflow[...] = flw["eol => mismanaged"] + flw["reclmech => uncontrolled"]
         stk["uncontrolled"].compute()
-
-        stk["waste_market"].inflow[...] = flw["collected => waste_market"]
-        stk["waste_market"].outflow[...] = flw["waste_market => collected"]
-        stk["waste_market"].compute()
-
-        stk["primary_market"].inflow[...] = flw["virgin => primary_market"]
-        stk["primary_market"].outflow[...] = flw["primary_market => processing"]
-        stk["primary_market"].compute()
-
-        stk["intermediate_market"].inflow[...] = flw["processing => intermediate_market"]
-        stk["intermediate_market"].outflow[...] = flw["intermediate_market => fabrication"]
-        stk["intermediate_market"].compute()
-
-        stk["good_market"].inflow[...] = flw["fabrication => good_market"]
-        stk["good_market"].outflow[...] = flw["good_market => use"]
-        stk["good_market"].compute()
 
         stk["atmospheric"].inflow[...] = flw["emission => atmosphere"]
         stk["atmospheric"].outflow[...] = (
