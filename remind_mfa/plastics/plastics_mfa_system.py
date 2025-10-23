@@ -2,6 +2,7 @@ from typing import Optional
 import flodym as fd
 import numpy as np
 
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.custom_data_reader import CustomDataReader
 from remind_mfa.common.trade_extrapolation import extrapolate_trade
@@ -43,6 +44,17 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         stock extrapolation is then repeated per region and good, using the maximum of the previously fitted global saturation level
         and the maximum historic stock per capita in the respective region as upper bound.
         """
+        weight = 70
+        add_assumption_doc(
+            type="integer number",
+            name="weight for loggdppc time weighted sum predictor in stock extrapolation",
+            value=weight,
+            description=(
+                "Weight used for the predictor in stock extrapolation that is a weighted sum of gdppc and time"
+                "according to the formula: 'log10(gdppc) * weight + time', "
+                "determined from a regression of time vs. log10(gdppc) at constant stock per capita."
+            ),
+        )
         historic_pop = self.parameters["population"][{"t": self.dims["h"]}]
         stock_pc = historic_stock.stock / historic_pop
         # First extrapolation to get global saturation levels
@@ -71,7 +83,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
-            do_gdppc_time_regression=self.cfg.customization.do_gdppc_time_regression,
+            regress_over=self.cfg.customization.regress_over,
+            weight=weight,
             target_dim_letters=(
                 "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
@@ -106,7 +119,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
-            do_gdppc_time_regression=self.cfg.customization.do_gdppc_time_regression,
+            regress_over=self.cfg.customization.regress_over,
+            weight = weight,
             target_dim_letters=(
                 "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),

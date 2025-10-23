@@ -1,17 +1,23 @@
 import flodym as fd
 import numpy as np
-from typing import Tuple, Union, Type
+from typing import Tuple, Union, Type, Optional
 from copy import deepcopy
+from enum import Enum
 
 from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
+class RegressOverMode(str, Enum):
+    gdppc = "gdppc"
+    loggdppc_time_weighted_sum = "loggdppc_time_weighted_sum"
 
 class StockExtrapolation:
     """
     Class for extrapolating stocks based on historical data and GDP per capita.
     """
+
+    regress_over: RegressOverMode
 
     def __init__(
         self,
@@ -23,7 +29,8 @@ class StockExtrapolation:
         indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
         bound_list: BoundList = BoundList(),
         do_gdppc_accumulation: bool = True,
-        do_gdppc_time_regression: bool = False,
+        regress_over: str = 'gdppc',
+        weight: Optional[float] = None,
         stock_correction: str = "gaussian_first_order",
     ):
         """
@@ -48,7 +55,8 @@ class StockExtrapolation:
         self.set_dims(indep_fit_dim_letters)
         self.bound_list = bound_list
         self.do_gdppc_accumulation = do_gdppc_accumulation
-        self.do_gdppc_time_regression = do_gdppc_time_regression
+        self.regress_over = regress_over
+        self.weight = weight
         self.stock_correction = stock_correction
         self.extrapolate()
 
@@ -153,19 +161,21 @@ class StockExtrapolation:
         for i in range(n_deriv + 5):
             gdppc[i_2025 - i, ...] = gdppc[i_2025 - i + 1, ...] * growth
 
-        if self.do_gdppc_time_regression:
-            gdppc = self.gdp_time_regression(gdppc)
+        if self.regress_over == RegressOverMode.gdppc:
+            predictor = gdppc
+        else:
+            predictor = self.loggdp_time_regression(gdppc, self.weight)
             add_assumption_doc(
                 type="model assumption",
-                name="Usage of time and GDP per capita as regression predictors",
+                name="Usage of weighted sum of logGDP per capita and time as regression predictor",
                 description=(
-                    "GDPpc and Year is used as a combined predictor in stock extrapolation. "
+                    "The weighted sum of logGDP per capita and Year is used as a predictor in stock extrapolation. "
                 ),
             )
 
         extrapolation = self.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
-            predictor_values=gdppc,
+            predictor_values=predictor,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
         )
@@ -212,11 +222,10 @@ class StockExtrapolation:
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
 
-    def gdp_time_regression(self, gdppc):
+    def loggdp_time_regression(self, gdppc, weight: float) -> np.ndarray:
         time = np.array(self.dims["t"].items)
-        # ToDo make this more flexible; ideally the parameter is calculated within this function or at least given as an argument
-        gdppc[...] = np.log10(gdppc[...]) * 70 + time[:, None, None]
-        return gdppc
+        predictor = np.log10(gdppc[...]) * weight + time[:, None, None]
+        return predictor
 
     def gaussian_correction(
         self, historic: np.ndarray, prediction: np.ndarray, n: int = 5
