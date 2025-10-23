@@ -163,7 +163,7 @@ class StockExtrapolation:
 
         if self.regress_over == RegressOverMode.gdppc:
             predictor = gdppc
-        else:
+        elif self.regress_over == RegressOverMode.loggdppc_time_weighted_sum:
             predictor = self.loggdp_time_regression(gdppc, self.weight)
             add_assumption_doc(
                 type="model assumption",
@@ -172,6 +172,8 @@ class StockExtrapolation:
                     "The weighted sum of logGDP per capita and Year is used as a predictor in stock extrapolation. "
                 ),
             )
+        else:
+            raise ValueError("unknown regress_over value")
 
         extrapolation = self.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
