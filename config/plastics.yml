@@ -6,26 +6,39 @@ input_data_path: '../simson_data/data/plastics/output'
 
 # model customization
 customization:
-  stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
-  lifetime_model_name: 'NormalLifetime'
+  stock_extrapolation_class_name: 'SigmoidExtrapolation'
+  regress_over: 'loggdppc_time_weighted_sum'
+  lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
 
 # visualization
 visualization:
+  do_visualize: True
   use_stock:
     do_visualize: True
     # options: 'time', 'gdppc'
-    over: 'gdppc'
+    # over: 'gdppc'
+    over_gdp: True
+    acc: True
     per_capita: True
   production:
+    do_visualize: True
+  extrapolation:
     do_visualize: True
   sankey:
     do_visualize: True
     slice_dict:
       t: 2020
     exclude_processes:
-      - "sysenv"
+      #- "sysenv"
+      #- "waste_market"
+      - "primary_market"
+      - "intermediate_market"
+      - "good_market"
+
     exclude_flows: [ ]
+  flows:
+    do_visualize: False
   do_show_figs: True
   do_save_figs: False
 
@@ -34,3 +47,4 @@ output_path: 'data/plastics/output'
 do_export:
   pickle: False
   csv: True
+  iamc: True
