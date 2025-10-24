@@ -207,10 +207,10 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         ]
     else:
         trades = [
-            TradeDefinition(name="primary", dim_letters=("t", "r")),
-            TradeDefinition(name="intermediate", dim_letters=("t", "r")),
-            TradeDefinition(name="manufactured", dim_letters=("t", "r")),
-            TradeDefinition(name="final", dim_letters=("t", "r")),
+            TradeDefinition(name="primary", dim_letters=("t", "r", "m", "e")),
+            TradeDefinition(name="intermediate", dim_letters=("t", "r", "m", "e")),
+            TradeDefinition(name="manufactured", dim_letters=("t", "r", "m", "e")),
+            TradeDefinition(name="final", dim_letters=("t", "r", "m", "e", "g")),
             TradeDefinition(name="waste", dim_letters=("t", "r")),
         ]
 
