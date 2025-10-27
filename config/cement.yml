@@ -11,6 +11,7 @@ customization:
 
 # visualization
 visualization:
+  do_visualize: True
   use_stock:
     do_visualize: True
     over_gdp: True

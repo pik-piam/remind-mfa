@@ -1,17 +1,25 @@
 import flodym as fd
 import numpy as np
-from typing import Tuple, Union, Type
+from typing import Tuple, Union, Type, Optional
 from copy import deepcopy
+from enum import Enum
 
 from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
+class RegressOverMode(str, Enum):
+    gdppc = "gdppc"
+    loggdppc_time_weighted_sum = "loggdppc_time_weighted_sum"
+
+
 class StockExtrapolation:
     """
     Class for extrapolating stocks based on historical data and GDP per capita.
     """
+
+    regress_over: RegressOverMode
 
     def __init__(
         self,
@@ -23,6 +31,8 @@ class StockExtrapolation:
         indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
         bound_list: BoundList = BoundList(),
         do_gdppc_accumulation: bool = True,
+        regress_over: str = "gdppc",
+        weight: Optional[float] = None,
         stock_correction: str = "gaussian_first_order",
     ):
         """
@@ -47,6 +57,8 @@ class StockExtrapolation:
         self.set_dims(indep_fit_dim_letters)
         self.bound_list = bound_list
         self.do_gdppc_accumulation = do_gdppc_accumulation
+        self.regress_over = regress_over
+        self.weight = weight
         self.stock_correction = stock_correction
         self.extrapolate()
 
@@ -151,9 +163,23 @@ class StockExtrapolation:
         for i in range(n_deriv + 5):
             gdppc[i_2025 - i, ...] = gdppc[i_2025 - i + 1, ...] * growth
 
+        if self.regress_over == RegressOverMode.gdppc:
+            predictor = gdppc
+        elif self.regress_over == RegressOverMode.loggdppc_time_weighted_sum:
+            predictor = self.loggdp_time_regression(gdppc, self.weight)
+            add_assumption_doc(
+                type="model assumption",
+                name="Usage of weighted sum of logGDP per capita and time as regression predictor",
+                description=(
+                    "The weighted sum of logGDP per capita and Year is used as a predictor in stock extrapolation. "
+                ),
+            )
+        else:
+            raise ValueError("unknown regress_over value")
+
         extrapolation = self.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
-            predictor_values=gdppc,
+            predictor_values=predictor,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
         )
@@ -184,7 +210,10 @@ class StockExtrapolation:
 
         # save extrapolation data for later analysis
         self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
-        parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
+        if self.indep_fit_dim_letters:
+            parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
+        else:
+            parameter_dims = fd.DimensionSet(dim_list=[])
         parameter_names = fd.Dimension(
             name="Parameter Names", letter="p", items=extrapolation.prm_names
         )
@@ -196,6 +225,11 @@ class StockExtrapolation:
 
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
+
+    def loggdp_time_regression(self, gdppc, weight: float) -> np.ndarray:
+        time = np.array(self.dims["t"].items)
+        predictor = np.log10(gdppc[...]) * weight + time[:, None, None]
+        return predictor
 
     def gaussian_correction(
         self, historic: np.ndarray, prediction: np.ndarray, n: int = 5

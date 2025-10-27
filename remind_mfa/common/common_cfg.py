@@ -32,6 +32,7 @@ class ModelCustomization(RemindMFABaseModel):
     stock_extrapolation_class_name: str
     lifetime_model_name: str
     do_stock_extrapolation_by_category: bool = False
+    regress_over: str = "gdppc"
     mode: Optional[str] = None
 
     @property
@@ -50,13 +51,16 @@ class ExportCfg(RemindMFABaseModel):
     assumptions: bool = True
     definitions: bool = False
     future_input: bool = False
+    iamc: bool = False
 
 
 class VisualizationCfg(RemindMFABaseModel):
 
+    do_visualize: bool = True
     use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}
+    flows: dict = {"do_visualize": False}
     extrapolation: dict = {"do_visualize": False}
     do_show_figs: bool = True
     do_save_figs: bool = False

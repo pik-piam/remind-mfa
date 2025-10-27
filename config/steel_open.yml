@@ -13,6 +13,7 @@ customization:
 
 # visualization
 visualization:
+  do_visualize: True
   sector_splits:
     do_visualize: True
   gdppc:
