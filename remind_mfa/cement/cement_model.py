@@ -45,6 +45,7 @@ class CementModel:
 
         # visualization and export
         self.data_writer.export_mfa(mfa=self.future_mfa)
+        self.data_writer.definition_to_markdown(definition=self.definition)
         self.data_writer.visualize_results(model=self)
 
     def make_historic_mfa(self) -> InflowDrivenHistoricCementMFASystem:

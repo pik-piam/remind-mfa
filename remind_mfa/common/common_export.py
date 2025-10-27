@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 import plotly.colors as plc
 import plotly.io as pio
-from typing import Optional
+from typing import Optional, Any
 from pydantic import model_validator
 import flodym as fd
 import flodym.export as fde
@@ -36,6 +36,39 @@ class CommonDataExporter(RemindMFABaseModel):
             file_out = os.path.join(self.export_path("assumptions.txt"))
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
+
+    def definition_to_markdown(self, definition: fd.MFADefinition):
+
+        if not self.do_export.definitions:
+            return
+
+        dfs = definition.to_dfs()
+
+        drop_columns = {
+            "dimensions": ["dtype"],
+            "stocks": ["solver"],
+            "flows": ["name_override"],
+        }
+        for name, cols in drop_columns.items():
+            if name in dfs:
+                for col in cols:
+                    if col in dfs[name].columns:
+                        dfs[name] = dfs[name].drop(columns=col, inplace=False)
+
+        def convert_cell(cell: Any) -> str:
+            if isinstance(cell, type):
+                cell = cell.__name__
+            elif isinstance(cell, tuple):
+                cell = ", ".join(cell)
+            elif cell is None:
+                cell = ""
+            cell = self.display_name(str(cell))
+            return cell.replace("<br>", " ")
+
+        for name, df in dfs.items():
+            df.columns = [self.display_name(col) for col in df.columns]
+            df = df.map(convert_cell)
+            df.to_markdown(self.export_path(f"definitions/{name}.md"), index=False)
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")
@@ -79,6 +112,9 @@ class CommonDataExporter(RemindMFABaseModel):
     def stop_and_show(self):
         if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
             plt.show()
+
+    def display_name(self, name):
+        return self._display_names[name] if name in self._display_names else name
 
     @property
     def plotter_class(self):

@@ -34,3 +34,4 @@ output_path: 'data/plastics/output'
 do_export:
   pickle: False
   csv: True
+  definitions: False

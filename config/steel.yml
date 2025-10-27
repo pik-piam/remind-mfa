@@ -50,3 +50,4 @@ do_export:
   pickle: False
   csv: False
   future_input: False
+  definitions: True

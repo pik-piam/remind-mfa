@@ -54,4 +54,5 @@ class PlasticsModel:
     def run(self):
         self.mfa.compute()
         self.data_writer.export_mfa(mfa=self.mfa)
+        self.data_writer.definition_to_markdown(definition=self.definition)
         self.data_writer.visualize_results(model=self)
