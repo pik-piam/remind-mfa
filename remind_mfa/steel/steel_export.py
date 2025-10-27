@@ -38,9 +38,9 @@ class SteelDataExporter(CommonDataExporter):
         "recycling": "Recycling",
         "scrap_market": "Scrap<br>market",
         "excess_scrap": "Excess<br>scrap",
-        # for markdown export
-        "name": "Name",
-        "letter": "Letter",
+        "intermediate": "Intermediate Products",
+        "indirect": "Indirect (Goods)",
+        "scrap": "Scrap",
     }
 
     def visualize_results(self, model: "SteelModel"):

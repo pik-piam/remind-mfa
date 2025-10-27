@@ -17,12 +17,29 @@ class CommonDataExporter(RemindMFABaseModel):
     output_path: str
     do_export: ExportCfg
     cfg: VisualizationCfg
-    _display_names: dict = {}
+    _display_names: dict = {
+        # for markdown export
+        "name": "Name",
+        "letter": "Letter",
+        "dim_letters": "Dimensions",
+        "from_process_name": "Origin Process",
+        "to_process_name": "Destination Process",
+        "process_name": "Process",
+        "subclass": "Stock Type",
+        "lifetime_model_class": "Lifetime Model",
+    }
 
     @model_validator(mode="after")
     def set_plotly_renderer(self):
         if self.cfg.plotting_engine == "plotly":
             pio.renderers.default = self.cfg.plotly_renderer
+        return self
+
+    @model_validator(mode="after")
+    def inherit_display_names(self):
+        from_sub = self._display_names
+        self._display_names = CommonDataExporter._display_names.default.copy()
+        self._display_names.update(from_sub)
         return self
 
     def export_mfa(self, mfa: fd.MFASystem):
@@ -46,7 +63,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         drop_columns = {
             "dimensions": ["dtype"],
-            "stocks": ["solver"],
+            "stocks": ["solver", "time_letter"],
             "flows": ["name_override"],
         }
         for name, cols in drop_columns.items():
