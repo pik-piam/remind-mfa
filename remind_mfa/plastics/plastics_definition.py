@@ -211,7 +211,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             TradeDefinition(name="intermediate", dim_letters=("t", "r", "m", "e")),
             TradeDefinition(name="manufactured", dim_letters=("t", "r", "m", "e")),
             TradeDefinition(name="final", dim_letters=("t", "r", "m", "e", "g")),
-            TradeDefinition(name="waste", dim_letters=("t", "r")),
+            TradeDefinition(name="waste", dim_letters=("t", "r", "m", "e", "g")),
         ]
 
     return PlasticsMFADefinition(

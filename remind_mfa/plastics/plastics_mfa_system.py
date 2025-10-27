@@ -23,18 +23,21 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         # self.compute_trade()
         self.extrapolate_stock(historic_stock)
         self.transfer_to_simple_stock()
+        self.compute_waste_trade()
         self.compute_flows(historic_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
-    # def compute_trade(self):
+    def compute_waste_trade(self):
 
-    #     for name, trade in self.trade_set.markets.items():
-    #         if name == "waste":
-    #             trade.imports[...] = self.parameters[f"{name}_imports"]
-    #             trade.exports[...] = self.parameters[f"{name}_exports"]
-    #     self.trade_set.balance(to="maximum")
+        split_eol = self.stocks["in_use"].outflow.get_shares_over(("g","e","m"))
+
+        for name, trade in self.trade_set.markets.items():
+            if name == "waste":
+                trade.imports[...] = self.parameters[f"{name}_imports"] * split_eol
+                trade.exports[...] = self.parameters[f"{name}_exports"] * split_eol
+        self.trade_set.balance(to="maximum")
 
     def extrapolate_stock(self, historic_stock: fd.Stock):
         """
@@ -226,10 +229,9 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         # fmt: off
 
         flw["use => eol"][...] = stk["in_use"].outflow
-        split_eol = stk["in_use"].outflow.get_shares_over(("g","e","m"))
 
-        flw["waste_market => collected"][...] = prm["waste_imports"] * split_eol
-        flw["collected => waste_market"][...] = prm["waste_exports"] * split_eol
+        flw["waste_market => collected"][...] = trd["waste"].imports
+        flw["collected => waste_market"][...] = trd["waste"].exports
         flw["sysenv => waste_market"][...] = flw["waste_market => collected"][...]
         flw["waste_market => sysenv"][...] = flw["collected => waste_market"][...]
 
