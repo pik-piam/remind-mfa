@@ -66,7 +66,7 @@ def extrapolate_trade(
 
     future_first[...] = future_first.minimum(scaler)
     future_trade.balance(to="minimum")
-    
+
 
 def extrapolate_to_future(historic: fd.FlodymArray, scale_by: fd.FlodymArray) -> fd.FlodymArray:
     """Uses the WeightedProportionalExtrapolation, basically a linear regression
