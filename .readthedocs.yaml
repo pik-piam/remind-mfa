@@ -19,6 +19,4 @@ mkdocs:
 # See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
 python:
    install:
-     - pip:
-         - markdown_include
-#      - requirements: docs/requirements.txt
+     - requirements: docs/requirements.txt
