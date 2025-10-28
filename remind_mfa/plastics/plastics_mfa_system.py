@@ -148,10 +148,10 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split  
 
     def split_trade_by_share(self, trade: Trade, share: fd.FlodymArray):
-
-        trade.imports[...] = trade.imports[...] * share
-        trade.exports[...] = trade.exports[...] * share
-        return trade
+        return Trade(
+            imports=trade.imports * share[{'t': self.dims['h']}],
+            exports=trade.exports * share[{'t': self.dims['h']}],
+        )
 
     def compute_flows(self, historic_trade: TradeSet):
 
