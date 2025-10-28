@@ -3,7 +3,7 @@ import flodym as fd
 import numpy as np
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
-from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.custom_data_reader import CustomDataReader
 from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
@@ -23,19 +23,18 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         # self.compute_trade()
         self.extrapolate_stock(historic_stock)
         self.transfer_to_simple_stock()
-        self.extrapolate_trade(historic_trade)
-        self.compute_flows()
+        self.compute_waste_trade()
+        self.compute_flows(historic_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
-    # def compute_trade(self):
+    def compute_waste_trade(self):
 
-    #     for name, trade in self.trade_set.markets.items():
-    #         if name == "waste":
-    #             trade.imports[...] = self.parameters[f"{name}_imports"]
-    #             trade.exports[...] = self.parameters[f"{name}_exports"]
-    #     self.trade_set.balance(to="maximum")
+        split_eol = self.stocks["in_use"].outflow.get_shares_over(("g", "e", "m"))
+        self.trade_set["waste"].imports[...] = self.parameters[f"waste_imports"] * split_eol
+        self.trade_set["waste"].exports[...] = self.parameters[f"waste_exports"] * split_eol
+        self.trade_set.balance(to="maximum")
 
     def extrapolate_stock(self, historic_stock: fd.Stock):
         """
@@ -145,44 +144,13 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
         self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split
 
-    def extrapolate_trade(self, historic_trade: TradeSet):
-
-        product_demand = self.stocks["in_use"].inflow
-
-        extrapolate_trade(
-            historic_trade["primary_his"],
-            self.trade_set["primary"],
-            product_demand,
-            "imports",
-            balance_to="hmean",
+    def split_trade_by_share(self, trade: Trade, share: fd.FlodymArray):
+        return Trade(
+            imports=trade.imports * share[{"t": self.dims["h"]}],
+            exports=trade.exports * share[{"t": self.dims["h"]}],
         )
 
-        extrapolate_trade(
-            historic_trade["intermediate_his"],
-            self.trade_set["intermediate"],
-            product_demand,
-            "imports",
-            balance_to="hmean",
-        )
-
-        extrapolate_trade(
-            historic_trade["manufactured_his"],
-            self.trade_set["manufactured"],
-            product_demand,
-            "imports",
-            balance_to="hmean",
-        )
-
-        extrapolate_trade(
-            historic_trade["final_his"],
-            self.trade_set["final"],
-            product_demand,
-            "imports",
-            balance_to="hmean",
-        )
-        self.trade_set.balance(to="maximum")
-
-    def compute_flows(self):
+    def compute_flows(self, historic_trade: TradeSet):
 
         # abbreviations for better readability
         prm = self.parameters
@@ -196,77 +164,94 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             "virgin_material_shares": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "captured_2_virginccu_by_mat": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "ratio_nonc_to_c": self.get_new_array(dim_letters=("m",)),
-            "final_2_fabrication": self.get_new_array(dim_letters=("t", "e", "m")),
         }
 
-        # non-C atmosphere & captured has no meaning & is equivalent to sysenv
-        material_element_split = prm["material_shares_in_goods"] * prm["carbon_content_materials"]
-        good_split = stk["in_use"].inflow.sum_over(("e", "m")).get_shares_over("g")
-        good_split_eol = stk["in_use"].outflow.sum_over(("e", "m")).get_shares_over("g")
-        material_element_split_noGood = (
-            stk["in_use"].inflow.sum_over(("g")).get_shares_over(("e", "m"))
+        split_use = stk["in_use"].inflow.get_shares_over(("g", "e", "m"))
+        extrapolate_trade(
+            self.split_trade_by_share(historic_trade["final_his"], split_use),
+            self.trade_set["final"],
+            stk["in_use"].inflow,
+            "imports",
+            balance_to="hmean",
         )
 
-        flw["primary_market => primary_imports"][...] = (
-            trd["primary"].imports * material_element_split_noGood
-        )
-        flw["primary_exports => primary_market"][...] = (
-            trd["primary"].exports * material_element_split_noGood
-        )
-        flw["primary_imports => processing"][...] = flw["primary_market => primary_imports"][...]
-        flw["virgin => primary_exports"][...] = flw["primary_exports => primary_market"][...]
+        flw["good_market => use"][...] = trd["final"].imports
+        flw["fabrication => good_market"][...] = trd["final"].exports
+        flw["sysenv => good_market"][...] = flw["good_market => use"]
+        flw["good_market => sysenv"][...] = flw["fabrication => good_market"]
 
-        flw["intermediate_market => intermediate_imports"][...] = (
-            (trd["intermediate"].imports + trd["manufactured"].imports)
-            * good_split
-            * material_element_split
+        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"]
+
+        split_fabrication = flw["fabrication => use"].sum_over(("g")).get_shares_over(("e", "m"))
+        extrapolate_trade(
+            self.split_trade_by_share(historic_trade["intermediate_his"], split_fabrication),
+            self.trade_set["intermediate"],
+            flw["fabrication => use"],
+            "imports",
+            balance_to="hmean",
         )
-        flw["intermediate_exports => intermediate_market"][...] = (
+        extrapolate_trade(
+            self.split_trade_by_share(historic_trade["manufactured_his"], split_fabrication),
+            self.trade_set["manufactured"],
+            flw["fabrication => use"],
+            "imports",
+            balance_to="hmean",
+        )
+
+        flw["intermediate_market => fabrication"][...] = (
+            trd["intermediate"].imports + trd["manufactured"].imports
+        )
+        flw["processing => intermediate_market"][...] = (
             trd["intermediate"].exports + trd["manufactured"].exports
-        ) * material_element_split_noGood
-        flw["intermediate_imports => fabrication"][...] = flw[
-            "intermediate_market => intermediate_imports"
-        ][...]
-        flw["processing => intermediate_exports"][...] = flw[
-            "intermediate_exports => intermediate_market"
-        ][...]
-
-        flw["good_market => final_imports"][...] = (
-            trd["final"].imports * good_split * material_element_split
         )
-        flw["final_exports => good_market"][...] = (
-            trd["final"].exports * good_split * material_element_split
-        )
-        flw["final_imports => use"][...] = flw["good_market => final_imports"][...]
-        flw["fabrication => final_exports"][...] = flw["final_exports => good_market"][...]
+        flw["sysenv => intermediate_market"][...] = flw["intermediate_market => fabrication"]
+        flw["intermediate_market => sysenv"][...] = flw["processing => intermediate_market"]
 
-        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["final_imports => use"][...]
+        flw["processing => fabrication"][...] = (
+            flw["fabrication => use"]
+            + flw["fabrication => good_market"]
+            - flw["intermediate_market => fabrication"]
+        )
+
+        split_processing = flw["processing => fabrication"].get_shares_over(("e", "m"))
+        extrapolate_trade(
+            self.split_trade_by_share(historic_trade["primary_his"], split_processing),
+            self.trade_set["primary"],
+            flw["processing => fabrication"],
+            "imports",
+            balance_to="hmean",
+        )
+
+        flw["primary_market => processing"][...] = trd["primary"].imports
+        flw["virgin => primary_market"][...] = trd["primary"].exports
+        flw["sysenv => primary_market"][...] = flw["primary_market => processing"]
+        flw["primary_market => sysenv"][...] = flw["virgin => primary_market"]
 
         # fmt: off
 
         flw["use => eol"][...] = stk["in_use"].outflow
 
-        flw["waste_market => waste_imports"][...] = prm["waste_imports"] * good_split_eol * material_element_split
-        flw["waste_exports => waste_market"][...] = prm["waste_exports"] * good_split_eol * material_element_split
-        flw["waste_imports => collected"][...] = flw["waste_market => waste_imports"]
-        flw["collected => waste_exports"][...] = flw["waste_exports => waste_market"]
+        flw["waste_market => collected"][...] = trd["waste"].imports
+        flw["collected => waste_market"][...] = trd["waste"].exports
+        flw["sysenv => waste_market"][...] = flw["waste_market => collected"]
+        flw["waste_market => sysenv"][...] = flw["collected => waste_market"]
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
-        flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["mechanical_recycling_rate"]
+        flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["mechanical_recycling_rate"]
         flw["reclmech => processing"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => processing"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
-        flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["chemical_recycling_rate"]
+        flw["collected => reclchem"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["chemical_recycling_rate"]
         flw["reclchem => virgin"][...] = flw["collected => reclchem"]
 
-        flw["collected => incineration"][...] = (flw["eol => collected"] + flw["waste_imports => collected"] - flw["collected => waste_exports"]) * prm["incineration_rate"]
+        flw["collected => incineration"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["incineration_rate"]
 
         flw["collected => landfill"][...] = (
             flw["eol => collected"]
-            + flw["waste_imports => collected"]
-            - flw["collected => waste_exports"]
+            + flw["waste_market => collected"]
+            - flw["collected => waste_market"]
             - flw["collected => reclmech"]
             - flw["collected => reclchem"]
             - flw["collected => incineration"]
@@ -283,20 +268,15 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
 
+        # non-C atmosphere & captured has no meaning & is equivalent to sysenv
         flw["emission => captured"][...] = flw["incineration => emission"] * prm["emission_capture_rate"]
         flw["emission => atmosphere"][...] = flw["incineration => emission"] - flw["emission => captured"]
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
-        flw["processing => fabrication"][...] = (
-            flw["fabrication => use"]
-            + flw["fabrication => final_exports"]
-            - flw["intermediate_imports => fabrication"]
-        )
-
         flw["virgin => processing"][...] = (
             flw["processing => fabrication"]
-            - flw["primary_imports => processing"]
-            + flw["processing => intermediate_exports"]
+            - flw["primary_market => processing"]
+            + flw["processing => intermediate_market"]
             - flw["reclmech => processing"]
         )
 
@@ -317,7 +297,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             - flw["virginbio => virgin"]
             - flw["virginccu => virgin"]
             - flw["reclchem => virgin"]
-            + flw["virgin => primary_exports"]
+            + flw["virgin => primary_market"]
         )
 
         flw["sysenv => virginfoss"][...] = flw["virginfoss => virgin"]
@@ -339,22 +319,6 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         stk["uncontrolled"].inflow[...] = flw["eol => mismanaged"] + flw["reclmech => uncontrolled"]
         stk["uncontrolled"].compute()
-
-        stk["waste_market"].inflow[...] = flw["waste_exports => waste_market"]
-        stk["waste_market"].outflow[...] = flw["waste_market => waste_imports"]
-        stk["waste_market"].compute()
-
-        stk["primary_market"].inflow[...] = flw["primary_exports => primary_market"]
-        stk["primary_market"].outflow[...] = flw["primary_market => primary_imports"]
-        stk["primary_market"].compute()
-
-        stk["intermediate_market"].inflow[...] = flw["intermediate_exports => intermediate_market"]
-        stk["intermediate_market"].outflow[...] = flw["intermediate_market => intermediate_imports"]
-        stk["intermediate_market"].compute()
-
-        stk["good_market"].inflow[...] = flw["final_exports => good_market"]
-        stk["good_market"].outflow[...] = flw["good_market => final_imports"]
-        stk["good_market"].compute()
 
         stk["atmospheric"].inflow[...] = flw["emission => atmosphere"]
         stk["atmospheric"].outflow[...] = (
