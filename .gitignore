@@ -6,3 +6,4 @@ config/
 .vscode
 uv.lock
 remind-mfa.egg-info
+site/
