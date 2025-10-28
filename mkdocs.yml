@@ -1,7 +1,7 @@
 site_name: REMIND-MFA
-nav: 
+nav:
   - Home: index.md
-  - Model overview: 
+  - Model overview:
       - Scope: scope.md
       - Flodym: flodym.md
       - Methodology: methodology.md
