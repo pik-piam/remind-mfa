@@ -31,7 +31,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
     def compute_waste_trade(self):
 
-        split_eol = self.stocks["in_use"].outflow.get_shares_over(("g","e","m"))
+        split_eol = self.stocks["in_use"].outflow.get_shares_over(("g", "e", "m"))
         self.trade_set["waste"].imports[...] = self.parameters[f"waste_imports"] * split_eol
         self.trade_set["waste"].exports[...] = self.parameters[f"waste_exports"] * split_eol
         self.trade_set.balance(to="maximum")
