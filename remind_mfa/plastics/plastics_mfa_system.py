@@ -31,7 +31,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
     def compute_waste_trade(self):
 
-        split_eol = self.stocks["in_use"].outflow.get_shares_over(("g","e","m"))
+        split_eol = self.stocks["in_use"].outflow.get_shares_over(("g", "e", "m"))
 
         for name, trade in self.trade_set.markets.items():
             if name == "waste":
@@ -145,12 +145,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         )
         self.stocks["in_use"].stock[...] = self.stocks["in_use_dsm"].stock * split
         self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
-        self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split  
+        self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split
 
     def split_trade_by_share(self, trade: Trade, share: fd.FlodymArray):
         return Trade(
-            imports=trade.imports * share[{'t': self.dims['h']}],
-            exports=trade.exports * share[{'t': self.dims['h']}],
+            imports=trade.imports * share[{"t": self.dims["h"]}],
+            exports=trade.exports * share[{"t": self.dims["h"]}],
         )
 
     def compute_flows(self, historic_trade: TradeSet):
@@ -185,7 +185,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"][...]
 
-        split_fabrication = flw["fabrication => use"].sum_over(("g")).get_shares_over(("e","m"))
+        split_fabrication = flw["fabrication => use"].sum_over(("g")).get_shares_over(("e", "m"))
         extrapolate_trade(
             self.split_trade_by_share(historic_trade["intermediate_his"], split_fabrication),
             self.trade_set["intermediate"],
@@ -201,8 +201,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             balance_to="hmean",
         )
 
-        flw["intermediate_market => fabrication"][...] = trd["intermediate"].imports + trd["manufactured"].imports
-        flw["processing => intermediate_market"][...] = trd["intermediate"].exports + trd["manufactured"].exports
+        flw["intermediate_market => fabrication"][...] = (
+            trd["intermediate"].imports + trd["manufactured"].imports
+        )
+        flw["processing => intermediate_market"][...] = (
+            trd["intermediate"].exports + trd["manufactured"].exports
+        )
         flw["sysenv => intermediate_market"][...] = flw["intermediate_market => fabrication"][...]
         flw["intermediate_market => sysenv"][...] = flw["processing => intermediate_market"][...]
 
@@ -211,8 +215,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             + flw["fabrication => good_market"]
             - flw["intermediate_market => fabrication"]
         )
-        
-        split_processing = flw["processing => fabrication"].get_shares_over(("e","m"))
+
+        split_processing = flw["processing => fabrication"].get_shares_over(("e", "m"))
         extrapolate_trade(
             self.split_trade_by_share(historic_trade["primary_his"], split_processing),
             self.trade_set["primary"],
