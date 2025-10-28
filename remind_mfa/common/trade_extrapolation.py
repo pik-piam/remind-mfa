@@ -64,6 +64,7 @@ def extrapolate_trade(
     if balance_to is not None:
         future_trade.balance(to=balance_to)
 
+    # can't import more than what is demanded; can't export more than what is supplied. 
     future_first[...] = future_first.minimum(scaler)
     future_trade.balance(to="minimum")
 
