@@ -17,10 +17,10 @@ model_switches:
 visualization:
   do_visualize: True
   use_stock:
-    do_visualize: True
+    do_visualize: False
     # options: 'time', 'gdppc'
     # over: 'gdppc'
-    over_gdp: True
+    over_gdp: False
     acc: True
     per_capita: True
   production:
@@ -28,7 +28,7 @@ visualization:
   extrapolation:
     do_visualize: True
   sankey:
-    do_visualize: True
+    do_visualize: False
     slice_dict:
       t: 2020
     exclude_processes:
@@ -41,11 +41,11 @@ visualization:
   flows:
     do_visualize: True
   do_show_figs: True
-  do_save_figs: False
+  do_save_figs: True
 
 # data export
 output_path: 'data/plastics/output'
 do_export:
   pickle: False
-  csv: True
-  iamc: True
+  csv: False
+  iamc: False

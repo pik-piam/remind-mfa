@@ -168,6 +168,10 @@ class CommonDataExporter(RemindMFABaseModel):
     ):
 
         colors = plc.qualitative.Dark24
+        if subplot_dim is None:
+            subplots = 1
+        else: 
+            subplots = data_to_plot.dims[subplot_dim].len
         if linecolor_dim:
             dimletter = next(
                 dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
@@ -176,9 +180,9 @@ class CommonDataExporter(RemindMFABaseModel):
                 colors[: data_to_plot.dims[dimletter].len]
                 + colors[: data_to_plot.dims[dimletter].len]
                 + ["black" for _ in range(data_to_plot.dims[dimletter].len)]
-            )
+            ) * subplots
         else:
-            colors = colors[:1] + colors[:1] + ["black"]
+            colors = (colors[:1] + colors[:1] + ["black"]) * subplots
 
         # data preparation
         hist = data_to_plot[{"t": mfa.dims["h"]}]
