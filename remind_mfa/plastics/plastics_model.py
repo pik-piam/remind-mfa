@@ -27,9 +27,7 @@ class PlasticsModel:
     def read_data(self):
 
         self.data_reader = MrindustryDataReader(
-            madrat_output_path=self.cfg.madrat_output_path,
-            input_data_path=self.cfg.input_data_path,
-            input_data_version=self.cfg.input_data_version,
+            cfg=self.cfg,
             definition=self.definition_future,
             allow_missing_values=True,
             allow_extra_values=True,

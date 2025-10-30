@@ -192,8 +192,8 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         fd.ParameterDefinition(name="carbon_content_materials", dim_letters=("e", "m")),
         # for in-use stock
         fd.ParameterDefinition(name="consumption", dim_letters=("h", "r", "g")),
-        fd.ParameterDefinition(name="lifetime_mean", dim_letters=("r", "g")),
-        fd.ParameterDefinition(name="lifetime_std", dim_letters=("r", "g")),
+        fd.ParameterDefinition(name="lifetime_mean", dim_letters=("g",)),
+        fd.ParameterDefinition(name="lifetime_std", dim_letters=("g",)),
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
     ]
