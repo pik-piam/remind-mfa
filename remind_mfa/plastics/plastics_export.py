@@ -220,7 +220,7 @@ class PlasticsDataExporter(CommonDataExporter):
             x_label="Year",
             y_label="Demand [Mt]",
         )
-        self.plot_and_save_figure(ap_demand, "demand_history_and_future.png")
+        self.plot_and_save_figure(ap_demand, "demand_history_and_future.png", do_plot=False)
 
         demand = mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e"))
         good_dim = demand.dims.index("g")
@@ -522,6 +522,7 @@ class PlasticsDataExporter(CommonDataExporter):
             line_type="dot",
             # line_label="Pure Extrapolation",
             color_map=ap_final_stock.color_map * 2,
+            suppress_legend=True,
         )
         fig = ap_pure_prediction.plot()
 
@@ -534,7 +535,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
         self.plot_and_save_figure(
             ap_pure_prediction,
-            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock["over_gdp"] else '_overTime'}.png",
+            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock['over_gdp'] else '_overTime'}.png",
             do_plot=False,
         )
 
