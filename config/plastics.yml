@@ -9,8 +9,8 @@ input_data_version: 'rev0_h12_d499589e_mfa'
 # model customization
 model_switches:
   stock_extrapolation_class_name: 'SigmoidExtrapolation'
-  do_gdppc_time_regression: True # if True, gdppc is already log-transformed, so do not choose 'LogSigmoidExtrapolation'
-  lifetime_model_name: 'NormalLifetime'
+  regress_over: 'loggdppc_time_weighted_sum'
+  lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
 
 # visualization
@@ -32,17 +32,16 @@ visualization:
     slice_dict:
       t: 2020
     exclude_processes:
-      #- "sysenv"
+      - "sysenv"
       #- "waste_market"
-      - "primary_market"
-      - "intermediate_market"
-      - "good_market"
-
+      #- "primary_market"
+      #- "intermediate_market"
+      #- "good_market"
     exclude_flows: [ ]
   flows:
-    do_visualize: False
+    do_visualize: True
   do_show_figs: True
-  do_save_figs: True
+  do_save_figs: False
 
 # data export
 output_path: 'data/plastics/output'

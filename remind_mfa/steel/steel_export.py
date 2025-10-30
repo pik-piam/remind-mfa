@@ -498,7 +498,10 @@ class SteelDataExporter(CommonDataExporter):
         )
 
         # demand
-        steel_demand_by_good = future_mfa.flows["fabrication => good_market"] / future_mfa.parameters["fabrication_yield"]
+        steel_demand_by_good = (
+            future_mfa.flows["fabrication => good_market"]
+            / future_mfa.parameters["fabrication_yield"]
+        )
         demand_df = self.to_iamc_df(steel_demand_by_good)
         demand_df["variable"] = "Material Demand|Iron and Steel|Steel|" + demand_df["Good"]
         demand_df = demand_df.drop(columns=["Good"])
@@ -540,12 +543,14 @@ class SteelDataExporter(CommonDataExporter):
             append=True,
         )
 
-        idf = pyam.concat([
-            prod_idf,
-            demand_idf,
-            stock_idf,
-            scrap_idf,
-        ])
+        idf = pyam.concat(
+            [
+                prod_idf,
+                demand_idf,
+                stock_idf,
+                scrap_idf,
+            ]
+        )
         idf.aggregate_region(
             variable=idf.variable,
             region="World",
@@ -556,10 +561,9 @@ class SteelDataExporter(CommonDataExporter):
 
         idf.to_excel(self.export_path(f"output_iamc.xlsx"))
 
-
     @staticmethod
     def to_iamc_df(array: fd.FlodymArray):
-        time_items = list(range(2025, 2101)) # TODO: more flexible
+        time_items = list(range(2025, 2101))  # TODO: more flexible
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
         df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
         df = df.rename(columns={"Region": "region"})

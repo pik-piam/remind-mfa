@@ -33,7 +33,7 @@ class ModelSwitches(RemindMFABaseModel):
     stock_extrapolation_class_name: str
     lifetime_model_name: str
     do_stock_extrapolation_by_category: bool = False
-    do_gdppc_time_regression: bool = False
+    regress_over: str = "gdppc"
     mode: Optional[str] = None
     parameter_extrapolation: Optional[dict[str, str]] = None
 
