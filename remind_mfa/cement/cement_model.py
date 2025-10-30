@@ -21,9 +21,7 @@ class CementModel:
         self.cfg = cfg
         self.definition = get_definition(self.cfg)
         self.data_reader = CementDataReader(
-            madrat_output_path=self.cfg.madrat_output_path,
-            input_data_path=self.cfg.input_data_path,
-            input_data_version=self.cfg.input_data_version,
+            cfg=self.cfg,
             definition=self.definition,
             allow_extra_values=True,
         )
