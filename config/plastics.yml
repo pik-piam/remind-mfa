@@ -47,3 +47,4 @@ do_export:
   pickle: False
   csv: True
   iamc: True
+  definitions: False

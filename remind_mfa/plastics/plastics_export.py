@@ -492,7 +492,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
         self.plot_and_save_figure(
             ap_pure_prediction,
-            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock["over_gdp"] else '_overTime'}.png",
+            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock['over_gdp'] else '_overTime'}.png",
             do_plot=False,
         )
 

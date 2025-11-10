@@ -108,4 +108,5 @@ class PlasticsModel:
             historic_trade=self.mfa_historic.trade_set,
         )
         self.data_writer.export_mfa(mfa=self.mfa_future)
+        self.data_writer.definition_to_markdown(definition=self.definition_future)
         self.data_writer.visualize_results(model=self)
