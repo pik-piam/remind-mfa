@@ -13,6 +13,11 @@ nav:
       - Cement MFA: cement.md
   - References: references.md
 theme: readthedocs
+plugins:
+  - search
+  - bibtex:
+      bib_file: "docs/refs.bib"
 markdown_extensions:
   - markdown_include.include:
       base_path: docs
+  - footnotes
