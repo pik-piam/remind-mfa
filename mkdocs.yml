@@ -4,6 +4,7 @@ nav:
   - Model overview:
       - Scope: scope.md
       - Flodym: flodym.md
+      - Code Structure: code_structure.md
       - Methodology: methodology.md
       - Input data: input_data.md
   - Sub-modules:
