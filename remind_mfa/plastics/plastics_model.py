@@ -107,5 +107,5 @@ class PlasticsModel:
             historic_stock=self.mfa_historic.stocks["in_use_historic"],
             historic_trade=self.mfa_historic.trade_set,
         )
-        self.data_writer.export_mfa(mfa=self.mfa_future)
+        self.data_writer.export_mfa(model=self)
         self.data_writer.visualize_results(model=self)

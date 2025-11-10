@@ -49,3 +49,4 @@ do_export:
   pickle: False
   csv: False
   iamc: False
+  assumptions: False
