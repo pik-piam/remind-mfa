@@ -29,3 +29,5 @@ Flows that enter or leave markets are the exports and imports of the trades list
 The following table presents all exogenous parameters in the plastics MFA with their respective dimensions.
 
 {!../data/plastics/output/export/definitions/parameters.md!}
+
+## Assumptions
