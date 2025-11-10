@@ -54,15 +54,6 @@ class PlasticsDataExporter(CommonDataExporter):
         if not self.cfg.do_visualize:
             return
 
-        self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
-        self.export_use_data_by_region_and_year(mfa=model.mfa_future)
-        self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
-        self.export_stock_extrapolation(model=model)
-        self.export_stock(mfa=model.mfa_historic)
-
-        if self.do_export.iamc:
-            self.write_iamc(mfa=model.mfa_future)
-
         if self.cfg.production["do_visualize"]:
             self.visualize_demand(mfa=model.mfa_future)
 
@@ -537,6 +528,17 @@ class PlasticsDataExporter(CommonDataExporter):
         df = recl_data.sum_to(("t", "r", "m")).to_df(index=True)
         df.to_csv(self.export_path(output_path), index=True)
 
+    def export_mfa(self, model: "PlasticsModel"):
+        super().export_mfa(mfa=model.mfa_future)
+        if self.do_export.iamc:
+            self.write_iamc(mfa=model.mfa_future)
+        if self.do_export.csv:
+            self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
+            self.export_use_data_by_region_and_year(mfa=model.mfa_future)
+            self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
+            self.export_stock_extrapolation(model=model)
+            self.export_stock(mfa=model.mfa_historic)
+    
     def write_iamc(self, mfa: fd.MFASystem):
 
         model = "REMIND 3.0"

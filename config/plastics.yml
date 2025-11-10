@@ -48,3 +48,4 @@ do_export:
   csv: True
   iamc: True
   definitions: True
+  assumptions: False
