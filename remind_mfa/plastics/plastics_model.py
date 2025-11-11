@@ -109,4 +109,5 @@ class PlasticsModel:
         )
         self.data_writer.export_mfa(model=self)
         self.data_writer.definition_to_markdown(definition=self.definition_future)
+        self.data_writer.assumptions_to_markdown()
         self.data_writer.visualize_results(model=self)

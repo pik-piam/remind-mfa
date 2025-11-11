@@ -2,6 +2,7 @@ from inspect import stack, getframeinfo
 from pydantic import field_validator
 from typing import ClassVar, Any, Optional
 import os
+import pandas as pd
 
 from remind_mfa.common.base_model import RemindMFABaseModel
 
@@ -77,3 +78,27 @@ class Assumption(RemindMFABaseModel):
 
 def assumptions_str() -> str:
     return "\n".join(str(a) for a in _assumptions)
+
+def assumptions_df() -> pd.DataFrame:
+    """Return all assumptions as a pandas DataFrame."""
+    if not _assumptions:
+        return pd.DataFrame(
+            columns=[
+                "type", "name", "value", "description",
+                "source", "filename", "line_number"
+            ]
+        )
+
+    data = [
+        {
+            "type": a.type,
+            "name": a.name,
+            "value": a.value,
+            "description": a.description,
+            "source": a.source,
+            "filename": os.path.relpath(a.filename, os.path.abspath(os.curdir)),
+            "line_number": a.line_number,
+        }
+        for a in _assumptions
+    ]
+    return pd.DataFrame(data)

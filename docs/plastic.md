@@ -31,3 +31,4 @@ The following table presents all exogenous parameters in the plastics MFA with t
 {!../data/plastics/output/export/definitions/parameters.md!}
 
 ## Assumptions
+{!../data/plastics/output/export/assumptions.md!}

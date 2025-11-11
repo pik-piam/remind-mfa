@@ -10,7 +10,7 @@ import flodym.export as fde
 
 from remind_mfa.common.base_model import RemindMFABaseModel
 from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg
-from remind_mfa.common.assumptions_doc import assumptions_str
+from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 
 
 class CommonDataExporter(RemindMFABaseModel):
@@ -86,6 +86,14 @@ class CommonDataExporter(RemindMFABaseModel):
             df.columns = [self.display_name(col) for col in df.columns]
             df = df.map(convert_cell)
             df.to_markdown(self.export_path(f"definitions/{name}.md"), index=False)
+
+    def assumptions_to_markdown(self):
+
+        if not self.do_export.assumptions:
+            return
+
+        df = assumptions_df()
+        df.to_markdown(self.export_path("assumptions.md"), index=False)
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")
