@@ -1,14 +1,13 @@
 import os
 import flodym as fd
 
-
 from remind_mfa.common.common_cfg import GeneralCfg
 from .plastics_mfa_system import PlasticsMFASystemFuture
 from .plastics_mfa_system_historic import PlasticsMFASystemHistoric
 from .plastics_export import PlasticsDataExporter
 from .plastics_definition import get_definition, PlasticsMFADefinition
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
 
 
 class PlasticsModel:
@@ -26,7 +25,7 @@ class PlasticsModel:
 
     def read_data(self):
 
-        self.data_reader = CustomDataReader(
+        self.data_reader = MrindustryDataReader(
             input_data_path=self.cfg.input_data_path,
             definition=self.definition_future,
             allow_missing_values=True,
