@@ -280,11 +280,11 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             - flw["reclmech => processing"]
         )
 
-        flw["virgindaccu => virgin"][...] = flw["virgin => processing"] * prm["daccu_production_rate"]
-        flw["virginbio => virgin"][...] = flw["virgin => processing"] * prm["bio_production_rate"]
+        flw["virgindaccu => virgin"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["daccu_production_rate"]
+        flw["virginbio => virgin"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["bio_production_rate"]
 
-        aux["virgin_2_fabr_all_mat"][...] = flw["virgin => processing"]
-        aux["virgin_material_shares"][...] = flw["virgin => processing"] / aux["virgin_2_fabr_all_mat"]
+        aux["virgin_2_fabr_all_mat"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"])
+        aux["virgin_material_shares"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) / aux["virgin_2_fabr_all_mat"]
         aux["captured_2_virginccu_by_mat"][...] = flw["captured => virginccu"] * aux["virgin_material_shares"]
 
         flw["virginccu => virgin"]["C"] = aux["captured_2_virginccu_by_mat"]["C"]
