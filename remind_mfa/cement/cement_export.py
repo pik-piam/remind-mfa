@@ -23,6 +23,8 @@ class CementDataExporter(CommonDataExporter):
     }
 
     def visualize_results(self, model: "CementModel"):
+        if not self.cfg.do_visualize:
+            return
         if self.cfg.clinker_production["do_visualize"]:
             self.visualize_clinker_production(mfa=model.future_mfa)
         if self.cfg.cement_production["do_visualize"]:
