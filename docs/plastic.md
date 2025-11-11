@@ -1,6 +1,9 @@
 # Plastic MFA
 ## Methodology
 
+### Stock extrapolation
+For plastic stock extrapolation, the general method as described in the [Model overview](methodology.md) was slightly adjusted: Plastic stock per capita regressions over GDP per capita did not align well for different regions, as regions with lower GDP per capita currently have higher stocks per capita than more developed regions had at the same GDP per capita in the past. This was attributed to the fact that plastics is a rather novel material compared to steel and cement, and historic stocks of developed regions are therefore not representative for today's stocks in developing regions. To account for this effect, a weighted sum of logGDP per capita and time was used as a predictor in stock extrapolation according to the formula: 'log10(gdppc) * weight + time'. The weight (documented in the assumptions below) was determined from a regression of time vs. log10(gdppc) at constant stock per capita.
+
 ## Processes
 The following table lists the processes that are modelled in the plastics MFA.
 
