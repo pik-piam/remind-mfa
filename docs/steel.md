@@ -12,7 +12,7 @@ The following table presents the dimensions over which parameters and variables 
 {!../data/steel/output/export/definitions/dimensions.md!}
 
 ## Stocks
-The following table presents the processes that are modelled as stocks in the steel MFA with their respective dimensions and the lifetime model that is employed. 
+The following table presents the processes that are modelled as stocks in the steel MFA with their respective dimensions and the lifetime model that is employed.
 
 {!../data/steel/output/export/definitions/stocks.md!}
 
