@@ -25,8 +25,6 @@ class MrindustryDataReader(fd.CompoundDataReader):
         definition: fd.MFADefinition,
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
-        allow_missing_values: bool = False,
-        allow_extra_values: bool = False,
     ):
         self.model_class = cfg.model_class
         self.madrat_output_path = cfg.madrat_output_path
