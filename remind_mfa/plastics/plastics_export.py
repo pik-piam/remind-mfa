@@ -80,20 +80,41 @@ class PlasticsDataExporter(CommonDataExporter):
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
-            # self.visualize_flow(
-            #     mfa=model.mfa_future,
-            #     flow=model.mfa_future.flows["reclmech => processing"],
-            #     name="Mechanical recycling",
-            #     subplot_dim="Region",
-            #     linecolor_dim="Material",
-            # )
-            # self.visualize_flow(
-            #     mfa=model.mfa_future,
-            #     flow=model.mfa_future.flows["reclchem => virgin"],
-            #     name="Chemical recycling",
-            #     subplot_dim="Region",
-            #     linecolor_dim="Material",
-            # )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["virgin => processing"],
+                name="Domestic primary production",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["reclmech => processing"],
+                name="Mechanical recycling",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["reclchem => virgin"],
+                name="Chemical recycling",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["eol => collected"],
+                name="Collected",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["collected => landfill"],
+                name="Landfilled",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
             self.visualize_flow(
                 mfa=model.mfa_future,
                 flow=model.mfa_future.stocks["in_use"].inflow,
@@ -140,6 +161,20 @@ class PlasticsDataExporter(CommonDataExporter):
                 mfa=model.mfa_future,
                 flow=model.mfa_future.flows["primary_market => processing"],
                 name="Primary imports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["collected => waste_market"],
+                name="Waste exports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["waste_market => collected"],
+                name="Waste imports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
