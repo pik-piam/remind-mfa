@@ -175,11 +175,11 @@ class CommonDataExporter(RemindMFABaseModel):
             n_linecolor_dim = data_to_plot.dims[dimletter].len
         else:
             n_linecolor_dim = 1
-        
+
         colors = (
-            colors[: n_linecolor_dim] # future (dotted) color
-            + colors[: n_linecolor_dim] # historic (solid) color
-            + ["black" for _ in range(n_linecolor_dim)] # dot color
+            colors[:n_linecolor_dim]  # future (dotted) color
+            + colors[:n_linecolor_dim]  # historic (solid) color
+            + ["black" for _ in range(n_linecolor_dim)]  # dot color
         )
 
         # data preparation

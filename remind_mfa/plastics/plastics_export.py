@@ -616,7 +616,7 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
             self.export_stock_extrapolation(model=model)
             self.export_stock(mfa=model.mfa_historic)
-    
+
     def write_iamc(self, mfa: fd.MFASystem):
 
         model = "REMIND 3.0"
