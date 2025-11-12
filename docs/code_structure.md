@@ -6,7 +6,7 @@ The basic structure of the source code is as follows:
 * For each material, responsibilities are divided to separate files as follows:
     - Definitions of the dimensionalities of flows, stocks, and parameters, as well as the connections of flows and processes.
     - Computing routines for the future MFA system
-    - A similar such file for the historical system
+    - A similar file for the historical system
     - Model management: Initialisation of the MFA systems, calls to their compute routines, and to visualisation and export routines
     - Visualisation routines
 
