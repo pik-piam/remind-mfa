@@ -4,7 +4,7 @@ import numpy as np
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.trade import TradeSet, Trade
-from remind_mfa.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
 from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.common_cfg import PlasticsCfg
@@ -81,11 +81,11 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             historic_stocks=historic_stock.stock,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
-            regress_over=self.cfg.customization.regress_over,
+            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
+            regress_over=self.cfg.model_switches.regress_over,
             weight=weight,
             target_dim_letters=(
-                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
             ),
             bound_list=bound_list,
             indep_fit_dim_letters=indep_fit_dim_letters,
@@ -118,10 +118,10 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             dims=self.dims,
             parameters=self.parameters,
             stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
-            regress_over=self.cfg.customization.regress_over,
+            regress_over=self.cfg.model_switches.regress_over,
             weight=weight,
             target_dim_letters=(
-                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
             ),
             bound_list=bound_list,
             indep_fit_dim_letters=indep_fit_dim_letters,
@@ -280,11 +280,11 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             - flw["reclmech => processing"]
         )
 
-        flw["virgindaccu => virgin"][...] = flw["virgin => processing"] * prm["daccu_production_rate"]
-        flw["virginbio => virgin"][...] = flw["virgin => processing"] * prm["bio_production_rate"]
+        flw["virgindaccu => virgin"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["daccu_production_rate"]
+        flw["virginbio => virgin"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["bio_production_rate"]
 
-        aux["virgin_2_fabr_all_mat"][...] = flw["virgin => processing"]
-        aux["virgin_material_shares"][...] = flw["virgin => processing"] / aux["virgin_2_fabr_all_mat"]
+        aux["virgin_2_fabr_all_mat"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"])
+        aux["virgin_material_shares"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) / aux["virgin_2_fabr_all_mat"]
         aux["captured_2_virginccu_by_mat"][...] = flw["captured => virginccu"] * aux["virgin_material_shares"]
 
         flw["virginccu => virgin"]["C"] = aux["captured_2_virginccu_by_mat"]["C"]

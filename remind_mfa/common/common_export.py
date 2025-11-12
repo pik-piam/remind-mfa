@@ -172,13 +172,15 @@ class CommonDataExporter(RemindMFABaseModel):
             dimletter = next(
                 dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
             )
-            colors = (
-                colors[: data_to_plot.dims[dimletter].len]
-                + colors[: data_to_plot.dims[dimletter].len]
-                + ["black" for _ in range(data_to_plot.dims[dimletter].len)]
-            )
+            n_linecolor_dim = data_to_plot.dims[dimletter].len
         else:
-            colors = colors[:1] + colors[:1] + ["black"]
+            n_linecolor_dim = 1
+        
+        colors = (
+            colors[: n_linecolor_dim] # future (dotted) color
+            + colors[: n_linecolor_dim] # historic (solid) color
+            + ["black" for _ in range(n_linecolor_dim)] # dot color
+        )
 
         # data preparation
         hist = data_to_plot[{"t": mfa.dims["h"]}]
@@ -221,7 +223,7 @@ class CommonDataExporter(RemindMFABaseModel):
         )
         fig = ap_hist.plot()
 
-        # Last historic year (black dot)
+        # Last historic year (dot)
         ap_scatter = self.plotter_class(
             array=scatter,
             intra_line_dim="Last Historic Year",

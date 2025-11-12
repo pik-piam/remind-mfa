@@ -26,7 +26,7 @@ class PlasticsModel:
     def read_data(self):
 
         self.data_reader = MrindustryDataReader(
-            input_data_path=self.cfg.input_data_path,
+            cfg=self.cfg,
             definition=self.definition_future,
             allow_missing_values=True,
             allow_extra_values=True,
@@ -42,19 +42,6 @@ class PlasticsModel:
             "Intermediate": "intermediate_products",
             "Scenario": "scenarios",
         }
-
-        dimension_files = {}
-        for dimension in self.definition_future.dimensions:
-            dimension_filename = dimension_map[dimension.name]
-            dimension_files[dimension.name] = os.path.join(
-                self.cfg.input_data_path, "dimensions", f"{dimension_filename}.csv"
-            )
-
-        parameter_files = {}
-        for parameter in self.definition_future.parameters:
-            parameter_files[parameter.name] = os.path.join(
-                self.cfg.input_data_path, "datasets", f"{parameter.name}.csv"
-            )
 
         # dims and parameters are the same for historic and future
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
@@ -106,5 +93,5 @@ class PlasticsModel:
             historic_stock=self.mfa_historic.stocks["in_use_historic"],
             historic_trade=self.mfa_historic.trade_set,
         )
-        self.data_writer.export_mfa(mfa=self.mfa_future)
+        self.data_writer.export_mfa(model=self)
         self.data_writer.visualize_results(model=self)

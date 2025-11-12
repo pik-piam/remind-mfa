@@ -54,15 +54,6 @@ class PlasticsDataExporter(CommonDataExporter):
         if not self.cfg.do_visualize:
             return
 
-        self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
-        self.export_use_data_by_region_and_year(mfa=model.mfa_future)
-        self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
-        self.export_stock_extrapolation(model=model)
-        self.export_stock(mfa=model.mfa_historic)
-
-        if self.do_export.iamc:
-            self.write_iamc(mfa=model.mfa_future)
-
         if self.cfg.production["do_visualize"]:
             self.visualize_demand(mfa=model.mfa_future)
 
@@ -86,26 +77,113 @@ class PlasticsDataExporter(CommonDataExporter):
                 mfa=model.mfa_future,
                 flow=primary_production,
                 name="Primary production",
-                subplot_dim="Material",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["virgin => processing"],
+                name="Domestic primary production",
+                subplot_dim="Region",
+                linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.mfa_future,
                 flow=model.mfa_future.flows["reclmech => processing"],
                 name="Mechanical recycling",
-                subplot_dim="Material",
+                subplot_dim="Region",
+                linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.mfa_future,
                 flow=model.mfa_future.flows["reclchem => virgin"],
                 name="Chemical recycling",
-                subplot_dim="Material",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["eol => collected"],
+                name="Collected",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["collected => landfill"],
+                name="Landfilled",
+                subplot_dim="Region",
+                linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.mfa_future,
                 flow=model.mfa_future.stocks["in_use"].inflow,
                 name="Demand",
                 subplot_dim="Region",
-                linecolor_dim="Good",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["fabrication => good_market"],
+                name="Final exports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["good_market => use"],
+                name="Final imports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["processing => intermediate_market"],
+                name="Intermediate exports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["intermediate_market => fabrication"],
+                name="Intermediate imports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["virgin => primary_market"],
+                name="Primary exports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["primary_market => processing"],
+                name="Primary imports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["collected => waste_market"],
+                name="Waste exports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["waste_market => collected"],
+                name="Waste imports",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.mfa_future,
+                flow=model.mfa_future.flows["fabrication => use"],
+                name="Domestic Fabrication",
+                subplot_dim="Region",
+                linecolor_dim="Material",
             )
 
         self.stop_and_show()
@@ -160,25 +238,15 @@ class PlasticsDataExporter(CommonDataExporter):
         self.plot_and_save_figure(ap, f"{name}_flow{tag}.png")
 
     def visualize_demand(self, mfa: fd.MFASystem):
-        ap_modeled = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e")),
-            intra_line_dim="Time",
-            subplot_dim="Good",
-            line_label="Modeled",
-            display_names=self._display_names,
+        fig, ap_demand = self.plot_history_and_future(
+            mfa=mfa,
+            data_to_plot=mfa.stocks["in_use"].inflow.sum_over(("m", "e")),
+            subplot_dim="Region",
+            linecolor_dim="Good",
+            x_label="Year",
+            y_label="Demand [Mt]",
         )
-        fig = ap_modeled.plot()
-        ap_historic = self.plotter_class(
-            array=mfa.parameters["production"].sum_over(("r")),
-            intra_line_dim="Historic Time",
-            subplot_dim="Good",
-            line_label="Historic Demand",
-            fig=fig,
-            xlabel="Year",
-            ylabel="Demand [Mt]",
-            display_names=self._display_names,
-        )
-        self.plot_and_save_figure(ap_historic, "demand.png")
+        self.plot_and_save_figure(ap_demand, "demand_history_and_future.png", do_plot=False)
 
         demand = mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e"))
         good_dim = demand.dims.index("g")
@@ -232,7 +300,7 @@ class PlasticsDataExporter(CommonDataExporter):
         else:
             subplot_dim = {}
             stock = stock.sum_over("g")
-            stock = stock.sum_over(["e", "m"])
+        stock = stock.sum_over(["e", "m"])
 
         if per_capita:
             stock = stock / population
@@ -480,6 +548,7 @@ class PlasticsDataExporter(CommonDataExporter):
             line_type="dot",
             # line_label="Pure Extrapolation",
             color_map=ap_final_stock.color_map * 2,
+            suppress_legend=True,
         )
         fig = ap_pure_prediction.plot()
 
@@ -492,7 +561,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
         self.plot_and_save_figure(
             ap_pure_prediction,
-            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock["over_gdp"] else '_overTime'}.png",
+            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock['over_gdp'] else '_overTime'}.png",
             do_plot=False,
         )
 
@@ -537,6 +606,17 @@ class PlasticsDataExporter(CommonDataExporter):
         df = recl_data.sum_to(("t", "r", "m")).to_df(index=True)
         df.to_csv(self.export_path(output_path), index=True)
 
+    def export_mfa(self, model: "PlasticsModel"):
+        super().export_mfa(mfa=model.mfa_future)
+        if self.do_export.iamc:
+            self.write_iamc(mfa=model.mfa_future)
+        if self.do_export.csv:
+            self.export_eol_data_by_region_and_year(mfa=model.mfa_future)
+            self.export_use_data_by_region_and_year(mfa=model.mfa_future)
+            self.export_recycling_data_by_region_and_year(mfa=model.mfa_future)
+            self.export_stock_extrapolation(model=model)
+            self.export_stock(mfa=model.mfa_historic)
+    
     def write_iamc(self, mfa: fd.MFASystem):
 
         model = "REMIND 3.0"
