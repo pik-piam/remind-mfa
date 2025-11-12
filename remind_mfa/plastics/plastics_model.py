@@ -43,19 +43,6 @@ class PlasticsModel:
             "Scenario": "scenarios",
         }
 
-        # dimension_files = {}
-        # for dimension in self.definition_future.dimensions:
-        #     dimension_filename = dimension_map[dimension.name]
-        #     dimension_files[dimension.name] = os.path.join(
-        #         self.cfg.input_data_path, "dimensions", f"{dimension_filename}.csv"
-        #     )
-
-        # parameter_files = {}
-        # for parameter in self.definition_future.parameters:
-        #     parameter_files[parameter.name] = os.path.join(
-        #         self.cfg.input_data_path, "datasets", f"plastic_{parameter.name}.csv"
-        #     )
-
         # dims and parameters are the same for historic and future
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
