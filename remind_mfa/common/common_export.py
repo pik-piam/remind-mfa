@@ -105,7 +105,7 @@ class CommonDataExporter(RemindMFABaseModel):
         if filename is not None:
             path_tuple += (filename,)
         return os.path.join(*path_tuple)
-    
+
     def export_docs_path(self, filename: str = None):
         return os.path.join(self.docs_path, filename)
 
