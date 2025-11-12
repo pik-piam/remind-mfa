@@ -38,6 +38,10 @@ class CommonDataExporter(RemindMFABaseModel):
 
     @model_validator(mode="after")
     def inherit_display_names(self):
+    """
+    Ensures that _display_names defined in a subclass are *merged* with
+    the base class defaults, rather than replacing them entirely.
+    """
         from_sub = self._display_names
         self._display_names = CommonDataExporter._display_names.default.copy()
         self._display_names.update(from_sub)

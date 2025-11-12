@@ -1,12 +1,12 @@
 # Code Structure
 
-The basic structure of the source code is as follows:  
+The basic structure of the source code is as follows:
 
-* There is one folder for common routines and one folder per material model (plastics, steel, cement)  
+* There is one folder for common routines and one folder per material model (plastics, steel, cement)
 * For each material, responsibilities are divided to separate files as follows:
     - Definitions of the dimensionalities of flows, stocks, and parameters, as well as the connections of flows and processes.
     - Computing routines for the future MFA system
-    - A similar such file for the historical system
+    - A similar file for the historical system
     - Model management: Initialisation of the MFA systems, calls to their compute routines, and to visualisation and export routines
     - Visualisation routines
 

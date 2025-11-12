@@ -79,14 +79,12 @@ class Assumption(RemindMFABaseModel):
 def assumptions_str() -> str:
     return "\n".join(str(a) for a in _assumptions)
 
+
 def assumptions_df() -> pd.DataFrame:
     """Return all assumptions as a pandas DataFrame."""
     if not _assumptions:
         return pd.DataFrame(
-            columns=[
-                "type", "name", "value", "description",
-                "source", "filename", "line_number"
-            ]
+            columns=["type", "name", "value", "description", "source", "filename", "line_number"]
         )
 
     data = [
