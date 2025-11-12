@@ -23,7 +23,6 @@ class CementModel:
         self.data_reader = CementDataReader(
             cfg=self.cfg,
             definition=self.definition,
-            allow_extra_values=True,
         )
         self.data_writer = CementDataExporter(
             cfg=self.cfg.visualization,
