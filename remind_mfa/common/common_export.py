@@ -15,6 +15,7 @@ from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 
 class CommonDataExporter(RemindMFABaseModel):
     output_path: str
+    docs_path: str
     do_export: ExportCfg
     cfg: VisualizationCfg
     _display_names: dict = {
@@ -85,7 +86,7 @@ class CommonDataExporter(RemindMFABaseModel):
         for name, df in dfs.items():
             df.columns = [self.display_name(col) for col in df.columns]
             df = df.map(convert_cell)
-            df.to_markdown(self.export_path(f"definitions/{name}.md"), index=False)
+            df.to_markdown(self.export_docs_path(f"definitions/{name}.md"), index=False)
 
     def assumptions_to_markdown(self):
 
@@ -93,13 +94,16 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         df = assumptions_df()
-        df.to_markdown(self.export_path("assumptions.md"), index=False)
+        df.to_markdown(self.export_docs_path("assumptions.md"), index=False)
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")
         if filename is not None:
             path_tuple += (filename,)
         return os.path.join(*path_tuple)
+    
+    def export_docs_path(self, filename: str = None):
+        return os.path.join(self.docs_path, filename)
 
     def figure_path(self, filename: str):
         return os.path.join(self.output_path, "figures", filename)

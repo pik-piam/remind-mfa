@@ -43,6 +43,7 @@ visualization:
 
 # data export
 output_path: 'data/plastics/output'
+docs_path: 'docs/plastics'
 do_export:
   pickle: False
   csv: True

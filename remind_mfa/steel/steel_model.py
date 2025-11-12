@@ -31,6 +31,7 @@ class SteelModel:
             cfg=self.cfg.visualization,
             do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
+            docs_path=self.cfg.docs_path,
         )
         if stock_driven:
             self.definition_historic = get_definition(self.cfg, historic=True, stock_driven=False)

@@ -97,6 +97,7 @@ class GeneralCfg(RemindMFABaseModel):
     customization: ModelCustomization
     visualization: VisualizationCfg
     output_path: str
+    docs_path: str
     do_export: ExportCfg
 
     @classmethod

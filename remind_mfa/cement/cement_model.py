@@ -26,6 +26,7 @@ class CementModel:
             cfg=self.cfg.visualization,
             do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
+            docs_path=self.cfg.docs_path,
         )
         self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
         self.parameters = self.data_reader.read_parameters(

@@ -22,6 +22,7 @@ class PlasticsModel:
             cfg=self.cfg.visualization,
             do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
+            docs_path=self.cfg.docs_path,
         )
 
     def read_data(self):
