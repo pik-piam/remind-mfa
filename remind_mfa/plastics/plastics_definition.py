@@ -123,7 +123,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 name="in_use_historic",
                 dim_letters=("h", "r", "g"),
                 subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=cfg.customization.lifetime_model,
+                lifetime_model_class=cfg.model_switches.lifetime_model,
                 time_letter="h",
             ),
         ]
@@ -133,7 +133,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 name="in_use_dsm",
                 dim_letters=("t", "r", "g"),
                 subclass=fd.StockDrivenDSM,
-                lifetime_model_class=cfg.customization.lifetime_model,
+                lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
                 name="in_use",
@@ -166,9 +166,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         fd.ParameterDefinition(name="collection_rate", dim_letters=("t", "r", "m")),
         fd.ParameterDefinition(name="mechanical_recycling_rate", dim_letters=("t", "r", "m")),
         fd.ParameterDefinition(name="chemical_recycling_rate", dim_letters=("t", "r", "m")),
-        fd.ParameterDefinition(name="solvent_recycling_rate", dim_letters=("t", "r", "m")),
         fd.ParameterDefinition(name="incineration_rate", dim_letters=("t", "r", "m")),
-        fd.ParameterDefinition(name="landfill_rate", dim_letters=("t", "r", "m")),
         # trade
         fd.ParameterDefinition(name="primary_his_imports", dim_letters=("h", "r")),
         fd.ParameterDefinition(name="primary_his_exports", dim_letters=("h", "r")),
@@ -191,9 +189,9 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         fd.ParameterDefinition(name="emission_capture_rate", dim_letters=("t",)),
         fd.ParameterDefinition(name="carbon_content_materials", dim_letters=("e", "m")),
         # for in-use stock
-        fd.ParameterDefinition(name="production", dim_letters=("h", "r", "g")),
-        fd.ParameterDefinition(name="lifetime_mean", dim_letters=("r", "g")),
-        fd.ParameterDefinition(name="lifetime_std", dim_letters=("r", "g")),
+        fd.ParameterDefinition(name="consumption", dim_letters=("h", "r", "g")),
+        fd.ParameterDefinition(name="lifetime_mean", dim_letters=("g",)),
+        fd.ParameterDefinition(name="lifetime_std", dim_letters=("g",)),
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
         fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
     ]

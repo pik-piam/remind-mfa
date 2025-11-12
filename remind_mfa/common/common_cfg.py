@@ -3,6 +3,7 @@ import flodym as fd
 from typing import Optional
 
 from .data_extrapolations import Extrapolation
+from .parameter_extrapolation import ParameterExtrapolation
 
 
 IMPLEMENTED_MODELS = [
@@ -27,22 +28,34 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
-class ModelCustomization(RemindMFABaseModel):
+class ModelSwitches(RemindMFABaseModel):
 
     stock_extrapolation_class_name: str
     lifetime_model_name: str
     do_stock_extrapolation_by_category: bool = False
     regress_over: str = "gdppc"
     mode: Optional[str] = None
+    parameter_extrapolation: Optional[dict[str, str]] = None
 
     @property
-    def lifetime_model(self) -> fd.LifetimeModel:
+    def lifetime_model(self) -> type[fd.LifetimeModel]:
         return choose_subclass_by_name(self.lifetime_model_name, fd.LifetimeModel)
 
     @property
-    def stock_extrapolation_class(self) -> Extrapolation:
+    def stock_extrapolation_class(self) -> type[Extrapolation]:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
+
+    @property
+    def parameter_extrapolation_classes(self) -> Optional[dict[str, type[ParameterExtrapolation]]]:
+        """Check if the given parameter extrapolation classes are valid subclasses of ParameterExtrapolation and return them."""
+        if self.parameter_extrapolation is None:
+            return None
+
+        classes = {}
+        for param_name, class_name in self.parameter_extrapolation.items():
+            classes[param_name] = choose_subclass_by_name(class_name, ParameterExtrapolation)
+        return classes
 
 
 class ExportCfg(RemindMFABaseModel):
@@ -92,8 +105,10 @@ class PlasticsVisualizationCfg(VisualizationCfg):
 class GeneralCfg(RemindMFABaseModel):
 
     model_class: str
+    madrat_output_path: str
     input_data_path: str
-    customization: ModelCustomization
+    input_data_version: str
+    model_switches: ModelSwitches
     visualization: VisualizationCfg
     output_path: str
     do_export: ExportCfg
