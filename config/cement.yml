@@ -47,3 +47,4 @@ output_path: 'data/cement/output'
 do_export:
   pickle: True
   csv: True
+  definitions: False

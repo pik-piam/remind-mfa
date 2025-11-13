@@ -49,6 +49,7 @@ class ExportCfg(RemindMFABaseModel):
     csv: bool = True
     pickle: bool = True
     assumptions: bool = True
+    definitions: bool = False
     future_input: bool = False
     iamc: bool = False
 
