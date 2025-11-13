@@ -1,6 +1,9 @@
 # Cement MFA
 ## Methodology
 
+### Stock extrapolation
+
+
 ## Processes
 The following table lists the processes that are modelled in the cement MFA.
 
