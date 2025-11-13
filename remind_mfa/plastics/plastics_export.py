@@ -1,6 +1,7 @@
 import flodym as fd
 import numpy as np
 import pandas as pd
+import plotly.express as px
 
 from plotly import colors as plc
 from plotly.subplots import make_subplots
@@ -56,6 +57,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
         if self.cfg.production["do_visualize"]:
             self.visualize_demand(mfa=model.mfa_future)
+            self.compare_demand(mfa=model.mfa_future)
 
         if self.cfg.extrapolation["do_visualize"]:
             self.visualize_extrapolation(model=model)
@@ -261,6 +263,31 @@ class PlasticsDataExporter(CommonDataExporter):
         )
         fig = ap.plot()
         self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
+
+    def compare_demand(self, mfa: fd.MFASystem):
+        df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
+
+        # Convert year to numeric
+        df["year"] = pd.to_numeric(df["year"], errors="coerce")
+
+        # Plotly line plot
+        fig = px.line(
+            df,
+            x="year",
+            y="value",
+            color="source",
+            markers=True
+        )
+
+        ap = self.plotter_class(
+            array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e", "g")),
+            intra_line_dim="Time",
+            title="Demand [Mt]",
+            line_label="REMIND-MFA",
+            fig=fig,
+        )
+        ap.plot()
+        self.plot_and_save_figure(ap, "demand_validation.png", do_plot=False)
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
 
