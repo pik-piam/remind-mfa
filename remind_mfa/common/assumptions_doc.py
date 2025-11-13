@@ -83,20 +83,8 @@ def assumptions_str() -> str:
 def assumptions_df() -> pd.DataFrame:
     """Return all assumptions as a pandas DataFrame."""
     if not _assumptions:
-        return pd.DataFrame(
-            columns=["type", "name", "value", "description", "source", "filename", "line_number"]
-        )
+        return pd.DataFrame()
 
-    data = [
-        {
-            "type": a.type,
-            "name": a.name,
-            "value": a.value,
-            "description": a.description,
-            "source": a.source,
-            "filename": os.path.relpath(a.filename, os.path.abspath(os.curdir)),
-            "line_number": a.line_number,
-        }
-        for a in _assumptions
-    ]
-    return pd.DataFrame(data)
+    df = pd.DataFrame([a.model_dump() for a in _assumptions])
+    df["filename"] = df["filename"].apply(lambda x: os.path.relpath(x, os.path.abspath(os.curdir)))
+    return df
