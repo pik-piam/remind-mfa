@@ -1,7 +1,7 @@
 # Steel MFA
 ## Methodology
 
-### Stock extrapolation 
+### Stock extrapolation
 In-use stocks are regressed separately in different product categories, which then add up to the total in-use stock. For each product category, we regress a common set of parameters for all regions. However, since historic data in single regions deviates from these curves, we apply region-dependent correction terms, which form a smooth transition from historic trends to the common regression.
 
 ## Processes
