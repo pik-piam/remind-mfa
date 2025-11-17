@@ -9,7 +9,7 @@ import flodym as fd
 import flodym.export as fde
 
 from remind_mfa.common.base_model import RemindMFABaseModel
-from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg
+from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg, GeneralCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 
 
@@ -61,7 +61,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def definition_to_markdown(self, definition: fd.MFADefinition):
 
-        if not self.do_export.definitions:
+        if not self.do_export.docs:
             return
 
         dfs = definition.to_dfs()
@@ -94,11 +94,19 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def assumptions_to_markdown(self):
 
-        if not self.do_export.assumptions:
+        if not self.do_export.docs:
             return
 
         df = assumptions_df()
         df.to_markdown(self.export_docs_path("assumptions.md"), index=False)
+
+    def cfg_to_markdown(self, cfg: GeneralCfg):
+
+        if not self.do_export.docs:
+            return
+
+        df = cfg.to_df()
+        df.to_markdown(self.export_docs_path("config.md"), index=False)
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")

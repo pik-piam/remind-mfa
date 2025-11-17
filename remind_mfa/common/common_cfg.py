@@ -1,6 +1,7 @@
 from remind_mfa.common.base_model import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
+import pandas as pd
 
 from .data_extrapolations import Extrapolation
 
@@ -49,7 +50,7 @@ class ExportCfg(RemindMFABaseModel):
     csv: bool = True
     pickle: bool = True
     assumptions: bool = True
-    definitions: bool = False
+    docs: bool = False
     future_input: bool = False
     iamc: bool = False
 
@@ -60,7 +61,6 @@ class VisualizationCfg(RemindMFABaseModel):
     use_stock: dict = {"do_visualize": False}
     production: dict = {"do_visualize": False}
     sankey: dict = {"do_visualize": False}
-    flows: dict = {"do_visualize": False}
     extrapolation: dict = {"do_visualize": False}
     do_show_figs: bool = True
     do_save_figs: bool = False
@@ -87,7 +87,7 @@ class SteelVisualizationCfg(VisualizationCfg):
 
 class PlasticsVisualizationCfg(VisualizationCfg):
 
-    pass
+    flows: dict = {"do_visualize": False}
 
 
 class GeneralCfg(RemindMFABaseModel):
@@ -115,6 +115,23 @@ class GeneralCfg(RemindMFABaseModel):
         subcls = subclasses[model_class]
         return subcls(**kwargs)
 
+    def to_df(self) -> pd.DataFrame:
+        """Exports configuration parameters to pandas DataFrames.
+        """
+        def flatten_dict(d, parent_key="", sep="."):
+            items = []
+            for k, v in d.items():
+                new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                if isinstance(v, dict):
+                    items.extend(flatten_dict(v, new_key, sep=sep).items())
+                else:
+                    items.append((new_key, v))
+            return dict(items)
+
+        flat = flatten_dict(self.model_dump())
+        df = pd.DataFrame(flat.items(), columns=["Parameter", "Value"])
+
+        return df
 
 class PlasticsCfg(GeneralCfg):
 

@@ -37,3 +37,6 @@ The following table presents all exogenous parameters in the plastics MFA with t
 
 ## Assumptions
 {!plastics/assumptions.md!}
+
+## Configuration
+{!plastics/config.md!}

@@ -1,0 +1,33 @@
+| Parameter                                        | Value                               |
+|:-------------------------------------------------|:------------------------------------|
+| model_class                                      | plastics                            |
+| input_data_path                                  | ../simson_data/data/plastics/output |
+| customization.stock_extrapolation_class_name     | SigmoidExtrapolation                |
+| customization.lifetime_model_name                | LogNormalLifetime                   |
+| customization.do_stock_extrapolation_by_category | True                                |
+| customization.regress_over                       | loggdppc_time_weighted_sum          |
+| customization.mode                               |                                     |
+| visualization.do_visualize                       | False                               |
+| visualization.use_stock.do_visualize             | True                                |
+| visualization.use_stock.over_gdp                 | True                                |
+| visualization.use_stock.acc                      | True                                |
+| visualization.use_stock.per_capita               | True                                |
+| visualization.production.do_visualize            | True                                |
+| visualization.sankey.do_visualize                | True                                |
+| visualization.sankey.slice_dict.t                | 2020                                |
+| visualization.sankey.exclude_processes           | ['sysenv']                          |
+| visualization.sankey.exclude_flows               | []                                  |
+| visualization.extrapolation.do_visualize         | True                                |
+| visualization.do_show_figs                       | True                                |
+| visualization.do_save_figs                       | False                               |
+| visualization.plotting_engine                    | plotly                              |
+| visualization.plotly_renderer                    | browser                             |
+| visualization.flows.do_visualize                 | True                                |
+| output_path                                      | data/plastics/output                |
+| docs_path                                        | docs/plastics                       |
+| do_export.csv                                    | True                                |
+| do_export.pickle                                 | False                               |
+| do_export.assumptions                            | True                                |
+| do_export.docs                                   | True                                |
+| do_export.future_input                           | False                               |
+| do_export.iamc                                   | True                                |

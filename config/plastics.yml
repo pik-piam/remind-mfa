@@ -16,8 +16,6 @@ visualization:
   do_visualize: False
   use_stock:
     do_visualize: True
-    # options: 'time', 'gdppc'
-    # over: 'gdppc'
     over_gdp: True
     acc: True
     per_capita: True
@@ -48,5 +46,5 @@ do_export:
   pickle: False
   csv: True
   iamc: True
-  definitions: True
+  docs: True
   assumptions: True
