@@ -10,11 +10,12 @@ import flodym.export as fde
 
 from remind_mfa.common.base_model import RemindMFABaseModel
 from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg
-from remind_mfa.common.assumptions_doc import assumptions_str
+from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 
 
 class CommonDataExporter(RemindMFABaseModel):
     output_path: str
+    docs_path: str
     do_export: ExportCfg
     cfg: VisualizationCfg
     _display_names: dict = {
@@ -37,6 +38,10 @@ class CommonDataExporter(RemindMFABaseModel):
 
     @model_validator(mode="after")
     def inherit_display_names(self):
+        """
+        Ensures that _display_names defined in a subclass are *merged* with
+        the base class defaults, rather than replacing them entirely.
+        """
         from_sub = self._display_names
         self._display_names = CommonDataExporter._display_names.default.copy()
         self._display_names.update(from_sub)
@@ -85,13 +90,24 @@ class CommonDataExporter(RemindMFABaseModel):
         for name, df in dfs.items():
             df.columns = [self.display_name(col) for col in df.columns]
             df = df.map(convert_cell)
-            df.to_markdown(self.export_path(f"definitions/{name}.md"), index=False)
+            df.to_markdown(self.export_docs_path(f"definitions/{name}.md"), index=False)
+
+    def assumptions_to_markdown(self):
+
+        if not self.do_export.assumptions:
+            return
+
+        df = assumptions_df()
+        df.to_markdown(self.export_docs_path("assumptions.md"), index=False)
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")
         if filename is not None:
             path_tuple += (filename,)
         return os.path.join(*path_tuple)
+
+    def export_docs_path(self, filename: str = None):
+        return os.path.join(self.docs_path, filename)
 
     def figure_path(self, filename: str):
         return os.path.join(self.output_path, "figures", filename)

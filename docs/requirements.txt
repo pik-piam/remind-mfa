@@ -1,1 +1,2 @@
 markdown-include>=0.8.1
+mkdocs-bibtex>=2.0.3

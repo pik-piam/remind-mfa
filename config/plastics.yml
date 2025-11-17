@@ -13,7 +13,7 @@ customization:
 
 # visualization
 visualization:
-  do_visualize: True
+  do_visualize: False
   use_stock:
     do_visualize: True
     # options: 'time', 'gdppc'
@@ -43,8 +43,10 @@ visualization:
 
 # data export
 output_path: 'data/plastics/output'
+docs_path: 'docs/plastics'
 do_export:
   pickle: False
   csv: True
   iamc: True
-  definitions: False
+  definitions: True
+  assumptions: True

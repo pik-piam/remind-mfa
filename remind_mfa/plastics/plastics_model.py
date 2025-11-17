@@ -22,6 +22,7 @@ class PlasticsModel:
             cfg=self.cfg.visualization,
             do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
+            docs_path=self.cfg.docs_path,
         )
 
     def read_data(self):
@@ -107,6 +108,7 @@ class PlasticsModel:
             historic_stock=self.mfa_historic.stocks["in_use_historic"],
             historic_trade=self.mfa_historic.trade_set,
         )
-        self.data_writer.export_mfa(mfa=self.mfa_future)
+        self.data_writer.export_mfa(model=self)
         self.data_writer.definition_to_markdown(definition=self.definition_future)
+        self.data_writer.assumptions_to_markdown()
         self.data_writer.visualize_results(model=self)

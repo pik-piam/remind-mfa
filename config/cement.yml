@@ -44,6 +44,7 @@ visualization:
 
 # data export
 output_path: 'data/cement/output'
+docs_path: 'docs/cement'
 do_export:
   pickle: True
   csv: True

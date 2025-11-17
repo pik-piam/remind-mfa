@@ -4,14 +4,19 @@ nav:
   - Model overview:
       - Scope: scope.md
       - Flodym: flodym.md
+      - Code Structure: code_structure.md
       - Methodology: methodology.md
       - Input data: input_data.md
   - Sub-modules:
       - Steel MFA: steel.md
       - Plastic MFA: plastic.md
       - Cement MFA: cement.md
-  - References: references.md
 theme: readthedocs
+plugins:
+  - search
+  - bibtex:
+      bib_file: "docs/refs.bib"
 markdown_extensions:
   - markdown_include.include:
       base_path: docs
+  - footnotes
