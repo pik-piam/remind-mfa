@@ -44,7 +44,7 @@ output_path: 'data/plastics/output'
 docs_path: 'docs/plastics'
 do_export:
   pickle: False
-  csv: True
-  iamc: True
+  csv: False
+  iamc: False
   docs: True
-  assumptions: True
+  assumptions: False

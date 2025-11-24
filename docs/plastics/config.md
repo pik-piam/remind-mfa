@@ -25,9 +25,9 @@
 | visualization.flows.do_visualize                 | True                                |
 | output_path                                      | data/plastics/output                |
 | docs_path                                        | docs/plastics                       |
-| do_export.csv                                    | True                                |
+| do_export.csv                                    | False                               |
 | do_export.pickle                                 | False                               |
-| do_export.assumptions                            | True                                |
+| do_export.assumptions                            | False                               |
 | do_export.docs                                   | True                                |
 | do_export.future_input                           | False                               |
-| do_export.iamc                                   | True                                |
+| do_export.iamc                                   | False                               |

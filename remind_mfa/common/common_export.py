@@ -108,6 +108,10 @@ class CommonDataExporter(RemindMFABaseModel):
         df = cfg.to_df()
         df.to_markdown(self.export_docs_path("config.md"), index=False)
 
+        # Export schema (field definitions)
+        schema_df = type(cfg).to_schema_df()
+        schema_df.to_markdown(self.export_docs_path("config_schema.md"), index=False)
+
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")
         if filename is not None:
