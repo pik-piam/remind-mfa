@@ -149,8 +149,8 @@ class GeneralCfg(RemindMFABaseModel):
         return subcls(**kwargs)
 
     def to_df(self) -> pd.DataFrame:
-        """Exports configuration parameters to pandas DataFrames.
-        """
+        """Exports configuration parameters to pandas DataFrames."""
+
         def flatten_dict(d, parent_key="", sep="."):
             items = []
             for k, v in d.items():
@@ -165,29 +165,30 @@ class GeneralCfg(RemindMFABaseModel):
         df = pd.DataFrame(flat.items(), columns=["Parameter", "Value"])
 
         return df
-    
+
     @classmethod
     def to_schema_df(cls, only_base: bool = True) -> pd.DataFrame:
         """Exports configuration schema (fields, types, descriptions) to pandas DataFrame.
-        
+
         Args:
             only_base: If True, only return fields from GeneralCfg base class (excluding model-specific fields)
         """
+
         def get_field_schema(model_cls, parent_key="", sep="."):
             schema = []
             for field_name, field_info in model_cls.model_fields.items():
                 new_key = f"{parent_key}{sep}{field_name}" if parent_key else field_name
-                
+
                 # Get type annotation
                 annotation = field_info.annotation
-                if hasattr(annotation, '__name__'):
+                if hasattr(annotation, "__name__"):
                     type_str = annotation.__name__
                 else:
-                    type_str = str(annotation).replace('typing.', '')
-                
+                    type_str = str(annotation).replace("typing.", "")
+
                 # Get description from docstring
                 description = field_info.description or ""
-                
+
                 # Get default value if exists
                 if field_info.default is not None:
                     default = field_info.default
@@ -195,25 +196,28 @@ class GeneralCfg(RemindMFABaseModel):
                     default = str(field_info.default_factory())
                 else:
                     default = ""
-                
-                schema.append({
-                    "Parameter": new_key,
-                    "Type": type_str,
-                    "Default": default,
-                    "Description": description
-                })
-                
+
+                schema.append(
+                    {
+                        "Parameter": new_key,
+                        "Type": type_str,
+                        "Default": default,
+                        "Description": description,
+                    }
+                )
+
                 # Recurse for nested Pydantic models
-                if hasattr(annotation, 'model_fields'):
+                if hasattr(annotation, "model_fields"):
                     schema.extend(get_field_schema(annotation, new_key, sep))
-            
+
             return schema
-        
+
         # Use GeneralCfg if only_base is True, otherwise use the calling class
         target_cls = GeneralCfg if only_base else cls
         schema = get_field_schema(target_cls)
         df = pd.DataFrame(schema)
         return df
+
 
 class PlasticsCfg(GeneralCfg):
 
