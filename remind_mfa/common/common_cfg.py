@@ -31,11 +31,16 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
 
 class ModelCustomization(RemindMFABaseModel):
 
-    stock_extrapolation_class_name: str = Field(description="Name of the extrapolation class to use for stock extrapolation.")
-    lifetime_model_name: str = Field(description="Name of the lifetime model to use.")
-    do_stock_extrapolation_by_category: bool = Field(default=False, description="Whether to perform stock extrapolation by good category.")
-    regress_over: str = Field(default="gdppc", description="Variable to use as a predictor for stock extrapolation.")
-    mode: Optional[str] = Field(default=None, description="Mode of the MFA model, e.g. 'stock_driven' or 'inflow_driven'.")
+    stock_extrapolation_class_name: str
+    """Class name of the extrapolation subclass to use for stock extrapolation."""
+    lifetime_model_name: str
+    """Class name of the lifetime model subclass to use for the in-use stock."""
+    do_stock_extrapolation_by_category: bool = False
+    """Whether to perform stock extrapolation by good category."""
+    regress_over: str = "gdppc"
+    """Variable to use as a predictor for stock extrapolation."""
+    mode: Optional[str] = None
+    """Mode of the MFA model, e.g. 'stock_driven' or 'inflow_driven'."""
 
     @property
     def lifetime_model(self) -> fd.LifetimeModel:
@@ -48,58 +53,85 @@ class ModelCustomization(RemindMFABaseModel):
 
 
 class ExportCfg(RemindMFABaseModel):
-    csv: bool = Field(default=True, description="Whether to export results as CSV files.")
-    pickle: bool = Field(default=True, description="Whether to export results as pickle files.")
-    assumptions: bool = Field(default=True, description="Whether to export assumptions as a txt file.")
-    docs: bool = Field(default=False, description="Whether to create documentation files.")
-    future_input: bool = Field(default=False, description="Whether to export results as future input data used in the model.")
-    iamc: bool = Field(default=False, description="Whether to export results in IAMC format.")
+    csv: bool = True
+    """Whether to export results as CSV files."""
+    pickle: bool = True
+    """Whether to export results as pickle files."""
+    assumptions: bool = True
+    """Whether to export assumptions as a txt file."""
+    docs: bool = False
+    """Whether to create documentation files."""
+    future_input: bool = False
+    """Whether to export results as future input data used in the model."""
+    iamc: bool = False
+    """Whether to export results in IAMC format."""
 
 
 class VisualizationCfg(RemindMFABaseModel):
-
-    do_visualize: bool = Field(default=True, description="Whether to create visualizations.")
-    use_stock: dict = Field(default={"do_visualize": False}, description="Visualization configuration for use stock.")
-    production: dict = Field(default={"do_visualize": False}, description="Visualization configuration for production.")
-    sankey: dict = Field(default={"do_visualize": False}, description="Visualization configuration for sankey.")
-    extrapolation: dict = Field(default={"do_visualize": False}, description="Visualization configuration for extrapolation.")
-    do_show_figs: bool = Field(default=True, description="Whether to show figures.")
-    do_save_figs: bool = Field(default=False, description="Whether to save figures.")
-    plotting_engine: str = Field(default="plotly", description="Plotting engine to use for visualizations.")
-    plotly_renderer: str = Field(default="browser", description="Plotly renderer to use for visualizations.")
+    do_visualize: bool = True
+    """Whether to create visualizations."""
+    use_stock: dict = {"do_visualize": False}
+    """Visualization configuration for use stock."""
+    production: dict = {"do_visualize": False}
+    """Visualization configuration for production."""
+    sankey: dict = {"do_visualize": False}
+    """Visualization configuration for sankey."""
+    extrapolation: dict = {"do_visualize": False}
+    """Visualization configuration for extrapolation."""
+    do_show_figs: bool = True
+    """Whether to show figures."""
+    do_save_figs: bool = False
+    """Whether to save figures."""
+    plotting_engine: str = "plotly"
+    """Plotting engine to use for visualizations."""
+    plotly_renderer: str = "browser"
+    """Plotly renderer to use for visualizations."""
 
 
 class CementVisualizationCfg(VisualizationCfg):
-
-    clinker_production: dict = Field(default={}, description="Visualization configuration for clinker production.")
-    cement_production: dict = Field(default={}, description="Visualization configuration for cement production.")
-    concrete_production: dict = Field(default={}, description="Visualization configuration for concrete production.")
-    eol_stock: dict = Field(default={}, description="Visualization configuration for end-of-life stock.")
+    clinker_production: dict = {}
+    """Visualization configuration for clinker production."""
+    cement_production: dict = {}
+    """Visualization configuration for cement production."""
+    concrete_production: dict = {}
+    """Visualization configuration for concrete production."""
+    eol_stock: dict = {}
+    """Visualization configuration for end-of-life stock."""
 
 
 class SteelVisualizationCfg(VisualizationCfg):
-
-    scrap_demand_supply: dict = Field(default={"do_visualize": False}, description="Visualization configuration for scrap demand and supply.")
-    sector_splits: dict = Field(default={"do_visualize": False}, description="Visualization configuration for sector splits.")
-    trade: dict = Field(default={"do_visualize": False}, description="Visualization configuration for trade.")
-    consumption: dict = Field(default={"do_visualize": False}, description="Visualization configuration for consumption.")
-    gdppc: dict = Field(default={"do_visualize": False}, description="Visualization configuration for GDP per capita.")
+    scrap_demand_supply: dict = {"do_visualize": False}
+    """Visualization configuration for scrap demand and supply."""
+    sector_splits: dict = {"do_visualize": False}
+    """Visualization configuration for sector splits."""
+    trade: dict = {"do_visualize": False}
+    """Visualization configuration for trade."""
+    consumption: dict = {"do_visualize": False}
+    """Visualization configuration for consumption."""
+    gdppc: dict = {"do_visualize": False}
+    """Visualization configuration for GDP per capita."""
 
 
 class PlasticsVisualizationCfg(VisualizationCfg):
-
-    flows: dict = Field(default={"do_visualize": False}, description="Visualization configuration for flows.")
+    flows: dict = {"do_visualize": False}
+    """Visualization configuration for flows."""
 
 
 class GeneralCfg(RemindMFABaseModel):
-
-    model_class: str = Field(description="Model class to use. Must be one of 'plastics', 'steel', or 'cement'.")
-    input_data_path: str = Field(description="Path to the input data directory.")
-    customization: ModelCustomization = Field(description="Model customization parameters.")
-    visualization: VisualizationCfg = Field(description="Visualization configuration.")
-    output_path: str = Field(description="Path to the output directory.")
-    docs_path: str = Field(description="Path to the documentation directory.")
-    do_export: ExportCfg = Field(description="Export configuration.")
+    model_class: str
+    """Model class to use. Must be one of 'plastics', 'steel', or 'cement'."""
+    input_data_path: str
+    """Path to the input data directory."""
+    customization: ModelCustomization
+    """Model customization parameters."""
+    visualization: VisualizationCfg
+    """Visualization configuration."""
+    output_path: str
+    """Path to the output directory."""
+    docs_path: str
+    """Path to the documentation directory."""
+    do_export: ExportCfg
+    """Export configuration."""
 
     @classmethod
     def from_model_class(cls, **kwargs) -> "GeneralCfg":
