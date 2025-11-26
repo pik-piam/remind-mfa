@@ -12,10 +12,13 @@ nav:
       - Plastic MFA: plastic.md
       - Cement MFA: cement.md
 theme: readthedocs
+hooks:
+  - docs/merge_bibtex_files.py
 plugins:
   - search
   - bibtex:
-      bib_file: "docs/refs.bib"
+      bib_file: "docs/all_refs.bib"
+      csl_file: "docs/apa.csl"
 markdown_extensions:
   - markdown_include.include:
       base_path: docs
