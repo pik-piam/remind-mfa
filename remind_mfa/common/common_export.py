@@ -90,7 +90,11 @@ class CommonDataExporter(RemindMFABaseModel):
         for name, df in dfs.items():
             df.columns = [self.display_name(col) for col in df.columns]
             df = df.map(convert_cell)
-            df.to_markdown(self.export_docs_path(f"definitions/{name}.md"), index=False)
+            if name == "parameters":
+                # Export parameters as CSV to merge with their source info later
+                df.to_csv(self.export_docs_path(f"definitions/{name}.csv"), index=False)
+            else:
+                df.to_markdown(self.export_docs_path(f"definitions/{name}.md"), index=False)
 
     def assumptions_to_markdown(self):
 

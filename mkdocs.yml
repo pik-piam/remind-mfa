@@ -14,12 +14,12 @@ nav:
 theme: readthedocs
 hooks:
   - docs/merge_bibtex_files.py
+  - docs/merge_parameters_sources.py
 plugins:
   - search
+  - include-markdown
   - bibtex:
       bib_file: "docs/all_refs.bib"
       csl_file: "docs/apa.csl"
 markdown_extensions:
-  - markdown_include.include:
-      base_path: docs
   - footnotes

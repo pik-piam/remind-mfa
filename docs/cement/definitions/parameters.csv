@@ -1,0 +1,10 @@
+Dimensions,Name
+"h, r",cement_production
+"h, r",cement_trade
+"t, r",clinker_ratio
+,cement_ratio
+s,use_split
+"h, r, s",historic_use_lifetime_mean
+"t, r, s",future_use_lifetime_mean
+"t, r",population
+"t, r",gdppc

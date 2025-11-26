@@ -1,30 +1,30 @@
-| Dimensions   | Name                            |
-|:-------------|:--------------------------------|
-| t, r, m      | collection_rate                 |
-| t, r, m      | mechanical_recycling_rate       |
-| t, r, m      | chemical_recycling_rate         |
-| t, r, m      | solvent_recycling_rate          |
-| t, r, m      | incineration_rate               |
-| t, r, m      | landfill_rate                   |
-| h, r         | primary_his_imports             |
-| h, r         | primary_his_exports             |
-| h, r         | intermediate_his_imports        |
-| h, r         | intermediate_his_exports        |
-| h, r         | manufactured_his_imports        |
-| h, r         | manufactured_his_exports        |
-| h, r         | final_his_imports               |
-| h, r         | final_his_exports               |
-| t, r         | waste_imports                   |
-| t, r         | waste_exports                   |
-| t, r, m      | bio_production_rate             |
-| t, r, m      | daccu_production_rate           |
-| t, r, m      | mechanical_recycling_yield      |
-| t, r, m      | reclmech_loss_uncontrolled_rate |
-| r, m, g      | material_shares_in_goods        |
-| t            | emission_capture_rate           |
-| e, m         | carbon_content_materials        |
-| h, r, g      | production                      |
-| r, g         | lifetime_mean                   |
-| r, g         | lifetime_std                    |
-| t, r         | population                      |
-| t, r         | gdppc                           |
+| Dimensions   | Name                            | Source                                                 | Bibtex                                                                                                                                    |
+|:-------------|:--------------------------------|:-------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------|
+| t, r, m      | collection_rate                 | OECD_Plastic                                           | [@OECD22a]                                                                                                                                |
+| t, r, m      | mechanical_recycling_rate       | China_PlasticEoL, OECD_Plastic, PlasticsEurope, US_EPA | [@Jiang20], [@yonggang_plastic_2024], [@noauthor_20191890_nodate], [@OECD22a], [@plastics_europe_knowledge_2025], [@us_epa_plastics_2017] |
+| t, r, m      | chemical_recycling_rate         |                                                        |                                                                                                                                           |
+| t, r, m      | solvent_recycling_rate          |                                                        |                                                                                                                                           |
+| t, r, m      | incineration_rate               | China_PlasticEoL, OECD_Plastic, PlasticsEurope, US_EPA | [@Jiang20], [@yonggang_plastic_2024], [@noauthor_20191890_nodate], [@OECD22a], [@plastics_europe_knowledge_2025], [@us_epa_plastics_2017] |
+| t, r, m      | landfill_rate                   |                                                        |                                                                                                                                           |
+| h, r         | primary_his_imports             | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| h, r         | primary_his_exports             | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| h, r         | intermediate_his_imports        | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| h, r         | intermediate_his_exports        | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| h, r         | manufactured_his_imports        | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| h, r         | manufactured_his_exports        | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| h, r         | final_his_imports               | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| h, r         | final_his_exports               | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| t, r         | waste_imports                   | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| t, r         | waste_exports                   | UNCTAD                                                 | [@unctad_plastics_nodate]                                                                                                                 |
+| t, r, m      | bio_production_rate             |                                                        |                                                                                                                                           |
+| t, r, m      | daccu_production_rate           |                                                        |                                                                                                                                           |
+| t, r, m      | mechanical_recycling_yield      |                                                        |                                                                                                                                           |
+| t, r, m      | reclmech_loss_uncontrolled_rate |                                                        |                                                                                                                                           |
+| r, m, g      | material_shares_in_goods        | OECD_Plastic                                           | [@OECD22a]                                                                                                                                |
+| t            | emission_capture_rate           |                                                        |                                                                                                                                           |
+| e, m         | carbon_content_materials        |                                                        |                                                                                                                                           |
+| h, r, g      | production                      |                                                        |                                                                                                                                           |
+| r, g         | lifetime_mean                   | Geyer                                                  | [@geyer_production_2017]                                                                                                                  |
+| r, g         | lifetime_std                    | Geyer                                                  | [@geyer_production_2017]                                                                                                                  |
+| t, r         | population                      |                                                        |                                                                                                                                           |
+| t, r         | gdppc                           |                                                        |                                                                                                                                           |
