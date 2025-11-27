@@ -148,24 +148,6 @@ class GeneralCfg(RemindMFABaseModel):
         subcls = subclasses[model_class]
         return subcls(**kwargs)
 
-    def to_df(self) -> pd.DataFrame:
-        """Exports configuration parameters to pandas DataFrames."""
-
-        def flatten_dict(d, parent_key="", sep="."):
-            items = []
-            for k, v in d.items():
-                new_key = f"{parent_key}{sep}{k}" if parent_key else k
-                if isinstance(v, dict):
-                    items.extend(flatten_dict(v, new_key, sep=sep).items())
-                else:
-                    items.append((new_key, v))
-            return dict(items)
-
-        flat = flatten_dict(self.model_dump())
-        df = pd.DataFrame(flat.items(), columns=["Parameter", "Value"])
-
-        return df
-
     @classmethod
     def to_schema_df(cls, only_base: bool = True) -> pd.DataFrame:
         """Exports configuration schema (fields, types, descriptions) to pandas DataFrame.

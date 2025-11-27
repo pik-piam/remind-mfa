@@ -16,7 +16,7 @@ The basic structure of the source code is as follows:
 
 Besides the source code, the repository contains another folder for configuration files in YAML format, where users can adjust the settings for each run (such as which plots to create, or choosing between different modelling parameters). The following table lists the settings that can be adjusted with their type, default values and description:
 
-{!plastics/config_schema.md!}
+{% include-markdown "plastics/config_schema.md" %}
 
 
 ## Data Folder
