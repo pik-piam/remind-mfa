@@ -1,4 +1,4 @@
-from remind_mfa.common.base_model import RemindMFABaseModel
+from remind_mfa.common.helper import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
 from pydantic import Field

@@ -8,7 +8,7 @@ from pydantic import model_validator
 import flodym as fd
 import flodym.export as fde
 
-from remind_mfa.common.base_model import RemindMFABaseModel
+from remind_mfa.common.helper import RemindMFABaseModel, RemindMFADefinition
 from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg, GeneralCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 
@@ -59,7 +59,7 @@ class CommonDataExporter(RemindMFABaseModel):
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
 
-    def definition_to_markdown(self, definition: fd.MFADefinition):
+    def definition_to_markdown(self, definition: RemindMFADefinition):
 
         if not self.do_export.docs:
             return
