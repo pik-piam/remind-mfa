@@ -5,7 +5,12 @@ from typing import Optional, List
 
 class RemindMFABaseModel(BaseModel):
 
-    model_config = ConfigDict(extra="forbid", protected_namespaces=(), arbitrary_types_allowed=True, use_attribute_docstrings=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        protected_namespaces=(),
+        arbitrary_types_allowed=True,
+        use_attribute_docstrings=True,
+    )
 
 
 class RemindMFAParameterDefinition(ParameterDefinition):
@@ -13,7 +18,8 @@ class RemindMFAParameterDefinition(ParameterDefinition):
     description: Optional[str] = None
     """Description of the parameter."""
 
-# Required such that the model_dump() call in the to_dfs() method knows about the additional 
+
+# Required such that the model_dump() call in the to_dfs() method knows about the additional
 # description field in the parameter definition objects
 class RemindMFADefinition(MFADefinition):
     """All the information needed to define an MFA system, compiled of lists of definition objects."""
