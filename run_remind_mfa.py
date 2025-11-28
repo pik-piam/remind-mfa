@@ -4,7 +4,7 @@ import flodym as fd
 import sys
 
 from remind_mfa.common.helper import ModelNames
-from remind_mfa.common.model_classes import cfgs, models
+from remind_mfa.common.class_mappings import cfgs, models
 
 
 def get_model_config(filename):
