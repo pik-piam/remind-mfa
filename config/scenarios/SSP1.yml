@@ -3,5 +3,4 @@ data:
 - parameter: saturation_level_factor
   models:
   - steel
-  type: flodym
   value: 0.8

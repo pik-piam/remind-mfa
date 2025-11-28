@@ -3,7 +3,6 @@ data:
 - parameter: saturation_level_factor
   models:
   - steel
-  type: flodym
   index:
     Region: EUR
   value: 0.5

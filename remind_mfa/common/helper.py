@@ -26,6 +26,14 @@ class RemindMFAParameterDefinition(ParameterDefinition):
     """Description of the parameter."""
 
 
+class PlainDataPointDefinition(RemindMFABaseModel):
+
+    name: str
+    """Name of the data point."""
+    description: Optional[str] = None
+    """Description of the parameter."""
+
+
 # Required such that the model_dump() call in the to_dfs() method knows about the additional
 # description field in the parameter definition objects
 class RemindMFADefinition(MFADefinition):

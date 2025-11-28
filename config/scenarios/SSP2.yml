@@ -1,13 +1,10 @@
 parent:
 data:
 - parameter: lifetime_factor
-  type: flodym
   value: 1.0
 - parameter: lifetime_factor_blending_year
-  type: plain
   value: 2040
 - parameter: saturation_level_factor
   models:
   - steel
-  type: flodym
   value: 1.0
