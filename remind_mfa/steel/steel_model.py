@@ -17,6 +17,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
 
+
 class SteelModel(CommonModel):
 
     def run(self):
