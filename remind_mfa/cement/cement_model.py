@@ -12,12 +12,13 @@ from remind_mfa.cement.cement_data_reader import CementDataReader
 from remind_mfa.cement.cement_export import CementDataExporter
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.common_model import CommonModel
+from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 
 
-class CementModel:
+class CementModel(CommonModel):
 
-    def __init__(self, cfg: GeneralCfg):
-        self.cfg = cfg
+    def run(self):
         self.definition = get_definition(self.cfg)
         self.data_reader = CementDataReader(
             input_data_path=self.cfg.input_data_path, definition=self.definition
@@ -32,9 +33,9 @@ class CementModel:
         self.parameters = self.data_reader.read_parameters(
             self.definition.parameters, dims=self.dims
         )
+        self.read_scenario_parameters(cement_scn_prm_def)
         self.processes = fd.make_processes(self.definition.processes)
 
-    def run(self):
         # historic mfa
         self.historic_mfa = self.make_historic_mfa()
         self.historic_mfa.compute()

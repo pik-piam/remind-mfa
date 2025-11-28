@@ -126,3 +126,6 @@ def get_definition(cfg: GeneralCfg):
         stocks=stocks,
         parameters=parameters,
     )
+
+
+scenario_parameters = []

@@ -327,3 +327,6 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         parameters=parameters,
         trades=trades,
     )
+
+
+scenario_parameters = []

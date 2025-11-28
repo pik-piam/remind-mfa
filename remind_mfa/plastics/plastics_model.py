@@ -9,21 +9,40 @@ from .plastics_export import PlasticsDataExporter
 from .plastics_definition import get_definition, PlasticsMFADefinition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.common_model import CommonModel
+from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 
 
-class PlasticsModel:
+class PlasticsModel(CommonModel):
 
-    def __init__(self, cfg: GeneralCfg):
-        self.cfg = cfg
-        self.definition_historic = get_definition(cfg, historic=True)
-        self.definition_future = get_definition(cfg, historic=False)
+    def run(self):
+        self.definition_historic = get_definition(self.cfg, historic=True)
+        self.definition_future = get_definition(self.cfg, historic=False)
         self.read_data()
+        self.read_scenario_parameters(plastics_scn_prm_def)
         self.data_writer = PlasticsDataExporter(
             cfg=self.cfg.visualization,
             do_export=self.cfg.do_export,
             output_path=self.cfg.output_path,
             docs_path=self.cfg.docs_path,
         )
+
+        self.mfa_historic = self.make_mfa(
+            self.definition_historic, mfasystem_class=PlasticsMFASystemHistoric
+        )
+        self.mfa_future = self.make_mfa(
+            self.definition_future, mfasystem_class=PlasticsMFASystemFuture
+        )
+        self.mfa_historic.compute()
+        self.mfa_future.compute(
+            historic_stock=self.mfa_historic.stocks["in_use_historic"],
+            historic_trade=self.mfa_historic.trade_set,
+        )
+        self.data_writer.export_mfa(model=self)
+        self.data_writer.definition_to_markdown(definition=self.definition_future)
+        self.data_writer.assumptions_to_markdown()
+        self.data_writer.cfg_to_markdown(cfg=self.cfg)
+        self.data_writer.visualize_results(model=self)
 
     def read_data(self):
 
@@ -95,21 +114,3 @@ class PlasticsModel:
             trade_set=trade_set,
             cfg=self.cfg,
         )
-
-    def run(self):
-        self.mfa_historic = self.make_mfa(
-            self.definition_historic, mfasystem_class=PlasticsMFASystemHistoric
-        )
-        self.mfa_future = self.make_mfa(
-            self.definition_future, mfasystem_class=PlasticsMFASystemFuture
-        )
-        self.mfa_historic.compute()
-        self.mfa_future.compute(
-            historic_stock=self.mfa_historic.stocks["in_use_historic"],
-            historic_trade=self.mfa_historic.trade_set,
-        )
-        self.data_writer.export_mfa(model=self)
-        self.data_writer.definition_to_markdown(definition=self.definition_future)
-        self.data_writer.assumptions_to_markdown()
-        self.data_writer.cfg_to_markdown(cfg=self.cfg)
-        self.data_writer.visualize_results(model=self)
