@@ -1,8 +1,9 @@
 import os
 import flodym as fd
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from typing import List, Dict, Optional
 import yaml
+from enum import Enum
 
 from remind_mfa.common.helper import RemindMFAParameterDefinition
 from remind_mfa.common.helper import ModelNames, RemindMFABaseModel
@@ -15,16 +16,16 @@ class ScenarioReader(RemindMFABaseModel):
     dims: fd.DimensionSet
     parameter_definitions: List[RemindMFAParameterDefinition]
     _scenarios: List['Scenario'] = []
-    _parameters: Dict[str, fd.Parameter] = {}
+    _parameters: dict = {}
 
-    def get_parameters(self) -> Dict[str, fd.Parameter]:
+    def get_parameters(self) -> dict:
         self.read_all()
-        self.init_parameters()
+        self.init_flodym_parameters()
         for scenario in self._scenarios:
             scenario.apply(self._parameters)
         return self._parameters
 
-    def init_parameters(self):
+    def init_flodym_parameters(self):
         for param_def in self.parameter_definitions:
             name = param_def.name
             dims = self.dims[param_def.dim_letters]
@@ -53,24 +54,18 @@ class Scenario(RemindMFABaseModel):
     data: List['ScenarioDataPoint'] = []
 
     def filter_data_by_model(self, model_name: ModelNames):
-        filtered_params = []
-        for param in self.data:
-            if model_name in param.models:
-                filtered_params.append(param)
-        self.data = filtered_params
+        self.data = [p for p in self.data if model_name in p.models]
 
-    def apply(self, parameters: Dict[str, fd.Parameter]):
+    def apply(self, parameters: dict):
         for data_point in self.data:
-            parameter = parameters[data_point.parameter]
-            if data_point.index:
-                parameter[data_point.index] = data_point.value
-            else:
-                parameter[...] = data_point.value
+            data_point.apply(parameters)
+
 
 
 class ScenarioDataPoint(RemindMFABaseModel):
     parameter: str
     models: List[ModelNames]|str = "all"
+    type: 'ParameterType'
     index: Dict[str, str] = {}
     value: float
 
@@ -83,3 +78,24 @@ class ScenarioDataPoint(RemindMFABaseModel):
             else:
                 return [ModelNames(value)]
         return value
+
+    @model_validator(mode='after')
+    def validate_index(self):
+        if self.type == ParameterType.PLAIN and self.index:
+            raise ValueError("Index should be empty for plain parameters.")
+        return self
+
+    def apply(self, parameters: dict):
+        if self.type == ParameterType.PLAIN:
+            parameters[self.parameter] = self.value
+        elif self.type == ParameterType.FLODYM:
+            parameter = parameters[self.parameter]
+            if self.index:
+                parameter[self.index] = self.value
+            else:
+                parameter[...] = self.value
+
+
+class ParameterType(str, Enum):
+    FLODYM = "flodym"
+    PLAIN = "plain"
