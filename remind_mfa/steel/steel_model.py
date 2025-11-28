@@ -3,7 +3,6 @@ import flodym as fd
 from copy import deepcopy
 
 from remind_mfa.common.data_blending import blend
-from remind_mfa.common.common_cfg import GeneralCfg
 from remind_mfa.common.data_extrapolations import LogSigmoidExtrapolation
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
@@ -15,17 +14,16 @@ from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
 from remind_mfa.steel.steel_definition import get_definition, SteelMFADefinition
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.common_model import CommonModel
+from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
 
-
-class SteelModel:
-
-    def __init__(self, cfg: GeneralCfg):
-        self.cfg = cfg
+class SteelModel(CommonModel):
 
     def run(self):
         stock_driven = self.cfg.customization.mode == "stock_driven"
         self.definition_future = get_definition(self.cfg, historic=False, stock_driven=stock_driven)
         self.read_data(self.definition_future)
+        self.read_scenario_parameters(steel_scn_prm_def)
         self.modify_parameters()
         self.data_writer = SteelDataExporter(
             cfg=self.cfg.visualization,

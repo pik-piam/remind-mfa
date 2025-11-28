@@ -24,6 +24,8 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
 
 class ModelCustomization(RemindMFABaseModel):
 
+    scenario: str
+    """Name of the scenario to use."""
     stock_extrapolation_class_name: str
     """Class name of the extrapolation subclass to use for stock extrapolation."""
     lifetime_model_name: str
@@ -115,6 +117,8 @@ class GeneralCfg(RemindMFABaseModel):
     """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
     input_data_path: str
     """Path to the input data directory."""
+    scenarios_path: str
+    """Path to the scenario definition directory."""
     customization: ModelCustomization
     """Model customization parameters."""
     visualization: VisualizationCfg

@@ -3,9 +3,11 @@ model: 'cement'
 
 # data sources
 input_data_path: '../simson_data/data/cement/output'
+scenarios_path: 'config/scenarios'
 
 # model customization
 customization:
+  scenario: 'SSP2'
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
 

@@ -334,3 +334,11 @@ def get_definition(cfg: GeneralCfg, historic: bool, stock_driven: bool) -> Steel
         parameters=parameters,
         trades=trades,
     )
+
+
+scenario_parameters = [
+    RemindMFAParameterDefinition(
+        name="saturation_level_factor",
+        dim_letters=("r",),
+    ),
+]

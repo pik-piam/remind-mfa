@@ -3,9 +3,11 @@ model: 'steel'
 
 # data sources
 input_data_path: '../simson_data/data/steel_future/output'
+scenarios_path: 'config/scenarios'
 
 # model customization
 customization:
+  scenario: 'SSP2'
   mode: 'inflow_driven'
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
