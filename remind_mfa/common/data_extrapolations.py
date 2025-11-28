@@ -153,9 +153,16 @@ class Extrapolation(RemindMFABaseModel):
         # correct initial guess
         outside_bounds = (initial_guess < bounds[0]) + (initial_guess > bounds[1])
         if np.any(outside_bounds):
-            initial_guess[outside_bounds] = (
-                bounds[0][outside_bounds] + bounds[1][outside_bounds]
-            ) / 2
+            idx = np.where(outside_bounds)[0]
+            lower = bounds[0][idx]
+            upper = bounds[1][idx]
+            # If lower is -inf, use upper; if upper is inf, use lower; else use mean
+            use_upper = np.isinf(lower) & ~np.isinf(upper)
+            use_lower = np.isinf(upper) & ~np.isinf(lower)
+            use_mean = ~(use_upper | use_lower)
+            initial_guess[idx[use_upper]] = upper[use_upper]
+            initial_guess[idx[use_lower]] = lower[use_lower]
+            initial_guess[idx[use_mean]] = (lower[use_mean] + upper[use_mean]) / 2
         fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12, bounds=bounds).x
         regression = self.func(predictor, fit_prms)
         return fit_prms, regression
@@ -234,7 +241,12 @@ class LogSigmoidExtrapolation(SigmoidExtrapolation):
 
     @staticmethod
     def func(x, prms):
-        return SigmoidExtrapolation.func(np.log10(x), prms)
+        log_prms = prms.copy()
+        # adjust offset to log space
+        log_prms[2] = np.log10(log_prms[2])
+        return SigmoidExtrapolation.func(np.log10(x), log_prms)
 
     def initial_guess(self, predictor_values, data_to_extrapolate):
-        return super().initial_guess(np.log10(predictor_values), data_to_extrapolate)
+        log_guess = super().initial_guess(np.log10(predictor_values), data_to_extrapolate)
+        log_guess[2] = 10 ** log_guess[2]  # Convert x_offset back to real space
+        return log_guess
