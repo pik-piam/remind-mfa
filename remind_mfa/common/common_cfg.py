@@ -108,7 +108,7 @@ class GeneralCfg(RemindMFABaseModel):
     madrat_output_path: str
     input_data_path: str
     input_data_version: str
-    model_switches: ModelSwitches
+    customization: ModelSwitches
     visualization: VisualizationCfg
     output_path: str
     do_export: ExportCfg

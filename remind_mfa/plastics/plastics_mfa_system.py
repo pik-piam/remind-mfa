@@ -81,11 +81,11 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             historic_stocks=historic_stock.stock,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
-            regress_over=self.cfg.model_switches.regress_over,
+            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            regress_over=self.cfg.customization.regress_over,
             weight=weight,
             target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
+                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
             bound_list=bound_list,
             indep_fit_dim_letters=indep_fit_dim_letters,
@@ -117,11 +117,11 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             historic_stocks=historic_stock.stock,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
-            regress_over=self.cfg.model_switches.regress_over,
+            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            regress_over=self.cfg.customization.regress_over,
             weight=weight,
             target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
+                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
             bound_list=bound_list,
             indep_fit_dim_letters=indep_fit_dim_letters,

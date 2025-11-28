@@ -123,7 +123,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 name="in_use_historic",
                 dim_letters=("h", "r", "g"),
                 subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=cfg.model_switches.lifetime_model,
+                lifetime_model_class=cfg.customization.lifetime_model,
                 time_letter="h",
             ),
         ]
@@ -133,7 +133,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 name="in_use_dsm",
                 dim_letters=("t", "r", "g"),
                 subclass=fd.StockDrivenDSM,
-                lifetime_model_class=cfg.model_switches.lifetime_model,
+                lifetime_model_class=cfg.customization.lifetime_model,
             ),
             fd.StockDefinition(
                 name="in_use",

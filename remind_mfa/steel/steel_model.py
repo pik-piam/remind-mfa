@@ -23,7 +23,7 @@ class SteelModel:
         self.cfg = cfg
 
     def run(self):
-        stock_driven = self.cfg.model_switches.mode == "stock_driven"
+        stock_driven = self.cfg.customization.mode == "stock_driven"
         self.definition_future = get_definition(self.cfg, historic=False, stock_driven=stock_driven)
         self.read_data(self.definition_future)
         self.modify_parameters()
@@ -42,7 +42,7 @@ class SteelModel:
             stock_projection = None
             historic_trade = None
 
-        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.model_switches.mode)
+        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
         self.future_mfa.compute(stock_projection, historic_trade)
 
         self.data_writer.export_mfa(mfa=self.future_mfa)
@@ -177,7 +177,7 @@ class SteelModel:
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         indep_fit_dim_letters = (
-            ("g",) if self.cfg.model_switches.do_stock_extrapolation_by_category else ()
+            ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
         )
         historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
         sat_level = self.get_saturation_level(historic_stocks)
@@ -227,9 +227,9 @@ class SteelModel:
             historic_stocks,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
+            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
+                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
             ),
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,
@@ -240,7 +240,7 @@ class SteelModel:
         total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
         self.parameters["gdppc"] = gdppc_old
 
-        if not self.cfg.model_switches.do_stock_extrapolation_by_category:
+        if not self.cfg.customization.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
             sector_splits = self.calc_stock_sector_splits()
             total_in_use_stock = total_in_use_stock * sector_splits
@@ -260,7 +260,7 @@ class SteelModel:
         multi_dim_extrapolation.regress()
         saturation_level = multi_dim_extrapolation.fit_prms[0]
 
-        if self.cfg.model_switches.do_stock_extrapolation_by_category:
+        if self.cfg.customization.do_stock_extrapolation_by_category:
             high_stock_sector_split = self.get_high_stock_sector_split()
             saturation_level = saturation_level * high_stock_sector_split.values
 

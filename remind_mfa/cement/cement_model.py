@@ -102,7 +102,7 @@ class CementModel:
             self.historic_mfa.stocks["historic_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
+            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             target_dim_letters=("t", "r"),
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,

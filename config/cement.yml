@@ -7,7 +7,7 @@ input_data_path: '../simson_data/data/cement/output'
 input_data_version: 'rev0_h12_c378de4d_mfa'
 
 # model customization
-model_switches:
+customization:
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
   parameter_extrapolation:
