@@ -61,11 +61,10 @@ class Scenario(RemindMFABaseModel):
             data_point.apply(parameters)
 
 
-
 class ScenarioDataPoint(RemindMFABaseModel):
     parameter: str
     models: List[ModelNames] | str = "all"
-    type: 'ParameterType'
+    type: "ParameterType"
     index: Dict[str, str] = {}
     value: float
 
@@ -79,7 +78,7 @@ class ScenarioDataPoint(RemindMFABaseModel):
                 return [ModelNames(value)]
         return value
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_index(self):
         if self.type == ParameterType.PLAIN and self.index:
             raise ValueError("Index should be empty for plain parameters.")
