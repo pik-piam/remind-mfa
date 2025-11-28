@@ -1,17 +1,11 @@
-import os
-import flodym as fd
-
-from remind_mfa.common.common_cfg import GeneralCfg
 from .plastics_mfa_system import PlasticsMFASystemFuture
 from .plastics_mfa_system_historic import PlasticsMFASystemHistoric
 from .plastics_export import PlasticsDataExporter
-from .plastics_definition import get_definition, PlasticsMFADefinition
+from .plastics_definition import get_definition
+from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 from .plastics_data_reader import PlasticsDataReader
 from remind_mfa.common.common_cfg import PlasticsCfg
-from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
 from remind_mfa.common.common_model import CommonModel
-from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 
 
 class PlasticsModel(CommonModel):
@@ -25,79 +19,3 @@ class PlasticsModel(CommonModel):
 
     def set_definition(self, *args, **kwargs):
         return get_definition(*args, **kwargs)
-
-    def run(self):
-        self.definition_historic = get_definition(self.cfg, historic=True)
-        self.definition_future = get_definition(self.cfg, historic=False)
-        self.read_data()
-        self.read_scenario_parameters(plastics_scn_prm_def)
-        self.data_writer = PlasticsDataExporter(
-            cfg=self.cfg.visualization,
-            do_export=self.cfg.do_export,
-            output_path=self.cfg.output_path,
-            docs_path=self.cfg.docs_path,
-        )
-
-        self.mfa_historic = self.make_mfa(
-            self.definition_historic, mfasystem_class=PlasticsMFASystemHistoric
-        )
-        self.mfa_future = self.make_mfa(
-            self.definition_future, mfasystem_class=PlasticsMFASystemFuture
-        )
-        self.mfa_historic.compute()
-        self.mfa_future.compute(
-            historic_stock=self.mfa_historic.stocks["in_use_historic"],
-            historic_trade=self.mfa_historic.trade_set,
-        )
-        self.data_writer.export_mfa(model=self)
-        self.data_writer.definition_to_markdown(definition=self.definition_future)
-        self.data_writer.assumptions_to_markdown()
-        self.data_writer.cfg_to_markdown(cfg=self.cfg)
-        self.data_writer.visualize_results(model=self)
-
-    def read_data(self):
-
-        self.data_reader = MrindustryDataReader(
-            cfg=self.cfg,
-            definition=self.definition_future,
-            allow_missing_values=True,
-            allow_extra_values=True,
-        )
-
-        # dims and parameters are the same for historic and future
-        self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
-        self.parameters = self.data_reader.read_parameters(
-            self.definition_future.parameters, dims=self.dims
-        )
-
-    def make_mfa(
-        self, definition: PlasticsMFADefinition, mfasystem_class: type
-    ) -> PlasticsMFASystemFuture:
-
-        processes = fd.make_processes(definition.processes)
-
-        flows = fd.make_empty_flows(
-            processes=processes,
-            flow_definitions=definition.flows,
-            dims=self.dims,
-        )
-        stocks = fd.make_empty_stocks(
-            processes=processes,
-            stock_definitions=definition.stocks,
-            dims=self.dims,
-        )
-
-        trade_set = TradeSet.from_definitions(
-            definitions=definition.trades,
-            dims=self.dims,
-        )
-
-        return mfasystem_class(
-            dims=self.dims,
-            parameters=self.parameters,
-            processes=processes,
-            flows=flows,
-            stocks=stocks,
-            trade_set=trade_set,
-            cfg=self.cfg,
-        )

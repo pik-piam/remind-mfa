@@ -8,11 +8,12 @@ from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.common_cfg import PlasticsCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.common.common_cfg import PlasticsCfg
 
 
 class PlasticsMFASystemFuture(fd.MFASystem):
 
-    cfg: Optional[PlasticsCfg] = None
+    cfg: PlasticsCfg
     trade_set: TradeSet
 
     def compute(self, historic_stock: fd.Stock, historic_trade: TradeSet):

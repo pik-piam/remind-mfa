@@ -31,66 +31,6 @@ class CementModel(CommonModel):
     def set_definition(self, *args, **kwargs):
         return get_definition(*args, **kwargs)
 
-    def run(self):
-        self.read_scenario_parameters(cement_scn_prm_def)
-        self.processes = fd.make_processes(self.definition.processes)
-
-        # historic mfa
-        self.historic_mfa = self.make_mfa(historic=True)
-        self.historic_mfa.compute()
-        stock_projection = self.get_long_term_stock()
-
-        # apply scenarios to parameters for future mfa
-        self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["t"]
-        ).apply_prm_extrapolation(self.parameters)
-
-        # future mfa
-        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
-        self.future_mfa.compute(stock_projection)
-
-        # visualization and export
-        self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.definition_to_markdown(definition=self.definition)
-        self.data_writer.visualize_results(model=self)
-
-    def read_data(self, definition: StockDrivenCementMFASystem):
-        self.data_reader = CementDataReader(
-            input_data_path=self.cfg.input_data_path,
-            definition=definition,
-        )
-        self.dims = self.data_reader.read_dimensions(definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
-
-    def make_mfa(self, historic: bool, mode: str = None) -> InflowDrivenHistoricCementMFASystem:
-        if historic:
-            definition = self.definition_historic
-            mfasystem_class = InflowDrivenHistoricCementMFASystem
-        else:
-            definition = self.definition_future
-            mfasystem_class = StockDrivenCementMFASystem
-
-        processes = fd.make_processes(definition.processes)
-        flows = fd.make_empty_flows(
-            processes=processes,
-            flow_definitions=definition.flows,
-            dims=self.dims,
-        )
-        stocks = fd.make_empty_stocks(
-            processes=processes,
-            stock_definitions=definition.stocks,
-            dims=self.dims,
-        )
-        return mfasystem_class(
-            cfg=self.cfg,
-            parameters=self.parameters,
-            processes=processes,
-            dims=self.dims,
-            flows=flows,
-            stocks=stocks,
-            mode=mode,
-        )
-
     def get_long_term_stock(self) -> fd.FlodymArray:
         """Extrapolate in use stock to future."""
 

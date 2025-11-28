@@ -3,17 +3,18 @@ import flodym as fd
 from remind_mfa.common.common_cfg import GeneralCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
-from remind_mfa.common.custom_data_reader import CustomDataReader
+from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import get_definition
 from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 
 
 class CommonModel:
 
     ConfigCls = GeneralCfg
-    DataReaderCls = CustomDataReader
+    DataReaderCls = MrindustryDataReader
     DataExporterCls = CommonDataExporter
     HistoricMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
@@ -27,15 +28,23 @@ class CommonModel:
         self.modify_parameters()
         self.init_data_writer()
 
+    def get_long_term_stock(self):
+        raise NotImplementedError
+
     def run(self):
         self.definition_historic = get_definition(self.cfg, historic=True)
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
+
         stock_projection = self.get_long_term_stock()
-        historic_trade = self.historic_mfa.trade_set
+
+        # apply scenarios to parameters for future mfa
+        self.parameters = ParameterExtrapolationManager(
+            self.cfg, self.dims["t"]
+        ).apply_prm_extrapolation(self.parameters)
 
         self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
-        self.future_mfa.compute(stock_projection, historic_trade)
+        self.future_mfa.compute(stock_projection)
 
     def export(self):
         self.data_writer.export_mfa(mfa=self.future_mfa)
@@ -48,7 +57,7 @@ class CommonModel:
 
     def read_data(self):
         self.data_reader = self.DataReaderCls(
-            input_data_path=self.cfg.input_data_path,
+            cfg=self.cfg,
             definition=self.definition_future,
             # TODO: Remove requirement for plastics and then remove these two lines
             allow_extra_values=True,

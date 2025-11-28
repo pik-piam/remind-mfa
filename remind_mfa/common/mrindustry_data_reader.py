@@ -19,7 +19,7 @@ class MrindustryDataReader(fd.CompoundDataReader):
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):
-        self.model_class = cfg.model_class
+        self.model_class = cfg.model
         self.madrat_output_path = cfg.madrat_output_path
         self.input_data_path = cfg.input_data_path
         self.input_data_version = cfg.input_data_version

@@ -5,7 +5,7 @@ import pandas as pd
 
 from .data_extrapolations import Extrapolation
 from .parameter_extrapolation import ParameterExtrapolation
-from .helper import ModelNames
+from .helper import ModelNames, CementModes
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -57,6 +57,14 @@ class ModelSwitches(RemindMFABaseModel):
         for param_name, class_name in self.parameter_extrapolation.items():
             classes[param_name] = choose_subclass_by_name(class_name, ParameterExtrapolation)
         return classes
+
+
+class CementModelSwitches(ModelSwitches):
+    mode: CementModes
+
+    @property
+    def carbon_flow(self) -> bool:
+        return self.mode == CementModes.CARBON_FLOW
 
 
 class ExportCfg(RemindMFABaseModel):
@@ -225,6 +233,7 @@ class PlasticsCfg(GeneralCfg):
 
 class CementCfg(GeneralCfg):
 
+    customization: CementModelSwitches
     visualization: CementVisualizationCfg
 
 

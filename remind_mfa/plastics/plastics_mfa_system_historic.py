@@ -12,7 +12,7 @@ from remind_mfa.common.data_transformations import Bound, BoundList
 
 class PlasticsMFASystemHistoric(fd.MFASystem):
 
-    cfg: Optional[PlasticsCfg] = None
+    cfg: PlasticsCfg
     trade_set: TradeSet
 
     def compute(self):

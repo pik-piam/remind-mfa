@@ -4,16 +4,14 @@ from enum import Enum
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
+from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.common_cfg import CementCfg
+from remind_mfa.common.helper import CementModes
 
 
-class CementMode(str, Enum):
-    BASE = "base"
-    CARBON_FLOW = "carbon_flow"
+class StockDrivenCementMFASystem(CommonMFASystem):
 
-
-class StockDrivenCementMFASystem(fd.MFASystem):
-
-    mode: CementMode
+    cfg: CementCfg
 
     def compute(self, stock_projection: fd.FlodymArray):
         """
@@ -22,7 +20,7 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         self.compute_in_use_stock(stock_projection)
         self.compute_flows()
         self.compute_other_stocks()
-        if self.carbon_flow:
+        if self.cfg.customization.carbon_flow:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
@@ -109,7 +107,3 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         stk["eol"].lifetime_model.set_prms(mean=np.inf)
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow
-
-    @property
-    def carbon_flow(self) -> bool:
-        return self.mode == CementMode.CARBON_FLOW
