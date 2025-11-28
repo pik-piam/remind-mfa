@@ -9,8 +9,7 @@ from remind_mfa.common.helper import RemindMFADefinition
 
 
 class MrindustryDataReader(fd.CompoundDataReader):
-    dimension_map = {
-    }
+    dimension_map = {}
 
     def __init__(
         self,

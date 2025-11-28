@@ -41,7 +41,7 @@ class RemindMFADefinition(MFADefinition):
 
     parameters: List[RemindMFAParameterDefinition]
     """List of definitions of parameters used in the model."""
-    scenario_parameters: List[RemindMFAParameterDefinition|PlainDataPointDefinition]
+    scenario_parameters: List[RemindMFAParameterDefinition | PlainDataPointDefinition]
 
 
 class CementModes(str, Enum):

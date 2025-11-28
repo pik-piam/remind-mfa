@@ -13,7 +13,7 @@ class ScenarioReader(RemindMFABaseModel):
     base_path: str
     model: ModelNames
     dims: fd.DimensionSet
-    parameter_definitions: List[RemindMFAParameterDefinition|PlainDataPointDefinition]
+    parameter_definitions: List[RemindMFAParameterDefinition | PlainDataPointDefinition]
     _scenarios: List["Scenario"] = []
     _parameters: dict = {}
 

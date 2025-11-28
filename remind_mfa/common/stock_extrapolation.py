@@ -222,7 +222,9 @@ class StockExtrapolation:
             name="Parameter Names", letter="p", items=self.extrapolation.prm_names
         )
         parameter_dims = parameter_dims.expand_by([parameter_names])
-        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=self.extrapolation._fit_prms)
+        self.pure_parameters = fd.FlodymArray(
+            dims=parameter_dims, values=self.extrapolation._fit_prms
+        )
         # BLOCK END
 
         prediction_out[:n_historic, ...] = historic_in

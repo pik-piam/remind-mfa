@@ -31,7 +31,6 @@ class SteelModel(CommonModel):
     def set_definition(self, *args, **kwargs):
         return get_definition(*args, **kwargs)
 
-
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
 
@@ -105,7 +104,6 @@ class SteelModel(CommonModel):
             dims=self.dims["t", "g"],
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
-
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         indep_fit_dim_letters = (

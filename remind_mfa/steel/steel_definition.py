@@ -251,7 +251,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> SteelMFADefinition:
         ),
         RemindMFAParameterDefinition(
             name="scrap_exports", dim_letters=("h", "r"), description="Historic scrap exports"
-        )
+        ),
     ]
 
     if historic:

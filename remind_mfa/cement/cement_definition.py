@@ -181,7 +181,9 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=("r",)),
         RemindMFAParameterDefinition(name="ckd_cao_ratio", dim_letters=("r",)),
         RemindMFAParameterDefinition(name="ckd_landfill_share", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="cao_emission_factor", dim_letters=()),  # manual (calculated)
+        RemindMFAParameterDefinition(
+            name="cao_emission_factor", dim_letters=()
+        ),  # manual (calculated)
         RemindMFAParameterDefinition(name="product_density", dim_letters=("m",)),  # manual (guess)
         RemindMFAParameterDefinition(name="carbonation_rate", dim_letters=("r", "a")),
         RemindMFAParameterDefinition(name="carbonation_rate_buried", dim_letters=("r", "a")),
