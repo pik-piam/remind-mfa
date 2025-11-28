@@ -2,11 +2,9 @@ from remind_mfa.common.helper import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
 import pandas as pd
-from typing import TYPE_CHECKING
 
 from .data_extrapolations import Extrapolation
-if TYPE_CHECKING:
-    from .model_classes import ModelNames
+from .helper import ModelNames
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -113,7 +111,7 @@ class PlasticsVisualizationCfg(VisualizationCfg):
 
 
 class GeneralCfg(RemindMFABaseModel):
-    model: 'ModelNames'
+    model: ModelNames
     """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
     input_data_path: str
     """Path to the input data directory."""

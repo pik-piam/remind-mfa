@@ -3,7 +3,8 @@ import yaml
 import flodym as fd
 import sys
 
-from remind_mfa.common.model_classes import ModelNames, cfgs, models
+from remind_mfa.common.helper import ModelNames
+from remind_mfa.common.model_classes import cfgs, models
 
 
 def get_model_config(filename):
@@ -17,12 +18,12 @@ def init_model(cfg: dict) -> fd.MFASystem:
 
     if "model" not in cfg:
         raise ValueError("'model' must be given.")
-    material_name = ModelNames(cfg["model"])
+    model_name = ModelNames(cfg["model"])
 
-    CfgClass = cfgs[ModelNames(material_name)]
+    CfgClass = cfgs[model_name]
     cfg = CfgClass(**cfg)
 
-    ModelClass = models[ModelNames(material_name)]
+    ModelClass = models[model_name]
     return ModelClass(cfg=cfg)
 
 

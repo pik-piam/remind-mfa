@@ -1,6 +1,13 @@
+from enum import Enum
 from pydantic import BaseModel, ConfigDict
 from flodym import ParameterDefinition, MFADefinition
 from typing import Optional, List
+
+
+class ModelNames(str, Enum):
+    PLASTICS = "plastics"
+    STEEL = "steel"
+    CEMENT = "cement"
 
 
 class RemindMFABaseModel(BaseModel):
