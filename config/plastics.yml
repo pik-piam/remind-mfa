@@ -1,11 +1,13 @@
 # general config
-model_class: 'plastics'
+model: 'plastics'
 
 # data sources
 input_data_path: '../simson_data/data/plastics/output'
+scenarios_path: 'config/scenarios'
 
 # model customization
 customization:
+  scenario: 'SSP2'
   stock_extrapolation_class_name: 'SigmoidExtrapolation'
   regress_over: 'loggdppc_time_weighted_sum'
   lifetime_model_name: 'LogNormalLifetime'
@@ -16,8 +18,6 @@ visualization:
   do_visualize: False
   use_stock:
     do_visualize: True
-    # options: 'time', 'gdppc'
-    # over: 'gdppc'
     over_gdp: True
     acc: True
     per_capita: True
@@ -46,7 +46,7 @@ output_path: 'data/plastics/output'
 docs_path: 'docs/plastics'
 do_export:
   pickle: False
-  csv: True
-  iamc: True
-  definitions: True
-  assumptions: True
+  csv: False
+  iamc: False
+  docs: True
+  assumptions: False

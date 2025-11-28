@@ -1,6 +1,7 @@
 import flodym as fd
 
 from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.helper import RemindMFAParameterDefinition, RemindMFADefinition
 
 
 def get_definition(cfg: GeneralCfg):
@@ -81,18 +82,44 @@ def get_definition(cfg: GeneralCfg):
     ]
 
     parameters = [
-        fd.ParameterDefinition(name="cement_production", dim_letters=("h", "r")),
-        fd.ParameterDefinition(name="cement_trade", dim_letters=("h", "r")),
-        fd.ParameterDefinition(name="clinker_ratio", dim_letters=("t", "r")),
-        fd.ParameterDefinition(name="cement_ratio", dim_letters=()),
-        fd.ParameterDefinition(name="use_split", dim_letters=("s",)),
-        fd.ParameterDefinition(name="historic_use_lifetime_mean", dim_letters=("h", "r", "s")),
-        fd.ParameterDefinition(name="future_use_lifetime_mean", dim_letters=("t", "r", "s")),
-        fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
-        fd.ParameterDefinition(name="gdppc", dim_letters=("t", "r")),
+        RemindMFAParameterDefinition(
+            name="cement_production",
+            dim_letters=("h", "r"),
+            description="Historic cement production",
+        ),
+        RemindMFAParameterDefinition(
+            name="cement_trade", dim_letters=("h", "r"), description="Historic cement trade flows"
+        ),
+        RemindMFAParameterDefinition(
+            name="clinker_ratio", dim_letters=("t", "r"), description="Clinker to cement ratio"
+        ),
+        RemindMFAParameterDefinition(
+            name="cement_ratio", dim_letters=(), description="Cement content ratio in concrete"
+        ),
+        RemindMFAParameterDefinition(
+            name="use_split",
+            dim_letters=("s",),
+            description="Distribution of cement use across stock types",
+        ),
+        RemindMFAParameterDefinition(
+            name="historic_use_lifetime_mean",
+            dim_letters=("h", "r", "s"),
+            description="Mean lifetime of historic cement stocks",
+        ),
+        RemindMFAParameterDefinition(
+            name="future_use_lifetime_mean",
+            dim_letters=("t", "r", "s"),
+            description="Mean lifetime of future cement stocks",
+        ),
+        RemindMFAParameterDefinition(
+            name="population", dim_letters=("t", "r"), description="Population"
+        ),
+        RemindMFAParameterDefinition(
+            name="gdppc", dim_letters=("t", "r"), description="GDP per capita"
+        ),
     ]
 
-    return fd.MFADefinition(
+    return RemindMFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,

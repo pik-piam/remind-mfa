@@ -6,7 +6,7 @@ from pydantic import model_validator
 from scipy.optimize import least_squares
 from pydantic import PrivateAttr
 
-from remind_mfa.common.base_model import RemindMFABaseModel
+from remind_mfa.common.helper import RemindMFABaseModel
 from remind_mfa.common.data_transformations import BoundList
 
 

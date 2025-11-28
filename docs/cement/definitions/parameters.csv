@@ -1,0 +1,10 @@
+Dimensions,Name,description
+"h, r",cement_production,Historic cement production
+"h, r",cement_trade,Historic cement trade flows
+"t, r",clinker_ratio,Clinker to cement ratio
+,cement_ratio,Cement content ratio in concrete
+s,use_split,Distribution of cement use across stock types
+"h, r, s",historic_use_lifetime_mean,Mean lifetime of historic cement stocks
+"t, r, s",future_use_lifetime_mean,Mean lifetime of future cement stocks
+"t, r",population,Population
+"t, r",gdppc,GDP per capita

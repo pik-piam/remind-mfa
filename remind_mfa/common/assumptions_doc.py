@@ -4,7 +4,7 @@ from typing import ClassVar, Any, Optional
 import os
 import pandas as pd
 
-from remind_mfa.common.base_model import RemindMFABaseModel
+from remind_mfa.common.helper import RemindMFABaseModel
 
 
 _assumptions = []
