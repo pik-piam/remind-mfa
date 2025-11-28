@@ -8,14 +8,7 @@ from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 
-class SteelMode(str, Enum):
-    stock_driven = "stock_driven"
-    inflow_driven = "inflow_driven"
-
-
 class SteelMFASystem(CommonMFASystem):
-
-    mode: SteelMode
 
     def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
         """
@@ -217,7 +210,3 @@ class SteelMFASystem(CommonMFASystem):
 
         stk["excess_scrap"].inflow[...] = flw["scrap_market => excess_scrap"]
         stk["excess_scrap"].compute()
-
-    @property
-    def stock_driven(self) -> bool:
-        return self.mode == SteelMode.stock_driven

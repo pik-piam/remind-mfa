@@ -4,7 +4,6 @@ import numpy as np
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.trade import TradeSet, Trade
-from remind_mfa.common.custom_data_reader import CustomDataReader
 from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.common_cfg import PlasticsCfg

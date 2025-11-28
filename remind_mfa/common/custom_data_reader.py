@@ -5,14 +5,6 @@ from remind_mfa.common.helper import RemindMFADefinition
 
 class CustomDataReader(fd.CompoundDataReader):
     dimension_map = {
-        "Time": "time_in_years",
-        "Historic Time": "historic_years",
-        "Element": "elements",
-        "Region": "regions",
-        "Material": "materials",
-        "Good": "goods_in_use",
-        "Intermediate": "intermediate_products",
-        "Scenario": "scenarios",
     }
 
     def __init__(

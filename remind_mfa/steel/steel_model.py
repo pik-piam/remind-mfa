@@ -6,12 +6,13 @@ from remind_mfa.common.data_blending import blend
 from remind_mfa.common.data_extrapolations import LogSigmoidExtrapolation
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.custom_data_reader import CustomDataReader
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.steel.steel_export import SteelDataExporter
 from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
 from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
-from remind_mfa.steel.steel_definition import get_definition, SteelMFADefinition
+from remind_mfa.steel.steel_definition import get_definition
+from remind_mfa.common.common_cfg import SteelCfg
+from remind_mfa.steel.steel_data_reader import SteelDataReader
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_model import CommonModel
@@ -20,42 +21,16 @@ from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_p
 
 class SteelModel(CommonModel):
 
-    def run(self):
-        stock_driven = self.cfg.customization.mode == "stock_driven"
-        self.definition_future = get_definition(self.cfg, historic=False, stock_driven=stock_driven)
-        self.read_data(self.definition_future)
-        self.read_scenario_parameters(steel_scn_prm_def)
-        self.modify_parameters()
-        self.data_writer = SteelDataExporter(
-            cfg=self.cfg.visualization,
-            do_export=self.cfg.do_export,
-            output_path=self.cfg.output_path,
-            docs_path=self.cfg.docs_path,
-        )
-        if stock_driven:
-            self.definition_historic = get_definition(self.cfg, historic=True, stock_driven=False)
-            self.historic_mfa = self.make_mfa(historic=True)
-            self.historic_mfa.compute()
-            stock_projection = self.get_long_term_stock()
-            historic_trade = self.historic_mfa.trade_set
-        else:
-            stock_projection = None
-            historic_trade = None
+    ConfigCls = SteelCfg
+    DataReaderCls = SteelDataReader
+    DataExporterCls = SteelDataExporter
+    HistoricMFASystemCls = SteelMFASystemHistoric
+    FutureMFASystemCls = SteelMFASystem
+    custom_scn_prm_def = steel_scn_prm_def
 
-        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
-        self.future_mfa.compute(stock_projection, historic_trade)
+    def set_definition(self, *args, **kwargs):
+        return get_definition(*args, **kwargs)
 
-        self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.definition_to_markdown(definition=self.definition_future)
-        self.data_writer.visualize_results(model=self)
-
-    def read_data(self, definition: SteelMFADefinition):
-        self.data_reader = CustomDataReader(
-            input_data_path=self.cfg.input_data_path,
-            definition=definition,
-        )
-        self.dims = self.data_reader.read_dimensions(definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
@@ -131,50 +106,6 @@ class SteelModel(CommonModel):
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
 
-    def make_mfa(self, historic: bool, mode: str = None) -> CommonMFASystem:
-        """
-        Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
-        subtracting Losses in steel forming from production by IP data
-        adding direct trade by IP to production by IP
-        transforming that to production by category via some distribution assumptions
-        subtracting losses in steel fabrication (transformation of IP to end use products)
-        adding indirect trade by category
-        This equals the inflow into the in use stock
-        via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
-        """
-        if historic:
-            definition = self.definition_historic
-            mfasystem_class = SteelMFASystemHistoric
-        else:
-            definition = self.definition_future
-            mfasystem_class = SteelMFASystem
-
-        processes = fd.make_processes(definition.processes)
-        flows = fd.make_empty_flows(
-            processes=processes,
-            flow_definitions=definition.flows,
-            dims=self.dims,
-        )
-        stocks = fd.make_empty_stocks(
-            processes=processes,
-            stock_definitions=definition.stocks,
-            dims=self.dims,
-        )
-        trade_set = TradeSet.from_definitions(
-            definitions=definition.trades,
-            dims=self.dims,
-        )
-
-        return mfasystem_class(
-            cfg=self.cfg,
-            parameters=self.parameters,
-            processes=processes,
-            dims=self.dims,
-            flows=flows,
-            stocks=stocks,
-            trade_set=trade_set,
-            mode=mode,
-        )
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         indep_fit_dim_letters = (

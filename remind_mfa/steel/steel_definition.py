@@ -10,18 +10,15 @@ class SteelMFADefinition(RemindMFADefinition):
     trades: List[TradeDefinition]
 
 
-def get_definition(cfg: GeneralCfg, historic: bool, stock_driven: bool) -> SteelMFADefinition:
+def get_definition(cfg: GeneralCfg, historic: bool) -> SteelMFADefinition:
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
+        fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Intermediate", dim_letter="i", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
         fd.DimensionDefinition(name="Scenario", dim_letter="s", dtype=str),
     ]
-    if historic or stock_driven:
-        dimensions += [
-            fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
-        ]
 
     if historic:
         processes = [
@@ -105,8 +102,6 @@ def get_definition(cfg: GeneralCfg, historic: bool, stock_driven: bool) -> Steel
     # fmt: on
 
     if historic:
-        if stock_driven:
-            raise ValueError("Historic MFASystem must be inflow driven")
         stocks = [
             fd.StockDefinition(
                 name="historic_in_use",
@@ -118,7 +113,7 @@ def get_definition(cfg: GeneralCfg, historic: bool, stock_driven: bool) -> Steel
             ),
         ]
     else:
-        use_stock_class = fd.StockDrivenDSM if stock_driven else fd.InflowDrivenDSM
+        use_stock_class = fd.StockDrivenDSM
         stocks = [
             fd.StockDefinition(
                 name="in_use",
@@ -220,98 +215,44 @@ def get_definition(cfg: GeneralCfg, historic: bool, stock_driven: bool) -> Steel
             dim_letters=("r",),
             description="Regional stock growth speed adjustment factor",
         ),
+        RemindMFAParameterDefinition(
+            name="scrap_consumption",
+            dim_letters=("h", "r"),
+            description="Historic scrap consumption",
+        ),
+        # WSA
+        RemindMFAParameterDefinition(
+            name="production_by_intermediate",
+            dim_letters=("h", "r", "i"),
+            description="Historic production by intermediate product",
+        ),
+        RemindMFAParameterDefinition(
+            name="intermediate_imports",
+            dim_letters=("h", "r", "i"),
+            description="Historic intermediate product imports",
+        ),
+        RemindMFAParameterDefinition(
+            name="intermediate_exports",
+            dim_letters=("h", "r", "i"),
+            description="Historic intermediate product exports",
+        ),
+        RemindMFAParameterDefinition(
+            name="indirect_imports",
+            dim_letters=("h", "r", "g"),
+            description="Historic indirect trade imports",
+        ),
+        RemindMFAParameterDefinition(
+            name="indirect_exports",
+            dim_letters=("h", "r", "g"),
+            description="Historic indirect trade exports",
+        ),
+        RemindMFAParameterDefinition(
+            name="scrap_imports", dim_letters=("h", "r"), description="Historic scrap imports"
+        ),
+        RemindMFAParameterDefinition(
+            name="scrap_exports", dim_letters=("h", "r"), description="Historic scrap exports"
+        )
     ]
-    if historic or stock_driven:
-        parameters += [
-            RemindMFAParameterDefinition(
-                name="scrap_consumption",
-                dim_letters=("h", "r"),
-                description="Historic scrap consumption",
-            ),
-            # WSA
-            RemindMFAParameterDefinition(
-                name="production_by_intermediate",
-                dim_letters=("h", "r", "i"),
-                description="Historic production by intermediate product",
-            ),
-            RemindMFAParameterDefinition(
-                name="intermediate_imports",
-                dim_letters=("h", "r", "i"),
-                description="Historic intermediate product imports",
-            ),
-            RemindMFAParameterDefinition(
-                name="intermediate_exports",
-                dim_letters=("h", "r", "i"),
-                description="Historic intermediate product exports",
-            ),
-            RemindMFAParameterDefinition(
-                name="indirect_imports",
-                dim_letters=("h", "r", "g"),
-                description="Historic indirect trade imports",
-            ),
-            RemindMFAParameterDefinition(
-                name="indirect_exports",
-                dim_letters=("h", "r", "g"),
-                description="Historic indirect trade exports",
-            ),
-            RemindMFAParameterDefinition(
-                name="scrap_imports", dim_letters=("h", "r"), description="Historic scrap imports"
-            ),
-            RemindMFAParameterDefinition(
-                name="scrap_exports", dim_letters=("h", "r"), description="Historic scrap exports"
-            ),
-        ]
-    else:
-        parameters += [
-            RemindMFAParameterDefinition(
-                name="in_use_inflow",
-                dim_letters=("t", "r", "g"),
-                description="Inflow to in-use stock",
-            ),
-            RemindMFAParameterDefinition(
-                name="intermediate_imports",
-                dim_letters=("t", "r"),
-                description="Intermediate product imports",
-            ),
-            RemindMFAParameterDefinition(
-                name="intermediate_exports",
-                dim_letters=("t", "r"),
-                description="Intermediate product exports",
-            ),
-            RemindMFAParameterDefinition(
-                name="indirect_imports",
-                dim_letters=("t", "r", "g"),
-                description="Indirect trade imports",
-            ),
-            RemindMFAParameterDefinition(
-                name="indirect_exports",
-                dim_letters=("t", "r", "g"),
-                description="Indirect trade exports",
-            ),
-            RemindMFAParameterDefinition(
-                name="scrap_imports", dim_letters=("t", "r", "g"), description="Scrap imports"
-            ),
-            RemindMFAParameterDefinition(
-                name="scrap_exports", dim_letters=("t", "r", "g"), description="Scrap exports"
-            ),
-            RemindMFAParameterDefinition(
-                name="fixed_in_use_outflow",
-                dim_letters=("t", "r", "g"),
-                description="Fixed outflow from in-use stock",
-            ),
-        ]
-
-    # currently unused
-    # fd.ParameterDefinition(name="external_copper_rate", dim_letters=("g",)),
-    # fd.ParameterDefinition(name="cu_tolerances", dim_letters=("i",)),
-    # fd.ParameterDefinition(name="production", dim_letters=("h", "r")),
-    # fd.ParameterDefinition(name="pigiron_production", dim_letters=("h", "r")),
-    # fd.ParameterDefinition(name="pigiron_imports", dim_letters=("h", "r")),
-    # fd.ParameterDefinition(name="pigiron_exports", dim_letters=("h", "r")),
-    # fd.ParameterDefinition(name="pigiron_to_cast", dim_letters=("h", "r")),
-    # fd.ParameterDefinition(name="dri_production", dim_letters=("h", "r")),
-    # fd.ParameterDefinition(name="dri_imports", dim_letters=("h", "r")),
-    # fd.ParameterDefinition(name="dri_exports", dim_letters=("h", "r")),
 
     if historic:
         trades = [

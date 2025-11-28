@@ -1,6 +1,6 @@
 import flodym as fd
 
-from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.common_cfg import CementCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.cement.cement_definition import get_definition
 from remind_mfa.cement.cement_mfa_system_historic import (
@@ -18,21 +18,17 @@ from remind_mfa.cement.cement_definition import scenario_parameters as cement_sc
 
 class CementModel(CommonModel):
 
+    ConfigCls = CementCfg
+    DataReaderCls = CementDataReader
+    DataExporterCls = CementDataExporter
+    HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
+    FutureMFASystemCls = StockDrivenCementMFASystem
+    custom_scn_prm_def = cement_scn_prm_def
+
+    def set_definition(self, *args, **kwargs):
+        return get_definition(*args, **kwargs)
+
     def run(self):
-        self.definition = get_definition(self.cfg)
-        self.data_reader = CementDataReader(
-            input_data_path=self.cfg.input_data_path, definition=self.definition
-        )
-        self.data_writer = CementDataExporter(
-            cfg=self.cfg.visualization,
-            do_export=self.cfg.do_export,
-            output_path=self.cfg.output_path,
-            docs_path=self.cfg.docs_path,
-        )
-        self.dims = self.data_reader.read_dimensions(self.definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(
-            self.definition.parameters, dims=self.dims
-        )
         self.read_scenario_parameters(cement_scn_prm_def)
         self.processes = fd.make_processes(self.definition.processes)
 

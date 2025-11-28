@@ -7,6 +7,8 @@ from .plastics_mfa_system import PlasticsMFASystemFuture
 from .plastics_mfa_system_historic import PlasticsMFASystemHistoric
 from .plastics_export import PlasticsDataExporter
 from .plastics_definition import get_definition, PlasticsMFADefinition
+from .plastics_data_reader import PlasticsDataReader
+from remind_mfa.common.common_cfg import PlasticsCfg
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.custom_data_reader import CustomDataReader
 from remind_mfa.common.common_model import CommonModel
@@ -14,6 +16,16 @@ from remind_mfa.plastics.plastics_definition import scenario_parameters as plast
 
 
 class PlasticsModel(CommonModel):
+
+    ConfigCls = PlasticsCfg
+    DataReaderCls = PlasticsDataReader
+    DataExporterCls = PlasticsDataExporter
+    HistoricMFASystemCls = PlasticsMFASystemHistoric
+    FutureMFASystemCls = PlasticsMFASystemFuture
+    custom_scn_prm_def = plastics_scn_prm_def
+
+    def set_definition(self, *args, **kwargs):
+        return get_definition(*args, **kwargs)
 
     def run(self):
         self.definition_historic = get_definition(self.cfg, historic=True)
@@ -52,30 +64,6 @@ class PlasticsModel(CommonModel):
             allow_missing_values=True,
             allow_extra_values=True,
         )
-
-        dimension_map = {
-            "Time": "time_in_years",
-            "Historic Time": "historic_years",
-            "Element": "elements",
-            "Region": "regions",
-            "Material": "materials",
-            "Good": "goods_in_use",
-            "Intermediate": "intermediate_products",
-            "Scenario": "scenarios",
-        }
-
-        dimension_files = {}
-        for dimension in self.definition_future.dimensions:
-            dimension_filename = dimension_map[dimension.name]
-            dimension_files[dimension.name] = os.path.join(
-                self.cfg.input_data_path, "dimensions", f"{dimension_filename}.csv"
-            )
-
-        parameter_files = {}
-        for parameter in self.definition_future.parameters:
-            parameter_files[parameter.name] = os.path.join(
-                self.cfg.input_data_path, "datasets", f"{parameter.name}.csv"
-            )
 
         # dims and parameters are the same for historic and future
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
