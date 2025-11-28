@@ -1,5 +1,5 @@
 # general config
-model_class: 'steel'
+model: 'steel'
 
 # data sources
 input_data_path: '../simson_data/data/steel_future/output'

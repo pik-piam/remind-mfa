@@ -1,17 +1,12 @@
 from remind_mfa.common.helper import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
-from pydantic import Field
 import pandas as pd
+from typing import TYPE_CHECKING
 
 from .data_extrapolations import Extrapolation
-
-
-IMPLEMENTED_MODELS = [
-    "plastics",
-    "steel",
-    "cement",
-]
+if TYPE_CHECKING:
+    from .model_classes import ModelNames
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -118,8 +113,8 @@ class PlasticsVisualizationCfg(VisualizationCfg):
 
 
 class GeneralCfg(RemindMFABaseModel):
-    model_class: str
-    """Model class to use. Must be one of 'plastics', 'steel', or 'cement'."""
+    model: 'ModelNames'
+    """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
     input_data_path: str
     """Path to the input data directory."""
     customization: ModelCustomization
@@ -133,20 +128,6 @@ class GeneralCfg(RemindMFABaseModel):
     do_export: ExportCfg
     """Export configuration."""
 
-    @classmethod
-    def from_model_class(cls, **kwargs) -> "GeneralCfg":
-        if "model_class" not in kwargs:
-            raise ValueError("model_class must be provided.")
-        model_class = kwargs["model_class"]
-        subclasses = {
-            "plastics": PlasticsCfg,
-            "steel": SteelCfg,
-            "cement": CementCfg,
-        }
-        if model_class not in subclasses:
-            raise ValueError(f"Model class {model_class} not supported.")
-        subcls = subclasses[model_class]
-        return subcls(**kwargs)
 
     def to_df(self) -> pd.DataFrame:
         """Exports configuration parameters to pandas DataFrames."""

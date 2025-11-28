@@ -3,17 +3,7 @@ import yaml
 import flodym as fd
 import sys
 
-from remind_mfa.common.common_cfg import GeneralCfg
-from remind_mfa.plastics.plastics_model import PlasticsModel
-from remind_mfa.steel.steel_model import SteelModel
-from remind_mfa.cement.cement_model import CementModel
-
-
-models = {
-    "plastics": PlasticsModel,
-    "steel": SteelModel,
-    "cement": CementModel,
-}
+from remind_mfa.common.model_classes import ModelNames, cfgs, models
 
 
 def get_model_config(filename):
@@ -25,9 +15,15 @@ def get_model_config(filename):
 def init_model(cfg: dict) -> fd.MFASystem:
     """Choose MFA subclass and return an initialized instance."""
 
-    cfg = GeneralCfg.from_model_class(**cfg)
-    mfa = models[cfg.model_class](cfg=cfg)
-    return mfa
+    if "model" not in cfg:
+        raise ValueError("'model' must be given.")
+    material_name = ModelNames(cfg["model"])
+
+    CfgClass = cfgs[ModelNames(material_name)]
+    cfg = CfgClass(**cfg)
+
+    ModelClass = models[ModelNames(material_name)]
+    return ModelClass(cfg=cfg)
 
 
 def calculate_model(model_config):

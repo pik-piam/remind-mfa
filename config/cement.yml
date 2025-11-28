@@ -1,5 +1,5 @@
 # general config
-model_class: 'cement'
+model: 'cement'
 
 # data sources
 input_data_path: '../simson_data/data/cement/output'
