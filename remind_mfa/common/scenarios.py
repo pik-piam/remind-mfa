@@ -14,7 +14,7 @@ class ScenarioReader(RemindMFABaseModel):
     model: ModelNames
     dims: fd.DimensionSet
     parameter_definitions: List[RemindMFAParameterDefinition]
-    _scenarios: List['Scenario'] = []
+    _scenarios: List["Scenario"] = []
     _parameters: Dict[str, fd.Parameter] = {}
 
     def get_parameters(self) -> Dict[str, fd.Parameter]:
@@ -40,7 +40,7 @@ class ScenarioReader(RemindMFABaseModel):
                 break
             name = scenario.parent
 
-    def read_single(self, name: str) -> 'Scenario':
+    def read_single(self, name: str) -> "Scenario":
         file_name = os.path.join(self.base_path, f"{name}.yml")
         with open(file_name, "r") as f:
             text = yaml.safe_load(f)
@@ -50,7 +50,7 @@ class ScenarioReader(RemindMFABaseModel):
 class Scenario(RemindMFABaseModel):
     name: str
     parent: Optional[str] = None
-    data: List['ScenarioDataPoint'] = []
+    data: List["ScenarioDataPoint"] = []
 
     def filter_data_by_model(self, model_name: ModelNames):
         filtered_params = []
@@ -70,11 +70,11 @@ class Scenario(RemindMFABaseModel):
 
 class ScenarioDataPoint(RemindMFABaseModel):
     parameter: str
-    models: List[ModelNames]|str = "all"
+    models: List[ModelNames] | str = "all"
     index: Dict[str, str] = {}
     value: float
 
-    @field_validator('models', mode='before')
+    @field_validator("models", mode="before")
     @classmethod
     def validate_models(cls, value):
         if isinstance(value, str):

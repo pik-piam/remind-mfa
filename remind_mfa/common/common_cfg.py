@@ -130,7 +130,6 @@ class GeneralCfg(RemindMFABaseModel):
     do_export: ExportCfg
     """Export configuration."""
 
-
     def to_df(self) -> pd.DataFrame:
         """Exports configuration parameters to pandas DataFrames."""
 
