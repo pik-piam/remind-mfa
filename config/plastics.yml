@@ -2,7 +2,9 @@
 model: 'plastics'
 
 # data sources
+madrat_output_path: '../../madrat/output'
 input_data_path: '../simson_data/data/plastics/output'
+input_data_version: 'rev0backcast_trade_h12_d499589e_mfa'
 scenarios_path: 'config/scenarios'
 
 # model customization
@@ -17,8 +19,8 @@ customization:
 visualization:
   do_visualize: False
   use_stock:
-    do_visualize: True
-    over_gdp: True
+    do_visualize: False
+    over_gdp: False
     acc: True
     per_capita: True
   production:
@@ -26,7 +28,7 @@ visualization:
   extrapolation:
     do_visualize: True
   sankey:
-    do_visualize: True
+    do_visualize: False
     slice_dict:
       t: 2020
     exclude_processes:
@@ -39,7 +41,7 @@ visualization:
   flows:
     do_visualize: True
   do_show_figs: True
-  do_save_figs: False
+  do_save_figs: True
 
 # data export
 output_path: 'data/plastics/output'

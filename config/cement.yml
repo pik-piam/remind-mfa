@@ -2,7 +2,9 @@
 model: 'cement'
 
 # data sources
+madrat_output_path: '../madrat_wd/output'
 input_data_path: '../simson_data/data/cement/output'
+input_data_version: 'rev0_h12_c378de4d_mfa'
 scenarios_path: 'config/scenarios'
 
 # model customization
@@ -11,6 +13,9 @@ customization:
   mode: 'base' # can be "base", "carbon_flow"
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'
+  parameter_extrapolation:
+    clinker_ratio: 'ConstantExtrapolation'
+    use_lifetime_mean: 'ConstantExtrapolation'
 
 # visualization
 visualization:

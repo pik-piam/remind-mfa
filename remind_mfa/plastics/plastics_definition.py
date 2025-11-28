@@ -180,19 +180,9 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             description="Chemical recycling rate of collected waste",
         ),
         RemindMFAParameterDefinition(
-            name="solvent_recycling_rate",
-            dim_letters=("t", "r", "m"),
-            description="Solvent recycling rate of collected waste",
-        ),
-        RemindMFAParameterDefinition(
             name="incineration_rate",
             dim_letters=("t", "r", "m"),
             description="Incineration rate of collected waste",
-        ),
-        RemindMFAParameterDefinition(
-            name="landfill_rate",
-            dim_letters=("t", "r", "m"),
-            description="Landfill rate of collected waste",
         ),
         # trade
         RemindMFAParameterDefinition(
@@ -285,14 +275,14 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         ),
         # for in-use stock
         RemindMFAParameterDefinition(
-            name="production", dim_letters=("h", "r", "g"), description="Historic production"
+            name="consumption", dim_letters=("h", "r", "g"), description="Historic production"
         ),
         RemindMFAParameterDefinition(
-            name="lifetime_mean", dim_letters=("r", "g"), description="Mean lifetime of goods"
+            name="lifetime_mean", dim_letters=("g",), description="Mean lifetime of goods"
         ),
         RemindMFAParameterDefinition(
             name="lifetime_std",
-            dim_letters=("r", "g"),
+            dim_letters=("g",),
             description="Standard deviation of lifetime",
         ),
         RemindMFAParameterDefinition(

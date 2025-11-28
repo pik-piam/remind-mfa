@@ -88,6 +88,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             ),
         ]
 
+    # TODO remove historic_in_use stock, just use in_use, later change from h to t dimension
     # 4) Stocks
     if historic:
         stocks = [
@@ -151,7 +152,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             name="cement_trade", dim_letters=("h", "r"), description="Historic cement trade flows"
         ),
         RemindMFAParameterDefinition(
-            name="clinker_ratio", dim_letters=("t", "r"), description="Clinker to cement ratio"
+            name="clinker_ratio", dim_letters=("h", "r"), description="Clinker to cement ratio"
         ),
         RemindMFAParameterDefinition(
             name="cement_ratio", dim_letters=(), description="Cement content ratio in concrete"
@@ -162,18 +163,13 @@ def get_definition(cfg: GeneralCfg, historic: bool):
             description="Distribution of cement use across stock types",
         ),
         RemindMFAParameterDefinition(
-            name="historic_use_lifetime_mean",
+            name="use_lifetime_mean",
             dim_letters=("h", "r", "s"),
             description="Mean lifetime of historic cement stocks",
         ),
         # future parameters
         RemindMFAParameterDefinition(
             name="clinker_ratio", dim_letters=("t", "r")
-        ),  # manual (extrapolated)
-        RemindMFAParameterDefinition(
-            name="future_use_lifetime_mean",
-            dim_letters=("t", "r", "s"),
-            description="Mean lifetime of future cement stocks",
         ),  # manual (extrapolated)
         RemindMFAParameterDefinition(
             name="population", dim_letters=("t", "r"), description="Population"

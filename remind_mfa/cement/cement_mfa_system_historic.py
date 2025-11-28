@@ -25,8 +25,8 @@ class InflowDrivenHistoricCementMFASystem(fd.MFASystem):
         stk["historic_cement_in_use"].inflow[...] = cement_consumption * prm["stock_type_split"]
         lifetime_rel_std = 0.4
         stk["historic_cement_in_use"].lifetime_model.set_prms(
-            mean=prm["historic_use_lifetime_mean"],
-            std=lifetime_rel_std * prm["historic_use_lifetime_mean"],
+            mean=prm["use_lifetime_mean"],
+            std=lifetime_rel_std * prm["use_lifetime_mean"],
         )
         add_assumption_doc(
             type="expert guess",
