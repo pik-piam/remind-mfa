@@ -52,6 +52,8 @@ class SteelModel:
         self.data_reader = MrindustryDataReader(
             cfg=self.cfg,
             definition=definition,
+            allow_missing_values=True,
+            allow_extra_values=True,
         )
         self.dims = self.data_reader.read_dimensions(definition.dimensions)
         self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
