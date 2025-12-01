@@ -53,4 +53,4 @@ do_export:
   csv: False
   future_input: False
   iamc: True
-  definitions: True
+  docs: True

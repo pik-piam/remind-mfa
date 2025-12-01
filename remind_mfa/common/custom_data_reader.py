@@ -1,5 +1,6 @@
 import os
 import flodym as fd
+from remind_mfa.common.helper import RemindMFADefinition
 
 
 class CustomDataReader(fd.CompoundDataReader):
@@ -17,7 +18,7 @@ class CustomDataReader(fd.CompoundDataReader):
     def __init__(
         self,
         input_data_path,
-        definition: fd.MFADefinition,
+        definition: RemindMFADefinition,
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):

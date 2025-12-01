@@ -1,0 +1,29 @@
+Dimensions,Name,description
+"t, r, m",collection_rate,Collection rate of plastic waste
+"t, r, m",mechanical_recycling_rate,Mechanical recycling rate of collected waste
+"t, r, m",chemical_recycling_rate,Chemical recycling rate of collected waste
+"t, r, m",solvent_recycling_rate,Solvent recycling rate of collected waste
+"t, r, m",incineration_rate,Incineration rate of collected waste
+"t, r, m",landfill_rate,Landfill rate of collected waste
+"h, r",primary_his_imports,Historic primary plastics imports
+"h, r",primary_his_exports,Historic primary plastics exports
+"h, r",intermediate_his_imports,Historic intermediate plastics imports
+"h, r",intermediate_his_exports,Historic intermediate plastics exports
+"h, r",manufactured_his_imports,Historic manufactured plastics imports
+"h, r",manufactured_his_exports,Historic manufactured plastics exports
+"h, r",final_his_imports,Historic final goods imports
+"h, r",final_his_exports,Historic final goods exports
+"t, r",waste_imports,Plastic waste imports (historic and future assumption)
+"t, r",waste_exports,Plastic waste exports (historic and future assumption)
+"t, r, m",bio_production_rate,Share of bio-based plastics in virgin production
+"t, r, m",daccu_production_rate,Share of DACCU plastics in virgin production
+"t, r, m",mechanical_recycling_yield,Yield of mechanical recycling
+"t, r, m",reclmech_loss_uncontrolled_rate,Rate of mechanical recycling losses to uncontrolled disposal
+"r, m, g",material_shares_in_goods,Share of materials in goods
+t,emission_capture_rate,Carbon capture rate from emissions
+"e, m",carbon_content_materials,Carbon content of materials
+"h, r, g",production,Historic production
+"r, g",lifetime_mean,Mean lifetime of goods
+"r, g",lifetime_std,Standard deviation of lifetime
+"t, r",population,Population
+"t, r",gdppc,GDP per capita

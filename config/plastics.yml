@@ -16,8 +16,6 @@ visualization:
   do_visualize: False
   use_stock:
     do_visualize: True
-    # options: 'time', 'gdppc'
-    # over: 'gdppc'
     over_gdp: True
     acc: True
     per_capita: True
@@ -46,7 +44,7 @@ output_path: 'data/plastics/output'
 docs_path: 'docs/plastics'
 do_export:
   pickle: False
-  csv: True
-  iamc: True
-  definitions: True
-  assumptions: True
+  csv: False
+  iamc: False
+  docs: True
+  assumptions: False

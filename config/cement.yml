@@ -48,4 +48,4 @@ docs_path: 'docs/cement'
 do_export:
   pickle: True
   csv: True
-  definitions: False
+  docs: True

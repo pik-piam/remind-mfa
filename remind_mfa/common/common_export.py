@@ -8,8 +8,8 @@ from pydantic import model_validator
 import flodym as fd
 import flodym.export as fde
 
-from remind_mfa.common.base_model import RemindMFABaseModel
-from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg
+from remind_mfa.common.helper import RemindMFABaseModel, RemindMFADefinition
+from remind_mfa.common.common_cfg import VisualizationCfg, ExportCfg, GeneralCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 
 
@@ -59,9 +59,9 @@ class CommonDataExporter(RemindMFABaseModel):
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
 
-    def definition_to_markdown(self, definition: fd.MFADefinition):
+    def definition_to_markdown(self, definition: RemindMFADefinition):
 
-        if not self.do_export.definitions:
+        if not self.do_export.docs:
             return
 
         dfs = definition.to_dfs()
@@ -90,15 +90,27 @@ class CommonDataExporter(RemindMFABaseModel):
         for name, df in dfs.items():
             df.columns = [self.display_name(col) for col in df.columns]
             df = df.map(convert_cell)
-            df.to_markdown(self.export_docs_path(f"definitions/{name}.md"), index=False)
+            if name == "parameters":
+                # Export parameters as CSV to merge with their source info later
+                df.to_csv(self.export_docs_path(f"definitions/{name}.csv"), index=False)
+            else:
+                df.to_markdown(self.export_docs_path(f"definitions/{name}.md"), index=False)
 
     def assumptions_to_markdown(self):
 
-        if not self.do_export.assumptions:
+        if not self.do_export.docs:
             return
 
         df = assumptions_df()
         df.to_markdown(self.export_docs_path("assumptions.md"), index=False)
+
+    def cfg_to_markdown(self, cfg: GeneralCfg):
+
+        if not self.do_export.docs:
+            return
+
+        schema_df = type(cfg).to_schema_df()
+        schema_df.to_markdown(self.export_docs_path("config_schema.md"), index=False)
 
     def export_path(self, filename: str = None):
         path_tuple = (self.output_path, "export")
