@@ -2,7 +2,9 @@
 model_class: 'steel'
 
 # data sources
+madrat_output_path: '../../madrat/output'
 input_data_path: '../simson_data/data/steel/output'
+input_data_version: 'rev0steel_h12_cd1fe885_mfa'
 
 # model customization
 customization:
@@ -51,4 +53,4 @@ do_export:
   pickle: False
   csv: False
   future_input: False
-  iamc: True
+  iamc: False
