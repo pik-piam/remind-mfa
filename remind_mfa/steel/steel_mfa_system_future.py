@@ -129,7 +129,6 @@ class SteelMFASystem(CommonMFASystem):
         aux = {
             "net_scrap_trade": self.get_new_array(dim_letters=("t", "r", "g")),
             "production": self.get_new_array(dim_letters=("t", "r")),
-            "forming_outflow": self.get_new_array(dim_letters=("t", "r")),
             "scrap_in_production": self.get_new_array(dim_letters=("t", "r")),
             "available_scrap": self.get_new_array(dim_letters=("t", "r")),
             "eaf_share_production": self.get_new_array(dim_letters=("t", "r")),
@@ -157,9 +156,8 @@ class SteelMFASystem(CommonMFASystem):
 
         flw["forming => ip_market"][...] = flw["ip_market => fabrication"] - trd["intermediate"].net_imports
         aux["production"][...] = flw["forming => ip_market"] / prm["forming_yield"]
-        aux["forming_outflow"][...] = aux["production"] - flw["forming => ip_market"]
-        flw["forming => losses"][...] = aux["forming_outflow"] * prm["forming_losses"]
-        flw["forming => scrap_market"][...] = aux["forming_outflow"] - flw["forming => losses"]
+        flw["forming => losses"][...] = aux["production"] * prm["forming_loss_rate"]
+        flw["forming => scrap_market"][...] = aux["production"] - flw["forming => ip_market"] - flw["forming => losses"]
 
         # Post-use
 
@@ -176,7 +174,7 @@ class SteelMFASystem(CommonMFASystem):
         # PRODUCTION
 
         aux["production_inflow"][...] = aux["production"] / prm["production_yield"]
-        aux["max_scrap_production"][...] = aux["production_inflow"] * prm["max_scrap_share_base_model"]
+        aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
         aux["available_scrap"][...] = (
             flw["recycling => scrap_market"]
             + flw["forming => scrap_market"]

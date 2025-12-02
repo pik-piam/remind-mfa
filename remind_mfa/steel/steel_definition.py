@@ -142,7 +142,7 @@ def get_definition(cfg: GeneralCfg, historic: bool, stock_driven: bool) -> Steel
 
     parameters = [
         fd.ParameterDefinition(name="forming_yield", dim_letters=()),
-        fd.ParameterDefinition(name="fabrication_yield", dim_letters=()),
+        fd.ParameterDefinition(name="fabrication_yield", dim_letters=("g",)),
         fd.ParameterDefinition(name="recovery_rate", dim_letters=("g",)),
         fd.ParameterDefinition(name="good_to_intermediate_distribution", dim_letters=("g", "i")),
         fd.ParameterDefinition(name="population", dim_letters=("t", "r")),
@@ -156,7 +156,7 @@ def get_definition(cfg: GeneralCfg, historic: bool, stock_driven: bool) -> Steel
         fd.ParameterDefinition(name="secsplit_gdppc_high", dim_letters=()),
         fd.ParameterDefinition(name="max_scrap_share", dim_letters=()),
         fd.ParameterDefinition(name="scrap_in_bof_rate", dim_letters=()),
-        fd.ParameterDefinition(name="forming_losses", dim_letters=()),
+        fd.ParameterDefinition(name="forming_loss_rate", dim_letters=()),
         fd.ParameterDefinition(name="fabrication_losses", dim_letters=()),
         fd.ParameterDefinition(name="production_yield", dim_letters=()),
         fd.ParameterDefinition(name="saturation_level_factor", dim_letters=("r",)),
