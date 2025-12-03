@@ -138,7 +138,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> SteelMFADefinition:
 
     parameters = [
         RemindMFAParameterDefinition(
-            name="forming_yield", dim_letters=("i",), description="Yield of forming process"
+            name="forming_yield", dim_letters=(), description="Yield of forming process"
         ),
         RemindMFAParameterDefinition(
             name="fabrication_yield", dim_letters=("g",), description="Yield of fabrication process"
@@ -158,11 +158,11 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> SteelMFADefinition:
             name="gdppc", dim_letters=("t", "r"), description="GDP per capita"
         ),
         RemindMFAParameterDefinition(
-            name="lifetime_mean", dim_letters=("r", "g"), description="Mean lifetime of goods"
+            name="lifetime_mean", dim_letters=("g",), description="Mean lifetime of goods"
         ),
         RemindMFAParameterDefinition(
             name="lifetime_std",
-            dim_letters=("r", "g"),
+            dim_letters=("g",),
             description="Standard deviation of lifetime",
         ),
         RemindMFAParameterDefinition(
@@ -187,7 +187,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> SteelMFADefinition:
             description="GDP per capita threshold for high income",
         ),
         RemindMFAParameterDefinition(
-            name="max_scrap_share_base_model",
+            name="max_scrap_share",
             dim_letters=(),
             description="Maximum scrap share in base model",
         ),
@@ -195,7 +195,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> SteelMFADefinition:
             name="scrap_in_bof_rate", dim_letters=(), description="Scrap share in BOF production"
         ),
         RemindMFAParameterDefinition(
-            name="forming_losses", dim_letters=(), description="Loss rate in forming process"
+            name="forming_loss_rate", dim_letters=(), description="Loss rate in forming process"
         ),
         RemindMFAParameterDefinition(
             name="fabrication_losses",
