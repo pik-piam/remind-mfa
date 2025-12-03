@@ -32,10 +32,10 @@ class CommonModel:
         raise NotImplementedError
 
     def run(self):
-        self.definition_historic = get_definition(self.cfg, historic=True)
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
 
+        historic_trade = self.historic_mfa.trade_set
         stock_projection = self.get_long_term_stock()
 
         # apply scenarios to parameters for future mfa
@@ -44,7 +44,7 @@ class CommonModel:
         ).apply_prm_extrapolation(self.parameters)
 
         self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
-        self.future_mfa.compute(stock_projection)
+        self.future_mfa.compute(stock_projection, historic_trade)
 
     def export(self):
         self.data_writer.export_mfa(mfa=self.future_mfa)

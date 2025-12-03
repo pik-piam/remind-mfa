@@ -14,7 +14,6 @@ from remind_mfa.common.common_cfg import PlasticsCfg
 class PlasticsMFASystemFuture(fd.MFASystem):
 
     cfg: PlasticsCfg
-    trade_set: TradeSet
 
     def compute(self, historic_stock: fd.Stock, historic_trade: TradeSet):
         """

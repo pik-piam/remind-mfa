@@ -217,7 +217,7 @@ def get_definition(cfg: GeneralCfg, historic: bool):
         ),  # manual (from Xi2016 categories)
     ]
 
-    return fd.MFADefinition(
+    return RemindMFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,

@@ -8,7 +8,7 @@ from remind_mfa.common.common_cfg import GeneralCfg
 class CommonMFASystem(fd.MFASystem):
 
     cfg: GeneralCfg
-    trade_set: TradeSet
+    trade_set: Optional[TradeSet] = None
 
     def fill_trade(self):
         """

@@ -6,14 +6,14 @@ from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_cfg import CementCfg
-from remind_mfa.common.helper import CementModes
+from remind_mfa.common.trade import TradeSet
 
 
 class StockDrivenCementMFASystem(CommonMFASystem):
 
     cfg: CementCfg
 
-    def compute(self, stock_projection: fd.FlodymArray):
+    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
