@@ -2,7 +2,7 @@ import numpy as np
 
 import flodym as fd
 
-from remind_mfa.common.common_cfg import CementCfg
+from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.cement.cement_definition import get_definition
 from remind_mfa.cement.cement_mfa_system_historic import (

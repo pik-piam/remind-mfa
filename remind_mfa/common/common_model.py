@@ -1,6 +1,6 @@
 import flodym as fd
 
-from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
 from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
@@ -13,7 +13,7 @@ from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationMana
 
 class CommonModel:
 
-    ConfigCls = GeneralCfg
+    ConfigCls = CommonCfg
     DataReaderCls = MrindustryDataReader
     DataExporterCls = CommonDataExporter
     HistoricMFASystemCls = CommonMFASystem

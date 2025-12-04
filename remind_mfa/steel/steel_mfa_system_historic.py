@@ -5,7 +5,7 @@ import flodym as fd
 from remind_mfa.common.data_blending import blend
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.common_cfg import SteelCfg
+from remind_mfa.steel.steel_config import SteelCfg
 
 
 class SteelMFASystemHistoric(CommonMFASystem):

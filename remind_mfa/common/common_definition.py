@@ -5,7 +5,7 @@ from remind_mfa.common.helper import (
     PlainDataPointDefinition,
     RemindMFADefinition,
 )
-from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.common_config import CommonCfg
 
 
 def get_definition():

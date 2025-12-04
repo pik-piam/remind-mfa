@@ -4,7 +4,7 @@ import tarfile
 import pandas as pd
 import flodym as fd
 
-from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.helper import RemindMFADefinition
 
 
@@ -13,7 +13,7 @@ class MrindustryDataReader(fd.CompoundDataReader):
 
     def __init__(
         self,
-        cfg: GeneralCfg,
+        cfg: CommonCfg,
         definition: RemindMFADefinition,
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,

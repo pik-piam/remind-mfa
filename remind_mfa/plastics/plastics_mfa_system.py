@@ -6,9 +6,9 @@ from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.common_cfg import PlasticsCfg
+from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
-from remind_mfa.common.common_cfg import PlasticsCfg
+from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
 class PlasticsMFASystemFuture(fd.MFASystem):

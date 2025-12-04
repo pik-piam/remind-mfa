@@ -5,7 +5,7 @@ import numpy as np
 import logging
 
 from remind_mfa.common.common_export import CommonDataExporter
-from remind_mfa.common.common_cfg import CementVisualizationCfg
+from remind_mfa.cement.cement_config import CementVisualizationCfg
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 
 if TYPE_CHECKING:

@@ -5,7 +5,7 @@ import pandas as pd
 
 from .data_extrapolations import Extrapolation
 from .parameter_extrapolation import ParameterExtrapolation
-from .helper import ModelNames, CementModes
+from .helper import ModelNames
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -59,14 +59,6 @@ class ModelSwitches(RemindMFABaseModel):
         return classes
 
 
-class CementModelSwitches(ModelSwitches):
-    mode: CementModes
-
-    @property
-    def carbon_flow(self) -> bool:
-        return self.mode == CementModes.CARBON_FLOW
-
-
 class ExportCfg(RemindMFABaseModel):
     csv: bool = True
     """Whether to export results as CSV files."""
@@ -103,39 +95,7 @@ class VisualizationCfg(RemindMFABaseModel):
     """Plotly renderer to use for visualizations."""
 
 
-class CementVisualizationCfg(VisualizationCfg):
-
-    consumption: dict = {}
-    prod_clinker: dict = {}
-    """Visualization configuration for clinker production."""
-    prod_cement: dict = {}
-    """Visualization configuration for cement production."""
-    prod_product: dict = {}
-    """Visualization configuration for products production."""
-    eol_stock: dict = {}
-    """Visualization configuration for end-of-life stock."""
-    carbonation: dict = {}
-
-
-class SteelVisualizationCfg(VisualizationCfg):
-    scrap_demand_supply: dict = {"do_visualize": False}
-    """Visualization configuration for scrap demand and supply."""
-    sector_splits: dict = {"do_visualize": False}
-    """Visualization configuration for sector splits."""
-    trade: dict = {"do_visualize": False}
-    """Visualization configuration for trade."""
-    consumption: dict = {"do_visualize": False}
-    """Visualization configuration for consumption."""
-    gdppc: dict = {"do_visualize": False}
-    """Visualization configuration for GDP per capita."""
-
-
-class PlasticsVisualizationCfg(VisualizationCfg):
-    flows: dict = {"do_visualize": False}
-    """Visualization configuration for flows."""
-
-
-class GeneralCfg(RemindMFABaseModel):
+class CommonCfg(RemindMFABaseModel):
     model: ModelNames
     """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
     madrat_output_path: str
@@ -220,23 +180,7 @@ class GeneralCfg(RemindMFABaseModel):
             return schema
 
         # Use GeneralCfg if only_base is True, otherwise use the calling class
-        target_cls = GeneralCfg if only_base else cls
+        target_cls = CommonCfg if only_base else cls
         schema = get_field_schema(target_cls)
         df = pd.DataFrame(schema)
         return df
-
-
-class PlasticsCfg(GeneralCfg):
-
-    visualization: PlasticsVisualizationCfg
-
-
-class CementCfg(GeneralCfg):
-
-    customization: CementModelSwitches
-    visualization: CementVisualizationCfg
-
-
-class SteelCfg(GeneralCfg):
-
-    visualization: SteelVisualizationCfg

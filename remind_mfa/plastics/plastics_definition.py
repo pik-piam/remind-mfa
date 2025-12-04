@@ -1,7 +1,7 @@
 from typing import List
 import flodym as fd
 
-from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.helper import RemindMFAParameterDefinition, RemindMFADefinition
 from remind_mfa.common.trade import TradeDefinition
 
@@ -10,7 +10,7 @@ class PlasticsMFADefinition(RemindMFADefinition):
     trades: List[TradeDefinition]
 
 
-def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
+def get_definition(cfg: PlasticsCfg, historic: bool) -> PlasticsMFADefinition:
 
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),

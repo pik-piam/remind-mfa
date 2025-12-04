@@ -2,12 +2,12 @@ import flodym as fd
 from typing import Optional
 
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.common_cfg import GeneralCfg
+from remind_mfa.common.common_config import CommonCfg
 
 
 class CommonMFASystem(fd.MFASystem):
 
-    cfg: GeneralCfg
+    cfg: CommonCfg
     trade_set: Optional[TradeSet] = None
 
     def fill_trade(self):

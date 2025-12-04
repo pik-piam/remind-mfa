@@ -6,7 +6,7 @@ from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import extrapolate_trade
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.common_cfg import SteelCfg
+from remind_mfa.steel.steel_config import SteelCfg
 
 
 class SteelMFASystem(CommonMFASystem):

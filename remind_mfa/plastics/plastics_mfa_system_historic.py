@@ -1,13 +1,6 @@
-from typing import Optional
 import flodym as fd
-import numpy as np
 
-from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
-from remind_mfa.common.trade_extrapolation import extrapolate_trade
-from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.common_cfg import PlasticsCfg
-from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
 class PlasticsMFASystemHistoric(fd.MFASystem):

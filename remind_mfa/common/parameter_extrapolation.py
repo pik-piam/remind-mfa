@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from remind_mfa.common.common_cfg import GeneralCfg
+    from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
@@ -80,7 +80,7 @@ class ParameterExtrapolationManager:
 
     def __init__(
         self,
-        cfg: "GeneralCfg",
+        cfg: "CommonCfg",
         extended_time: fd.Dimension,
     ):
         self.parameter_extrapolation_classes = cfg.model_switches.parameter_extrapolation_classes

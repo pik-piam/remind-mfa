@@ -2,7 +2,7 @@ import flodym as fd
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.common_cfg import CementCfg
+from remind_mfa.cement.cement_config import CementCfg
 
 
 class InflowDrivenHistoricCementMFASystem(CommonMFASystem):

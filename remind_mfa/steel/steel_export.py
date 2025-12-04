@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import flodym.export as fde
 
 from remind_mfa.common.common_export import CommonDataExporter
-from remind_mfa.common.common_cfg import SteelVisualizationCfg
+from remind_mfa.steel.steel_config import SteelVisualizationCfg
 
 if TYPE_CHECKING:
     from remind_mfa.steel.steel_model import SteelModel
