@@ -1,7 +1,7 @@
-from remind_mfa.common.mrindustry_data_reader import MrindustryDataReader
+from remind_mfa.common.common_data_reader import CommonDataReader
 
 
-class SteelDataReader(MrindustryDataReader):
+class SteelDataReader(CommonDataReader):
     dimension_map = {
         "Time": "time_in_years",
         "Historic Time": "historic_years",

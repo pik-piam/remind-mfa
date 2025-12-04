@@ -8,7 +8,7 @@ from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.helper import RemindMFADefinition
 
 
-class MrindustryDataReader(fd.CompoundDataReader):
+class CommonDataReader(fd.CompoundDataReader):
     dimension_map = {}
 
     def __init__(
