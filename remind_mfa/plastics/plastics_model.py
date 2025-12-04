@@ -15,6 +15,7 @@ class PlasticsModel(CommonModel):
     DataExporterCls = PlasticsDataExporter
     HistoricMFASystemCls = PlasticsMFASystemHistoric
     FutureMFASystemCls = PlasticsMFASystemFuture
+    get_definition = staticmethod(get_definition)
     custom_scn_prm_def = plastics_scn_prm_def
 
     def set_definition(self, *args, **kwargs):

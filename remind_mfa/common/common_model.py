@@ -19,10 +19,11 @@ class CommonModel:
     HistoricMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
+    get_definition = staticmethod(get_definition)
 
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
-        self.set_definition(self.cfg)
+        self.set_definition()
         self.read_data()
         self.read_scenario_parameters()
         self.modify_parameters()
@@ -43,7 +44,7 @@ class CommonModel:
             self.cfg, self.dims["t"]
         ).apply_prm_extrapolation(self.parameters)
 
-        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.model_switches.mode)
+        self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(stock_projection, historic_trade)
 
     def export(self):
@@ -52,8 +53,8 @@ class CommonModel:
         self.data_writer.visualize_results(model=self)
 
     def set_definition(self):
-        self.definition_historic = get_definition(self.cfg, historic=True)
-        self.definition_future = get_definition(self.cfg, historic=False)
+        self.definition_historic = self.get_definition(self.cfg, historic=True)
+        self.definition_future = self.get_definition(self.cfg, historic=False)
 
     def read_data(self):
         self.data_reader = self.DataReaderCls(
@@ -61,7 +62,7 @@ class CommonModel:
             definition=self.definition_future,
             # TODO: Remove requirement for plastics and then remove these two lines
             allow_extra_values=True,
-            allow_missing_values=True,
+            # allow_missing_values=True,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(

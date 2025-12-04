@@ -26,10 +26,9 @@ class SteelModel(CommonModel):
     DataExporterCls = SteelDataExporter
     HistoricMFASystemCls = SteelMFASystemHistoric
     FutureMFASystemCls = SteelMFASystem
+    get_definition = staticmethod(get_definition)
     custom_scn_prm_def = steel_scn_prm_def
 
-    def set_definition(self, *args, **kwargs):
-        return get_definition(*args, **kwargs)
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""

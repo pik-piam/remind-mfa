@@ -26,6 +26,7 @@ class CementModel(CommonModel):
     DataExporterCls = CementDataExporter
     HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
+    get_definition = staticmethod(get_definition)
     custom_scn_prm_def = cement_scn_prm_def
 
     def set_definition(self, *args, **kwargs):

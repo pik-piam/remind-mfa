@@ -18,19 +18,12 @@ class SteelMFASystem(CommonMFASystem):
         Perform all computations for the MFA system.
         """
         self.compute_in_use_stock(stock_projection)
-        self.compute_trade(historic_trade)
+        self.extrapolate_trade_set(historic_trade)
         self.compute_flows()
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
         # self.update_price_elastic()
-
-    def compute_trade(self, historic_trade: TradeSet):
-        if self.stock_driven:
-            self.extrapolate_trade_set(historic_trade)
-        else:
-            self.fill_trade()
-            self.trade_set.balance(to="hmean")
 
     def update_price_elastic(self):
         self.compute_price_elastic_trade()
@@ -69,17 +62,11 @@ class SteelMFASystem(CommonMFASystem):
         self.flows["ip_market => exports"][...] = self.trade_set["intermediate"].exports
 
     def compute_in_use_stock(self, stock_projection):
-        if self.stock_driven:
-            self.stocks["in_use"].stock[...] = stock_projection
-        else:
-            self.stocks["in_use"].inflow[...] = self.parameters["in_use_inflow"]
-
+        self.stocks["in_use"].stock[...] = stock_projection
         self.stocks["in_use"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )
         self.stocks["in_use"].compute()
-        if not self.stock_driven:
-            self.stocks["in_use"].outflow[...] += self.parameters["fixed_in_use_outflow"]
 
     def extrapolate_trade_set(self, historic_trade: TradeSet):
         product_demand = self.stocks["in_use"].inflow
