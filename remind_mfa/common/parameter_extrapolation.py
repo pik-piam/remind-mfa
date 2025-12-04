@@ -83,7 +83,7 @@ class ParameterExtrapolationManager:
         cfg: "GeneralCfg",
         extended_time: fd.Dimension,
     ):
-        self.parameter_extrapolation_classes = cfg.customization.parameter_extrapolation_classes
+        self.parameter_extrapolation_classes = cfg.model_switches.parameter_extrapolation_classes
         self.extended_time = extended_time
 
     def apply_prm_extrapolation(

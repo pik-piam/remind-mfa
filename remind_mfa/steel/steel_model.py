@@ -107,7 +107,7 @@ class SteelModel(CommonModel):
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         indep_fit_dim_letters = (
-            ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
+            ("g",) if self.cfg.model_switches.do_stock_extrapolation_by_category else ()
         )
         historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
         sat_level = self.get_saturation_level(historic_stocks)
@@ -157,9 +157,9 @@ class SteelModel(CommonModel):
             historic_stocks,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
+            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
             target_dim_letters=(
-                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
             ),
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,
@@ -170,7 +170,7 @@ class SteelModel(CommonModel):
         total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
         self.parameters["gdppc"] = gdppc_old
 
-        if not self.cfg.customization.do_stock_extrapolation_by_category:
+        if not self.cfg.model_switches.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
             sector_splits = self.calc_stock_sector_splits()
             total_in_use_stock = total_in_use_stock * sector_splits
@@ -190,7 +190,7 @@ class SteelModel(CommonModel):
         multi_dim_extrapolation.regress()
         saturation_level = multi_dim_extrapolation.fit_prms[0]
 
-        if self.cfg.customization.do_stock_extrapolation_by_category:
+        if self.cfg.model_switches.do_stock_extrapolation_by_category:
             high_stock_sector_split = self.get_high_stock_sector_split()
             saturation_level = saturation_level * high_stock_sector_split.values
 

@@ -43,7 +43,7 @@ class CommonModel:
             self.cfg, self.dims["t"]
         ).apply_prm_extrapolation(self.parameters)
 
-        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
+        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.model_switches.mode)
         self.future_mfa.compute(stock_projection, historic_trade)
 
     def export(self):
@@ -71,7 +71,7 @@ class CommonModel:
     def read_scenario_parameters(self):
         parameter_definitions = common_scn_prm_def + self.custom_scn_prm_def
         scenario_reader = ScenarioReader(
-            name=self.cfg.customization.scenario,
+            name=self.cfg.model_switches.scenario,
             base_path=self.cfg.scenarios_path,
             model=self.cfg.model,
             dims=self.dims,

@@ -7,8 +7,7 @@ input_data_path: '../simson_data/data/steel/output'
 scenarios_path: 'config/scenarios'
 input_data_version: 'rev0steel_h12_cd1fe885_mfa'
 
-# model customization
-customization:
+model_switches:
   scenario: 'SSP1_lowEU'
   stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
   lifetime_model_name: 'LogNormalLifetime'

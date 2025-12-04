@@ -7,8 +7,7 @@ input_data_path: '../simson_data/data/plastics/output'
 input_data_version: 'rev0backcast_trade_h12_d499589e_mfa'
 scenarios_path: 'config/scenarios'
 
-# model customization
-customization:
+model_switches:
   scenario: 'SSP2'
   stock_extrapolation_class_name: 'SigmoidExtrapolation'
   regress_over: 'loggdppc_time_weighted_sum'

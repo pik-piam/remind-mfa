@@ -144,7 +144,7 @@ class GeneralCfg(RemindMFABaseModel):
     scenarios_path: str
     """Path to the scenario definition directory."""
     input_data_version: str
-    customization: ModelSwitches
+    model_switches: ModelSwitches
     """Model customization parameters."""
     visualization: VisualizationCfg
     """Visualization configuration."""
