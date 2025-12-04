@@ -9,7 +9,7 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.steel.steel_export import SteelDataExporter
 from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
 from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
-from remind_mfa.steel.steel_definition import get_definition
+from remind_mfa.steel.steel_definition import get_steel_definition
 from remind_mfa.steel.steel_config import SteelCfg
 from remind_mfa.steel.steel_data_reader import SteelDataReader
 from remind_mfa.common.assumptions_doc import add_assumption_doc
@@ -24,7 +24,7 @@ class SteelModel(CommonModel):
     DataExporterCls = SteelDataExporter
     HistoricMFASystemCls = SteelMFASystemHistoric
     FutureMFASystemCls = SteelMFASystem
-    get_definition = staticmethod(get_definition)
+    get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
 
     def modify_parameters(self):

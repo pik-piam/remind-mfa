@@ -6,11 +6,7 @@ from remind_mfa.common.helper import RemindMFAParameterDefinition, RemindMFADefi
 from remind_mfa.common.trade import TradeDefinition
 
 
-class PlasticsMFADefinition(RemindMFADefinition):
-    trades: List[TradeDefinition]
-
-
-def get_definition(cfg: PlasticsCfg, historic: bool) -> PlasticsMFADefinition:
+def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefinition:
 
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
@@ -309,7 +305,7 @@ def get_definition(cfg: PlasticsCfg, historic: bool) -> PlasticsMFADefinition:
             TradeDefinition(name="waste", dim_letters=("t", "r", "m", "e", "g")),
         ]
 
-    return PlasticsMFADefinition(
+    return RemindMFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,

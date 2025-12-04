@@ -4,7 +4,7 @@ from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.helper import RemindMFAParameterDefinition, RemindMFADefinition
 
 
-def get_definition(cfg: CementCfg, historic: bool):
+def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition:
 
     # 1) Dimensions
     dimensions = [

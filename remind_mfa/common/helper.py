@@ -3,6 +3,8 @@ from pydantic import BaseModel, ConfigDict
 from flodym import ParameterDefinition, MFADefinition
 from typing import Optional, List
 
+from remind_mfa.common.trade import TradeDefinition
+
 
 class ModelNames(str, Enum):
     PLASTICS = "plastics"
@@ -39,6 +41,7 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 class RemindMFADefinition(MFADefinition):
     """All the information needed to define an MFA system, compiled of lists of definition objects."""
 
+    trades: List[TradeDefinition] = []
     parameters: List[RemindMFAParameterDefinition]
     """List of definitions of parameters used in the model."""
 

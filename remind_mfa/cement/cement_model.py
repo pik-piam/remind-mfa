@@ -4,7 +4,7 @@ import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.data_transformations import Bound, BoundList
-from remind_mfa.cement.cement_definition import get_definition
+from remind_mfa.cement.cement_definition import get_cement_definition
 from remind_mfa.cement.cement_mfa_system_historic import (
     InflowDrivenHistoricCementMFASystem,
 )
@@ -26,11 +26,11 @@ class CementModel(CommonModel):
     DataExporterCls = CementDataExporter
     HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
-    get_definition = staticmethod(get_definition)
+    get_definition = staticmethod(get_cement_definition)
     custom_scn_prm_def = cement_scn_prm_def
 
     def set_definition(self, *args, **kwargs):
-        return get_definition(*args, **kwargs)
+        return get_cement_definition(*args, **kwargs)
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         """Extrapolate in use stock to future."""
