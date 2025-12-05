@@ -2,16 +2,12 @@ import flodym as fd
 import numpy as np
 from typing import Tuple, Union, Type, Optional
 from copy import deepcopy
-from enum import Enum
 
 from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
-
-
-class RegressOverMode(str, Enum):
-    gdppc = "gdppc"
-    loggdppc_time_weighted_sum = "loggdppc_time_weighted_sum"
+from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.common_config import ModelSwitches
 
 
 class StockExtrapolation:
@@ -19,19 +15,18 @@ class StockExtrapolation:
     Class for extrapolating stocks based on historical data and GDP per capita.
     """
 
-    regress_over: RegressOverMode
+    regress_over: RegressOverModes
 
     def __init__(
         self,
+        cfg: ModelSwitches,
         historic_stocks: fd.StockArray,
         dims: fd.DimensionSet,
         parameters: dict[str, fd.Parameter],
-        stock_extrapolation_class: Type[Extrapolation],
         target_dim_letters: Union[Tuple[str, ...], str] = "all",
         indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
         bound_list: BoundList = BoundList(),
         do_gdppc_accumulation: bool = True,
-        regress_over: str = "gdppc",
         weight: Optional[float] = None,
         stock_correction: str = "gaussian_first_order",
     ):
@@ -39,25 +34,24 @@ class StockExtrapolation:
         Initialize the StockExtrapolation class.
 
         Args:
+            cfg (ModelSwitches): Configuration for the model.
             historic_stocks (fd.StockArray): Historical stock data.
             dims (fd.DimensionSet): Dimension set for the data.
             parameters (dict[str, fd.Parameter]): Parameters for the extrapolation.
-            stock_extrapolation_class (Extrapolation): Class used for stock extrapolation.
             target_dim_letters (Union[Tuple[str, ...], str]): Sets the dimensions of the stock extrapolation output. If "all", the output will have the same shape as historic_stocks, except for the time dimension. Defaults to "all".
             indep_fit_dim_letters (Union[Tuple[str, ...]], str): Sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters. If "all", all dimensions given in target_dim_letters are regressed individually. If empty (), all dimensions are regressed aggregately. Defaults to ().
             bound_list (BoundList): List of bounds for the extrapolation. Defaults to an empty BoundList.
             do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True.
             stock_correction (str): Method for stock correction. Possible values are "gaussian_first_order", "shift_zeroth_order", "none". Defaults to "gaussian_first_order".
         """
+        self.cfg = cfg
         self.historic_stocks = historic_stocks
         self.dims = dims
         self.parameters = parameters
-        self.stock_extrapolation_class = stock_extrapolation_class
         self.target_dim_letters = target_dim_letters
         self.set_dims(indep_fit_dim_letters)
         self.bound_list = bound_list
         self.do_gdppc_accumulation = do_gdppc_accumulation
-        self.regress_over = regress_over
         self.weight = weight
         self.stock_correction = stock_correction
         self.extrapolate()
@@ -163,9 +157,11 @@ class StockExtrapolation:
         for i in range(n_deriv + 5):
             gdppc[i_2025 - i, ...] = gdppc[i_2025 - i + 1, ...] * growth
 
-        if self.regress_over == RegressOverMode.gdppc:
+        if self.cfg.regress_over == RegressOverModes.GDPPC:
             predictor = gdppc
-        elif self.regress_over == RegressOverMode.loggdppc_time_weighted_sum:
+        elif self.cfg.regress_over == RegressOverModes.LOGGDPPC:
+            predictor = np.log10(gdppc)
+        elif self.cfg.regress_over == RegressOverModes.LOCGDPPC_TIME_WEIGHTED_SUM:
             predictor = self.loggdp_time_regression(gdppc, self.weight)
             add_assumption_doc(
                 type="model assumption",
@@ -174,16 +170,14 @@ class StockExtrapolation:
                     "The weighted sum of logGDP per capita and Year is used as a predictor in stock extrapolation. "
                 ),
             )
-        else:
-            raise ValueError("unknown regress_over value")
 
-        extrapolation = self.stock_extrapolation_class(
+        self.extrapolation = self.cfg.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
             predictor_values=predictor,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
         )
-        pure_prediction = extrapolation.regress()
+        pure_prediction = self.extrapolation.regress()
 
         if self.stock_correction == "gaussian_first_order":
             prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction, n_deriv)
@@ -210,15 +204,22 @@ class StockExtrapolation:
 
         # save extrapolation data for later analysis
         self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
+
+        # The following BLOCK was removed in carbonation branch, but modified in another.
+        # TODO: check if still needed
+        # BLOCK START
         if self.indep_fit_dim_letters:
             parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
         else:
             parameter_dims = fd.DimensionSet(dim_list=[])
         parameter_names = fd.Dimension(
-            name="Parameter Names", letter="p", items=extrapolation.prm_names
+            name="Parameter Names", letter="p", items=self.extrapolation.prm_names
         )
         parameter_dims = parameter_dims.expand_by([parameter_names])
-        self.pure_parameters = fd.FlodymArray(dims=parameter_dims, values=extrapolation._fit_prms)
+        self.pure_parameters = fd.FlodymArray(
+            dims=parameter_dims, values=self.extrapolation._fit_prms
+        )
+        # BLOCK END
 
         prediction_out[:n_historic, ...] = historic_in
         self.stocks_pc.set_values(prediction_out)

@@ -1,5 +1,5 @@
 from pydantic import model_validator
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 from typing import List
 import numpy as np
 from scipy.stats import gmean, hmean

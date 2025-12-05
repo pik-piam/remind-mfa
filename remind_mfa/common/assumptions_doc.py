@@ -4,7 +4,7 @@ from typing import ClassVar, Any, Optional
 import os
 import pandas as pd
 
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 
 
 _assumptions = []
@@ -18,7 +18,7 @@ def add_assumption_doc(
     and can be printed later using the print_assumptions() function.
     Args:
         type (str): The type of the assumption. Must be one of the allowed types:
-            "ad-hoc fix", "model assumption", "integer number", "expert guess", "literature value".
+            "ad-hoc fix", "model assumption", "integer number", "expert guess", "literature value", "model switch".
         name (str): The name of the assumption. This should be a short, descriptive name.
         description (str): A thorough explanation of the assumption. Should be understandable for
             users of the model without knowledge of the code.
@@ -52,6 +52,7 @@ class Assumption(RemindMFABaseModel):
         "integer number",
         "expert guess",
         "literature value",
+        "model switch",
     ]
 
     @field_validator("type", mode="after")
