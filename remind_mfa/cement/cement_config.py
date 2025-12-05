@@ -1,4 +1,4 @@
-from remind_mfa.common.common_config import CommonCfg, ModelSwitches, VisualizationCfg
+from remind_mfa.common.common_config import CommonCfg, ModelSwitches, VisualizationCfg, BaseVisualizationCfg, StockVisualizationCfg
 from remind_mfa.common.helper import CementModes
 
 
@@ -12,19 +12,19 @@ class CementModelSwitches(ModelSwitches):
 
 class CementVisualizationCfg(VisualizationCfg):
 
-    consumption: dict = {}
-    prod_clinker: dict = {}
+    consumption: BaseVisualizationCfg
+    prod_clinker: BaseVisualizationCfg
     """Visualization configuration for clinker production."""
-    prod_cement: dict = {}
+    prod_cement: BaseVisualizationCfg
     """Visualization configuration for cement production."""
-    prod_product: dict = {}
+    prod_product: BaseVisualizationCfg
     """Visualization configuration for products production."""
-    eol_stock: dict = {}
+    eol_stock: StockVisualizationCfg
     """Visualization configuration for end-of-life stock."""
-    carbonation: dict = {}
+    carbonation: BaseVisualizationCfg
 
 
 class CementCfg(CommonCfg):
 
-    customization: CementModelSwitches
+    model_switches: CementModelSwitches
     visualization: CementVisualizationCfg

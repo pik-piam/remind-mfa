@@ -1,6 +1,4 @@
 import flodym as fd
-import numpy as np
-from enum import Enum
 
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import extrapolate_trade

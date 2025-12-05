@@ -1,16 +1,21 @@
-from remind_mfa.common.common_config import CommonCfg, VisualizationCfg
+from remind_mfa.common.common_config import CommonCfg, VisualizationCfg, BaseVisualizationCfg
+
+
+class GDPVisualizationCfg(BaseVisualizationCfg):
+    per_capita: bool = False
+    """Whether to visualize stock per capita."""
 
 
 class SteelVisualizationCfg(VisualizationCfg):
-    scrap_demand_supply: dict = {"do_visualize": False}
+    scrap_demand_supply: BaseVisualizationCfg
     """Visualization configuration for scrap demand and supply."""
-    sector_splits: dict = {"do_visualize": False}
+    sector_splits: BaseVisualizationCfg
     """Visualization configuration for sector splits."""
-    trade: dict = {"do_visualize": False}
+    trade: BaseVisualizationCfg
     """Visualization configuration for trade."""
-    consumption: dict = {"do_visualize": False}
+    consumption: BaseVisualizationCfg
     """Visualization configuration for consumption."""
-    gdppc: dict = {"do_visualize": False}
+    gdppc: GDPVisualizationCfg
     """Visualization configuration for GDP per capita."""
 
 

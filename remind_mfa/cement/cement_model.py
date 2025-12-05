@@ -8,11 +8,11 @@ from remind_mfa.cement.cement_definition import get_cement_definition
 from remind_mfa.cement.cement_mfa_system_historic import (
     InflowDrivenHistoricCementMFASystem,
 )
-from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_data_reader import CementDataReader
 from remind_mfa.cement.cement_export import CementDataExporter
+from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
@@ -24,13 +24,11 @@ class CementModel(CommonModel):
     ConfigCls = CementCfg
     DataReaderCls = CementDataReader
     DataExporterCls = CementDataExporter
+    VisualizerCls = CementVisualizer
     HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
     get_definition = staticmethod(get_cement_definition)
     custom_scn_prm_def = cement_scn_prm_def
-
-    def set_definition(self, *args, **kwargs):
-        return get_cement_definition(*args, **kwargs)
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         """Extrapolate in use stock to future."""

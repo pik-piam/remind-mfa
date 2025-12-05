@@ -1,8 +1,9 @@
 from typing import List
 import flodym as fd
 
+from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.plastics.plastics_config import PlasticsCfg
-from remind_mfa.common.helper import RemindMFAParameterDefinition, RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
 
 

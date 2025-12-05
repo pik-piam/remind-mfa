@@ -17,7 +17,9 @@ def run_remind_mfa(cfg_file: str):
     model.run()
     logging.info("Model computations completed.")
     model.export()
-    logging.info("Export and visualization completed.")
+    logging.info("Export completed.")
+    model.visualize()
+    logging.info("Visualization completed.")
 
 
 def configure_logger():
@@ -25,6 +27,7 @@ def configure_logger():
         format="%(asctime)s %(levelname)-8s %(message)s",
         level=logging.INFO,
         datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,
     )
 
 

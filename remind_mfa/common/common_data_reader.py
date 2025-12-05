@@ -5,7 +5,7 @@ import pandas as pd
 import flodym as fd
 
 from remind_mfa.common.common_config import CommonCfg
-from remind_mfa.common.helper import RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFADefinition
 
 
 class CommonDataReader(fd.CompoundDataReader):
@@ -19,9 +19,9 @@ class CommonDataReader(fd.CompoundDataReader):
         allow_extra_values: bool = False,
     ):
         self.model_class = cfg.model
-        self.madrat_output_path = cfg.madrat_output_path
-        self.input_data_path = cfg.input_data_path
-        self.input_data_version = cfg.input_data_version
+        self.madrat_output_path = cfg.input.madrat_output_path
+        self.input_data_path = cfg.input.input_data_path
+        self.input_data_version = cfg.input.input_data_version
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
@@ -74,7 +74,7 @@ class CommonDataReader(fd.CompoundDataReader):
                     f"{[os.path.basename(m) for m in regionfiles]}"
                 )
             dimension_files["Region"] = regionfiles[0]
-        dimension_reader = MrindustryDimensionReader(dimension_files)
+        dimension_reader = CommonDimensionReader(dimension_files)
 
         # parameters
         parameter_prefix = self.model_class[:2]
@@ -89,7 +89,7 @@ class CommonDataReader(fd.CompoundDataReader):
                 # fall back to common parameters
                 else os.path.join(self.extracted_input_data_path, f"co_{parameter.name}.cs4r")
             )
-        parameter_reader = MrindustryParameterReader(
+        parameter_reader = MadratParameterReader(
             parameter_files,
             allow_extra_values=self.allow_extra_values,
             allow_missing_values=self.allow_missing_values,
@@ -98,7 +98,7 @@ class CommonDataReader(fd.CompoundDataReader):
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
 
 
-class MrindustryDimensionReader(fd.CSVDimensionReader):
+class CommonDimensionReader(fd.CSVDimensionReader):
     """
     Custom dimension reader that reads Region dimensions from mrindustry regionmapping .csv.
     Everything else works as in flodym.CSVDimensionReader.
@@ -114,7 +114,7 @@ class MrindustryDimensionReader(fd.CSVDimensionReader):
             return super().read_dimension(definition)
 
 
-class MrindustryParameterReader(fd.CSVParameterReader):
+class MadratParameterReader(fd.CSVParameterReader):
     """
     Custom parameter reader for .cs4r files that extracts header and skiprows information from the file.
     Everything else inherited from flodym.CSVParameterReader.

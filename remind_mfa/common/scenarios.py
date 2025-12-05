@@ -4,7 +4,8 @@ from pydantic import field_validator
 from typing import List, Dict, Optional
 import yaml
 
-from remind_mfa.common.helper import RemindMFAParameterDefinition, PlainDataPointDefinition
+from remind_mfa.common.common_definition import PlainDataPointDefinition
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.helper import ModelNames, RemindMFABaseModel
 
 

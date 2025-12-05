@@ -1,23 +1,20 @@
 import os
-from matplotlib import pyplot as plt
-import plotly.graph_objects as go
-import plotly.colors as plc
-import plotly.io as pio
-from typing import Optional, Any
+from typing import Any, TYPE_CHECKING
 from pydantic import model_validator
-import flodym as fd
 import flodym.export as fde
 
-from remind_mfa.common.helper import RemindMFABaseModel, RemindMFADefinition
-from remind_mfa.common.common_config import VisualizationCfg, ExportCfg, CommonCfg
+from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
+if TYPE_CHECKING:
+    from remind_mfa.common.common_model import CommonModel
+    from remind_mfa.common.common_config import CommonCfg
+    from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 
 class CommonDataExporter(RemindMFABaseModel):
-    output_path: str
-    docs_path: str
-    do_export: ExportCfg
-    cfg: VisualizationCfg
+    cfg: ExportCfg
     _display_names: dict = {
         # for markdown export
         "name": "Name",
@@ -31,12 +28,6 @@ class CommonDataExporter(RemindMFABaseModel):
     }
 
     @model_validator(mode="after")
-    def set_plotly_renderer(self):
-        if self.cfg.plotting_engine == "plotly":
-            pio.renderers.default = self.cfg.plotly_renderer
-        return self
-
-    @model_validator(mode="after")
     def inherit_display_names(self):
         """
         Ensures that _display_names defined in a subclass are *merged* with
@@ -47,21 +38,40 @@ class CommonDataExporter(RemindMFABaseModel):
         self._display_names.update(from_sub)
         return self
 
-    def export_mfa(self, mfa: fd.MFASystem):
-        if self.do_export.pickle:
-            fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("mfa.pickle"))
-        if self.do_export.csv:
-            dir_out = os.path.join(self.export_path(), "flows")
+    def export(self, model: "CommonModel"):
+        if not self.cfg.do_export:
+            return
+        self.export_common(model)
+        self.export_custom(model)
+
+    def export_common(self, model: "CommonModel"):
+        mfa = model.future_mfa
+        if self.cfg.pickle.do_export:
+            fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("pickle", "mfa.pickle"))
+        if self.cfg.csv.do_export:
+            dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
-        if self.do_export.assumptions:
-            file_out = os.path.join(self.export_path("assumptions.txt"))
+        if self.cfg.assumptions.do_export:
+            file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
+        if self.cfg.docs.do_export:
+            self.definition_to_markdown(model.definition_future)
+            self.assumptions_to_markdown()
+            self.cfg_to_markdown(cfg=model.cfg)
+        if self.cfg.iamc.do_export:
+            self.write_iamc(mfa=mfa)
+
+    def export_custom(self, model: "CommonModel"):
+        pass
+
+    def write_iamc(self, mfa: CommonMFASystem):
+        raise NotImplementedError("Subclasses must implement write_iamc method")
 
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
-        if not self.do_export.docs:
+        if not self.cfg.docs.do_export:
             return
 
         dfs = definition.to_dfs()
@@ -92,238 +102,44 @@ class CommonDataExporter(RemindMFABaseModel):
             df = df.map(convert_cell)
             if name == "parameters":
                 # Export parameters as CSV to merge with their source info later
-                df.to_csv(self.export_docs_path(f"definitions/{name}.csv"), index=False)
+                df.to_csv(self.export_path("docs", f"definitions/{name}.csv"), index=False)
             else:
-                df.to_markdown(self.export_docs_path(f"definitions/{name}.md"), index=False)
+                df.to_markdown(self.export_path("docs", f"definitions/{name}.md"), index=False)
 
     def assumptions_to_markdown(self):
 
-        if not self.do_export.docs:
+        if not self.cfg.docs.do_export:
             return
 
         df = assumptions_df()
-        df.to_markdown(self.export_docs_path("assumptions.md"), index=False)
+        df.to_markdown(self.export_path("docs", "assumptions.md"), index=False)
 
-    def cfg_to_markdown(self, cfg: CommonCfg):
+    def cfg_to_markdown(self, cfg: "CommonCfg"):
 
-        if not self.do_export.docs:
+        if not self.cfg.docs.do_export:
             return
 
         schema_df = type(cfg).to_schema_df()
-        schema_df.to_markdown(self.export_docs_path("config_schema.md"), index=False)
+        schema_df.to_markdown(self.export_path("docs", "config_schema.md"), index=False)
 
-    def export_path(self, filename: str = None):
-        path_tuple = (self.output_path, "export")
+    def export_path(self, dataset: str, filename: str = None):
+        if not hasattr(self.cfg, dataset):
+            raise ValueError(f"Dataset {dataset} not found in config")
+        cfg_path = getattr(self.cfg, dataset).path
+
+        if cfg_path is not None:
+            path_tuple = (cfg_path,)
+        else:
+            path_tuple = (self.cfg.path, dataset)
+
+        base_dir = os.path.join(*path_tuple)
+        if not os.path.isdir(base_dir):
+            os.mkdir(base_dir)
+
         if filename is not None:
             path_tuple += (filename,)
+
         return os.path.join(*path_tuple)
 
-    def export_docs_path(self, filename: str = None):
-        return os.path.join(self.docs_path, filename)
-
-    def figure_path(self, filename: str):
-        return os.path.join(self.output_path, "figures", filename)
-
-    def _show_and_save_plotly(self, fig: go.Figure, name):
-        if self.cfg.do_save_figs:
-            fig.write_image(self.figure_path(f"{name}.png"))
-        if self.cfg.do_show_figs:
-            fig.show()
-
-    def visualize_sankey(self, mfa: fd.MFASystem):
-        plotter = fde.PlotlySankeyPlotter(
-            mfa=mfa, display_names=self._display_names, **self.cfg.sankey
-        )
-        fig = plotter.plot()
-
-        fig.update_layout(
-            # title_text=f"Steel Flows ({', '.join([str(v) for v in self.sankey['slice_dict'].values()])})",
-            font_size=20,
-        )
-
-        self._show_and_save_plotly(fig, name="sankey")
-
-    def figure_path(self, filename: str) -> str:
-        return os.path.join(self.output_path, "figures", filename)
-
-    def plot_and_save_figure(self, plotter: fde.ArrayPlotter, filename: str, do_plot: bool = True):
-        if do_plot:
-            plotter.plot()
-        if self.cfg.do_show_figs:
-            plotter.show()
-        if self.cfg.do_save_figs:
-            plotter.save(self.figure_path(filename), width=2200, height=1300, scale=3)
-
-    def stop_and_show(self):
-        if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
-            plt.show()
-
     def display_name(self, name):
-        return self._display_names[name] if name in self._display_names else name
-
-    @property
-    def plotter_class(self):
-        if self.cfg.plotting_engine == "plotly":
-            return fde.PlotlyArrayPlotter
-        elif self.cfg.plotting_engine == "pyplot":
-            return fde.PyplotArrayPlotter
-        else:
-            raise ValueError(f"Unknown plotting engine: {self.cfg.plotting_engine}")
-
-    def visualize_use_stock(
-        self, mfa: fd.MFASystem, stock: fd.FlodymArray, subplot_dim: str = None
-    ):
-        """Visualize the use stock. If subplot_dim is not None, a separate plot for each item in the given dimension is created. Otherwise, one accumulated plot is generated."""
-        per_capita = self.cfg.use_stock["per_capita"]
-
-        population = mfa.parameters["population"]
-        x_array = None
-        linecolor_dim = "Region"
-
-        pc_str = " pC" if per_capita else ""
-        x_label = "Year"
-        y_label = f"Stock{pc_str} [t]"
-        title = f"Stocks{pc_str}"
-        if self.cfg.use_stock["over_gdp"]:
-            title = title + f" over GDP{pc_str}"
-            x_label = f"GDP/PPP{pc_str} [2005 USD]"
-            x_array = mfa.parameters["gdppc"]
-            if not per_capita:
-                # get global GDP per capita
-                x_array = x_array * population
-
-        if subplot_dim is None:
-            # sum over all dimensions except time and linecolor_dim
-            other_dimletters = tuple(
-                letter
-                for letter in stock.dims.letters
-                if letter
-                not in [
-                    "t",
-                    "r",
-                ]
-            )
-            for dimletter in other_dimletters:
-                stock = stock.sum_over(dimletter)
-
-        if per_capita:
-            stock = stock / population
-
-        fig, ap_scatter_stock = self.plot_history_and_future(
-            mfa=mfa,
-            data_to_plot=stock,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            linecolor_dim=linecolor_dim,
-            x_label=x_label,
-            y_label=y_label,
-            title=title,
-        )
-
-        # Adjust x-axis
-        if self.cfg.use_stock["over_gdp"]:
-            if self.cfg.plotting_engine == "plotly":
-                fig.update_xaxes(type="log", range=[3, 5])
-            elif self.cfg.plotting_engine == "pyplot":
-                for ax in fig.get_axes():
-                    ax.set_xscale("log")
-                    ax.set_xlim(1e3, 1e5)
-
-        self.plot_and_save_figure(
-            ap_scatter_stock,
-            f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
-            do_plot=False,
-        )
-
-    def plot_history_and_future(
-        self,
-        mfa: fd.MFASystem,
-        data_to_plot: fd.FlodymArray,
-        subplot_dim: Optional[str] = None,
-        x_array: Optional[fd.FlodymArray] = None,
-        linecolor_dim: Optional[str] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        title: Optional[str] = None,
-        future_stock: bool = True,
-        **kwargs,
-    ):
-
-        colors = plc.qualitative.Dark24
-        if linecolor_dim:
-            dimletter = next(
-                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
-            )
-            n_linecolor_dim = data_to_plot.dims[dimletter].len
-        else:
-            n_linecolor_dim = 1
-
-        colors = (
-            colors[:n_linecolor_dim]  # future (dotted) color
-            + colors[:n_linecolor_dim]  # historic (solid) color
-            + ["black" for _ in range(n_linecolor_dim)]  # dot color
-        )
-
-        # data preparation
-        hist = data_to_plot[{"t": mfa.dims["h"]}]
-        last_year_dim = fd.Dimension(
-            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
-        )
-        scatter = hist[{"h": last_year_dim}]
-        if x_array is None:
-            hist_x_array = None
-            scatter_x_array = None
-        else:
-            hist_x_array = x_array[{"t": mfa.dims["h"]}]
-            scatter_x_array = hist_x_array[{"h": last_year_dim}]
-
-        # Future stock (dotted)
-        ap = self.plotter_class(
-            array=data_to_plot,
-            intra_line_dim="Time",
-            linecolor_dim=linecolor_dim,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            title=title,
-            color_map=colors,
-            line_type="dot",
-            suppress_legend=True,
-            **kwargs,
-        )
-        fig = ap.plot()
-
-        # Historic stock (solid)
-        ap = self.plotter_class(
-            array=hist,
-            intra_line_dim="Historic Time",
-            linecolor_dim=linecolor_dim,
-            subplot_dim=subplot_dim,
-            x_array=hist_x_array,
-            color_map=colors,
-            fig=fig,
-            **kwargs,
-        )
-        fig = ap.plot()
-
-        if not future_stock:
-            # Hack to remove future line from the plot, but keep the axis range
-            colors = ["rgba(0,0,0,0)"] * len(colors)
-
-        # Last historic year (dot)
-        ap = self.plotter_class(
-            array=scatter,
-            intra_line_dim="Last Historic Year",
-            linecolor_dim=linecolor_dim,
-            subplot_dim=subplot_dim,
-            x_array=scatter_x_array,
-            xlabel=x_label,
-            ylabel=y_label,
-            fig=fig,
-            chart_type="scatter",
-            color_map=colors,
-            suppress_legend=True,
-            **kwargs,
-        )
-        fig = ap.plot()
-
-        return fig, ap
+        return self._display_names.get(name, name)

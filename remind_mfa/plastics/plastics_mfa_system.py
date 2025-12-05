@@ -1,13 +1,9 @@
-from typing import Optional
 import flodym as fd
 import numpy as np
 
-from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import extrapolate_trade
-from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.plastics.plastics_config import PlasticsCfg
-from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
@@ -15,13 +11,11 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
     cfg: PlasticsCfg
 
-    def compute(self, historic_stock: fd.Stock, historic_trade: TradeSet):
+    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
-        # self.compute_trade()
-        self.extrapolate_stock(historic_stock)
-        self.transfer_to_simple_stock()
+        self.compute_stock(stock_projection)
         self.compute_waste_trade()
         self.compute_flows(historic_trade)
         self.compute_other_stocks()
@@ -35,104 +29,13 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.trade_set["waste"].exports[...] = self.parameters[f"waste_exports"] * split_eol
         self.trade_set.balance(to="maximum")
 
-    def extrapolate_stock(self, historic_stock: fd.Stock):
-        """
-        Stock extrapolation is first done per good over all regions;
-        upper bound of saturation level is set as the maximum historic stock per capita;
-        stock extrapolation is then repeated per region and good, using the maximum of the previously fitted global saturation level
-        and the maximum historic stock per capita in the respective region as upper bound.
-        """
-        weight = 70
-        add_assumption_doc(
-            type="integer number",
-            name="weight for loggdppc time weighted sum predictor in stock extrapolation",
-            value=weight,
-            description=(
-                "Weight used for the predictor in stock extrapolation that is a weighted sum of gdppc and time"
-                "according to the formula: 'log10(gdppc) * weight + time', "
-                "determined from a regression of time vs. log10(gdppc) at constant stock per capita."
-            ),
-        )
-        historic_pop = self.parameters["population"][{"t": self.dims["h"]}]
-        stock_pc = historic_stock.stock / historic_pop
-        # First extrapolation to get global saturation levels
-        indep_fit_dim_letters = ("g",)
-        lower_bound = fd.FlodymArray(
-            dims=self.dims[indep_fit_dim_letters],
-            values=np.zeros(self.dims[indep_fit_dim_letters].shape),
-        )
-        upper_bound = fd.FlodymArray(
-            dims=stock_pc.dims[indep_fit_dim_letters], values=np.max(stock_pc.values, axis=(0, 1))
-        )
-        sat_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=lower_bound.values,
-            upper_bound=upper_bound.values,
-            dims=lower_bound.dims,
-        )
-        bound_list = BoundList(
-            bound_list=[
-                sat_bound,
-            ],
-            target_dims=self.dims[indep_fit_dim_letters],
-        )
-        stock_handler = StockExtrapolation(
-            historic_stocks=historic_stock.stock,
-            dims=self.dims,
-            parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
-            regress_over=self.cfg.model_switches.regress_over,
-            weight=weight,
-            target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
-            ),
-            bound_list=bound_list,
-            indep_fit_dim_letters=indep_fit_dim_letters,
-        )
-        # Second extrapolation per region and good, using the maximum of the previously fitted global saturation level
-        # and the maximum historic stock per capita in the respective region as upper bound
-        indep_fit_dim_letters = ("r", "g")
-        saturation_level = stock_handler.pure_parameters["saturation_level"].cast_to(
-            self.dims[indep_fit_dim_letters]
-        )
-        upper_bound_sat = saturation_level.maximum(
-            fd.FlodymArray(
-                dims=stock_pc.dims[indep_fit_dim_letters], values=np.max(stock_pc.values, axis=0)
-            )
-        )
-        sat_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=upper_bound_sat.values,
-            upper_bound=upper_bound_sat.values,
-            dims=upper_bound_sat.dims,
-        )
-        bound_list = BoundList(
-            bound_list=[
-                sat_bound,
-            ],
-            target_dims=self.dims[indep_fit_dim_letters],
-        )
-        self.stock_handler = StockExtrapolation(
-            historic_stocks=historic_stock.stock,
-            dims=self.dims,
-            parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
-            regress_over=self.cfg.model_switches.regress_over,
-            weight=weight,
-            target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
-            ),
-            bound_list=bound_list,
-            indep_fit_dim_letters=indep_fit_dim_letters,
-        )
-        in_use_stock = self.stock_handler.stocks
-        self.stocks["in_use_dsm"].stock[...] = in_use_stock
+    def compute_stock(self, stock_projection: fd.FlodymArray):
+        self.stocks["in_use_dsm"].stock[...] = stock_projection
         self.stocks["in_use_dsm"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )
         self.stocks["in_use_dsm"].compute()
 
-    def transfer_to_simple_stock(self):
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
         split = (

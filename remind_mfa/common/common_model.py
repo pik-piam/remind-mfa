@@ -5,6 +5,7 @@ from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
 from remind_mfa.common.common_data_reader import CommonDataReader
 from remind_mfa.common.common_export import CommonDataExporter
+from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import get_definition
 from remind_mfa.common.trade import TradeSet
@@ -16,6 +17,7 @@ class CommonModel:
     ConfigCls = CommonCfg
     DataReaderCls = CommonDataReader
     DataExporterCls = CommonDataExporter
+    VisualizerCls = CommonVisualizer
     HistoricMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
@@ -27,10 +29,7 @@ class CommonModel:
         self.read_data()
         self.read_scenario_parameters()
         self.modify_parameters()
-        self.init_data_writer()
-
-    def get_long_term_stock(self):
-        raise NotImplementedError
+        self.init_export_and_visualization()
 
     def run(self):
         self.historic_mfa = self.make_mfa(historic=True)
@@ -48,9 +47,10 @@ class CommonModel:
         self.future_mfa.compute(stock_projection, historic_trade)
 
     def export(self):
-        self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.definition_to_markdown(definition=self.definition_future)
-        self.data_writer.visualize_results(model=self)
+        self.data_writer.export(model=self)
+
+    def visualize(self):
+        self.visualizer.visualize(model=self)
 
     def set_definition(self):
         self.definition_historic = self.get_definition(self.cfg, historic=True)
@@ -60,9 +60,9 @@ class CommonModel:
         self.data_reader = self.DataReaderCls(
             cfg=self.cfg,
             definition=self.definition_future,
-            # TODO: Remove requirement for plastics and then remove these two lines
+            # TODO: Remove requirement, then remove these two lines
             allow_extra_values=True,
-            # allow_missing_values=True,
+            allow_missing_values=True,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
@@ -73,7 +73,7 @@ class CommonModel:
         parameter_definitions = common_scn_prm_def + self.custom_scn_prm_def
         scenario_reader = ScenarioReader(
             name=self.cfg.model_switches.scenario,
-            base_path=self.cfg.scenarios_path,
+            base_path=self.cfg.input.scenarios_path,
             model=self.cfg.model,
             dims=self.dims,
             parameter_definitions=parameter_definitions,
@@ -84,12 +84,15 @@ class CommonModel:
         """Manual changes to parameters"""
         pass
 
-    def init_data_writer(self):
+    def get_long_term_stock(self):
+        raise NotImplementedError
+
+    def init_export_and_visualization(self):
         self.data_writer = self.DataExporterCls(
+            cfg=self.cfg.export,
+        )
+        self.visualizer = self.VisualizerCls(
             cfg=self.cfg.visualization,
-            do_export=self.cfg.do_export,
-            output_path=self.cfg.output_path,
-            docs_path=self.cfg.docs_path,
         )
 
     def make_mfa(self, historic: bool) -> CommonMFASystem:

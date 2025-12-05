@@ -1,8 +1,8 @@
-from remind_mfa.common.common_config import CommonCfg, VisualizationCfg
+from remind_mfa.common.common_config import CommonCfg, VisualizationCfg, BaseVisualizationCfg
 
 
 class PlasticsVisualizationCfg(VisualizationCfg):
-    flows: dict = {"do_visualize": False}
+    flows: BaseVisualizationCfg
     """Visualization configuration for flows."""
 
 

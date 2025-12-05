@@ -1,11 +1,10 @@
-# general config
 model: 'plastics'
 
-# data sources
-madrat_output_path: '../../madrat/output'
-input_data_path: '../simson_data/data/plastics/output'
-input_data_version: 'rev0backcast_trade_h12_d499589e_mfa'
-scenarios_path: 'config/scenarios'
+input:
+  madrat_output_path: '../../madrat/output'
+  input_data_path: '../simson_data/data/plastics/output'
+  input_data_version: 'rev0backcast_trade_h12_d499589e_mfa'
+  scenarios_path: 'config/scenarios'
 
 model_switches:
   scenario: 'SSP2'
@@ -14,13 +13,15 @@ model_switches:
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
 
-# visualization
 visualization:
   do_visualize: False
+  do_show_figs: True
+  do_save_figs: True
+  figures_path: 'data/cement/output/figures'
   use_stock:
     do_visualize: False
     over_gdp: False
-    acc: True
+    accumulate_gdp: True
     per_capita: True
   production:
     do_visualize: True
@@ -28,26 +29,31 @@ visualization:
     do_visualize: True
   sankey:
     do_visualize: False
-    slice_dict:
-      t: 2020
-    exclude_processes:
-      - "sysenv"
-      #- "waste_market"
-      #- "primary_market"
-      #- "intermediate_market"
-      #- "good_market"
-    exclude_flows: [ ]
+    plotter_args:
+      slice_dict:
+        t: 2020
+      exclude_processes:
+        - "sysenv"
+        #- "waste_market"
+        #- "primary_market"
+        #- "intermediate_market"
+        #- "good_market"
+      exclude_flows: [ ]
   flows:
     do_visualize: True
-  do_show_figs: True
-  do_save_figs: True
 
-# data export
-output_path: 'data/plastics/output'
-docs_path: 'docs/plastics'
-do_export:
-  pickle: False
-  csv: False
-  iamc: False
-  docs: True
-  assumptions: False
+export:
+  path: 'data/plastics/output/export'
+  pickle:
+    do_export: False
+  pickle:
+    do_export: False
+  csv:
+    do_export: False
+  iamc:
+    do_export: False
+  docs:
+    do_export: False
+    path: 'docs/plastics'
+  assumptions:
+    do_export: False

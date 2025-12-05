@@ -1,7 +1,8 @@
 import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
-from remind_mfa.common.helper import RemindMFAParameterDefinition, RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 
 
 def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition:

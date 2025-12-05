@@ -1,11 +1,10 @@
-# general config
 model: 'steel'
 
-# data sources
-madrat_output_path: '../../madrat/output'
-input_data_path: '../simson_data/data/steel/output'
-scenarios_path: 'config/scenarios'
-input_data_version: 'rev0steel_h12_cd1fe885_mfa'
+input:
+  madrat_output_path: '../../madrat/output'
+  input_data_path: '../simson_data/data/steel/output'
+  scenarios_path: 'config/scenarios'
+  input_data_version: 'rev0steel_h12_cd1fe885_mfa'
 
 model_switches:
   scenario: 'SSP1_lowEU'
@@ -13,9 +12,14 @@ model_switches:
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
 
-# visualization
 visualization:
   do_visualize: True
+  do_show_figs: True
+  do_save_figs: False
+  figures_path: 'data/steel/output/figures'
+  plotting_engine: 'plotly'
+  extrapolation:
+    do_visualize: False
   scrap_demand_supply:
     do_visualize: False
   sector_splits:
@@ -35,24 +39,27 @@ visualization:
     do_visualize: False
   sankey:
     do_visualize: False
-    slice_dict:
-      t: 2050
-      # r: 'USA'
-    exclude_processes:
-      - "sysenv"
-      #- "imports"
-      #- "exports"
-    exclude_flows: [ ]
-  do_show_figs: True
-  do_save_figs: False
-  plotting_engine: 'plotly'
+    plotter_args:
+      slice_dict:
+        t: 2050
+        # r: 'USA'
+      exclude_processes:
+        - "sysenv"
+        #- "imports"
+        #- "exports"
+      exclude_flows: [ ]
 
-# data export
-output_path: 'data/steel/output'
-docs_path: 'docs/steel'
-do_export:
-  pickle: False
-  csv: False
-  future_input: False
-  iamc: False
-  docs: False
+export:
+  do_export: True
+  path: 'data/steel/output/export'
+  pickle:
+    do_export: True
+  csv:
+    do_export: True
+  iamc:
+    do_export: True
+  assumptions:
+    do_export: True
+  docs:
+    do_export: True
+    path: 'docs/steel'

@@ -2,6 +2,7 @@ from remind_mfa.common.helper import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
 import pandas as pd
+from pydantic import model_validator
 
 from .data_extrapolations import Extrapolation
 from .parameter_extrapolation import ParameterExtrapolation
@@ -59,32 +60,56 @@ class ModelSwitches(RemindMFABaseModel):
         return classes
 
 
-class ExportCfg(RemindMFABaseModel):
-    csv: bool = True
+class BaseExportCfg(RemindMFABaseModel):
+    do_export: bool = True
+    """Whether to export this entity"""
+    path: str = None
+    """Path to export folder"""
+
+
+class ExportCfg(BaseExportCfg):
+    csv: BaseExportCfg
     """Whether to export results as CSV files."""
-    pickle: bool = True
+    pickle: BaseExportCfg
     """Whether to export results as pickle files."""
-    assumptions: bool = True
+    assumptions: BaseExportCfg
     """Whether to export assumptions as a txt file."""
-    docs: bool = False
+    docs: BaseExportCfg
     """Whether to create documentation files."""
-    future_input: bool = False
-    """Whether to export results as future input data used in the model."""
-    iamc: bool = False
+    iamc: BaseExportCfg
     """Whether to export results in IAMC format."""
 
+    @model_validator(mode="after")
+    def set_default_export_paths(self):
+        base_path = self.path
+        for field_name in self.model_fields:
+            field: BaseExportCfg = getattr(self, field_name)
+            if isinstance(field, BaseExportCfg):
+                if field.path is None:
+                    field.path = f"{base_path}/{field_name}"
+        return self
 
-class VisualizationCfg(RemindMFABaseModel):
+
+class BaseVisualizationCfg(RemindMFABaseModel):
     do_visualize: bool = True
-    """Whether to create visualizations."""
-    use_stock: dict = {"do_visualize": False}
-    """Visualization configuration for use stock."""
-    production: dict = {"do_visualize": False}
-    """Visualization configuration for production."""
-    sankey: dict = {"do_visualize": False}
-    """Visualization configuration for sankey."""
-    extrapolation: dict = {"do_visualize": False}
-    """Visualization configuration for extrapolation."""
+    """Whether to create visualizations for this entity"""
+
+
+class SankeyVisualizationCfg(BaseVisualizationCfg):
+    plotter_args: dict = {}
+    """dictionary of arguments to pass to the Sankey plotter"""
+
+
+class StockVisualizationCfg(BaseVisualizationCfg):
+    per_capita: bool = False
+    """Whether to visualize stock per capita."""
+    over_gdp: bool = False
+    """Whether to visualize stock over GDP. Alternative is over time"""
+    accumulate_gdp: bool = False
+
+class VisualizationCfg(BaseVisualizationCfg):
+    figures_path: str
+    """Path to the figures directory."""
     do_show_figs: bool = True
     """Whether to show figures."""
     do_save_figs: bool = False
@@ -94,25 +119,34 @@ class VisualizationCfg(RemindMFABaseModel):
     plotly_renderer: str = "browser"
     """Plotly renderer to use for visualizations."""
 
+    use_stock: StockVisualizationCfg
+    """Visualization configuration for use stock."""
+    production: BaseVisualizationCfg
+    """Visualization configuration for production."""
+    sankey: SankeyVisualizationCfg
+    """Visualization configuration for sankey."""
+    extrapolation: BaseVisualizationCfg
+    """Visualization configuration for extrapolation."""
 
-class CommonCfg(RemindMFABaseModel):
-    model: ModelNames
-    """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
+
+class InputCfg(RemindMFABaseModel):
     madrat_output_path: str
     input_data_path: str
     """Path to the input data directory."""
     scenarios_path: str
     """Path to the scenario definition directory."""
     input_data_version: str
+
+
+class CommonCfg(RemindMFABaseModel):
+    model: ModelNames
+    """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
+    input: InputCfg
     model_switches: ModelSwitches
     """Model customization parameters."""
     visualization: VisualizationCfg
     """Visualization configuration."""
-    output_path: str
-    """Path to the output directory."""
-    docs_path: str
-    """Path to the documentation directory."""
-    do_export: ExportCfg
+    export: ExportCfg
     """Export configuration."""
 
     def to_df(self) -> pd.DataFrame:
