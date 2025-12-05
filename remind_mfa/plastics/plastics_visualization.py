@@ -256,7 +256,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
-    
+
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
 
         stock = mfa.stocks["in_use"].stock.sum_over(("r", "m", "e"))

@@ -122,19 +122,14 @@ class CommonVisualizer(RemindMFABaseModel):
                 # get global GDP per capita
                 x_array = x_array * population
 
-        dimlist = ["t","r"]
+        dimlist = ["t", "r"]
         if subplot_dim is not None:
             subplot_dimletter = next(
                 dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
             )
             dimlist.append(subplot_dimletter)
         # sum over all dimensions except time, subplot_dim and linecolor_dim
-        other_dimletters = tuple(
-            letter
-            for letter in stock.dims.letters
-            if letter
-            not in dimlist
-        )
+        other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
         for dimletter in other_dimletters:
             stock = stock.sum_over(dimletter)
 
