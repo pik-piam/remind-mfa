@@ -7,6 +7,7 @@ from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.helper import RemindMFABaseModel
 from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
+
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
     from remind_mfa.common.common_config import CommonCfg

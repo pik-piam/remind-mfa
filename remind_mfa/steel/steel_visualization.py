@@ -180,7 +180,9 @@ class SteelVisualizer(CommonVisualizer):
         self.cfg.sankey.plotter_args["node_color_dict"] = {"default": "gray", "use": "black"}
 
         sdn = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
-        plotter = fde.PlotlySankeyPlotter(mfa=mfa, display_names=sdn, **self.cfg.sankey.plotter_args)
+        plotter = fde.PlotlySankeyPlotter(
+            mfa=mfa, display_names=sdn, **self.cfg.sankey.plotter_args
+        )
         fig = plotter.plot()
 
         legend_entries = [

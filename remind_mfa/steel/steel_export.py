@@ -23,8 +23,7 @@ class SteelDataExporter(CommonDataExporter):
 
         # demand
         steel_demand_by_good = (
-            mfa.flows["fabrication => good_market"]
-            / mfa.parameters["fabrication_yield"]
+            mfa.flows["fabrication => good_market"] / mfa.parameters["fabrication_yield"]
         )
         demand_df = self.to_iamc_df(steel_demand_by_good)
         demand_df["variable"] = "Material Demand|Iron and Steel|Steel|" + demand_df["Good"]
