@@ -17,14 +17,14 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_use_data_by_region_and_year(mfa=model.future_mfa)
             self.export_recycling_data_by_region_and_year(mfa=model.future_mfa)
             self.export_stock_extrapolation(model=model)
-            self.export_stock(mfa=model.mfa_historic)
+            self.export_stock(mfa=model.historic_mfa)
 
     def export_stock_extrapolation(self, model: "PlasticsModel"):
-        model.future_mfa.stock_handler.pure_parameters.to_df().to_csv(
-            self.export_path("stock_extrapolation_parameters.csv")
+        model.stock_handler.pure_parameters.to_df().to_csv(
+            self.export_path("csv", "stock_extrapolation_parameters.csv")
         )
-        model.future_mfa.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
-            self.export_path("stock_extrapolation_saturationLevel.csv")
+        model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
+            self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
         )
 
     def export_stock(self, mfa: fd.MFASystem):
@@ -34,10 +34,10 @@ class PlasticsDataExporter(CommonDataExporter):
         outflow["variable"] = "outflow"
         stock = mfa.stocks["in_use_historic"].stock.sum_to(("g", "h")).to_df()
         stock["variable"] = "stock"
-        pd.concat([inflow, outflow, stock]).to_csv(self.export_path("stock.csv"))
+        pd.concat([inflow, outflow, stock]).to_csv(self.export_path("csv", "stock.csv"))
 
     def export_eol_data_by_region_and_year(
-        self, mfa: fd.MFASystem, output_path: str = "eol_by_region_year.csv"
+        self, mfa: fd.MFASystem
     ):
         eol_data = (
             mfa.flows["eol => collected"]
@@ -45,20 +45,20 @@ class PlasticsDataExporter(CommonDataExporter):
             - mfa.flows["collected => waste_market"]
         )
         df = eol_data.sum_to(("t", "r", "m")).to_df(index=True)
-        df.to_csv(self.export_path(output_path), index=True)
+        df.to_csv(self.export_path("csv", "eol_by_region_year.csv"), index=True)
 
     def export_use_data_by_region_and_year(
-        self, mfa: fd.MFASystem, output_path: str = "use_by_region_year.csv"
+        self, mfa: fd.MFASystem
     ):
         df = mfa.flows["fabrication => use"].sum_to(("t", "r")).to_df(index=True)
-        df.to_csv(self.export_path(output_path), index=True)
+        df.to_csv(self.export_path("csv", "use_by_region_year.csv"), index=True)
 
     def export_recycling_data_by_region_and_year(
-        self, mfa: fd.MFASystem, output_path: str = "recycling_by_region_year.csv"
+        self, mfa: fd.MFASystem
     ):
         recl_data = mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]
         df = recl_data.sum_to(("t", "r", "m")).to_df(index=True)
-        df.to_csv(self.export_path(output_path), index=True)
+        df.to_csv(self.export_path("csv", "recycling_by_region_year.csv"), index=True)
 
     def write_iamc(self, mfa: fd.MFASystem):
 
@@ -175,7 +175,7 @@ class PlasticsDataExporter(CommonDataExporter):
             append=True,
         )
 
-        idf.to_excel(self.export_path(f"output_iamc.xlsx"))
+        idf.to_excel(self.export_path("iamc", f"output_iamc.xlsx"))
 
     @staticmethod
     def to_iamc_df(array: fd.FlodymArray):

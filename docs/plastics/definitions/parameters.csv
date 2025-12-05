@@ -2,9 +2,7 @@ Dimensions,Name,description
 "t, r, m",collection_rate,Collection rate of plastic waste
 "t, r, m",mechanical_recycling_rate,Mechanical recycling rate of collected waste
 "t, r, m",chemical_recycling_rate,Chemical recycling rate of collected waste
-"t, r, m",solvent_recycling_rate,Solvent recycling rate of collected waste
 "t, r, m",incineration_rate,Incineration rate of collected waste
-"t, r, m",landfill_rate,Landfill rate of collected waste
 "h, r",primary_his_imports,Historic primary plastics imports
 "h, r",primary_his_exports,Historic primary plastics exports
 "h, r",intermediate_his_imports,Historic intermediate plastics imports
@@ -22,8 +20,8 @@ Dimensions,Name,description
 "r, m, g",material_shares_in_goods,Share of materials in goods
 t,emission_capture_rate,Carbon capture rate from emissions
 "e, m",carbon_content_materials,Carbon content of materials
-"h, r, g",production,Historic production
-"r, g",lifetime_mean,Mean lifetime of goods
-"r, g",lifetime_std,Standard deviation of lifetime
+"h, r, g",consumption,Historic production
+g,lifetime_mean,Mean lifetime of goods
+g,lifetime_std,Standard deviation of lifetime
 "t, r",population,Population
 "t, r",gdppc,GDP per capita

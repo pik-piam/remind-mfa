@@ -52,126 +52,126 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_custom(self, model: "PlasticsModel"):
         if self.cfg.production.do_visualize:
-            self.visualize_demand(mfa=model.mfa_future)
+            self.visualize_demand(mfa=model.future_mfa)
 
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model)
 
         if self.cfg.flows.do_visualize:
             primary_production = (
-                model.mfa_future.flows["virginfoss => virgin"]
-                + model.mfa_future.flows["virginbio => virgin"]
-                + model.mfa_future.flows["virgindaccu => virgin"]
-                + model.mfa_future.flows["virginccu => virgin"]
+                model.future_mfa.flows["virginfoss => virgin"]
+                + model.future_mfa.flows["virginbio => virgin"]
+                + model.future_mfa.flows["virgindaccu => virgin"]
+                + model.future_mfa.flows["virginccu => virgin"]
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
+                mfa=model.future_mfa,
                 flow=primary_production,
                 name="Primary production",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["virgin => processing"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["virgin => processing"],
                 name="Domestic primary production",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["reclmech => processing"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["reclmech => processing"],
                 name="Mechanical recycling",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["reclchem => virgin"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["reclchem => virgin"],
                 name="Chemical recycling",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["eol => collected"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["eol => collected"],
                 name="Collected",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["collected => landfill"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["collected => landfill"],
                 name="Landfilled",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.stocks["in_use"].inflow,
+                mfa=model.future_mfa,
+                flow=model.future_mfa.stocks["in_use"].inflow,
                 name="Demand",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["fabrication => good_market"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["fabrication => good_market"],
                 name="Final exports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["good_market => use"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["good_market => use"],
                 name="Final imports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["processing => intermediate_market"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["processing => intermediate_market"],
                 name="Intermediate exports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["intermediate_market => fabrication"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["intermediate_market => fabrication"],
                 name="Intermediate imports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["virgin => primary_market"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["virgin => primary_market"],
                 name="Primary exports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["primary_market => processing"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["primary_market => processing"],
                 name="Primary imports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["collected => waste_market"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["collected => waste_market"],
                 name="Waste exports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["waste_market => collected"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["waste_market => collected"],
                 name="Waste imports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
-                mfa=model.mfa_future,
-                flow=model.mfa_future.flows["fabrication => use"],
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["fabrication => use"],
                 name="Domestic Fabrication",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -253,6 +253,10 @@ class PlasticsVisualizer(CommonVisualizer):
         fig = ap.plot()
         self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
 
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
+        subplot_dim = "Good" if subplots_by_good else None
+        super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
+    
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
 
         stock = mfa.stocks["in_use"].stock.sum_over(("r", "m", "e"))
@@ -464,7 +468,7 @@ class PlasticsVisualizer(CommonVisualizer):
         self._show_and_save_plotly(fig, name="sankey")
 
     def visualize_extrapolation(self, model: "PlasticsModel"):
-        mfa = model.mfa_future
+        mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         subplot_dim = "Region"
         linecolor_dim = "Good"
@@ -493,11 +497,11 @@ class PlasticsVisualizer(CommonVisualizer):
         stock = stock.sum_over(other_dimletters) * 1000 * 1000
         other_dimletters = tuple(
             letter
-            for letter in model.mfa_future.stock_handler.pure_prediction.dims.letters
+            for letter in model.stock_handler.pure_prediction.dims.letters
             if letter not in dimlist
         )
         pure_prediction = (
-            model.mfa_future.stock_handler.pure_prediction.sum_over(other_dimletters) * 1000 * 1000
+            model.stock_handler.pure_prediction.sum_over(other_dimletters) * 1000 * 1000
         )
 
         if self.cfg.use_stock.over_gdp:
