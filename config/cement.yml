@@ -9,7 +9,8 @@ input:
 model_switches:
   scenario: 'SSP2'
   mode: 'base' # can be "base", "carbon_flow"
-  stock_extrapolation_class_name: 'LogSigmoidExtrapolation'
+  stock_extrapolation_class_name: 'SigmoidExtrapolation'
+  regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
   parameter_extrapolation:
     clinker_ratio: 'ConstantExtrapolation'

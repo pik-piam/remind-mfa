@@ -231,22 +231,3 @@ class SigmoidExtrapolation(Extrapolation):
         max_predictor = np.max(predictor_values)
         stretch_factor = 2 / (max_predictor - mean_predictor)
         return np.array([sat_level_guess, stretch_factor, mean_predictor])
-
-
-class LogSigmoidExtrapolation(SigmoidExtrapolation):
-    """
-    LogSigmoidExtrapolation is a specific implementation of SigmoidExtrapolation that uses a logarithmic transformation
-    for the predictor values.
-    """
-
-    @staticmethod
-    def func(x, prms):
-        log_prms = prms.copy()
-        # adjust offset to log space
-        log_prms[2] = np.log10(log_prms[2])
-        return SigmoidExtrapolation.func(np.log10(x), log_prms)
-
-    def initial_guess(self, predictor_values, data_to_extrapolate):
-        log_guess = super().initial_guess(np.log10(predictor_values), data_to_extrapolate)
-        log_guess[2] = 10 ** log_guess[2]  # Convert x_offset back to real space
-        return log_guess

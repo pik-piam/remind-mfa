@@ -1,3 +1,4 @@
+from enum import Enum
 from remind_mfa.common.common_config import (
     CommonCfg,
     ModelSwitches,
@@ -5,7 +6,11 @@ from remind_mfa.common.common_config import (
     BaseVisualizationCfg,
     StockVisualizationCfg,
 )
-from remind_mfa.common.helpers import CementModes
+
+
+class CementModes(str, Enum):
+    BASE = "base"
+    CARBON_FLOW = "carbon_flow"
 
 
 class CementModelSwitches(ModelSwitches):
