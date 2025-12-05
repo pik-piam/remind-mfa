@@ -4,6 +4,7 @@ import pyam
 from typing import TYPE_CHECKING
 
 from remind_mfa.common.common_export import CommonDataExporter
+
 if TYPE_CHECKING:
     from remind_mfa.plastics.plastics_model import PlasticsModel
 

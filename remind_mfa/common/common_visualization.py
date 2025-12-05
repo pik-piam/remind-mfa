@@ -10,14 +10,14 @@ import flodym.export as fde
 
 from remind_mfa.common.helper import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
+
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
 
 class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
-    _display_names: dict = {
-    }
+    _display_names: dict = {}
 
     @model_validator(mode="after")
     def set_plotly_renderer(self):

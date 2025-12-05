@@ -1,4 +1,10 @@
-from remind_mfa.common.common_config import CommonCfg, ModelSwitches, VisualizationCfg, BaseVisualizationCfg, StockVisualizationCfg
+from remind_mfa.common.common_config import (
+    CommonCfg,
+    ModelSwitches,
+    VisualizationCfg,
+    BaseVisualizationCfg,
+    StockVisualizationCfg,
+)
 from remind_mfa.common.helper import CementModes
 
 

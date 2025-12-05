@@ -107,6 +107,7 @@ class StockVisualizationCfg(BaseVisualizationCfg):
     """Whether to visualize stock over GDP. Alternative is over time"""
     accumulate_gdp: bool = False
 
+
 class VisualizationCfg(BaseVisualizationCfg):
     figures_path: str
     """Path to the figures directory."""
