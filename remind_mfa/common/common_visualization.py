@@ -8,7 +8,7 @@ from pydantic import model_validator
 import flodym as fd
 import flodym.export as fde
 
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 
 if TYPE_CHECKING:

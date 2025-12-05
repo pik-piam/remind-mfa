@@ -6,7 +6,7 @@ import yaml
 
 from remind_mfa.common.common_definition import PlainDataPointDefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
-from remind_mfa.common.helper import ModelNames, RemindMFABaseModel
+from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
 
 class ScenarioReader(RemindMFABaseModel):

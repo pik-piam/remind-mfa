@@ -4,7 +4,7 @@ from pydantic import model_validator
 import flodym.export as fde
 
 from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 

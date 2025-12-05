@@ -5,7 +5,7 @@ from remind_mfa.common.common_config import (
     BaseVisualizationCfg,
     StockVisualizationCfg,
 )
-from remind_mfa.common.helper import CementModes
+from remind_mfa.common.helpers import CementModes
 
 
 class CementModelSwitches(ModelSwitches):

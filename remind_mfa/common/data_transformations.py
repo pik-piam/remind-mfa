@@ -3,7 +3,7 @@ import numpy as np
 from typing import Union
 from pydantic import model_validator, Field
 
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 
 
 def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) -> np.ndarray:

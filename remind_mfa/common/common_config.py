@@ -1,4 +1,4 @@
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
 import pandas as pd
@@ -6,7 +6,7 @@ from pydantic import model_validator
 
 from .data_extrapolations import Extrapolation
 from .parameter_extrapolation import ParameterExtrapolation
-from .helper import ModelNames
+from .helpers import ModelNames
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
