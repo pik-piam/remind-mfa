@@ -215,7 +215,7 @@ class ExponentialSaturationExtrapolation(Extrapolation):
         return np.array([initial_saturation_level, initial_stretch_factor])
 
 
-class SigmoidExtrapolation(Extrapolation):
+class LogisticExtrapolation(Extrapolation):
 
     prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
 

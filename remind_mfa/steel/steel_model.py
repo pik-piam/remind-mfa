@@ -3,7 +3,6 @@ import flodym as fd
 from copy import deepcopy
 
 from remind_mfa.common.data_blending import blend
-from remind_mfa.common.data_extrapolations import SigmoidExtrapolation
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.steel.steel_export import SteelDataExporter
@@ -180,7 +179,7 @@ class SteelModel(CommonModel):
         historic_pop = pop[{"t": self.dims["h"]}]
         historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
-        multi_dim_extrapolation = SigmoidExtrapolation(
+        multi_dim_extrapolation = self.cfg.model_switches.stock_extrapolation_class(
             data_to_extrapolate=historic_stocks_pc.values,
             predictor_values=np.log10(gdppc.values),
             independent_dims=(),

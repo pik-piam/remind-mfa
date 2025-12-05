@@ -8,7 +8,7 @@ input:
 
 model_switches:
   scenario: 'SSP1_lowEU'
-  stock_extrapolation_class_name: 'SigmoidExtrapolation'
+  stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
