@@ -66,7 +66,7 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_custom(self, model: "CommonModel"):
         pass
 
-    def write_iamc(self, mfa: CommonMFASystem):
+    def write_iamc(self, mfa: "CommonMFASystem"):
         raise NotImplementedError("Subclasses must implement write_iamc method")
 
     def definition_to_markdown(self, definition: RemindMFADefinition):

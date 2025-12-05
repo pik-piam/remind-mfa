@@ -79,16 +79,6 @@ class ExportCfg(BaseExportCfg):
     iamc: BaseExportCfg
     """Whether to export results in IAMC format."""
 
-    @model_validator(mode="after")
-    def set_default_export_paths(self):
-        base_path = self.path
-        for field_name in self.model_fields:
-            field: BaseExportCfg = getattr(self, field_name)
-            if isinstance(field, BaseExportCfg):
-                if field.path is None:
-                    field.path = f"{base_path}/{field_name}"
-        return self
-
 
 class BaseVisualizationCfg(RemindMFABaseModel):
     do_visualize: bool = True
