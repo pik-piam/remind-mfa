@@ -1,7 +1,7 @@
 from typing import List, Optional
 import flodym as fd
 
-from remind_mfa.common.helper import (
+from remind_mfa.common.helpers import (
     RemindMFABaseModel,
 )
 from remind_mfa.common.common_config import CommonCfg

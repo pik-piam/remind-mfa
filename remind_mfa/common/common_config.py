@@ -2,7 +2,6 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
 import pandas as pd
-from pydantic import model_validator
 
 from .data_extrapolations import Extrapolation
 from .parameter_extrapolation import ParameterExtrapolation

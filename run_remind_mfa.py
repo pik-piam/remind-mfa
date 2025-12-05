@@ -2,7 +2,7 @@ import logging
 import yaml
 import sys
 
-from remind_mfa.common.helper import ModelNames
+from remind_mfa.common.helpers import ModelNames
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_model import CementModel
 from remind_mfa.plastics.plastics_model import PlasticsModel
