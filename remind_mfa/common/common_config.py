@@ -1,11 +1,10 @@
-from remind_mfa.common.helpers import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
 import pandas as pd
 
-from .data_extrapolations import Extrapolation
-from .parameter_extrapolation import ParameterExtrapolation
-from .helpers import ModelNames
+from remind_mfa.common.data_extrapolations import Extrapolation
+from remind_mfa.common.parameter_extrapolation import ParameterExtrapolation
+from remind_mfa.common.helpers import RemindMFABaseModel, ModelNames, RegressOverModes
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -33,9 +32,8 @@ class ModelSwitches(RemindMFABaseModel):
     """Class name of the lifetime model subclass to use for the in-use stock."""
     do_stock_extrapolation_by_category: bool = False
     """Whether to perform stock extrapolation by good category."""
-    regress_over: str = "gdppc"
+    regress_over: RegressOverModes
     """Variable to use as a predictor for stock extrapolation."""
-    mode: Optional[str] = None
     parameter_extrapolation: Optional[dict[str, str]] = None
 
     @property

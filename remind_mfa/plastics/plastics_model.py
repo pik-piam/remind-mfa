@@ -69,11 +69,10 @@ class PlasticsModel(CommonModel):
             target_dims=self.dims[indep_fit_dim_letters],
         )
         stock_handler = StockExtrapolation(
+            cfg=self.cfg.model_switches,
             historic_stocks=historic_stock.stock,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.model_switches.stock_extrapolation_class,
-            regress_over=self.cfg.model_switches.regress_over,
             weight=weight,
             target_dim_letters=(
                 "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")

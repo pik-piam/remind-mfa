@@ -18,8 +18,7 @@ class RemindMFABaseModel(BaseModel):
     )
 
 
-# Required such that the model_dump() call in the to_dfs() method knows about the additional
-# description field in the parameter definition objects
-class CementModes(str, Enum):
-    BASE = "base"
-    CARBON_FLOW = "carbon_flow"
+class RegressOverModes(str, Enum):
+    GDPPC = "gdppc"
+    LOGGDPPC = "loggdppc"
+    LOCGDPPC_TIME_WEIGHTED_SUM = "loggdppc_time_weighted_sum"
