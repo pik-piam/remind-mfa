@@ -112,9 +112,8 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     # fmt: off
     # 5) Parameters
     parameters = [
-        # common parameters
+        # historic + future parameters
         RemindMFAParameterDefinition(name="stock_type_split", dim_letters=("r", "s"),),  # manual (guess)
-        # historic parameters
         RemindMFAParameterDefinition(name="cement_production", dim_letters=("h", "r"), description="Historic cement production"),
         RemindMFAParameterDefinition(name="cement_trade", dim_letters=("h", "r"), description="Historic cement trade flows"),
         RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("h", "r"), description="Clinker to cement ratio"),
@@ -125,25 +124,25 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("t", "r")),  # manual (extrapolated)
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"), description="Population"),
         RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r"), description="GDP per capita"),
-        # carbonation parameters
-        RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="ckd_cao_ratio", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="ckd_landfill_share", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="cao_emission_factor", dim_letters=()),  # manual (calculated)
+        RemindMFAParameterDefinition(name="cement_losses", dim_letters=()),
+        RemindMFAParameterDefinition(name="clinker_losses", dim_letters=()),
         RemindMFAParameterDefinition(name="product_density", dim_letters=("m",)),  # manual (guess)
-        RemindMFAParameterDefinition(name="carbonation_rate", dim_letters=("r", "a")),
-        RemindMFAParameterDefinition(name="carbonation_rate_buried", dim_letters=("r", "a")),
-        RemindMFAParameterDefinition(name="carbonation_rate_coating", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="carbonation_rate_co2", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="carbonation_rate_additives", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="product_thickness", dim_letters=("r", "a")),
-        RemindMFAParameterDefinition(name="cao_carbonation_share", dim_letters=("r", "m")),
-        RemindMFAParameterDefinition(name="product_cement_content", dim_letters=("r", "a")),
         RemindMFAParameterDefinition(name="product_application_split", dim_letters=("r", "a")),
         RemindMFAParameterDefinition(name="product_material_split",dim_letters=("r","m",)),
         RemindMFAParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a")),
-        RemindMFAParameterDefinition(name="cement_losses", dim_letters=("r",)),
-        RemindMFAParameterDefinition(name="clinker_losses", dim_letters=("r",)),
+        RemindMFAParameterDefinition(name="product_cement_content", dim_letters=("a",)),
+        # carbonation parameters
+        RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=()),
+        RemindMFAParameterDefinition(name="cao_carbonation_share", dim_letters=("m",)),
+        RemindMFAParameterDefinition(name="cao_emission_factor", dim_letters=()),  # manual (calculated)
+        RemindMFAParameterDefinition(name="ckd_cao_ratio", dim_letters=()),
+        RemindMFAParameterDefinition(name="ckd_landfill_share", dim_letters=()),
+        RemindMFAParameterDefinition(name="carbonation_rate", dim_letters=("r", "a")),
+        RemindMFAParameterDefinition(name="carbonation_rate_buried", dim_letters=("r", "a")),
+        RemindMFAParameterDefinition(name="carbonation_rate_coating", dim_letters=()),
+        RemindMFAParameterDefinition(name="carbonation_rate_co2", dim_letters=()),
+        RemindMFAParameterDefinition(name="carbonation_rate_additives", dim_letters=()),
+        RemindMFAParameterDefinition(name="product_thickness", dim_letters=("a",)),
         RemindMFAParameterDefinition(name="waste_type_split", dim_letters=("r", "w")),
         RemindMFAParameterDefinition(name="waste_size_share", dim_letters=("r", "w", "p")),
         RemindMFAParameterDefinition(name="waste_size_min", dim_letters=("w", "p")),  # manual (from Xi2016 categories)
