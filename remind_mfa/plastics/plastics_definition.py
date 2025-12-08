@@ -1,7 +1,7 @@
 from typing import List
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFADefinition, PlainDataPointDefinition
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -163,22 +163,22 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         # EOL rates
         RemindMFAParameterDefinition(
             name="collection_rate",
-            dim_letters=("t", "r", "m"),
+            dim_letters=("h", "r"),
             description="Collection rate of plastic waste",
         ),
         RemindMFAParameterDefinition(
             name="mechanical_recycling_rate",
-            dim_letters=("t", "r", "m"),
+            dim_letters=("h", "r"),
             description="Mechanical recycling rate of collected waste",
         ),
         RemindMFAParameterDefinition(
             name="chemical_recycling_rate",
-            dim_letters=("t", "r", "m"),
+            dim_letters=("h", "r"),
             description="Chemical recycling rate of collected waste",
         ),
         RemindMFAParameterDefinition(
             name="incineration_rate",
-            dim_letters=("t", "r", "m"),
+            dim_letters=("h", "r"),
             description="Incineration rate of collected waste",
         ),
         # trade
@@ -235,12 +235,12 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         # virgin production rates
         RemindMFAParameterDefinition(
             name="bio_production_rate",
-            dim_letters=("t", "r", "m"),
+            dim_letters=("h", "r"),
             description="Share of bio-based plastics in virgin production",
         ),
         RemindMFAParameterDefinition(
             name="daccu_production_rate",
-            dim_letters=("t", "r", "m"),
+            dim_letters=("h", "r"),
             description="Share of DACCU plastics in virgin production",
         ),
         # recycling losses
@@ -262,7 +262,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ),
         RemindMFAParameterDefinition(
             name="emission_capture_rate",
-            dim_letters=("t",),
+            dim_letters=("h","r"),
             description="Carbon capture rate from emissions",
         ),
         RemindMFAParameterDefinition(
@@ -316,4 +316,47 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     )
 
 
-scenario_parameters = []
+scenario_parameters = [
+    PlainDataPointDefinition(
+        name="collection_rate_target_year",
+    ),
+    PlainDataPointDefinition(
+        name="collection_rate_target_value",
+    ),
+    PlainDataPointDefinition(
+        name="incineration_rate_target_year",
+    ),
+    PlainDataPointDefinition(
+        name="incineration_rate_target_value",
+    ),
+    PlainDataPointDefinition(
+        name="mechanical_recycling_rate_target_year",
+    ),
+    PlainDataPointDefinition(
+        name="mechanical_recycling_rate_target_value",
+    ),
+    PlainDataPointDefinition(
+        name="chemical_recycling_rate_target_year",
+    ),
+    PlainDataPointDefinition(
+        name="chemical_recycling_rate_target_value",
+    ),
+    PlainDataPointDefinition(
+        name="bio_production_rate_target_year",
+    ),
+    PlainDataPointDefinition(
+        name="bio_production_rate_target_value",
+    ),
+    PlainDataPointDefinition(
+        name="daccu_production_rate_target_year",
+    ),
+    PlainDataPointDefinition(
+        name="daccu_production_rate_target_value",
+    ),
+    PlainDataPointDefinition(
+        name="emission_capture_rate_target_year",
+    ),
+    PlainDataPointDefinition(
+        name="emission_capture_rate_target_value",
+    ),
+]

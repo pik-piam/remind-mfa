@@ -8,3 +8,53 @@ data:
   models:
   - steel
   value: 1.0
+# plastics EoL rates
+- parameter: collection_rate_target_year
+  models:
+  - plastics
+  value: 2100
+- parameter: collection_rate_target_value
+  models:
+  - plastics
+  value: 1.0
+- parameter: incineration_rate_target_year
+  models:
+  - plastics
+  value: 2100
+- parameter: incineration_rate_target_value
+  models:
+  - plastics
+  value: 0.3
+- parameter: mechanical_recycling_rate_target_year
+  models:
+  - plastics
+  value: 2050
+- parameter: mechanical_recycling_rate_target_value
+  models:
+  - plastics
+  value: 0.4
+- parameter: chemical_recycling_rate_target_year
+  models:
+  - plastics
+  value: 2050
+- parameter: chemical_recycling_rate_target_value
+  models:
+  - plastics
+  value: 0.1
+# plastics virgin production rates
+- parameter: bio_production_rate_target_year
+  models:
+  - plastics
+  value: 2050
+- parameter: bio_production_rate_target_value
+  models:
+  - plastics
+  value: 0.2
+- parameter: daccu_production_rate_target_year
+  models:
+  - plastics
+  value: 2050
+- parameter: daccu_production_rate_target_value
+  models:
+  - plastics
+  value: 0.01
