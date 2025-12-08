@@ -6,18 +6,20 @@ import flodym as fd
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.common_mappings import CommonDimensionFiles
 
 
 class CommonDataReader(fd.CompoundDataReader):
-    dimension_map = {}
 
     def __init__(
         self,
         cfg: CommonCfg,
         definition: RemindMFADefinition,
+        dimension_file_mapping: CommonDimensionFiles,
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):
+        self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
         self.madrat_output_path = cfg.input.madrat_output_path
         self.input_data_path = cfg.input.input_data_path
@@ -57,7 +59,7 @@ class CommonDataReader(fd.CompoundDataReader):
         # dimensions
         dimension_files = {}
         for dimension in self.definition.dimensions:
-            dimension_filename = self.dimension_map[dimension.name]
+            dimension_filename = self.dimension_file_mapping[dimension.name]
             dimension_files[dimension.name] = os.path.join(
                 self.input_data_path, "dimensions", f"{dimension_filename}.csv"
             )

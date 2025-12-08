@@ -28,7 +28,7 @@ visualization:
   use_stock:
     do_visualize: True
     over_gdp: False
-    per_capita: False
+    per_capita: True
   gdppc:
     do_visualize: False
     per_capita: False

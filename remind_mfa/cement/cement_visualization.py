@@ -15,15 +15,6 @@ if TYPE_CHECKING:
 class CementVisualizer(CommonVisualizer):
     cfg: CementVisualizationCfg
 
-    _display_names: dict = {
-        "sysenv": "System environment",
-        "prod_clinker": "Production: Clinker",
-        "prod_cement": "Production: Cement",
-        "prod_product": "Production: Product",
-        "use": "Use phase",
-        "eol": "End of life",
-    }
-
     def visualize_custom(self, model: "CementModel"):
         mfa: StockDrivenCementMFASystem = model.future_mfa
         if self.cfg.consumption.do_visualize:
@@ -120,7 +111,7 @@ class CementVisualizer(CommonVisualizer):
             subplot_dim="Region",
             linecolor_dim="Stock Type",
             chart_type="area",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             title="Cement Consumption",
         )
         fig = ap.plot()
@@ -183,7 +174,7 @@ class CementVisualizer(CommonVisualizer):
             array=stock,
             intra_line_dim="Time",
             linecolor_dim="Stock Type",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             x_array=x_array,
             xlabel=x_label,
             ylabel=y_label,
@@ -283,7 +274,7 @@ class CementVisualizer(CommonVisualizer):
             intra_line_dim="Time",
             linecolor_dim=linecolor_dimletter,
             chart_type="area",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             x_label="Year",
             y_label="Annual Co2 Uptake [t]",
             title="Co2 Uptake from Carbonation",
