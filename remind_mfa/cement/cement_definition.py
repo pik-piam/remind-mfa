@@ -112,7 +112,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     # fmt: off
     # 5) Parameters
     parameters = [
-        # historic + future parameters
+        # historic + future parameters: if time-dependent (h), they will have to be projected to (t)
         RemindMFAParameterDefinition(name="stock_type_split", dim_letters=("r", "s"),),  # manual (guess)
         RemindMFAParameterDefinition(name="cement_production", dim_letters=("h", "r"), description="Historic cement production"),
         RemindMFAParameterDefinition(name="cement_trade", dim_letters=("h", "r"), description="Historic cement trade flows"),
