@@ -262,7 +262,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ),
         RemindMFAParameterDefinition(
             name="emission_capture_rate",
-            dim_letters=("h","r"),
+            dim_letters=("h", "r"),
             description="Carbon capture rate from emissions",
         ),
         RemindMFAParameterDefinition(

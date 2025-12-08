@@ -75,6 +75,7 @@ class ConstantExtrapolation(ParameterExtrapolation):
     def description(self) -> str:
         return "Parameter is kept constant into the future at last observed value."
 
+
 class LinearToTargetExtrapolation(ParameterExtrapolation):
     """Linearly extrapolate parameter to target value according to scenario settings."""
 
@@ -97,19 +98,22 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
         last_historic_year = old_param.dims["h"].items[-1]
         last_value = old_param[{"h": last_historic_year}]
         # blend linearly from last historic value to target
-        new_param[...]= blend(target_dims=new_param.dims,
-                                y_lower=last_value,
-                                y_upper=parameter_target,
-                                x="t",
-                                x_lower=last_historic_year,
-                                x_upper=parameter_target_year,
-                                type="linear")
+        new_param[...] = blend(
+            target_dims=new_param.dims,
+            y_lower=last_value,
+            y_upper=parameter_target,
+            x="t",
+            x_lower=last_historic_year,
+            x_upper=parameter_target_year,
+            type="linear",
+        )
 
         return new_param
 
     @property
     def description(self) -> str:
         return "Parameter is linearly extrapolated to target value."
+
 
 class ParameterExtrapolationManager:
     """Manager for applying parameter extrapolations."""
