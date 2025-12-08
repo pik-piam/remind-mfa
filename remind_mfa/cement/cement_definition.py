@@ -121,7 +121,6 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         RemindMFAParameterDefinition(name="use_split", dim_letters=("s",), description="Distribution of cement use across stock types"),
         RemindMFAParameterDefinition(name="use_lifetime_mean", dim_letters=("h", "r", "s"), description="Mean lifetime of historic cement stocks"),
         # future parameters
-        RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("t", "r")),  # manual (extrapolated)
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"), description="Population"),
         RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r"), description="GDP per capita"),
         RemindMFAParameterDefinition(name="cement_losses", dim_letters=()),
