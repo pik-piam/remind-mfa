@@ -9,6 +9,7 @@ class SteelDimensionFiles(CommonDimensionFiles):
         "Scenario": "scenarios",
     }
 
+
 class SteelDisplayNames(CommonDisplayNames):
     _own_mapping = {
         "sysenv": "System environment",

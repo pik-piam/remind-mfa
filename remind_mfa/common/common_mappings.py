@@ -1,7 +1,7 @@
 from functools import reduce
 
 
-class Mapping():
+class Mapping:
 
     _own_mapping = {}
 
@@ -12,7 +12,6 @@ class Mapping():
 
     def __getitem__(self, key):
         return self.dct.get(key, key)
-
 
 
 class CommonDimensionFiles(Mapping):
