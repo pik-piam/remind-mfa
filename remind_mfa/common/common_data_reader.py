@@ -30,8 +30,10 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def prepare_input_readers(self):
 
+        material_specific_input_data_path = os.path.join(self.input_data_path, self.model_class)
+
         # prepare directory for extracted input data
-        self.extracted_input_data_path = os.path.join(self.input_data_path, "input_data")
+        self.extracted_input_data_path = os.path.join(material_specific_input_data_path, "input_data")
         os.makedirs(self.extracted_input_data_path, exist_ok=True)
         version_file_path = os.path.join(self.extracted_input_data_path, "version.txt")
 
@@ -61,7 +63,7 @@ class CommonDataReader(fd.CompoundDataReader):
         for dimension in self.definition.dimensions:
             dimension_filename = self.dimension_map[dimension.name]
             dimension_files[dimension.name] = os.path.join(
-                self.input_data_path, "dimensions", f"{dimension_filename}.csv"
+                material_specific_input_data_path, "dimensions", f"{dimension_filename}.csv"
             )
         # Special case for Region dimensions
         if "Region" in dimension_files:
@@ -69,10 +71,10 @@ class CommonDataReader(fd.CompoundDataReader):
                 glob.glob(os.path.join(self.extracted_input_data_path, "regionmapping*.csv"))
             )
             if not regionfiles:
-                raise FileNotFoundError(f"No regionmapping*.csv found in {self.input_data_path}")
+                raise FileNotFoundError(f"No regionmapping*.csv found in {material_specific_input_data_path}")
             if len(regionfiles) > 1:
                 raise ValueError(
-                    f"Expected exactly one regionmapping*.csv in {self.input_data_path}, found: "
+                    f"Expected exactly one regionmapping*.csv in {material_specific_input_data_path}, found: "
                     f"{[os.path.basename(m) for m in regionfiles]}"
                 )
             dimension_files["Region"] = regionfiles[0]
