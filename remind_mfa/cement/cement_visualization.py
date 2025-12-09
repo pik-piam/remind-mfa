@@ -5,7 +5,7 @@ import numpy as np
 import logging
 
 from remind_mfa.common.common_visualization import CommonVisualizer
-from remind_mfa.cement.cement_config import CementVisualizationCfg
+from remind_mfa.cement.cement_config import CementVisualizationCfg, CementModes
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 
 if TYPE_CHECKING:
@@ -42,9 +42,9 @@ class CementVisualizer(CommonVisualizer):
             # self.visualize_extrapolation(model=model, show_future=False)
             self.visualize_extrapolation(model=model)
         if self.cfg.carbonation.do_visualize:
-            if not mfa.carbon_flow:
+            if not model.cfg.model_switches.mode == CementModes.CARBON_FLOW:
                 logging.warning(
-                    "Carbonation visualization requested, but carbonation calculation not activated."
+                    "Carbonation visualization requested, but carbonation module not activated."
                 )
             else:
                 self.visualize_carbonation(mfa=mfa)
