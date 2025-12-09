@@ -113,19 +113,18 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     # 5) Parameters
     parameters = [
         # historic + future parameters: if time-dependent (h), they will have to be projected to (t)
-        RemindMFAParameterDefinition(name="stock_type_split", dim_letters=("r", "s"),),  # manual (guess)
+        RemindMFAParameterDefinition(name="stock_type_split", dim_letters=("r", "s"),),
         RemindMFAParameterDefinition(name="cement_production", dim_letters=("h", "r"), description="Historic cement production"),
         RemindMFAParameterDefinition(name="cement_trade", dim_letters=("h", "r"), description="Historic cement trade flows"),
         RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("h", "r"), description="Clinker to cement ratio"),
         RemindMFAParameterDefinition(name="cement_ratio", dim_letters=(), description="Cement content ratio in concrete"),
-        RemindMFAParameterDefinition(name="use_split", dim_letters=("s",), description="Distribution of cement use across stock types"),
         RemindMFAParameterDefinition(name="use_lifetime_mean", dim_letters=("h", "r", "s"), description="Mean lifetime of historic cement stocks"),
         # future parameters
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"), description="Population"),
         RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r"), description="GDP per capita"),
         RemindMFAParameterDefinition(name="cement_losses", dim_letters=()),
         RemindMFAParameterDefinition(name="clinker_losses", dim_letters=()),
-        RemindMFAParameterDefinition(name="product_density", dim_letters=("m",)),  # manual (guess)
+        RemindMFAParameterDefinition(name="product_density", dim_letters=("m",)),
         RemindMFAParameterDefinition(name="product_application_split", dim_letters=("r", "a")),
         RemindMFAParameterDefinition(name="product_material_split",dim_letters=("r","m",)),
         RemindMFAParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a")),
@@ -133,7 +132,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         # carbonation parameters
         RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=()),
         RemindMFAParameterDefinition(name="cao_carbonation_share", dim_letters=("m",)),
-        RemindMFAParameterDefinition(name="cao_emission_factor", dim_letters=()),  # manual (calculated)
+        RemindMFAParameterDefinition(name="cao_emission_factor", dim_letters=()),
         RemindMFAParameterDefinition(name="ckd_cao_ratio", dim_letters=()),
         RemindMFAParameterDefinition(name="ckd_landfill_share", dim_letters=()),
         RemindMFAParameterDefinition(name="carbonation_rate", dim_letters=("r", "a")),
@@ -144,8 +143,8 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         RemindMFAParameterDefinition(name="product_thickness", dim_letters=("a",)),
         RemindMFAParameterDefinition(name="waste_type_split", dim_letters=("r", "w")),
         RemindMFAParameterDefinition(name="waste_size_share", dim_letters=("r", "w", "p")),
-        RemindMFAParameterDefinition(name="waste_size_min", dim_letters=("w", "p")),  # manual (from Xi2016 categories)
-        RemindMFAParameterDefinition(name="waste_size_max",dim_letters=("w", "p"),),  # manual (from Xi2016 categories)
+        RemindMFAParameterDefinition(name="waste_size_min", dim_letters=("w", "p")),
+        RemindMFAParameterDefinition(name="waste_size_max",dim_letters=("w", "p"),),
     ]
 
     # fmt: on
