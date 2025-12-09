@@ -22,6 +22,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.madrat_output_path = cfg.input.madrat_output_path
         self.input_data_path = cfg.input.input_data_path
         self.input_data_version = cfg.input.input_data_version
+        self.force_extract = cfg.input.force_extract_tgz
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
@@ -36,11 +37,12 @@ class CommonDataReader(fd.CompoundDataReader):
 
         # check if extraction is needed
         should_extract = True
-        if os.path.exists(version_file_path):
-            with open(version_file_path, "r") as f:
-                current_version = f.read()
-                if current_version == self.input_data_version:
-                    should_extract = False
+        if not self.force_extract:
+            if os.path.exists(version_file_path):
+                with open(version_file_path, "r") as f:
+                    current_version = f.read()
+                    if current_version == self.input_data_version:
+                        should_extract = False
 
         if should_extract:
             # extract files from tgz and save in directory
@@ -137,6 +139,7 @@ class MadratParameterReader(fd.CSVParameterReader):
         """Extract header and skiprows from .cs4r file."""
         pre_str = "dimensions: ("
         post_str = ")"
+        header = None
         with open(filepath, "r") as file:
             for idx, line in enumerate(file):
                 if line.startswith("*"):
