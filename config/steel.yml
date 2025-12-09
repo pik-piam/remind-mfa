@@ -2,6 +2,7 @@ model: 'steel'
 
 input:
   madrat_output_path: '../../madrat/output'
+  force_extract_tgz: FALSE
   input_data_path: '../simson_data/data/steel/output'
   scenarios_path: 'config/scenarios'
   input_data_version: 'rev0steel_h12_cd1fe885_mfa'
