@@ -119,6 +119,8 @@ class VisualizationCfg(BaseVisualizationCfg):
 
 class InputCfg(RemindMFABaseModel):
     madrat_output_path: str
+    force_extract_tgz: bool
+    """Whether to force re-extraction of input data from tgz files."""
     input_data_path: str
     """Path to the input data directory."""
     scenarios_path: str

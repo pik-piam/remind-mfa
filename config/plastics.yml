@@ -2,7 +2,8 @@ model: 'plastics'
 
 input:
   madrat_output_path: '../../madrat/output'
-  input_data_path: '../simson_data/data/plastics/output'
+  force_extract_tgz: FALSE
+  input_data_path: '../remind_mfa_data'
   input_data_version: 'rev0backcast_trade_h12_d499589e_mfa'
   scenarios_path: 'config/scenarios'
 
