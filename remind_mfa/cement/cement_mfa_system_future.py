@@ -46,8 +46,8 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             description=f"The standard deviation of the future use lifetime is set to {int(lifetime_rel_std * 100)} percent of the mean.",
         )
         stk["in_use"].lifetime_model.set_prms(
-            mean=prm["future_use_lifetime_mean"],
-            std=lifetime_rel_std * prm["future_use_lifetime_mean"],
+            mean=prm["use_lifetime_mean"],
+            std=lifetime_rel_std * prm["use_lifetime_mean"],
         )
         stk["in_use"].compute()
 

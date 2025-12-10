@@ -111,6 +111,28 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
     def description(self) -> str:
         return "Parameter is linearly extrapolated to target value."
 
+class ZeroExtrapolation(ParameterExtrapolation):
+    """Set parameter to zero in future."""
+
+    def fill_future_values(
+        self, old_param: fd.Parameter, new_param: fd.FlodymArray
+    ) -> fd.Parameter:
+        add_assumption_doc(
+            type="model switch",
+            name=f"Set {old_param.name} to zero",
+            description=self.description,
+        )
+
+        # set all future values to zero
+        new_param[...] = 0
+
+        return new_param
+
+    @property
+    def description(self) -> str:
+        return "Parameter is set to zero in the future."
+
+
 class ParameterExtrapolationManager:
     """Manager for applying parameter extrapolations."""
 

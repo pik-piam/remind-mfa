@@ -2,7 +2,8 @@ model: 'plastics'
 
 input:
   madrat_output_path: '../../madrat/output'
-  input_data_path: '../remind_mfa_data/plastics'
+  force_extract_tgz: FALSE
+  input_data_path: '../remind_mfa_data'
   input_data_version: 'rev0drivers_update_h12_54d81912_mfa'
   scenarios_path: 'config/scenarios'
 
@@ -51,9 +52,8 @@ visualization:
     do_visualize: True
 
 export:
+  do_export: True
   path: 'data/plastics/output/export'
-  pickle:
-    do_export: True
   pickle:
     do_export: True
   csv:

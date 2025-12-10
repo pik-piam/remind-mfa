@@ -22,6 +22,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.madrat_output_path = cfg.input.madrat_output_path
         self.input_data_path = cfg.input.input_data_path
         self.input_data_version = cfg.input.input_data_version
+        self.force_extract = cfg.input.force_extract_tgz
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
@@ -29,18 +30,23 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def prepare_input_readers(self):
 
+        material_specific_input_data_path = os.path.join(self.input_data_path, self.model_class)
+
         # prepare directory for extracted input data
-        self.extracted_input_data_path = os.path.join(self.input_data_path, "input_data")
+        self.extracted_input_data_path = os.path.join(
+            material_specific_input_data_path, "input_data"
+        )
         os.makedirs(self.extracted_input_data_path, exist_ok=True)
         version_file_path = os.path.join(self.extracted_input_data_path, "version.txt")
 
         # check if extraction is needed
         should_extract = True
-        if os.path.exists(version_file_path):
-            with open(version_file_path, "r") as f:
-                current_version = f.read()
-                if current_version == self.input_data_version:
-                    should_extract = False
+        if not self.force_extract:
+            if os.path.exists(version_file_path):
+                with open(version_file_path, "r") as f:
+                    current_version = f.read()
+                    if current_version == self.input_data_version:
+                        should_extract = False
 
         if should_extract:
             # extract files from tgz and save in directory
@@ -59,7 +65,7 @@ class CommonDataReader(fd.CompoundDataReader):
         for dimension in self.definition.dimensions:
             dimension_filename = self.dimension_map[dimension.name]
             dimension_files[dimension.name] = os.path.join(
-                self.input_data_path, "dimensions", f"{dimension_filename}.csv"
+                material_specific_input_data_path, "dimensions", f"{dimension_filename}.csv"
             )
         # Special case for Region dimensions
         if "Region" in dimension_files:
@@ -67,10 +73,12 @@ class CommonDataReader(fd.CompoundDataReader):
                 glob.glob(os.path.join(self.extracted_input_data_path, "regionmapping*.csv"))
             )
             if not regionfiles:
-                raise FileNotFoundError(f"No regionmapping*.csv found in {self.input_data_path}")
+                raise FileNotFoundError(
+                    f"No regionmapping*.csv found in {material_specific_input_data_path}"
+                )
             if len(regionfiles) > 1:
                 raise ValueError(
-                    f"Expected exactly one regionmapping*.csv in {self.input_data_path}, found: "
+                    f"Expected exactly one regionmapping*.csv in {material_specific_input_data_path}, found: "
                     f"{[os.path.basename(m) for m in regionfiles]}"
                 )
             dimension_files["Region"] = regionfiles[0]
@@ -137,6 +145,7 @@ class MadratParameterReader(fd.CSVParameterReader):
         """Extract header and skiprows from .cs4r file."""
         pre_str = "dimensions: ("
         post_str = ")"
+        header = None
         with open(filepath, "r") as file:
             for idx, line in enumerate(file):
                 if line.startswith("*"):
