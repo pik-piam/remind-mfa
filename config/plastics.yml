@@ -53,8 +53,8 @@ export:
     do_export: True
   iamc:
     do_export: True
+  assumptions:
+    do_export: True
   docs:
     do_export: True
     path: 'docs/plastics'
-  assumptions:
-    do_export: True

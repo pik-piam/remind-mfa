@@ -64,10 +64,10 @@ export:
     do_export: False
   csv:
     do_export: False
+  iamc:
+    do_export: True
+  assumptions:
+    do_export: False
   docs:
     do_export: False
     path: 'docs/cement'
-  iamc:
-    do_export: False
-  assumptions:
-    do_export: False
