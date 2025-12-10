@@ -44,9 +44,8 @@ visualization:
     do_visualize: True
 
 export:
+  do_export: True
   path: 'data/plastics/output/export'
-  pickle:
-    do_export: True
   pickle:
     do_export: True
   csv:
