@@ -2,8 +2,8 @@ model: 'plastics'
 
 input:
   madrat_output_path: '../../madrat/output'
-  input_data_path: '../simson_data/data/plastics/output'
-  input_data_version: 'rev0backcast_trade_h12_d499589e_mfa'
+  input_data_path: '../remind_mfa_data/plastics'
+  input_data_version: 'rev0drivers_update_h12_54d81912_mfa'
   scenarios_path: 'config/scenarios'
 
 model_switches:
