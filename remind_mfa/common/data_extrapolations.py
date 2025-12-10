@@ -157,7 +157,9 @@ class Extrapolation(RemindMFABaseModel):
         return fit_prms, regression
 
     @staticmethod
-    def correct_initial_guess_with_bounds(initial_guess: np.ndarray, bounds: Tuple[np.ndarray, np.ndarray]):
+    def correct_initial_guess_with_bounds(
+        initial_guess: np.ndarray, bounds: Tuple[np.ndarray, np.ndarray]
+    ):
         """Ensure that the initial guess is within the provided bounds."""
 
         outside_bounds = (initial_guess < bounds[0]) + (initial_guess > bounds[1])
@@ -173,6 +175,7 @@ class Extrapolation(RemindMFABaseModel):
             initial_guess[idx[use_lower]] = lower[use_lower]
             initial_guess[idx[use_mean]] = (lower[use_mean] + upper[use_mean]) / 2
         return initial_guess
+
 
 class ProportionalExtrapolation(Extrapolation):
 

@@ -130,7 +130,7 @@ class CementVisualizer(CommonVisualizer):
         pass
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-        # TODO: find way to name subplots_by_good back to subplot_by_stock_type 
+        # TODO: find way to name subplots_by_good back to subplot_by_stock_type
         # This is a workaround to streamline across materials.
         subplot_dim = "Stock Type" if subplots_by_good else None
         cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
