@@ -10,7 +10,7 @@ from remind_mfa.cement.cement_mfa_system_historic import (
 )
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
-from remind_mfa.cement.cement_data_reader import CementDataReader
+from remind_mfa.cement.cement_mappings import CementDimensionFiles, CementDisplayNames
 from remind_mfa.cement.cement_export import CementDataExporter
 from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
@@ -22,9 +22,10 @@ from remind_mfa.cement.cement_definition import scenario_parameters as cement_sc
 class CementModel(CommonModel):
 
     ConfigCls = CementCfg
-    DataReaderCls = CementDataReader
+    DimensionFilesCls = CementDimensionFiles
     DataExporterCls = CementDataExporter
     VisualizerCls = CementVisualizer
+    DisplayNamesCls = CementDisplayNames
     HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
     get_definition = staticmethod(get_cement_definition)

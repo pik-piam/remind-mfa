@@ -4,6 +4,7 @@ from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
 from remind_mfa.common.common_data_reader import CommonDataReader
+from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDisplayNames
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -15,9 +16,10 @@ from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationMana
 class CommonModel:
 
     ConfigCls = CommonCfg
-    DataReaderCls = CommonDataReader
+    DimensionFilesCls = CommonDimensionFiles
     DataExporterCls = CommonDataExporter
     VisualizerCls = CommonVisualizer
+    DisplayNamesCls = CommonDisplayNames
     HistoricMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
@@ -57,9 +59,10 @@ class CommonModel:
         self.definition_future = self.get_definition(self.cfg, historic=False)
 
     def read_data(self):
-        self.data_reader = self.DataReaderCls(
+        self.data_reader = CommonDataReader(
             cfg=self.cfg,
             definition=self.definition_future,
+            dimension_file_mapping=self.DimensionFilesCls(),
             # TODO: Remove requirement, then remove these two lines
             allow_extra_values=True,
             allow_missing_values=True,
@@ -88,11 +91,14 @@ class CommonModel:
         raise NotImplementedError
 
     def init_export_and_visualization(self):
+        display_names = self.DisplayNamesCls()
         self.data_writer = self.DataExporterCls(
             cfg=self.cfg.export,
+            display_names=display_names,
         )
         self.visualizer = self.VisualizerCls(
             cfg=self.cfg.visualization,
+            display_names=display_names,
         )
 
     def make_mfa(self, historic: bool) -> CommonMFASystem:

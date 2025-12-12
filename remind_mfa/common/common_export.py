@@ -7,6 +7,7 @@ from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
+from remind_mfa.common.common_mappings import CommonDisplayNames
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -16,28 +17,7 @@ if TYPE_CHECKING:
 
 class CommonDataExporter(RemindMFABaseModel):
     cfg: ExportCfg
-    _display_names: dict = {
-        # for markdown export
-        "name": "Name",
-        "letter": "Letter",
-        "dim_letters": "Dimensions",
-        "from_process_name": "Origin Process",
-        "to_process_name": "Destination Process",
-        "process_name": "Process",
-        "subclass": "Stock Type",
-        "lifetime_model_class": "Lifetime Model",
-    }
-
-    @model_validator(mode="after")
-    def inherit_display_names(self):
-        """
-        Ensures that _display_names defined in a subclass are *merged* with
-        the base class defaults, rather than replacing them entirely.
-        """
-        from_sub = self._display_names
-        self._display_names = CommonDataExporter._display_names.default.copy()
-        self._display_names.update(from_sub)
-        return self
+    display_names: CommonDisplayNames
 
     def export(self, model: "CommonModel"):
         if not self.cfg.do_export:
@@ -95,11 +75,11 @@ class CommonDataExporter(RemindMFABaseModel):
                 cell = ", ".join(cell)
             elif cell is None:
                 cell = ""
-            cell = self.display_name(str(cell))
+            cell = self.display_names[str(cell)]
             return cell.replace("<br>", " ")
 
         for name, df in dfs.items():
-            df.columns = [self.display_name(col) for col in df.columns]
+            df.columns = [self.display_names[col] for col in df.columns]
             df = df.map(convert_cell)
             if name == "parameters":
                 # Export parameters as CSV to merge with their source info later
@@ -141,6 +121,3 @@ class CommonDataExporter(RemindMFABaseModel):
             path_tuple += (filename,)
 
         return os.path.join(*path_tuple)
-
-    def display_name(self, name):
-        return self._display_names.get(name, name)
