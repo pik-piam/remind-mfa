@@ -31,6 +31,17 @@ class CementModel(CommonModel):
     get_definition = staticmethod(get_cement_definition)
     custom_scn_prm_def = cement_scn_prm_def
 
+    # TODO remove duplication with common_model.py once allow missing/additional values is removed in other materials
+    def read_data(self):
+        self.data_reader = self.DataReaderCls(
+            cfg=self.cfg,
+            definition=self.definition_future,
+        )
+        self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
+        self.parameters = self.data_reader.read_parameters(
+            self.definition_future.parameters, dims=self.dims
+        )
+
     def get_long_term_stock(self) -> fd.FlodymArray:
         """Extrapolate in use stock to future."""
 
@@ -89,7 +100,9 @@ class CementModel(CommonModel):
 
         # 3) constrain offset
         # Currently, this does not change anything as no region seems to be faster given the above constraints
-        min_offset = 8.8e3  # $gdppc at which 50% of saturation is reached, inferred from China (fastest region)
+        min_offset_raw = 8.8e3  # $gdppc at which 50% of saturation is reached, inferred from China (fastest region)
+        # Predictor uses log10(GDPpc), so enforce the offset bound in log-space to avoid mismatched units.
+        min_offset = np.log10(min_offset_raw)
         offset_bound = Bound(
             var_name="x_offset",
             lower_bound=min_offset,
@@ -98,10 +111,11 @@ class CementModel(CommonModel):
 
         add_assumption_doc(
             type="expert guess",
-            value=min_offset,
+            value=min_offset_raw,
             name="Minimum offset of in-use cement stock extrapolation",
             description="The minimum offset of the in-use cement stock ($gdppc where 50 percent of saturation is reached) "
-            "is set based on historic trends in China which has grown its stock at the lowest GDP levels. ",
+            "is set based on historic trends in China which has grown its stock at the lowest GDP levels. The bound is "
+            "applied to log10(GDPpc) in the regression.",
         )
 
         # 4) combine bounds

@@ -2,8 +2,9 @@ model: 'cement'
 
 input:
   madrat_output_path: '../madrat_wd/output'
-  input_data_path: '../simson_data/data/cement/output'
-  input_data_version: 'rev0_h12_c378de4d_mfa'
+  force_extract_tgz: FALSE
+  input_data_path: '../remind_mfa_data'
+  input_data_version: 'rev06_h12_bbd76206_mfa'
   scenarios_path: 'config/scenarios'
 
 model_switches:
@@ -15,6 +16,7 @@ model_switches:
   parameter_extrapolation:
     clinker_ratio: 'ConstantExtrapolation'
     use_lifetime_mean: 'ConstantExtrapolation'
+    cement_trade: 'ZeroExtrapolation'
 
 visualization:
   do_visualize: True
@@ -52,11 +54,12 @@ visualization:
         - "sysenv"
       exclude_flows: [ ]
   extrapolation:
-    do_visualize: False
+    do_visualize: True
   carbonation:
-    do_visualize: False
+    do_visualize: True
 
 export:
+  do_export: True
   path: 'data/cement/output/export'
   pickle:
     do_export: False

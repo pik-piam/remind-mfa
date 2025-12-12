@@ -5,7 +5,7 @@ import numpy as np
 import logging
 
 from remind_mfa.common.common_visualization import CommonVisualizer
-from remind_mfa.cement.cement_config import CementVisualizationCfg
+from remind_mfa.cement.cement_config import CementVisualizationCfg, CementModes
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 
 if TYPE_CHECKING:
@@ -33,9 +33,9 @@ class CementVisualizer(CommonVisualizer):
             # self.visualize_extrapolation(model=model, show_future=False)
             self.visualize_extrapolation(model=model)
         if self.cfg.carbonation.do_visualize:
-            if not mfa.carbon_flow:
+            if not model.cfg.model_switches.mode == CementModes.CARBON_FLOW:
                 logging.warning(
-                    "Carbonation visualization requested, but carbonation calculation not activated."
+                    "Carbonation visualization requested, but carbonation module not activated."
                 )
             else:
                 self.visualize_carbonation(mfa=mfa)
@@ -120,8 +120,10 @@ class CementVisualizer(CommonVisualizer):
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         pass
 
-    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_stock_type=False):
-        subplot_dim = "Stock Type" if subplots_by_stock_type else None
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
+        # TODO: find way to name subplots_by_good back to subplot_by_stock_type
+        # This is a workaround to streamline across materials.
+        subplot_dim = "Stock Type" if subplots_by_good else None
         cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
         stock = mfa.stocks["in_use"].stock * cement_ratio
         super().visualize_use_stock(mfa, stock=stock, subplot_dim=subplot_dim)
