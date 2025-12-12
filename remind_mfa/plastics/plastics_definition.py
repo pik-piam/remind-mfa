@@ -1,16 +1,13 @@
 from typing import List
 import flodym as fd
 
-from remind_mfa.common.common_cfg import GeneralCfg
-from remind_mfa.common.helper import RemindMFAParameterDefinition, RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.plastics.plastics_config import PlasticsCfg
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
 
 
-class PlasticsMFADefinition(RemindMFADefinition):
-    trades: List[TradeDefinition]
-
-
-def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
+def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefinition:
 
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
@@ -124,7 +121,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 name="in_use_historic",
                 dim_letters=("h", "r", "g"),
                 subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=cfg.customization.lifetime_model,
+                lifetime_model_class=cfg.model_switches.lifetime_model,
                 time_letter="h",
             ),
         ]
@@ -134,7 +131,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
                 name="in_use_dsm",
                 dim_letters=("t", "r", "g"),
                 subclass=fd.StockDrivenDSM,
-                lifetime_model_class=cfg.customization.lifetime_model,
+                lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
                 name="in_use",
@@ -180,19 +177,9 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             description="Chemical recycling rate of collected waste",
         ),
         RemindMFAParameterDefinition(
-            name="solvent_recycling_rate",
-            dim_letters=("t", "r", "m"),
-            description="Solvent recycling rate of collected waste",
-        ),
-        RemindMFAParameterDefinition(
             name="incineration_rate",
             dim_letters=("t", "r", "m"),
             description="Incineration rate of collected waste",
-        ),
-        RemindMFAParameterDefinition(
-            name="landfill_rate",
-            dim_letters=("t", "r", "m"),
-            description="Landfill rate of collected waste",
         ),
         # trade
         RemindMFAParameterDefinition(
@@ -285,14 +272,14 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         ),
         # for in-use stock
         RemindMFAParameterDefinition(
-            name="production", dim_letters=("h", "r", "g"), description="Historic production"
+            name="consumption", dim_letters=("h", "r", "g"), description="Historic production"
         ),
         RemindMFAParameterDefinition(
-            name="lifetime_mean", dim_letters=("r", "g"), description="Mean lifetime of goods"
+            name="lifetime_mean", dim_letters=("g",), description="Mean lifetime of goods"
         ),
         RemindMFAParameterDefinition(
             name="lifetime_std",
-            dim_letters=("r", "g"),
+            dim_letters=("g",),
             description="Standard deviation of lifetime",
         ),
         RemindMFAParameterDefinition(
@@ -319,7 +306,7 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
             TradeDefinition(name="waste", dim_letters=("t", "r", "m", "e", "g")),
         ]
 
-    return PlasticsMFADefinition(
+    return RemindMFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,
@@ -327,3 +314,6 @@ def get_definition(cfg: GeneralCfg, historic: bool) -> PlasticsMFADefinition:
         parameters=parameters,
         trades=trades,
     )
+
+
+scenario_parameters = []

@@ -1,17 +1,10 @@
-from remind_mfa.common.helper import RemindMFABaseModel
 import flodym as fd
 from typing import Optional
-from pydantic import Field
 import pandas as pd
 
-from .data_extrapolations import Extrapolation
-
-
-IMPLEMENTED_MODELS = [
-    "plastics",
-    "steel",
-    "cement",
-]
+from remind_mfa.common.data_extrapolations import Extrapolation
+from remind_mfa.common.parameter_extrapolation import ParameterExtrapolation
+from remind_mfa.common.helpers import RemindMFABaseModel, ModelNames, RegressOverModes
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -29,55 +22,82 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
-class ModelCustomization(RemindMFABaseModel):
+class ModelSwitches(RemindMFABaseModel):
 
+    scenario: str
+    """Name of the scenario to use."""
     stock_extrapolation_class_name: str
     """Class name of the extrapolation subclass to use for stock extrapolation."""
     lifetime_model_name: str
     """Class name of the lifetime model subclass to use for the in-use stock."""
     do_stock_extrapolation_by_category: bool = False
     """Whether to perform stock extrapolation by good category."""
-    regress_over: str = "gdppc"
+    regress_over: RegressOverModes
     """Variable to use as a predictor for stock extrapolation."""
-    mode: Optional[str] = None
-    """Mode of the MFA model, e.g. 'stock_driven' or 'inflow_driven'."""
+    parameter_extrapolation: Optional[dict[str, str]] = None
 
     @property
-    def lifetime_model(self) -> fd.LifetimeModel:
+    def lifetime_model(self) -> type[fd.LifetimeModel]:
         return choose_subclass_by_name(self.lifetime_model_name, fd.LifetimeModel)
 
     @property
-    def stock_extrapolation_class(self) -> Extrapolation:
+    def stock_extrapolation_class(self) -> type[Extrapolation]:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
 
+    @property
+    def parameter_extrapolation_classes(self) -> Optional[dict[str, type[ParameterExtrapolation]]]:
+        """Check if the given parameter extrapolation classes are valid subclasses of ParameterExtrapolation and return them."""
+        if self.parameter_extrapolation is None:
+            return None
 
-class ExportCfg(RemindMFABaseModel):
-    csv: bool = True
+        classes = {}
+        for param_name, class_name in self.parameter_extrapolation.items():
+            classes[param_name] = choose_subclass_by_name(class_name, ParameterExtrapolation)
+        return classes
+
+
+class BaseExportCfg(RemindMFABaseModel):
+    do_export: bool = True
+    """Whether to export this entity"""
+    path: str = None
+    """Path to export folder"""
+
+
+class ExportCfg(BaseExportCfg):
+    csv: BaseExportCfg
     """Whether to export results as CSV files."""
-    pickle: bool = True
+    pickle: BaseExportCfg
     """Whether to export results as pickle files."""
-    assumptions: bool = True
+    assumptions: BaseExportCfg
     """Whether to export assumptions as a txt file."""
-    docs: bool = False
+    docs: BaseExportCfg
     """Whether to create documentation files."""
-    future_input: bool = False
-    """Whether to export results as future input data used in the model."""
-    iamc: bool = False
+    iamc: BaseExportCfg
     """Whether to export results in IAMC format."""
 
 
-class VisualizationCfg(RemindMFABaseModel):
+class BaseVisualizationCfg(RemindMFABaseModel):
     do_visualize: bool = True
-    """Whether to create visualizations."""
-    use_stock: dict = {"do_visualize": False}
-    """Visualization configuration for use stock."""
-    production: dict = {"do_visualize": False}
-    """Visualization configuration for production."""
-    sankey: dict = {"do_visualize": False}
-    """Visualization configuration for sankey."""
-    extrapolation: dict = {"do_visualize": False}
-    """Visualization configuration for extrapolation."""
+    """Whether to create visualizations for this entity"""
+
+
+class SankeyVisualizationCfg(BaseVisualizationCfg):
+    plotter_args: dict = {}
+    """dictionary of arguments to pass to the Sankey plotter"""
+
+
+class StockVisualizationCfg(BaseVisualizationCfg):
+    per_capita: bool = False
+    """Whether to visualize stock per capita."""
+    over_gdp: bool = False
+    """Whether to visualize stock over GDP. Alternative is over time"""
+    accumulate_gdp: bool = False
+
+
+class VisualizationCfg(BaseVisualizationCfg):
+    figures_path: str
+    """Path to the figures directory."""
     do_show_figs: bool = True
     """Whether to show figures."""
     do_save_figs: bool = False
@@ -87,66 +107,55 @@ class VisualizationCfg(RemindMFABaseModel):
     plotly_renderer: str = "browser"
     """Plotly renderer to use for visualizations."""
 
-
-class CementVisualizationCfg(VisualizationCfg):
-    clinker_production: dict = {}
-    """Visualization configuration for clinker production."""
-    cement_production: dict = {}
-    """Visualization configuration for cement production."""
-    concrete_production: dict = {}
-    """Visualization configuration for concrete production."""
-    eol_stock: dict = {}
-    """Visualization configuration for end-of-life stock."""
+    use_stock: StockVisualizationCfg
+    """Visualization configuration for use stock."""
+    production: BaseVisualizationCfg
+    """Visualization configuration for production."""
+    sankey: SankeyVisualizationCfg
+    """Visualization configuration for sankey."""
+    extrapolation: BaseVisualizationCfg
+    """Visualization configuration for extrapolation."""
 
 
-class SteelVisualizationCfg(VisualizationCfg):
-    scrap_demand_supply: dict = {"do_visualize": False}
-    """Visualization configuration for scrap demand and supply."""
-    sector_splits: dict = {"do_visualize": False}
-    """Visualization configuration for sector splits."""
-    trade: dict = {"do_visualize": False}
-    """Visualization configuration for trade."""
-    consumption: dict = {"do_visualize": False}
-    """Visualization configuration for consumption."""
-    gdppc: dict = {"do_visualize": False}
-    """Visualization configuration for GDP per capita."""
-
-
-class PlasticsVisualizationCfg(VisualizationCfg):
-    flows: dict = {"do_visualize": False}
-    """Visualization configuration for flows."""
-
-
-class GeneralCfg(RemindMFABaseModel):
-    model_class: str
-    """Model class to use. Must be one of 'plastics', 'steel', or 'cement'."""
+class InputCfg(RemindMFABaseModel):
+    madrat_output_path: str
+    force_extract_tgz: bool
+    """Whether to force re-extraction of input data from tgz files."""
     input_data_path: str
     """Path to the input data directory."""
-    customization: ModelCustomization
+    scenarios_path: str
+    """Path to the scenario definition directory."""
+    input_data_version: str
+
+
+class CommonCfg(RemindMFABaseModel):
+    model: ModelNames
+    """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
+    input: InputCfg
+    model_switches: ModelSwitches
     """Model customization parameters."""
     visualization: VisualizationCfg
     """Visualization configuration."""
-    output_path: str
-    """Path to the output directory."""
-    docs_path: str
-    """Path to the documentation directory."""
-    do_export: ExportCfg
+    export: ExportCfg
     """Export configuration."""
 
-    @classmethod
-    def from_model_class(cls, **kwargs) -> "GeneralCfg":
-        if "model_class" not in kwargs:
-            raise ValueError("model_class must be provided.")
-        model_class = kwargs["model_class"]
-        subclasses = {
-            "plastics": PlasticsCfg,
-            "steel": SteelCfg,
-            "cement": CementCfg,
-        }
-        if model_class not in subclasses:
-            raise ValueError(f"Model class {model_class} not supported.")
-        subcls = subclasses[model_class]
-        return subcls(**kwargs)
+    def to_df(self) -> pd.DataFrame:
+        """Exports configuration parameters to pandas DataFrames."""
+
+        def flatten_dict(d, parent_key="", sep="."):
+            items = []
+            for k, v in d.items():
+                new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                if isinstance(v, dict):
+                    items.extend(flatten_dict(v, new_key, sep=sep).items())
+                else:
+                    items.append((new_key, v))
+            return dict(items)
+
+        flat = flatten_dict(self.model_dump())
+        df = pd.DataFrame(flat.items(), columns=["Parameter", "Value"])
+
+        return df
 
     @classmethod
     def to_schema_df(cls, only_base: bool = True) -> pd.DataFrame:
@@ -195,22 +204,7 @@ class GeneralCfg(RemindMFABaseModel):
             return schema
 
         # Use GeneralCfg if only_base is True, otherwise use the calling class
-        target_cls = GeneralCfg if only_base else cls
+        target_cls = CommonCfg if only_base else cls
         schema = get_field_schema(target_cls)
         df = pd.DataFrame(schema)
         return df
-
-
-class PlasticsCfg(GeneralCfg):
-
-    visualization: PlasticsVisualizationCfg
-
-
-class CementCfg(GeneralCfg):
-
-    visualization: CementVisualizationCfg
-
-
-class SteelCfg(GeneralCfg):
-
-    visualization: SteelVisualizationCfg

@@ -2,7 +2,7 @@ import numpy as np
 import flodym as fd
 from pydantic import ConfigDict, model_validator
 
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 
 
 class PriceDrivenTrade(RemindMFABaseModel):

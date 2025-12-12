@@ -1,35 +1,53 @@
 import numpy as np
 import flodym as fd
+from enum import Enum
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
+from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.cement.cement_config import CementCfg
+from remind_mfa.common.trade import TradeSet
 
 
-class StockDrivenCementMFASystem(fd.MFASystem):
+class StockDrivenCementMFASystem(CommonMFASystem):
 
-    def compute(self, stock_projection: fd.FlodymArray):
+    cfg: CementCfg
+
+    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
         self.compute_in_use_stock(stock_projection)
         self.compute_flows()
         self.compute_other_stocks()
+        if self.cfg.model_switches.carbon_flow:
+            CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
-    def compute_in_use_stock(self, stock_projection: fd.FlodymArray):
+    def compute_in_use_stock(self, cement_stock_projection: fd.FlodymArray):
         prm = self.parameters
         stk = self.stocks
+        cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
-        stk["in_use"].stock = stock_projection
-        stk["in_use"].lifetime_model.set_prms(
-            mean=prm["future_use_lifetime_mean"],
-            std=0.2 * prm["future_use_lifetime_mean"],
+        stk["in_use"].stock = (
+            cement_stock_projection
+            * prm["product_material_split"]
+            * prm["product_material_application_transform"]
+            * prm["product_application_split"]
+            / cement_ratio
         )
+
+        lifetime_rel_std = 0.4
         add_assumption_doc(
             type="expert guess",
-            value=0.2,
+            value=lifetime_rel_std,
             name="Standard deviation of future use lifetime",
-            description="The standard deviation of the future use lifetime is set to 20 percent of the mean.",
+            description=f"The standard deviation of the future use lifetime is set to {int(lifetime_rel_std * 100)} percent of the mean.",
+        )
+        stk["in_use"].lifetime_model.set_prms(
+            mean=prm["use_lifetime_mean"],
+            std=lifetime_rel_std * prm["use_lifetime_mean"],
         )
         stk["in_use"].compute()
 
@@ -37,12 +55,14 @@ class StockDrivenCementMFASystem(fd.MFASystem):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
+        cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
         # go backwards from in-use stock
-        flw["concrete_production => use"][...] = stk["in_use"].inflow
+        flw["prod_product => use"][...] = stk["in_use"].inflow
+
         add_assumption_doc(
             type="ad-hoc fix",
-            name="Regional concrete production is actually apparent consumption.",
+            name="Regional product production is actually apparent consumption.",
             description=(
                 "The concrete stock considers both cement production and trade. "
                 "The concrete production is constructed by concrete stock. "
@@ -54,34 +74,36 @@ class StockDrivenCementMFASystem(fd.MFASystem):
             ),
         )
 
-        flw["cement_grinding => concrete_production"][...] = (
-            flw["concrete_production => use"] * prm["cement_ratio"]
+        flw["prod_cement => prod_product"][...] = flw["prod_product => use"] * cement_ratio
+        # cement losses are on top of the inflow of stock, but are relative to total cement production
+        flw["prod_cement => sysenv"][...] = flw["prod_cement => prod_product"] * (
+            prm["cement_losses"] / (1 - prm["cement_losses"])
         )
-        flw["clinker_production => cement_grinding"][...] = (
-            flw["cement_grinding => concrete_production"] * prm["clinker_ratio"]
+        # clinker production is based on cement production
+        flw["prod_clinker => prod_cement"][...] = (
+            flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]
+        ) * prm["clinker_ratio"]
+        # clinker losses (CKD) are on top of clinker production.
+        flw["prod_clinker => sysenv"][...] = (
+            flw["prod_clinker => prod_cement"] * prm["clinker_losses"]
         )
-        flw["raw_meal_preparation => clinker_production"][...] = flw[
-            "clinker_production => cement_grinding"
-        ]
 
         # sysenv flows for mass balance
-        flw["sysenv => raw_meal_preparation"][...] = flw[
-            "raw_meal_preparation => clinker_production"
-        ]
-        flw["sysenv => clinker_production"][...] = fd.FlodymArray(dims=self.dims["t", "r"])
-        flw["sysenv => cement_grinding"][...] = flw["cement_grinding => concrete_production"] * (
-            1 - prm["clinker_ratio"]
+        flw["sysenv => prod_clinker"][...] = (
+            flw["prod_clinker => prod_cement"] + flw["prod_clinker => sysenv"]
         )
-        flw["sysenv => concrete_production"][...] = flw["concrete_production => use"] * (
-            1 - prm["cement_ratio"]
-        )
+        flw["sysenv => prod_cement"][...] = (
+            flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]
+        ) * (1 - prm["clinker_ratio"])
+        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - cement_ratio)
 
     def compute_other_stocks(self):
         flw = self.flows
         stk = self.stocks
 
+        # eol
         flw["use => eol"][...] = stk["in_use"].outflow
         stk["eol"].inflow[...] = flw["use => eol"]
-        stk["eol"].outflow[...] = fd.FlodymArray(dims=self.dims["t", "r", "s"])
+        stk["eol"].lifetime_model.set_prms(mean=np.inf)
         stk["eol"].compute()
         flw["eol => sysenv"][...] = stk["eol"].outflow

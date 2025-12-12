@@ -1,0 +1,10 @@
+parent:
+data:
+- parameter: lifetime_factor
+  value: 1.0
+- parameter: lifetime_factor_blending_year
+  value: 2040
+- parameter: saturation_level_factor
+  models:
+  - steel
+  value: 1.0
