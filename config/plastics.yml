@@ -4,7 +4,7 @@ input:
   madrat_output_path: '../../madrat/output'
   force_extract_tgz: FALSE
   input_data_path: '../remind_mfa_data'
-  input_data_version: 'rev0drivers_update_h12_54d81912_mfa'
+  input_data_version: 'rev0clean_up_h12_944165e0_mfa'
   scenarios_path: 'config/scenarios'
 
 model_switches:
@@ -37,10 +37,11 @@ visualization:
   extrapolation:
     do_visualize: False
   sankey:
-    do_visualize: False
+    do_visualize: True
     plotter_args:
       slice_dict:
         t: 2020
+        r: 'EUR'
       exclude_processes:
         - "sysenv"
         #- "waste_market"
