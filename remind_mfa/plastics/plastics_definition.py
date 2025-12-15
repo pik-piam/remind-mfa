@@ -315,48 +315,21 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         trades=trades,
     )
 
-
+# fmt: off
 scenario_parameters = [
-    PlainDataPointDefinition(
-        name="collection_rate_target_year",
-    ),
-    PlainDataPointDefinition(
-        name="collection_rate_target_value",
-    ),
-    PlainDataPointDefinition(
-        name="incineration_rate_target_year",
-    ),
-    PlainDataPointDefinition(
-        name="incineration_rate_target_value",
-    ),
-    PlainDataPointDefinition(
-        name="mechanical_recycling_rate_target_year",
-    ),
-    PlainDataPointDefinition(
-        name="mechanical_recycling_rate_target_value",
-    ),
-    PlainDataPointDefinition(
-        name="chemical_recycling_rate_target_year",
-    ),
-    PlainDataPointDefinition(
-        name="chemical_recycling_rate_target_value",
-    ),
-    PlainDataPointDefinition(
-        name="bio_production_rate_target_year",
-    ),
-    PlainDataPointDefinition(
-        name="bio_production_rate_target_value",
-    ),
-    PlainDataPointDefinition(
-        name="daccu_production_rate_target_year",
-    ),
-    PlainDataPointDefinition(
-        name="daccu_production_rate_target_value",
-    ),
-    PlainDataPointDefinition(
-        name="emission_capture_rate_target_year",
-    ),
-    PlainDataPointDefinition(
-        name="emission_capture_rate_target_value",
-    ),
+    RemindMFAParameterDefinition(name="collection_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="collection_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="incineration_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="incineration_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="mechanical_recycling_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="mechanical_recycling_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="chemical_recycling_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="chemical_recycling_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="bio_production_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="bio_production_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="daccu_production_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="daccu_production_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="emission_capture_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="emission_capture_rate_target_value", dim_letters=("r",),),
 ]
+# fmt: on
