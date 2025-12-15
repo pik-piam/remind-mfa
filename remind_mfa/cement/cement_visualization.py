@@ -203,6 +203,7 @@ class CementVisualizer(CommonVisualizer):
         subplot_dim = "Region"
         population = model.parameters["population"]
         stock = model.stock_handler.stocks
+        extrapolation = model.stock_handler.pure_prediction
         x_array = None
 
         pc_str = "pC" if per_capita else ""
@@ -227,7 +228,7 @@ class CementVisualizer(CommonVisualizer):
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
         if other_dimletters:
             stock = stock.sum_over(other_dimletters)
-        extrapolation = model.stock_handler.pure_prediction
+            extrapolation = extrapolation.sum_over(other_dimletters)
 
         if per_capita:
             stock_to_plot = stock / population
