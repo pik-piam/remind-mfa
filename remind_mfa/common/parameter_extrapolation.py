@@ -76,8 +76,30 @@ class ConstantExtrapolation(ParameterExtrapolation):
         return "Parameter is kept constant into the future at last observed value."
 
 
+class ZeroExtrapolation(ParameterExtrapolation):
+    """Set parameter to zero in future."""
+
+    def fill_future_values(
+        self, old_param: fd.Parameter, new_param: fd.FlodymArray
+    ) -> fd.Parameter:
+        add_assumption_doc(
+            type="model switch",
+            name=f"Set {old_param.name} to zero",
+            description=self.description,
+        )
+
+        # set all future values to zero
+        new_param[...] = 0
+
+        return new_param
+
+    @property
+    def description(self) -> str:
+        return "Parameter is set to zero in the future."
+
+
 class LinearToTargetExtrapolation(ParameterExtrapolation):
-    """Linearly extrapolate parameter to target value according to scenario settings."""
+    """Linearly interpolate to a future target value according to scenario settings."""
 
     def __init__(self, scenario_parameters: Dict[str, float]):
         self.scenario_parameters = scenario_parameters
@@ -87,7 +109,7 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
     ) -> fd.Parameter:
         add_assumption_doc(
             type="model switch",
-            name=f"Linearly extrapolate {old_param.name} to target value {self.scenario_parameters[old_param.name + "_target_value"]} by year {self.scenario_parameters[old_param.name + "_target_year"]}",
+            name=f"Linearly interpolate {old_param.name} to target value {self.scenario_parameters[old_param.name + "_target_value"]} by year {self.scenario_parameters[old_param.name + "_target_year"]}",
             description=self.description,
         )
 
@@ -112,7 +134,7 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
 
     @property
     def description(self) -> str:
-        return "Parameter is linearly extrapolated to target value."
+        return "Parameter is linearly interpolated to target value."
 
 
 class ParameterExtrapolationManager:
