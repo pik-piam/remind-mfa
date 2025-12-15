@@ -62,13 +62,13 @@ export:
   do_export: True
   path: 'data/cement/output/export'
   pickle:
-    do_export: False
+    do_export: True
   csv:
-    do_export: False
+    do_export: True
   iamc:
     do_export: True
   assumptions:
-    do_export: False
+    do_export: True
   docs:
-    do_export: False
+    do_export: True
     path: 'docs/cement'
