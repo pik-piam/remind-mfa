@@ -315,6 +315,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         trades=trades,
     )
 
+
 # fmt: off
 scenario_parameters = [
     RemindMFAParameterDefinition(name="collection_rate_target_year", dim_letters=("r",),),
