@@ -73,7 +73,7 @@ class ConstantExtrapolation(ParameterExtrapolation):
     @property
     def description(self) -> str:
         return "Parameter is kept constant into the future at last observed value."
-    
+
 
 class ZeroExtrapolation(ParameterExtrapolation):
     """Set parameter to zero in future."""

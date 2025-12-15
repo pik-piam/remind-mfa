@@ -47,10 +47,7 @@ class CementModel(CommonModel):
         indep_fit_dim_letters = ("r",)
 
         # 1) constrain saturation level
-        region_sat = fd.FlodymArray(
-            dims=self.dims[("r",)],
-            values=np.array([20, 20, 20, 24, 24, 20, 20, 18, 30, 20, 18, 18]),
-        )
+        region_sat = self.parameters["stock_saturation_level"]
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=region_sat,

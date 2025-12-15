@@ -59,6 +59,7 @@ visualization:
     do_visualize: True
 
 export:
+  do_export: True
   path: 'data/cement/output/export'
   pickle:
     do_export: False

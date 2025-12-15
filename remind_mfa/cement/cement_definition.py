@@ -129,6 +129,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         RemindMFAParameterDefinition(name="product_material_split",dim_letters=("r","m",)),
         RemindMFAParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a")),
         RemindMFAParameterDefinition(name="product_cement_content", dim_letters=("a",)),
+        RemindMFAParameterDefinition(name="stock_saturation_level", dim_letters=("r",)),
         # carbonation parameters
         RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=()),
         RemindMFAParameterDefinition(name="cao_carbonation_share", dim_letters=("m",)),
