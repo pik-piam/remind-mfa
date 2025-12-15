@@ -6,7 +6,7 @@ from pydantic import model_validator
 from scipy.optimize import least_squares
 from pydantic import PrivateAttr
 
-from remind_mfa.common.helper import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_transformations import BoundList
 
 
@@ -151,14 +151,30 @@ class Extrapolation(RemindMFABaseModel):
         )
         initial_guess = self.initial_guess(predictor, data)
         # correct initial guess
-        outside_bounds = (initial_guess < bounds[0]) + (initial_guess > bounds[1])
-        if np.any(outside_bounds):
-            initial_guess[outside_bounds] = (
-                bounds[0][outside_bounds] + bounds[1][outside_bounds]
-            ) / 2
+        initial_guess = self.correct_initial_guess_with_bounds(initial_guess, bounds)
         fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12, bounds=bounds).x
         regression = self.func(predictor, fit_prms)
         return fit_prms, regression
+
+    @staticmethod
+    def correct_initial_guess_with_bounds(
+        initial_guess: np.ndarray, bounds: Tuple[np.ndarray, np.ndarray]
+    ):
+        """Ensure that the initial guess is within the provided bounds."""
+
+        outside_bounds = (initial_guess < bounds[0]) + (initial_guess > bounds[1])
+        if np.any(outside_bounds):
+            idx = np.where(outside_bounds)[0]
+            lower = bounds[0][idx]
+            upper = bounds[1][idx]
+            # If lower is -inf, use upper; if upper is inf, use lower; else use mean
+            use_upper = np.isinf(lower) & ~np.isinf(upper)
+            use_lower = np.isinf(upper) & ~np.isinf(lower)
+            use_mean = ~(use_upper | use_lower)
+            initial_guess[idx[use_upper]] = upper[use_upper]
+            initial_guess[idx[use_lower]] = lower[use_lower]
+            initial_guess[idx[use_mean]] = (lower[use_mean] + upper[use_mean]) / 2
+        return initial_guess
 
 
 class ProportionalExtrapolation(Extrapolation):
@@ -208,7 +224,7 @@ class ExponentialSaturationExtrapolation(Extrapolation):
         return np.array([initial_saturation_level, initial_stretch_factor])
 
 
-class SigmoidExtrapolation(Extrapolation):
+class LogisticExtrapolation(Extrapolation):
 
     prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
 
@@ -224,17 +240,3 @@ class SigmoidExtrapolation(Extrapolation):
         max_predictor = np.max(predictor_values)
         stretch_factor = 2 / (max_predictor - mean_predictor)
         return np.array([sat_level_guess, stretch_factor, mean_predictor])
-
-
-class LogSigmoidExtrapolation(SigmoidExtrapolation):
-    """
-    LogSigmoidExtrapolation is a specific implementation of SigmoidExtrapolation that uses a logarithmic transformation
-    for the predictor values.
-    """
-
-    @staticmethod
-    def func(x, prms):
-        return SigmoidExtrapolation.func(np.log10(x), prms)
-
-    def initial_guess(self, predictor_values, data_to_extrapolate):
-        return super().initial_guess(np.log10(predictor_values), data_to_extrapolate)

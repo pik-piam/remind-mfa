@@ -7,6 +7,8 @@ name = "remind-mfa"
 version = "0.1.0"
 authors = [
     {name = "Jakob Dürrwächter"},
+    {name = "Bennet Weiss"},
+    {name = "Leonie Schweiger"},
     {name = "Sally Dacie"},
     {name = "Merlin Hosak"},
 ]
@@ -27,14 +29,16 @@ dependencies = [
     "pydantic>=2.8.2",
     # Kaleido version: https://github.com/plotly/Kaleido/issues/134#issuecomment-1215791893
     "kaleido==0.1.0.post1",
-    "flodym>=0.5.0",
+    "flodym>=0.5.2",
     "black>=25.1.0",
     "ipykernel>=6.29.5",
     "nbformat>=5.10.4",
+    "pyam-iamc==3.0.0",
+    "ixmp4==0.11.1",
 ]
 
 [tool.setuptools]
-packages = ["remind-mfa"]
+packages = ["remind_mfa"]
 
 [tool.uv.sources]
 flodym = { path = "../flodym", editable = true }

@@ -1,19 +1,11 @@
-from typing import Optional
 import flodym as fd
-import numpy as np
 
-from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.custom_data_reader import CustomDataReader
-from remind_mfa.common.trade_extrapolation import extrapolate_trade
-from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.common_cfg import PlasticsCfg
-from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
 class PlasticsMFASystemHistoric(fd.MFASystem):
 
-    cfg: Optional[PlasticsCfg] = None
-    trade_set: TradeSet
+    cfg: PlasticsCfg
 
     def compute(self):
         """
@@ -26,7 +18,7 @@ class PlasticsMFASystemHistoric(fd.MFASystem):
         # self.check_flows(no_error=True)
 
     def compute_historic_stock(self):
-        self.stocks["in_use_historic"].inflow[...] = self.parameters["production"]
+        self.stocks["in_use_historic"].inflow[...] = self.parameters["consumption"]
         self.stocks["in_use_historic"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )

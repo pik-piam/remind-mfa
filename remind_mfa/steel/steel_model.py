@@ -3,60 +3,30 @@ import flodym as fd
 from copy import deepcopy
 
 from remind_mfa.common.data_blending import blend
-from remind_mfa.common.common_cfg import GeneralCfg
-from remind_mfa.common.data_extrapolations import LogSigmoidExtrapolation
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.custom_data_reader import CustomDataReader
-from remind_mfa.common.trade import TradeSet
 from remind_mfa.steel.steel_export import SteelDataExporter
 from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
 from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
-from remind_mfa.steel.steel_definition import get_definition, SteelMFADefinition
+from remind_mfa.steel.steel_definition import get_steel_definition
+from remind_mfa.steel.steel_config import SteelCfg
+from remind_mfa.steel.steel_data_reader import SteelDataReader
+from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
-from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.common_model import CommonModel
+from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
 
 
-class SteelModel:
+class SteelModel(CommonModel):
 
-    def __init__(self, cfg: GeneralCfg):
-        self.cfg = cfg
-
-    def run(self):
-        stock_driven = self.cfg.customization.mode == "stock_driven"
-        self.definition_future = get_definition(self.cfg, historic=False, stock_driven=stock_driven)
-        self.read_data(self.definition_future)
-        self.modify_parameters()
-        self.data_writer = SteelDataExporter(
-            cfg=self.cfg.visualization,
-            do_export=self.cfg.do_export,
-            output_path=self.cfg.output_path,
-            docs_path=self.cfg.docs_path,
-        )
-        if stock_driven:
-            self.definition_historic = get_definition(self.cfg, historic=True, stock_driven=False)
-            self.historic_mfa = self.make_mfa(historic=True)
-            self.historic_mfa.compute()
-            stock_projection = self.get_long_term_stock()
-            historic_trade = self.historic_mfa.trade_set
-        else:
-            stock_projection = None
-            historic_trade = None
-
-        self.future_mfa = self.make_mfa(historic=False, mode=self.cfg.customization.mode)
-        self.future_mfa.compute(stock_projection, historic_trade)
-
-        self.data_writer.export_mfa(mfa=self.future_mfa)
-        self.data_writer.definition_to_markdown(definition=self.definition_future)
-        self.data_writer.visualize_results(model=self)
-
-    def read_data(self, definition: SteelMFADefinition):
-        self.data_reader = CustomDataReader(
-            input_data_path=self.cfg.input_data_path,
-            definition=definition,
-        )
-        self.dims = self.data_reader.read_dimensions(definition.dimensions)
-        self.parameters = self.data_reader.read_parameters(definition.parameters, dims=self.dims)
+    ConfigCls = SteelCfg
+    DataReaderCls = SteelDataReader
+    DataExporterCls = SteelDataExporter
+    VisualizerCls = SteelVisualizer
+    HistoricMFASystemCls = SteelMFASystemHistoric
+    FutureMFASystemCls = SteelMFASystem
+    get_definition = staticmethod(get_steel_definition)
+    custom_scn_prm_def = steel_scn_prm_def
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
@@ -132,54 +102,9 @@ class SteelModel:
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
 
-    def make_mfa(self, historic: bool, mode: str = None) -> CommonMFASystem:
-        """
-        Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
-        subtracting Losses in steel forming from production by IP data
-        adding direct trade by IP to production by IP
-        transforming that to production by category via some distribution assumptions
-        subtracting losses in steel fabrication (transformation of IP to end use products)
-        adding indirect trade by category
-        This equals the inflow into the in use stock
-        via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
-        """
-        if historic:
-            definition = self.definition_historic
-            mfasystem_class = SteelMFASystemHistoric
-        else:
-            definition = self.definition_future
-            mfasystem_class = SteelMFASystem
-
-        processes = fd.make_processes(definition.processes)
-        flows = fd.make_empty_flows(
-            processes=processes,
-            flow_definitions=definition.flows,
-            dims=self.dims,
-        )
-        stocks = fd.make_empty_stocks(
-            processes=processes,
-            stock_definitions=definition.stocks,
-            dims=self.dims,
-        )
-        trade_set = TradeSet.from_definitions(
-            definitions=definition.trades,
-            dims=self.dims,
-        )
-
-        return mfasystem_class(
-            cfg=self.cfg,
-            parameters=self.parameters,
-            processes=processes,
-            dims=self.dims,
-            flows=flows,
-            stocks=stocks,
-            trade_set=trade_set,
-            mode=mode,
-        )
-
     def get_long_term_stock(self) -> fd.FlodymArray:
         indep_fit_dim_letters = (
-            ("g",) if self.cfg.customization.do_stock_extrapolation_by_category else ()
+            ("g",) if self.cfg.model_switches.do_stock_extrapolation_by_category else ()
         )
         historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
         sat_level = self.get_saturation_level(historic_stocks)
@@ -226,12 +151,12 @@ class SteelModel:
 
         # extrapolate in use stock to future
         self.stock_handler = StockExtrapolation(
-            historic_stocks,
+            cfg=self.cfg.model_switches,
+            historic_stocks=historic_stocks,
             dims=self.dims,
             parameters=self.parameters,
-            stock_extrapolation_class=self.cfg.customization.stock_extrapolation_class,
             target_dim_letters=(
-                "all" if self.cfg.customization.do_stock_extrapolation_by_category else ("t", "r")
+                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
             ),
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,
@@ -242,7 +167,7 @@ class SteelModel:
         total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
         self.parameters["gdppc"] = gdppc_old
 
-        if not self.cfg.customization.do_stock_extrapolation_by_category:
+        if not self.cfg.model_switches.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
             sector_splits = self.calc_stock_sector_splits()
             total_in_use_stock = total_in_use_stock * sector_splits
@@ -254,15 +179,15 @@ class SteelModel:
         historic_pop = pop[{"t": self.dims["h"]}]
         historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
-        multi_dim_extrapolation = LogSigmoidExtrapolation(
+        multi_dim_extrapolation = self.cfg.model_switches.stock_extrapolation_class(
             data_to_extrapolate=historic_stocks_pc.values,
-            predictor_values=gdppc.values,
+            predictor_values=np.log10(gdppc.values),
             independent_dims=(),
         )
         multi_dim_extrapolation.regress()
         saturation_level = multi_dim_extrapolation.fit_prms[0]
 
-        if self.cfg.customization.do_stock_extrapolation_by_category:
+        if self.cfg.model_switches.do_stock_extrapolation_by_category:
             high_stock_sector_split = self.get_high_stock_sector_split()
             saturation_level = saturation_level * high_stock_sector_split.values
 

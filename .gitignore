@@ -5,5 +5,5 @@ config/
 .idea
 .vscode
 uv.lock
-remind-mfa.egg-info
+remind_mfa.egg-info
 site/
