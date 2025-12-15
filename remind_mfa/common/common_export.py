@@ -145,7 +145,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def display_name(self, name):
         return self._display_names.get(name, name)
-    
+
     @staticmethod
     def to_iamc_df(array: fd.FlodymArray):
         time_items = list(range(2025, 2101))  # TODO: more flexible

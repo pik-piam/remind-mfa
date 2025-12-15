@@ -50,7 +50,7 @@ class CementModel(CommonModel):
         # 1) constrain saturation level
         # TODO I am loosing the time (h) information here
         weighted_split = (prm["stock_type_split"] * prm["use_lifetime_mean"]).sum_over("h")
-        steady_state_stock_split =  weighted_split / (weighted_split.sum_over("s"))
+        steady_state_stock_split = weighted_split / (weighted_split.sum_over("s"))
         region_sat = prm["stock_saturation_level"] * steady_state_stock_split
         sat_bound = Bound(
             var_name="saturation_level",
