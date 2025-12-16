@@ -1,6 +1,7 @@
 import os
 from typing import Any, TYPE_CHECKING
 from pydantic import model_validator
+import flodym as fd
 import flodym.export as fde
 
 from remind_mfa.common.common_definition import RemindMFADefinition
@@ -121,3 +122,11 @@ class CommonDataExporter(RemindMFABaseModel):
             path_tuple += (filename,)
 
         return os.path.join(*path_tuple)
+
+    @staticmethod
+    def to_iamc_df(array: fd.FlodymArray):
+        time_items = list(range(2025, 2101))  # TODO: more flexible
+        time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
+        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
+        df = df.rename(columns={"Region": "region"})
+        return df

@@ -192,9 +192,9 @@ class CementVisualizer(CommonVisualizer):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         subplot_dim = "Region"
-        cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
-        stock = mfa.stocks["in_use"].stock * cement_ratio
-        population = mfa.parameters["population"]
+        population = model.parameters["population"]
+        stock = model.stock_handler.stocks
+        extrapolation = model.stock_handler.pure_prediction
         x_array = None
 
         pc_str = "pC" if per_capita else ""
@@ -204,7 +204,7 @@ class CementVisualizer(CommonVisualizer):
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
-            x_array = mfa.parameters["gdppc"]
+            x_array = model.parameters["gdppc"]
             if not per_capita:
                 x_array = x_array * population
 
@@ -217,17 +217,20 @@ class CementVisualizer(CommonVisualizer):
             dimlist = ["t", subplot_dimletter]
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        stock = stock.sum_over(other_dimletters)
-        extrapolation = model.stock_handler.pure_prediction
+        if other_dimletters:
+            stock = stock.sum_over(other_dimletters)
+            extrapolation = extrapolation.sum_over(other_dimletters)
 
         if per_capita:
-            stock = stock / population
+            stock_to_plot = stock / population
+            extrapolation_to_plot = extrapolation
         else:
-            extrapolation = extrapolation * population
+            stock_to_plot = stock
+            extrapolation_to_plot = extrapolation * population
 
         fig, ap = self.plot_history_and_future(
             mfa=mfa,
-            data_to_plot=stock,
+            data_to_plot=stock_to_plot,
             subplot_dim=subplot_dim,
             x_array=x_array,
             x_label=x_label,
@@ -239,7 +242,7 @@ class CementVisualizer(CommonVisualizer):
 
         if show_extrapolation:
             ap = self.plotter_class(
-                array=extrapolation,
+                array=extrapolation_to_plot,
                 intra_line_dim="Time",
                 subplot_dim=subplot_dim,
                 x_array=x_array,

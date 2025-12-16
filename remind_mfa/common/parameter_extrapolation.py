@@ -5,6 +5,7 @@ from typing import Optional, Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.data_blending import blend
 
 
 class ParameterExtrapolation(ABC):
@@ -97,6 +98,45 @@ class ZeroExtrapolation(ParameterExtrapolation):
         return "Parameter is set to zero in the future."
 
 
+class LinearToTargetExtrapolation(ParameterExtrapolation):
+    """Linearly interpolate to a future target value according to scenario settings."""
+
+    def __init__(self, scenario_parameters: Dict[str, float]):
+        self.scenario_parameters = scenario_parameters
+
+    def fill_future_values(
+        self, old_param: fd.Parameter, new_param: fd.FlodymArray
+    ) -> fd.Parameter:
+        add_assumption_doc(
+            type="model switch",
+            name=f"Linearly interpolate {old_param.name} to target value {self.scenario_parameters[old_param.name + "_target_value"]} by year {self.scenario_parameters[old_param.name + "_target_year"]}",
+            description=self.description,
+        )
+
+        # get target from scenario parameters
+        parameter_target = self.scenario_parameters[old_param.name + "_target_value"]
+        parameter_target_year = self.scenario_parameters[old_param.name + "_target_year"]
+        # get last historic value
+        last_historic_year = old_param.dims["h"].items[-1]
+        last_value = old_param[{"h": last_historic_year}]
+        # blend linearly from last historic value to target
+        new_param[...] = blend(
+            target_dims=new_param.dims,
+            y_lower=last_value,
+            y_upper=parameter_target,
+            x="t",
+            x_lower=last_historic_year,
+            x_upper=parameter_target_year,
+            type="linear",
+        )
+
+        return new_param
+
+    @property
+    def description(self) -> str:
+        return "Parameter is linearly interpolated to target value."
+
+
 class ParameterExtrapolationManager:
     """Manager for applying parameter extrapolations."""
 
@@ -111,6 +151,7 @@ class ParameterExtrapolationManager:
     def apply_prm_extrapolation(
         self,
         parameters: Dict[str, fd.Parameter],
+        scenario_parameters: Dict[str, float] = None,
     ) -> Dict[str, fd.Parameter]:
         """Apply extrapolation to parameters. Only those listed in parameter_extrapolation in config model switches are adjusted."""
 
@@ -123,7 +164,14 @@ class ParameterExtrapolationManager:
             if param_name not in modified_parameters:
                 raise ValueError(f"Parameter '{param_name}' not found in parameters.")
 
-            modified_parameters[param_name] = extrapolation_class().extrapolate(
+            if extrapolation_class == LinearToTargetExtrapolation:
+                if scenario_parameters is None:
+                    raise ValueError("scenario_parameters required for LinearToTargetExtrapolation")
+                extrapolation_instance = extrapolation_class(scenario_parameters)
+            else:
+                extrapolation_instance = extrapolation_class()
+
+            modified_parameters[param_name] = extrapolation_instance.extrapolate(
                 modified_parameters[param_name], self.extended_time
             )
 
