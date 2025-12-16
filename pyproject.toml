@@ -35,6 +35,10 @@ dependencies = [
     "nbformat>=5.10.4",
     "pyam-iamc==3.0.0",
     "ixmp4==0.11.1",
+    "mkdocs>=1.6.1",
+    "mkdocs-include-markdown-plugin>=7.2.0",
+    "mkdocs-bibtex>=4.4.0",
+    "pypandoc-binary>=1.16.2",
 ]
 
 [tool.setuptools]
