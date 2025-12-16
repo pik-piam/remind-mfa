@@ -1,29 +1,29 @@
 Dimensions,Name,description
-i,forming_yield,Yield of forming process
-g,fabrication_yield,Yield of fabrication process
-g,recovery_rate,Recovery rate at end-of-life
-"g, i",good_to_intermediate_distribution,Distribution of goods to intermediate products
+,forming_yield,Yield of steel forming process
+g,fabrication_yield,Yield during fabrication of steel-containing final goods
+g,recovery_rate,Combined collection and recovery rate at end-of-life - share of all end-of life material that is recycled
+"g, i",good_to_intermediate_distribution,Share of intermediate steel products contained in different end-use good categories
 "t, r",population,Population
 "t, r",gdppc,GDP per capita
-"r, g",lifetime_mean,Mean lifetime of goods
-"r, g",lifetime_std,Standard deviation of lifetime
-g,sector_split_low,Sector split for low income
-g,sector_split_medium,Sector split for medium income
-g,sector_split_high,Sector split for high income
-,secsplit_gdppc_low,GDP per capita threshold for low income
-,secsplit_gdppc_high,GDP per capita threshold for high income
-,max_scrap_share_base_model,Maximum scrap share in base model
-,scrap_in_bof_rate,Scrap share in BOF production
-,forming_losses,Loss rate in forming process
-,fabrication_losses,Loss rate in fabrication process
-,production_yield,Overall production yield
-r,saturation_level_factor,Regional saturation level adjustment factor
-r,stock_growth_speed_factor,Regional stock growth speed adjustment factor
+g,lifetime_mean,Mean lifetime of goods
+g,lifetime_std,Absolute standard deviation of good lifetime
+g,sector_split_low,Final good category shares in consumption for low gdp per capita
+g,sector_split_medium,Final good category shares in consumption for medium gdp per capita
+g,sector_split_high,Final good category shares in consumption for high gdp per capita
+,secsplit_gdppc_low,Upper GDP per capita threshold for sector_split_low
+,secsplit_gdppc_high,Lower GDP per capita threshold for sector_split_high
+,max_scrap_share,Maximum share of scrap-based steel in total production due to quality constraints
+,scrap_in_bof_rate,Share of scrap-based steel from BF-BOF production
+,forming_loss_rate,"Loss rate in forming process. Contrary to (1-forming_yield), this material is completely lost and not recycled as home scrap"
+,fabrication_losses,"Loss rate during fabrication of final goods. Contrary to (1-fabrication_yield), this material is completely lost and not recycled as new scrap"
+,production_yield,"Yield of raw steel production, accounting for losses in BF-BOF and (DRI-)EAF processes"
+r,saturation_level_factor,Regional multiplicative adjustment factor for the saturation level of the in-use steel stock based on expert judgement
+r,stock_growth_speed_factor,Regional adjustment factor for the growth speed of the in-use steel stock based on expert judgement
 "h, r",scrap_consumption,Historic scrap consumption
-"h, r, i",production_by_intermediate,Historic production by intermediate product
+"h, r, i",production_by_intermediate,Historic steel production by intermediate product
 "h, r, i",intermediate_imports,Historic intermediate product imports
 "h, r, i",intermediate_exports,Historic intermediate product exports
-"h, r, g",indirect_imports,Historic indirect trade imports
-"h, r, g",indirect_exports,Historic indirect trade exports
-"h, r",scrap_imports,Historic scrap imports
-"h, r",scrap_exports,Historic scrap exports
+"h, r, g",indirect_imports,"Historic indirect trade imports, i.e. contained in final goods"
+"h, r, g",indirect_exports,"Historic indirect trade exports, i.e. contained in final goods"
+"h, r",scrap_imports,Historic combined eol product and scrap imports
+"h, r",scrap_exports,Historic combined eol product and scrap exports

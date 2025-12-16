@@ -35,4 +35,5 @@ class CommonDisplayNames(Mapping):
         "process_name": "Process",
         "subclass": "Stock Type",
         "lifetime_model_class": "Lifetime Model",
+        "PydanticUndefined": "",
     }
