@@ -83,11 +83,3 @@ class SteelDataExporter(CommonDataExporter):
         idf.convert_unit(current="t", to="Mt", inplace=True)
 
         idf.to_excel(self.export_path("iamc", f"output_iamc.xlsx"))
-
-    @staticmethod
-    def to_iamc_df(array: fd.FlodymArray):
-        time_items = list(range(2025, 2101))  # TODO: more flexible
-        time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
-        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
-        df = df.rename(columns={"Region": "region"})
-        return df

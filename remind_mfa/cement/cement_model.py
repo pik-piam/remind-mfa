@@ -44,13 +44,14 @@ class CementModel(CommonModel):
     def get_long_term_stock(self) -> fd.FlodymArray:
         """Extrapolate in use stock to future."""
 
-        indep_fit_dim_letters = ("r",)
+        indep_fit_dim_letters = ("r", "s")
+        prm = self.parameters
 
         # 1) constrain saturation level
-        region_sat = fd.FlodymArray(
-            dims=self.dims[("r",)],
-            values=np.array([20, 20, 20, 24, 24, 20, 20, 18, 30, 20, 18, 18]),
-        )
+        # TODO I am loosing the time (h) information here
+        weighted_split = (prm["stock_type_split"] * prm["use_lifetime_mean"]).sum_over("h")
+        steady_state_stock_split = weighted_split / (weighted_split.sum_over("s"))
+        region_sat = prm["stock_saturation_level"] * steady_state_stock_split
         sat_bound = Bound(
             var_name="saturation_level",
             lower_bound=region_sat,
@@ -70,7 +71,7 @@ class CementModel(CommonModel):
         )
         max_stretch_factor = 4 * max_growth_rate / region_sat
         min_stretch_factor = fd.FlodymArray(
-            dims=self.dims[("r",)], values=np.zeros_like(max_stretch_factor.values)
+            dims=max_stretch_factor.dims, values=np.zeros_like(max_stretch_factor.values)
         )
 
         # remove stretch factor limitations in industrialized regions
@@ -129,7 +130,6 @@ class CementModel(CommonModel):
             historic_stocks=self.historic_mfa.stocks["historic_cement_in_use"].stock,
             dims=self.dims,
             parameters=self.parameters,
-            target_dim_letters=("t", "r"),
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,
         )
@@ -142,6 +142,4 @@ class CementModel(CommonModel):
         )
 
         total_in_use_stock = self.stock_handler.stocks
-
-        total_in_use_stock = total_in_use_stock * self.parameters["stock_type_split"]
         return total_in_use_stock
