@@ -102,6 +102,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         schema_df = type(cfg).to_schema_df()
+        schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
         schema_df.to_markdown(self.export_path("docs", "config_schema.md"), index=False)
 
     def export_path(self, dataset: str, filename: str = None):
