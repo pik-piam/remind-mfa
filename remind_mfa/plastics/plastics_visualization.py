@@ -22,34 +22,6 @@ if TYPE_CHECKING:
 
 class PlasticsVisualizer(CommonVisualizer):
 
-    # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
-    _display_names: dict = {
-        "sysenv": "System environment",
-        "virginfoss": "Prim(fossil)",
-        "virginbio": "Prim(biomass)",
-        "virgindaccu": "Prim(daccu)",
-        "virginccu": "Prim(ccu)",
-        "virgin": "Prim(total)",
-        "processing": "Proc",
-        "fabrication": "Fabri",
-        "reclmech": "Mech recycling",
-        "reclchem": "Chem recycling",
-        "use": "Use Phase",
-        "eol": "EoL",
-        "collected": "Collect",
-        "mismanaged": "Uncollected",
-        "incineration": "Incineration",
-        "landfill": "Landfill",
-        "uncontrolled": "Uncontrolled",
-        "emission": "Emissions",
-        "captured": "Captured",
-        "atmosphere": "Atmosphere",
-        "waste_market": "Waste Market",
-        "primary_market": "Prim Market",
-        "intermediate_market": "Inter Market",
-        "good_market": "Good Market",
-    }
-
     def visualize_custom(self, model: "PlasticsModel"):
         if self.cfg.production.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
@@ -247,7 +219,7 @@ class PlasticsVisualizer(CommonVisualizer):
             intra_line_dim="Time",
             linecolor_dim="Good",
             chart_type="area",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             title="Demand [Mt]",
         )
         fig = ap.plot()
@@ -267,7 +239,7 @@ class PlasticsVisualizer(CommonVisualizer):
             intra_line_dim="Time",
             linecolor_dim="Good",
             chart_type="area",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             title="Stock [Mt]",
         )
         fig = ap.plot()
@@ -312,7 +284,7 @@ class PlasticsVisualizer(CommonVisualizer):
             intra_line_dim="Time",
             linecolor_dim="Region",
             **subplot_dim,
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             x_array=x_array,
             xlabel=x_label,
             ylabel=y_label,
@@ -330,7 +302,7 @@ class PlasticsVisualizer(CommonVisualizer):
             intra_line_dim="Historic Time",
             linecolor_dim="Region",
             **subplot_dim,
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             x_array=hist_x_array,
             fig=fig,
             color_map=colors,
@@ -347,7 +319,7 @@ class PlasticsVisualizer(CommonVisualizer):
             intra_line_dim="Last Historic Year",
             linecolor_dim="Region",
             **subplot_dim,
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             x_array=scatter_x_array,
             fig=fig,
             chart_type="scatter",
@@ -432,7 +404,7 @@ class PlasticsVisualizer(CommonVisualizer):
         )
 
         # Prepare display names and generate the Sankey diagram
-        display_names_fmt = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
+        display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
         plotter = fde.PlotlySankeyPlotter(
             mfa=mfa, display_names=display_names_fmt, **self.cfg.sankey.plotter_args
         )
