@@ -133,123 +133,123 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             ),
         ]
 
+    # fmt: off
     parameters = [
         RemindMFAParameterDefinition(
-            name="forming_yield", dim_letters=(), description="Yield of forming process"
+            name="forming_yield", dim_letters=(),
+            description="Yield of steel forming process"
         ),
         RemindMFAParameterDefinition(
-            name="fabrication_yield", dim_letters=("g",), description="Yield of fabrication process"
+            name="fabrication_yield", dim_letters=("g",),
+            description="Yield during fabrication of steel-containing final goods"
         ),
         RemindMFAParameterDefinition(
-            name="recovery_rate", dim_letters=("g",), description="Recovery rate at end-of-life"
+            name="recovery_rate", dim_letters=("g",),
+            description="Combined collection and recovery rate at end-of-life - share of all end-of life material that is recycled"
         ),
         RemindMFAParameterDefinition(
-            name="good_to_intermediate_distribution",
-            dim_letters=("g", "i"),
-            description="Distribution of goods to intermediate products",
+            name="good_to_intermediate_distribution", dim_letters=("g", "i"),
+            description="Share of intermediate steel products contained in different end-use good categories",
         ),
         RemindMFAParameterDefinition(
-            name="population", dim_letters=("t", "r"), description="Population"
+            name="population", dim_letters=("t", "r"),
+            description="Population"
         ),
         RemindMFAParameterDefinition(
-            name="gdppc", dim_letters=("t", "r"), description="GDP per capita"
+            name="gdppc", dim_letters=("t", "r"),
+            description="GDP per capita"
         ),
         RemindMFAParameterDefinition(
-            name="lifetime_mean", dim_letters=("g",), description="Mean lifetime of goods"
+            name="lifetime_mean", dim_letters=("g",),
+            description="Mean lifetime of goods"
         ),
         RemindMFAParameterDefinition(
-            name="lifetime_std",
-            dim_letters=("g",),
-            description="Standard deviation of lifetime",
+            name="lifetime_std", dim_letters=("g",),
+            description="Absolute standard deviation of good lifetime",
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_low", dim_letters=("g",), description="Sector split for low income"
+            name="sector_split_low", dim_letters=("g",),
+            description="Final good category shares in consumption for low gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_medium",
-            dim_letters=("g",),
-            description="Sector split for medium income",
+            name="sector_split_medium", dim_letters=("g",),
+            description="Final good category shares in consumption for medium gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_high", dim_letters=("g",), description="Sector split for high income"
+            name="sector_split_high", dim_letters=("g",),
+            description="Final good category shares in consumption for high gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="secsplit_gdppc_low",
-            dim_letters=(),
-            description="GDP per capita threshold for low income",
+            name="secsplit_gdppc_low", dim_letters=(),
+            description="Upper GDP per capita threshold for sector_split_low",
         ),
         RemindMFAParameterDefinition(
-            name="secsplit_gdppc_high",
-            dim_letters=(),
-            description="GDP per capita threshold for high income",
+            name="secsplit_gdppc_high", dim_letters=(),
+            description="Lower GDP per capita threshold for sector_split_high",
         ),
         RemindMFAParameterDefinition(
-            name="max_scrap_share",
-            dim_letters=(),
-            description="Maximum scrap share in base model",
+            name="max_scrap_share", dim_letters=(),
+            description="Maximum share of scrap-based steel in total production due to quality constraints",
         ),
         RemindMFAParameterDefinition(
-            name="scrap_in_bof_rate", dim_letters=(), description="Scrap share in BOF production"
+            name="scrap_in_bof_rate", dim_letters=(),
+            description="Share of scrap-based steel from BF-BOF production"
         ),
         RemindMFAParameterDefinition(
-            name="forming_loss_rate", dim_letters=(), description="Loss rate in forming process"
+            name="forming_loss_rate", dim_letters=(),
+            description="Loss rate in forming process. Contrary to (1-forming_yield), this material is completely lost and not recycled as home scrap"
         ),
         RemindMFAParameterDefinition(
-            name="fabrication_losses",
-            dim_letters=(),
-            description="Loss rate in fabrication process",
+            name="fabrication_losses", dim_letters=(),
+            description="Loss rate during fabrication of final goods. Contrary to (1-fabrication_yield), this material is completely lost and not recycled as new scrap",
         ),
         RemindMFAParameterDefinition(
-            name="production_yield", dim_letters=(), description="Overall production yield"
+            name="production_yield", dim_letters=(),
+            description="Yield of raw steel production, accounting for losses in BF-BOF and (DRI-)EAF processes",
         ),
         RemindMFAParameterDefinition(
-            name="saturation_level_factor",
-            dim_letters=("r",),
-            description="Regional saturation level adjustment factor",
+            name="saturation_level_factor", dim_letters=("r",),
+            description="Regional multiplicative adjustment factor for the saturation level of the in-use steel stock based on expert judgement",
         ),
         RemindMFAParameterDefinition(
-            name="stock_growth_speed_factor",
-            dim_letters=("r",),
-            description="Regional stock growth speed adjustment factor",
+            name="stock_growth_speed_factor", dim_letters=("r",),
+            description="Regional adjustment factor for the growth speed of the in-use steel stock based on expert judgement",
         ),
         RemindMFAParameterDefinition(
-            name="scrap_consumption",
-            dim_letters=("h", "r"),
+            name="scrap_consumption", dim_letters=("h", "r"),
             description="Historic scrap consumption",
         ),
         # WSA
         RemindMFAParameterDefinition(
-            name="production_by_intermediate",
-            dim_letters=("h", "r", "i"),
-            description="Historic production by intermediate product",
+            name="production_by_intermediate", dim_letters=("h", "r", "i"),
+            description="Historic steel production by intermediate product",
         ),
         RemindMFAParameterDefinition(
-            name="intermediate_imports",
-            dim_letters=("h", "r", "i"),
+            name="intermediate_imports", dim_letters=("h", "r", "i"),
             description="Historic intermediate product imports",
         ),
         RemindMFAParameterDefinition(
-            name="intermediate_exports",
-            dim_letters=("h", "r", "i"),
+            name="intermediate_exports", dim_letters=("h", "r", "i"),
             description="Historic intermediate product exports",
         ),
         RemindMFAParameterDefinition(
-            name="indirect_imports",
-            dim_letters=("h", "r", "g"),
-            description="Historic indirect trade imports",
+            name="indirect_imports", dim_letters=("h", "r", "g"),
+            description="Historic indirect trade imports, i.e. contained in final goods",
         ),
         RemindMFAParameterDefinition(
-            name="indirect_exports",
-            dim_letters=("h", "r", "g"),
-            description="Historic indirect trade exports",
+            name="indirect_exports", dim_letters=("h", "r", "g"),
+            description="Historic indirect trade exports, i.e. contained in final goods",
         ),
         RemindMFAParameterDefinition(
-            name="scrap_imports", dim_letters=("h", "r"), description="Historic scrap imports"
+            name="scrap_imports", dim_letters=("h", "r"),
+            description="Historic combined eol product and scrap imports"
         ),
         RemindMFAParameterDefinition(
-            name="scrap_exports", dim_letters=("h", "r"), description="Historic scrap exports"
+            name="scrap_exports", dim_letters=("h", "r"),
+            description="Historic combined eol product and scrap exports"
         ),
     ]
+    # fmt: on
 
     if historic:
         trades = [

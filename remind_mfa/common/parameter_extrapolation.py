@@ -109,7 +109,7 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
     ) -> fd.Parameter:
         add_assumption_doc(
             type="model switch",
-            name=f"Linearly interpolate {old_param.name} to target value {self.scenario_parameters[old_param.name + "_target_value"]} by year {self.scenario_parameters[old_param.name + "_target_year"]}",
+            name=f"Linearly interpolate {old_param.name} to target value {self.scenario_parameters[old_param.name + '_target_value']} by year {self.scenario_parameters[old_param.name + '_target_year']}",
             description=self.description,
         )
 
