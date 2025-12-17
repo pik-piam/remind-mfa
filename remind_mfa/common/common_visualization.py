@@ -10,6 +10,7 @@ import flodym.export as fde
 
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
+from remind_mfa.common.common_mappings import CommonDisplayNames
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -17,23 +18,12 @@ if TYPE_CHECKING:
 
 class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
-    _display_names: dict = {}
+    display_names: CommonDisplayNames
 
     @model_validator(mode="after")
     def set_plotly_renderer(self):
         if self.cfg.plotting_engine == "plotly":
             pio.renderers.default = self.cfg.plotly_renderer
-        return self
-
-    @model_validator(mode="after")
-    def inherit_display_names(self):
-        """
-        Ensures that _display_names defined in a subclass are *merged* with
-        the base class defaults, rather than replacing them entirely.
-        """
-        from_sub = self._display_names
-        self._display_names = CommonVisualizer._display_names.default.copy()
-        self._display_names.update(from_sub)
         return self
 
     def visualize(self, model: "CommonModel"):
@@ -62,7 +52,7 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         plotter = fde.PlotlySankeyPlotter(
-            mfa=mfa, display_names=self._display_names, **self.cfg.sankey.plotter_args
+            mfa=mfa, display_names=self.display_names.dct, **self.cfg.sankey.plotter_args
         )
         fig = plotter.plot()
 
@@ -87,9 +77,6 @@ class CommonVisualizer(RemindMFABaseModel):
     def stop_and_show(self):
         if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
             plt.show()
-
-    def display_name(self, name):
-        return self._display_names[name] if name in self._display_names else name
 
     @property
     def plotter_class(self):

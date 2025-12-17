@@ -9,3 +9,4 @@ class PlasticsVisualizationCfg(VisualizationCfg):
 class PlasticsCfg(CommonCfg):
 
     visualization: PlasticsVisualizationCfg
+    """Plastics visualization configuration."""

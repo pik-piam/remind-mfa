@@ -35,6 +35,7 @@ class ModelSwitches(RemindMFABaseModel):
     regress_over: RegressOverModes
     """Variable to use as a predictor for stock extrapolation."""
     parameter_extrapolation: Optional[dict[str, str]] = None
+    """Mapping of parameter names to extrapolation subclass names for parameter extrapolation from historical values into the future."""
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
@@ -91,8 +92,9 @@ class StockVisualizationCfg(BaseVisualizationCfg):
     per_capita: bool = False
     """Whether to visualize stock per capita."""
     over_gdp: bool = False
-    """Whether to visualize stock over GDP. Alternative is over time"""
+    """Whether to visualize stock over GDPpC. Alternative is over time"""
     accumulate_gdp: bool = False
+    """Whether to accumulate GDPpC over time (i.e. do not allow decreasing GDPpC) for visualization purposes."""
 
 
 class VisualizationCfg(BaseVisualizationCfg):
@@ -119,25 +121,28 @@ class VisualizationCfg(BaseVisualizationCfg):
 
 class InputCfg(RemindMFABaseModel):
     madrat_output_path: str
+    """Where to find the madrat output archives to extract input data from."""
     force_extract_tgz: bool
-    """Whether to force re-extraction of input data from tgz files."""
+    """Whether to force re-extraction of input data from tgz files. If False, extraction is only performed if pre-extracted data is not up-to date."""
     input_data_path: str
     """Path to the input data directory."""
     scenarios_path: str
     """Path to the scenario definition directory."""
     input_data_version: str
+    """Version of the input data to use"""
 
 
 class CommonCfg(RemindMFABaseModel):
     model: ModelNames
     """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
     input: InputCfg
+    """Input data configuration."""
     model_switches: ModelSwitches
     """Model customization parameters."""
     visualization: VisualizationCfg
     """Visualization configuration."""
     export: ExportCfg
-    """Export configuration."""
+    """Data export configuration."""
 
     def to_df(self) -> pd.DataFrame:
         """Exports configuration parameters to pandas DataFrames."""

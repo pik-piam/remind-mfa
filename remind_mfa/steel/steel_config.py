@@ -22,3 +22,4 @@ class SteelVisualizationCfg(VisualizationCfg):
 class SteelCfg(CommonCfg):
 
     visualization: SteelVisualizationCfg
+    """Steel visualization configuration."""

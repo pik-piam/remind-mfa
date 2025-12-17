@@ -1,7 +1,7 @@
 from typing import List
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFADefinition, PlainDataPointDefinition
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -161,34 +161,117 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
     # fmt: off
     parameters = [
-        RemindMFAParameterDefinition(name="collection_rate", dim_letters=("t", "r", "m"), description="Collection rate of plastic waste",),
-        RemindMFAParameterDefinition(name="mechanical_recycling_rate", dim_letters=("t", "r", "m"), description="Mechanical recycling rate of collected waste",),
-        RemindMFAParameterDefinition(name="chemical_recycling_rate", dim_letters=("t", "r", "m"), description="Chemical recycling rate of collected waste",),
-        RemindMFAParameterDefinition(name="incineration_rate", dim_letters=("t", "r", "m"), description="Incineration rate of collected waste",),
-        RemindMFAParameterDefinition(name="primary_his_imports", dim_letters=("h", "r"), description="Historic primary plastics imports",),
-        RemindMFAParameterDefinition(name="primary_his_exports", dim_letters=("h", "r"), description="Historic primary plastics exports",),
-        RemindMFAParameterDefinition(name="intermediate_his_imports", dim_letters=("h", "r"), description="Historic intermediate plastics imports",),
-        RemindMFAParameterDefinition(name="intermediate_his_exports", dim_letters=("h", "r"), description="Historic intermediate plastics exports",),
-        RemindMFAParameterDefinition(name="manufactured_his_imports", dim_letters=("h", "r"), description="Historic manufactured plastics imports",),
-        RemindMFAParameterDefinition(name="manufactured_his_exports", dim_letters=("h", "r"), description="Historic manufactured plastics exports",),
-        RemindMFAParameterDefinition(name="final_his_imports", dim_letters=("h", "r"), description="Historic final goods imports",),
-        RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r"), description="Historic final goods exports",),
-        RemindMFAParameterDefinition(name="waste_imports", dim_letters=("t", "r"), description="Plastic waste imports (historic and future assumption)",),
-        RemindMFAParameterDefinition(name="waste_exports", dim_letters=("t", "r"), description="Plastic waste exports (historic and future assumption)",),
-        RemindMFAParameterDefinition(name="bio_production_rate", dim_letters=("t", "r", "m"), description="Share of bio-based plastics in virgin production",),
-        RemindMFAParameterDefinition(name="daccu_production_rate", dim_letters=("t", "r", "m"), description="Share of DACCU plastics in virgin production",),
-        RemindMFAParameterDefinition(name="mechanical_recycling_yield", dim_letters=("t", "r", "m"), description="Yield of mechanical recycling",),
-        RemindMFAParameterDefinition(name="reclmech_loss_uncontrolled_rate", dim_letters=("t", "r", "m"), description="Rate of mechanical recycling losses to uncontrolled disposal",),
-        RemindMFAParameterDefinition(name="material_shares_in_goods", dim_letters=("r", "m", "g"), description="Share of materials in goods",),
-        RemindMFAParameterDefinition(name="emission_capture_rate", dim_letters=("t",), description="Carbon capture rate for emissions of incinerated plastics",),
-        RemindMFAParameterDefinition(name="carbon_content_materials", dim_letters=("e", "m"), description="Carbon content of materials",),
-        RemindMFAParameterDefinition(name="consumption", dim_letters=("h", "r", "g"), description="Historic consumption",),
-        RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("g",), description="Mean lifetime of goods",),
-        RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("g",), description="Standard deviation of lifetime of goods",),
-        RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"), description="Population",),
-        RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r"), description="GDP per capita",),
+        # EOL rates
+        RemindMFAParameterDefinition(
+            name="collection_rate", dim_letters=("h", "r"),
+            description="Collection rate of plastic waste",
+        ),
+        RemindMFAParameterDefinition(
+            name="mechanical_recycling_rate", dim_letters=("h", "r"),
+            description="Mechanical recycling rate of collected waste",
+        ),
+        RemindMFAParameterDefinition(
+            name="chemical_recycling_rate", dim_letters=("h", "r"),
+            description="Chemical recycling rate of collected waste",
+        ),
+        RemindMFAParameterDefinition(
+            name="incineration_rate", dim_letters=("h", "r"),
+            description="Incineration rate of collected waste",
+        ),
+        # trade
+        RemindMFAParameterDefinition(
+            name="primary_his_imports", dim_letters=("h", "r"),
+            description="Historic primary plastics imports",
+        ),
+        RemindMFAParameterDefinition(
+            name="primary_his_exports", dim_letters=("h", "r"),
+            description="Historic primary plastics exports",
+        ),
+        RemindMFAParameterDefinition(
+            name="intermediate_his_imports", dim_letters=("h", "r"),
+            description="Historic intermediate plastics imports",
+        ),
+        RemindMFAParameterDefinition(
+            name="intermediate_his_exports", dim_letters=("h", "r"),
+            description="Historic intermediate plastics exports",
+        ),
+        RemindMFAParameterDefinition(
+            name="manufactured_his_imports", dim_letters=("h", "r"),
+            description="Historic manufactured plastics imports",
+        ),
+        RemindMFAParameterDefinition(
+            name="manufactured_his_exports", dim_letters=("h", "r"),
+            description="Historic manufactured plastics exports",
+        ),
+        RemindMFAParameterDefinition(
+            name="final_his_imports", dim_letters=("h", "r"),
+            description="Historic final goods imports",
+        ),
+        RemindMFAParameterDefinition(
+            name="final_his_exports", dim_letters=("h", "r"),
+            description="Historic final goods exports",
+        ),
+        RemindMFAParameterDefinition(
+            name="waste_imports", dim_letters=("t", "r"),
+            description="Plastic waste imports (historic and future assumption)",
+        ),
+        RemindMFAParameterDefinition(
+            name="waste_exports", dim_letters=("t", "r"),
+            description="Plastic waste exports (historic and future assumption)",
+        ),
+        # virgin production rates
+        RemindMFAParameterDefinition(
+            name="bio_production_rate", dim_letters=("h", "r"),
+            description="Share of bio-based plastics in virgin production",
+        ),
+        RemindMFAParameterDefinition(
+            name="daccu_production_rate", dim_letters=("h", "r"),
+            description="Share of DACCU plastics in virgin production",
+        ),
+        # recycling losses
+        RemindMFAParameterDefinition(
+            name="mechanical_recycling_yield", dim_letters=("t", "r", "m"),
+            description="Yield of mechanical recycling",
+        ),
+        RemindMFAParameterDefinition(
+            name="reclmech_loss_uncontrolled_rate", dim_letters=("t", "r", "m"),
+            description="Rate of mechanical recycling losses to uncontrolled disposal",
+        ),
+        # other
+        RemindMFAParameterDefinition(
+            name="material_shares_in_goods", dim_letters=("r", "m", "g"),
+            description="Share of materials in goods",
+        ),
+        RemindMFAParameterDefinition(
+            name="emission_capture_rate", dim_letters=("h", "r"),
+            description="Carbon capture rate for emissions of incinerated plastics",
+        ),
+        RemindMFAParameterDefinition(
+            name="carbon_content_materials", dim_letters=("e", "m"),
+            description="Carbon content of materials",
+        ),
+        # for in-use stock
+        RemindMFAParameterDefinition(
+            name="consumption", dim_letters=("h", "r", "g"), 
+            description="Historic consumption",
+        ),
+        RemindMFAParameterDefinition(
+            name="lifetime_mean", dim_letters=("g",), 
+            description="Mean lifetime of goods",
+        ),
+        RemindMFAParameterDefinition(
+            name="lifetime_std", dim_letters=("g",),
+            description="Standard deviation of lifetime",
+        ),
+        RemindMFAParameterDefinition(
+            name="population", dim_letters=("t", "r"), 
+            description="Population",
+        ),
+        RemindMFAParameterDefinition(
+            name="gdppc", dim_letters=("t", "r"), 
+            description="GDP per capita",
+        ),
     ]
-    # fmt: on
 
     if historic:
         trades = [
@@ -216,4 +299,21 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     )
 
 
-scenario_parameters = []
+# fmt: off
+scenario_parameters = [
+    RemindMFAParameterDefinition(name="collection_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="collection_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="incineration_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="incineration_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="mechanical_recycling_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="mechanical_recycling_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="chemical_recycling_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="chemical_recycling_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="bio_production_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="bio_production_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="daccu_production_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="daccu_production_rate_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="emission_capture_rate_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="emission_capture_rate_target_value", dim_letters=("r",),),
+]
+# fmt: on

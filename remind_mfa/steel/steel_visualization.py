@@ -18,31 +18,6 @@ class SteelVisualizer(CommonVisualizer):
 
     cfg: SteelVisualizationCfg
 
-    # Dictionary of variable names vs names displayed in figures. Used by visualization routines.
-    _display_names: dict = {
-        "sysenv": "System environment",
-        "losses": "Losses",
-        "imports": "Imports",
-        "exports": "Exports",
-        "extraction": "Ore<br>Extraction",
-        "bof_production": "Production<br>from ores",
-        "eaf_production": "Production<br>(EAF)",
-        "forming": "Forming",
-        "ip_market": "Intermediate<br>products",
-        "fabrication": "Fabrication",
-        "good_market": "Good Market",
-        "in_use": "Use phase",
-        "use": "Use phase",
-        "obsolete": "Obsolete<br>stocks",
-        "eol_market": "End of life<br>products",
-        "recycling": "Recycling",
-        "scrap_market": "Scrap<br>market",
-        "excess_scrap": "Excess<br>scrap",
-        "intermediate": "Intermediate Products",
-        "indirect": "Indirect (Goods)",
-        "scrap": "Scrap",
-    }
-
     def visualize_custom(self, model: "SteelModel"):
         if self.cfg.production.do_visualize:
             self.visualize_production(mfa=model.future_mfa, regional=True)
@@ -86,7 +61,7 @@ class SteelVisualizer(CommonVisualizer):
                 intra_line_dim="Time",
                 subplot_dim="Region",
                 # linecolor_dim=linecolor_dims[name],
-                display_names=self._display_names,
+                display_names=self.display_names.dct,
                 color_map=colors,
             )
             fig = ap_imports.plot()
@@ -96,7 +71,7 @@ class SteelVisualizer(CommonVisualizer):
                 subplot_dim="Region",
                 # linecolor_dim=linecolor_dims[name],
                 line_type="dash",
-                display_names=self._display_names,
+                display_names=self.display_names.dct,
                 title=f"{name} Trade",
                 ylabel="Trade (Exports negative)",
                 suppress_legend=True,
@@ -116,7 +91,7 @@ class SteelVisualizer(CommonVisualizer):
             subplot_dim="Region",
             linecolor_dim="Good",
             chart_type="area",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             title="Consumption",
         )
         fig = ap.plot()
@@ -133,7 +108,7 @@ class SteelVisualizer(CommonVisualizer):
             array=gdppc,
             intra_line_dim="Time",
             linecolor_dim="Region",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             title=f"GDP{' per capita' if per_capita else ''}{' growth rate' if change else ''}",
         )
         fig = ap.plot()
@@ -179,7 +154,7 @@ class SteelVisualizer(CommonVisualizer):
 
         self.cfg.sankey.plotter_args["node_color_dict"] = {"default": "gray", "use": "black"}
 
-        sdn = {k: f"<b>{v}</b>" for k, v in self._display_names.items()}
+        sdn = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
         plotter = fde.PlotlySankeyPlotter(
             mfa=mfa, display_names=sdn, **self.cfg.sankey.plotter_args
         )
@@ -240,7 +215,7 @@ class SteelVisualizer(CommonVisualizer):
                 intra_line_dim="Time",
                 **subplot_dim,
                 line_label=label,
-                display_names=self._display_names,
+                display_names=self.display_names.dct,
                 xlabel="Year",
                 ylabel="Steel Flows [t]",
                 fig=fig,
@@ -262,7 +237,7 @@ class SteelVisualizer(CommonVisualizer):
             intra_line_dim="Time",
             **subplot_dim,
             line_label="Production",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             xlabel="Year",
             ylabel="Production [t]",
             title=f"Steel Production {name_str}",
@@ -297,7 +272,7 @@ class SteelVisualizer(CommonVisualizer):
             **subplot_dim,
             line_label="Model",
             # fig=fig,
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
         )
         fig = ap.plot()
 
@@ -309,7 +284,7 @@ class SteelVisualizer(CommonVisualizer):
             fig=fig,
             xlabel="Year",
             ylabel="Scrap [t]",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             title="Scrap Demand and Supply",
         )
 
@@ -355,7 +330,7 @@ class SteelVisualizer(CommonVisualizer):
             linecolor_dim="Good",
             xlabel="Year",
             ylabel="Sector Splits [%]",
-            display_names=self._display_names,
+            display_names=self.display_names.dct,
             title=f"Product demand sector splits ({name_str})",
             chart_type="area",
         )

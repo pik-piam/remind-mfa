@@ -1,12 +1,14 @@
 import os
 from typing import Any, TYPE_CHECKING
 from pydantic import model_validator
+import flodym as fd
 import flodym.export as fde
 
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
+from remind_mfa.common.common_mappings import CommonDisplayNames
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -16,28 +18,7 @@ if TYPE_CHECKING:
 
 class CommonDataExporter(RemindMFABaseModel):
     cfg: ExportCfg
-    _display_names: dict = {
-        # for markdown export
-        "name": "Name",
-        "letter": "Letter",
-        "dim_letters": "Dimensions",
-        "from_process_name": "Origin Process",
-        "to_process_name": "Destination Process",
-        "process_name": "Process",
-        "subclass": "Stock Type",
-        "lifetime_model_class": "Lifetime Model",
-    }
-
-    @model_validator(mode="after")
-    def inherit_display_names(self):
-        """
-        Ensures that _display_names defined in a subclass are *merged* with
-        the base class defaults, rather than replacing them entirely.
-        """
-        from_sub = self._display_names
-        self._display_names = CommonDataExporter._display_names.default.copy()
-        self._display_names.update(from_sub)
-        return self
+    display_names: CommonDisplayNames
 
     def export(self, model: "CommonModel"):
         if not self.cfg.do_export:
@@ -95,11 +76,11 @@ class CommonDataExporter(RemindMFABaseModel):
                 cell = ", ".join(cell)
             elif cell is None:
                 cell = ""
-            cell = self.display_name(str(cell))
+            cell = self.display_names[str(cell)]
             return cell.replace("<br>", " ")
 
         for name, df in dfs.items():
-            df.columns = [self.display_name(col) for col in df.columns]
+            df.columns = [self.display_names[col] for col in df.columns]
             df = df.map(convert_cell)
             if name == "parameters":
                 # Export parameters as CSV to merge with their source info later
@@ -121,6 +102,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         schema_df = type(cfg).to_schema_df()
+        schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
         schema_df.to_markdown(self.export_path("docs", "config_schema.md"), index=False)
 
     def export_path(self, dataset: str, filename: str = None):
@@ -142,5 +124,10 @@ class CommonDataExporter(RemindMFABaseModel):
 
         return os.path.join(*path_tuple)
 
-    def display_name(self, name):
-        return self._display_names.get(name, name)
+    @staticmethod
+    def to_iamc_df(array: fd.FlodymArray):
+        time_items = list(range(2025, 2101))  # TODO: more flexible
+        time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
+        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
+        df = df.rename(columns={"Region": "region"})
+        return df

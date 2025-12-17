@@ -6,8 +6,8 @@ from .plastics_mfa_system_historic import PlasticsMFASystemHistoric
 from .plastics_export import PlasticsDataExporter
 from .plastics_visualization import PlasticsVisualizer
 from .plastics_definition import get_plastics_definition
+from .plastics_mappings import PlasticsDimensionFiles, PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
-from .plastics_data_reader import PlasticsDataReader
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.common.assumptions_doc import add_assumption_doc
@@ -18,9 +18,10 @@ from remind_mfa.common.data_transformations import Bound, BoundList
 class PlasticsModel(CommonModel):
 
     ConfigCls = PlasticsCfg
-    DataReaderCls = PlasticsDataReader
+    DimensionFilesCls = PlasticsDimensionFiles
     DataExporterCls = PlasticsDataExporter
     VisualizerCls = PlasticsVisualizer
+    DisplayNamesCls = PlasticsDisplayNames
     HistoricMFASystemCls = PlasticsMFASystemHistoric
     FutureMFASystemCls = PlasticsMFASystemFuture
     get_definition = staticmethod(get_plastics_definition)
