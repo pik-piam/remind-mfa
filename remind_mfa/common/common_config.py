@@ -123,7 +123,7 @@ class InputCfg(RemindMFABaseModel):
     madrat_output_path: str
     """Where to find the madrat output archives to extract input data from."""
     force_extract_tgz: bool
-    """Whether to force re-extraction of input data from tgz files (alternative: use existing extracted data if available)."""
+    """Whether to force re-extraction of input data from tgz files. If False, extraction is only performed if pre-extracted data is not up-to date."""
     input_data_path: str
     """Path to the input data directory."""
     scenarios_path: str
