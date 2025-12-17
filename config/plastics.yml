@@ -23,7 +23,7 @@ model_switches:
     emission_capture_rate: ConstantExtrapolation
 
 visualization:
-  do_visualize: True
+  do_visualize: False
   do_show_figs: True
   do_save_figs: True
   figures_path: 'data/plastics/output/figures'

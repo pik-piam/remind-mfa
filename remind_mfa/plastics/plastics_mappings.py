@@ -2,11 +2,10 @@ from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDispla
 
 
 class PlasticsDimensionFiles(CommonDimensionFiles):
-    dimension_map = {
+    _own_mapping = {
         "Element": "elements",
         "Material": "materials",
         "Good": "goods_in_use",
-        "Intermediate": "intermediate_products",
         "Scenario": "scenarios",
     }
 

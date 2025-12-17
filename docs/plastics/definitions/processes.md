@@ -1,26 +1,26 @@
-| Name                |
-|:--------------------|
-| sysenv              |
-| virginfoss          |
-| virginbio           |
-| virgindaccu         |
-| virginccu           |
-| virgin              |
-| processing          |
-| fabrication         |
-| primary_market      |
-| intermediate_market |
-| waste_market        |
-| good_market         |
-| reclmech            |
-| reclchem            |
-| use                 |
-| eol                 |
-| incineration        |
-| landfill            |
-| collected           |
-| mismanaged          |
-| uncontrolled        |
-| emission            |
-| captured            |
-| atmosphere          |
+| Name               |
+|:-------------------|
+| System environment |
+| Prim(fossil)       |
+| Prim(biomass)      |
+| Prim(daccu)        |
+| Prim(ccu)          |
+| Prim(total)        |
+| Proc               |
+| Fabri              |
+| Prim Market        |
+| Inter Market       |
+| Waste Market       |
+| Good Market        |
+| Mech recycling     |
+| Chem recycling     |
+| Use Phase          |
+| EoL                |
+| Incineration       |
+| Landfill           |
+| Collect            |
+| Uncollected        |
+| Uncontrolled       |
+| Emissions          |
+| Captured           |
+| Atmosphere         |

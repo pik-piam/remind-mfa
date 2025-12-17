@@ -11,6 +11,9 @@ nav:
       - Steel MFA: steel.md
       - Plastic MFA: plastic.md
       - Cement MFA: cement.md
+  - REMIND-MFA in TRANSIENCE:
+      - Context: transience_context.md
+      - Integration in MIC3: mic3_integration.md
 theme: readthedocs
 hooks:
   - docs/merge_bibtex_files.py

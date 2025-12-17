@@ -109,7 +109,7 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
     ) -> fd.Parameter:
         add_assumption_doc(
             type="model switch",
-            name=f"Linearly interpolate {old_param.name} to target value {self.scenario_parameters[old_param.name + '_target_value']} by year {self.scenario_parameters[old_param.name + '_target_year']}",
+            name=f"Linear interpolation of {old_param.name} to target value by target year.",
             description=self.description,
         )
 
@@ -134,7 +134,7 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
 
     @property
     def description(self) -> str:
-        return "Parameter is linearly interpolated to target value."
+        return "Parameter is linearly interpolated to a future target value by a target year according to scenario settings."
 
 
 class ParameterExtrapolationManager:

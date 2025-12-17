@@ -1,48 +1,48 @@
-| Dimensions    | Origin Process      | Destination Process   |
-|:--------------|:--------------------|:----------------------|
-| t, e, r, m    | sysenv              | virginfoss            |
-| t, e, r, m    | sysenv              | virginbio             |
-| t, e, r, m    | sysenv              | virgindaccu           |
-| t, e, r, m    | sysenv              | virginccu             |
-| t, e, r       | atmosphere          | virginbio             |
-| t, e, r       | atmosphere          | virgindaccu           |
-| t, e, r, m    | virginfoss          | virgin                |
-| t, e, r, m    | virginbio           | virgin                |
-| t, e, r, m    | virgindaccu         | virgin                |
-| t, e, r, m    | virginccu           | virgin                |
-| t, e, r, m    | virgin              | processing            |
-| t, e, r, m    | virgin              | primary_market        |
-| t, e, r, m    | primary_market      | processing            |
-| t, e, r, m    | primary_market      | sysenv                |
-| t, e, r, m    | sysenv              | primary_market        |
-| t, e, r, m    | processing          | fabrication           |
-| t, e, r, m    | processing          | intermediate_market   |
-| t, e, r, m    | intermediate_market | fabrication           |
-| t, e, r, m    | intermediate_market | sysenv                |
-| t, e, r, m    | sysenv              | intermediate_market   |
-| t, e, r, m, g | fabrication         | good_market           |
-| t, e, r, m, g | good_market         | use                   |
-| t, e, r, m, g | fabrication         | use                   |
-| t, e, r, m    | good_market         | sysenv                |
-| t, e, r, m    | sysenv              | good_market           |
-| t, e, r, m, g | use                 | eol                   |
-| t, e, r, m    | eol                 | collected             |
-| t, e, r, m    | eol                 | mismanaged            |
-| t, e, r, m    | collected           | reclmech              |
-| t, e, r, m    | collected           | reclchem              |
-| t, e, r, m    | collected           | landfill              |
-| t, e, r, m    | collected           | incineration          |
-| t, e, r, m    | mismanaged          | uncontrolled          |
-| t, e, r, m    | reclmech            | processing            |
-| t, e, r, m    | reclchem            | virgin                |
-| t, e, r, m    | reclmech            | uncontrolled          |
-| t, e, r, m    | reclmech            | incineration          |
-| t, e, r       | incineration        | emission              |
-| t, e, r       | emission            | captured              |
-| t, e, r       | emission            | atmosphere            |
-| t, e, r       | captured            | virginccu             |
-| t, r          | sysenv              | good_market           |
-| t, e, r, m    | waste_market        | collected             |
-| t, e, r, m    | collected           | waste_market          |
-| t, e, r, m    | waste_market        | sysenv                |
-| t, e, r, m    | sysenv              | waste_market          |
+| Dimensions    | Origin Process     | Destination Process   |
+|:--------------|:-------------------|:----------------------|
+| t, e, r, m    | System environment | Prim(fossil)          |
+| t, e, r, m    | System environment | Prim(biomass)         |
+| t, e, r, m    | System environment | Prim(daccu)           |
+| t, e, r, m    | System environment | Prim(ccu)             |
+| t, e, r       | Atmosphere         | Prim(biomass)         |
+| t, e, r       | Atmosphere         | Prim(daccu)           |
+| t, e, r, m    | Prim(fossil)       | Prim(total)           |
+| t, e, r, m    | Prim(biomass)      | Prim(total)           |
+| t, e, r, m    | Prim(daccu)        | Prim(total)           |
+| t, e, r, m    | Prim(ccu)          | Prim(total)           |
+| t, e, r, m    | Prim(total)        | Proc                  |
+| t, e, r, m    | Prim(total)        | Prim Market           |
+| t, e, r, m    | Prim Market        | Proc                  |
+| t, e, r, m    | Prim Market        | System environment    |
+| t, e, r, m    | System environment | Prim Market           |
+| t, e, r, m    | Proc               | Fabri                 |
+| t, e, r, m    | Proc               | Inter Market          |
+| t, e, r, m    | Inter Market       | Fabri                 |
+| t, e, r, m    | Inter Market       | System environment    |
+| t, e, r, m    | System environment | Inter Market          |
+| t, e, r, m, g | Fabri              | Good Market           |
+| t, e, r, m, g | Good Market        | Use Phase             |
+| t, e, r, m, g | Fabri              | Use Phase             |
+| t, e, r, m    | Good Market        | System environment    |
+| t, e, r, m    | System environment | Good Market           |
+| t, e, r, m, g | Use Phase          | EoL                   |
+| t, e, r, m    | EoL                | Collect               |
+| t, e, r, m    | EoL                | Uncollected           |
+| t, e, r, m    | Collect            | Mech recycling        |
+| t, e, r, m    | Collect            | Chem recycling        |
+| t, e, r, m    | Collect            | Landfill              |
+| t, e, r, m    | Collect            | Incineration          |
+| t, e, r, m    | Uncollected        | Uncontrolled          |
+| t, e, r, m    | Mech recycling     | Proc                  |
+| t, e, r, m    | Chem recycling     | Prim(total)           |
+| t, e, r, m    | Mech recycling     | Uncontrolled          |
+| t, e, r, m    | Mech recycling     | Incineration          |
+| t, e, r       | Incineration       | Emissions             |
+| t, e, r       | Emissions          | Captured              |
+| t, e, r       | Emissions          | Atmosphere            |
+| t, e, r       | Captured           | Prim(ccu)             |
+| t, r          | System environment | Good Market           |
+| t, e, r, m    | Waste Market       | Collect               |
+| t, e, r, m    | Collect            | Waste Market          |
+| t, e, r, m    | Waste Market       | System environment    |
+| t, e, r, m    | System environment | Waste Market          |
