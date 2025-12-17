@@ -37,6 +37,14 @@ dependencies = [
     "ixmp4==0.11.1",
 ]
 
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-bibtex>=4.4.0",
+    "mkdocs-include-markdown-plugin>=7.2.0",
+    "pypandoc-binary>=1.16.2",
+]
+
 [tool.setuptools]
 packages = ["remind_mfa"]
 
