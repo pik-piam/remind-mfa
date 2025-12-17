@@ -24,6 +24,7 @@ class CementModelSwitches(ModelSwitches):
 class CementVisualizationCfg(VisualizationCfg):
 
     consumption: BaseVisualizationCfg
+    """Visualization configuration for consumption."""
     prod_clinker: BaseVisualizationCfg
     """Visualization configuration for clinker production."""
     prod_cement: BaseVisualizationCfg
@@ -33,9 +34,12 @@ class CementVisualizationCfg(VisualizationCfg):
     eol_stock: StockVisualizationCfg
     """Visualization configuration for end-of-life stock."""
     carbonation: BaseVisualizationCfg
+    """Visualization configuration for carbonation."""
 
 
 class CementCfg(CommonCfg):
 
     model_switches: CementModelSwitches
+    """Model customization parameters for the cement model."""
     visualization: CementVisualizationCfg
+    """Cement visualization configuration."""
