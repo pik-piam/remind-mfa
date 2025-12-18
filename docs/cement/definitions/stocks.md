@@ -1,5 +1,6 @@
-| Dimensions   | Name            | Process     | Stock Type            | Lifetime Model    |
-|:-------------|:----------------|:------------|:----------------------|:------------------|
-| h, r, s      | historic_in_use | Use phase   | InflowDrivenDSM       | LogNormalLifetime |
-| t, r, s      | in_use          | Use phase   | StockDrivenDSM        | LogNormalLifetime |
-| t, r, s      | End of life     | End of life | SimpleFlowDrivenStock |                   |
+| Dimensions    | Name           | Process     | Stock Type            | Lifetime Model    |
+|:--------------|:---------------|:------------|:----------------------|:------------------|
+| t, r, s, m, a | in_use         | Use phase   | StockDrivenDSM        | LogNormalLifetime |
+| t, r, m, a    | End of life    | End of life | InflowDrivenDSM       | FixedLifetime     |
+| t, r, m       | atmosphere     | atmosphere  | SimpleFlowDrivenStock |                   |
+| t, r, m, c    | carbonated_co2 | carbonation | InflowDrivenDSM       | FixedLifetime     |
