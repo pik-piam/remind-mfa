@@ -26,3 +26,7 @@ plugins:
       csl_file: "docs/apa.csl"
 markdown_extensions:
   - footnotes
+extra_css:
+  - 'css/custom.css'
+extra_javascript:
+  - 'js/add_table_class.js'
