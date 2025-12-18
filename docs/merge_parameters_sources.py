@@ -39,14 +39,15 @@ def merge_parameters_sources():
             .str.replace(".cs4r", "")
         )
 
-        # Merge with parameters based on Name
+        # Merge with parameters based on Name, rename Bibtex -> Sources
         merged_df = params_df.merge(
-            module_sources[["Name", "Source", "Bibtex"]], on="Name", how="left"
+            module_sources[["Name", "Bibtex"]].rename(columns={"Bibtex": "Sources"}),
+            on="Name",
+            how="left",
         )
 
         # Replace NaN with empty string for cleaner display
-        merged_df["Source"] = merged_df["Source"].fillna("")
-        merged_df["Bibtex"] = merged_df["Bibtex"].fillna("")
+        merged_df["Sources"] = merged_df["Sources"].fillna("")
 
         # Generate markdown
         with open(output_file, "w", encoding="utf-8") as f:
