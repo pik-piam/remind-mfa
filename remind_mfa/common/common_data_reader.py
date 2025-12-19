@@ -77,14 +77,13 @@ class CommonDataReader(fd.CompoundDataReader):
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
 
     def extraction_needed(self, version_file_path: str) -> bool:
-        should_extract = True
-        if not self.force_extract:
-            if os.path.exists(version_file_path):
-                with open(version_file_path, "r") as f:
-                    current_version = f.read()
-                    if current_version == self.input_data_version:
-                        should_extract = False
-        return should_extract
+        if self.force_extract:
+            return True
+        if not os.path.exists(version_file_path):
+            return True
+        with open(version_file_path, "r") as f:
+            current_version = f.read()
+            return current_version != self.input_data_version
 
     def extract_tar_file(self):
         """Extracts the tgz file from madrat output path to the input data path."""
