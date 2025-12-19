@@ -2,7 +2,7 @@ model: 'cement'
 
 input:
   madrat_output_path: '../madrat_wd/output'
-  force_extract_tgz: FALSE
+  force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
   input_data_version: 'rev0_h12_bbd76206_mfa'
   scenarios_path: 'config/scenarios'
