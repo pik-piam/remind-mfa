@@ -11,11 +11,13 @@ class ModelNames(str, Enum):
 def prefix_from_module(module: str) -> str:
     return module[:2]
 
+
 def module_from_prefix(prefix: str) -> str:
     for model in ModelNames:
         if prefix_from_module(model.value) == prefix:
             return model.value
     raise ValueError(f"Unknown prefix: {prefix}")
+
 
 class RemindMFABaseModel(BaseModel):
 

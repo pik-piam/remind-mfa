@@ -10,6 +10,7 @@ from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDimensionFiles
 from remind_mfa.common.helpers import prefix_from_module, module_from_prefix
 
+
 class CommonDataReader(fd.CompoundDataReader):
 
     def __init__(
@@ -72,9 +73,7 @@ class CommonDataReader(fd.CompoundDataReader):
                 glob.glob(os.path.join(material_parameter_path, "regionmapping*.csv"))
             )
             if not regionfiles:
-                raise FileNotFoundError(
-                    f"No regionmapping*.csv found in {material_path}"
-                )
+                raise FileNotFoundError(f"No regionmapping*.csv found in {material_path}")
             if len(regionfiles) > 1:
                 raise ValueError(
                     f"Expected exactly one regionmapping*.csv in {material_path}, found: "
@@ -188,12 +187,13 @@ class CommonDataReader(fd.CompoundDataReader):
             prefix = filename.split("_")[0]
             material = module_from_prefix(prefix)
             self.move_file_to_material(parameter_file, material)
-        
+
         # copy regionmapping and version file to all available materials
         for other_file in other_files:
             for material in available_materials:
                 self.move_file_to_material(other_file, material, copy=True)
             os.remove(other_file)
+
 
 class CommonDimensionReader(fd.CSVDimensionReader):
     """
