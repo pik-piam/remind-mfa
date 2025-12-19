@@ -62,20 +62,20 @@ class BaseExportCfg(RemindMFABaseModel):
     do_export: bool = True
     """Whether to export this entity"""
     path: str = None
-    """Path to export folder"""
+    """Path to export folder for this entity"""
 
 
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
-    """Whether to export results as CSV files."""
+    """Configuration of export to CSV files"""
     pickle: BaseExportCfg
-    """Whether to export results as pickle files."""
+    """Configuration of export to pickle files."""
     assumptions: BaseExportCfg
-    """Whether to export assumptions as a txt file."""
+    """Configuration of export of assumptions to a txt file."""
     docs: BaseExportCfg
-    """Whether to create documentation files."""
+    """Configuration of export to documentation files."""
     iamc: BaseExportCfg
-    """Whether to export results in IAMC format."""
+    """Configuration of export of results in IAMC format."""
 
 
 class BaseVisualizationCfg(RemindMFABaseModel):
