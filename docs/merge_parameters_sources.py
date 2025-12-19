@@ -53,10 +53,10 @@ def merge_parameters_sources():
         CUSTOM_SOURCES = {
             "carbon_content_materials": "Data from stochiometric calculations and estimates based on expert judgement for broader categories",
             "mechanical_recycling_yield": "[@Uekert23]",
-            "reclmech_loss_uncontrolled_rate": "[@brown_potential_2023]"
+            "reclmech_loss_uncontrolled_rate": "[@brown_potential_2023]",
         }
         if CUSTOM_SOURCES:
-            mapped = merged_df["Name"].map(CUSTOM_SOURCES)  
+            mapped = merged_df["Name"].map(CUSTOM_SOURCES)
             # mask: custom mapping exists AND current Sources is empty
             current_empty = merged_df["Sources"].astype(str).str.strip() == ""
             mapped_present = mapped.notna() & (mapped.astype(str).str.strip() != "")
