@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 
+from remind_mfa.common.helpers import prefix_from_module
+
 
 def merge_parameters_sources():
     """Merge parameter files with source information and generate markdown documentation."""
@@ -24,7 +26,7 @@ def merge_parameters_sources():
         params_df = pd.read_csv(params_file)
 
         # Get module prefix
-        prefix = {"steel": "st", "plastics": "pl", "cement": "ce"}[module]
+        prefix = prefix_from_module(module)
 
         # Filter sources for this module (module-specific + common)
         module_sources = sources_df[
