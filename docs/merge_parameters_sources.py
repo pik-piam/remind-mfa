@@ -49,6 +49,20 @@ def merge_parameters_sources():
         # Replace NaN with empty string for cleaner display
         merged_df["Sources"] = merged_df["Sources"].fillna("")
 
+        # Apply custom mapping: use CUSTOM_SOURCES for parameters with empty Sources
+        CUSTOM_SOURCES = {
+            "carbon_content_materials": "Data from stochiometric calculations and estimates based on expert judgement for broader categories",
+            "mechanical_recycling_yield": "[@Uekert23]",
+            "reclmech_loss_uncontrolled_rate": "[@brown_potential_2023]",
+        }
+        if CUSTOM_SOURCES:
+            mapped = merged_df["Name"].map(CUSTOM_SOURCES)
+            # mask: custom mapping exists AND current Sources is empty
+            current_empty = merged_df["Sources"].astype(str).str.strip() == ""
+            mapped_present = mapped.notna() & (mapped.astype(str).str.strip() != "")
+            mask = current_empty & mapped_present
+            merged_df.loc[mask, "Sources"] = mapped[mask]
+
         # Generate markdown
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(merged_df.to_markdown(index=False))
