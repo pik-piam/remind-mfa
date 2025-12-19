@@ -31,17 +31,6 @@ class CementModel(CommonModel):
     get_definition = staticmethod(get_cement_definition)
     custom_scn_prm_def = cement_scn_prm_def
 
-    # TODO remove duplication with common_model.py once allow missing/additional values is removed in other materials
-    def read_data(self):
-        self.data_reader = self.DataReaderCls(
-            cfg=self.cfg,
-            definition=self.definition_future,
-        )
-        self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
-        self.parameters = self.data_reader.read_parameters(
-            self.definition_future.parameters, dims=self.dims
-        )
-
     def get_long_term_stock(self) -> fd.FlodymArray:
         """Extrapolate in use stock to future."""
 
