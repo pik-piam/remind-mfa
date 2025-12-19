@@ -8,6 +8,19 @@ class ModelNames(str, Enum):
     CEMENT = "cement"
 
 
+def prefix_from_module(module: str) -> str:
+    if len(module) < 2:
+        raise ValueError("Module name must be at least 2 characters long")
+    return module[:2]
+
+
+def module_from_prefix(prefix: str) -> str:
+    for model in ModelNames:
+        if prefix_from_module(model.value) == prefix:
+            return model.value
+    raise ValueError(f"Unknown prefix: {prefix}")
+
+
 class RemindMFABaseModel(BaseModel):
 
     model_config = ConfigDict(

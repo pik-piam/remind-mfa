@@ -2,7 +2,7 @@ model: 'steel'
 
 input:
   madrat_output_path: '../../madrat/output'
-  force_extract_tgz: FALSE
+  force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
   scenarios_path: 'config/scenarios'
   input_data_version: 'rev0steel_h12_cd1fe885_mfa'

@@ -2,7 +2,7 @@ model: 'plastics'
 
 input:
   madrat_output_path: '../../madrat/output'
-  force_extract_tgz: FALSE
+  force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
   input_data_version: 'rev0clean_up_h12_944165e0_mfa'
   scenarios_path: 'config/scenarios'
