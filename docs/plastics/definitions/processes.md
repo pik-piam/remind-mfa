@@ -1,26 +1,26 @@
-| Name               |
-|:-------------------|
-| System environment |
-| Prim(fossil)       |
-| Prim(biomass)      |
-| Prim(daccu)        |
-| Prim(ccu)          |
-| Prim(total)        |
-| Proc               |
-| Fabri              |
-| Prim Market        |
-| Inter Market       |
-| Waste Market       |
-| Good Market        |
-| Mech recycling     |
-| Chem recycling     |
-| Use Phase          |
-| EoL                |
-| Incineration       |
-| Landfill           |
-| Collect            |
-| Uncollected        |
-| Uncontrolled       |
-| Emissions          |
-| Captured           |
-| Atmosphere         |
+| Name                 |
+|:---------------------|
+| System environment   |
+| Feedstock(fossil)    |
+| Feedstock(biomass)   |
+| Feedstock(daccu)     |
+| Feedstock(ccu)       |
+| Virgin Production    |
+| Processing           |
+| Fabrication          |
+| Primary Market       |
+| Intermediate Market  |
+| Waste Market         |
+| Good Market          |
+| Mechanical Recycling |
+| Chemical Recycling   |
+| Use Phase            |
+| EoL                  |
+| Incineration         |
+| Landfilled           |
+| Collected            |
+| Uncollected          |
+| Uncontrolled         |
+| Emissions            |
+| Captured             |
+| Atmosphere           |

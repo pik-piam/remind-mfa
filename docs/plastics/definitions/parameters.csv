@@ -1,4 +1,4 @@
-Dimensions,Name,description
+Dimensions,Name,Description
 "h, r",collection_rate,Collection rate of plastic waste
 "h, r",mechanical_recycling_rate,Mechanical recycling rate of collected waste
 "h, r",chemical_recycling_rate,Chemical recycling rate of collected waste
