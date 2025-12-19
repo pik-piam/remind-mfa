@@ -120,7 +120,7 @@ class CommonDataReader(fd.CompoundDataReader):
         """Check which material parameter files are available in the extracted path."""
         parameter_files = glob.glob(os.path.join(self.tmp_extraction_path, "*.cs4r"))
         self.validate_parameter_files(parameter_files)
-        
+
         available_materials = set()
         for filepath in parameter_files:
             filename = os.path.basename(filepath)
@@ -146,8 +146,10 @@ class CommonDataReader(fd.CompoundDataReader):
         for filepath in parameter_files:
             filename = os.path.basename(filepath)
             if "_" not in filename:
-                raise ValueError(f"Unexpected filename format: {filename}. "
-                                "Must have form of 'prefix_parametername.cs4r'")
+                raise ValueError(
+                    f"Unexpected filename format: {filename}. "
+                    "Must have form of 'prefix_parametername.cs4r'"
+                )
             prefix = filename.split("_")[0]
             try:
                 _ = module_from_prefix(prefix)
@@ -163,7 +165,9 @@ class CommonDataReader(fd.CompoundDataReader):
                 if os.path.isfile(old_file):
                     os.remove(old_file)
                 else:
-                    raise ValueError(f"Expected only files in {material_parameter_path}, found directory: {old_file}")
+                    raise ValueError(
+                        f"Expected only files in {material_parameter_path}, found directory: {old_file}"
+                    )
 
     def move_file_to_material(self, oldpath: str, material: str, copy: bool = False):
         """Move a single file to material parameter path."""
