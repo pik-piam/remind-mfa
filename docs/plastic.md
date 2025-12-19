@@ -37,7 +37,7 @@ Flows that enter or leave markets are the exports and imports of the trades list
 {% include-markdown "plastics/definitions/trades.md" %}
 
 ## Parameters
-The following table presents all exogenous parameters in the plastics MFA with their respective dimensions and the sources of the respective input data.
+The following table presents all exogenous parameters in the plastics MFA with their respective dimensions and the sources of the respective input data. The parameters chemical_recycling_rate, bio_production_rate, daccu_production_rate and emission_capture_rate are assumed to be historically 0 and their interpolation to future target rates can be adjusted via the scenario configuration.
 
 {% include-markdown "plastics/definitions/parameters.md" %}
 
