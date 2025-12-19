@@ -47,7 +47,7 @@ class CommonDataReader(fd.CompoundDataReader):
         # TODO rename this folder to "paramters" instead of input_data
         parameter_foldername = "input_data"
         return os.path.join(self.get_material_path(material), parameter_foldername)
-    
+
     def get_material_dimension_path(self, material: str) -> str:
         dimensions_foldername = "dimensions"
         return os.path.join(self.get_material_path(material), dimensions_foldername)
@@ -223,7 +223,7 @@ class CommonDataReader(fd.CompoundDataReader):
                     f"{[os.path.basename(m) for m in regionfiles]}"
                 )
             dimension_files["Region"] = regionfiles[0]
-        
+
         return dimension_files
 
     def get_parameter_dict(self, material_parameter_path) -> dict[str, str]:
@@ -234,8 +234,9 @@ class CommonDataReader(fd.CompoundDataReader):
                 material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
             )
             parameter_files[parameter.name] = material_specific_file
-        
+
         return parameter_files
+
 
 class CommonDimensionReader(fd.CSVDimensionReader):
     """
