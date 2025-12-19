@@ -1,0 +1,38 @@
+/* column width variables — tweak these percentages to adjust layout */
+:root {
+  --col-dim: 6%;       /* Dimensions */
+  --col-name: 12%;     /* Name */
+  --col-desc: 20%;     /* description */
+  --col-src: 62%;      /* Source */
+}
+
+/* make the wrapper horizontally scrollable if the table needs more space */
+.parameters-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* allow the table to grow wider than its container so column percentages are meaningful */
+.parameters-table-wrap table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 900px; /* adjust this total min width to suit your content */
+}
+
+/* keep percentage widths but enforce a minimum for the bibtex column */
+.parameters-table-wrap table th:nth-child(1), .parameters-table-wrap table td:nth-child(1) { width: var(--col-dim); } /* Dimensions */
+.parameters-table-wrap table th:nth-child(2), .parameters-table-wrap table td:nth-child(2) { width: var(--col-name); } /* Name */
+.parameters-table-wrap table th:nth-child(3), .parameters-table-wrap table td:nth-child(3) { width: var(--col-desc); } /* description */
+
+/* ensure the source column gets enough room and cannot collapse below the min */
+.parameters-table-wrap table th:nth-child(4), .parameters-table-wrap table td:nth-child(4) {
+  width: var(--col-src);
+  min-width: 360px; /* adjust this to increase/decrease visible source area */
+}
+
+/* ensure inline footnote/citation anchors inside table are visible and wrap */
+.parameters-table-wrap table th, .parameters-table-wrap table td { white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
+.parameters-table-wrap table td { overflow: visible; }
+.parameters-table-wrap table td sup,
+.parameters-table-wrap table td .citation,
+.parameters-table-wrap table td a.citation { white-space: normal; display: inline; }

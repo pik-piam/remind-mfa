@@ -25,6 +25,6 @@ The following table presents all flows in the cement MFA with their respective d
 {% include-markdown "cement/definitions/flows.md" %}
 
 ## Parameters
-The following table presents all exogenous parameters in the cement MFA with their respective dimensions.
+The following table presents all exogenous parameters in the cement MFA with their respective dimensions and the sources of the respective input data.
 
 {% include-markdown "cement/definitions/parameters.md" %}

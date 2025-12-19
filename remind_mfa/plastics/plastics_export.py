@@ -46,7 +46,7 @@ class PlasticsDataExporter(CommonDataExporter):
         df.to_csv(self.export_path("csv", "eol_by_region_year.csv"), index=True)
 
     def export_use_data_by_region_and_year(self, mfa: fd.MFASystem):
-        df = mfa.flows["fabrication => use"].sum_to(("t", "r")).to_df(index=True)
+        df = mfa.stocks["in_use"].inflow.sum_to(("t", "r")).to_df(index=True)
         df.to_csv(self.export_path("csv", "use_by_region_year.csv"), index=True)
 
     def export_recycling_data_by_region_and_year(self, mfa: fd.MFASystem):

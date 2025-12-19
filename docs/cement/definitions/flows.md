@@ -1,14 +1,14 @@
-| Dimensions   | Origin Process       | Destination Process   |
-|:-------------|:---------------------|:----------------------|
-| h, r, s      | System environment   | Use phase             |
-| h, r, s      | Use phase            | System environment    |
-| t, r         | System environment   | Raw meal preparation  |
-| t, r         | Raw meal preparation | Clinker production    |
-| t, r         | System environment   | Clinker production    |
-| t, r         | Clinker production   | Cement grinding       |
-| t, r         | System environment   | Cement grinding       |
-| t, r         | Cement grinding      | Concrete production   |
-| t, r         | System environment   | Concrete production   |
-| t, r, s      | Concrete production  | Use phase             |
-| t, r, s      | Use phase            | End of life           |
-| t, r, s      | End of life          | System environment    |
+| Dimensions    | Origin Process      | Destination Process   |
+|:--------------|:--------------------|:----------------------|
+| t, r, m, s    | System environment  | Production: Clinker   |
+| t, r, m, s    | Production: Clinker | Production: Cement    |
+| t, r, m, s    | Production: Clinker | System environment    |
+| t, r, m, s    | System environment  | Production: Cement    |
+| t, r, m, s    | Production: Cement  | Production: Product   |
+| t, r, m, s    | Production: Cement  | System environment    |
+| t, r, m, s    | System environment  | Production: Product   |
+| t, r, s, m, a | Production: Product | Use phase             |
+| t, r, m, a    | Use phase           | End of life           |
+| t, r, m, a    | End of life         | System environment    |
+| t, r, m       | Production: Clinker | atmosphere            |
+| t, r, m, c    | atmosphere          | carbonation           |
