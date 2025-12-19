@@ -9,6 +9,8 @@ class ModelNames(str, Enum):
 
 
 def prefix_from_module(module: str) -> str:
+    if len(module) < 2:
+        raise ValueError("Module name must be at least 2 characters long")
     return module[:2]
 
 

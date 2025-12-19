@@ -141,6 +141,8 @@ class CommonDataReader(fd.CompoundDataReader):
     def check_available_materials(self):
         """Check which material parameter files are available in the extracted path."""
         parameter_files = glob.glob(os.path.join(self.tmp_extraction_path, "*.cs4r"))
+        self.validate_parameter_files(parameter_files)
+        
         available_materials = set()
         for filepath in parameter_files:
             filename = os.path.basename(filepath)
@@ -155,13 +157,35 @@ class CommonDataReader(fd.CompoundDataReader):
             )
         return available_materials
 
+    def validate_parameter_files(self, parameter_files: list[str]):
+        """Validate that parameter files exist, have expected format, and prefixes."""
+
+        if not parameter_files:
+            raise ValueError(
+                f"No parameter files found in extracted tgz at {self.tmp_extraction_path}"
+            )
+
+        for filepath in parameter_files:
+            filename = os.path.basename(filepath)
+            if "_" not in filename:
+                raise ValueError(f"Unexpected filename format: {filename}. "
+                                "Must have form of 'prefix_parametername.cs4r'")
+            prefix = filename.split("_")[0]
+            try:
+                _ = module_from_prefix(prefix)
+            except ValueError as e:
+                raise ValueError(f"Unexpected prefix '{prefix}' in filename '{filename}'.") from e
+
     def delete_old_extracted_files(self, available_materials: set[str]):
-        """Delete old extraced files (parameters, version, regionmapping) for each newly available material."""
+        """Delete old extracted files (parameters, version, regionmapping) for each newly available material."""
         for material in available_materials:
             material_parameter_path = self.get_material_parameter_path(material)
             old_files = glob.glob(os.path.join(material_parameter_path, "*"))
             for old_file in old_files:
-                os.remove(old_file)
+                if os.path.isfile(old_file):
+                    os.remove(old_file)
+                else:
+                    raise ValueError(f"Expected only files in {material_parameter_path}, found directory: {old_file}")
 
     def move_file_to_material(self, oldpath: str, material: str, copy: bool = False):
         """Move a single file to material parameter path."""
