@@ -40,6 +40,6 @@ Flows that enter or leave markets are the exports and imports of the trades list
 {% include-markdown "steel/definitions/trades.md" %}
 
 ## Parameters
-The following table presents all exogenous parameters in the steel MFA with their respective dimensions.
+The following table presents all exogenous parameters in the steel MFA with their respective dimensions and the sources of the respective input data.
 
 {% include-markdown "steel/definitions/parameters.md" %}

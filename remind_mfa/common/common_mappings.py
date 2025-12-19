@@ -36,4 +36,5 @@ class CommonDisplayNames(Mapping):
         "subclass": "Stock Type",
         "lifetime_model_class": "Lifetime Model",
         "PydanticUndefined": "",
+        "description": "Description",
     }
