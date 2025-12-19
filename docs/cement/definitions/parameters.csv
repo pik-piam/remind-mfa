@@ -1,4 +1,4 @@
-Dimensions,Name,description
+Dimensions,Name,Description
 "r, s",stock_type_split,Split of cement production into different stock types.
 "h, r",cement_production,Historic cement production volume for each region and year.
 "h, r",cement_trade,Historic net cement trade flows per region and year.
@@ -13,17 +13,17 @@ m,product_density,Material density associated with each product.
 "r, m",product_material_split,Share of product output allocated to each material by region.
 "m, a",product_material_application_transform,Transformation matrix linking product materials to applications.
 a,product_cement_content,Cement content per cubic meter of product application.
-r,stock_saturation_level,Saturation level for in-use cement stock in each region.
+r,stock_saturation_level,Saturation level of in-use cement stock in each region.
 ,clinker_cao_ratio,Mass fraction of CaO contained in clinker.
 m,cao_carbonation_share,Share of CaO that is available for carbonation per material.
-,cao_emission_factor,Emission factor associated with CaO release during processing.
+,cao_emission_factor,Process CO2 emission factor from producing CaO.
 ,ckd_cao_ratio,CaO content ratio present in cement kiln dust.
 ,ckd_landfill_share,Share of cement kiln dust disposed to landfill.
 "r, a",carbonation_rate,Carbonation rate for exposed stocks by region and application.
 "r, a",carbonation_rate_buried,Carbonation rate for buried stocks by region and application.
-,carbonation_rate_coating,Carbonation rate modifier for coated cement products.
-,carbonation_rate_co2,Carbonation rate modifier for CO2 curing processes.
-,carbonation_rate_additives,Carbonation rate modifier due to cement additives.
+,carbonation_rate_coating,Carbonation rate modifier factoring in coated cement products.
+,carbonation_rate_co2,Carbonation rate modifier factoring in increased atmospheric CO2 concentrations.
+,carbonation_rate_additives,Carbonation rate modifier factoring in cement additives.
 a,product_thickness,Average thickness assumed for each product application.
 "r, w",waste_type_split,Share of end-of-life cement flows by waste type and region.
 "r, w, p",waste_size_share,Share of waste distributed across size classes per region and type.
