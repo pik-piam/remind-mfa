@@ -13,7 +13,6 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
-        fd.DimensionDefinition(name="Scenario", dim_letter="s", dtype=str),
     ]
 
     if historic:
@@ -181,10 +180,6 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         RemindMFAParameterDefinition(
             name="secsplit_gdppc_high", dim_letters=(),
             description="Lower GDP per capita threshold for sector_split_high",
-        ),
-        RemindMFAParameterDefinition(
-            name="max_scrap_share", dim_letters=(),
-            description="Maximum share of scrap-based steel in total production due to quality constraints",
         ),
         RemindMFAParameterDefinition(
             name="scrap_in_bof_rate", dim_letters=(),
