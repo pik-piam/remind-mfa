@@ -12,7 +12,6 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
-        fd.DimensionDefinition(name="Intermediate", dim_letter="i", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
         fd.DimensionDefinition(name="Scenario", dim_letter="s", dtype=str),
     ]
@@ -148,10 +147,6 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Combined collection and recovery rate at end-of-life - share of all end-of life material that is recycled"
         ),
         RemindMFAParameterDefinition(
-            name="good_to_intermediate_distribution", dim_letters=("g", "i"),
-            description="Share of intermediate steel products contained in different end-use good categories",
-        ),
-        RemindMFAParameterDefinition(
             name="population", dim_letters=("t", "r"),
             description="Population"
         ),
@@ -204,7 +199,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Loss rate during fabrication of final goods. Contrary to (1-fabrication_yield), this material is completely lost and not recycled as new scrap",
         ),
         RemindMFAParameterDefinition(
-            name="production_yield", dim_letters=(),
+            name="production_loss_rate", dim_letters=(),
             description="Yield of raw steel production, accounting for losses in BF-BOF and (DRI-)EAF processes",
         ),
         RemindMFAParameterDefinition(
@@ -219,18 +214,22 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             name="scrap_consumption", dim_letters=("h", "r"),
             description="Historic scrap consumption",
         ),
+        RemindMFAParameterDefinition(
+            name="scrap_consumption_no_assumptions", dim_letters=("h", "r"),
+            description="Historic scrap consumption",
+        ),
         # WSA
         RemindMFAParameterDefinition(
-            name="production_by_intermediate", dim_letters=("h", "r", "i"),
-            description="Historic steel production by intermediate product",
+            name="production", dim_letters=("h", "r"),
+            description="Historic steel production",
         ),
         RemindMFAParameterDefinition(
-            name="intermediate_imports", dim_letters=("h", "r", "i"),
-            description="Historic intermediate product imports",
+            name="steel_imports", dim_letters=("h", "r"),
+            description="Historic steel imports",
         ),
         RemindMFAParameterDefinition(
-            name="intermediate_exports", dim_letters=("h", "r", "i"),
-            description="Historic intermediate product exports",
+            name="steel_exports", dim_letters=("h", "r"),
+            description="Historic steel exports",
         ),
         RemindMFAParameterDefinition(
             name="indirect_imports", dim_letters=("h", "r", "g"),
@@ -253,13 +252,13 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
 
     if historic:
         trades = [
-            TradeDefinition(name="intermediate", dim_letters=("h", "r")),
+            TradeDefinition(name="steel", dim_letters=("h", "r")),
             TradeDefinition(name="indirect", dim_letters=("h", "r", "g")),
             TradeDefinition(name="scrap", dim_letters=("h", "r")),
         ]
     else:
         trades = [
-            TradeDefinition(name="intermediate", dim_letters=("t", "r")),
+            TradeDefinition(name="steel", dim_letters=("t", "r")),
             TradeDefinition(name="indirect", dim_letters=("t", "r", "g")),
             TradeDefinition(name="scrap", dim_letters=("t", "r", "g")),
         ]

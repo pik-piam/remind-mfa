@@ -40,7 +40,6 @@ class SteelVisualizer(CommonVisualizer):
 
     def visualize_trade(self, mfa: fd.MFASystem):
         linecolor_dims = {
-            "intermediate": None,
             "indirect": "Good",
             "scrap": "Good",
         }
