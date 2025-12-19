@@ -29,13 +29,12 @@ def merge_parameters_sources():
         # Filter sources for this module (module-specific + common)
         module_sources = sources_df[
             sources_df["Filename"].str.startswith(f"{prefix}_")
-            | sources_df["Filename"].str.startswith("co_")
         ].copy()
 
         # Extract parameter name from filename (prefix_param.cs4r -> param)
         module_sources["Name"] = (
             module_sources["Filename"]
-            .str.replace(f"{prefix}_|co_", "", regex=True)
+            .str.replace(f"{prefix}_", "", regex=True)
             .str.replace(".cs4r", "")
         )
 

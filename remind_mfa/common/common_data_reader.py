@@ -93,12 +93,7 @@ class CommonDataReader(fd.CompoundDataReader):
             material_specific_file = os.path.join(
                 self.extracted_input_data_path, f"{parameter_prefix}_{parameter.name}.cs4r"
             )
-            parameter_files[parameter.name] = (
-                material_specific_file
-                if os.path.exists(material_specific_file)
-                # fall back to common parameters
-                else os.path.join(self.extracted_input_data_path, f"co_{parameter.name}.cs4r")
-            )
+            parameter_files[parameter.name] = material_specific_file
         parameter_reader = MadratParameterReader(
             parameter_files,
             allow_extra_values=self.allow_extra_values,
