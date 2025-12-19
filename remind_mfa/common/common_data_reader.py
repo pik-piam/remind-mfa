@@ -46,11 +46,13 @@ class CommonDataReader(fd.CompoundDataReader):
     def get_material_parameter_path(self, material: str) -> str:
         # TODO rename this folder to "paramters" instead of input_data
         parameter_foldername = "input_data"
-        return os.path.join(self.input_data_path, material, parameter_foldername)
+        return os.path.join(self.get_material_path(material), parameter_foldername)
+    
+    def get_material_dimension_path(self, material: str) -> str:
+        dimensions_foldername = "dimensions"
+        return os.path.join(self.get_material_path(material), dimensions_foldername)
 
     def prepare_input_readers(self):
-        material_path = self.get_material_path(self.model_class)
-
         # prepare directory for extracted input data
         material_parameter_path = self.get_material_parameter_path(self.model_class)
         os.makedirs(material_parameter_path, exist_ok=True)
@@ -61,35 +63,11 @@ class CommonDataReader(fd.CompoundDataReader):
             self.extract_tar_file()
 
         # dimensions
-        dimension_files = {}
-        for dimension in self.definition.dimensions:
-            dimension_filename = self.dimension_file_mapping[dimension.name]
-            dimension_files[dimension.name] = os.path.join(
-                material_path, "dimensions", f"{dimension_filename}.csv"
-            )
-        # Special case for Region dimensions
-        if "Region" in dimension_files:
-            regionfiles = sorted(
-                glob.glob(os.path.join(material_parameter_path, "regionmapping*.csv"))
-            )
-            if not regionfiles:
-                raise FileNotFoundError(f"No regionmapping*.csv found in {material_path}")
-            if len(regionfiles) > 1:
-                raise ValueError(
-                    f"Expected exactly one regionmapping*.csv in {material_path}, found: "
-                    f"{[os.path.basename(m) for m in regionfiles]}"
-                )
-            dimension_files["Region"] = regionfiles[0]
+        dimension_files = self.get_dimension_dict(material_parameter_path)
         dimension_reader = CommonDimensionReader(dimension_files)
 
         # parameters
-        material_prefix = prefix_from_module(self.model_class)
-        parameter_files = {}
-        for parameter in self.definition.parameters:
-            material_specific_file = os.path.join(
-                material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
-            )
-            parameter_files[parameter.name] = material_specific_file
+        parameter_files = self.get_parameter_dict(material_parameter_path)
         parameter_reader = MadratParameterReader(
             parameter_files,
             allow_extra_values=self.allow_extra_values,
@@ -218,6 +196,42 @@ class CommonDataReader(fd.CompoundDataReader):
                 self.move_file_to_material(other_file, material, copy=True)
             os.remove(other_file)
 
+    def get_dimension_dict(self, material_parameter_path: str) -> dict[str, str]:
+        material_path = self.get_material_path(self.model_class)
+        material_dimension_path = self.get_material_dimension_path(self.model_class)
+
+        dimension_files = {}
+        for dimension in self.definition.dimensions:
+            dimension_filename = self.dimension_file_mapping[dimension.name]
+            dimension_files[dimension.name] = os.path.join(
+                material_dimension_path, f"{dimension_filename}.csv"
+            )
+        # Special case for Region dimensions
+        if "Region" in dimension_files:
+            regionfiles = sorted(
+                glob.glob(os.path.join(material_parameter_path, "regionmapping*.csv"))
+            )
+            if not regionfiles:
+                raise FileNotFoundError(f"No regionmapping*.csv found in {material_path}")
+            if len(regionfiles) > 1:
+                raise ValueError(
+                    f"Expected exactly one regionmapping*.csv in {material_path}, found: "
+                    f"{[os.path.basename(m) for m in regionfiles]}"
+                )
+            dimension_files["Region"] = regionfiles[0]
+        
+        return dimension_files
+
+    def get_parameter_dict(self, material_parameter_path) -> dict[str, str]:
+        material_prefix = prefix_from_module(self.model_class)
+        parameter_files = {}
+        for parameter in self.definition.parameters:
+            material_specific_file = os.path.join(
+                material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
+            )
+            parameter_files[parameter.name] = material_specific_file
+        
+        return parameter_files
 
 class CommonDimensionReader(fd.CSVDimensionReader):
     """
