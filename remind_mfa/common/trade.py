@@ -55,27 +55,32 @@ class Trade(RemindMFABaseModel):
     def get_reference_trade(
         global_imports: fd.FlodymArray, global_exports: fd.FlodymArray, to: str = "hmean"
     ):
-        reference_trade_lookup = {
-            "maximum": global_imports.maximum(global_exports),
-            "minimum": global_imports.minimum(global_exports),
-            "imports": global_imports,
-            "exports": global_exports,
+        if to == "maximum":
+            return global_imports.maximum(global_exports)
+        elif to == "minimum":
+            return global_imports.minimum(global_exports)
+        elif to == "imports":
+            return global_imports
+        elif to == "exports":
+            return global_exports
+        elif to == "hmean":
             # this is the same method as referenced in Michaja's paper
-            "hmean": fd.FlodymArray(
+            return fd.FlodymArray(
                 dims=global_exports.dims,
                 values=hmean(np.stack([global_imports.values, global_exports.values])),
-            ),
-            "gmean": fd.FlodymArray(
+            )
+        elif to == "gmean":
+            return fd.FlodymArray(
                 dims=global_exports.dims,
                 values=gmean(np.stack([global_imports.values, global_exports.values])),
-            ),
-            "amean": (global_imports + global_exports) / 2,
-        }
-        if to not in reference_trade_lookup:
-            raise ValueError(
-                f"Extrenum {to} not recognized. Must be one of {list(reference_trade_lookup.keys())}"
             )
-        return reference_trade_lookup[to]
+        elif to == "amean":
+            return (global_imports + global_exports) / 2
+        else:
+            raise ValueError(
+                f"Can't balance to '{to}', method not recognized. Must be one of"
+                "'maximum', 'minimum', 'imports', 'exports', 'hmean', 'gmean', 'amean'."
+            )
 
 
 class TradeSet(RemindMFABaseModel):
