@@ -39,6 +39,9 @@ class SteelMFASystemHistoric(CommonMFASystem):
         flw["forming => ip_market"][...] = prm["production"] * prm["forming_yield"][{'t': self.dims['h']}]
         flw["forming => sysenv"][...] = flw["sysenv => forming"] - flw["forming => ip_market"]
 
+        trd["steel"].exports[...] = trd["steel"].exports.minimum(flw["forming => ip_market"])
+        trd["steel"].balance(to="minimum")
+
         flw["ip_market => sysenv"][...] = trd["steel"].exports
         flw["sysenv => ip_market"][...] = trd["steel"].imports
 
