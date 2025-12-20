@@ -8,7 +8,7 @@ input:
   input_data_version: 'rev1.0.0test_all_2b1450bc_1584d780_mfa'
 
 model_switches:
-  scenario: 'SSP1_lowEU'
+  scenario: 'SSP2'
   stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'

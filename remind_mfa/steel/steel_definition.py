@@ -209,10 +209,10 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             name="scrap_consumption", dim_letters=("h", "r"),
             description="Historic scrap consumption",
         ),
-        RemindMFAParameterDefinition(
-            name="scrap_consumption_no_assumptions", dim_letters=("h", "r"),
-            description="Historic scrap consumption",
-        ),
+        # RemindMFAParameterDefinition(
+        #     name="scrap_consumption_no_assumptions", dim_letters=("h", "r"),
+        #     description="Historic scrap consumption",
+        # ),
         # WSA
         RemindMFAParameterDefinition(
             name="production", dim_letters=("h", "r"),

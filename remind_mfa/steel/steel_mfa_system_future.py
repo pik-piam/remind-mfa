@@ -154,7 +154,7 @@ class SteelMFASystem(CommonMFASystem):
 
         # PRODUCTION
 
-        aux["production_inflow"][...] = aux["production"] / ( - prm["production_loss_rate"])
+        aux["production_inflow"][...] = aux["production"] / (1 - prm["production_loss_rate"])
         aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
         aux["available_scrap"][...] = (
             flw["recycling => scrap_market"]
@@ -174,9 +174,9 @@ class SteelMFASystem(CommonMFASystem):
         flw["scrap_market => bof_production"][...] = aux["scrap_in_production"] - flw["scrap_market => eaf_production"]
         aux["bof_production_inflow"][...] = aux["production_inflow"] - flw["scrap_market => eaf_production"]
         flw["extraction => bof_production"][...] = aux["bof_production_inflow"] - flw["scrap_market => bof_production"]
-        flw["bof_production => forming"][...] = aux["bof_production_inflow"] * prm["production_yield"]
+        flw["bof_production => forming"][...] = aux["bof_production_inflow"] * (1 - prm["production_loss_rate"])
         flw["bof_production => losses"][...] = aux["bof_production_inflow"] - flw["bof_production => forming"]
-        flw["eaf_production => forming"][...] = flw["scrap_market => eaf_production"] * prm["production_yield"]
+        flw["eaf_production => forming"][...] = flw["scrap_market => eaf_production"] * (1 - prm["production_loss_rate"])
         flw["eaf_production => losses"][...] = flw["scrap_market => eaf_production"] - flw["eaf_production => forming"]
 
         # buffers to sysenv for plotting
