@@ -69,8 +69,11 @@ class SteelMFASystem(CommonMFASystem):
         self.stocks["in_use"].compute()
 
         if np.min(self.stocks["in_use"].inflow.values) < 0:
-            negative_regions = [r for r in self.dims['r'].items
-                if np.min(self.stocks["in_use"].inflow[r].values) < 0]
+            negative_regions = [
+                r
+                for r in self.dims["r"].items
+                if np.min(self.stocks["in_use"].inflow[r].values) < 0
+            ]
             logging.warning(f"In-use stock inflow <0 in regions {negative_regions}!")
 
     def extrapolate_trade_set(self, historic_trade: TradeSet):
