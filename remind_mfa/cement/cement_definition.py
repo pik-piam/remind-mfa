@@ -144,6 +144,8 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Cement content per cubic meter of product application."),
         RemindMFAParameterDefinition(name="stock_saturation_level", dim_letters=("r",),
                                      description="Saturation level of in-use cement stock in each region."),
+        RemindMFAParameterDefinition(name="industrialized_regions", dim_letters=("r",),
+                                     description="List of regions considered industrialized for stock extrapolation."),
         # carbonation parameters
         RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=(),
                                      description="Mass fraction of CaO contained in clinker."),

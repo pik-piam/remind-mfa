@@ -65,7 +65,8 @@ class CementModel(CommonModel):
         )
 
         # remove stretch factor limitations in industrialized regions
-        industrialized_regions = ["EUR", "NEU", "CAZ", "CHA", "JPN", "USA"]
+        all_regions = np.array(prm["industrialized_regions"].dims["Region"].items)
+        industrialized_regions = all_regions[prm["industrialized_regions"].values == 1]
         ind_indices = [
             self.historic_mfa.stocks["historic_cement_in_use"].stock.dims["r"].items.index(r)
             for r in industrialized_regions
