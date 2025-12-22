@@ -20,4 +20,6 @@ class CementDisplayNames(CommonDisplayNames):
         "prod_product": "Production: Product",
         "use": "Use phase",
         "eol": "End of life",
+        "atmosphere": "Atmosphere",
+        "carbonation": "Carbonation",
     }

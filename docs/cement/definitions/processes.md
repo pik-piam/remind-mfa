@@ -6,5 +6,5 @@
 | Production: Product |
 | Use phase           |
 | End of life         |
-| atmosphere          |
-| carbonation         |
+| Atmosphere          |
+| Carbonation         |

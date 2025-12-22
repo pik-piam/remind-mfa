@@ -10,5 +10,5 @@
 | t, r, s, m, a | Production: Product | Use phase             |
 | t, r, m, a, s | Use phase           | End of life           |
 | t, r, m, a, s | End of life         | System environment    |
-| t, r, m, s    | Production: Clinker | atmosphere            |
-| t, r, m, c, s | atmosphere          | carbonation           |
+| t, r, m, s    | Production: Clinker | Atmosphere            |
+| t, r, m, c, s | Atmosphere          | Carbonation           |
