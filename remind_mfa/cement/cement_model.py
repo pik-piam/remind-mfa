@@ -66,9 +66,9 @@ class CementModel(CommonModel):
 
         # remove stretch factor limitations in industrialized regions
         max_stretch_factor.values[...] = np.where(
-            prm["industrialized_regions"].cast_to(max_stretch_factor.dims).values, 
+            prm["industrialized_regions"].cast_to(max_stretch_factor.dims).values,
             np.inf,
-            max_stretch_factor.values
+            max_stretch_factor.values,
         )
 
         stretch_bound = Bound(
