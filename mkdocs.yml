@@ -10,7 +10,7 @@ nav:
       - Input data: input_data.md
   - Sub-modules:
       - Steel MFA: steel.md
-      - Plastic MFA: plastic.md
+      - Plastics MFA: plastics.md
       - Cement MFA: cement.md
   - REMIND-MFA in TRANSIENCE:
       - Context: transience_context.md
