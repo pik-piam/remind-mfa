@@ -65,12 +65,11 @@ class CementModel(CommonModel):
         )
 
         # remove stretch factor limitations in industrialized regions
-        industrialized_regions = ["EUR", "NEU", "CAZ", "CHA", "JPN", "USA"]
-        ind_indices = [
-            self.historic_mfa.stocks["historic_cement_in_use"].stock.dims["r"].items.index(r)
-            for r in industrialized_regions
-        ]
-        max_stretch_factor.values[ind_indices] = np.inf
+        max_stretch_factor.values[...] = np.where(
+            prm["industrialized_regions"].cast_to(max_stretch_factor.dims).values,
+            np.inf,
+            max_stretch_factor.values,
+        )
 
         stretch_bound = Bound(
             var_name="stretch_factor",

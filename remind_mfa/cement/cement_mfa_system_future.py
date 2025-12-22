@@ -16,6 +16,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
+        self.cement_ratio = (
+            self.parameters["product_cement_content"] / self.parameters["product_density"]
+        )
+
         self.compute_in_use_stock(stock_projection)
         self.compute_flows()
         self.compute_other_stocks()
@@ -27,26 +31,19 @@ class StockDrivenCementMFASystem(CommonMFASystem):
     def compute_in_use_stock(self, cement_stock_projection: fd.FlodymArray):
         prm = self.parameters
         stk = self.stocks
-        cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
+        # transform historic cement stock into product stock
         stk["in_use"].stock = (
             cement_stock_projection
             * prm["product_material_split"]
             * prm["product_material_application_transform"]
             * prm["product_application_split"]
-            / cement_ratio
+            / self.cement_ratio
         )
 
-        lifetime_rel_std = 0.4
-        add_assumption_doc(
-            type="expert guess",
-            value=lifetime_rel_std,
-            name="Standard deviation of future use lifetime",
-            description=f"The standard deviation of the future use lifetime is set to {int(lifetime_rel_std * 100)} percent of the mean.",
-        )
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["use_lifetime_mean"],
-            std=lifetime_rel_std * prm["use_lifetime_mean"],
+            std=prm["use_lifetime_rel_std"] * prm["use_lifetime_mean"],
         )
         stk["in_use"].compute()
 
@@ -54,7 +51,6 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
-        cement_ratio = prm["product_cement_content"] / prm["product_density"]
 
         # go backwards from in-use stock
         flw["prod_product => use"][...] = stk["in_use"].inflow
@@ -73,7 +69,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             ),
         )
 
-        flw["prod_cement => prod_product"][...] = flw["prod_product => use"] * cement_ratio
+        flw["prod_cement => prod_product"][...] = flw["prod_product => use"] * self.cement_ratio
         # cement losses are on top of the inflow of stock, but are relative to total cement production
         flw["prod_cement => sysenv"][...] = flw["prod_cement => prod_product"] * (
             prm["cement_losses"] / (1 - prm["cement_losses"])
@@ -94,7 +90,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["sysenv => prod_cement"][...] = (
             flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]
         ) * (1 - prm["clinker_ratio"])
-        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - cement_ratio)
+        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - self.cement_ratio)
 
     def compute_other_stocks(self):
         flw = self.flows

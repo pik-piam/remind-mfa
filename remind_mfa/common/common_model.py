@@ -63,9 +63,6 @@ class CommonModel:
             cfg=self.cfg,
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
-            # TODO: Remove requirement, then remove these two lines
-            allow_extra_values=True,
-            allow_missing_values=True,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
