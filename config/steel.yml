@@ -1,7 +1,7 @@
 model: 'steel'
 
 input:
-  madrat_output_path: 'C:\Users\jakobdu\data\code\remind_mfa_data'
+  madrat_output_path: '../remind_mfa_data'
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
   scenarios_path: 'config/scenarios'

@@ -195,7 +195,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         ),
         RemindMFAParameterDefinition(
             name="production_loss_rate", dim_letters=(),
-            description="Yield of raw steel production, accounting for losses in BF-BOF and (DRI-)EAF processes",
+            description="Loss rate of raw steel production in BF-BOF and (DRI-)EAF processes",
         ),
         RemindMFAParameterDefinition(
             name="saturation_level_factor", dim_letters=("r",),
