@@ -57,11 +57,11 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r", "m", "s")),  # cement losses
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m", "s")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "m", "a")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "m", "a", "s")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a", "s")),
             # atmosphere
-            fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m", "c")),
+            fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m", "s")),
+            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m", "c", "s")),
         ]
 
     # fmt: on
@@ -90,20 +90,20 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "m", "a"),
+                dim_letters=("t", "r", "m", "a", "s"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),
             fd.StockDefinition(
                 name="atmosphere",
                 process="atmosphere",
-                dim_letters=("t", "r", "m"),
+                dim_letters=("t", "r", "m", "s"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
                 name="carbonated_co2",
                 process="carbonation",
-                dim_letters=("t", "r", "m", "c"),
+                dim_letters=("t", "r", "m", "c", "s"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),
