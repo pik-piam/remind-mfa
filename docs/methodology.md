@@ -11,7 +11,7 @@ REMIND-MFA includes MFA models for the basic materials cement, plastics, and ste
 *Figure 2: Process and flow layouts of the REMIND-MFA for plastics*
 
 ![Cement MFA](img/cement.png)
-*Figure 2: Process and flow layouts of the REMIND-MFA for cement*
+*Figure 3: Process and flow layouts of the REMIND-MFA for cement*
 
 ## Dynamic Stock Modelling: Top-Down Approach
 Dynamic stock modelling is an essential extension of MFA, providing a way to track how materials accumulate in long-lived goods like buildings, infrastructure, and vehicles [@Deng23]. Lifetime models further enrich this picture by quantifying how long materials remain in use before leaving the in-use stock again. They do this using the lifetime distribution (or its probability density function), from which the share of goods from a given production year that leave the stock by a certain time is derived.
