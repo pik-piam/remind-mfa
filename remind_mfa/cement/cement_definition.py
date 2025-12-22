@@ -123,6 +123,8 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Historic clinker-to-cement ratio for each region."),
         RemindMFAParameterDefinition(name="use_lifetime_mean", dim_letters=("h", "r", "s"),
                                      description="Mean lifetime of historic cement stocks by region and stock type."),
+        RemindMFAParameterDefinition(name="use_lifetime_rel_std", dim_letters=(),
+                                     description="Relative standard deviation of lifetime of cement in buildings and infrastructure."),
         # future parameters
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"),
                                      description="Historic and projected population for each region and model year."),
@@ -144,6 +146,8 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Cement content per cubic meter of product application."),
         RemindMFAParameterDefinition(name="stock_saturation_level", dim_letters=("r",),
                                      description="Saturation level of in-use cement stock in each region."),
+        RemindMFAParameterDefinition(name="industrialized_regions", dim_letters=("r",),
+                                     description="List of regions considered industrialized for stock extrapolation."),
         # carbonation parameters
         RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=(),
                                      description="Mass fraction of CaO contained in clinker."),
