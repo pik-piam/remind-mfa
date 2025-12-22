@@ -16,7 +16,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
-        self.cement_ratio = self.parameters["product_cement_content"] / self.parameters["product_density"]
+        self.cement_ratio = (
+            self.parameters["product_cement_content"] / self.parameters["product_density"]
+        )
 
         self.compute_in_use_stock(stock_projection)
         self.compute_flows()
