@@ -3,7 +3,7 @@ model: 'steel'
 input:
   madrat_output_path: '../remind_mfa_data'
   force_extract_tgz: False
-  input_data_path: '../remind_mfa_data'
+  input_data_path: '../remind_mfa_data/h12'
   scenarios_path: 'config/scenarios'
   input_data_version: 'rev1.0.0test_all_2b1450bc_1584d780_mfa'
 
@@ -21,11 +21,11 @@ visualization:
   figures_path: 'data/steel/output/figures'
   plotting_engine: 'plotly'
   extrapolation:
-    do_visualize: False
+    do_visualize: True
   scrap_demand_supply:
-    do_visualize: False
+    do_visualize: True
   sector_splits:
-    do_visualize: False
+    do_visualize: True
   use_stock:
     do_visualize: True
     over_gdp: False
@@ -36,11 +36,11 @@ visualization:
   production:
     do_visualize: True
   consumption:
-    do_visualize: False
+    do_visualize: True
   trade:
-    do_visualize: False
+    do_visualize: True
   sankey:
-    do_visualize: False
+    do_visualize: True
     plotter_args:
       slice_dict:
         t: 2050
