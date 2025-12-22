@@ -82,4 +82,3 @@ def on_startup(command=None, dirty=None):
     out = "docs/all_refs.bib"
     total_read, duplicates, written = merge_bib_files([src1, src2], out)
     print(f"Bib merge: read={total_read}, duplicates_skipped={duplicates}, written={written}")
-
