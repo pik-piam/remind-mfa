@@ -4,6 +4,7 @@ Dimensions,Name,Description
 "h, r",cement_trade,Historic net cement trade flows per region and year.
 "h, r",clinker_ratio,Historic clinker-to-cement ratio for each region.
 "h, r, s",use_lifetime_mean,Mean lifetime of historic cement stocks by region and stock type.
+,use_lifetime_rel_std,Relative standard deviation of lifetime of cement in buildings and infrastructure.
 "t, r",population,Historic and projected population for each region and model year.
 "t, r",gdppc,Historic and projected GDP per capita for each region and model year.
 ,cement_losses,Share of cement lost during cement production.
@@ -14,6 +15,7 @@ m,product_density,Material density associated with each product.
 "m, a",product_material_application_transform,Transformation matrix linking product materials to applications.
 a,product_cement_content,Cement content per cubic meter of product application.
 r,stock_saturation_level,Saturation level of in-use cement stock in each region.
+r,industrialized_regions,List of regions considered industrialized for stock extrapolation.
 ,clinker_cao_ratio,Mass fraction of CaO contained in clinker.
 m,cao_carbonation_share,Share of CaO that is available for carbonation per material.
 ,cao_emission_factor,Process CO2 emission factor from producing CaO.

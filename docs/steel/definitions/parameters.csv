@@ -1,8 +1,7 @@
-Dimensions,Name,description
+Dimensions,Name,Description
 ,forming_yield,Yield of steel forming process
 g,fabrication_yield,Yield during fabrication of steel-containing final goods
 g,recovery_rate,Combined collection and recovery rate at end-of-life - share of all end-of life material that is recycled
-"g, i",good_to_intermediate_distribution,Share of intermediate steel products contained in different end-use good categories
 "t, r",population,Population
 "t, r",gdppc,GDP per capita
 g,lifetime_mean,Mean lifetime of goods
@@ -12,17 +11,16 @@ g,sector_split_medium,Final good category shares in consumption for medium gdp p
 g,sector_split_high,Final good category shares in consumption for high gdp per capita
 ,secsplit_gdppc_low,Upper GDP per capita threshold for sector_split_low
 ,secsplit_gdppc_high,Lower GDP per capita threshold for sector_split_high
-,max_scrap_share,Maximum share of scrap-based steel in total production due to quality constraints
 ,scrap_in_bof_rate,Share of scrap-based steel from BF-BOF production
 ,forming_loss_rate,"Loss rate in forming process. Contrary to (1-forming_yield), this material is completely lost and not recycled as home scrap"
 ,fabrication_losses,"Loss rate during fabrication of final goods. Contrary to (1-fabrication_yield), this material is completely lost and not recycled as new scrap"
-,production_yield,"Yield of raw steel production, accounting for losses in BF-BOF and (DRI-)EAF processes"
+,production_loss_rate,Loss rate of raw steel production in BF-BOF and (DRI-)EAF processes
 r,saturation_level_factor,Regional multiplicative adjustment factor for the saturation level of the in-use steel stock based on expert judgement
 r,stock_growth_speed_factor,Regional adjustment factor for the growth speed of the in-use steel stock based on expert judgement
 "h, r",scrap_consumption,Historic scrap consumption
-"h, r, i",production_by_intermediate,Historic steel production by intermediate product
-"h, r, i",intermediate_imports,Historic intermediate product imports
-"h, r, i",intermediate_exports,Historic intermediate product exports
+"h, r",production,Historic steel production
+"h, r",steel_imports,Historic steel imports
+"h, r",steel_exports,Historic steel exports
 "h, r, g",indirect_imports,"Historic indirect trade imports, i.e. contained in final goods"
 "h, r, g",indirect_exports,"Historic indirect trade exports, i.e. contained in final goods"
 "h, r",scrap_imports,Historic combined eol product and scrap imports
