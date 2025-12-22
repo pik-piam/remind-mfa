@@ -4,7 +4,7 @@ input:
   madrat_output_path: '../madrat_wd/output'
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data/h12'
-  input_data_version: 'rev0_h12_bbd76206_mfa'
+  input_data_version: 'rev1.0.0_h12_1584d780_mfa'
   scenarios_path: 'config/scenarios'
 
 model_switches:

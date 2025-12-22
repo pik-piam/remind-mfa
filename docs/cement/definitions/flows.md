@@ -8,7 +8,7 @@
 | t, r, m, s    | Production: Cement  | System environment    |
 | t, r, m, s    | System environment  | Production: Product   |
 | t, r, s, m, a | Production: Product | Use phase             |
-| t, r, m, a    | Use phase           | End of life           |
-| t, r, m, a    | End of life         | System environment    |
-| t, r, m       | Production: Clinker | atmosphere            |
-| t, r, m, c    | atmosphere          | carbonation           |
+| t, r, m, a, s | Use phase           | End of life           |
+| t, r, m, a, s | End of life         | System environment    |
+| t, r, m, s    | Production: Clinker | atmosphere            |
+| t, r, m, c, s | atmosphere          | carbonation           |

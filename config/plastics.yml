@@ -3,8 +3,8 @@ model: 'plastics'
 input:
   madrat_output_path: '../../madrat/output_cluster'
   force_extract_tgz: False
-  input_data_path: '../remind_mfa_data'
-  input_data_version: 'rev1.0.0new_test_h12_1584d780_mfa'
+  input_data_path: '../remind_mfa_data/h12'
+  input_data_version: 'rev1.0.0_h12_1584d780_mfa'
   scenarios_path: 'config/scenarios'
 
 model_switches:
@@ -23,9 +23,9 @@ model_switches:
     emission_capture_rate: ConstantExtrapolation
 
 visualization:
-  do_visualize: False
+  do_visualize: True
   do_show_figs: True
-  do_save_figs: True
+  do_save_figs: False
   figures_path: 'data/plastics/output/figures'
   use_stock:
     do_visualize: False
