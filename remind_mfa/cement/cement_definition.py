@@ -123,7 +123,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Historic clinker-to-cement ratio for each region."),
         RemindMFAParameterDefinition(name="use_lifetime_mean", dim_letters=("h", "r", "s"),
                                      description="Mean lifetime of historic cement stocks by region and stock type."),
-        RemindMFAParameterDefinition(name="use_lifetime_std", dim_letters=(),
+        RemindMFAParameterDefinition(name="use_lifetime_rel_std", dim_letters=(),
                                      description="Relative standard deviation of lifetime of cement in buildings and infrastructure."),
         # future parameters
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"),
