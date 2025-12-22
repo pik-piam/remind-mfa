@@ -35,14 +35,17 @@ class SteelMFASystemHistoric(CommonMFASystem):
         }
 
         # fmt: off
-        flw["sysenv => forming"][...] = prm["production_by_intermediate"]
-        flw["forming => ip_market"][...] = prm["production_by_intermediate"] * prm["forming_yield"][{'t': self.dims['h']}]
+        flw["sysenv => forming"][...] = prm["production"]
+        flw["forming => ip_market"][...] = prm["production"] * prm["forming_yield"][{'t': self.dims['h']}]
         flw["forming => sysenv"][...] = flw["sysenv => forming"] - flw["forming => ip_market"]
 
-        flw["ip_market => sysenv"][...] = trd["intermediate"].exports
-        flw["sysenv => ip_market"][...] = trd["intermediate"].imports
+        trd["steel"].exports[...] = trd["steel"].exports.minimum(flw["forming => ip_market"])
+        trd["steel"].balance(to="minimum")
 
-        flw["ip_market => fabrication"][...] = flw["forming => ip_market"] + trd["intermediate"].net_imports
+        flw["ip_market => sysenv"][...] = trd["steel"].exports
+        flw["sysenv => ip_market"][...] = trd["steel"].imports
+
+        flw["ip_market => fabrication"][...] = flw["forming => ip_market"] + trd["steel"].net_imports
 
         # get approximate fabrication yield with consumption sector split
         aux["aggregate_fabrication_yield"][...] = (prm["fabrication_yield"][{'t': self.dims['h']}] * prm["sector_split"]).sum_over("g")
