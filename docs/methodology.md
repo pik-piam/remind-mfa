@@ -10,7 +10,7 @@ REMIND-MFA includes MFA models for the basic materials cement, plastics, and ste
 ![Plastics MFA](img/plastics.png)
 *Figure 2: Process and flow layouts of the REMIND-MFA for plastics*
 
-![Plastics MFA](img/cement.png)
+![Cement MFA](img/cement.png)
 *Figure 2: Process and flow layouts of the REMIND-MFA for cement*
 
 ## Dynamic Stock Modelling: Top-Down Approach
