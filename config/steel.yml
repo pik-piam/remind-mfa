@@ -1,11 +1,11 @@
 model: 'steel'
 
 input:
-  madrat_output_path: '../remind_mfa_data'
+  madrat_output_path: 'I:\output_1.27'
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data/h12'
   scenarios_path: 'config/scenarios'
-  input_data_version: 'rev1.0.0test_all_2b1450bc_1584d780_mfa'
+  input_data_version: 'rev1.0.0_h12_1584d780_mfa'
 
 model_switches:
   scenario: 'SSP2'
