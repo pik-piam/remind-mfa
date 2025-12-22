@@ -40,6 +40,7 @@ class SteelVisualizer(CommonVisualizer):
 
     def visualize_trade(self, mfa: fd.MFASystem):
         linecolor_dims = {
+            "steel": None,
             "indirect": "Good",
             "scrap": "Good",
         }
@@ -256,7 +257,7 @@ class SteelVisualizer(CommonVisualizer):
         prm = mfa.parameters
 
         total_production = (
-            flw["forming => ip_market"] / (prm["forming_yield"] * prm["production_yield"])
+            flw["forming => ip_market"] / (prm["forming_yield"] * (1 - prm["production_loss_rate"]))
         )[{"t": mfa.dims["h"]}]
         scrap_supply = (
             flw["recycling => scrap_market"]
