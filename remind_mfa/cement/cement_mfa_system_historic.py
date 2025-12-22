@@ -27,16 +27,9 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
 
         # in use
         stk["historic_cement_in_use"].inflow[...] = cement_consumption
-        lifetime_rel_std = 0.4
         stk["historic_cement_in_use"].lifetime_model.set_prms(
             mean=prm["use_lifetime_mean"],
-            std=lifetime_rel_std * prm["use_lifetime_mean"],
-        )
-        add_assumption_doc(
-            type="expert guess",
-            value=lifetime_rel_std,
-            name="Standard deviation of historic use lifetime",
-            description=f"The standard deviation of the historic use lifetime is set to {int(lifetime_rel_std * 100)} of the mean.",
+            std=prm["use_lifetime_std"] * prm["use_lifetime_mean"],
         )
         stk["historic_cement_in_use"].compute()
 

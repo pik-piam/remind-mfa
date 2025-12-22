@@ -39,16 +39,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             / self.cement_ratio
         )
 
-        lifetime_rel_std = 0.4
-        add_assumption_doc(
-            type="expert guess",
-            value=lifetime_rel_std,
-            name="Standard deviation of future use lifetime",
-            description=f"The standard deviation of the future use lifetime is set to {int(lifetime_rel_std * 100)} percent of the mean.",
-        )
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["use_lifetime_mean"],
-            std=lifetime_rel_std * prm["use_lifetime_mean"],
+            std=prm["use_lifetime_std"] * prm["use_lifetime_mean"],
         )
         stk["in_use"].compute()
 
