@@ -10,6 +10,9 @@ REMIND-MFA includes MFA models for the basic materials cement, plastics, and ste
 ![Plastics MFA](img/plastics.png)
 *Figure 2: Process and flow layouts of the REMIND-MFA for plastics*
 
+![Plastics MFA](img/cement.png)
+*Figure 2: Process and flow layouts of the REMIND-MFA for cement*
+
 ## Dynamic Stock Modelling: Top-Down Approach
 Dynamic stock modelling is an essential extension of MFA, providing a way to track how materials accumulate in long-lived goods like buildings, infrastructure, and vehicles [@Deng23]. Lifetime models further enrich this picture by quantifying how long materials remain in use before leaving the in-use stock again. They do this using the lifetime distribution (or its probability density function), from which the share of goods from a given production year that leave the stock by a certain time is derived.
 There are two approaches to derive in-use stocks in material flow analyses: Bottom-up and top-down. In the bottom-up approach, in-use stocks are quantified for specific products or end-use sectors in which the material of interest is used, and the material in-use stock is calculated as the sum of their respective material contents. While this approach has a high granularity and allows to model product- or end-use sector specific circular economy (CE) measures in great detail, typically not all end-use sectors can be covered, and hence, not the total material demand is modelled.
