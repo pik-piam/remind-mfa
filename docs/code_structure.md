@@ -19,5 +19,5 @@ Besides the source code, the repository contains another folder for configuratio
 ## Data Folder
 
 The data folder is used to store the input and output data for each model.
-The input data is not part of the repository, but is available open source on Zenodo as detailed [here](input_data.md). For each model, the input data consists of dimension files and parameter datasets. These have to be stored in the subfolders of the input folder named "dimensions" and "datasets", respectively, in order to run the model.
+The input data is not part of the repository, but is available open source on Zenodo as detailed [here](input_data.md).  
 The output data folder stores all model exports and visulizations.
