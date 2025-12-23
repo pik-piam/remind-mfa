@@ -24,7 +24,7 @@ Models can be either inflow-driven or stock-driven. In inflow-driven models, dem
 In REMIND-MFA, we choose such a stock-driven approach, in line with relevant literature in the field [@pauliuk_steel_2013]. We use this method to derive a baseline scenario without circular economy (CE) interventions. We assume in-use stock per capita to be a function of GDP per capita (GDPpC). In particular, we assume it to behave like a logistic function of the logarithm of GDPpC, which is in line with historic trends. Using historic production and trade data, we calculate historic demand, and using product lifetime models we derive the historic in-use stock development. We regress these historic stocks over GDP to derive the regression parameters for future stock developments. The detailed methodology of these stock extrapolations is described separately for each MFA in the respective section. Scenarios with CE interventions can be derived from the baseline scenario by adjusting the regress parameters (such as stock saturation levels) or the input parameters (such as lifetimes or recycling rates), or by modifying material demands after regressing them.
 
 ![ProjectFutureProduction](img/MFA_ProjectFutureProduction.png)
-*Figure 3: Projecting Future Steel Production: Stock Saturation (method adapted from [@pauliuk_moving_2012])*
+*Figure 4: Projecting Future Steel Production: Stock Saturation (method adapted from [@pauliuk_moving_2012])*
 
 ## Trade
 REMIND-MFA includes trade in different stages across the life cycle. Those are raw material trade, trade of materials embedded in goods, and trade of end-of life scrap or waste. Material-specific exceptions apply.
