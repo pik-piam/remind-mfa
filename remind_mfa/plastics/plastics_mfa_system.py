@@ -68,65 +68,32 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             "ratio_nonc_to_c": self.get_new_array(dim_letters=("m",)),
         }
 
-        split_use = stk["in_use"].inflow.get_shares_over(("g", "e", "m"))
         extrapolate_trade(
-            self.split_trade_by_share(historic_trade["final_his"], split_use),
+            historic_trade["final_his"],
             self.trade_set["final"],
             stk["in_use"].inflow,
             "imports",
             balance_to="hmean",
         )
 
-        flw["good_market => use"][...] = trd["final"].imports
-        flw["fabrication => good_market"][...] = trd["final"].exports
+        flw["good_market => use"][...] = trd["final"].imports * self.parameters["carbon_content_materials"]
+        flw["fabrication => good_market"][...] = trd["final"].exports * self.parameters["carbon_content_materials"]
         flw["sysenv => good_market"][...] = flw["good_market => use"]
         flw["good_market => sysenv"][...] = flw["fabrication => good_market"]
 
         flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"]
 
-        split_fabrication = flw["fabrication => use"].sum_over(("g")).get_shares_over(("e", "m"))
         extrapolate_trade(
-            self.split_trade_by_share(historic_trade["intermediate_his"], split_fabrication),
-            self.trade_set["intermediate"],
-            flw["fabrication => use"],
-            "imports",
-            balance_to="hmean",
-        )
-        extrapolate_trade(
-            self.split_trade_by_share(historic_trade["manufactured_his"], split_fabrication),
-            self.trade_set["manufactured"],
-            flw["fabrication => use"],
-            "imports",
-            balance_to="hmean",
-        )
-
-        flw["intermediate_market => fabrication"][...] = (
-            trd["intermediate"].imports + trd["manufactured"].imports
-        )
-        flw["processing => intermediate_market"][...] = (
-            trd["intermediate"].exports + trd["manufactured"].exports
-        )
-        flw["sysenv => intermediate_market"][...] = flw["intermediate_market => fabrication"]
-        flw["intermediate_market => sysenv"][...] = flw["processing => intermediate_market"]
-
-        flw["processing => fabrication"][...] = (
-            flw["fabrication => use"]
-            + flw["fabrication => good_market"]
-            - flw["intermediate_market => fabrication"]
-        )
-
-        split_processing = flw["processing => fabrication"].get_shares_over(("e", "m"))
-        extrapolate_trade(
-            self.split_trade_by_share(historic_trade["primary_his"], split_processing),
+            historic_trade["primary_his"],
             self.trade_set["primary"],
-            flw["processing => fabrication"],
+            flw["fabrication => use"],
             "imports",
             balance_to="hmean",
         )
 
-        flw["primary_market => processing"][...] = trd["primary"].imports
+        flw["primary_market => fabrication"][...] = trd["primary"].imports
         flw["virgin => primary_market"][...] = trd["primary"].exports
-        flw["sysenv => primary_market"][...] = flw["primary_market => processing"]
+        flw["sysenv => primary_market"][...] = flw["primary_market => fabrication"]
         flw["primary_market => sysenv"][...] = flw["virgin => primary_market"]
 
         # fmt: off
@@ -140,8 +107,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["mechanical_recycling_rate"]
-        flw["reclmech => processing"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
-        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => processing"]
+        flw["reclmech => fabrication"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => fabrication"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
@@ -175,18 +142,18 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["emission => atmosphere"][...] = flw["incineration => emission"] - flw["emission => captured"]
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
-        flw["virgin => processing"][...] = (
-            flw["processing => fabrication"]
-            - flw["primary_market => processing"]
-            + flw["processing => intermediate_market"]
-            - flw["reclmech => processing"]
+        flw["virgin => fabrication"][...] = (
+            flw["fabrication => use"]
+            - flw["primary_market => fabrication"]
+            + flw["fabrication => good_market"]
+            - flw["reclmech => fabrication"]
         )
 
-        flw["virgindaccu => virgin"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["daccu_production_rate"]
-        flw["virginbio => virgin"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["bio_production_rate"]
+        flw["virgindaccu => virgin"][...] = (flw["virgin => fabrication"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["daccu_production_rate"]
+        flw["virginbio => virgin"][...] = (flw["virgin => fabrication"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) * prm["bio_production_rate"]
 
-        aux["virgin_2_fabr_all_mat"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"])
-        aux["virgin_material_shares"][...] = (flw["virgin => processing"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) / aux["virgin_2_fabr_all_mat"]
+        aux["virgin_2_fabr_all_mat"][...] = (flw["virgin => fabrication"] + flw["virgin => primary_market"] - flw["reclchem => virgin"])
+        aux["virgin_material_shares"][...] = (flw["virgin => fabrication"] + flw["virgin => primary_market"] - flw["reclchem => virgin"]) / aux["virgin_2_fabr_all_mat"]
         aux["captured_2_virginccu_by_mat"][...] = flw["captured => virginccu"] * aux["virgin_material_shares"]
 
         flw["virginccu => virgin"]["C"] = aux["captured_2_virginccu_by_mat"]["C"]
@@ -194,7 +161,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["virginccu => virgin"]["Other Elements"] = flw["virginccu => virgin"]["C"] * aux["ratio_nonc_to_c"]
 
         flw["virginfoss => virgin"][...] = (
-            flw["virgin => processing"]
+            flw["virgin => fabrication"]
             - flw["virgindaccu => virgin"]
             - flw["virginbio => virgin"]
             - flw["virginccu => virgin"]
