@@ -210,9 +210,9 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ]
     else:
         trades = [
-            TradeDefinition(name="primary", dim_letters=("t", "r", "m", "e")),
-            TradeDefinition(name="final", dim_letters=("t", "r", "m", "e", "g")),
-            TradeDefinition(name="waste", dim_letters=("t", "r", "m", "e", "g")),
+            TradeDefinition(name="primary", dim_letters=("t", "r", "m")),
+            TradeDefinition(name="final", dim_letters=("t", "r", "m", "g")),
+            TradeDefinition(name="waste", dim_letters=("t", "e", "r", "m", "g")),
         ]
 
     return RemindMFADefinition(

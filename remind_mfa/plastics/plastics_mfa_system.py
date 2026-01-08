@@ -91,8 +91,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             balance_to="hmean",
         )
 
-        flw["primary_market => fabrication"][...] = trd["primary"].imports
-        flw["virgin => primary_market"][...] = trd["primary"].exports
+        flw["primary_market => fabrication"][...] = trd["primary"].imports * self.parameters["carbon_content_materials"]
+        flw["virgin => primary_market"][...] = trd["primary"].exports * self.parameters["carbon_content_materials"]
         flw["sysenv => primary_market"][...] = flw["primary_market => fabrication"]
         flw["primary_market => sysenv"][...] = flw["virgin => primary_market"]
 
