@@ -21,6 +21,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     if historic:
         processes = [
             "sysenv",
+            "fabrication",
+            "good_market",
             "use",
         ]
     else:
@@ -50,7 +52,15 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ]
 
     if historic:
-        flows = []
+        flows = [
+            fd.FlowDefinition(from_process="sysenv", to_process="fabrication", dim_letters=("h","e","r","m","g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h","e","r","m","g")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h","e","r","m","g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("h","e","r","m","g")),
+            fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h","e","r","m","g")),
+            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h","e","r","m","g")),
+            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
+        ]
     else:
         # fmt: off
         # names are auto-generated, see Flow class documetation
@@ -191,7 +201,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Carbon content of materials",),
         # for in-use stock
         RemindMFAParameterDefinition(name="consumption", dim_letters=("h", "r", "g"),
-                                     description="Historic consumption",),
+                                     description="Historic plastic use by industries such as converters for the fabrication of plastic products",),
         RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("g",),
                                      description="Mean lifetime of goods",),
         RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("g",),
