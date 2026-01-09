@@ -27,7 +27,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         split_eol = self.stocks["in_use"].outflow.get_shares_over(("g", "e", "m"))
         self.trade_set["waste"].imports[...] = self.parameters[f"waste_imports"] * split_eol
         self.trade_set["waste"].exports[...] = self.parameters[f"waste_exports"] * split_eol
-        self.trade_set.balance(to="maximum")
+        self.trade_set.balance(to="minimum")
 
     def compute_stock(self, stock_projection: fd.FlodymArray):
         self.stocks["in_use_dsm"].stock[...] = stock_projection
@@ -73,7 +73,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             self.trade_set["final"],
             stk["in_use"].inflow,
             "imports",
-            balance_to="hmean",
+            balance_to="minimum",
         )
 
         flw["good_market => use"][...] = trd["final"].imports * self.parameters["carbon_content_materials"]
@@ -88,7 +88,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             self.trade_set["primary"],
             flw["fabrication => use"],
             "imports",
-            balance_to="hmean",
+            balance_to="minimum",
         )
 
         flw["primary_market => fabrication"][...] = trd["primary"].imports * self.parameters["carbon_content_materials"]

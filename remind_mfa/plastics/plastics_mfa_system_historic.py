@@ -30,4 +30,4 @@ class PlasticsMFASystemHistoric(fd.MFASystem):
             if name.endswith("_his"):
                 trade.imports[...] = self.parameters[f"{name}_imports"]
                 trade.exports[...] = self.parameters[f"{name}_exports"]
-        self.trade_set.balance(to="maximum")
+        self.trade_set.balance(to="minimum")
