@@ -179,10 +179,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Historic final goods imports",),
         RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r", "m", "g"),
                                      description="Historic final goods exports",),
-        RemindMFAParameterDefinition(name="waste_imports", dim_letters=("t", "r"),
-                                     description="Plastic waste imports (historic and future assumption)",),
-        RemindMFAParameterDefinition(name="waste_exports", dim_letters=("t", "r"),
-                                     description="Plastic waste exports (historic and future assumption)",),
+        RemindMFAParameterDefinition(name="waste_his_imports", dim_letters=("h", "r", "m"),
+                                     description="Historic plastic waste imports",),
+        RemindMFAParameterDefinition(name="waste_his_exports", dim_letters=("h", "r", "m"),
+                                     description="Historic plastic waste exports",),
         # virgin production rates
         RemindMFAParameterDefinition(name="bio_production_rate", dim_letters=("h", "r"),
                                      description="Share of bio-based plastics in virgin production",),
@@ -223,7 +223,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         trades = [
             TradeDefinition(name="primary", dim_letters=("t", "r", "m")),
             TradeDefinition(name="final", dim_letters=("t", "r", "m", "g")),
-            TradeDefinition(name="waste", dim_letters=("t", "e", "r", "m", "g")),
+            TradeDefinition(name="waste", dim_letters=("t", "e", "r", "m")),
         ]
 
     return RemindMFADefinition(
@@ -238,6 +238,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
 # fmt: off
 scenario_parameters = [
+    RemindMFAParameterDefinition(name="waste_his_imports_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="waste_his_exports_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="waste_his_imports_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="waste_his_exports_target_value", dim_letters=("r",),),
     RemindMFAParameterDefinition(name="collection_rate_target_year", dim_letters=("r",),),
     RemindMFAParameterDefinition(name="collection_rate_target_value", dim_letters=("r",),),
     RemindMFAParameterDefinition(name="incineration_rate_target_year", dim_letters=("r",),),
