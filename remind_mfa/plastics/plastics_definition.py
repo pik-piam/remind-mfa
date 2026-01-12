@@ -118,6 +118,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         stocks = [
             fd.StockDefinition(
                 name="in_use_historic",
+                process="use",
                 dim_letters=("h", "r", "g"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
