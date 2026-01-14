@@ -12,6 +12,7 @@ from typing import Any, List, Optional
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.colors as pc
+import plotly.express as px
 
 
 from remind_mfa.common.common_visualization import CommonVisualizer
@@ -25,6 +26,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_custom(self, model: "PlasticsModel"):
         if self.cfg.production.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
+            self.compare_demand(mfa=model.future_mfa)
 
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model)
@@ -224,6 +226,31 @@ class PlasticsVisualizer(CommonVisualizer):
         )
         fig = ap.plot()
         self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
+
+    def compare_demand(self, mfa: fd.MFASystem):
+        df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
+
+        # Convert year to numeric
+        df["year"] = pd.to_numeric(df["year"], errors="coerce")
+
+        # Plotly line plot
+        fig = px.line(
+            df,
+            x="year",
+            y="value",
+            color="source",
+            markers=True
+        )
+
+        ap = self.plotter_class(
+            array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e", "g")),
+            intra_line_dim="Time",
+            title="Demand [Mt]",
+            line_label="REMIND-MFA",
+            fig=fig,
+        )
+        ap.plot()
+        self.plot_and_save_figure(ap, "demand_validation.png", do_plot=False)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
