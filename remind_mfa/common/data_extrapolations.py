@@ -119,7 +119,7 @@ class Extrapolation(RemindMFABaseModel):
         predictor_shape = tuple(
             [self.predictor_values.shape[i] for i in sorted(self.independent_dims)]
         )
-        regression = np.zeros_like(self.predictor_values)
+        regression = np.zeros(self.predictor_values.shape, dtype=float)
         self._fit_prms = np.zeros(predictor_shape + (self.n_prms,))
         bounds_array = self.bound_list.to_np_array(self.prm_names)
 
@@ -240,3 +240,44 @@ class LogisticExtrapolation(Extrapolation):
         max_predictor = np.max(predictor_values)
         stretch_factor = 2 / (max_predictor - mean_predictor)
         return np.array([sat_level_guess, stretch_factor, mean_predictor])
+    
+    
+class TwoPredictorLogisticExtrapolation(Extrapolation):
+    """
+    Two-predictor logistic-style extrapolation:
+    model: A * f_x1(x1; k_x1, x1_0) * f_x2(x2; k_x2, x2_0)
+    Prm order: [saturation_level (A), k_x1, x1_0, k_x2, x2_0]
+    """
+
+    prm_names: list[str] = ["saturation_level", "x1_stretch_factor", "x1_offset", "x2_stretch_factor", "x2_offset"]
+
+    def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        """
+        x : structured array with fields 'x1' and 'x2'
+        """
+        A, k_x1, x1_0, k_x2, x2_0 = prms[:5]
+        x1 = x['x1']
+        x2 = x['x2']
+        assert x2 is not None, "TwoPredictorLogisticExtrapolation requires a secondary predictor"
+
+        f_x1 = 1.0 / (1.0 + np.exp(-k_x1 * (x1 - x1_0)))
+        f_x2 = 1.0 / (1.0 + np.exp(-k_x2 * (x2 - x2_0)))
+        return A * f_x1 * f_x2
+
+    def initial_guess(
+        self,
+        predictor_values: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+    ) -> np.ndarray:
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2.0 * max_level
+
+        mean_x1 = np.mean(predictor_values['x1'][: self.n_historic, ...])
+        max_x1 = np.max(predictor_values['x1'][: self.n_historic, ...])
+        k_x1_guess = 2.0 / (max_x1 - mean_x1)
+
+        mean_x2 = np.mean(predictor_values['x2'][: self.n_historic, ...])
+        max_x2 = np.max(predictor_values['x2'][: self.n_historic, ...])
+        k_x2_guess = 2.0 / (max_x2 - mean_x2)
+
+        return np.array([sat_level_guess, k_x1_guess, mean_x1, k_x2_guess, mean_x2])

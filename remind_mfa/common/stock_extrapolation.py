@@ -170,6 +170,12 @@ class StockExtrapolation:
                     "The weighted sum of logGDP per capita and Year is used as a predictor in stock extrapolation. "
                 ),
             )
+        elif self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            time = np.array(self.dims["t"].items)
+            time = broadcast_trailing_dimensions(time, gdppc)
+            predictor = np.empty(gdppc.shape, dtype=[('x1', gdppc.dtype), ('x2', time.dtype)])
+            predictor['x1'] = np.log10(gdppc)
+            predictor['x2'] = time
 
         self.extrapolation = self.cfg.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
