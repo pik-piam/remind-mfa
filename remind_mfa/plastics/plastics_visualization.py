@@ -9,12 +9,11 @@ import pyam
 from typing import TYPE_CHECKING
 import flodym.export as fde
 from typing import Any, List, Optional
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import plotly.colors as pc
 import plotly.express as px
+import matplotlib.pyplot as plt
 
-
+from remind_mfa.common.helpers import RegressOverModes
 from remind_mfa.common.common_visualization import CommonVisualizer
 
 if TYPE_CHECKING:
@@ -30,6 +29,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model)
+            if model.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
+                self.visualize_extrapolation_logistic_functions(model=model)
 
         if self.cfg.flows.do_visualize:
             primary_production = (
@@ -210,6 +211,7 @@ class PlasticsVisualizer(CommonVisualizer):
             linecolor_dim="Good",
             x_label="Year",
             y_label="Demand [Mt]",
+            title="Demand [Mt]",
         )
         self.plot_and_save_figure(ap_demand, "demand_history_and_future.png", do_plot=False)
 
@@ -558,3 +560,68 @@ class PlasticsVisualizer(CommonVisualizer):
             f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock.over_gdp else '_overTime'}.png",
             do_plot=False,
         )
+
+    def visualize_extrapolation_logistic_functions(self, model: "PlasticsModel"):
+        mfa = model.future_mfa
+        # plot logistic functions over time and gdp
+        gdp_min = np.min(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r")))
+        gdp_max = np.max(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r")))
+        gdp_range = np.linspace(gdp_min, gdp_max, 200)
+        t_range = np.linspace(1950, 2100, 200)
+        
+        # Define logistic function and get fitted parameters
+        def logistic(x, k, x0):
+            return 1 / (1 + np.exp(-k*(x - x0)))
+        fit_params = model.stock_handler.extrapolation.fit_prms
+
+        fig, axes = plt.subplots(
+            1, 2,
+            figsize=(14, 6),
+            sharey=True,
+        )
+
+        colors = [
+            "#1f77b4", "#ff7f0e", "#2ca02c",
+            "#d62728", "#9467bd", "#8c564b",
+            "#e377c2",
+        ]
+
+        goods = model.dims[model.stock_handler.indep_fit_dim_letters][0].items
+
+        for i, d in enumerate(goods):
+            color = colors[i % len(colors)]
+
+            # GDP logistic
+            axes[0].plot(
+                gdp_range,
+                logistic(np.log10(gdp_range), fit_params[i, 1], fit_params[i, 2]),
+                color=color,
+                label=str(d),
+            )
+
+            # Time logistic
+            axes[1].plot(
+                t_range,
+                logistic(t_range, fit_params[i, 3], fit_params[i, 4]),
+                color=color,
+                label=str(d),
+            )
+
+        # Axis labels and titles
+        axes[0].set_title("Logistic Growth over GDP")
+        axes[0].set_xlabel("log10(GDP per capita)")
+        axes[0].set_ylabel("f(GDP)")
+        axes[0].grid(True)
+
+        axes[1].set_title("Logistic Growth over Time")
+        axes[1].set_xlabel("Year")
+        axes[1].grid(True)
+
+        # Legend (only once)
+        axes[0].legend(title="Good category")
+
+        plt.tight_layout()
+
+        plt.plot()
+        plt.show()
+        plt.savefig(self.figure_path("Logistic_functions_gdp_time.png"))
