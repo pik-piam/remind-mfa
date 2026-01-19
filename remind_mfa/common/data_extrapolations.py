@@ -281,3 +281,46 @@ class TwoPredictorLogisticExtrapolation(Extrapolation):
         k_x2_guess = 2.0 / (max_x2 - mean_x2)
 
         return np.array([sat_level_guess, k_x1_guess, mean_x1, k_x2_guess, mean_x2])
+
+
+class TwoPredictorGompertzExtrapolation(Extrapolation):
+    """
+    Two-predictor Gompertz extrapolation:
+    model: a * f_x1(x1; b_x1, c_x1) * f_x2(x2; b_x2, c_x2)
+    Prm order: [saturation_level (a), b_x1, c_x1, b_x2, c_x2]
+    """
+
+    prm_names: list[str] = ["saturation_level", "x1_offset", "x1_growth_rate", "x2_offset", "x2_growth_rate"]
+
+    def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        """
+        x : structured array with fields 'x1' and 'x2'
+        """
+        a, b_x1, c_x1, b_x2, c_x2 = prms[:5]
+        x1 = x['x1']
+        x2 = x['x2']
+        assert x2 is not None, "TwoPredictorGompertzExtrapolation requires a secondary predictor"
+
+        f_x1 = np.exp(-b_x1 * np.exp(-c_x1 * x1))
+        f_x2 = np.exp(-b_x2 * np.exp(-c_x2 * x2))
+        return a * f_x1 * f_x2
+
+    def initial_guess(
+        self,
+        predictor_values: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+    ) -> np.ndarray:
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2.0 * max_level
+
+        mean_x1 = np.mean(predictor_values['x1'][: self.n_historic, ...])
+        max_x1 = np.max(predictor_values['x1'][: self.n_historic, ...])
+        c_x1_guess = 2.0 / (max_x1 - mean_x1)
+        b_x1_guess = np.exp(c_x1_guess * mean_x1)
+
+        mean_x2 = np.mean(predictor_values['x2'][: self.n_historic, ...])
+        max_x2 = np.max(predictor_values['x2'][: self.n_historic, ...])
+        c_x2_guess = 2.0 / (max_x2 - mean_x2)
+        b_x2_guess = np.exp(c_x2_guess * mean_x2)
+
+        return np.array([sat_level_guess, b_x1_guess, c_x1_guess, b_x2_guess, c_x2_guess])
