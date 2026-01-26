@@ -15,6 +15,7 @@ from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
+from remind_mfa.common.data_extrapolations import LogisticExtrapolation
 
 
 class SteelModel(CommonModel):
@@ -115,9 +116,38 @@ class SteelModel(CommonModel):
             upper_bound=sat_level,
             dims=self.dims[indep_fit_dim_letters],
         )
+        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters])
+        offset_bound_gdp = Bound(
+            var_name="x1_offset",
+            lower_bound=lower_bound,
+            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+                                       values=np.ones(lower_bound.shape)*np.inf),
+        )
+        offset_bound_time = Bound(
+            var_name="x2_offset",
+            lower_bound=lower_bound,
+            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+                                       values=np.ones(lower_bound.shape)*np.inf),
+        )
+        growth_rate_bound_gdp = Bound(
+            var_name="x1_growth_rate",
+            lower_bound=lower_bound,
+            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+                                       values=np.ones(lower_bound.shape)*np.inf),
+        )
+        growth_rate_bound_time = Bound(
+            var_name="x2_growth_rate",
+            lower_bound=lower_bound,
+            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+                                       values=np.ones(lower_bound.shape)*np.inf),
+        )
         bound_list = BoundList(
             bound_list=[
                 sat_bound,
+                offset_bound_gdp,
+                offset_bound_time,
+                growth_rate_bound_gdp,
+                growth_rate_bound_time,
             ],
             target_dims=self.dims[indep_fit_dim_letters],
         )
@@ -143,12 +173,12 @@ class SteelModel(CommonModel):
         # divide by factor, then regress, then multiply again, which is equivalent to
         # multiplying targets by this factor
         historic_stocks = historic_stocks / self.parameters["saturation_level_factor"]
-        gdppc_old = deepcopy(self.parameters["gdppc"])
-        self.parameters["gdppc"] = self.parameters["gdppc"] ** self.parameters[
-            "stock_growth_speed_factor"
-        ] * self.parameters["gdppc"][{"t": 2022}] ** (
-            1.0 - self.parameters["stock_growth_speed_factor"]
-        )
+        # gdppc_old = deepcopy(self.parameters["gdppc"])
+        # self.parameters["gdppc"] = self.parameters["gdppc"] ** self.parameters[
+        #     "stock_growth_speed_factor"
+        # ] * self.parameters["gdppc"][{"t": 2022}] ** (
+        #     1.0 - self.parameters["stock_growth_speed_factor"]
+        # )
 
         # extrapolate in use stock to future
         self.stock_handler = StockExtrapolation(
@@ -166,7 +196,7 @@ class SteelModel(CommonModel):
 
         # scale back stocks and gdp
         total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
-        self.parameters["gdppc"] = gdppc_old
+        #self.parameters["gdppc"] = gdppc_old
 
         if not self.cfg.model_switches.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock
@@ -180,7 +210,7 @@ class SteelModel(CommonModel):
         historic_pop = pop[{"t": self.dims["h"]}]
         historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
 
-        multi_dim_extrapolation = self.cfg.model_switches.stock_extrapolation_class(
+        multi_dim_extrapolation = LogisticExtrapolation(
             data_to_extrapolate=historic_stocks_pc.values,
             predictor_values=np.log10(gdppc.values),
             independent_dims=(),
