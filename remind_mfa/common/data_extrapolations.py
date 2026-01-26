@@ -286,7 +286,7 @@ class TwoPredictorLogisticExtrapolation(Extrapolation):
 class TwoPredictorGompertzExtrapolation(Extrapolation):
     """
     Two-predictor Gompertz extrapolation:
-    model: a * f_x1(x1; b_x1, c_x1) * f_x2(x2; b_x2, c_x2)
+    model: a * f_x1 * f_x2
     Prm order: [saturation_level (a), b_x1, c_x1, b_x2, c_x2]
     """
 
@@ -313,14 +313,10 @@ class TwoPredictorGompertzExtrapolation(Extrapolation):
         max_level = np.max(data_to_extrapolate)
         sat_level_guess = 2.0 * max_level
 
-        mean_x1 = np.mean(predictor_values['x1'][: self.n_historic, ...])
-        max_x1 = np.max(predictor_values['x1'][: self.n_historic, ...])
-        c_x1_guess = 2.0 / (max_x1 - mean_x1)
-        b_x1_guess = np.exp(c_x1_guess * mean_x1)
+        c_x1_guess = 1
+        b_x1_guess = 1
 
-        mean_x2 = np.mean(predictor_values['x2'][: self.n_historic, ...])
-        max_x2 = np.max(predictor_values['x2'][: self.n_historic, ...])
-        c_x2_guess = 2.0 / (max_x2 - mean_x2)
-        b_x2_guess = np.exp(c_x2_guess * mean_x2)
+        c_x2_guess = 1
+        b_x2_guess = 1
 
         return np.array([sat_level_guess, b_x1_guess, c_x1_guess, b_x2_guess, c_x2_guess])

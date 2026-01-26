@@ -173,12 +173,18 @@ class StockExtrapolation:
         elif self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
             time = np.array(self.dims["t"].items)
             time = broadcast_trailing_dimensions(time, gdppc)
-            predictor = np.empty(gdppc.shape, dtype=[('x1', gdppc.dtype), ('x2', time.dtype)])
+            predictor = np.empty(gdppc.shape, dtype=[('x1', np.float64), ('x2', np.float64)])
             predictor['x1'] = np.log10(gdppc)
             predictor['x2'] = time
+            if self.cfg.stock_extrapolation_class_name == 'TwoPredictorGompertzExtrapolation':
+                """
+                Predictors are scaled and centered to avoid numerical issues during extrapolation.
+                """
+                predictor['x1'] = (predictor['x1'] - np.mean(predictor['x1'][:n_historic, ...]))/np.std(predictor['x1'][:n_historic, ...])
+                predictor['x2'] = (predictor['x2'] - np.mean(predictor['x2'][:n_historic, ...]))/np.std(predictor['x2'][:n_historic, ...])
 
         self.extrapolation = self.cfg.stock_extrapolation_class(
-            data_to_extrapolate=historic_in,
+            data_to_extrapolate=historic_in, 
             predictor_values=predictor,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,

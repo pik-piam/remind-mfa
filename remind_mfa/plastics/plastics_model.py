@@ -44,23 +44,55 @@ class PlasticsModel(CommonModel):
             dims=self.dims[indep_fit_dim_letters],
         )
         lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters])
+        # Define bounds for Logistic parameters
+        # offset_bound_gdp = Bound(
+        #     var_name="x1_offset",
+        #     lower_bound=lower_bound,
+        #     upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+        #                                values=np.log10(np.max(self.parameters["gdppc"][self.dims["h"].items[-1]].values)) * np.ones(lower_bound.shape)),
+        # )
+        # offset_bound_time = Bound(
+        #     var_name="x2_offset",
+        #     lower_bound=lower_bound,
+        #     upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+        #                                values=self.dims["h"].items[-1]*np.ones(lower_bound.shape)),
+        # )
+        # Define bounds for Gompertz parameters
         offset_bound_gdp = Bound(
             var_name="x1_offset",
-            lower_bound=lower_bound,
+            lower_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters],
+                                       values=np.ones(lower_bound.shape)*0.05),
             upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
-                                       values=np.log10(np.max(self.parameters["gdppc"][self.dims["h"].items[-1]].values)) * np.ones(lower_bound.shape)),
+                                       values=np.ones(lower_bound.shape)*20),
         )
         offset_bound_time = Bound(
             var_name="x2_offset",
-            lower_bound=lower_bound,
+            lower_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters],
+                                       values=np.ones(lower_bound.shape)*0.05),
             upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
-                                       values=self.dims["h"].items[-1]*np.ones(lower_bound.shape)),
+                                       values=np.ones(lower_bound.shape)*20),
+        )
+        growth_rate_bound_gdp = Bound(
+            var_name="x1_growth_rate",
+            lower_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters],
+                                       values=np.ones(lower_bound.shape)*0.3),
+            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+                                       values=np.ones(lower_bound.shape)*3),
+        )
+        growth_rate_bound_time = Bound(
+            var_name="x2_growth_rate",
+            lower_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters],
+                                       values=np.ones(lower_bound.shape)*0.3),
+            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
+                                       values=np.ones(lower_bound.shape)*3),
         )
         bound_list = BoundList(
             bound_list=[
                 #sat_bound,
                 offset_bound_gdp,
                 offset_bound_time,
+                growth_rate_bound_gdp,
+                growth_rate_bound_time,
             ],
             target_dims=self.dims[indep_fit_dim_letters],
         )

@@ -30,7 +30,7 @@ class PlasticsVisualizer(CommonVisualizer):
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model)
             if model.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
-                self.visualize_extrapolation_logistic_functions(model=model)
+                self.visualize_extrapolation_functions(model=model)
 
         if self.cfg.flows.do_visualize:
             primary_production = (
@@ -561,17 +561,23 @@ class PlasticsVisualizer(CommonVisualizer):
             do_plot=False,
         )
 
-    def visualize_extrapolation_logistic_functions(self, model: "PlasticsModel"):
+    def visualize_extrapolation_functions(self, model: "PlasticsModel"):
         mfa = model.future_mfa
-        # plot logistic functions over time and gdp
-        gdp_min = np.min(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r")))
-        gdp_max = np.max(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r")))
+        # plot functions over time and gdp
+        gdp_min = np.log10(np.min(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r"))))
+        gdp_max = np.log10(np.max(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r"))))
         gdp_range = np.linspace(gdp_min, gdp_max, 200)
         t_range = np.linspace(1950, 2100, 200)
+        n_historic = len(mfa.dims["h"].items)
         
-        # Define logistic function and get fitted parameters
-        def logistic(x, k, x0):
-            return 1 / (1 + np.exp(-k*(x - x0)))
+        # Define functions and get fitted parameters
+        if model.cfg.model_switches.stock_extrapolation_class_name == 'TwoPredictorGompertzExtrapolation':
+            def fit_func(x, b, c):
+                x = (x - np.mean(x[:n_historic, ...]))/np.std(x[:n_historic, ...])
+                return np.exp(-b * np.exp(-c * x))
+        elif model.cfg.model_switches.stock_extrapolation_class_name == 'TwoPredictorLogisticExtrapolation':
+            def fit_func(x, k, x0):
+                return 1 / (1 + np.exp(-k*(x - x0)))
         fit_params = model.stock_handler.extrapolation.fit_prms
 
         fig, axes = plt.subplots(
@@ -594,7 +600,7 @@ class PlasticsVisualizer(CommonVisualizer):
             # GDP logistic
             axes[0].plot(
                 gdp_range,
-                logistic(np.log10(gdp_range), fit_params[i, 1], fit_params[i, 2]),
+                fit_func(gdp_range, fit_params[i, 1], fit_params[i, 2]),
                 color=color,
                 label=str(d),
             )
@@ -602,18 +608,18 @@ class PlasticsVisualizer(CommonVisualizer):
             # Time logistic
             axes[1].plot(
                 t_range,
-                logistic(t_range, fit_params[i, 3], fit_params[i, 4]),
+                fit_func(t_range, fit_params[i, 3], fit_params[i, 4]),
                 color=color,
                 label=str(d),
             )
 
         # Axis labels and titles
-        axes[0].set_title("Logistic Growth over GDP")
+        axes[0].set_title("Growth over GDP")
         axes[0].set_xlabel("log10(GDP per capita)")
         axes[0].set_ylabel("f(GDP)")
         axes[0].grid(True)
 
-        axes[1].set_title("Logistic Growth over Time")
+        axes[1].set_title("Growth over Time")
         axes[1].set_xlabel("Year")
         axes[1].grid(True)
 
@@ -624,4 +630,4 @@ class PlasticsVisualizer(CommonVisualizer):
 
         plt.plot()
         plt.show()
-        plt.savefig(self.figure_path("Logistic_functions_gdp_time.png"))
+        plt.savefig(self.figure_path("Functions_gdp_time.png"))
