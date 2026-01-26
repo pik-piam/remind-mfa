@@ -233,13 +233,7 @@ class PlasticsVisualizer(CommonVisualizer):
         df["year"] = pd.to_numeric(df["year"], errors="coerce")
 
         # Plotly line plot
-        fig = px.line(
-            df,
-            x="year",
-            y="value",
-            color="source",
-            markers=True
-        )
+        fig = px.line(df, x="year", y="value", color="source", markers=True)
 
         ap = self.plotter_class(
             array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e", "g")),
@@ -469,7 +463,7 @@ class PlasticsVisualizer(CommonVisualizer):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         subplot_dim = "Region"
-        #linecolor_dim = "Good"
+        # linecolor_dim = "Good"
         linecolor_dim = None
         stock = mfa.stocks["in_use"].stock
         population = mfa.parameters["population"]

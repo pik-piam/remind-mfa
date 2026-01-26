@@ -120,26 +120,30 @@ class SteelModel(CommonModel):
         offset_bound_gdp = Bound(
             var_name="x1_offset",
             lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
-                                       values=np.ones(lower_bound.shape)*np.inf),
+            upper_bound=fd.FlodymArray(
+                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
+            ),
         )
         offset_bound_time = Bound(
             var_name="x2_offset",
             lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
-                                       values=np.ones(lower_bound.shape)*np.inf),
+            upper_bound=fd.FlodymArray(
+                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
+            ),
         )
         growth_rate_bound_gdp = Bound(
             var_name="x1_growth_rate",
             lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
-                                       values=np.ones(lower_bound.shape)*np.inf),
+            upper_bound=fd.FlodymArray(
+                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
+            ),
         )
         growth_rate_bound_time = Bound(
             var_name="x2_growth_rate",
             lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters], 
-                                       values=np.ones(lower_bound.shape)*np.inf),
+            upper_bound=fd.FlodymArray(
+                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
+            ),
         )
         bound_list = BoundList(
             bound_list=[
@@ -196,7 +200,7 @@ class SteelModel(CommonModel):
 
         # scale back stocks and gdp
         total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
-        #self.parameters["gdppc"] = gdppc_old
+        # self.parameters["gdppc"] = gdppc_old
 
         if not self.cfg.model_switches.do_stock_extrapolation_by_category:
             # calculate and apply sector splits for in use stock

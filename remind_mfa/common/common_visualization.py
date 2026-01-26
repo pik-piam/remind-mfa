@@ -245,35 +245,66 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap.plot()
 
         return fig, ap
-    
+
     def visualize_extrapolation_functions(self, model: "CommonModel"):
         mfa = model.future_mfa
         # plot functions over time and gdp
-        gdp_min = np.log10(np.min(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r"))))
-        gdp_max = np.log10(np.max(mfa.parameters["gdppc"].values, axis=(mfa.parameters["gdppc"].dims.index("t"),mfa.parameters["gdppc"].dims.index("r"))))
+        gdp_min = np.log10(
+            np.min(
+                mfa.parameters["gdppc"].values,
+                axis=(
+                    mfa.parameters["gdppc"].dims.index("t"),
+                    mfa.parameters["gdppc"].dims.index("r"),
+                ),
+            )
+        )
+        gdp_max = np.log10(
+            np.max(
+                mfa.parameters["gdppc"].values,
+                axis=(
+                    mfa.parameters["gdppc"].dims.index("t"),
+                    mfa.parameters["gdppc"].dims.index("r"),
+                ),
+            )
+        )
         gdp_range = np.linspace(gdp_min, gdp_max, 200)
         t_range = np.linspace(1950, 2100, 200)
         n_historic = len(mfa.dims["h"].items)
-        
+
         # Define functions and get fitted parameters
-        if model.cfg.model_switches.stock_extrapolation_class_name == 'TwoPredictorGompertzExtrapolation':
+        if (
+            model.cfg.model_switches.stock_extrapolation_class_name
+            == "TwoPredictorGompertzExtrapolation"
+        ):
+
             def fit_func(x, b, c):
-                x = (x - np.mean(x[:n_historic, ...]))/np.std(x[:n_historic, ...])
+                x = (x - np.mean(x[:n_historic, ...])) / np.std(x[:n_historic, ...])
                 return np.exp(-b * np.exp(-c * x))
-        elif model.cfg.model_switches.stock_extrapolation_class_name == 'TwoPredictorLogisticExtrapolation':
+
+        elif (
+            model.cfg.model_switches.stock_extrapolation_class_name
+            == "TwoPredictorLogisticExtrapolation"
+        ):
+
             def fit_func(x, k, x0):
-                return 1 / (1 + np.exp(-k*(x - x0)))
+                return 1 / (1 + np.exp(-k * (x - x0)))
+
         fit_params = model.stock_handler.extrapolation.fit_prms
 
         fig, axes = plt.subplots(
-            1, 2,
+            1,
+            2,
             figsize=(14, 6),
             sharey=True,
         )
 
         colors = [
-            "#1f77b4", "#ff7f0e", "#2ca02c",
-            "#d62728", "#9467bd", "#8c564b",
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
             "#e377c2",
         ]
 
