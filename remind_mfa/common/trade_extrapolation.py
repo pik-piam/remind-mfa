@@ -1,5 +1,7 @@
 import numpy as np
 import flodym as fd
+from typing import Optional
+import logging
 
 from remind_mfa.common.data_extrapolations import ProportionalExtrapolation
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
@@ -9,63 +11,66 @@ from remind_mfa.common.trade import Trade
 def extrapolate_trade(
     historic_trade: Trade,
     future_trade: Trade,
-    scaler: fd.FlodymArray,
-    scale_first: str,
-    balance_to: str = None,
+    future_supply: fd.FlodymArray = None,
+    future_demand: fd.FlodymArray = None,
 ):
     """Predict future trade values by extrapolating the trade data using a given scaler.
 
     Args:
         historic_trade (Trade): Historic trade data.
         future_trade (Trade): Future trade data, which is written to.
-        scaler (FlodyArray): The array with the values to scale the historic trade data by.
-        scale_first (str): Either 'imports' or 'exports', indicating which trade values to scale first and
-            use as a scaler for the other trade values (scale_second).
-        balance_to (str): Method to use for balancing the future trade data. If None, no balancing is done.
-            For valid options, see trade object documentation.
+        future_supply (FlodymArray): The supply values to scale the historic exports by.
+            In this forward mode, the imports are scaled subsequently by supply + exports.
+        future_demand (FlodymArray): The demand values to scale the historic imports by.
+            In this backward mode, the exports are scaled subsequently by demand - imports.
     """
 
     # prepare prediction
-    assert scale_first in ["imports", "exports"], "Scale by must be either 'imports' or 'exports'."
+    assert (future_supply is None) != (future_demand is None), "Exactly one of scale_imports_by or scale_exports_by must be set."
     assert (
         "h" in historic_trade.imports.dims.letters and "h" in historic_trade.exports.dims.letters
     ), "Trade data must have a historic time dimension."
 
-    scale_second = "exports" if scale_first == "imports" else "imports"
-    historic_first = getattr(historic_trade, scale_first)
-    historic_second = getattr(historic_trade, scale_second)
-    future_first = getattr(future_trade, scale_first)
-    future_second = getattr(future_trade, scale_second)
+    if future_supply is not None:
+        scaler_first = future_supply
+        scaled_first = "exports"
+        scaled_second = "imports"
+    else:
+        scaler_first = future_demand
+        scaled_first = "imports"
+        scaled_second = "exports"
+
+    historic_first = getattr(historic_trade, scaled_first)
+    historic_second = getattr(historic_trade, scaled_second)
+    future_first = getattr(future_trade, scaled_first)
+    future_second = getattr(future_trade, scaled_second)
     # TODO: make sure future_trade dims are a subset of the union of the dims of the scaler and the historic trade
 
-    missing_dims = scaler.dims.difference_with(historic_trade.imports.dims).letters[1:]
+    missing_dims = scaler_first.dims.difference_with(historic_trade.imports.dims).letters[1:]
 
     if len(missing_dims) > 0:
         with np.errstate(divide="ignore"):
             historic_first *= (
-                scaler[{"t": historic_first.dims["h"]}]
+                scaler_first[{"t": historic_first.dims["h"]}]
                 .get_shares_over(missing_dims)
                 .apply(np.nan_to_num)
             )
             historic_second *= (
-                scaler[{"t": historic_second.dims["h"]}]
+                scaler_first[{"t": historic_second.dims["h"]}]
                 .get_shares_over(missing_dims)
                 .apply(np.nan_to_num)
             )
 
-    future_first[...] = extrapolate_to_future(historic=historic_first, scale_by=scaler)
+    future_first[...] = extrapolate_to_future(historic=historic_first, scale_by=scaler_first)
     future_second[...] = 0.0
 
     # TODO: Ensure share < 1 already in extrapolation?
-    scaler_second = (scaler + future_trade.net_imports).maximum(0)
+    scaler_second = (scaler_first + future_trade.net_imports).maximum(0)
     future_second[...] = extrapolate_to_future(historic=historic_second, scale_by=scaler_second)
 
-    # balance
-    if balance_to is not None:
-        future_trade.balance(to=balance_to)
+    future_trade.balance(to="hmean")
 
-    # can't import more than what is demanded; can't export more than what is supplied.
-    future_first[...] = future_first.minimum(scaler)
+    future_first[...] = future_first.minimum(scaler_first)
     future_trade.balance(to="minimum")
 
 
