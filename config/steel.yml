@@ -34,11 +34,11 @@ visualization:
     do_visualize: False
     per_capita: False
   production:
-    do_visualize: False
+    do_visualize: True
   consumption:
     do_visualize: True
   trade:
-    do_visualize: False
+    do_visualize: True
   sankey:
     do_visualize: False
     plotter_args:

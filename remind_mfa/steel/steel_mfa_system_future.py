@@ -3,7 +3,7 @@ import numpy as np
 import logging
 
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.trade_extrapolation import extrapolate_trade
+from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.steel.steel_config import SteelCfg
@@ -18,8 +18,7 @@ class SteelMFASystem(CommonMFASystem):
         Perform all computations for the MFA system.
         """
         self.compute_in_use_stock(stock_projection)
-        self.extrapolate_trade_set(historic_trade)
-        self.compute_flows()
+        self.compute_flows(historic_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
@@ -76,41 +75,7 @@ class SteelMFASystem(CommonMFASystem):
             ]
             logging.warning(f"In-use stock inflow <0 in regions {negative_regions}!")
 
-    def extrapolate_trade_set(self, historic_trade: TradeSet):
-        product_demand = self.stocks["in_use"].inflow
-        extrapolate_trade(
-            historic_trade["indirect"],
-            self.trade_set["indirect"],
-            product_demand,
-            "imports",
-            balance_to="hmean",
-        )
-        self.trade_set["indirect"].imports[...] = self.trade_set["indirect"].imports.minimum(
-            product_demand
-        )
-        self.trade_set["indirect"].balance(to="minimum")
-
-        fabrication = product_demand - self.trade_set["indirect"].net_imports
-        extrapolate_trade(
-            historic_trade["steel"],
-            self.trade_set["steel"],
-            fabrication,
-            "imports",
-            balance_to="hmean",
-        )
-
-        eol_products = self.stocks["in_use"].outflow * self.parameters["recovery_rate"]
-        extrapolate_trade(
-            historic_trade["scrap"],
-            self.trade_set["scrap"],
-            eol_products,
-            "exports",
-            balance_to="hmean",
-        )
-        self.trade_set["scrap"].exports[...] = self.trade_set["scrap"].exports.minimum(eol_products)
-        self.trade_set["scrap"].balance(to="minimum")
-
-    def compute_flows(self):
+    def compute_flows(self, historic_trade: TradeSet):
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
@@ -133,6 +98,15 @@ class SteelMFASystem(CommonMFASystem):
 
         flw["good_market => use"][...] = stk["in_use"].inflow
         # Pre-use
+
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["indirect"],
+            future_trade=trd["indirect"],
+            future_demand=flw["good_market => use"],
+            prevent_negative_domestic=True,
+        )
+        extrapolator.run()
+
         flw["imports => good_market"][...] = trd["indirect"].imports
         flw["good_market => exports"][...] = trd["indirect"].exports
 
@@ -141,6 +115,14 @@ class SteelMFASystem(CommonMFASystem):
         flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
         flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
         flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
+
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["steel"],
+            future_trade=trd["steel"],
+            future_demand=flw["ip_market => fabrication"],
+            prevent_negative_domestic=True,
+        )
+        extrapolator.run()
 
         flw["imports => ip_market"][...] = trd["steel"].imports
         flw["ip_market => exports"][...] = trd["steel"].exports
@@ -154,6 +136,14 @@ class SteelMFASystem(CommonMFASystem):
 
         flw["use => eol_market"][...] = stk["in_use"].outflow * prm["recovery_rate"]
         flw["use => obsolete"][...] = stk["in_use"].outflow - flw["use => eol_market"]
+
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["scrap"],
+            future_trade=trd["scrap"],
+            future_supply=flw["use => eol_market"],
+            prevent_negative_domestic=True,
+        )
+        extrapolator.run()
 
         flw["imports => eol_market"][...] = trd["scrap"].imports
         flw["eol_market => exports"][...] = trd["scrap"].exports

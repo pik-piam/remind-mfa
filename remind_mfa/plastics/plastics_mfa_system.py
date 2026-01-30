@@ -2,7 +2,7 @@ import flodym as fd
 import numpy as np
 
 from remind_mfa.common.trade import TradeSet, Trade
-from remind_mfa.common.trade_extrapolation import extrapolate_trade
+from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 

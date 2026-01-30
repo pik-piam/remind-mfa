@@ -88,7 +88,7 @@ class SteelMFASystemHistoric(CommonMFASystem):
         # fmt: off
         total_use_inflow = fabrication_to_good_market_total + self.trade_set["indirect"].net_imports
         use_inflow_target = total_use_inflow * self.parameters["sector_split"]
-        min_imports = self.trade_set["indirect"].net_imports.maximum(0)
+        min_imports = self.trade_set["indirect"].imports.maximum(0)
         # imports exceeding the target values determined by the sector split for each good
         imports_excess_total = (min_imports - use_inflow_target).maximum(0).sum_over("g")
         # remainder of the target values not covered by imports, which should be covered by domestic fabrication

@@ -1,13 +1,22 @@
 import flodym as fd
 import numpy as np
-from typing import Union
+from typing import Any
 from pydantic import model_validator, Field
 
 from remind_mfa.common.helpers import RemindMFABaseModel
 
 
-def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: np.ndarray) -> np.ndarray:
-    """Broadcasts array to shape of to_shape_of, adding dimensions if necessary."""
+def broadcast_trailing_dimensions(array: np.ndarray, to_shape_of: Any) -> np.ndarray:
+    """Broadcasts array to shape of to_shape_of, adding dimensions if necessary.
+
+    Args:
+        array (np.ndarray): Array to broadcast.
+        to_shape_of (Any): Object with shape attribute to broadcast to.
+
+    Returns:
+        np.ndarray: Broadcasted array.
+    """
+    assert hasattr(to_shape_of, "shape"), "to_shape_of object must have a shape attribute."
     new_shape = array.shape + (1,) * (len(to_shape_of.shape) - len(array.shape))
     b_reshaped = np.reshape(array, new_shape)
     b_broadcast = np.broadcast_to(b_reshaped, to_shape_of.shape)
