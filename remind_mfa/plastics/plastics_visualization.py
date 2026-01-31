@@ -490,11 +490,11 @@ class PlasticsVisualizer(CommonVisualizer):
         stock = stock.sum_over(other_dimletters) * 1000 * 1000
         other_dimletters = tuple(
             letter
-            for letter in model.stock_handler.pure_prediction.dims.letters
+            for letter in model.stock_handler.pure_regression.dims.letters
             if letter not in dimlist
         )
         pure_prediction = (
-            model.stock_handler.pure_prediction.sum_over(other_dimletters) * 1000 * 1000
+            model.stock_handler.pure_regression.sum_over(other_dimletters) * 1000 * 1000
         )
 
         if self.cfg.use_stock.over_gdp:

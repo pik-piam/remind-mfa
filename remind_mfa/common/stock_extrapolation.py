@@ -1,60 +1,58 @@
 import flodym as fd
 import numpy as np
-from typing import Tuple, Union, Type, Optional
-from copy import deepcopy
+from typing import Tuple, Union, Optional
+from pydantic import ConfigDict, model_validator
 
-from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
-from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.helpers import RegressOverModes, RemindMFABaseModel
 from remind_mfa.common.common_config import ModelSwitches
 
 
-class StockExtrapolation:
+class StockExtrapolation(RemindMFABaseModel):
     """
     Class for extrapolating stocks based on historical data and GDP per capita.
     """
+    model_config = ConfigDict(extra="allow")
 
-    regress_over: RegressOverModes
+    cfg: ModelSwitches
+    """Configuration for the model."""
+    historic_stocks: fd.StockArray
+    """Historical stock data."""
+    dims: fd.DimensionSet
+    """Dimension set for the data."""
+    parameters: dict[str, fd.Parameter]
+    """Parameters for the extrapolation."""
+    target_dim_letters: Union[Tuple[str, ...], str] = "all"
+    """Sets the dimensions of the stock extrapolation output. If "all", the output will have the same shape as historic_stocks, except for the time dimension. Defaults to "all"."""
+    indep_fit_dim_letters: Union[Tuple[str, ...], str] = ()
+    """indep_fit_dim_letters (Union[Tuple[str, ...]], str): Sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters. If "all", all dimensions given in target_dim_letters are regressed individually. If empty (), all dimensions are regressed aggregately. Defaults to ()."""
+    bound_list: BoundList = BoundList()
+    """bound_list (BoundList): List of bounds for the extrapolation. Defaults to an empty BoundList."""
+    do_gdppc_accumulation: bool = True
+    """do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True."""
+    gdp_weight_in_weighted_sum: Optional[float] = None
+    """relative weight of gdp in predictor weighted sum for predictor type LOGGDPPC_TIME_WEIGHTED_SUM"""
+    stock_correction: str = "gaussian_first_order"
+    """stock_correction (str): Method for stock correction. Possible values are "gaussian_first_order", "shift_zeroth_order", "none". Defaults to "gaussian_first_order"."""
+    n_deriv: int = 5
+    """Number of historic years used for determination of regressed and actual growth rates of
+    in-use stocks, which are then used for a correction reconciling the two and blending from
+    observed to regression.
+    """
 
-    def __init__(
-        self,
-        cfg: ModelSwitches,
-        historic_stocks: fd.StockArray,
-        dims: fd.DimensionSet,
-        parameters: dict[str, fd.Parameter],
-        target_dim_letters: Union[Tuple[str, ...], str] = "all",
-        indep_fit_dim_letters: Union[Tuple[str, ...], str] = (),
-        bound_list: BoundList = BoundList(),
-        do_gdppc_accumulation: bool = True,
-        weight: Optional[float] = None,
-        stock_correction: str = "gaussian_first_order",
-    ):
-        """
-        Initialize the StockExtrapolation class.
-
-        Args:
-            cfg (ModelSwitches): Configuration for the model.
-            historic_stocks (fd.StockArray): Historical stock data.
-            dims (fd.DimensionSet): Dimension set for the data.
-            parameters (dict[str, fd.Parameter]): Parameters for the extrapolation.
-            target_dim_letters (Union[Tuple[str, ...], str]): Sets the dimensions of the stock extrapolation output. If "all", the output will have the same shape as historic_stocks, except for the time dimension. Defaults to "all".
-            indep_fit_dim_letters (Union[Tuple[str, ...]], str): Sets the dimensions across which an individual fit is performed, must be subset of target_dim_letters. If "all", all dimensions given in target_dim_letters are regressed individually. If empty (), all dimensions are regressed aggregately. Defaults to ().
-            bound_list (BoundList): List of bounds for the extrapolation. Defaults to an empty BoundList.
-            do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True.
-            stock_correction (str): Method for stock correction. Possible values are "gaussian_first_order", "shift_zeroth_order", "none". Defaults to "gaussian_first_order".
-        """
-        self.cfg = cfg
-        self.historic_stocks = historic_stocks
-        self.dims = dims
-        self.parameters = parameters
-        self.target_dim_letters = target_dim_letters
-        self.set_dims(indep_fit_dim_letters)
-        self.bound_list = bound_list
-        self.do_gdppc_accumulation = do_gdppc_accumulation
-        self.weight = weight
-        self.stock_correction = stock_correction
-        self.extrapolate()
+    @model_validator(mode="after")
+    def extrapolate(self):
+        """Preprocessing and extrapolation."""
+        self.set_dims(self.indep_fit_dim_letters)
+        self.init_arrays()
+        self.calc_arrays_from_parameters_dict()
+        self.get_predictor()
+        self.get_pure_regression()
+        self.correct_stock()
+        # transform back to total stocks
+        self.stocks[...] = self.stocks_pc * self.pop
+        return self
 
     def set_dims(self, indep_fit_dim_letters: Tuple[str, ...]):
         """
@@ -87,33 +85,23 @@ class StockExtrapolation:
             if x in self.indep_fit_dim_letters
         )
 
-    def extrapolate(self):
-        """Preprocessing and extrapolation."""
-        self.per_capita_transformation()
-        self.gdp_regression()
-
-    def per_capita_transformation(self):
-        self.pop = self.parameters["population"]
-        self.gdppc = self.parameters["gdppc"]
-        if self.do_gdppc_accumulation:
-            self.gdppc_acc = np.maximum.accumulate(self.gdppc.values, axis=0)
+    def init_arrays(self):
         self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_gdppc = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
         self.stocks_pc = fd.StockArray(dims=self.dims[self.target_dim_letters])
         self.stocks = fd.StockArray(dims=self.dims[self.target_dim_letters])
 
+    def calc_arrays_from_parameters_dict(self):
+        self.pop = self.parameters["population"]
+        self.gdppc = self.parameters["gdppc"]
+        self.adapt_gdppc()
         self.historic_pop[...] = self.pop[{"t": self.dims["h"]}]
         self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
         self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
 
-    def gdp_regression(self):
-        """Updates per capita stock to future by extrapolation."""
-
-        prediction_out = self.stocks_pc.values.copy()
-        historic_in = self.historic_stocks_pc.values
+    def adapt_gdppc(self):
         if self.do_gdppc_accumulation:
-            gdppc = self.gdppc_acc
             add_assumption_doc(
                 type="model assumption",
                 name="Usage of cumulative GDP per capita",
@@ -122,22 +110,8 @@ class StockExtrapolation:
                     "stock shrink in times of decreasing GDPpc. "
                 ),
             )
-        else:
-            gdppc = self.gdppc
-        gdppc = broadcast_trailing_dimensions(gdppc, prediction_out)
-        n_historic = historic_in.shape[0]
-
-        n_deriv = 5
-        add_assumption_doc(
-            type="integer number",
-            name="n years for regression derivative correction",
-            value=n_deriv,
-            description=(
-                "Number of historic years used for determination of regressed and actual "
-                "growth rates of ins-use stocks, which are then used for a correction "
-                "reconciling the two and blending from observed to regression."
-            ),
-        )
+            self.gdppc = self.gdppc.apply(np.maximum.accumulate, kwargs=dict(axis=0))
+        self.gdppc = self.gdppc.cast_to(self.dims_out)
 
         add_assumption_doc(
             name="synthetic recent GDP for regression correction",
@@ -152,17 +126,17 @@ class StockExtrapolation:
             ),
         )
         i_2025 = self.dims["t"].index(2025)
-        gdppc = deepcopy(gdppc)
-        growth = gdppc[i_2025 + 1] / gdppc[i_2025 + 2]
-        for i in range(n_deriv + 5):
-            gdppc[i_2025 - i, ...] = gdppc[i_2025 - i + 1, ...] * growth
+        growth = self.gdppc[i_2025 + 1] / self.gdppc[i_2025 + 2]
+        for i in range(self.n_deriv + 5):
+            self.gdppc[i_2025 - i, ...] = self.gdppc[i_2025 - i + 1, ...] * growth
 
+    def get_predictor(self):
         if self.cfg.regress_over == RegressOverModes.GDPPC:
-            predictor = gdppc
+            predictor = self.gdppc
         elif self.cfg.regress_over == RegressOverModes.LOGGDPPC:
-            predictor = np.log10(gdppc)
+            predictor = np.log10(self.gdppc)
         elif self.cfg.regress_over == RegressOverModes.LOCGDPPC_TIME_WEIGHTED_SUM:
-            predictor = self.loggdp_time_regression(gdppc, self.weight)
+            predictor = self.loggdp_time_regression(self.gdppc, self.gdp_weight_in_weighted_sum)
             add_assumption_doc(
                 type="model assumption",
                 name="Usage of weighted sum of logGDP per capita and time as regression predictor",
@@ -172,58 +146,39 @@ class StockExtrapolation:
             )
         elif self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
             time = np.array(self.dims["t"].items)
-            time = broadcast_trailing_dimensions(time, gdppc)
-            predictor = np.empty(gdppc.shape, dtype=[("x1", np.float64), ("x2", np.float64)])
-            predictor["x1"] = np.log10(gdppc)
+            time = broadcast_trailing_dimensions(time, self.gdppc)
+            predictor = np.empty(self.gdppc.shape, dtype=[("x1", np.float64), ("x2", np.float64)])
+            predictor["x1"] = np.log10(self.gdppc)
             predictor["x2"] = time
             if self.cfg.stock_extrapolation_class_name == "TwoPredictorGompertzExtrapolation":
                 """
                 Predictors are scaled and centered to avoid numerical issues during extrapolation.
                 """
                 predictor["x1"] = (
-                    predictor["x1"] - np.mean(predictor["x1"][:n_historic, ...])
-                ) / np.std(predictor["x1"][:n_historic, ...])
+                    predictor["x1"] - np.mean(predictor["x1"][:self.n_historic, ...])
+                ) / np.std(predictor["x1"][:self.n_historic, ...])
                 predictor["x2"] = (
-                    predictor["x2"] - np.mean(predictor["x2"][:n_historic, ...])
-                ) / np.std(predictor["x2"][:n_historic, ...])
+                    predictor["x2"] - np.mean(predictor["x2"][:self.n_historic, ...])
+                ) / np.std(predictor["x2"][:self.n_historic, ...])
+        self.predictor = predictor
 
+    def get_pure_regression(self):
+        """Updates per capita stock to future by extrapolation."""
+        historic_in = self.historic_stocks_pc.values
         self.extrapolation = self.cfg.stock_extrapolation_class(
             data_to_extrapolate=historic_in,
-            predictor_values=predictor,
+            predictor_values=self.predictor,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
         )
-        pure_prediction = self.extrapolation.regress()
+        pure_regression = self.extrapolation.regress()
+        self.pure_regression = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_regression)
+        self.export_pure_parameters()
 
-        if self.stock_correction == "gaussian_first_order":
-            prediction_out[...] = self.gaussian_correction(historic_in, pure_prediction, n_deriv)
-            add_assumption_doc(
-                type="model assumption",
-                name="Usage of Gaussian correction",
-                description=(
-                    "Gaussian correction is used to blend historic trends with the extrapolation."
-                ),
-            )
-        elif self.stock_correction == "shift_zeroth_order":
-            # match last point by adding the difference between the last historic point and the corresponding prediction
-            prediction_out[...] = pure_prediction - (
-                pure_prediction[n_historic - 1, :] - historic_in[n_historic - 1, :]
-            )
-            add_assumption_doc(
-                type="model assumption",
-                name="Usage of zeroth order correction",
-                description=(
-                    "Zeroth order correction is used to match the last historic point with the "
-                    "extrapolated stock."
-                ),
-            )
-
-        # save extrapolation data for later analysis
-        self.pure_prediction = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_prediction)
-
-        # The following BLOCK was removed in carbonation branch, but modified in another.
-        # TODO: check if still needed
-        # BLOCK START
+    def export_pure_parameters(self):
+        """for export to csv, used in plastics
+        TODO: check if still needed
+        """
         if self.indep_fit_dim_letters:
             parameter_dims: fd.DimensionSet = self.dims[self.indep_fit_dim_letters]
         else:
@@ -235,17 +190,43 @@ class StockExtrapolation:
         self.pure_parameters = fd.FlodymArray(
             dims=parameter_dims, values=self.extrapolation._fit_prms
         )
-        # BLOCK END
 
-        prediction_out[:n_historic, ...] = historic_in
-        self.stocks_pc.set_values(prediction_out)
+    def correct_stock(self):
+        stocks_pc_out = np.zeros_like(self.stocks_pc.values)
+        if self.stock_correction == "gaussian_first_order":
+            stocks_pc_out[...] = self.gaussian_correction(
+                self.historic_stocks_pc.values,
+                self.pure_regression.values,
+                self.n_deriv
+            )
+            add_assumption_doc(
+                type="model assumption",
+                name="Usage of Gaussian correction",
+                description=(
+                    "Gaussian correction is used to blend historic trends with the extrapolation."
+                ),
+            )
+        elif self.stock_correction == "shift_zeroth_order":
+            # match last point by adding the difference between the last historic point and the corresponding prediction
+            stocks_pc_out[...] = self.pure_regression.values - (
+                self.pure_regression.values[self.n_historic - 1, :]
+                - self.historic_stocks_pc.values[self.n_historic - 1, :]
+            )
+            add_assumption_doc(
+                type="model assumption",
+                name="Usage of zeroth order correction",
+                description=(
+                    "Zeroth order correction is used to match the last historic point with the "
+                    "extrapolated stock."
+                ),
+            )
 
-        # transform back to total stocks
-        self.stocks[...] = self.stocks_pc * self.pop
+        stocks_pc_out[:self.n_historic, ...] = self.historic_stocks_pc.values
+        self.stocks_pc.set_values(stocks_pc_out)
 
-    def loggdp_time_regression(self, gdppc, weight: float) -> np.ndarray:
+    def loggdp_time_regression(self, gdppc, gdp_weight: float) -> np.ndarray:
         time = np.array(self.dims["t"].items)
-        predictor = np.log10(gdppc[...]) * weight + time[:, None, None]
+        predictor = np.log10(gdppc[...]) * gdp_weight + time[:, None, None]
         return predictor
 
     def gaussian_correction(
@@ -319,3 +300,11 @@ class StockExtrapolation:
         correction = corr0 + corr1
 
         return prediction[...] + correction
+
+    @property
+    def dims_out(self):
+        return self.dims[self.target_dim_letters]
+
+    @property
+    def n_historic(self):
+        return self.dims["h"].len
