@@ -33,27 +33,34 @@ class SteelModel(CommonModel):
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
 
-        scalar_lifetime_factor = 1.1
+        lifetime_factor = blend(
+            target_dims=self.dims["t",],
+            y_lower=0.9,
+            y_upper=1.1,
+            x="t",
+            x_lower=1970,
+            x_upper=2020,
+            type="linear",
+        )
         add_assumption_doc(
             type="ad-hoc fix",
             name="overall lifetime factor",
-            value=scalar_lifetime_factor,
             description=(
-                "Factor multiplied to all lifetime means and standard deviations to match "
+                "Time-dependent factor multiplied to all lifetime means and standard deviations to match "
                 "historical scrap consumption. Standard deviation gets an additional increase "
                 "of 1.5 to smooth out unrealistic dips after rapid stock build-up"
             ),
         )
-        lifetime_factor = fd.Parameter(dims=self.dims["t", "r"])
-        lifetime_factor.values[...] = scalar_lifetime_factor
-        self.parameters["lifetime_factor"] = lifetime_factor
+        lifetime_factor_prm = fd.Parameter(dims=self.dims["t",])
+        lifetime_factor_prm[...] = lifetime_factor
+        self.parameters["lifetime_factor"] = lifetime_factor_prm
 
         self.parameters["lifetime_mean"] = fd.Parameter(
-            dims=self.dims["t", "r", "g"],
+            dims=self.dims["t", "g"],
             values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"]).values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
-            dims=self.dims["t", "r", "g"],
+            dims=self.dims["t", "g"],
             values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values
             * 1.5,
         )
@@ -75,6 +82,10 @@ class SteelModel(CommonModel):
         self.parameters["lifetime_std"]["Construction"] = (
             self.parameters["lifetime_std"]["Construction"] * construction_lifetime_factor
         )
+        self.parameters["recovery_rate"] = fd.Parameter(
+            dims=self.dims["r", "g"],
+            values=self.parameters["recovery_rate"].cast_to(self.dims["r", "g"]).values * 0.85,
+        )
 
         add_assumption_doc(
             type="ad-hoc fix",
@@ -87,10 +98,10 @@ class SteelModel(CommonModel):
         scrap_rate_factor = blend(
             target_dims=self.dims["t",],
             y_lower=1.4,
-            y_upper=0.8,
+            y_upper=0.75,
             x="t",
-            x_lower=1980,
-            x_upper=2010,
+            x_lower=1970,
+            x_upper=2020,
             type="linear",
         )
         self.parameters["forming_yield"] = fd.Parameter(
@@ -103,6 +114,8 @@ class SteelModel(CommonModel):
             dims=self.dims["t", "g"],
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
+        self.parameters["sector_split_high"]["Products"] *= 1.5
+        self.parameters["sector_split_high"][...] = self.parameters["sector_split_high"].get_shares_over("g")
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         indep_fit_dim_letters = (
@@ -151,7 +164,7 @@ class SteelModel(CommonModel):
                 offset_bound_gdp,
                 offset_bound_time,
                 growth_rate_bound_gdp,
-                growth_rate_bound_time,
+                # growth_rate_bound_time,
             ],
             target_dims=self.dims[indep_fit_dim_letters],
         )
@@ -237,6 +250,10 @@ class SteelModel(CommonModel):
             ),
         )
         saturation_level *= saturation_level_factor
+
+        # last_historic_year = self.dims["h"].items[-1]
+        # last_stocks_pc = historic_stocks[last_historic_year] / historic_pop[last_historic_year]
+        # saturation_level = np.maximum(saturation_level, last_stocks_pc.values)
 
         return saturation_level
 

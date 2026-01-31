@@ -23,7 +23,7 @@ visualization:
   extrapolation:
     do_visualize: True
   scrap_demand_supply:
-    do_visualize: False
+    do_visualize: True
   sector_splits:
     do_visualize: False
   use_stock:

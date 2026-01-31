@@ -63,6 +63,7 @@ class CommonModel:
             cfg=self.cfg,
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
+            allow_missing_values = True,  # needed for steel scrap data
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
