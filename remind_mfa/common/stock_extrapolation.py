@@ -1,7 +1,7 @@
 import flodym as fd
 import numpy as np
 from typing import Tuple, Union, Optional
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict
 
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
@@ -17,7 +17,7 @@ class StockExtrapolation(RemindMFABaseModel):
 
     cfg: ModelSwitches
     """Configuration for the model."""
-    historic_stocks: fd.StockArray
+    historic_stocks: fd.FlodymArray
     """Historical stock data."""
     dims: fd.DimensionSet
     """Dimension set for the data."""
@@ -41,7 +41,6 @@ class StockExtrapolation(RemindMFABaseModel):
     observed to regression.
     """
 
-    @model_validator(mode="after")
     def extrapolate(self):
         """Preprocessing and extrapolation."""
         self.set_dims(self.indep_fit_dim_letters)
@@ -125,16 +124,15 @@ class StockExtrapolation(RemindMFABaseModel):
                 "discontinuities in production."
             ),
         )
-        i_2025 = self.dims["t"].index(2025)
-        growth = self.gdppc[i_2025 + 1] / self.gdppc[i_2025 + 2]
+        growth = self.gdppc[2026] / self.gdppc[2027]
         for i in range(self.n_deriv + 5):
-            self.gdppc[i_2025 - i, ...] = self.gdppc[i_2025 - i + 1, ...] * growth
+            self.gdppc[2025 - i] = self.gdppc[2025 - i + 1] * growth
 
     def get_predictor(self):
         if self.cfg.regress_over == RegressOverModes.GDPPC:
-            predictor = self.gdppc
+            predictor = self.gdppc.values
         elif self.cfg.regress_over == RegressOverModes.LOGGDPPC:
-            predictor = np.log10(self.gdppc)
+            predictor = np.log10(self.gdppc.values)
         elif self.cfg.regress_over == RegressOverModes.LOCGDPPC_TIME_WEIGHTED_SUM:
             predictor = self.loggdp_time_regression(self.gdppc, self.gdp_weight_in_weighted_sum)
             add_assumption_doc(
@@ -148,7 +146,7 @@ class StockExtrapolation(RemindMFABaseModel):
             time = np.array(self.dims["t"].items)
             time = broadcast_trailing_dimensions(time, self.gdppc)
             predictor = np.empty(self.gdppc.shape, dtype=[("x1", np.float64), ("x2", np.float64)])
-            predictor["x1"] = np.log10(self.gdppc)
+            predictor["x1"] = np.log10(self.gdppc.values)
             predictor["x2"] = time
             if self.cfg.stock_extrapolation_class_name == "TwoPredictorGompertzExtrapolation":
                 """

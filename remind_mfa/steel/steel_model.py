@@ -209,6 +209,7 @@ class SteelModel(CommonModel):
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list,
         )
+        self.stock_handler.extrapolate()
         total_in_use_stock = self.stock_handler.stocks
 
         # scale back stocks and gdp
