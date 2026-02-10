@@ -353,17 +353,6 @@ class SteelVisualizer(CommonVisualizer):
 
         self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
 
-    def _get_regional_vs_global_params(self, regional: bool):
-        if regional:
-            subplot_dim = {"subplot_dim": "Region"}
-            summing_func = lambda l: l
-            name_str = "regional"
-        else:
-            subplot_dim = {}
-            summing_func = lambda l: l.sum_over("r")
-            name_str = "global"
-        return subplot_dim, summing_func, name_str
-
     def visualize_extrapolation(self, model: "SteelModel"):
         mfa = model.future_mfa
         per_capita = True  # TODO see where this shold go

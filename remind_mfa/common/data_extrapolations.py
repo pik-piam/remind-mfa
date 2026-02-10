@@ -96,6 +96,13 @@ class Extrapolation(RemindMFABaseModel):
         """gets either one-dimensional or multi-dimensional data, but always returns one scalar value per prm"""
         pass
 
+    def normalize_predictor(self, predictor: np.ndarray) -> np.ndarray:
+        """Some extrapolation methods may require normalization of the predictor values.
+        This is a placeholder method that can be overridden in subclasses if needed.
+        Predictor is modified in-place.
+        """
+        pass
+
     def get_fitting_function(
         self,
         predictor_values: np.ndarray,
@@ -116,6 +123,7 @@ class Extrapolation(RemindMFABaseModel):
         The regression is performed independently for each dimension specified in `independent_dims`.
         """
         # extract dimensions that are regressed independently
+        self.normalize_predictor(self.predictor_values)
         predictor_shape = tuple(
             [self.predictor_values.shape[i] for i in sorted(self.independent_dims)]
         )
@@ -241,8 +249,27 @@ class LogisticExtrapolation(Extrapolation):
         stretch_factor = 2 / (max_predictor - mean_predictor)
         return np.array([sat_level_guess, stretch_factor, mean_predictor])
 
+class TwoPredictorExtrapolation(Extrapolation):
+    """
+    Base class for extrapolations with two predictors.
+    Mainly used for classification of these subclasses.
+    """
 
-class TwoPredictorLogisticExtrapolation(Extrapolation):
+    def check_predictor(self, x):
+        x2 = x["x2"]
+        assert x2 is not None, f"{type(self).__name__} requires a secondary predictor with field name 'x2', but it was not found in the predictor values."
+
+    def selective_product(self, key: str, factors: dict):
+        if key is None:
+            # product of all factor values
+            return np.prod(list(factors.values()), axis=0)
+        elif key in factors:
+            return factors[key]
+        else:
+            raise ValueError(f"Invalid factor key: {key}. Valid keys are: {list(factors.keys())} or None for product of all factors.")
+
+
+class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
     """
     Two-predictor logistic-style extrapolation:
     model: A * f_x1(x1; k_x1, x1_0) * f_x2(x2; k_x2, x2_0)
@@ -257,18 +284,16 @@ class TwoPredictorLogisticExtrapolation(Extrapolation):
         "x2_offset",
     ]
 
-    def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
-        """
-        x : structured array with fields 'x1' and 'x2'
-        """
-        A, k_x1, x1_0, k_x2, x2_0 = prms[:5]
-        x1 = x["x1"]
-        x2 = x["x2"]
-        assert x2 is not None, "TwoPredictorLogisticExtrapolation requires a secondary predictor"
+    def func(self, x: np.ndarray, prms: np.ndarray, factor: str=None) -> np.ndarray:
+        self.check_predictor(x)
+        a, k_x1, x1_0, k_x2, x2_0 = prms
+        x1, x2 = x["x1"], x["X2"]
 
-        f_x1 = 1.0 / (1.0 + np.exp(-k_x1 * (x1 - x1_0)))
-        f_x2 = 1.0 / (1.0 + np.exp(-k_x2 * (x2 - x2_0)))
-        return A * f_x1 * f_x2
+        f1 = np.ones_like(x1) * a
+        f2 = 1.0 / (1.0 + np.exp(-k_x1 * (x1 - x1_0)))
+        f3 = 1.0 / (1.0 + np.exp(-k_x2 * (x2 - x2_0)))
+        factors = {"f1": f1, "f2": f2, "f3": f3}
+        return self.selective_product(factor, factors)
 
     def initial_guess(
         self,
@@ -289,7 +314,43 @@ class TwoPredictorLogisticExtrapolation(Extrapolation):
         return np.array([sat_level_guess, k_x1_guess, mean_x1, k_x2_guess, mean_x2])
 
 
-class TwoPredictorGompertzExtrapolation(Extrapolation):
+class GompertzExtrapolation(Extrapolation):
+    """
+    Gompertz extrapolation:
+    Prm order: [saturation_level, offset, growth_rate]
+    """
+
+    prm_names: list[str] = [
+        "saturation_level",
+        "offset",
+        "growth_rate",
+    ]
+
+    def normalize_predictor(self, predictor):
+        p = predictor
+        predictor[...] = (p - np.mean(p)) / np.std(p)
+
+    def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        """
+        x : structured array with fields 'x1' and 'x2'
+        """
+        a, b, c = prms[:3]
+        return a * np.exp(-np.exp(b) * np.exp(-c * x))
+
+    def initial_guess(
+        self,
+        predictor_values: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+    ) -> np.ndarray:
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2.0 * max_level
+
+        c_guess = 1
+        b_guess = 1
+        return np.array([sat_level_guess, b_guess, c_guess])
+
+
+class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
     """
     Two-predictor Gompertz extrapolation:
     model: a * f_x1 * f_x2
@@ -304,18 +365,21 @@ class TwoPredictorGompertzExtrapolation(Extrapolation):
         "x2_growth_rate",
     ]
 
-    def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
-        """
-        x : structured array with fields 'x1' and 'x2'
-        """
-        a, b_x1, c_x1, b_x2, c_x2 = prms[:5]
-        x1 = x["x1"]
-        x2 = x["x2"]
-        assert x2 is not None, "TwoPredictorGompertzExtrapolation requires a secondary predictor"
+    def normalize_predictor(self, predictor):
+        for component in ["x1", "x2"]:
+            p = predictor[component]
+            predictor[component] = (p - np.mean(p)) / np.std(p)
 
-        f_x1 = np.exp(-b_x1 * np.exp(-c_x1 * x1))
-        f_x2 = np.exp(-b_x2 * np.exp(-c_x2 * x2))
-        return a * f_x1 * f_x2
+    def func(self, x: np.ndarray, prms: np.ndarray, factor: str=None) -> np.ndarray:
+        self.check_predictor(x)
+        a, b_x1, c_x1, b_x2, c_x2 = prms
+        x1, x2 = x["x1"], x["x2"]
+
+        f1 = np.ones_like(x1) * a
+        f2 = np.exp(-np.exp(b_x1) * np.exp(-c_x1 * x1))
+        f3 = np.exp(-np.exp(b_x2) * np.exp(-c_x2 * x2))
+        factors = {"f1": f1, "f2": f2, "f3": f3}
+        return self.selective_product(factor, factors)
 
     def initial_guess(
         self,
@@ -325,10 +389,10 @@ class TwoPredictorGompertzExtrapolation(Extrapolation):
         max_level = np.max(data_to_extrapolate)
         sat_level_guess = 2.0 * max_level
 
-        c_x1_guess = 1
+        c_x1_guess = 0
         b_x1_guess = 1
 
-        c_x2_guess = 1
+        c_x2_guess = 0
         b_x2_guess = 1
 
         return np.array([sat_level_guess, b_x1_guess, c_x1_guess, b_x2_guess, c_x2_guess])

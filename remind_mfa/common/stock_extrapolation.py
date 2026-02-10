@@ -2,6 +2,7 @@ import flodym as fd
 import numpy as np
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
+from copy import deepcopy
 
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
@@ -19,6 +20,12 @@ class StockExtrapolation(RemindMFABaseModel):
     """Configuration for the model."""
     historic_stocks: fd.FlodymArray
     """Historical stock data."""
+    additional_stock_data: Optional[fd.FlodymArray] = None
+    """additional data used for the extrapolation, like an expert guess"""
+    additional_stock_data_weight: Optional[float] = 0.
+    """relative weight of the additional stock data in the regression.
+    only used if additional_stock_data is not None.
+    """
     dims: fd.DimensionSet
     """Dimension set for the data."""
     parameters: dict[str, fd.Parameter]
@@ -46,7 +53,7 @@ class StockExtrapolation(RemindMFABaseModel):
         self.set_dims(self.indep_fit_dim_letters)
         self.init_arrays()
         self.calc_arrays_from_parameters_dict()
-        self.get_predictor()
+        self.set_predictor()
         self.get_pure_regression()
         self.correct_stock()
         # transform back to total stocks
@@ -88,8 +95,10 @@ class StockExtrapolation(RemindMFABaseModel):
         self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_gdppc = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
-        self.stocks_pc = fd.StockArray(dims=self.dims[self.target_dim_letters])
-        self.stocks = fd.StockArray(dims=self.dims[self.target_dim_letters])
+        if self.additional_stock_data is not None:
+            self.additional_stock_data_pc = fd.StockArray(dims=self.dims_out)
+        self.stocks_pc = fd.StockArray(dims=self.dims_out)
+        self.stocks = fd.StockArray(dims=self.dims_out)
 
     def calc_arrays_from_parameters_dict(self):
         self.pop = self.parameters["population"]
@@ -98,6 +107,8 @@ class StockExtrapolation(RemindMFABaseModel):
         self.historic_pop[...] = self.pop[{"t": self.dims["h"]}]
         self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
         self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
+        if self.additional_stock_data is not None:
+            self.additional_stock_data_pc[...] = self.additional_stock_data / self.pop
 
     def adapt_gdppc(self):
         if self.do_gdppc_accumulation:
@@ -128,48 +139,63 @@ class StockExtrapolation(RemindMFABaseModel):
         for i in range(self.n_deriv + 5):
             self.gdppc[2025 - i] = self.gdppc[2025 - i + 1] * growth
 
-    def get_predictor(self):
-        if self.cfg.regress_over == RegressOverModes.GDPPC:
-            predictor = self.gdppc.values
-        elif self.cfg.regress_over == RegressOverModes.LOGGDPPC:
-            predictor = np.log10(self.gdppc.values)
-        elif self.cfg.regress_over == RegressOverModes.LOCGDPPC_TIME_WEIGHTED_SUM:
-            predictor = self.loggdp_time_regression(self.gdppc, self.gdp_weight_in_weighted_sum)
-            add_assumption_doc(
-                type="model assumption",
-                name="Usage of weighted sum of logGDP per capita and time as regression predictor",
-                description=(
-                    "The weighted sum of logGDP per capita and Year is used as a predictor in stock extrapolation. "
-                ),
-            )
-        elif self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
-            time = np.array(self.dims["t"].items)
-            time = broadcast_trailing_dimensions(time, self.gdppc)
-            predictor = np.empty(self.gdppc.shape, dtype=[("x1", np.float64), ("x2", np.float64)])
-            predictor["x1"] = np.log10(self.gdppc.values)
-            predictor["x2"] = time
-            if self.cfg.stock_extrapolation_class_name == "TwoPredictorGompertzExtrapolation":
-                """
-                Predictors are scaled and centered to avoid numerical issues during extrapolation.
-                """
-                predictor["x1"] = (
-                    predictor["x1"] - np.mean(predictor["x1"][:self.n_historic, ...])
-                ) / np.std(predictor["x1"][:self.n_historic, ...])
-                predictor["x2"] = (
-                    predictor["x2"] - np.mean(predictor["x2"][:self.n_historic, ...])
-                ) / np.std(predictor["x2"][:self.n_historic, ...])
-        self.predictor = predictor
+    def set_predictor(self):
+        self.predictor = self.get_predictor(self.gdppc.values, self.gdp_weight_in_weighted_sum)
+
+    def get_predictor(self, gdppc: np.ndarray, gdp_weight_in_weighted_sum: Optional[float] = None):
+        match self.cfg.regress_over:
+            case RegressOverModes.GDPPC:
+                return gdppc
+            case RegressOverModes.LOGGDPPC:
+                return np.log10(gdppc)
+            case RegressOverModes.LOCGDPPC_TIME_WEIGHTED_SUM:
+                time = np.array(self.dims["t"].items)
+                return np.log10(gdppc) * gdp_weight_in_weighted_sum + time[:, None, None]
+            case RegressOverModes.LOGGDPPC_TIME:
+                time = np.array(self.dims["t"].items)
+                time = broadcast_trailing_dimensions(time, gdppc)
+                predictor = np.empty(gdppc.shape, dtype=[("x1", np.float64), ("x2", np.float64)])
+                predictor["x1"] = np.log10(gdppc)
+                predictor["x2"] = time
+                return predictor
 
     def get_pure_regression(self):
         """Updates per capita stock to future by extrapolation."""
-        historic_in = self.historic_stocks_pc.values
+        if self.additional_stock_data is None:
+            data_to_extrapolate = self.historic_stocks_pc.values
+            predictor_values = self.predictor
+            weights = None
+        else:
+            # we prepend the common regression as additional "historic" data with lower weighting
+            historic_in = self.historic_stocks_pc.values
+            additional = self.additional_stock_data_pc.values
+            data_to_extrapolate = np.concatenate([additional, historic_in], axis=0)
+            weights = np.concatenate(
+                [
+                    np.ones_like(additional) * self.additional_stock_data_weight,
+                    np.ones_like(historic_in),
+                ],
+                axis=0,
+            )
+            predictor_values = np.concatenate(
+                [
+                    self.predictor,
+                    self.predictor
+                ],
+                axis=0,
+            )
         self.extrapolation = self.cfg.stock_extrapolation_class(
-            data_to_extrapolate=historic_in,
-            predictor_values=self.predictor,
+            data_to_extrapolate=data_to_extrapolate,
+            predictor_values=predictor_values,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
+            weights=weights
         )
         pure_regression = self.extrapolation.regress()
+        if self.additional_stock_data is not None:
+            # remove prepended additional data
+            pure_regression = pure_regression[self.dims_out["t"].len:, ...]
+
         self.pure_regression = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_regression)
         self.export_pure_parameters()
 
@@ -191,41 +217,43 @@ class StockExtrapolation(RemindMFABaseModel):
 
     def correct_stock(self):
         stocks_pc_out = np.zeros_like(self.stocks_pc.values)
-        if self.stock_correction == "gaussian_first_order":
-            stocks_pc_out[...] = self.gaussian_correction(
-                self.historic_stocks_pc.values,
-                self.pure_regression.values,
-                self.n_deriv
-            )
-            add_assumption_doc(
-                type="model assumption",
-                name="Usage of Gaussian correction",
-                description=(
-                    "Gaussian correction is used to blend historic trends with the extrapolation."
-                ),
-            )
-        elif self.stock_correction == "shift_zeroth_order":
-            # match last point by adding the difference between the last historic point and the corresponding prediction
-            stocks_pc_out[...] = self.pure_regression.values - (
-                self.pure_regression.values[self.n_historic - 1, :]
-                - self.historic_stocks_pc.values[self.n_historic - 1, :]
-            )
-            add_assumption_doc(
-                type="model assumption",
-                name="Usage of zeroth order correction",
-                description=(
-                    "Zeroth order correction is used to match the last historic point with the "
-                    "extrapolated stock."
-                ),
-            )
+
+        match self.stock_correction:
+            case "none":
+                stocks_pc_out[...] = self.pure_regression.values
+            case "gaussian_first_order":
+                stocks_pc_out[...] = self.gaussian_correction(
+                    self.historic_stocks_pc.values,
+                    self.pure_regression.values,
+                    self.n_deriv
+                )
+                add_assumption_doc(
+                    type="model assumption",
+                    name="Usage of Gaussian correction",
+                    description=(
+                        "Gaussian correction is used to blend historic trends with the extrapolation."
+                    ),
+                )
+            case "shift_zeroth_order":
+                # match last point by adding the difference between the last historic point and the
+                # corresponding prediction
+                stocks_pc_out[...] = self.pure_regression.values - (
+                    self.pure_regression.values[self.n_historic - 1, :]
+                    - self.historic_stocks_pc.values[self.n_historic - 1, :]
+                )
+                add_assumption_doc(
+                    type="model assumption",
+                    name="Usage of zeroth order correction",
+                    description=(
+                        "Zeroth order correction is used to match the last historic point with the "
+                        "extrapolated stock."
+                    ),
+                )
+            case _:
+                raise ValueError(f"Unknown stock_correction method: {self.stock_correction}")
 
         stocks_pc_out[:self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
-
-    def loggdp_time_regression(self, gdppc, gdp_weight: float) -> np.ndarray:
-        time = np.array(self.dims["t"].items)
-        predictor = np.log10(gdppc[...]) * gdp_weight + time[:, None, None]
-        return predictor
 
     def gaussian_correction(
         self, historic: np.ndarray, prediction: np.ndarray, n: int = 5

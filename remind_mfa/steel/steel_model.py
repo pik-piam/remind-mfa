@@ -15,7 +15,7 @@ from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
-from remind_mfa.common.data_extrapolations import LogisticExtrapolation
+from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
 
 
 class SteelModel(CommonModel):
@@ -118,145 +118,88 @@ class SteelModel(CommonModel):
         self.parameters["sector_split_high"][...] = self.parameters["sector_split_high"].get_shares_over("g")
 
     def get_long_term_stock(self) -> fd.FlodymArray:
-        indep_fit_dim_letters = (
-            ("g",) if self.cfg.model_switches.do_stock_extrapolation_by_category else ()
-        )
-        historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
-        sat_level = self.get_saturation_level(historic_stocks)
-        sat_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=sat_level,
-            upper_bound=sat_level,
-            dims=self.dims[indep_fit_dim_letters],
-        )
-        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters])
-        offset_bound_gdp = Bound(
-            var_name="x1_offset",
-            lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
-            ),
-        )
-        offset_bound_time = Bound(
-            var_name="x2_offset",
-            lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
-            ),
-        )
-        growth_rate_bound_gdp = Bound(
-            var_name="x1_growth_rate",
-            lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
-            ),
-        )
-        growth_rate_bound_time = Bound(
-            var_name="x2_growth_rate",
-            lower_bound=lower_bound,
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * np.inf
-            ),
-        )
-        bound_list = BoundList(
+
+        bound_factory = self.BoundFactory()
+        if issubclass(self.cfg.model_switches.stock_extrapolation_class, TwoPredictorExtrapolation):
+            # offset_bound_gdp = bound_factory.positive("x1_offset")
+            # offset_bound_time = bound_factory.positive("x2_offset")
+            growth_rate_bound_gdp = bound_factory.positive("x1_growth_rate")
+            # growth_rate_bound_time = bound_factory.positive("x2_growth_rate")
             bound_list=[
-                sat_bound,
-                offset_bound_gdp,
-                offset_bound_time,
+                # offset_bound_gdp,
+                # offset_bound_time,
                 growth_rate_bound_gdp,
                 # growth_rate_bound_time,
-            ],
+            ]
+        else:
+            # offset_bound = bound_factory.positive("offset")
+            growth_rate_bound = bound_factory.positive("growth_rate")
+            bound_list=[
+                # offset_bound,
+                growth_rate_bound,
+            ]
+
+        historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
+
+        # 1) common regression
+        indep_fit_dim_letters = ("g",)
+
+        bound_list_obj = BoundList(
             target_dims=self.dims[indep_fit_dim_letters],
+            bound_list=bound_list,
         )
 
-        add_assumption_doc(
-            type="ad-hoc fix",
-            name="stock saturation level factor",
-            description=(
-                "Region-dependent factor multiplied to regressed saturation level to keep future "
-                "steel demand in line with other literature sources."
-            ),
+        self.stock_handler_common = StockExtrapolation(
+            cfg=self.cfg.model_switches,
+            historic_stocks=historic_stocks,
+            dims=self.dims,
+            parameters=self.parameters,
+            target_dim_letters="all",
+            indep_fit_dim_letters=indep_fit_dim_letters,
+            bound_list=bound_list_obj,
+            # stock_correction="none",
         )
-        add_assumption_doc(
-            type="ad-hoc fix",
-            name="stock growth speed factor",
-            description=(
-                "Region-dependent factor multiplied to regressed stock growth speed to prevent "
-                "rapid increase in steel demand and continue historical trends."
-            ),
+        self.stock_handler_common.extrapolate()
+        common_regression = self.stock_handler_common.stocks
+
+        # 2) individual regression
+        indep_fit_dim_letters = ("r", "g")
+
+        bound_list_obj = BoundList(
+            target_dims=self.dims[indep_fit_dim_letters],
+            bound_list=bound_list,
         )
-        # scale stocks (y) and gdp (x) to get different vertical and horizontal scalings with just
-        # one regression:
-        # divide by factor, then regress, then multiply again, which is equivalent to
-        # multiplying targets by this factor
-        historic_stocks = historic_stocks / self.parameters["saturation_level_factor"]
-        # gdppc_old = deepcopy(self.parameters["gdppc"])
-        # self.parameters["gdppc"] = self.parameters["gdppc"] ** self.parameters[
-        #     "stock_growth_speed_factor"
-        # ] * self.parameters["gdppc"][{"t": 2022}] ** (
-        #     1.0 - self.parameters["stock_growth_speed_factor"]
-        # )
 
         # extrapolate in use stock to future
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
             historic_stocks=historic_stocks,
+            additional_stock_data=common_regression,
+            additional_stock_data_weight=0.2,
             dims=self.dims,
             parameters=self.parameters,
-            target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
-            ),
+            target_dim_letters="all",
             indep_fit_dim_letters=indep_fit_dim_letters,
-            bound_list=bound_list,
+            bound_list=bound_list_obj,
         )
         self.stock_handler.extrapolate()
         total_in_use_stock = self.stock_handler.stocks
 
-        # scale back stocks and gdp
-        total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
-        # self.parameters["gdppc"] = gdppc_old
 
-        if not self.cfg.model_switches.do_stock_extrapolation_by_category:
-            # calculate and apply sector splits for in use stock
-            sector_splits = self.calc_stock_sector_splits()
-            total_in_use_stock = total_in_use_stock * sector_splits
         return total_in_use_stock
 
-    def get_saturation_level(self, historic_stocks: fd.StockArray):
-        pop = self.parameters["population"]
-        gdppc = self.parameters["gdppc"]
-        historic_pop = pop[{"t": self.dims["h"]}]
-        historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
+    class BoundFactory:
 
-        multi_dim_extrapolation = LogisticExtrapolation(
-            data_to_extrapolate=historic_stocks_pc.values,
-            predictor_values=np.log10(gdppc.values),
-            independent_dims=(),
-        )
-        multi_dim_extrapolation.regress()
-        saturation_level = multi_dim_extrapolation.fit_prms[0]
+        def __init__(self):
+            self.dims=fd.DimensionSet(dim_list=[])
+            self.zero = fd.FlodymArray(dims=self.dims)
 
-        if self.cfg.model_switches.do_stock_extrapolation_by_category:
-            high_stock_sector_split = self.get_high_stock_sector_split()
-            saturation_level = saturation_level * high_stock_sector_split.values
-
-        saturation_level_factor = 0.75
-        add_assumption_doc(
-            type="ad-hoc fix",
-            name="saturation level factor",
-            value=saturation_level_factor,
-            description=(
-                "Factor multiplied to regressed saturation level to reduce future steel demand "
-                "in line with other literature sources."
-            ),
-        )
-        saturation_level *= saturation_level_factor
-
-        # last_historic_year = self.dims["h"].items[-1]
-        # last_stocks_pc = historic_stocks[last_historic_year] / historic_pop[last_historic_year]
-        # saturation_level = np.maximum(saturation_level, last_stocks_pc.values)
-
-        return saturation_level
+        def positive(self, var_name):
+            return Bound(
+                var_name=var_name,
+                lower_bound=self.zero,
+                upper_bound=self.zero + np.inf
+            )
 
     def get_high_stock_sector_split(self):
         prm = self.parameters

@@ -13,6 +13,9 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
+from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
+from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -41,8 +44,8 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
-        if model.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
-            self.visualize_extrapolation_functions(model=model)
+        self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
+        self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
     def visualize_custom(self, model: "CommonModel"):
         """To be overwritten by model subclasses"""
@@ -246,104 +249,77 @@ class CommonVisualizer(RemindMFABaseModel):
 
         return fig, ap
 
-    def visualize_extrapolation_functions(self, model: "CommonModel"):
-        mfa = model.future_mfa
-        # plot functions over time and gdp
-        gdp_min = np.log10(
-            np.min(
-                mfa.parameters["gdppc"].values,
-                axis=(
-                    mfa.parameters["gdppc"].dims.index("t"),
-                    mfa.parameters["gdppc"].dims.index("r"),
-                ),
+    def _get_regional_vs_global_params(self, regional: bool):
+        if regional:
+            subplot_dim = {"subplot_dim": "Region"}
+            summing_func = lambda l: l
+            name_str = "regional"
+        else:
+            subplot_dim = {}
+            summing_func = lambda l: l.sum_over("r")
+            name_str = "global"
+        return subplot_dim, summing_func, name_str
+
+    def visualize_extrapolation_functions(self, model: "CommonModel", stock_handler: StockExtrapolation):
+        regional = "r" in stock_handler.indep_fit_dim_letters
+        subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
+        if goods_dim_letter := set(stock_handler.indep_fit_dim_letters) - set(("r")):
+            assert len(goods_dim_letter) == 1, "Only one non-region dimension supported in extrapolation visualization"
+            linecolor_dim = model.dims[goods_dim_letter.pop()].name
+        else:
+            linecolor_dim = None
+        extrapolation = stock_handler.extrapolation
+        fit_prms = extrapolation.fit_prms
+
+        log_gdppc = np.log10(stock_handler.gdppc.values)
+        gdppc = np.logspace(np.min(log_gdppc), np.max(log_gdppc), model.dims["t"].len)
+        gdppc = broadcast_trailing_dimensions(gdppc, stock_handler.dims_out)
+        predictor = stock_handler.get_predictor(gdppc)
+
+        def to_flodym(np_array, name=None):
+            fda = fd.FlodymArray(dims=stock_handler.dims_out, values=np_array, name=name)
+            if not regional:
+                first_region = model.dims["r"].items[0]
+                fda = fda[first_region]
+            return fda
+
+        prms = [fit_prms[np.newaxis, ..., i] for i in range(extrapolation.n_prms)]
+
+        if isinstance(extrapolation, TwoPredictorExtrapolation):
+            # see loop below for purposes of the list entries
+            factors = [
+                ["f1", "Saturation level", "x2", "Time"],
+                ["f2", "Growth over GDP", "x1", "log10(GDPpC)"],
+                ["f3", "Growth over Time", "x2", "Time"],
+            ]
+        else:
+            factors = [
+                [None, "Growth", None, stock_handler.cfg.regress_over],
+            ]
+
+        for factor_name, title, predictor_key, predictor_name in factors:
+            kwargs = {} if factor_name is None else {"factor": factor_name}
+            extrapolation.normalize_predictor(predictor)
+            values = extrapolation.func(predictor, prms, **kwargs)
+            array = to_flodym(values, name=factor_name)
+            if predictor_key:
+                x_array = predictor[predictor_key]
+            else:
+                x_array = predictor
+            x_array = to_flodym(x_array, predictor_name)
+
+            ap = self.plotter_class(
+                array=array,
+                intra_line_dim="Time",
+                title=title,
+                x_array=x_array,
+                linecolor_dim=linecolor_dim,
+                **subplot_dim,
             )
-        )
-        gdp_max = np.log10(
-            np.max(
-                mfa.parameters["gdppc"].values,
-                axis=(
-                    mfa.parameters["gdppc"].dims.index("t"),
-                    mfa.parameters["gdppc"].dims.index("r"),
-                ),
+            fig = ap.plot()
+
+            self.plot_and_save_figure(
+                ap,
+                f"regression_function_{factor_name}_{regional_str}",
+                do_plot=False,
             )
-        )
-        gdp_range = np.linspace(gdp_min, gdp_max, 200)
-        t_range = np.linspace(1950, 2100, 200)
-        n_historic = len(mfa.dims["h"].items)
-
-        # Define functions and get fitted parameters
-        if (
-            model.cfg.model_switches.stock_extrapolation_class_name
-            == "TwoPredictorGompertzExtrapolation"
-        ):
-
-            def fit_func(x, b, c):
-                x = (x - np.mean(x[:n_historic, ...])) / np.std(x[:n_historic, ...])
-                return np.exp(-b * np.exp(-c * x))
-
-        elif (
-            model.cfg.model_switches.stock_extrapolation_class_name
-            == "TwoPredictorLogisticExtrapolation"
-        ):
-
-            def fit_func(x, k, x0):
-                return 1 / (1 + np.exp(-k * (x - x0)))
-
-        fit_params = model.stock_handler.extrapolation.fit_prms
-
-        fig, axes = plt.subplots(
-            1,
-            2,
-            figsize=(14, 6),
-            sharey=True,
-        )
-
-        colors = [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728",
-            "#9467bd",
-            "#8c564b",
-            "#e377c2",
-        ]
-
-        goods = model.dims[model.stock_handler.indep_fit_dim_letters][0].items
-
-        for i, d in enumerate(goods):
-            color = colors[i % len(colors)]
-
-            # GDP logistic
-            axes[0].plot(
-                gdp_range,
-                fit_func(gdp_range, fit_params[i, 1], fit_params[i, 2]),
-                color=color,
-                label=str(d),
-            )
-
-            # Time logistic
-            axes[1].plot(
-                t_range,
-                fit_func(t_range, fit_params[i, 3], fit_params[i, 4]),
-                color=color,
-                label=str(d),
-            )
-
-        # Axis labels and titles
-        axes[0].set_title("Growth over GDP")
-        axes[0].set_xlabel("log10(GDP per capita)")
-        axes[0].set_ylabel("f(GDP)")
-        axes[0].grid(True)
-
-        axes[1].set_title("Growth over Time")
-        axes[1].set_xlabel("Year")
-        axes[1].grid(True)
-
-        # Legend (only once)
-        axes[0].legend(title="Good category")
-
-        plt.tight_layout()
-
-        plt.plot()
-        plt.show()
-        plt.savefig(self.figure_path("Functions_gdp_time.png"))
