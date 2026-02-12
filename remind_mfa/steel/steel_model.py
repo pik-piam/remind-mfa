@@ -15,7 +15,7 @@ from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
-from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
+from remind_mfa.common.fit_stocks import StockFitter
 
 
 class SteelModel(CommonModel):
@@ -119,26 +119,13 @@ class SteelModel(CommonModel):
 
     def get_long_term_stock(self) -> fd.FlodymArray:
 
-        bound_factory = self.BoundFactory()
-        if issubclass(self.cfg.model_switches.stock_extrapolation_class, TwoPredictorExtrapolation):
-            # offset_bound_gdp = bound_factory.positive("x1_offset")
-            # offset_bound_time = bound_factory.positive("x2_offset")
-            growth_rate_bound_gdp = bound_factory.positive("x1_growth_rate")
-            # growth_rate_bound_time = bound_factory.positive("x2_growth_rate")
-            bound_list=[
-                # offset_bound_gdp,
-                # offset_bound_time,
-                growth_rate_bound_gdp,
-                # growth_rate_bound_time,
-            ]
-        else:
-            # offset_bound = bound_factory.positive("offset")
-            growth_rate_bound = bound_factory.positive("growth_rate")
-            bound_list=[
-                # offset_bound,
-                growth_rate_bound,
-            ]
-
+        saturation_level = 12
+        arr = self.get_high_stock_sector_split() * saturation_level
+        bound = Bound(
+            var_name="saturation_level",
+            lower_bound=arr,
+            upper_bound=arr,
+        )
         historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
 
         # 1) common regression
@@ -146,7 +133,7 @@ class SteelModel(CommonModel):
 
         bound_list_obj = BoundList(
             target_dims=self.dims[indep_fit_dim_letters],
-            bound_list=bound_list,
+            bound_list=[bound],
         )
 
         self.stock_handler_common = StockExtrapolation(
@@ -157,49 +144,27 @@ class SteelModel(CommonModel):
             target_dim_letters="all",
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list_obj,
-            # stock_correction="none",
+            stock_correction="none",
         )
         self.stock_handler_common.extrapolate()
-        common_regression = self.stock_handler_common.stocks
 
-        # 2) individual regression
-        indep_fit_dim_letters = ("r", "g")
-
-        bound_list_obj = BoundList(
-            target_dims=self.dims[indep_fit_dim_letters],
-            bound_list=bound_list,
+        penalty_weights = {
+            "data_0th_order": 20.,
+            "data_1st_order": 10.,
+            "prms": np.array([
+                5.,  # saturation_level
+                1,  # offset
+                1,  # growth_rate
+            ]),
+        }
+        stock_fitter = StockFitter(
+            historic_in=self.stock_handler_common.historic_stocks_pc,
+            extrapolation_obj=self.stock_handler_common.extrapolation,
+            predictor=self.stock_handler_common.predictor,
+            regression = self.stock_handler_common.stocks_pc,
+            penalty_weights=penalty_weights,
         )
-
-        # extrapolate in use stock to future
-        self.stock_handler = StockExtrapolation(
-            cfg=self.cfg.model_switches,
-            historic_stocks=historic_stocks,
-            additional_stock_data=common_regression,
-            additional_stock_data_weight=0.2,
-            dims=self.dims,
-            parameters=self.parameters,
-            target_dim_letters="all",
-            indep_fit_dim_letters=indep_fit_dim_letters,
-            bound_list=bound_list_obj,
-        )
-        self.stock_handler.extrapolate()
-        total_in_use_stock = self.stock_handler.stocks
-
-
-        return total_in_use_stock
-
-    class BoundFactory:
-
-        def __init__(self):
-            self.dims=fd.DimensionSet(dim_list=[])
-            self.zero = fd.FlodymArray(dims=self.dims)
-
-        def positive(self, var_name):
-            return Bound(
-                var_name=var_name,
-                lower_bound=self.zero,
-                upper_bound=self.zero + np.inf
-            )
+        return stock_fitter.fit() * self.parameters["population"]
 
     def get_high_stock_sector_split(self):
         prm = self.parameters
@@ -208,31 +173,3 @@ class SteelModel(CommonModel):
         av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
         high_stock_sector_split = (av_lifetime * prm["sector_split_high"]).get_shares_over("g")
         return high_stock_sector_split
-
-    def calc_stock_sector_splits(self):
-        historical_sector_splits = self.historic_mfa.stocks[
-            "historic_in_use"
-        ].stock.get_shares_over("g")
-        prm = self.parameters
-        sector_split_high = self.get_high_stock_sector_split()
-        sector_split_theory = blend(
-            target_dims=self.dims["t", "r", "g"],
-            y_lower=prm["sector_split_low"],
-            y_upper=sector_split_high,
-            x=prm["gdppc"].apply(np.log),
-            x_lower=float(np.log(1000)),
-            x_upper=float(np.log(100000)),
-        )
-        last_historical = historical_sector_splits[{"h": self.dims["h"].items[-1]}]
-        historical_extrapolated = last_historical.cast_to(self.dims["t", "r", "g"])
-        historical_extrapolated[{"t": self.dims["h"]}] = historical_sector_splits
-        sector_splits = blend(
-            target_dims=self.dims["t", "r", "g"],
-            y_lower=historical_extrapolated,
-            y_upper=sector_split_theory,
-            x="t",
-            x_lower=self.dims["h"].items[-1],
-            x_upper=self.dims["t"].items[-1],
-            type="converge_quadratic",
-        )
-        return sector_splits

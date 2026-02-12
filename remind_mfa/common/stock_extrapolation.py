@@ -252,7 +252,7 @@ class StockExtrapolation(RemindMFABaseModel):
             case _:
                 raise ValueError(f"Unknown stock_correction method: {self.stock_correction}")
 
-        stocks_pc_out[:self.n_historic, ...] = self.historic_stocks_pc.values
+        # stocks_pc_out[:self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
     def gaussian_correction(

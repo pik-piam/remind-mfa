@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional, Tuple
+from typing import Optional, Tuple, ClassVar
 import numpy as np
 import sys
 from pydantic import model_validator
@@ -31,6 +31,8 @@ class Extrapolation(RemindMFABaseModel):
     """Names of the parameters to be fitted. Set in subclasses."""
     _fit_prms: np.ndarray = PrivateAttr(default=None)
     """Optimized parameters after regression (set by calling regress())."""
+
+    prm_names: ClassVar[list[str]] = []
 
     @model_validator(mode="after")
     def validate_data(self):
@@ -335,7 +337,15 @@ class GompertzExtrapolation(Extrapolation):
         x : structured array with fields 'x1' and 'x2'
         """
         a, b, c = prms[:3]
-        return a * np.exp(-np.exp(b) * np.exp(-c * x))
+        return a * np.exp(-np.exp(-c * (x + b)) * np.log(2))
+
+    def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        a, b, c = prms[:3]
+        f = self.func(x, prms)
+        da = f / a
+        db = f * -np.exp(-c * (x + b)) * np.log(2) * -c
+        dc = f * -np.exp(-c * (x + b)) * np.log(2) * -(x + b)
+        return np.stack([da, db, dc], axis=-1)
 
     def initial_guess(
         self,

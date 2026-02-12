@@ -6,6 +6,7 @@ from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
 from remind_mfa.common.helpers import RemindMFABaseModel
 
+
 class TradeExtrapolator(RemindMFABaseModel):
     """Predict future trade values by extrapolating the trade data using a given scaler."""
 
@@ -162,20 +163,21 @@ class TradeExtrapolator(RemindMFABaseModel):
           we rename (d(t) - i(t)) to dd(t) (domestic demand), which gives:
           f(p) = 0 = p - e0 * (p/p0)^alpha - dd(t)
 
-        This function is convex (only the second term e has a derivative).
-        We want the biggest root, so we start with a value bigger than the root
-        We derive an lower bound for p via an upper bound for e:
-        with P = p/p0, eq (2) gives e(P) = e0 * P^alpha, with the derivative e'(P) = e0 * alpha * P^(alpha-1)
-        From the concavity of e, we know that it is smaller than its linearization: e(p) <= eL(p)
-        The linearization around P=1 is: eL(P) = e(P=1) + e'(P=1)*(P-1) = e0 + e0 * alpha * (P - 1)
-        and thus eL(p) = e0 + e0 * alpha * (p/p0 - 1)
+          How do we find a reliable starting value?
+          This function is convex (only the second term e has a second derivative).
+          We want the biggest root, so we start with a value bigger than the root
+          We derive a lower bound for p via an upper bound for e:
+          with P = p/p0, eq (2) gives e(P) = e0 * P^alpha, with the derivative e'(P) = e0 * alpha * P^(alpha-1)
+          From the concavity of e, we know that it is smaller than its linearization: e(p) <= eL(p)
+          The linearization around P=1 is: eL(P) = e(P=1) + e'(P=1)*(P-1) = e0 + e0 * alpha * (P - 1)
+          and thus eL(p) = e0 + e0 * alpha * (p/p0 - 1)
 
-        Inserting s into (3) gives:
-        p - e - dd = 0
-        p - eL(p) - dd <= 0
-        p - e0 - e0 * alpha * (p/p0 - 1) - dd <= 0
-        p (1 - e0 * alpha / p0) <= e0 - e0 * alpha + dd
-        p <= (e0 - e0 * alpha + dd)) / (1 - e0 * alpha / p0)
+          Inserting s into (3) gives:
+          p - e - dd = 0
+          p - eL(p) - dd <= 0
+          p - e0 - e0 * alpha * (p/p0 - 1) - dd <= 0
+          p (1 - e0 * alpha / p0) <= e0 - e0 * alpha + dd
+          p <= (e0 - e0 * alpha + dd)) / (1 - e0 * alpha / p0)
         """
 
         def f(p):
@@ -189,8 +191,9 @@ class TradeExtrapolator(RemindMFABaseModel):
             if np.min(x.values) <= -1.e-6:
                 raise ValueError(f"All values of {name} must be positive for Newton-Raphson method.")
 
-        assert_positive(dd, "domestic demand")
-        assert_positive(p0-e0, "domestic production")
+        # assert_positive(dd, "domestic demand")  # TODO: may not be needed?
+        # Somehow needed, but not in this form, because we divide by (1-alpha*e0/p0), which has to be bigger than 1, else the inequality changes sign
+        assert_positive((1 - e0 * alpha / p0), "denominator")
         # initial guess (bigger than root)
         p = (e0 - e0 * alpha + dd) / (1 - e0 * alpha / p0)
 

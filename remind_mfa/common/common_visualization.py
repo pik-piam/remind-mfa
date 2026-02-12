@@ -44,8 +44,8 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
-        self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
-        self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
+        # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
+        # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
     def visualize_custom(self, model: "CommonModel"):
         """To be overwritten by model subclasses"""
