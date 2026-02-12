@@ -397,7 +397,7 @@ class SteelVisualizer(CommonVisualizer):
             line_label="Historic + Modelled Future",
         )
 
-        pure_stock = model.stock_handler.pure_regression.sum_over(other_dimletters)
+        pure_stock = model.stock_handler.fitted_regression.sum_over(other_dimletters)
 
         # extrapolation
         color = ["red"]

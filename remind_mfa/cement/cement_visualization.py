@@ -194,7 +194,7 @@ class CementVisualizer(CommonVisualizer):
         subplot_dim = "Region"
         population = model.parameters["population"]
         stock = model.stock_handler.stocks
-        extrapolation = model.stock_handler.pure_regression
+        extrapolation = model.stock_handler.fitted_regression
         x_array = None
 
         pc_str = "pC" if per_capita else ""

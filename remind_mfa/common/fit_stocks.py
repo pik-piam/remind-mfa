@@ -8,31 +8,31 @@ from remind_mfa.common.data_extrapolations import Extrapolation
 
 
 class StockFitter(RemindMFABaseModel):
-    historic_in: fd.FlodymArray  # pC
-    extrapolation_obj: Extrapolation
-    regression: fd.FlodymArray  # pC
+    historic_stocks_pc: fd.FlodymArray  # pC
+    extrapolation: Extrapolation
+    dims_out: fd.DimensionSet
     penalty_weights: dict
     predictor: np.ndarray
     _n_hist: int = None
 
     @model_validator(mode="after")
     def check_dims(self):
-        if self.historic_in.dims.letters[0] != "h":
+        if self.historic_stocks_pc.dims.letters[0] != "h":
             raise ValueError("The first dimension of historic_in must be 'h'.")
-        if self.historic_in.dims.letters[1] != "r":
+        if self.historic_stocks_pc.dims.letters[1] != "r":
             raise ValueError("The second dimension of historic_in must be 'r'.")
-        if self.historic_in.dims.ndim != 3:
+        if self.historic_stocks_pc.dims.ndim != 3:
             raise ValueError("The historic_in array must have exactly 3 dimensions.")
 
-        if self.regression.dims.letters[0] != "t":
+        if self.dims_out.letters[0] != "t":
             raise ValueError("The first dimension of regression must be 't'.")
-        if self.regression.dims.letters[1:] != self.historic_in.dims.letters[1:]:
+        if self.dims_out.letters[1:] != self.historic_stocks_pc.dims.letters[1:]:
             raise ValueError("The regression array must have the same 'r' and goods dimensions as historic_in.")
         return self
 
     @model_validator(mode="after")
     def check_prms(self):
-        e = self.extrapolation_obj
+        e = self.extrapolation
         # TODO: adapt for logistic; also get common normalization
         if e.prm_names[0] != "saturation_level":
             raise ValueError("saturation_level not in prm_names.")
@@ -44,22 +44,22 @@ class StockFitter(RemindMFABaseModel):
 
     @property
     def goods_dim_letter(self):
-        return self.historic_in.dims.letters[2]
+        return self.historic_stocks_pc.dims.letters[2]
 
     def fit(self):
-        hdims = self.historic_in.dims
+        hdims = self.historic_stocks_pc.dims
         prms = np.ndarray(
             shape=(
                 hdims["r"].len,
                 hdims[self.goods_dim_letter].len,
-                self.extrapolation_obj.n_prms
+                self.extrapolation.n_prms
                 )
             )
         self._n_hist = hdims["h"].len
         # normalize by saturation level to make absolute values and gradients more comparable across goods
-        fit_prms = self.extrapolation_obj.fit_prms
+        fit_prms = self.extrapolation.fit_prms
         sat_level = fd.FlodymArray(dims=hdims["g",], values=fit_prms[...,0].copy())
-        historic = (self.historic_in / sat_level).values
+        historic = (self.historic_stocks_pc / sat_level).values
         fit_prms[...,0] = 1.
         for ig in range(hdims[self.goods_dim_letter].len):
             for ir in range(hdims["r"].len):
@@ -68,10 +68,8 @@ class StockFitter(RemindMFABaseModel):
                     predictor=self.predictor[:,ir,ig],
                     prms_0=fit_prms[ig, :]
                     )
-        dims_out = self.regression.dims["t",] + hdims.drop("h")
-        values_out = self.extrapolation_obj.func(self.predictor[np.newaxis,...], np.moveaxis(prms[np.newaxis,...], -1, 0))
-        stocks_pc_out = fd.FlodymArray(dims=dims_out, values=values_out[0, ...]) * sat_level
-        stocks_pc_out[{"t": self.historic_in.dims["h"]}] = self.historic_in
+        values_out = self.extrapolation.func(self.predictor[np.newaxis,...], np.moveaxis(prms[np.newaxis,...], -1, 0))
+        stocks_pc_out = fd.FlodymArray(dims=self.dims_out, values=values_out[0, ...]) * sat_level
         return stocks_pc_out
 
     def fit_single(self, historic, predictor, prms_0):
@@ -102,25 +100,25 @@ class StockFitter(RemindMFABaseModel):
 
     def pen_data_0th_order(self, historic, predictor, prms):
         last_x = self.last_hist(predictor)
-        fit = self.extrapolation_obj.func(last_x, prms)
+        fit = self.extrapolation.func(last_x, prms)
         target = self.last_hist(historic)
         return self.norm((fit - target)) * self.penalty_weights["data_0th_order"]
 
     def pen_data_1st_order(self, historic, predictor, prms):
-        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation_obj.func(x, prms))
+        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
         target_slope = self.last_hist_slope(historic)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
 
     def dpen_data_1st_order(self, historic, predictor, prms):
-        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation_obj.func(x, prms))
-        dfit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation_obj.jacobian(x, prms))
+        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
+        dfit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.jacobian(x, prms))
         target_slope = self.last_hist_slope(historic)
         return self.dnorm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"] * dfit_slope
 
     def dpen_data_0th_order(self, historic, predictor, prms):
         last_x = self.last_hist(predictor)
-        fit = self.extrapolation_obj.func(last_x, prms)
-        dfit = self.extrapolation_obj.jacobian(last_x, prms)
+        fit = self.extrapolation.func(last_x, prms)
+        dfit = self.extrapolation.jacobian(last_x, prms)
         target = self.last_hist(historic)
         return self.dnorm((fit - target)) * self.penalty_weights["data_0th_order"] * dfit
 

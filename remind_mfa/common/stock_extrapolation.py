@@ -8,6 +8,7 @@ from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.helpers import RegressOverModes, RemindMFABaseModel
 from remind_mfa.common.common_config import ModelSwitches
+from remind_mfa.common.fit_stocks import StockFitter
 
 
 class StockExtrapolation(RemindMFABaseModel):
@@ -55,6 +56,7 @@ class StockExtrapolation(RemindMFABaseModel):
         self.calc_arrays_from_parameters_dict()
         self.set_predictor()
         self.get_pure_regression()
+        self.fit()
         self.correct_stock()
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
@@ -196,7 +198,6 @@ class StockExtrapolation(RemindMFABaseModel):
             # remove prepended additional data
             pure_regression = pure_regression[self.dims_out["t"].len:, ...]
 
-        self.pure_regression = fd.FlodymArray(dims=self.stocks_pc.dims, values=pure_regression)
         self.export_pure_parameters()
 
     def export_pure_parameters(self):
@@ -215,16 +216,36 @@ class StockExtrapolation(RemindMFABaseModel):
             dims=parameter_dims, values=self.extrapolation._fit_prms
         )
 
+    def fit(self):
+
+        penalty_weights = {
+            "data_0th_order": 20.,
+            "data_1st_order": 10.,
+            "prms": np.array([
+                5.,  # saturation_level
+                1,  # offset
+                1,  # growth_rate
+            ]),
+        }
+        stock_fitter = StockFitter(
+            historic_stocks_pc=self.historic_stocks_pc,
+            extrapolation=self.extrapolation,
+            predictor=self.predictor,
+            dims_out = self.dims_out,
+            penalty_weights=penalty_weights,
+        )
+        self.fitted_regression = stock_fitter.fit()
+
     def correct_stock(self):
         stocks_pc_out = np.zeros_like(self.stocks_pc.values)
 
         match self.stock_correction:
             case "none":
-                stocks_pc_out[...] = self.pure_regression.values
+                stocks_pc_out[...] = self.fitted_regression.values
             case "gaussian_first_order":
                 stocks_pc_out[...] = self.gaussian_correction(
                     self.historic_stocks_pc.values,
-                    self.pure_regression.values,
+                    self.fitted_regression.values,
                     self.n_deriv
                 )
                 add_assumption_doc(
@@ -237,8 +258,8 @@ class StockExtrapolation(RemindMFABaseModel):
             case "shift_zeroth_order":
                 # match last point by adding the difference between the last historic point and the
                 # corresponding prediction
-                stocks_pc_out[...] = self.pure_regression.values - (
-                    self.pure_regression.values[self.n_historic - 1, :]
+                stocks_pc_out[...] = self.fitted_regression.values - (
+                    self.fitted_regression.values[self.n_historic - 1, :]
                     - self.historic_stocks_pc.values[self.n_historic - 1, :]
                 )
                 add_assumption_doc(
@@ -252,7 +273,7 @@ class StockExtrapolation(RemindMFABaseModel):
             case _:
                 raise ValueError(f"Unknown stock_correction method: {self.stock_correction}")
 
-        # stocks_pc_out[:self.n_historic, ...] = self.historic_stocks_pc.values
+        stocks_pc_out[:self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
     def gaussian_correction(

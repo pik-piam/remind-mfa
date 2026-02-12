@@ -15,7 +15,6 @@ from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
-from remind_mfa.common.fit_stocks import StockFitter
 
 
 class SteelModel(CommonModel):
@@ -119,7 +118,7 @@ class SteelModel(CommonModel):
 
     def get_long_term_stock(self) -> fd.FlodymArray:
 
-        saturation_level = 12
+        saturation_level = 11
         arr = self.get_high_stock_sector_split() * saturation_level
         bound = Bound(
             var_name="saturation_level",
@@ -136,7 +135,7 @@ class SteelModel(CommonModel):
             bound_list=[bound],
         )
 
-        self.stock_handler_common = StockExtrapolation(
+        self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
             historic_stocks=historic_stocks,
             dims=self.dims,
@@ -144,27 +143,10 @@ class SteelModel(CommonModel):
             target_dim_letters="all",
             indep_fit_dim_letters=indep_fit_dim_letters,
             bound_list=bound_list_obj,
-            stock_correction="none",
         )
-        self.stock_handler_common.extrapolate()
+        self.stock_handler.extrapolate()
+        return self.stock_handler.stocks
 
-        penalty_weights = {
-            "data_0th_order": 20.,
-            "data_1st_order": 10.,
-            "prms": np.array([
-                5.,  # saturation_level
-                1,  # offset
-                1,  # growth_rate
-            ]),
-        }
-        stock_fitter = StockFitter(
-            historic_in=self.stock_handler_common.historic_stocks_pc,
-            extrapolation_obj=self.stock_handler_common.extrapolation,
-            predictor=self.stock_handler_common.predictor,
-            regression = self.stock_handler_common.stocks_pc,
-            penalty_weights=penalty_weights,
-        )
-        return stock_fitter.fit() * self.parameters["population"]
 
     def get_high_stock_sector_split(self):
         prm = self.parameters
