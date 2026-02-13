@@ -53,12 +53,32 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
     if historic:
         flows = [
-            fd.FlowDefinition(from_process="sysenv", to_process="fabrication", dim_letters=("h","e","r","m","g")),
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h","e","r","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h","e","r","m","g")),
-            fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("h","e","r","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h","e","r","m","g")),
-            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h","e","r","m","g")),
+            fd.FlowDefinition(
+                from_process="sysenv",
+                to_process="fabrication",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(
+                from_process="fabrication",
+                to_process="good_market",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(
+                from_process="good_market", to_process="use", dim_letters=("h", "e", "r", "m", "g")
+            ),
+            fd.FlowDefinition(
+                from_process="fabrication", to_process="use", dim_letters=("h", "e", "r", "m", "g")
+            ),
+            fd.FlowDefinition(
+                from_process="good_market",
+                to_process="sysenv",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv",
+                to_process="good_market",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
         ]
     else:
