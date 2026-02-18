@@ -152,7 +152,9 @@ class CommonModel:
         last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
         last_gdppc = prm["gdppc"][{"t": self.dims["t"].items[-1]}]
         av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
-        stock_sector_split = (av_lifetime * prm["sector_split_limit"]).get_shares_over(self.end_use_good_letter)
+        stock_sector_split = (av_lifetime * prm["sector_split_limit"]).get_shares_over(
+            self.end_use_good_letter
+        )
         return stock_sector_split
 
     def get_long_term_stock(self) -> fd.FlodymArray:
