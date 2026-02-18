@@ -25,7 +25,7 @@ class TradeExtrapolator(RemindMFABaseModel):
     """future_demand (FlodymArray): The demand values to scale the historic imports by.
     In this backward mode, the exports are scaled subsequently by demand - imports.
     """
-    alpha_rel: float = 2/3
+    alpha_rel: float = 2 / 3
     eps: float = 1e-6
 
     @model_validator(mode="after")
@@ -63,7 +63,9 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.future_second = getattr(self.future_trade, self.scaled_second)
 
     def broadcast_historic_trade(self):
-        missing_dims = self.scaler_first.dims.difference_with(self.historic_trade.imports.dims).letters[1:]
+        missing_dims = self.scaler_first.dims.difference_with(
+            self.historic_trade.imports.dims
+        ).letters[1:]
 
         if len(missing_dims) > 0:
             with np.errstate(divide="ignore"):
@@ -84,13 +86,19 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.scaler_first = self.scaler_first.sum_to(common_dims.letters).cast_to(self.dims_out)
 
         if self.future_first.dims - self.dims_out:
-            raise ValueError("All future trade dimensions must be contained either in scaler or in historic trade.")
+            raise ValueError(
+                "All future trade dimensions must be contained either in scaler or in historic trade."
+            )
 
     def get_recent_averages(self):
         averager = RecentHistoricalAverage(dims=self.historic_first.dims)
 
-        self.historic_first_0= averager.apply(self.historic_first).cast_to(self.dims_out) #* (1 - self.eps)
-        self.historic_second_0= averager.apply(self.historic_second).cast_to(self.dims_out) #* (1 - self.eps)
+        self.historic_first_0 = averager.apply(self.historic_first).cast_to(
+            self.dims_out
+        )  # * (1 - self.eps)
+        self.historic_second_0 = averager.apply(self.historic_second).cast_to(
+            self.dims_out
+        )  # * (1 - self.eps)
         self.scaler_first_0 = averager.apply(self.scaler_first).cast_to(self.dims_out)
         scaler_second_hist = (
             self.scaler_first[{"t": self.historic_first.dims["h"]}]
@@ -121,7 +129,9 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.future_second[...] = self.historic_second_0 * scaling
         self.future_second[id_historic] = self.historic_second
         for _ in range(1):
-            self.scaler_second = self.scaler_first - self.future_first + self.future_second + re_exports
+            self.scaler_second = (
+                self.scaler_first - self.future_first + self.future_second + re_exports
+            )
             scaling = self.scaling(
                 d0=self.scaler_second_0,
                 d=self.scaler_second,
@@ -138,7 +148,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         # should be positive; else scale down imports
         for i in range(10):
             production = self.scaler_first - self.future_first + self.future_second
-            excess_trade = - (production.minimum(0.))
+            excess_trade = -(production.minimum(0.0))
             total_excess = excess_trade.sum_over("r")
             if np.max(total_excess.values) < 0.1:
                 break
@@ -146,22 +156,26 @@ class TradeExtrapolator(RemindMFABaseModel):
             self.future_trade.balance(to="minimum")
 
         np.testing.assert_array_almost_equal(
-            self.future_first.sum_over("r",).values,
-            self.future_second.sum_over("r",).values,
-            decimal=0
+            self.future_first.sum_over(
+                "r",
+            ).values,
+            self.future_second.sum_over(
+                "r",
+            ).values,
+            decimal=0,
         )
 
     @staticmethod
     def scaling(
-            d0: fd.FlodymArray,
-            d: fd.FlodymArray,
-            alpha: float,
-        ) -> fd.FlodymArray:
-        assert np.min(d.values) >= - 1e-6 * np.max(np.abs(d.values))
-        assert np.min(d0.values) >= - 1e-6 * np.max(np.abs(d0.values))
+        d0: fd.FlodymArray,
+        d: fd.FlodymArray,
+        alpha: float,
+    ) -> fd.FlodymArray:
+        assert np.min(d.values) >= -1e-6 * np.max(np.abs(d.values))
+        assert np.min(d0.values) >= -1e-6 * np.max(np.abs(d0.values))
         d = d.maximum(0)
         d0 = d0.maximum(1)
-        return ((d / d0) ** alpha).minimum(d/d0)
+        return ((d / d0) ** alpha).minimum(d / d0)
 
 
 class RecentHistoricalAverage(RemindMFABaseModel):

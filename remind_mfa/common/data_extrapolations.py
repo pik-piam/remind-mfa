@@ -251,6 +251,7 @@ class LogisticExtrapolation(Extrapolation):
         stretch_factor = 2 / (max_predictor - mean_predictor)
         return np.array([sat_level_guess, stretch_factor, mean_predictor])
 
+
 class TwoPredictorExtrapolation(Extrapolation):
     """
     Base class for extrapolations with two predictors.
@@ -259,7 +260,9 @@ class TwoPredictorExtrapolation(Extrapolation):
 
     def check_predictor(self, x):
         x2 = x["x2"]
-        assert x2 is not None, f"{type(self).__name__} requires a secondary predictor with field name 'x2', but it was not found in the predictor values."
+        assert (
+            x2 is not None
+        ), f"{type(self).__name__} requires a secondary predictor with field name 'x2', but it was not found in the predictor values."
 
     def selective_product(self, key: str, factors: dict):
         if key is None:
@@ -268,7 +271,9 @@ class TwoPredictorExtrapolation(Extrapolation):
         elif key in factors:
             return factors[key]
         else:
-            raise ValueError(f"Invalid factor key: {key}. Valid keys are: {list(factors.keys())} or None for product of all factors.")
+            raise ValueError(
+                f"Invalid factor key: {key}. Valid keys are: {list(factors.keys())} or None for product of all factors."
+            )
 
 
 class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
@@ -286,7 +291,7 @@ class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
         "x2_offset",
     ]
 
-    def func(self, x: np.ndarray, prms: np.ndarray, factor: str=None) -> np.ndarray:
+    def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
         self.check_predictor(x)
         a, k_x1, x1_0, k_x2, x2_0 = prms
         x1, x2 = x["x1"], x["X2"]
@@ -380,7 +385,7 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
             p = predictor[component]
             predictor[component] = (p - np.mean(p)) / np.std(p)
 
-    def func(self, x: np.ndarray, prms: np.ndarray, factor: str=None) -> np.ndarray:
+    def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
         self.check_predictor(x)
         a, b_x1, c_x1, b_x2, c_x2 = prms
         x1, x2 = x["x1"], x["x2"]
