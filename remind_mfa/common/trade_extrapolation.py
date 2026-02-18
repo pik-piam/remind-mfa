@@ -45,7 +45,6 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.broadcast_scaler()
         self.get_recent_averages()
         self.calc_trade()
-        self.balance()
 
     def set_parameters(self):
         if self.future_supply is not None:
@@ -68,23 +67,21 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         if len(missing_dims) > 0:
             with np.errstate(divide="ignore"):
-                self.historic_first *= (
+                self.historic_first[...] *= (
                     self.scaler_first[{"t": self.historic_first.dims["h"]}]
                     .get_shares_over(missing_dims)
                     .apply(np.nan_to_num)
                 )
-                self.historic_second *= (
+                self.historic_second[...] *= (
                     self.scaler_first[{"t": self.historic_second.dims["h"]}]
                     .get_shares_over(missing_dims)
                     .apply(np.nan_to_num)
                 )
 
     def broadcast_scaler(self):
-        all_dims = self.historic_first.dims.union_with(self.scaler_first.dims)
-        dim_letters_out = ("t",) + self.historic_first.dims.letters[1:]
-        self.dims_out = all_dims[dim_letters_out]
-
-        self.scaler_first = self.scaler_first.cast_to(self.dims_out)
+        self.dims_out = self.future_trade.exports.dims
+        common_dims = self.scaler_first.dims.intersect_with(self.dims_out)
+        self.scaler_first = self.scaler_first.sum_to(common_dims.letters).cast_to(self.dims_out)
 
         if self.future_first.dims - self.dims_out:
             raise ValueError("All future trade dimensions must be contained either in scaler or in historic trade.")
@@ -101,169 +98,70 @@ class TradeExtrapolator(RemindMFABaseModel):
             + self.historic_second
         )
         self.scaler_second_0 = averager.apply(scaler_second_hist).cast_to(self.dims_out)
-        self.excess_trade_historic = (self.historic_first - self.scaler_first[{"t": self.historic_trade.exports.dims["h"]}]).maximum(0.)
-        self.excess_trade_0 = averager.apply(self.excess_trade_historic).cast_to(self.dims_out)
 
     def calc_trade(self):
-        # - calc excess_trade_0
-        # self.excess_trade_0 = (
-        #     self.historic_first_0 - self.scaler_first_0
-        # ).maximum(
-        #     self.historic_second_0 - self.scaler_second_0
-        # ).maximum(0)
-        # - subtract from: historic_first_0, historic_second_0
-        self.historic_first_0 -= self.excess_trade_0
-        self.historic_second_0 -= self.excess_trade_0
-
-        # - calc p and d linearly where d<d0
-        # TODO: dims? pre-create arrays?
         linear_scaling = self.scaler_first / self.scaler_first_0
         self.future_first_linear = self.historic_first_0 * linear_scaling
         self.future_second_linear = self.historic_second_0 * linear_scaling
         self.scaler_second_linear = self.scaler_second_0 * linear_scaling
-        self.excess_trade_linear = self.excess_trade_0 * linear_scaling
-        # - set d to d0 where d<d0 (minimum function later on serves as a mask)
-        self.scaler_first[...] = self.scaler_first.maximum(self.scaler_first_0)
 
-        self.excess_trade = self.calc_first(
-            d0=self.scaler_first_0,
-            d=self.scaler_first,
-            i0=self.excess_trade_0,
-            alpha=self.alpha_rel,
-        )
-
-        self.future_first[...] = self.calc_first(
-            i0=self.historic_first_0,
+        id_historic = {"t": self.historic_first.dims["h"]}
+        scaling = self.scaling(
             d0=self.scaler_first_0,
             d=self.scaler_first,
             alpha=self.alpha_rel,
         )
-        self.future_first[{"t": self.historic_first.dims["h"]}] = self.historic_first - self.excess_trade_historic
+        self.future_first[...] = self.historic_first_0 * scaling
+        self.future_first[id_historic] = self.historic_first
 
-        self.future_second[...], self.scaler_second = self.calc_second(
-            p0=self.scaler_second_0,
-            e0=self.historic_second_0,
-            dd=self.scaler_first-self.future_first,
-            alpha=self.alpha_rel,
+        re_exports_0 = (self.historic_second_0 - self.scaler_second_0).maximum(0)
+        self.historic_second_0[...] -= re_exports_0
+        re_exports = re_exports_0 * scaling
+
+        self.future_second[...] = self.historic_second_0 * scaling
+        self.future_second[id_historic] = self.historic_second
+        for _ in range(1):
+            self.scaler_second = self.scaler_first - self.future_first + self.future_second + re_exports
+            scaling = self.scaling(
+                d0=self.scaler_second_0,
+                d=self.scaler_second,
+                alpha=self.alpha_rel,
+            )
+            self.future_second[...] = self.historic_second_0 * scaling
+            self.future_second[id_historic] = self.historic_second
+
+        self.future_second[...] += re_exports
+        self.future_second[id_historic] = self.historic_second
+
+        self.future_trade.balance(to="hmean")
+        # demand - imports + exports = demand-net_imports
+        # should be positive; else scale down imports
+        for i in range(10):
+            production = self.scaler_first - self.future_first + self.future_second
+            excess_trade = - (production.minimum(0.))
+            total_excess = excess_trade.sum_over("r")
+            if np.max(total_excess.values) < 0.1:
+                break
+            self.future_first[...] -= excess_trade
+            self.future_trade.balance(to="minimum")
+
+        np.testing.assert_array_almost_equal(
+            self.future_first.sum_over("r",).values,
+            self.future_second.sum_over("r",).values,
+            decimal=0
         )
-
-        # take minimum with linear scaling
-        self.future_first[...] = self.future_first.minimum(self.future_first_linear)
-        self.future_second[...] = self.future_second.minimum(self.future_second_linear)
-        self.scaler_second[...] = self.scaler_second.minimum(self.scaler_second_linear)
-        self.excess_trade[...] = self.excess_trade.minimum(self.excess_trade_linear)
-
-        # re-add excess trade
-        self.future_first[...] += self.excess_trade
-        self.future_second[...] += self.excess_trade
-
-        self.future_first[{"t": self.historic_first.dims["h"]}] = self.historic_first
-        self.future_second[{"t": self.historic_second.dims["h"]}] = self.historic_second
-        # not needed, historic is overwritten correctly
-        # self.excess_trade[{"t": self.historic_first.dims["h"]}] = self.excess_trade_historic
 
     @staticmethod
-    def calc_first(
-            i0: fd.FlodymArray,
+    def scaling(
             d0: fd.FlodymArray,
             d: fd.FlodymArray,
             alpha: float,
         ) -> fd.FlodymArray:
-        assert np.min(d0.values) > sys.float_info.epsilon
-        assert np.min(i0.values) >= 0
-        assert np.min(d.values) >= 0
-        i = (i0 * d / d0) ** alpha * i0 ** (1 - alpha)
-        return i
-
-    @staticmethod
-    def calc_second(
-            p0: fd.FlodymArray,
-            e0: fd.FlodymArray,
-            dd: fd.FlodymArray,
-            alpha: float,
-            eps: float = 1e-6,
-        ) -> tuple[fd.FlodymArray, fd.FlodymArray]:
-        """
-        i - imports, e - exports, d - demand, p - production, dd - domestic demand = d - i
-        Variable names assume known demand for simplicity, but the equations are the same for known supply
-        (try switching e and i, as well as p and d).
-        Subscripts 0 indicate recent historic average value
-
-        Equations:
-        (1) i(t) = i0 * (d(t)/d0)^alpha  # imports extrapolation
-        (2) e(t) = e0 * (p(t)/p0)^alpha  # exports extrapolation
-        (3) d(t) = p(t) - e(t) + i(t)    # mass balance
-
-        known: d(t), p0, e0, d0, i0
-        - (1) can be solved directly for i(t) (calc_first routine)
-        - unknown: p(t), e(t)
-        - insert (2) in (3):
-          d(t) = p(t) - e0 * (p(t)/p0)^alpha + i(t)
-        - solve Newton-Raphson for p(t) with
-          f(p) = 0 = p - e0 * (p/p0)^alpha - (d(t) - i(t))
-          we rename (d(t) - i(t)) to dd(t) (domestic demand), which gives:
-          f(p) = 0 = p - e0 * (p/p0)^alpha - dd(t)
-
-          How do we find a reliable starting value?
-          This function is convex (only the second term e has a second derivative).
-          We want the biggest root, so we start with a value bigger than the root
-          We derive a lower bound for p via an upper bound for e:
-          with P = p/p0, eq (2) gives e(P) = e0 * P^alpha, with the derivative e'(P) = e0 * alpha * P^(alpha-1)
-          From the concavity of e, we know that it is smaller than its linearization: e(p) <= eL(p)
-          The linearization around P=1 is: eL(P) = e(P=1) + e'(P=1)*(P-1) = e0 + e0 * alpha * (P - 1)
-          and thus eL(p) = e0 + e0 * alpha * (p/p0 - 1)
-
-          If domestic demand is negative, the second equation may not have a solution:
-          Exports scale as (p/p0)^alpha and thus slower than production.
-          So may never be large enough to satisfy the mass balance:
-          there is always too much imports and too little exports.
-          Proposed remedy:
-          domestic demand formula: dd = d - i = d - i0 * (d/d0)^alpha
-          two cases why this may be happening:
-          - d0 < i0  => scale excess trade separately
-          - decreasing demand. In this case, imports and exports should scale linearly with demand and production.
-            - case e0=p0, i0=d0: e=p, i=d
-            - case e0<p0, i0<d0: solve equation with alpha=1
-
-          Inserting s into (3) gives:
-          p - e - dd = 0
-          p - eL(p) - dd <= 0
-          p - e0 - e0 * alpha * (p/p0 - 1) - dd <= 0
-          p (1 - e0 * alpha / p0) <= e0 - e0 * alpha + dd
-          p <= (e0 - e0 * alpha + dd)) / (1 - e0 * alpha / p0)
-        """
-
-        def f(p: fd.FlodymArray):
-            return p - e0 * (p.maximum(0) / p0) ** alpha - dd
-
-        def f_prime(p):
-            return 1 - alpha * e0 * (p.maximum(0) / p0) ** (alpha - 1) / p0
-
-        def assert_positive(x, name):
-            if np.min(x.values) <= -1.e-6:
-                negative_items = x.items_where(lambda v: v <= -1.e-6)
-                raise ValueError(f"All values of {name} must be positive for Newton-Raphson method. Negative items: {negative_items}")
-
-        assert_positive(e0, "recent historic exports")
-        assert_positive(e0, "recent historic exports")
-        assert_positive(dd, "domestic demand")
-        assert_positive((1 - e0 * alpha / p0), "denominator of lower bound for production")
-        # initial guess (bigger than root)
-        p = (e0 - e0 * alpha + dd) / (1 - e0 * alpha / p0).maximum(1.e-6)
-
-        # Newton-Raphson method
-        for _ in range(100):
-            assert np.min(p.values) > -1e-6*np.max(p.values), "Negative value in production during Newton-Raphson method"
-            fi = f(p)
-            if np.max(np.abs(fi.values)) < eps:
-                break
-            p -= fi / f_prime(p)
-        e = e0 * (p / p0) ** alpha
-
-        return e, p
-
-    def balance(self):
-        self.future_trade.balance(to="hmean")
+        assert np.min(d.values) >= - 1e-6 * np.max(np.abs(d.values))
+        assert np.min(d0.values) >= - 1e-6 * np.max(np.abs(d0.values))
+        d = d.maximum(0)
+        d0 = d0.maximum(1)
+        return ((d / d0) ** alpha).minimum(d/d0)
 
 
 class RecentHistoricalAverage(RemindMFABaseModel):
@@ -314,4 +212,4 @@ class RecentHistoricalAverage(RemindMFABaseModel):
             items = average.items_where(lambda x: x < -1e-6 * np.max(np.abs(x)))
             raise ValueError(f"Negative value in average: {items}")
         else:
-            return average.maximum(1.e-6)
+            return average

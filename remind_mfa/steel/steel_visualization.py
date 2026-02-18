@@ -42,7 +42,7 @@ class SteelVisualizer(CommonVisualizer):
         linecolor_dims = {
             "steel": None,
             "indirect": "Good",
-            "scrap": "Good",
+            "scrap": None,
         }
 
         for name, trade in mfa.trade_set.markets.items():

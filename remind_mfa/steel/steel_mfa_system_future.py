@@ -93,15 +93,14 @@ class SteelMFASystem(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "net_scrap_trade": self.get_new_array(dim_letters=("t", "r", "g")),
-            "production": self.get_new_array(dim_letters=("t", "r")),
-            "scrap_in_production": self.get_new_array(dim_letters=("t", "r")),
-            "available_scrap": self.get_new_array(dim_letters=("t", "r")),
-            "eaf_share_production": self.get_new_array(dim_letters=("t", "r")),
-            "production_inflow": self.get_new_array(dim_letters=("t", "r")),
-            "max_scrap_production": self.get_new_array(dim_letters=("t", "r")),
-            "scrap_share_production": self.get_new_array(dim_letters=("t", "r")),
-            "bof_production_inflow": self.get_new_array(dim_letters=("t", "r")),
+            "production": fd.Parameter(dims=self.dims["t", "r"]),
+            "scrap_in_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "available_scrap": fd.Parameter(dims=self.dims["t", "r"]),
+            "eaf_share_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
+            "max_scrap_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "scrap_share_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "bof_production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
         }
 
         # fmt: off
@@ -154,9 +153,8 @@ class SteelMFASystem(CommonMFASystem):
 
         flw["imports => eol_market"][...] = trd["scrap"].imports
         flw["eol_market => exports"][...] = trd["scrap"].exports
-        aux["net_scrap_trade"][...] = flw["imports => eol_market"] - flw["eol_market => exports"]
 
-        flw["eol_market => recycling"][...] = flw["use => eol_market"] + aux["net_scrap_trade"]
+        flw["eol_market => recycling"][...] = flw["use => eol_market"] + trd["scrap"].net_imports
         flw["recycling => scrap_market"][...] = flw["eol_market => recycling"]
 
         # PRODUCTION

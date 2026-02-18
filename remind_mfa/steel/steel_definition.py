@@ -84,10 +84,10 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t", "r", "g")),
             fd.FlowDefinition(from_process="use", to_process="obsolete", dim_letters=("t", "r", "g")),
             fd.FlowDefinition(from_process="use", to_process="eol_market", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="eol_market", to_process="recycling", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="eol_market", to_process="exports", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="imports", to_process="eol_market", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="recycling", to_process="scrap_market", dim_letters=("t", "r", "g")),
+            fd.FlowDefinition(from_process="eol_market", to_process="recycling", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="eol_market", to_process="exports", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="imports", to_process="eol_market", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="recycling", to_process="scrap_market", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="scrap_market", to_process="excess_scrap", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
@@ -247,7 +247,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         trades = [
             TradeDefinition(name="steel", dim_letters=("t", "r")),
             TradeDefinition(name="indirect", dim_letters=("t", "r", "g")),
-            TradeDefinition(name="scrap", dim_letters=("t", "r", "g")),
+            TradeDefinition(name="scrap", dim_letters=("t", "r")),
         ]
 
     return RemindMFADefinition(
