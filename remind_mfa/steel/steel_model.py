@@ -1,10 +1,7 @@
 import numpy as np
 import flodym as fd
-from copy import deepcopy
 
 from remind_mfa.common.data_blending import blend
-from remind_mfa.common.data_transformations import Bound, BoundList
-from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.steel.steel_export import SteelDataExporter
 from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
 from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
@@ -28,6 +25,11 @@ class SteelModel(CommonModel):
     FutureMFASystemCls = SteelMFASystem
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
+
+    # TODO: unify, then delete
+    end_use_good_letter: str = "g"
+    historic_stock_name: str = "historic_in_use"
+    stock_projection_saturation_level: int = 11
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
@@ -120,44 +122,6 @@ class SteelModel(CommonModel):
         self.parameters["aggregate_fabrication_yield"] = fd.Parameter(dims=self.dims["t", "r"])
         self.parameters["aggregate_fabrication_yield"][...] = (self.parameters["fabrication_yield"] * self.parameters["sector_split"]).sum_over("g")
 
-    def get_long_term_stock(self) -> fd.FlodymArray:
-
-        saturation_level = 11
-        arr = self.get_high_stock_sector_split() * saturation_level
-        bound = Bound(
-            var_name="saturation_level",
-            lower_bound=arr,
-            upper_bound=arr,
-        )
-        historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
-
-        # 1) common regression
-        indep_fit_dim_letters = ("g",)
-
-        bound_list_obj = BoundList(
-            target_dims=self.dims[indep_fit_dim_letters],
-            bound_list=[bound],
-        )
-
-        self.stock_handler = StockExtrapolation(
-            cfg=self.cfg.model_switches,
-            historic_stocks=historic_stocks,
-            dims=self.dims,
-            parameters=self.parameters,
-            target_dim_letters="all",
-            indep_fit_dim_letters=indep_fit_dim_letters,
-            bound_list=bound_list_obj,
-        )
-        self.stock_handler.extrapolate()
-        return self.stock_handler.stocks
-
-    def get_high_stock_sector_split(self):
-        prm = self.parameters
-        last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
-        last_gdppc = prm["gdppc"][{"t": self.dims["t"].items[-1]}]
-        av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
-        high_stock_sector_split = (av_lifetime * prm["sector_split_high"]).get_shares_over("g")
-        return high_stock_sector_split
 
     def calc_sector_split(self) -> fd.FlodymArray:
         """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""

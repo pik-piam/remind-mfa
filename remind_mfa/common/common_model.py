@@ -11,6 +11,8 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import get_definition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
+from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 
 class CommonModel:
@@ -24,6 +26,11 @@ class CommonModel:
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
     get_definition = staticmethod(get_definition)
+
+    # TODO: unify, then delete
+    end_use_good_letter: str = None
+    historic_stock_name: str = None
+    stock_projection_saturation_level: int = None
 
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
@@ -85,9 +92,6 @@ class CommonModel:
         """Manual changes to parameters"""
         pass
 
-    def get_long_term_stock(self):
-        raise NotImplementedError
-
     def init_export_and_visualization(self):
         display_names = self.DisplayNamesCls()
         self.data_writer = self.DataExporterCls(
@@ -142,3 +146,39 @@ class CommonModel:
             stocks=stocks,
             trade_set=trade_set,
         )
+
+    def get_high_stock_sector_split(self):
+        prm = self.parameters
+        last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
+        last_gdppc = prm["gdppc"][{"t": self.dims["t"].items[-1]}]
+        av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
+        high_stock_sector_split = (av_lifetime * prm["sector_split_high"]).get_shares_over("g")
+        return high_stock_sector_split
+
+    def get_long_term_stock(self) -> fd.FlodymArray:
+
+        saturation_level = self.stock_projection_saturation_level
+        arr = self.get_high_stock_sector_split() * saturation_level
+        bound = Bound(
+            var_name="saturation_level",
+            lower_bound=arr,
+            upper_bound=arr,
+        )
+        historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
+
+        bound_list_obj = BoundList(
+            target_dims=self.dims[self.end_use_good_letter,],
+            bound_list=[bound],
+        )
+
+        self.stock_handler = StockExtrapolation(
+            cfg=self.cfg.model_switches,
+            historic_stocks=historic_stocks,
+            dims=self.dims,
+            parameters=self.parameters,
+            target_dim_letters="all",
+            indep_fit_dim_letters=(self.end_use_good_letter,),
+            bound_list=bound_list_obj,
+        )
+        self.stock_handler.extrapolate()
+        return self.stock_handler.stocks

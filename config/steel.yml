@@ -4,8 +4,12 @@ input:
   madrat_output_path: '../remind_mfa_data'
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data/h12'
+  # input_data_path: '../remind_mfa_data/eu21'
+  # input_data_path: '../remind_mfa_data/ISOcountries'
   scenarios_path: 'config/scenarios'
   input_data_version: 'rev1.0.0_h12_1584d780_mfa'
+  # input_data_version: 'rev1.0.0_2b1450bc_1584d780_mfa'
+  # input_data_version: 'rev1.0.0test_ISO2ISO_99727f0b_1584d780_mfa'
 
 model_switches:
   scenario: 'SSP2'
@@ -30,7 +34,7 @@ visualization:
     do_visualize: False
   use_stock:
     do_visualize: True
-    over_gdp: False
+    over_gdp: True
     per_capita: True
   gdppc:
     do_visualize: False
