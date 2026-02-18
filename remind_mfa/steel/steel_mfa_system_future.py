@@ -73,7 +73,17 @@ class SteelMFASystem(CommonMFASystem):
                 for r in self.dims["r"].items
                 if np.min(self.stocks["in_use"].inflow[r].values) < 0
             ]
-            logging.warning(f"In-use stock inflow <0 in regions {negative_regions}!")
+            logging.warning(f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0.")
+            corrected_inflow = self.stocks["in_use"].inflow.maximum(1e-6)
+            # correct negative inflow
+            self.stocks["in_use"] = fd.InflowDrivenDSM(
+                dims=self.stocks["in_use"].dims,
+                lifetime_model=self.stocks["in_use"].lifetime_model,
+                name="in_use",
+                process=self.stocks["in_use"].process,
+            )
+            self.stocks["in_use"].inflow[...] = corrected_inflow
+            self.stocks["in_use"].compute()
 
     def compute_flows(self, historic_trade: TradeSet):
         # abbreviations for better readability
@@ -103,7 +113,6 @@ class SteelMFASystem(CommonMFASystem):
             historic_trade=historic_trade["indirect"],
             future_trade=trd["indirect"],
             future_demand=flw["good_market => use"],
-            prevent_negative_domestic=True,
         )
         extrapolator.run()
 
@@ -112,7 +121,7 @@ class SteelMFASystem(CommonMFASystem):
 
         flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["indirect"].net_imports
 
-        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
+        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["aggregate_fabrication_yield"]
         flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
         flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
 
@@ -120,7 +129,6 @@ class SteelMFASystem(CommonMFASystem):
             historic_trade=historic_trade["steel"],
             future_trade=trd["steel"],
             future_demand=flw["ip_market => fabrication"],
-            prevent_negative_domestic=True,
         )
         extrapolator.run()
 
@@ -141,7 +149,6 @@ class SteelMFASystem(CommonMFASystem):
             historic_trade=historic_trade["scrap"],
             future_trade=trd["scrap"],
             future_supply=flw["use => eol_market"],
-            prevent_negative_domestic=True,
         )
         extrapolator.run()
 
@@ -163,7 +170,7 @@ class SteelMFASystem(CommonMFASystem):
         )
         aux["scrap_in_production"][...] = aux["available_scrap"].minimum(aux["max_scrap_production"])
         flw["scrap_market => excess_scrap"][...] = aux["available_scrap"] - aux["scrap_in_production"]
-        aux["scrap_share_production"][...] = aux["scrap_in_production"] / aux["production_inflow"]
+        aux["scrap_share_production"][...] = aux["scrap_in_production"] / aux["production_inflow"].maximum(1e-6)
         aux["eaf_share_production"][...] = (
             aux["scrap_share_production"]
             - prm["scrap_in_bof_rate"].cast_to(aux["scrap_share_production"].dims)

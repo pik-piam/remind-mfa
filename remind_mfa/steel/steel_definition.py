@@ -198,14 +198,6 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Loss rate of raw steel production in BF-BOF and (DRI-)EAF processes",
         ),
         RemindMFAParameterDefinition(
-            name="saturation_level_factor", dim_letters=("r",),
-            description="Regional multiplicative adjustment factor for the saturation level of the in-use steel stock based on expert judgement",
-        ),
-        RemindMFAParameterDefinition(
-            name="stock_growth_speed_factor", dim_letters=("r",),
-            description="Regional adjustment factor for the growth speed of the in-use steel stock based on expert judgement",
-        ),
-        RemindMFAParameterDefinition(
             name="scrap_consumption", dim_letters=("h", "r"),
             description="Historic scrap consumption",
         ),

@@ -116,6 +116,10 @@ class SteelModel(CommonModel):
         self.parameters["sector_split_high"]["Products"] *= 1.5
         self.parameters["sector_split_high"][...] = self.parameters["sector_split_high"].get_shares_over("g")
 
+        self.calc_sector_split()
+        self.parameters["aggregate_fabrication_yield"] = fd.Parameter(dims=self.dims["t", "r"])
+        self.parameters["aggregate_fabrication_yield"][...] = (self.parameters["fabrication_yield"] * self.parameters["sector_split"]).sum_over("g")
+
     def get_long_term_stock(self) -> fd.FlodymArray:
 
         saturation_level = 11
@@ -147,7 +151,6 @@ class SteelModel(CommonModel):
         self.stock_handler.extrapolate()
         return self.stock_handler.stocks
 
-
     def get_high_stock_sector_split(self):
         prm = self.parameters
         last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
@@ -155,3 +158,49 @@ class SteelModel(CommonModel):
         av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
         high_stock_sector_split = (av_lifetime * prm["sector_split_high"]).get_shares_over("g")
         return high_stock_sector_split
+
+    def calc_sector_split(self) -> fd.FlodymArray:
+        """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""
+        target_dims = self.dims["t", "r", "g"]
+        self.parameters["sector_split"] = fd.Parameter(dims=target_dims, name="sector_split")
+        sector_split_1 = fd.Parameter(dims=target_dims)
+        sector_split_2 = fd.Parameter(dims=target_dims)
+        log_gdppc = self.parameters["gdppc"].apply(np.log)
+        log_gdppc_low = self.parameters["secsplit_gdppc_low"].apply(np.log)
+        log_gdppc_high = self.parameters["secsplit_gdppc_high"].apply(np.log)
+        add_assumption_doc(
+            type="expert guess",
+            name="medium sector split",
+            description=(
+                "Demand sector split for medium GDP per capita, to account for higher construction "
+                "share in medium GDP. Roughly based on given source, but adapted."
+            ),
+            source="https://steel.gov.in/sites/default/files/2025-03/GSI%20Report.pdf",
+        )
+        log_gddpc_medium = (log_gdppc_low + log_gdppc_high) / 2
+
+        sector_split_1[...] = blend(
+            target_dims=target_dims,
+            y_lower=self.parameters["sector_split_low"],
+            y_upper=self.parameters["sector_split_medium"],
+            x=log_gdppc,
+            x_lower=log_gdppc_low,
+            x_upper=log_gddpc_medium,
+            type="poly_mix",
+        )
+
+        sector_split_2[...] = blend(
+            target_dims=target_dims,
+            y_lower=self.parameters["sector_split_medium"],
+            y_upper=self.parameters["sector_split_high"],
+            x=log_gdppc,
+            x_lower=log_gddpc_medium,
+            x_upper=log_gdppc_high,
+            type="poly_mix",
+        )
+
+        mask = log_gdppc.cast_values_to(target_dims) < log_gddpc_medium.cast_values_to(target_dims)
+        self.parameters["sector_split"].values = np.where(
+            mask, sector_split_1.values, sector_split_2.values
+        )
+        return

@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import flodym as fd
 from pydantic import model_validator, ConfigDict
@@ -24,10 +25,8 @@ class TradeExtrapolator(RemindMFABaseModel):
     """future_demand (FlodymArray): The demand values to scale the historic imports by.
     In this backward mode, the exports are scaled subsequently by demand - imports.
     """
-    alpha_rel: float = 0.5
+    alpha_rel: float = 2/3
     eps: float = 1e-6
-    prevent_negative_domestic: bool = False
-
 
     @model_validator(mode="after")
     def validate_inputs(self):
@@ -93,8 +92,8 @@ class TradeExtrapolator(RemindMFABaseModel):
     def get_recent_averages(self):
         averager = RecentHistoricalAverage(dims=self.historic_first.dims)
 
-        self.historic_first_0= averager.apply(self.historic_first).cast_to(self.dims_out) * (1 - self.eps)
-        self.historic_second_0= averager.apply(self.historic_second).cast_to(self.dims_out) * (1 - self.eps)
+        self.historic_first_0= averager.apply(self.historic_first).cast_to(self.dims_out) #* (1 - self.eps)
+        self.historic_second_0= averager.apply(self.historic_second).cast_to(self.dims_out) #* (1 - self.eps)
         self.scaler_first_0 = averager.apply(self.scaler_first).cast_to(self.dims_out)
         scaler_second_hist = (
             self.scaler_first[{"t": self.historic_first.dims["h"]}]
@@ -102,17 +101,44 @@ class TradeExtrapolator(RemindMFABaseModel):
             + self.historic_second
         )
         self.scaler_second_0 = averager.apply(scaler_second_hist).cast_to(self.dims_out)
+        self.excess_trade_historic = (self.historic_first - self.scaler_first[{"t": self.historic_trade.exports.dims["h"]}]).maximum(0.)
+        self.excess_trade_0 = averager.apply(self.excess_trade_historic).cast_to(self.dims_out)
 
     def calc_trade(self):
+        # - calc excess_trade_0
+        # self.excess_trade_0 = (
+        #     self.historic_first_0 - self.scaler_first_0
+        # ).maximum(
+        #     self.historic_second_0 - self.scaler_second_0
+        # ).maximum(0)
+        # - subtract from: historic_first_0, historic_second_0
+        self.historic_first_0 -= self.excess_trade_0
+        self.historic_second_0 -= self.excess_trade_0
+
+        # - calc p and d linearly where d<d0
+        # TODO: dims? pre-create arrays?
+        linear_scaling = self.scaler_first / self.scaler_first_0
+        self.future_first_linear = self.historic_first_0 * linear_scaling
+        self.future_second_linear = self.historic_second_0 * linear_scaling
+        self.scaler_second_linear = self.scaler_second_0 * linear_scaling
+        self.excess_trade_linear = self.excess_trade_0 * linear_scaling
+        # - set d to d0 where d<d0 (minimum function later on serves as a mask)
+        self.scaler_first[...] = self.scaler_first.maximum(self.scaler_first_0)
+
+        self.excess_trade = self.calc_first(
+            d0=self.scaler_first_0,
+            d=self.scaler_first,
+            i0=self.excess_trade_0,
+            alpha=self.alpha_rel,
+        )
+
         self.future_first[...] = self.calc_first(
             i0=self.historic_first_0,
             d0=self.scaler_first_0,
             d=self.scaler_first,
             alpha=self.alpha_rel,
         )
-        self.future_first[{"t": self.historic_first.dims["h"]}] = self.historic_first
-        if self.prevent_negative_domestic:
-            self.future_first[...] = self.future_first.minimum(self.scaler_first * (1 - self.eps))
+        self.future_first[{"t": self.historic_first.dims["h"]}] = self.historic_first - self.excess_trade_historic
 
         self.future_second[...], self.scaler_second = self.calc_second(
             p0=self.scaler_second_0,
@@ -120,9 +146,21 @@ class TradeExtrapolator(RemindMFABaseModel):
             dd=self.scaler_first-self.future_first,
             alpha=self.alpha_rel,
         )
+
+        # take minimum with linear scaling
+        self.future_first[...] = self.future_first.minimum(self.future_first_linear)
+        self.future_second[...] = self.future_second.minimum(self.future_second_linear)
+        self.scaler_second[...] = self.scaler_second.minimum(self.scaler_second_linear)
+        self.excess_trade[...] = self.excess_trade.minimum(self.excess_trade_linear)
+
+        # re-add excess trade
+        self.future_first[...] += self.excess_trade
+        self.future_second[...] += self.excess_trade
+
+        self.future_first[{"t": self.historic_first.dims["h"]}] = self.historic_first
         self.future_second[{"t": self.historic_second.dims["h"]}] = self.historic_second
-        if self.prevent_negative_domestic:
-            self.future_second[...] = self.future_second.minimum(self.scaler_second * (1 - self.eps))
+        # not needed, historic is overwritten correctly
+        # self.excess_trade[{"t": self.historic_first.dims["h"]}] = self.excess_trade_historic
 
     @staticmethod
     def calc_first(
@@ -131,6 +169,9 @@ class TradeExtrapolator(RemindMFABaseModel):
             d: fd.FlodymArray,
             alpha: float,
         ) -> fd.FlodymArray:
+        assert np.min(d0.values) > sys.float_info.epsilon
+        assert np.min(i0.values) >= 0
+        assert np.min(d.values) >= 0
         i = (i0 * d / d0) ** alpha * i0 ** (1 - alpha)
         return i
 
@@ -172,6 +213,18 @@ class TradeExtrapolator(RemindMFABaseModel):
           The linearization around P=1 is: eL(P) = e(P=1) + e'(P=1)*(P-1) = e0 + e0 * alpha * (P - 1)
           and thus eL(p) = e0 + e0 * alpha * (p/p0 - 1)
 
+          If domestic demand is negative, the second equation may not have a solution:
+          Exports scale as (p/p0)^alpha and thus slower than production.
+          So may never be large enough to satisfy the mass balance:
+          there is always too much imports and too little exports.
+          Proposed remedy:
+          domestic demand formula: dd = d - i = d - i0 * (d/d0)^alpha
+          two cases why this may be happening:
+          - d0 < i0  => scale excess trade separately
+          - decreasing demand. In this case, imports and exports should scale linearly with demand and production.
+            - case e0=p0, i0=d0: e=p, i=d
+            - case e0<p0, i0<d0: solve equation with alpha=1
+
           Inserting s into (3) gives:
           p - e - dd = 0
           p - eL(p) - dd <= 0
@@ -180,25 +233,27 @@ class TradeExtrapolator(RemindMFABaseModel):
           p <= (e0 - e0 * alpha + dd)) / (1 - e0 * alpha / p0)
         """
 
-        def f(p):
-            assert np.min(p.values) > 0
-            return p - e0 * (p / p0) ** alpha - dd
+        def f(p: fd.FlodymArray):
+            return p - e0 * (p.maximum(0) / p0) ** alpha - dd
 
         def f_prime(p):
-            return 1 - alpha * e0 * (p / p0) ** (alpha - 1) / p0
+            return 1 - alpha * e0 * (p.maximum(0) / p0) ** (alpha - 1) / p0
 
         def assert_positive(x, name):
             if np.min(x.values) <= -1.e-6:
-                raise ValueError(f"All values of {name} must be positive for Newton-Raphson method.")
+                negative_items = x.items_where(lambda v: v <= -1.e-6)
+                raise ValueError(f"All values of {name} must be positive for Newton-Raphson method. Negative items: {negative_items}")
 
-        # assert_positive(dd, "domestic demand")  # TODO: may not be needed?
-        # Somehow needed, but not in this form, because we divide by (1-alpha*e0/p0), which has to be bigger than 1, else the inequality changes sign
-        assert_positive((1 - e0 * alpha / p0), "denominator")
+        assert_positive(e0, "recent historic exports")
+        assert_positive(e0, "recent historic exports")
+        assert_positive(dd, "domestic demand")
+        assert_positive((1 - e0 * alpha / p0), "denominator of lower bound for production")
         # initial guess (bigger than root)
-        p = (e0 - e0 * alpha + dd) / (1 - e0 * alpha / p0)
+        p = (e0 - e0 * alpha + dd) / (1 - e0 * alpha / p0).maximum(1.e-6)
 
         # Newton-Raphson method
         for _ in range(100):
+            assert np.min(p.values) > -1e-6*np.max(p.values), "Negative value in production during Newton-Raphson method"
             fi = f(p)
             if np.max(np.abs(fi.values)) < eps:
                 break
@@ -209,11 +264,6 @@ class TradeExtrapolator(RemindMFABaseModel):
 
     def balance(self):
         self.future_trade.balance(to="hmean")
-
-        if self.prevent_negative_domestic:
-            self.future_first[...] = self.future_first.minimum(self.scaler_first)
-            self.future_second[...] = self.future_second.minimum(self.scaler_second)
-            self.future_trade.balance(to="minimum")
 
 
 class RecentHistoricalAverage(RemindMFABaseModel):
@@ -259,4 +309,9 @@ class RecentHistoricalAverage(RemindMFABaseModel):
             data = data[{"t": self.dims["h"]}]
         if data.shape != self.dims.shape:
             raise ValueError("Data shape must match the dimensions shape.")
-        return (data * self.weights).sum_over(("h",))
+        average = (data * self.weights).sum_over(("h",))
+        if np.min(average.values) < -1e-6 * np.max(np.abs(average.values)):
+            items = average.items_where(lambda x: x < -1e-6 * np.max(np.abs(x)))
+            raise ValueError(f"Negative value in average: {items}")
+        else:
+            return average.maximum(1.e-6)

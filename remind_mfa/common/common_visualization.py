@@ -170,7 +170,7 @@ class CommonVisualizer(RemindMFABaseModel):
         **kwargs,
     ):
 
-        colors = plc.qualitative.Dark24
+        colors = plc.qualitative.Dark24 * 20
         if linecolor_dim:
             dimletter = next(
                 dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim

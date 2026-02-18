@@ -163,10 +163,12 @@ class StockExtrapolation(RemindMFABaseModel):
 
     def get_pure_regression(self):
         """Updates per capita stock to future by extrapolation."""
+        all_weights = (self.gdppc * self.pop).get_shares_over(("r",))
+        historic_weights = all_weights[{"t": self.dims["h"]}]
         if self.additional_stock_data is None:
             data_to_extrapolate = self.historic_stocks_pc.values
             predictor_values = self.predictor
-            weights = None
+            weights = historic_weights.values
         else:
             # we prepend the common regression as additional "historic" data with lower weighting
             historic_in = self.historic_stocks_pc.values
@@ -174,8 +176,8 @@ class StockExtrapolation(RemindMFABaseModel):
             data_to_extrapolate = np.concatenate([additional, historic_in], axis=0)
             weights = np.concatenate(
                 [
-                    np.ones_like(additional) * self.additional_stock_data_weight,
-                    np.ones_like(historic_in),
+                    all_weights.values * self.additional_stock_data_weight,
+                    historic_weights.values,
                 ],
                 axis=0,
             )
@@ -222,7 +224,7 @@ class StockExtrapolation(RemindMFABaseModel):
             "data_0th_order": 20.,
             "data_1st_order": 10.,
             "prms": np.array([
-                5.,  # saturation_level
+                10.,  # saturation_level
                 1,  # offset
                 1,  # growth_rate
             ]),
@@ -318,7 +320,12 @@ class StockExtrapolation(RemindMFABaseModel):
             a = np.sqrt(np.log(20))
             return np.exp(-((a * t / approaching_time) ** 2))
 
-        approaching_time_0th = 50
+        def exponential(t, approaching_time):
+            """After the approaching time, the amplitude of the exponential has decreased to 5%."""
+            a = np.log(20)
+            return np.exp(-a * t / approaching_time)
+
+        approaching_time_0th = 300
         add_assumption_doc(
             type="integer number",
             name="years for absolute blending to regression",
@@ -339,10 +346,14 @@ class StockExtrapolation(RemindMFABaseModel):
         )
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
         corr0 = difference_0th * gaussian(time_extended - last_history_year, approaching_time_0th)
+        delta_t = time_extended - last_history_year
         corr1 = (
             difference_1st
-            * (time_extended - last_history_year)
-            * gaussian(time_extended - last_history_year, approaching_time_1st)
+            * delta_t
+            * (
+                exponential(delta_t, approaching_time_1st)
+                + gaussian(delta_t, approaching_time_1st/3)
+            ) * 0.5  # averaging
         )
         correction = corr0 + corr1
 

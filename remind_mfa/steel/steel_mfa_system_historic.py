@@ -18,20 +18,19 @@ class SteelMFASystemHistoric(CommonMFASystem):
         """
         self.fill_trade()
         self.trade_set.balance(to="maximum")
-        self.calc_sector_split()
         self.compute_flows()
-        self.compute_in_use_stock()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
     def compute_flows(self):
         prm = self.parameters
         flw = self.flows
+        stk = self.stocks
         trd = self.trade_set
 
         aux = {
-            "aggregate_fabrication_yield": self.get_new_array(dim_letters=("h", "r")),
-            "fabrication_to_good_market_total": self.get_new_array(dim_letters=("h", "r")),
+            "fabrication_to_good_market_total": fd.Parameter(dims=self.dims["h", "r"]),
+            "recovered_scrap": fd.Parameter(dims=self.dims["h", "r"]),
         }
 
         # fmt: off
@@ -48,9 +47,8 @@ class SteelMFASystemHistoric(CommonMFASystem):
         flw["ip_market => fabrication"][...] = flw["forming => ip_market"] + trd["steel"].net_imports
 
         # get approximate fabrication yield with consumption sector split
-        aux["aggregate_fabrication_yield"][...] = (prm["fabrication_yield"][{'t': self.dims['h']}] * prm["sector_split"]).sum_over("g")
         # We don't know the good distribution yet, so we just calculate the total, and the flow later
-        aux["fabrication_to_good_market_total"][...] = flw["ip_market => fabrication"] * aux["aggregate_fabrication_yield"]
+        aux["fabrication_to_good_market_total"][...] = flw["ip_market => fabrication"] * prm["aggregate_fabrication_yield"][{'t': self.dims['h']}]
         flw["fabrication => sysenv"][...] = flw["ip_market => fabrication"] - aux["fabrication_to_good_market_total"]
 
         self.scale_indirect_trade_to_fabrication(aux["fabrication_to_good_market_total"])
@@ -63,6 +61,20 @@ class SteelMFASystemHistoric(CommonMFASystem):
 
         # now we can get the good distribution
         flw["fabrication => good_market"][...] = flw["good_market => use"] - trd["indirect"].net_imports
+
+        stk["historic_in_use"].inflow[...] = flw["good_market => use"]
+
+        stk["historic_in_use"].lifetime_model.set_prms(
+            mean=prm["lifetime_mean"][{"t": self.dims["h"]}],
+            std=prm["lifetime_std"][{"t": self.dims["h"]}],
+        )
+
+        stk["historic_in_use"].compute()  # gives stocks and outflows corresponding to inflow
+
+        flw["use => sysenv"][...] = stk["historic_in_use"].outflow
+        aux["recovered_scrap"] = flw["use => sysenv"] * prm["recovery_rate"]
+        trd["scrap"].exports[...] = trd["scrap"].exports.minimum(aux["recovered_scrap"])
+        trd["scrap"].balance(to="minimum")
         # fmt: on
 
     def scale_indirect_trade_to_fabrication(self, fabrication_to_good_market_total: fd.FlodymArray):
@@ -87,8 +99,8 @@ class SteelMFASystemHistoric(CommonMFASystem):
         """
         # fmt: off
         total_use_inflow = fabrication_to_good_market_total + self.trade_set["indirect"].net_imports
-        use_inflow_target = total_use_inflow * self.parameters["sector_split"]
-        min_imports = self.trade_set["indirect"].imports.maximum(0)
+        use_inflow_target = total_use_inflow * self.parameters["sector_split"][{"t": self.dims["h"]}]
+        min_imports = self.trade_set["indirect"].net_imports.maximum(0)
         # imports exceeding the target values determined by the sector split for each good
         imports_excess_total = (min_imports - use_inflow_target).maximum(0).sum_over("g")
         # remainder of the target values not covered by imports, which should be covered by domestic fabrication
@@ -99,66 +111,3 @@ class SteelMFASystemHistoric(CommonMFASystem):
         fabrication_domestic = fabrication_domestic_excess * (fabrication_domestic_excess_total - imports_excess_total) / fabrication_domestic_excess_total.maximum(sys.float_info.epsilon)
         # fmt: on
         return min_imports + fabrication_domestic
-
-    def calc_sector_split(self) -> fd.FlodymArray:
-        """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""
-        target_dims = self.dims["h", "r", "g"]
-        self.parameters["sector_split"] = fd.Parameter(dims=target_dims, name="sector_split")
-        sector_split_1 = fd.Parameter(dims=target_dims)
-        sector_split_2 = fd.Parameter(dims=target_dims)
-        log_gdppc = self.parameters["gdppc"][{"t": self.dims["h"]}].apply(np.log)
-        log_gdppc_low = self.parameters["secsplit_gdppc_low"].apply(np.log)
-        log_gdppc_high = self.parameters["secsplit_gdppc_high"].apply(np.log)
-        add_assumption_doc(
-            type="expert guess",
-            name="medium sector split",
-            description=(
-                "Demand sector split for medium GDP per capita, to account for higher construction "
-                "share in medium GDP. Roughly based on given source, but adapted."
-            ),
-            source="https://steel.gov.in/sites/default/files/2025-03/GSI%20Report.pdf",
-        )
-        log_gddpc_medium = (log_gdppc_low + log_gdppc_high) / 2
-
-        sector_split_1[...] = blend(
-            target_dims=target_dims,
-            y_lower=self.parameters["sector_split_low"],
-            y_upper=self.parameters["sector_split_medium"],
-            x=log_gdppc,
-            x_lower=log_gdppc_low,
-            x_upper=log_gddpc_medium,
-            type="poly_mix",
-        )
-
-        sector_split_2[...] = blend(
-            target_dims=target_dims,
-            y_lower=self.parameters["sector_split_medium"],
-            y_upper=self.parameters["sector_split_high"],
-            x=log_gdppc,
-            x_lower=log_gddpc_medium,
-            x_upper=log_gdppc_high,
-            type="poly_mix",
-        )
-
-        mask = log_gdppc.cast_values_to(target_dims) < log_gddpc_medium.cast_values_to(target_dims)
-        self.parameters["sector_split"].values = np.where(
-            mask, sector_split_1.values, sector_split_2.values
-        )
-        return
-
-    def compute_in_use_stock(self):
-        flw = self.flows
-        stk = self.stocks
-        prm = self.parameters
-        flw = self.flows
-
-        stk["historic_in_use"].inflow[...] = flw["good_market => use"]
-
-        stk["historic_in_use"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"][{"t": self.dims["h"]}],
-            std=prm["lifetime_std"][{"t": self.dims["h"]}],
-        )
-
-        stk["historic_in_use"].compute()  # gives stocks and outflows corresponding to inflow
-
-        flw["use => sysenv"][...] += stk["historic_in_use"].outflow
