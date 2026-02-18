@@ -147,18 +147,17 @@ class CommonModel:
             trade_set=trade_set,
         )
 
-    def get_high_stock_sector_split(self):
+    def get_stock_sector_split_limit(self):
         prm = self.parameters
         last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
         last_gdppc = prm["gdppc"][{"t": self.dims["t"].items[-1]}]
         av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
-        high_stock_sector_split = (av_lifetime * prm["sector_split_high"]).get_shares_over("g")
-        return high_stock_sector_split
+        stock_sector_split = (av_lifetime * prm["sector_split_limit"]).get_shares_over(self.end_use_good_letter)
+        return stock_sector_split
 
     def get_long_term_stock(self) -> fd.FlodymArray:
-
         saturation_level = self.stock_projection_saturation_level
-        arr = self.get_high_stock_sector_split() * saturation_level
+        arr = self.get_stock_sector_split_limit() * saturation_level
         bound = Bound(
             var_name="saturation_level",
             lower_bound=arr,

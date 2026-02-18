@@ -166,6 +166,8 @@ class SteelModel(CommonModel):
             x_upper=log_gdppc_high,
             type="poly_mix",
         )
+        # copy/rename for use in common model
+        self.parameters["sector_split_limit"] = self.parameters["sector_split_high"]
 
         mask = log_gdppc.cast_values_to(target_dims) < log_gddpc_medium.cast_values_to(target_dims)
         self.parameters["sector_split"].values = np.where(
