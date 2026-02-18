@@ -126,7 +126,6 @@ class SteelModel(CommonModel):
             self.parameters["fabrication_yield"] * self.parameters["sector_split"]
         ).sum_over("g")
 
-
     def calc_sector_split(self) -> fd.FlodymArray:
         """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""
         target_dims = self.dims["t", "r", "g"]
