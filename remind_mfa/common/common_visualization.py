@@ -260,11 +260,15 @@ class CommonVisualizer(RemindMFABaseModel):
             name_str = "global"
         return subplot_dim, summing_func, name_str
 
-    def visualize_extrapolation_functions(self, model: "CommonModel", stock_handler: StockExtrapolation):
+    def visualize_extrapolation_functions(
+        self, model: "CommonModel", stock_handler: StockExtrapolation
+    ):
         regional = "r" in stock_handler.indep_fit_dim_letters
         subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
         if goods_dim_letter := set(stock_handler.indep_fit_dim_letters) - set(("r")):
-            assert len(goods_dim_letter) == 1, "Only one non-region dimension supported in extrapolation visualization"
+            assert (
+                len(goods_dim_letter) == 1
+            ), "Only one non-region dimension supported in extrapolation visualization"
             linecolor_dim = model.dims[goods_dim_letter.pop()].name
         else:
             linecolor_dim = None

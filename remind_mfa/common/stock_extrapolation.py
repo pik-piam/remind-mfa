@@ -15,6 +15,7 @@ class StockExtrapolation(RemindMFABaseModel):
     """
     Class for extrapolating stocks based on historical data and GDP per capita.
     """
+
     model_config = ConfigDict(extra="allow")
 
     cfg: ModelSwitches
@@ -23,7 +24,7 @@ class StockExtrapolation(RemindMFABaseModel):
     """Historical stock data."""
     additional_stock_data: Optional[fd.FlodymArray] = None
     """additional data used for the extrapolation, like an expert guess"""
-    additional_stock_data_weight: Optional[float] = 0.
+    additional_stock_data_weight: Optional[float] = 0.0
     """relative weight of the additional stock data in the regression.
     only used if additional_stock_data is not None.
     """
@@ -182,10 +183,7 @@ class StockExtrapolation(RemindMFABaseModel):
                 axis=0,
             )
             predictor_values = np.concatenate(
-                [
-                    self.predictor,
-                    self.predictor
-                ],
+                [self.predictor, self.predictor],
                 axis=0,
             )
         self.extrapolation = self.cfg.stock_extrapolation_class(
@@ -193,12 +191,12 @@ class StockExtrapolation(RemindMFABaseModel):
             predictor_values=predictor_values,
             independent_dims=self.fit_dim_idx,
             bound_list=self.bound_list,
-            weights=weights
+            weights=weights,
         )
         pure_regression = self.extrapolation.regress()
         if self.additional_stock_data is not None:
             # remove prepended additional data
-            pure_regression = pure_regression[self.dims_out["t"].len:, ...]
+            pure_regression = pure_regression[self.dims_out["t"].len :, ...]
 
         self.export_pure_parameters()
 
@@ -221,19 +219,21 @@ class StockExtrapolation(RemindMFABaseModel):
     def fit(self):
 
         penalty_weights = {
-            "data_0th_order": 20.,
-            "data_1st_order": 10.,
-            "prms": np.array([
-                10.,  # saturation_level
-                1,  # offset
-                1,  # growth_rate
-            ]),
+            "data_0th_order": 20.0,
+            "data_1st_order": 10.0,
+            "prms": np.array(
+                [
+                    10.0,  # saturation_level
+                    1,  # offset
+                    1,  # growth_rate
+                ]
+            ),
         }
         stock_fitter = StockFitter(
             historic_stocks_pc=self.historic_stocks_pc,
             extrapolation=self.extrapolation,
             predictor=self.predictor,
-            dims_out = self.dims_out,
+            dims_out=self.dims_out,
             penalty_weights=penalty_weights,
         )
         self.fitted_regression = stock_fitter.fit()
@@ -246,9 +246,7 @@ class StockExtrapolation(RemindMFABaseModel):
                 stocks_pc_out[...] = self.fitted_regression.values
             case "gaussian_first_order":
                 stocks_pc_out[...] = self.gaussian_correction(
-                    self.historic_stocks_pc.values,
-                    self.fitted_regression.values,
-                    self.n_deriv
+                    self.historic_stocks_pc.values, self.fitted_regression.values, self.n_deriv
                 )
                 add_assumption_doc(
                     type="model assumption",
@@ -275,7 +273,7 @@ class StockExtrapolation(RemindMFABaseModel):
             case _:
                 raise ValueError(f"Unknown stock_correction method: {self.stock_correction}")
 
-        stocks_pc_out[:self.n_historic, ...] = self.historic_stocks_pc.values
+        stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
     def gaussian_correction(
@@ -352,8 +350,9 @@ class StockExtrapolation(RemindMFABaseModel):
             * delta_t
             * (
                 exponential(delta_t, approaching_time_1st)
-                + gaussian(delta_t, approaching_time_1st/3)
-            ) * 0.5  # averaging
+                + gaussian(delta_t, approaching_time_1st / 3)
+            )
+            * 0.5  # averaging
         )
         correction = corr0 + corr1
 

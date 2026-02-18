@@ -114,11 +114,15 @@ class SteelModel(CommonModel):
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
         self.parameters["sector_split_high"]["Products"] *= 1.5
-        self.parameters["sector_split_high"][...] = self.parameters["sector_split_high"].get_shares_over("g")
+        self.parameters["sector_split_high"][...] = self.parameters[
+            "sector_split_high"
+        ].get_shares_over("g")
 
         self.calc_sector_split()
         self.parameters["aggregate_fabrication_yield"] = fd.Parameter(dims=self.dims["t", "r"])
-        self.parameters["aggregate_fabrication_yield"][...] = (self.parameters["fabrication_yield"] * self.parameters["sector_split"]).sum_over("g")
+        self.parameters["aggregate_fabrication_yield"][...] = (
+            self.parameters["fabrication_yield"] * self.parameters["sector_split"]
+        ).sum_over("g")
 
     def get_long_term_stock(self) -> fd.FlodymArray:
 

@@ -73,7 +73,9 @@ class SteelMFASystem(CommonMFASystem):
                 for r in self.dims["r"].items
                 if np.min(self.stocks["in_use"].inflow[r].values) < 0
             ]
-            logging.warning(f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0.")
+            logging.warning(
+                f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
+            )
             corrected_inflow = self.stocks["in_use"].inflow.maximum(1e-6)
             # correct negative inflow
             self.stocks["in_use"] = fd.InflowDrivenDSM(
