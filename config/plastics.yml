@@ -45,7 +45,7 @@ visualization:
         t: 2016
         #r: 'EUR'
         m: 'Fibres'
-      exclude_processes: 
+      exclude_processes:
         - "sysenv"
         #- "waste_market"
         #- "primary_market"

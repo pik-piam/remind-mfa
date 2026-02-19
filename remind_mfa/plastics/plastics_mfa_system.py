@@ -24,8 +24,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
     def compute_waste_trade(self):
 
-        self.trade_set["waste"].imports[...] = self.parameters[f"waste_his_imports"] * self.parameters["carbon_content_materials"]
-        self.trade_set["waste"].exports[...] = self.parameters[f"waste_his_exports"] * self.parameters["carbon_content_materials"]
+        self.trade_set["waste"].imports[...] = (
+            self.parameters[f"waste_his_imports"] * self.parameters["carbon_content_materials"]
+        )
+        self.trade_set["waste"].exports[...] = (
+            self.parameters[f"waste_his_exports"] * self.parameters["carbon_content_materials"]
+        )
         self.trade_set.balance(to="minimum")
 
     def compute_stock(self, stock_projection: fd.FlodymArray):
@@ -69,8 +73,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             balance_to="minimum",
         )
 
-        flw["good_market => use"][...] = trd["final"].imports * self.parameters["carbon_content_materials"]
-        flw["fabrication => good_market"][...] = trd["final"].exports * self.parameters["carbon_content_materials"]
+        flw["good_market => use"][...] = (
+            trd["final"].imports * self.parameters["carbon_content_materials"]
+        )
+        flw["fabrication => good_market"][...] = (
+            trd["final"].exports * self.parameters["carbon_content_materials"]
+        )
         flw["sysenv => good_market"][...] = flw["good_market => use"]
         flw["good_market => sysenv"][...] = flw["fabrication => good_market"]
 
@@ -84,8 +92,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             balance_to="minimum",
         )
 
-        flw["primary_market => fabrication"][...] = trd["primary"].imports * self.parameters["carbon_content_materials"]
-        flw["virgin => primary_market"][...] = trd["primary"].exports * self.parameters["carbon_content_materials"]
+        flw["primary_market => fabrication"][...] = (
+            trd["primary"].imports * self.parameters["carbon_content_materials"]
+        )
+        flw["virgin => primary_market"][...] = (
+            trd["primary"].exports * self.parameters["carbon_content_materials"]
+        )
         flw["sysenv => primary_market"][...] = flw["primary_market => fabrication"]
         flw["primary_market => sysenv"][...] = flw["virgin => primary_market"]
 
