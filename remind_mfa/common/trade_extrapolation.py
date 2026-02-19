@@ -45,7 +45,9 @@ class TradeExtrapolator(RemindMFABaseModel):
             raise ValueError("Historic trade data must have a historic time dimension.")
         # all other dims must be the same
         if self.historic_trade.imports.dims.drop("h") != self.future_trade.imports.dims.drop("t"):
-            raise ValueError("Apart from time, historic and future trade data must have the same dimensions.")
+            raise ValueError(
+                "Apart from time, historic and future trade data must have the same dimensions."
+            )
         return self
 
     def run(self):
@@ -134,7 +136,6 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.scale_second(first_scaling, stopover_trade)
         self.balance()
 
-
     def scale_first(self) -> fd.FlodymArray:
         # 1) scale "first" trade flow (imports in demand-driven mode)
         scaling = self.scaling(
@@ -148,7 +149,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         return scaling
 
     def scale_stopover(self, first_scaling: fd.FlodymArray) -> fd.FlodymArray:
-        """ Sometimes trade exceeds domestic supply and demand.
+        """Sometimes trade exceeds domestic supply and demand.
         For example, a country could have zero production (i.e. all supply through imports),
         but still have some exports, because we bundle together trade across several stages
         along the fabrication process. So it imports semi-finished products and exports
@@ -169,7 +170,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         return stopover_trade_0 * first_scaling
 
     def scale_second(self, first_scaling: fd.FlodymArray, stopover_trade: fd.FlodymArray):
-        """ Scale "second" trade flow (exports in demand-driven mode)
+        """Scale "second" trade flow (exports in demand-driven mode)
         Scaled with the other domestic quantity than the first
         (exports with dom_supply, imports with dom_demand).
         But this depends on the second trade itself, via the mass balance, which results in

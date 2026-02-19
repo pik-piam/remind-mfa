@@ -76,7 +76,9 @@ class StockFitter(RemindMFABaseModel):
         stocks_pc_out = fd.FlodymArray(dims=self.dims_out, values=values_out[0, ...]) * sat_level
         return stocks_pc_out
 
-    def fit_single(self, historic: np.ndarray, predictor: np.ndarray, prms_0: np.ndarray) -> np.ndarray:
+    def fit_single(
+        self, historic: np.ndarray, predictor: np.ndarray, prms_0: np.ndarray
+    ) -> np.ndarray:
         """Carry out the fitting for a single good and region by minimizing the penalty function.
         Wraps/uses scipy's minimize function.
         Passes a transformed penalty function and its jacobian to scipy, which only depend on prms.
@@ -100,7 +102,9 @@ class StockFitter(RemindMFABaseModel):
         else:
             raise RuntimeError(f"Optimization failed: {result.message}")
 
-    def penalty(self, historic: np.ndarray, predictor: np.ndarray, prms: np.ndarray, prms_0: np.ndarray) -> np.ndarray:
+    def penalty(
+        self, historic: np.ndarray, predictor: np.ndarray, prms: np.ndarray, prms_0: np.ndarray
+    ) -> np.ndarray:
         """Absolute penalty function to be minimized in the fitting process.
 
         Args:
@@ -120,7 +124,13 @@ class StockFitter(RemindMFABaseModel):
             + self.pen_common(prms, prms_0)
         )
 
-    def jacobian(self: np.ndarray, historic: np.ndarray, predictor: np.ndarray, prms: np.ndarray, prms_0: np.ndarray) -> np.ndarray:
+    def jacobian(
+        self: np.ndarray,
+        historic: np.ndarray,
+        predictor: np.ndarray,
+        prms: np.ndarray,
+        prms_0: np.ndarray,
+    ) -> np.ndarray:
         """Derivative of the penalty function with respect to the parameters,
         used to helps scipy's optimization algorithm.
 
