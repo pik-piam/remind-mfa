@@ -104,16 +104,6 @@ class CommonModel:
         )
 
     def make_mfa(self, historic: bool) -> CommonMFASystem:
-        """
-        Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
-        subtracting Losses in steel forming from production by IP data
-        adding direct trade by IP to production by IP
-        transforming that to production by category via some distribution assumptions
-        subtracting losses in steel fabrication (transformation of IP to end use products)
-        adding indirect trade by category
-        This equals the inflow into the in use stock
-        via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
-        """
         if historic:
             definition = self.definition_historic
             mfasystem_class = self.HistoricMFASystemCls

@@ -113,7 +113,7 @@ class SteelMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["indirect"],
             future_trade=trd["indirect"],
-            future_demand=flw["good_market => use"],
+            future_dom_demand=flw["good_market => use"],
         )
         extrapolator.run()
 
@@ -129,7 +129,7 @@ class SteelMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["steel"],
             future_trade=trd["steel"],
-            future_demand=flw["ip_market => fabrication"],
+            future_dom_demand=flw["ip_market => fabrication"],
         )
         extrapolator.run()
 
@@ -149,7 +149,7 @@ class SteelMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["scrap"],
             future_trade=trd["scrap"],
-            future_supply=flw["use => eol_market"],
+            future_dom_supply=flw["use => eol_market"],
         )
         extrapolator.run()
 

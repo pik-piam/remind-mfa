@@ -95,6 +95,9 @@ class StockExtrapolation(RemindMFABaseModel):
         )
 
     def init_arrays(self):
+        """Initialize arrays for helpers and stocks in different versions:
+        Only the historic part, per capita, and so on
+        """
         self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_gdppc = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
@@ -104,6 +107,8 @@ class StockExtrapolation(RemindMFABaseModel):
         self.stocks = fd.StockArray(dims=self.dims_out)
 
     def calc_arrays_from_parameters_dict(self):
+        """Calc drivers (GDP and population) and various variations of it
+        """
         self.pop = self.parameters["population"]
         self.gdppc = self.parameters["gdppc"]
         self.adapt_gdppc()
@@ -126,26 +131,23 @@ class StockExtrapolation(RemindMFABaseModel):
             self.gdppc = self.gdppc.apply(np.maximum.accumulate, kwargs=dict(axis=0))
         self.gdppc = self.gdppc.cast_to(self.dims_out)
 
-        add_assumption_doc(
-            name="synthetic recent GDP for regression correction",
-            type="ad-hoc fix",
-            description=(
-                "GDP per capita SSP curves assume a steady growth after 2025, which in some "
-                "regions breaks historic trends. Here, we overwrite recent historic GDP per capita "
-                "by extrapolating back from 2025 using the growth rates after 2025. "
-                "This creates continuity between the recent historic GDP growth used for the "
-                "gaussian correction and the future assumed growth rates and thereby prevents "
-                "discontinuities in production."
-            ),
-        )
-        growth = self.gdppc[2026] / self.gdppc[2027]
-        for i in range(self.n_deriv + 5):
-            self.gdppc[2025 - i] = self.gdppc[2025 - i + 1] * growth
-
     def set_predictor(self):
+        """wrapper for the get_predictor function using class attributes.
+        get_predictor is designed to be called with other gdp values, e.g. for visualization
+        """
         self.predictor = self.get_predictor(self.gdppc.values, self.gdp_weight_in_weighted_sum)
 
-    def get_predictor(self, gdppc: np.ndarray, gdp_weight_in_weighted_sum: Optional[float] = None):
+    def get_predictor(self, gdppc: np.ndarray, gdp_weight_in_weighted_sum: Optional[float] = None) -> np.ndarray:
+        """Get regression predictor: GDP per capita, population, or a sum or combination of those
+
+        Args:
+            gdppc (np.ndarray): GDP per capita values to use; having this as an input allows to use
+              different GDP per capita values for visualization of the regression predictor, for example.
+            gdp_weight_in_weighted_sum (Optional[float], optional): Weight of logGDPpC if a weighted sum of logGDPpC and time is used.
+
+        Returns:
+            np.ndarray: The predictor values for the regression
+        """
         match self.cfg.regress_over:
             case RegressOverModes.GDPPC:
                 return gdppc
@@ -163,7 +165,10 @@ class StockExtrapolation(RemindMFABaseModel):
                 return predictor
 
     def get_pure_regression(self):
-        """Updates per capita stock to future by extrapolation."""
+        """Regress over the chosen predictor, common for all regions.
+        The extrapolation object contains the pure regression result without any correction or
+        fitting to the historic stocks.
+        """
         all_weights = (self.gdppc * self.pop).get_shares_over(("r",))
         historic_weights = all_weights[{"t": self.dims["h"]}]
         if self.additional_stock_data is None:
@@ -217,6 +222,12 @@ class StockExtrapolation(RemindMFABaseModel):
         )
 
     def fit(self):
+        """Makes region-specific alterations to the common regression parameters to better fit
+        historic stock trends.
+        Minimization of a penalty function is used to find a good compromise between fitting the
+        historical data and keeping the regression parameters close to the pure regression.
+        Details on the penalty function and the optimization can be found in the StockFitter class.
+        """
 
         penalty_weights = {
             "data_0th_order": 20.0,
@@ -239,6 +250,10 @@ class StockExtrapolation(RemindMFABaseModel):
         self.fitted_regression = stock_fitter.fit()
 
     def correct_stock(self):
+        """The fit function returns a regression which only approximately continues historic trends.
+        Here we create a smooth transition between the historic stocks and the fitted regression,
+        which is then used as the final extrapolation result.
+        """
         stocks_pc_out = np.zeros_like(self.stocks_pc.values)
 
         match self.stock_correction:
