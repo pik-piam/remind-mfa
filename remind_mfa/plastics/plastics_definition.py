@@ -21,6 +21,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     if historic:
         processes = [
             "sysenv",
+            "fabrication",
+            "good_market",
             "use",
         ]
     else:
@@ -31,10 +33,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             "virgindaccu",
             "virginccu",
             "virgin",
-            "processing",
             "fabrication",
             "primary_market",
-            "intermediate_market",
             "waste_market",
             "good_market",
             "reclmech",
@@ -52,7 +52,35 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ]
 
     if historic:
-        flows = []
+        flows = [
+            fd.FlowDefinition(
+                from_process="sysenv",
+                to_process="fabrication",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(
+                from_process="fabrication",
+                to_process="good_market",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(
+                from_process="good_market", to_process="use", dim_letters=("h", "e", "r", "m", "g")
+            ),
+            fd.FlowDefinition(
+                from_process="fabrication", to_process="use", dim_letters=("h", "e", "r", "m", "g")
+            ),
+            fd.FlowDefinition(
+                from_process="good_market",
+                to_process="sysenv",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv",
+                to_process="good_market",
+                dim_letters=("h", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
+        ]
     else:
         # fmt: off
         # names are auto-generated, see Flow class documetation
@@ -68,17 +96,11 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r","m")),
             # primary stages
-            fd.FlowDefinition(from_process="virgin", to_process="processing", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="virgin", to_process="fabrication", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="virgin", to_process="primary_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="primary_market", to_process="processing", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="primary_market", to_process="sysenv", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="sysenv", to_process="primary_market", dim_letters=("t","e","r","m")),
-            # processing stages
-            fd.FlowDefinition(from_process="processing", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="processing", to_process="intermediate_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="intermediate_market", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="intermediate_market", to_process="sysenv", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="intermediate_market", dim_letters=("t","e","r","m")),
             # fabrication stages
             fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","m","g")),
             fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","m","g")),
@@ -95,7 +117,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="collected", to_process="landfill", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="processing", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="reclmech", to_process="fabrication", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclchem", to_process="virgin", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
@@ -103,9 +125,6 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="emission", to_process="captured", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="emission", to_process="atmosphere", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="captured", to_process="virginccu", dim_letters=("t","e","r")),
-
-            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("t","r")),
-
             # waste trade
             fd.FlowDefinition(from_process="waste_market", to_process="collected", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="waste_market", dim_letters=("t","e","r","m")),
@@ -119,6 +138,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         stocks = [
             fd.StockDefinition(
                 name="in_use_historic",
+                process="use",
                 dim_letters=("h", "r", "g"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
@@ -171,26 +191,18 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         RemindMFAParameterDefinition(name="incineration_rate", dim_letters=("h", "r"),
                                      description="Incineration rate of collected waste",),
         # trade
-        RemindMFAParameterDefinition(name="primary_his_imports", dim_letters=("h", "r"),
+        RemindMFAParameterDefinition(name="primary_his_imports", dim_letters=("h", "r", "m"),
                                      description="Historic primary plastics imports",),
-        RemindMFAParameterDefinition(name="primary_his_exports", dim_letters=("h", "r"),
+        RemindMFAParameterDefinition(name="primary_his_exports", dim_letters=("h", "r", "m"),
                                      description="Historic primary plastics exports",),
-        RemindMFAParameterDefinition(name="intermediate_his_imports", dim_letters=("h", "r"),
-                                     description="Historic intermediate plastics imports",),
-        RemindMFAParameterDefinition(name="intermediate_his_exports", dim_letters=("h", "r"),
-                                     description="Historic intermediate plastics exports",),
-        RemindMFAParameterDefinition(name="manufactured_his_imports", dim_letters=("h", "r"),
-                                     description="Historic manufactured plastics imports",),
-        RemindMFAParameterDefinition(name="manufactured_his_exports", dim_letters=("h", "r"),
-                                     description="Historic manufactured plastics exports",),
-        RemindMFAParameterDefinition(name="final_his_imports", dim_letters=("h", "r"),
+        RemindMFAParameterDefinition(name="final_his_imports", dim_letters=("h", "r", "m", "g"),
                                      description="Historic final goods imports",),
-        RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r"),
+        RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r", "m", "g"),
                                      description="Historic final goods exports",),
-        RemindMFAParameterDefinition(name="waste_imports", dim_letters=("t", "r"),
-                                     description="Plastic waste imports (historic and future assumption)",),
-        RemindMFAParameterDefinition(name="waste_exports", dim_letters=("t", "r"),
-                                     description="Plastic waste exports (historic and future assumption)",),
+        RemindMFAParameterDefinition(name="waste_his_imports", dim_letters=("h", "r", "m"),
+                                     description="Historic plastic waste imports",),
+        RemindMFAParameterDefinition(name="waste_his_exports", dim_letters=("h", "r", "m"),
+                                     description="Historic plastic waste exports",),
         # virgin production rates
         RemindMFAParameterDefinition(name="bio_production_rate", dim_letters=("h", "r"),
                                      description="Share of bio-based plastics in virgin production",),
@@ -210,7 +222,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Carbon content of materials",),
         # for in-use stock
         RemindMFAParameterDefinition(name="consumption", dim_letters=("h", "r", "g"),
-                                     description="Historic consumption",),
+                                     description="Historic plastic use by industries such as converters for the fabrication of plastic products",),
         RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("g",),
                                      description="Mean lifetime of goods",),
         RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("g",),
@@ -224,18 +236,14 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
     if historic:
         trades = [
-            TradeDefinition(name="primary_his", dim_letters=("h", "r")),
-            TradeDefinition(name="intermediate_his", dim_letters=("h", "r")),
-            TradeDefinition(name="manufactured_his", dim_letters=("h", "r")),
-            TradeDefinition(name="final_his", dim_letters=("h", "r")),
+            TradeDefinition(name="primary_his", dim_letters=("h", "r", "m")),
+            TradeDefinition(name="final_his", dim_letters=("h", "r", "m", "g")),
         ]
     else:
         trades = [
-            TradeDefinition(name="primary", dim_letters=("t", "r", "m", "e")),
-            TradeDefinition(name="intermediate", dim_letters=("t", "r", "m", "e")),
-            TradeDefinition(name="manufactured", dim_letters=("t", "r", "m", "e")),
-            TradeDefinition(name="final", dim_letters=("t", "r", "m", "e", "g")),
-            TradeDefinition(name="waste", dim_letters=("t", "r", "m", "e", "g")),
+            TradeDefinition(name="primary", dim_letters=("t", "r", "m")),
+            TradeDefinition(name="final", dim_letters=("t", "r", "m", "g")),
+            TradeDefinition(name="waste", dim_letters=("t", "e", "r", "m")),
         ]
 
     return RemindMFADefinition(
@@ -250,6 +258,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
 # fmt: off
 scenario_parameters = [
+    RemindMFAParameterDefinition(name="waste_his_imports_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="waste_his_exports_target_year", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="waste_his_imports_target_value", dim_letters=("r",),),
+    RemindMFAParameterDefinition(name="waste_his_exports_target_value", dim_letters=("r",),),
     RemindMFAParameterDefinition(name="collection_rate_target_year", dim_letters=("r",),),
     RemindMFAParameterDefinition(name="collection_rate_target_value", dim_letters=("r",),),
     RemindMFAParameterDefinition(name="incineration_rate_target_year", dim_letters=("r",),),

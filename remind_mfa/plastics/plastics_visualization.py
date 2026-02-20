@@ -45,14 +45,14 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["virgin => processing"],
+                flow=model.future_mfa.flows["virgin => fabrication"],
                 name="Domestic primary production",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclmech => processing"],
+                flow=model.future_mfa.flows["reclmech => fabrication"],
                 name="Mechanical recycling",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -101,20 +101,6 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["processing => intermediate_market"],
-                name="Intermediate exports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["intermediate_market => fabrication"],
-                name="Intermediate imports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
                 flow=model.future_mfa.flows["virgin => primary_market"],
                 name="Primary exports",
                 subplot_dim="Region",
@@ -122,7 +108,7 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["primary_market => processing"],
+                flow=model.future_mfa.flows["primary_market => fabrication"],
                 name="Primary imports",
                 subplot_dim="Region",
                 linecolor_dim="Material",
