@@ -107,8 +107,7 @@ class StockExtrapolation(RemindMFABaseModel):
         self.stocks = fd.StockArray(dims=self.dims_out)
 
     def calc_arrays_from_parameters_dict(self):
-        """Calc drivers (GDP and population) and various variations of it
-        """
+        """Calc drivers (GDP and population) and various variations of it"""
         self.pop = self.parameters["population"]
         self.gdppc = self.parameters["gdppc"]
         self.adapt_gdppc()
@@ -137,7 +136,9 @@ class StockExtrapolation(RemindMFABaseModel):
         """
         self.predictor = self.get_predictor(self.gdppc.values, self.gdp_weight_in_weighted_sum)
 
-    def get_predictor(self, gdppc: np.ndarray, gdp_weight_in_weighted_sum: Optional[float] = None) -> np.ndarray:
+    def get_predictor(
+        self, gdppc: np.ndarray, gdp_weight_in_weighted_sum: Optional[float] = None
+    ) -> np.ndarray:
         """Get regression predictor: GDP per capita, population, or a sum or combination of those
 
         Args:
