@@ -9,6 +9,22 @@ data:
   - steel
   value: 1.0
 # plastics EoL rates
+- parameter: waste_his_imports_target_year
+  models:
+  - plastics
+  value: 2030
+- parameter: waste_his_exports_target_year
+  models:
+  - plastics
+  value: 2030
+- parameter: waste_his_imports_target_value
+  models:
+  - plastics
+  value: 0
+- parameter: waste_his_exports_target_value
+  models:
+  - plastics
+  value: 0
 - parameter: collection_rate_target_year
   models:
   - plastics
