@@ -255,7 +255,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         if reduced_linear:
             return (scaling).minimum(d / d0)
         else:
-            return (scaling).maximum((d / d0)**(alpha/3))
+            return (scaling).maximum((d / d0) ** (alpha / 3))
 
 
 class RecentHistoricalAverage(RemindMFABaseModel):
