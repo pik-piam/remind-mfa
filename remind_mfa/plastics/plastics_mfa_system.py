@@ -136,12 +136,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         # now trades and production flows are computed starting from the stock inflow
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["final_his"],
-            future_trade=self.trade_set["final"],
-            future_dom_demand=stk["in_use"].inflow,
-        )
-        extrapolator.run()
+        # extrapolator = TradeExtrapolator(
+        #     historic_trade=historic_trade["final_his"],
+        #     future_trade=self.trade_set["final"],
+        #     future_dom_demand=stk["in_use"].inflow,
+        # )
+        # extrapolator.run()
 
         flw["good_market => use"][...] = (
             trd["final"].imports * self.parameters["carbon_content_materials"]
@@ -154,12 +154,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"]
 
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["primary_his"],
-            future_trade=self.trade_set["primary"],
-            future_dom_demand=flw["fabrication => use"]+flw["fabrication => good_market"]-flw["reclmech => fabrication"],
-        )
-        extrapolator.run()
+        # extrapolator = TradeExtrapolator(
+        #     historic_trade=historic_trade["primary_his"],
+        #     future_trade=self.trade_set["primary"],
+        #     future_dom_demand=flw["fabrication => use"]+flw["fabrication => good_market"]-flw["reclmech => fabrication"],
+        # )
+        # extrapolator.run()
 
         flw["primary_market => fabrication"][...] = (
             trd["primary"].imports * self.parameters["carbon_content_materials"]

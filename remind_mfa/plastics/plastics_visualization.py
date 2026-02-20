@@ -27,7 +27,8 @@ class PlasticsVisualizer(CommonVisualizer):
             self.compare_demand(mfa=model.future_mfa)
 
         if self.cfg.extrapolation.do_visualize:
-            self.visualize_extrapolation(model=model)
+            self.visualize_extrapolation(model=model, subplot_dim="Region")
+            self.visualize_extrapolation(model=model, subplot_dim="Good", linecolor_dim="Region")
 
         if self.cfg.flows.do_visualize:
             primary_production = (
@@ -445,12 +446,9 @@ class PlasticsVisualizer(CommonVisualizer):
 
         self._show_and_save_plotly(fig, name="sankey")
 
-    def visualize_extrapolation(self, model: "PlasticsModel"):
+    def visualize_extrapolation(self, model: "PlasticsModel", subplot_dim="Region", linecolor_dim=None):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
-        subplot_dim = "Region"
-        # linecolor_dim = "Good"
-        linecolor_dim = None
         stock = mfa.stocks["in_use"].stock
         population = mfa.parameters["population"]
         x_array = None
@@ -535,6 +533,6 @@ class PlasticsVisualizer(CommonVisualizer):
 
         self.plot_and_save_figure(
             ap_pure_prediction,
-            f"stocks_extrapolation{'_overGDP' if self.cfg.use_stock.over_gdp else '_overTime'}.png",
+            f"stocks_extrapolation{'_by_' + subplot_dim if subplot_dim is not None else ''}{'_by_' + linecolor_dim if linecolor_dim is not None else ''}{'_overGDP' if self.cfg.use_stock.over_gdp else '_overTime'}.png",
             do_plot=False,
         )

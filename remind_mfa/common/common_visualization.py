@@ -152,7 +152,7 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(
             ap_scatter_stock,
-            f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
+            f"stocks_global_by_region{'_and_' + subplot_dim if subplot_dim is not None else ''}{'_per_capita' if per_capita else ''}.png",
             do_plot=False,
         )
 
