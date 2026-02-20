@@ -179,7 +179,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         """
         self.future_second[...] = self.historic_second_0 * first_scaling
         self.future_second[self.id_hist] = self.historic_second
-        for _ in range(1):
+        for _ in range(3):
             self.scaler_second = (
                 self.scaler_first - self.future_first + self.future_second + stopover_trade
             )
@@ -187,6 +187,7 @@ class TradeExtrapolator(RemindMFABaseModel):
                 d0=self.scaler_second_0,
                 d=self.scaler_second,
                 alpha=self.alpha_rel,
+                reduced_linear=False,
             )
             self.future_second[...] = self.historic_second_0 * updated_scaling
             self.future_second[self.id_hist] = self.historic_second
@@ -227,19 +228,21 @@ class TradeExtrapolator(RemindMFABaseModel):
         d0: fd.FlodymArray,
         d: fd.FlodymArray,
         alpha: float,
+        reduced_linear: bool = True,
     ) -> fd.FlodymArray:
         """Apply scaling depending on relative change of scaler:
         - sub-linear scaling for _increasing_ scaler (i.e. increasing dom_demand or dom_supply)
           Rationale: for increasing dom_demand/dom_supply, we expect trade to increase less than
           proportionally, as there may be some inertia in historical trade patterns.
-          Also low-gDP regions currently heavily relying on imports might increase their domestic
+          Also low-GDP regions currently heavily relying on imports might increase their domestic
           supply share in the future.
-        - linear scaling for _decreasing_ scaler
+        - linear scaling for _decreasing_ scaler in future_first
           (i.e. decreasing dom_demand or dom_supply)
           Rationale: for decreasing dom_demand/dom_supply, we expect trade to decrease at least
           proportionally, as there is less need/opportunity for trade. For increasing demand/dom_supply,
           we expect trade to increase less than proportionally, to protect domestic production.
-          TODO: we could only apply linear scaling to future_first:
+        - even weaker scaling (more sub-linear) for decreasing scaler in future_second
+          Rationale:
           - if domestic demand decreases, the standing production might export more
           - if domestic supply (e.g. of EOL material) decreases, more might be imported
         """
@@ -247,7 +250,11 @@ class TradeExtrapolator(RemindMFABaseModel):
         assert np.min(d0.values) >= -1e-6 * np.max(np.abs(d0.values))
         d = d.maximum(0)
         d0 = d0.maximum(1)
-        return ((d / d0) ** alpha).minimum(d / d0)
+        scaling = (d / d0) ** alpha
+        if reduced_linear:
+            return (scaling).minimum(d / d0)
+        else:
+            return (scaling).maximum((d / d0)**(alpha/3))
 
 
 class RecentHistoricalAverage(RemindMFABaseModel):
