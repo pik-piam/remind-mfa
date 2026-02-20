@@ -27,6 +27,11 @@ class PlasticsModel(CommonModel):
     get_definition = staticmethod(get_plastics_definition)
     custom_scn_prm_def = plastics_scn_prm_def
 
+    # TODO: unify, then delete
+    end_use_good_letter: str = "g"
+    historic_stock_name: str = "in_use_historic"
+    stock_projection_saturation_level: int = 6000 #TODO replace this first guess
+
     def get_long_term_stock(self):
         """
         Stock extrapolation is done per good over all regions;
