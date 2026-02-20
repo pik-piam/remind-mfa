@@ -66,44 +66,9 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             "ratio_nonc_to_c": self.get_new_array(dim_letters=("m",)),
         }
 
-        extrapolate_trade(
-            historic_trade["final_his"],
-            self.trade_set["final"],
-            stk["in_use"].inflow,
-            "imports",
-            balance_to="minimum",
-        )
-
-        flw["good_market => use"][...] = (
-            trd["final"].imports * self.parameters["carbon_content_materials"]
-        )
-        flw["fabrication => good_market"][...] = (
-            trd["final"].exports * self.parameters["carbon_content_materials"]
-        )
-        flw["sysenv => good_market"][...] = flw["good_market => use"]
-        flw["good_market => sysenv"][...] = flw["fabrication => good_market"]
-
-        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"]
-
-        extrapolate_trade(
-            historic_trade["primary_his"],
-            self.trade_set["primary"],
-            flw["fabrication => use"],
-            "imports",
-            balance_to="minimum",
-        )
-
-        flw["primary_market => fabrication"][...] = (
-            trd["primary"].imports * self.parameters["carbon_content_materials"]
-        )
-        flw["virgin => primary_market"][...] = (
-            trd["primary"].exports * self.parameters["carbon_content_materials"]
-        )
-        flw["sysenv => primary_market"][...] = flw["primary_market => fabrication"]
-        flw["primary_market => sysenv"][...] = flw["virgin => primary_market"]
-
         # fmt: off
 
+        # EoL flows are computed first, starting from the stock outflow, since recycling flows are needed for the trade extrapolation
         flw["use => eol"][...] = stk["in_use"].outflow
 
         flw["waste_market => collected"][...] = trd["waste"].imports
@@ -147,6 +112,41 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["emission => captured"][...] = flw["incineration => emission"] * prm["emission_capture_rate"]
         flw["emission => atmosphere"][...] = flw["incineration => emission"] - flw["emission => captured"]
         flw["captured => virginccu"][...] = flw["emission => captured"]
+
+        # now trades and production flows are computed starting from the stock inflow
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["final_his"],
+            future_trade=self.trade_set["final"],
+            future_demand=stk["in_use"].inflow,
+        )
+        extrapolator.run()
+
+        flw["good_market => use"][...] = (
+            trd["final"].imports * self.parameters["carbon_content_materials"]
+        )
+        flw["fabrication => good_market"][...] = (
+            trd["final"].exports * self.parameters["carbon_content_materials"]
+        )
+        flw["sysenv => good_market"][...] = flw["good_market => use"]
+        flw["good_market => sysenv"][...] = flw["fabrication => good_market"]
+
+        flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"]
+
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["primary_his"],
+            future_trade=self.trade_set["primary"],
+            future_demand=flw["fabrication => use"]+flw["fabrication => good_market"]-flw["reclmech => fabrication"],
+        )
+        extrapolator.run()
+
+        flw["primary_market => fabrication"][...] = (
+            trd["primary"].imports * self.parameters["carbon_content_materials"]
+        )
+        flw["virgin => primary_market"][...] = (
+            trd["primary"].exports * self.parameters["carbon_content_materials"]
+        )
+        flw["sysenv => primary_market"][...] = flw["primary_market => fabrication"]
+        flw["primary_market => sysenv"][...] = flw["virgin => primary_market"]
 
         flw["virgin => fabrication"][...] = (
             flw["fabrication => use"]
