@@ -52,38 +52,18 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ]
 
     if historic:
+        # fmt: off
+        # names are auto-generated, see Flow class documentation
         flows = [
-            fd.FlowDefinition(
-                from_process="sysenv",
-                to_process="fabrication",
-                dim_letters=("h", "e", "r", "m", "g"),
-            ),
-            fd.FlowDefinition(
-                from_process="fabrication",
-                to_process="good_market",
-                dim_letters=("h", "e", "r", "m", "g"),
-            ),
-            fd.FlowDefinition(
-                from_process="good_market", to_process="use", dim_letters=("h", "e", "r", "m", "g")
-            ),
-            fd.FlowDefinition(
-                from_process="fabrication", to_process="use", dim_letters=("h", "e", "r", "m", "g")
-            ),
-            fd.FlowDefinition(
-                from_process="good_market",
-                to_process="sysenv",
-                dim_letters=("h", "e", "r", "m", "g"),
-            ),
-            fd.FlowDefinition(
-                from_process="sysenv",
-                to_process="good_market",
-                dim_letters=("h", "e", "r", "m", "g"),
-            ),
+            fd.FlowDefinition(from_process="sysenv", to_process="fabrication", dim_letters=("h", "r", "m", "g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h", "r", "m", "g")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "m", "g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("h", "r", "m", "g")),
+            fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h", "r", "m", "g")),
+            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h", "r", "m", "g")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
         ]
     else:
-        # fmt: off
-        # names are auto-generated, see Flow class documetation
         flows = [
             fd.FlowDefinition(from_process="sysenv", to_process="virginfoss", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="sysenv", to_process="virginbio", dim_letters=("t","e","r","m")),
@@ -223,6 +203,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         # for in-use stock
         RemindMFAParameterDefinition(name="consumption", dim_letters=("h", "r", "g"),
                                      description="Historic plastic use by industries such as converters for the fabrication of plastic products",),
+        RemindMFAParameterDefinition(name="sector_split", dim_letters=("g",),
+                                     description="Global sector split of plastic use",),
         RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("g",),
                                      description="Mean lifetime of goods",),
         RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("g",),

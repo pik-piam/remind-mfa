@@ -22,7 +22,7 @@ class TradeExtrapolator(RemindMFABaseModel):
     Setting this means calculating trade in forward mode
     """
     future_dom_demand: fd.FlodymArray = None
-    """future_demand (FlodymArray): The domestic demand values to scale the historic imports by.
+    """future_dom_demand (FlodymArray): The domestic demand values to scale the historic imports by.
     Setting this means calculating trade in backward mode
     """
     alpha_rel: float = 2 / 3
@@ -107,7 +107,7 @@ class TradeExtrapolator(RemindMFABaseModel):
             )
 
     def get_recent_averages(self):
-        """Calculate weighted average across las few historical years for both imports and exports,
+        """Calculate weighted average across last few historical years for both imports and exports,
         and for the scaler. These are used as starting points/reference for the extrapolation, to
         avoid extrapolating from a single year which might be an outlier.
         """

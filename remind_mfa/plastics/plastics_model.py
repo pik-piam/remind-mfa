@@ -32,95 +32,11 @@ class PlasticsModel(CommonModel):
     historic_stock_name: str = "in_use_historic"
     stock_projection_saturation_level: int = 6000 #TODO replace this first guess
 
-    def get_long_term_stock(self):
-        """
-        Stock extrapolation is done per good over all regions;
-        upper bound of saturation level is set as 1.2 * the maximum historic stock per capita for each good category;
-        offsets for GDP per capita and time are bounded between 0 and maximum historic GDP per capita / year such that the inflexion point cannot be outside the historic range.
-        """
-        historic_stock = self.historic_mfa.stocks["in_use_historic"]
-        historic_pop = self.parameters["population"][{"t": self.dims["h"]}]
-        stock_pc = historic_stock.stock / historic_pop
-        indep_fit_dim_letters = ("g",)
-        sat_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters]),
-            upper_bound=np.max(
-                stock_pc.values, axis=(stock_pc.dims.index("h"), stock_pc.dims.index("r"))
-            )
-            * 1.2,
-            dims=self.dims[indep_fit_dim_letters],
+    def modify_parameters(self):
+        # copy/rename for use in common model
+        self.parameters["sector_split_limit"] = self.parameters["sector_split"]
+        # cast lifetime mean to correct dimensions for use in common model
+        self.parameters["lifetime_mean"] = fd.Parameter(
+            dims=self.dims["t", "g"],
+            values=self.parameters["lifetime_mean"].cast_to(self.dims["t", "g"]).values,
         )
-        lower_bound = fd.FlodymArray(dims=self.dims[indep_fit_dim_letters])
-        # Define bounds for Logistic parameters
-        # offset_bound_gdp = Bound(
-        #     var_name="x1_offset",
-        #     lower_bound=lower_bound,
-        #     upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters],
-        #                                values=np.log10(np.max(self.parameters["gdppc"][self.dims["h"].items[-1]].values)) * np.ones(lower_bound.shape)),
-        # )
-        # offset_bound_time = Bound(
-        #     var_name="x2_offset",
-        #     lower_bound=lower_bound,
-        #     upper_bound=fd.FlodymArray(dims=self.dims[indep_fit_dim_letters],
-        #                                values=self.dims["h"].items[-1]*np.ones(lower_bound.shape)),
-        # )
-        # Define bounds for Gompertz parameters
-        offset_bound_gdp = Bound(
-            var_name="x1_offset",
-            lower_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 0.05
-            ),
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 20
-            ),
-        )
-        offset_bound_time = Bound(
-            var_name="x2_offset",
-            lower_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 0.05
-            ),
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 20
-            ),
-        )
-        growth_rate_bound_gdp = Bound(
-            var_name="x1_growth_rate",
-            lower_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 0.3
-            ),
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 3
-            ),
-        )
-        growth_rate_bound_time = Bound(
-            var_name="x2_growth_rate",
-            lower_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 0.3
-            ),
-            upper_bound=fd.FlodymArray(
-                dims=self.dims[indep_fit_dim_letters], values=np.ones(lower_bound.shape) * 3
-            ),
-        )
-        bound_list = BoundList(
-            bound_list=[
-                # sat_bound,
-                offset_bound_gdp,
-                offset_bound_time,
-                growth_rate_bound_gdp,
-                growth_rate_bound_time,
-            ],
-            target_dims=self.dims[indep_fit_dim_letters],
-        )
-        self.stock_handler = StockExtrapolation(
-            cfg=self.cfg.model_switches,
-            historic_stocks=historic_stock.stock,
-            dims=self.dims,
-            parameters=self.parameters,
-            target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
-            ),
-            bound_list=bound_list,
-            indep_fit_dim_letters=indep_fit_dim_letters,
-        )
-        return self.stock_handler.stocks
