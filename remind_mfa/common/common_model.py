@@ -1,4 +1,5 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
@@ -71,6 +72,7 @@ class CommonModel:
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
             allow_missing_values=True,  # needed for steel scrap data, among others
+            # allow_extra_values=True,  # FIXME hotfix for cement smooth gdp&pop in plastics
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
@@ -150,16 +152,21 @@ class CommonModel:
     def get_long_term_stock(self) -> fd.FlodymArray:
         saturation_level = self.stock_projection_saturation_level
         arr = self.get_stock_sector_split_limit() * saturation_level
-        bound = Bound(
+        sat_level_bound = Bound(
             var_name="saturation_level",
             lower_bound=arr,
             upper_bound=arr,
+        )
+        growth_rate_bound = Bound(
+            var_name="growth_rate",
+            lower_bound=fd.FlodymArray.full_like(arr, 0.),
+            upper_bound=fd.FlodymArray.full_like(arr, np.inf),
         )
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
 
         bound_list_obj = BoundList(
             target_dims=self.dims[self.end_use_good_letter,],
-            bound_list=[bound],
+            bound_list=[sat_level_bound, growth_rate_bound],
         )
 
         self.stock_handler = StockExtrapolation(

@@ -30,7 +30,7 @@ class PlasticsModel(CommonModel):
     # TODO: unify, then delete
     end_use_good_letter: str = "g"
     historic_stock_name: str = "in_use_historic"
-    stock_projection_saturation_level: int = 3e-06 #TODO replace this first guess
+    stock_projection_saturation_level: int = 3 #TODO replace this first guess
 
     def modify_parameters(self):
         # copy/rename for use in common model
@@ -40,3 +40,12 @@ class PlasticsModel(CommonModel):
             dims=self.dims["t", "g"],
             values=self.parameters["lifetime_mean"].cast_to(self.dims["t", "g"]).values,
         )
+        # Conversion Mt -> t
+        # TODO: move to mrmfa
+        self.parameters["primary_his_imports"][...] *= 1e6
+        self.parameters["primary_his_exports"][...] *= 1e6
+        self.parameters["final_his_imports"][...] *= 1e6
+        self.parameters["final_his_exports"][...] *= 1e6
+        self.parameters["waste_his_imports"][...] *= 1e6
+        self.parameters["waste_his_exports"][...] *= 1e6
+        self.parameters["consumption"][...] *= 1e6
