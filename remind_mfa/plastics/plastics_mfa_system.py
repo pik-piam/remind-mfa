@@ -65,7 +65,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
         split = (
-            self.parameters["material_shares_in_goods"]
+            self.parameters["material_shares_use_inflow"]
             * self.parameters["carbon_content_materials"]
         )
         self.stocks["in_use"].stock[...] = self.stocks["in_use_dsm"].stock * split

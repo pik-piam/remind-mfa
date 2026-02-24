@@ -23,6 +23,7 @@ model_switches:
     bio_production_rate: LinearToTargetExtrapolation
     daccu_production_rate: LinearToTargetExtrapolation
     emission_capture_rate: ConstantExtrapolation
+    material_shares_use_inflow: ConstantExtrapolation
 
 visualization:
   do_visualize: True

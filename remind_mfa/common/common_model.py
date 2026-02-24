@@ -44,6 +44,7 @@ class CommonModel:
     def run(self):
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
+        self.transfer_historic_parameters()
 
         historic_trade = self.historic_mfa.trade_set
         stock_projection = self.get_long_term_stock()
@@ -92,6 +93,10 @@ class CommonModel:
 
     def modify_parameters(self):
         """Manual changes to parameters"""
+        pass
+
+    def transfer_historic_parameters(self):
+        """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
 
     def init_export_and_visualization(self):

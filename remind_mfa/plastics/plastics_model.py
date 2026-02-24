@@ -49,3 +49,7 @@ class PlasticsModel(CommonModel):
         self.parameters["waste_his_imports"][...] *= 1e6
         self.parameters["waste_his_exports"][...] *= 1e6
         self.parameters["consumption"][...] *= 1e6
+
+    def transfer_historic_parameters(self):
+        # get material split of stock inflow from historic MFA to be extrapolated by ParameterExtrapolation for use in future MFA
+        self.parameters["material_shares_use_inflow"] = self.historic_mfa.parameters["material_shares_use_inflow"]

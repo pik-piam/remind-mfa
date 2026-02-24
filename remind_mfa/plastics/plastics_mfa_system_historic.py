@@ -28,7 +28,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
             * self.parameters["material_shares_in_goods"]
         )
         
-        # exports of final goods cannot exceed consumption of plastics by the economy
+        # exports of final goods cannot exceed plastics fabrication
         trd["final_his"].exports[...] = trd["final_his"].exports.minimum(flw["sysenv => fabrication"])
         trd["final_his"].balance(to="minimum")
 
@@ -57,3 +57,9 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.stocks["in_use_historic"].lifetime_model.n_pts_per_interval = 10
         self.stocks["in_use_historic"].compute()
         self.flows["use => sysenv"][...] += self.stocks["in_use_historic"].outflow
+
+        # get material split from historic stock inflow
+        self.parameters["material_shares_use_inflow"] = fd.Parameter(
+            dims=self.dims["h", "r", "m", "g"],
+            values=(self.flows["good_market => use"] + self.flows["fabrication => use"]).get_shares_over(("m",)).values,
+        )
