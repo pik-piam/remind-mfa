@@ -24,6 +24,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.check_flows(raise_error=False)
 
     def compute_waste_trade(self):
+        # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historic MFA system
 
         self.trade_set["waste"].imports[...] = (
             self.parameters[f"waste_his_imports"] * self.parameters["carbon_content_materials"]
@@ -81,6 +82,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         trd = self.trade_set
 
         aux = {
+            "total_primary_fabrication": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "virgin_2_fabr_all_mat": self.get_new_array(dim_letters=("t", "e", "r")),
             "virgin_material_shares": self.get_new_array(dim_letters=("t", "e", "r", "m")),
@@ -101,6 +103,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         flw["collected => reclmech"][...] = (flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]) * prm["mechanical_recycling_rate"]
         flw["reclmech => fabrication"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        flw["reclmech => fabrication"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension 
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => fabrication"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
@@ -154,10 +157,15 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["fabrication => use"][...] = stk["in_use"].inflow - flw["good_market => use"]
 
+        # imports of primary plastics cannot exceed primary plastics demand in fabrication (plastics fabrication - mechanically recycled plastics)
+        aux["total_primary_fabrication"][...] = flw["fabrication => use"]+flw["fabrication => good_market"]-flw["reclmech => fabrication"]
+        historic_trade["primary_his"].imports[...] = historic_trade["primary_his"].imports.minimum(aux["total_primary_fabrication"][{"t": self.dims["h"]}])
+        historic_trade["primary_his"].balance(to="minimum")
+
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["primary_his"],
             future_trade=self.trade_set["primary"],
-            future_dom_demand=flw["fabrication => use"]+flw["fabrication => good_market"]-flw["reclmech => fabrication"],
+            future_dom_demand=aux["total_primary_fabrication"],
         )
         extrapolator.run()
 

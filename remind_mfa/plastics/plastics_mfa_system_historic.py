@@ -32,12 +32,8 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         trd["final_his"].exports[...] = trd["final_his"].exports.minimum(flw["sysenv => fabrication"])
         trd["final_his"].balance(to="minimum")
 
-        flw["good_market => use"][...] = (
-            trd["final_his"].imports 
-        )
-        flw["fabrication => good_market"][...] = (
-            trd["final_his"].exports 
-        )
+        flw["good_market => use"][...] = trd["final_his"].imports 
+        flw["fabrication => good_market"][...] = trd["final_his"].exports 
         flw["sysenv => good_market"][...] = flw["good_market => use"]
         flw["good_market => sysenv"][...] = flw["fabrication => good_market"]
 
