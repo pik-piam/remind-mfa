@@ -13,6 +13,7 @@ class StockFitter(RemindMFABaseModel):
     dims_out: fd.DimensionSet
     penalty_weights: dict
     predictor: np.ndarray
+    good_dimletter: str
     _n_hist: int = None
 
     @model_validator(mode="after")
@@ -59,7 +60,7 @@ class StockFitter(RemindMFABaseModel):
         self._n_hist = hdims["h"].len
         # normalize by saturation level to make absolute values and gradients more comparable across goods
         fit_prms = self.extrapolation.fit_prms
-        sat_level = fd.FlodymArray(dims=hdims["g",], values=fit_prms[..., 0].copy())
+        sat_level = fd.FlodymArray(dims=hdims[self.good_dimletter,], values=fit_prms[..., 0].copy())
         historic = (self.historic_stocks_pc / sat_level).values
         fit_prms[..., 0] = 1.0
         for ig in range(hdims[self.goods_dim_letter].len):
