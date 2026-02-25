@@ -25,10 +25,12 @@ class PlasticsVisualizer(CommonVisualizer):
         if self.cfg.production.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
+            self.visualize_sector_splits(mfa=model.future_mfa)
 
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model, subplot_dim="Region")
             self.visualize_extrapolation(model=model, subplot_dim="Good", linecolor_dim="Region")
+            self.visualize_extrapolation(model=model, subplot_dim="Region", linecolor_dim="Good")
 
         if self.cfg.flows.do_visualize:
             primary_production = (
@@ -144,7 +146,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
         x_array = None
         x_label = "Year"
-        y_label = "Flow [Mt]"
+        y_label = "Flow [t]"
         subplot_dimletter = ()
         linecolor_dimletter = ()
         if subplot_dim is not None:
@@ -194,8 +196,8 @@ class PlasticsVisualizer(CommonVisualizer):
             subplot_dim="Region",
             linecolor_dim="Good",
             x_label="Year",
-            y_label="Demand [Mt]",
-            title="Demand [Mt]",
+            y_label="Demand [t]",
+            title="Demand [t]",
         )
         self.plot_and_save_figure(ap_demand, "demand_history_and_future.png", do_plot=False)
 
@@ -208,7 +210,7 @@ class PlasticsVisualizer(CommonVisualizer):
             linecolor_dim="Good",
             chart_type="area",
             display_names=self.display_names.dct,
-            title="Demand [Mt]",
+            title="Demand [t]",
         )
         fig = ap.plot()
         self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
@@ -218,6 +220,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
         # Convert year to numeric
         df["year"] = pd.to_numeric(df["year"], errors="coerce")
+        # Convert Mt to t
+        df["value"] = df["value"] * 1000 * 1000
 
         # Plotly line plot
         fig = px.line(df, x="year", y="value", color="source", markers=True)
@@ -225,7 +229,7 @@ class PlasticsVisualizer(CommonVisualizer):
         ap = self.plotter_class(
             array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e", "g")),
             intra_line_dim="Time",
-            title="Demand [Mt]",
+            title="Demand [t]",
             line_label="REMIND-MFA",
             fig=fig,
         )
@@ -247,14 +251,14 @@ class PlasticsVisualizer(CommonVisualizer):
             linecolor_dim="Good",
             chart_type="area",
             display_names=self.display_names.dct,
-            title="Stock [Mt]",
+            title="Stock [t]",
         )
         fig = ap.plot()
         self.plot_and_save_figure(ap, "stock_stacked.png", do_plot=False)
 
         per_capita = self.cfg.use_stock.per_capita
 
-        stock = mfa.stocks["in_use"].stock * 1000 * 1000
+        stock = mfa.stocks["in_use"].stock
         population = mfa.parameters["population"]
         x_array = None
 
@@ -384,7 +388,7 @@ class PlasticsVisualizer(CommonVisualizer):
                 fn: emission_color
                 for fn, f in mfa.flows.items()
                 if f.to_process.name
-                in ("atmosphere", "mismanaged", "incineration", "uncontrolled", "emission")
+                in ("atmosphere", "mismanaged", "uncontrolled", "emission")
             }
         )
 
@@ -395,6 +399,16 @@ class PlasticsVisualizer(CommonVisualizer):
                 for fn, f in mfa.flows.items()
                 if f.from_process.name in ("reclmech", "reclchem")
                 or f.to_process.name in ("reclmech", "reclchem")
+            }
+        )
+
+        # Assign colors to trade flows
+        flow_color_dict.update(
+            {
+                fn: trade_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name in ("primary_market","good_market","waste_market")
+                or f.to_process.name in ("primary_market","good_market","waste_market")
             }
         )
 
@@ -420,9 +434,9 @@ class PlasticsVisualizer(CommonVisualizer):
         # Add legend entries
         legend_entries = [
             (production_color, "Production"),
+            (use_color, "Use"),
             (eol_color, "End-of-Life"),
             (recycle_color, "Recycling"),
-            (use_color, "Use"),
             (emission_color, "Losses"),
             (trade_color, "Trade"),
         ]
@@ -471,14 +485,14 @@ class PlasticsVisualizer(CommonVisualizer):
             dimlist.append(linecolor_dimletter)
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        stock = stock.sum_over(other_dimletters) * 1000 * 1000
+        stock = stock.sum_over(other_dimletters) 
         other_dimletters = tuple(
             letter
             for letter in model.stock_handler.fitted_regression.dims.letters
             if letter not in dimlist
         )
         pure_prediction = (
-            model.stock_handler.fitted_regression.sum_over(other_dimletters) * 1000 * 1000
+            model.stock_handler.fitted_regression.sum_over(other_dimletters) 
         )
 
         if self.cfg.use_stock.over_gdp:
@@ -536,3 +550,36 @@ class PlasticsVisualizer(CommonVisualizer):
             f"stocks_extrapolation{'_by_' + subplot_dim if subplot_dim is not None else ''}{'_by_' + linecolor_dim if linecolor_dim is not None else ''}{'_overGDP' if self.cfg.use_stock.over_gdp else '_overTime'}.png",
             do_plot=False,
         )
+
+    def visualize_sector_splits(self, mfa: fd.MFASystem, regional: bool = True):
+
+        subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
+
+        consumption = summing_func(mfa.stocks["in_use"].inflow)
+        sector_splits = consumption.get_shares_over("g")
+        sector_splits = sector_splits.cumsum(dim_letter="g")
+
+        ap_sector_splits = self.plotter_class(
+            array=sector_splits,
+            intra_line_dim="Time",
+            **subplot_dim,
+            linecolor_dim="Good",
+            xlabel="Year",
+            ylabel="Sector Splits [%]",
+            display_names=self.display_names.dct,
+            title=f"Product demand sector splits ({name_str})",
+            chart_type="area",
+        )
+
+        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
+
+    def _get_regional_vs_global_params(self, regional: bool):
+        if regional:
+            subplot_dim = {"subplot_dim": "Region"}
+            summing_func = lambda l: l.sum_over(("m", "e"))
+            name_str = "regional"
+        else:
+            subplot_dim = {}
+            summing_func = lambda l: l.sum_over("r", "m", "e")
+            name_str = "global"
+        return subplot_dim, summing_func, name_str
