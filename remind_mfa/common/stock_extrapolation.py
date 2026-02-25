@@ -2,7 +2,6 @@ import flodym as fd
 import numpy as np
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
-from copy import deepcopy
 
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
@@ -42,13 +41,8 @@ class StockExtrapolation(RemindMFABaseModel):
     """do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True."""
     gdp_weight_in_weighted_sum: Optional[float] = None
     """relative weight of gdp in predictor weighted sum for predictor type LOGGDPPC_TIME_WEIGHTED_SUM"""
-    stock_correction: str = "gaussian_first_order"
-    """stock_correction (str): Method for stock correction. Possible values are "gaussian_first_order", "shift_zeroth_order", "none". Defaults to "gaussian_first_order"."""
-    n_deriv: int = 5
-    """Number of historic years used for determination of regressed and actual growth rates of
-    in-use stocks, which are then used for a correction reconciling the two and blending from
-    observed to regression.
-    """
+    transition_smoothing: str = "critically_damped"
+    """transition_smoothing (str): Method for blending between historical and future stock. Possible values are "critically_damped", "shift_zeroth_order", "none". Defaults to "critically_damped"."""
 
     def extrapolate(self):
         """Preprocessing and extrapolation."""
@@ -58,7 +52,7 @@ class StockExtrapolation(RemindMFABaseModel):
         self.set_predictor()
         self.get_pure_regression()
         self.fit()
-        self.correct_stock()
+        self.smooth_transition()
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
         return self
@@ -250,25 +244,25 @@ class StockExtrapolation(RemindMFABaseModel):
         )
         self.fitted_regression = stock_fitter.fit()
 
-    def correct_stock(self):
+    def smooth_transition(self):
         """The fit function returns a regression which only approximately continues historic trends.
         Here we create a smooth transition between the historic stocks and the fitted regression,
         which is then used as the final extrapolation result.
         """
         stocks_pc_out = np.zeros_like(self.stocks_pc.values)
 
-        match self.stock_correction:
+        match self.transition_smoothing:
             case "none":
                 stocks_pc_out[...] = self.fitted_regression.values
-            case "gaussian_first_order":
-                stocks_pc_out[...] = self.gaussian_correction(
-                    self.historic_stocks_pc.values, self.fitted_regression.values, self.n_deriv
+            case "critically_damped":
+                stocks_pc_out[...] = self.critically_damped_blend(
+                    self.historic_stocks_pc.values, self.fitted_regression.values
                 )
                 add_assumption_doc(
                     type="model assumption",
-                    name="Usage of Gaussian correction",
+                    name="Usage of critically damped blend",
                     description=(
-                        "Gaussian correction is used to blend historic trends with the extrapolation."
+                        "Critically damped blending is used to smoothly transition from historic trends to the extrapolation."
                     ),
                 )
             case "shift_zeroth_order":
@@ -287,90 +281,65 @@ class StockExtrapolation(RemindMFABaseModel):
                     ),
                 )
             case _:
-                raise ValueError(f"Unknown stock_correction method: {self.stock_correction}")
+                raise ValueError(f"Unknown stock_correction method: {self.smooth_transition}")
 
         stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
-    def gaussian_correction(
-        self, historic: np.ndarray, prediction: np.ndarray, n: int = 5
+    def critically_damped_blend(
+        self, historical: np.ndarray, prediction: np.ndarray
     ) -> np.ndarray:
         """
-        Gaussian smoothing of extrapolation between the historic and future interface to remove discontinuities
-        of 0th and 1st order derivatives. Multiplies Gaussian with a Taylor expansion around
-        the difference beteween historic and fit.
+        Blend historical and extrapolated stock values using a critically damped system approach to ensure a smooth transition.
+        In a critically damped system (e.g. spring that returns to equilibrium as quickly as possible without oscillating),
+        if x0 is the initial position and v0 the initial velocity, the position x at a time t is given by:
+        x(t) = (x0 + (v0 + k * x0) * t) * exp(-k * t).
+        The parameter k determines how quickly the equilibrium is restored, with higher values leading to a faster transition.
+        Here, we use the difference between historical and extrapolated stocks at the transition point as the initial offset (x0),
+        and the difference in slopes at the transition point as the initial velocity (v0).
         Args:
-            historic (np.ndarray): Historical stock data.
-            prediction (np.ndarray): Predicted stock data from regression.
-            n (int): Number of years for the linear regression fit. Defaults to 5.
+            historical (np.ndarray): Historical stock data.
+            prediction (np.ndarray): Extrapolated stock data from regression.
         Returns:
-            np.ndarray: Corrected stock data after applying Gaussian smoothing.
+            np.ndarray: Stock with smooth transition from historical to prediction.
         """
         time = np.array(self.dims["t"].items)
-        last_history_idx = len(historic) - 1
+        last_history_idx = len(historical) - 1
         last_history_year = time[last_history_idx]
+
         # offset between historic and prediction at transition point
-        difference_0th = historic[last_history_idx, :] - prediction[last_history_idx, :]
+        difference_0th = historical[last_history_idx, :] - prediction[last_history_idx, :]
 
-        def lin_fit(x, y, last_idx, n=n):
-            """Linear fit of the last n points."""
-            x_cut = np.vstack([x[last_idx - n : last_idx], np.ones(n)]).T
-            y_cut = y[last_idx - n : last_idx, :]
-            y_reshaped = y_cut.reshape(n, -1).T
-            slopes = [np.linalg.lstsq(x_cut, y_dim, rcond=None)[0][0] for y_dim in y_reshaped]
-            slopes_reshaped = np.array(slopes).reshape(y.shape[1:])
-            return slopes_reshaped
-
-        last_historic_1st = lin_fit(time, historic, last_history_idx)
-        last_prediction_1st = lin_fit(time, prediction, last_history_idx)
+        def avg_slope(x, y, n=1):
+            """Assuming time is the first dimension, calculate the average slope over the last n historical timesteps.
+            If n is 1, this is the slope between the last two historical timesteps."""
+            ydiff = y[last_history_idx, :] - y[last_history_idx - n, :]
+            xdiff = x[last_history_idx] - time[last_history_idx - n]
+            return ydiff / xdiff
 
         # offset of the 1st derivative at the transition point
-        difference_1st = (last_historic_1st - last_prediction_1st) / (
-            last_history_year - time[last_history_idx - 1]
-        )
+        difference_1st = avg_slope(time, historical) - avg_slope(time, prediction)
 
-        def gaussian(t, approaching_time):
-            """After the approaching time, the amplitude of the gaussian has decreased to 5%."""
-            a = np.sqrt(np.log(20))
-            return np.exp(-((a * t / approaching_time) ** 2))
-
-        def exponential(t, approaching_time):
-            """After the approaching time, the amplitude of the exponential has decreased to 5%."""
-            a = np.log(20)
-            return np.exp(-a * t / approaching_time)
-
-        approaching_time_0th = 300
+        approaching_time = 80
         add_assumption_doc(
             type="integer number",
-            name="years for absolute blending to regression",
-            value=approaching_time_0th,
+            name="years for blending to regression",
+            value=approaching_time,
             description=(
-                "Number of years for the blending from historical to regressed in-use stocks. "
+                "Number of years for the blending from historical to regressed in-use stocks." \
+                "After this time, the initial offset between historical and regressed stock is reduced to 5 percent." \
             ),
         )
-        approaching_time_1st = 30
-        add_assumption_doc(
-            type="integer number",
-            name="years for derivative blending to regression",
-            value=approaching_time_1st,
-            description=(
-                "Number of years for the blending from historical to regressed in-use stock "
-                "growth rates. "
-            ),
-        )
+        
+        # Construct time that starts at 0 in last historical year.
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
-        corr0 = difference_0th * gaussian(time_extended - last_history_year, approaching_time_0th)
         delta_t = time_extended - last_history_year
-        corr1 = (
-            difference_1st
-            * delta_t
-            * (
-                exponential(delta_t, approaching_time_1st)
-                + gaussian(delta_t, approaching_time_1st / 3)
-            )
-            * 0.5  # averaging
-        )
-        correction = corr0 + corr1
+        
+        # Amplitude decreases to 5 percent after approaching_time years
+        k = 4.74 / approaching_time 
+
+        # Critically damped system solution
+        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(-k * delta_t)
 
         return prediction[...] + correction
 
