@@ -27,12 +27,10 @@ class Extrapolation(RemindMFABaseModel):
     """Bounds for the parameters to be fitted. Defaults to no bounds."""
     independent_dims: Tuple[int, ...] = ()
     """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly."""
-    prm_names: list[str] = []
+    prm_names: ClassVar[list[str]] = []
     """Names of the parameters to be fitted. Set in subclasses."""
     _fit_prms: np.ndarray = PrivateAttr(default=None)
     """Optimized parameters after regression (set by calling regress())."""
-
-    prm_names: ClassVar[list[str]] = []
 
     @model_validator(mode="after")
     def validate_data(self):
@@ -189,7 +187,7 @@ class Extrapolation(RemindMFABaseModel):
 
 class ProportionalExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["proportionality_factor"]
+    prm_names: ClassVar[list[str]] = ["proportionality_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -201,7 +199,7 @@ class ProportionalExtrapolation(Extrapolation):
 
 class PehlExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -218,7 +216,7 @@ class PehlExtrapolation(Extrapolation):
 
 class ExponentialSaturationExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -236,7 +234,7 @@ class ExponentialSaturationExtrapolation(Extrapolation):
 
 class LogisticExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor", "x_offset"]
 
     @staticmethod
     def func(x, prms):
@@ -283,7 +281,7 @@ class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
     Prm order: [saturation_level (A), k_x1, x1_0, k_x2, x2_0]
     """
 
-    prm_names: list[str] = [
+    prm_names: ClassVar[list[str]] = [
         "saturation_level",
         "x1_stretch_factor",
         "x1_offset",
@@ -327,7 +325,7 @@ class GompertzExtrapolation(Extrapolation):
     Prm order: [saturation_level, offset, growth_rate]
     """
 
-    prm_names: list[str] = [
+    prm_names: ClassVar[list[str]] = [
         "saturation_level",
         "offset",
         "growth_rate",
@@ -372,7 +370,7 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
     Prm order: [saturation_level (a), b_x1, c_x1, b_x2, c_x2]
     """
 
-    prm_names: list[str] = [
+    prm_names: ClassVar[list[str]] = [
         "saturation_level",
         "x1_offset",
         "x1_growth_rate",
