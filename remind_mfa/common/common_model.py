@@ -14,6 +14,7 @@ from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
+from remind_mfa.common.helpers import RegressOverModes
 
 
 class CommonModel:
@@ -173,6 +174,22 @@ class CommonModel:
             target_dims=self.dims[self.end_use_good_letter,],
             bound_list=[sat_level_bound, growth_rate_bound],
         )
+
+        if self.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            growth_rate_bound_gdp = Bound(
+                var_name="x1_growth_rate",
+                lower_bound=fd.FlodymArray.full_like(arr, 0.),
+                upper_bound=fd.FlodymArray.full_like(arr, np.inf),
+            )
+            growth_rate_bound_time = Bound(
+                var_name="x2_growth_rate",
+                lower_bound=fd.FlodymArray.full_like(arr, 0.),
+                upper_bound=fd.FlodymArray.full_like(arr, np.inf),
+            )
+            bound_list_obj = BoundList(
+                target_dims=self.dims[self.end_use_good_letter,],
+                bound_list=[sat_level_bound, growth_rate_bound_gdp, growth_rate_bound_time],
+            )
 
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,

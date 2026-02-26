@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional, Tuple, ClassVar
+from typing import Optional, Tuple, ClassVar, Type
 import numpy as np
 import sys
 from pydantic import model_validator
@@ -257,6 +257,8 @@ class TwoPredictorExtrapolation(Extrapolation):
     Base class for extrapolations with two predictors.
     Mainly used for classification of these subclasses.
     """
+    # point to the corresponding single-predictor class (override in subclasses)
+    single_predictor_cls: ClassVar[Optional[Type[Extrapolation]]] = None
 
     def check_predictor(self, x):
         x2 = x["x2"]
@@ -282,6 +284,7 @@ class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
     model: A * f_x1(x1; k_x1, x1_0) * f_x2(x2; k_x2, x2_0)
     Prm order: [saturation_level (A), k_x1, x1_0, k_x2, x2_0]
     """
+    single_predictor_cls = LogisticExtrapolation
 
     prm_names: list[str] = [
         "saturation_level",
@@ -371,6 +374,7 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
     model: a * f_x1 * f_x2
     Prm order: [saturation_level (a), b_x1, c_x1, b_x2, c_x2]
     """
+    single_predictor_cls = GompertzExtrapolation
 
     prm_names: list[str] = [
         "saturation_level",

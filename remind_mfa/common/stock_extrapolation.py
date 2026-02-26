@@ -57,7 +57,9 @@ class StockExtrapolation(RemindMFABaseModel):
         self.calc_arrays_from_parameters_dict()
         self.set_predictor()
         self.get_pure_regression()
+        self.get_pure_regression_single_predictor()
         self.fit()
+        self.transform_two_predictor_regression()
         self.correct_stock()
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
@@ -206,6 +208,39 @@ class StockExtrapolation(RemindMFABaseModel):
 
         self.export_pure_parameters()
 
+    def get_pure_regression_single_predictor(self):
+        """Get a single-predictor regression based only on GDP per capita, which is used for the stock fitting.
+        Historic stocks are divided by the time-dependent extrapolation function and then regressed only over GDP per capita."""
+        if self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            # transform historic stocks by dividing by the time-dependent part of the regression
+            prms = [self.extrapolation.fit_prms[np.newaxis, ..., i] for i in range(self.extrapolation.n_prms)]
+            time_dependent_func = self.extrapolation.func(self.extrapolation.predictor_values, prms, factor = "f3")[: self.n_historic]
+            data_to_extrapolate = self.extrapolation.data_to_extrapolate / time_dependent_func
+            self.single_predictor = self.predictor["x1"]
+            # adapt the bounds
+            new_bounds = [b for b in self.bound_list.bound_list if b.var_name != "x2_growth_rate"]
+            for i, b in enumerate(new_bounds):
+                if b.var_name == 'x1_growth_rate':
+                    new_bounds[i].var_name = "growth_rate"
+                    break
+            bound_list = BoundList(
+                target_dims=self.dims[self.indep_fit_dim_letters],
+                bound_list=new_bounds,
+            )
+            self.extrapolation_single_predictor = self.cfg.stock_extrapolation_class.single_predictor_cls(
+                data_to_extrapolate=data_to_extrapolate,
+                predictor_values=self.single_predictor,
+                independent_dims=self.fit_dim_idx,
+                bound_list=bound_list,
+                weights=self.extrapolation.weights,
+            )
+            self.extrapolation_single_predictor.regress()
+            self.stocks_to_fit = fd.StockArray(dims=self.dims[self.historic_dim_letters], values=data_to_extrapolate)
+        else:
+            self.extrapolation_single_predictor = self.extrapolation
+            self.stocks_to_fit = self.historic_stocks_pc
+            self.single_predictor = self.predictor
+
     def export_pure_parameters(self):
         """for export to csv, used in plastics
         TODO: check if still needed
@@ -242,13 +277,20 @@ class StockExtrapolation(RemindMFABaseModel):
             ),
         }
         stock_fitter = StockFitter(
-            historic_stocks_pc=self.historic_stocks_pc,
-            extrapolation=self.extrapolation,
-            predictor=self.predictor,
+            historic_stocks_pc=self.stocks_to_fit,
+            extrapolation=self.extrapolation_single_predictor,
+            predictor=self.single_predictor,
             dims_out=self.dims_out,
             penalty_weights=penalty_weights,
         )
         self.fitted_regression = stock_fitter.fit()
+
+    def transform_two_predictor_regression(self):
+        """If the regression was performed with two predictors (e.g. time and GDP per capita), we need to transform it back to a regression over only GDP per capita for the stock correction."""
+        if self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            prms = [self.extrapolation.fit_prms[np.newaxis, ..., i] for i in range(self.extrapolation.n_prms)]
+            time_dependent_func = self.extrapolation.func(self.extrapolation.predictor_values, prms, factor = "f3")
+            self.fitted_regression[...] = self.fitted_regression.values * time_dependent_func
 
     def correct_stock(self):
         """The fit function returns a regression which only approximately continues historic trends.

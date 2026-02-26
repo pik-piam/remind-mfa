@@ -31,6 +31,7 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_extrapolation(model=model, subplot_dim="Region")
             self.visualize_extrapolation(model=model, subplot_dim="Good", linecolor_dim="Region")
             self.visualize_extrapolation(model=model, subplot_dim="Region", linecolor_dim="Good")
+            self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
         if self.cfg.flows.do_visualize:
             primary_production = (
@@ -201,12 +202,13 @@ class PlasticsVisualizer(CommonVisualizer):
         )
         self.plot_and_save_figure(ap_demand, "demand_history_and_future.png", do_plot=False)
 
-        demand = mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e"))
+        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
         good_dim = demand.dims.index("g")
         demand = demand.apply(np.cumsum, kwargs={"axis": good_dim})
         ap = self.plotter_class(
             array=demand,
             intra_line_dim="Time",
+            subplot_dim="Region",
             linecolor_dim="Good",
             chart_type="area",
             display_names=self.display_names.dct,
