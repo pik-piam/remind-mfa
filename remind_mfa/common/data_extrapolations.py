@@ -27,12 +27,11 @@ class Extrapolation(RemindMFABaseModel):
     """Bounds for the parameters to be fitted. Defaults to no bounds."""
     independent_dims: Tuple[int, ...] = ()
     """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly."""
-    prm_names: list[str] = []
-    """Names of the parameters to be fitted. Set in subclasses."""
     _fit_prms: np.ndarray = PrivateAttr(default=None)
     """Optimized parameters after regression (set by calling regress())."""
 
     prm_names: ClassVar[list[str]] = []
+    """Names of the parameters to be fitted. Set in subclasses."""
 
     @model_validator(mode="after")
     def validate_data(self):
