@@ -1,4 +1,6 @@
 import os
+import ast
+import csv
 import flodym as fd
 from pydantic import field_validator
 from typing import List, Dict, Optional
@@ -45,10 +47,65 @@ class ScenarioReader(RemindMFABaseModel):
             name = scenario.parent
 
     def read_single(self, name: str) -> "Scenario":
-        file_name = os.path.join(self.base_path, f"{name}.yml")
+        csv_file = os.path.join(self.base_path, f"{name}.csv")
+        yml_file = os.path.join(self.base_path, f"{name}.yml")
+        if os.path.exists(csv_file):
+            return self._read_csv(name, csv_file)
+        elif os.path.exists(yml_file):
+            return self._read_yml(name, yml_file)
+        else:
+            raise FileNotFoundError(f"No scenario file found for '{name}' (tried .csv and .yml)")
+
+    def _read_yml(self, name: str, file_name: str) -> "Scenario":
+        parent = self._read_parent_from_inheritance(name)
         with open(file_name, "r") as f:
-            text = yaml.safe_load(f)
-        return Scenario(name=name, **text)
+            data = yaml.safe_load(f)
+        if data is None:
+            data = []
+        return Scenario(name=name, parent=parent, data=data)
+
+    def _read_csv(self, name: str, file_name: str) -> "Scenario":
+        parent = self._read_parent_from_inheritance(name)
+        with open(file_name, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            data_points = [self._parse_csv_row(row) for row in reader]
+        return Scenario(name=name, parent=parent, data=data_points)
+
+    @staticmethod
+    def _parse_csv_row(row: dict) -> "ScenarioDataPoint":
+        skip_cols = {"parameter", "models", "value", "metadata", "description"}
+        parsed = {col: ScenarioReader._parse_csv_value(val) for col, val in row.items()}
+        index = {col: parsed[col] for col in parsed if col not in skip_cols and parsed[col] is not None}
+        return ScenarioDataPoint(
+            parameter=parsed["parameter"],
+            models=parsed["models"] if parsed["models"] is not None else "all",
+            value=float(parsed["value"]),
+            index=index,
+        )
+
+    @staticmethod
+    def _parse_csv_value(val: str):
+        val = val.strip() if val else ""
+        if val == "":
+            return None
+        try:
+            return ast.literal_eval(val)
+        except (ValueError, SyntaxError):
+            return val
+
+    def _read_parent_from_inheritance(self, name: str) -> Optional[str]:
+        inheritance_file = os.path.join(self.base_path, "inheritance.csv")
+        if not os.path.exists(inheritance_file):
+            raise FileNotFoundError(
+                f"inheritance.csv not found in {self.base_path}"
+            )
+        with open(inheritance_file, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row["scenario"] == name:
+                    parent = row.get("parent", "").strip()
+                    return parent if parent else None
+        return None
 
 
 class Scenario(RemindMFABaseModel):

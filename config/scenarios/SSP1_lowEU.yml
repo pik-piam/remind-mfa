@@ -1,5 +1,3 @@
-parent: SSP1
-data:
 - parameter: saturation_level_factor
   models:
   - steel

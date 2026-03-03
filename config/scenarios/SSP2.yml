@@ -1,5 +1,3 @@
-parent:
-data:
 - parameter: lifetime_factor
   value: 1.0
 - parameter: lifetime_factor_blending_year
