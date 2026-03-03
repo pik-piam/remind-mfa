@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_custom(self, model: "PlasticsModel"):
+        if self.cfg.use_stock.do_visualize:
+            self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
+        
         if self.cfg.production.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
