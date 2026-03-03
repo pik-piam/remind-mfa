@@ -44,14 +44,14 @@ class CommonModel:
     def run(self):
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
-
         historic_trade = self.historic_mfa.trade_set
-        stock_projection = self.get_long_term_stock()
 
         # apply scenarios to parameters for future mfa
         self.parameters = ParameterExtrapolationManager(
             self.cfg, self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
+
+        stock_projection = self.get_long_term_stock()
 
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(stock_projection, historic_trade)
@@ -141,29 +141,30 @@ class CommonModel:
 
     def get_stock_sector_split_limit(self):
         prm = self.parameters
-        last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
-        last_gdppc = prm["gdppc"][{"t": self.dims["t"].items[-1]}]
-        av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
-        stock_sector_split = (av_lifetime * prm["sector_split_limit"]).get_shares_over(
+        # TODO: harmonize stock type split across materials
+        stock_sector_split = (self.limit_lifetime() * prm["stock_type_split"]).get_shares_over(
             self.end_use_good_letter
         )
         return stock_sector_split
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         saturation_level = self.stock_projection_saturation_level
-        arr = self.get_stock_sector_split_limit() * saturation_level
+        sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
+
+        historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
+        normalized_historic_stock = historic_stocks/sector_specific_sat_level
+
+        # after normalization, target saturation level is 1 across all regions and sectors.
         sat_level_bound = Bound(
             var_name="saturation_level",
-            lower_bound=arr,
-            upper_bound=arr,
+            lower_bound=1,
+            upper_bound=1,
         )
         growth_rate_bound = Bound(
             var_name="growth_rate",
-            lower_bound=fd.FlodymArray.full_like(arr, 0.),
-            upper_bound=fd.FlodymArray.full_like(arr, np.inf),
+            lower_bound=0,
+            upper_bound=np.inf,
         )
-        historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-
         bound_list_obj = BoundList(
             target_dims=self.dims[self.end_use_good_letter,],
             bound_list=[sat_level_bound, growth_rate_bound],
@@ -171,7 +172,7 @@ class CommonModel:
 
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
-            historic_stocks=historic_stocks,
+            historic_stocks=normalized_historic_stock,
             dims=self.dims,
             parameters=self.parameters,
             target_dim_letters="all",
@@ -179,4 +180,12 @@ class CommonModel:
             bound_list=bound_list_obj,
         )
         self.stock_handler.extrapolate()
-        return self.stock_handler.stocks
+
+        # denormalize
+        long_term_stock = self.stock_handler.stocks * sector_specific_sat_level
+        return long_term_stock
+
+    def limit_lifetime(self):
+        """Effective lifetime when saturation level is reached.
+        Currently, this is just the last modelled lifetime."""
+        return self.parameters["lifetime_mean"][{"t": self.dims["t"].items[-1]}]

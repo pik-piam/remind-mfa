@@ -10,12 +10,12 @@ input:
 model_switches:
   scenario: 'SSP2'
   mode: 'base' # can be "base", "carbon_flow"
-  stock_extrapolation_class_name: 'LogisticExtrapolation'
+  stock_extrapolation_class_name: 'GompertzExtrapolation'
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
   parameter_extrapolation:
     clinker_ratio: 'ConstantExtrapolation'
-    use_lifetime_mean: 'ConstantExtrapolation'
+    lifetime_mean: 'ConstantExtrapolation'
     cement_trade: 'ZeroExtrapolation'
 
 visualization:
@@ -59,7 +59,7 @@ visualization:
     do_visualize: True
 
 export:
-  do_export: True
+  do_export: False
   path: 'data/cement/output/export'
   pickle:
     do_export: True

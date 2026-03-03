@@ -58,23 +58,18 @@ class StockFitter(RemindMFABaseModel):
             shape=(hdims["r"].len, hdims[self.goods_dim_letter].len, self.extrapolation.n_prms)
         )
         self._n_hist = hdims["h"].len
-        # normalize by saturation level to make absolute values and gradients more comparable across goods
-        fit_prms = self.extrapolation.fit_prms
-        sat_level = fd.FlodymArray(dims=hdims[self.good_dimletter,], values=fit_prms[..., 0].copy())
-        historic = (self.historic_stocks_pc / sat_level).values
-        fit_prms[..., 0] = 1.0
         for ig in range(hdims[self.goods_dim_letter].len):
             for ir in range(hdims["r"].len):
                 prms[ir, ig, :] = self.fit_single(
-                    historic=historic[:, ir, ig],
+                    historic=self.historic_stocks_pc.values[:, ir, ig],
                     predictor=self.predictor[:, ir, ig],
-                    prms_0=fit_prms[ig, :],
+                    prms_0=self.extrapolation.fit_prms[ig, :],
                 )
         values_out = self.extrapolation.func(
             self.predictor[np.newaxis, ...], np.moveaxis(prms[np.newaxis, ...], -1, 0)
         )
-        # reverse above normalization
-        stocks_pc_out = fd.FlodymArray(dims=self.dims_out, values=values_out[0, ...]) * sat_level
+
+        stocks_pc_out = fd.FlodymArray(dims=self.dims_out, values=values_out[0, ...])
         return stocks_pc_out
 
     def fit_single(
