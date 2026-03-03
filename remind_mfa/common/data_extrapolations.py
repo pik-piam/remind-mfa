@@ -96,13 +96,6 @@ class Extrapolation(RemindMFABaseModel):
         """gets either one-dimensional or multi-dimensional data, but always returns one scalar value per prm"""
         pass
 
-    def normalize_predictor(self, predictor: np.ndarray) -> np.ndarray:
-        """Some extrapolation methods may require normalization of the predictor values.
-        This is a placeholder method that can be overridden in subclasses if needed.
-        Predictor is modified in-place.
-        """
-        pass
-
     def get_fitting_function(
         self,
         predictor_values: np.ndarray,
@@ -123,7 +116,6 @@ class Extrapolation(RemindMFABaseModel):
         The regression is performed independently for each dimension specified in `independent_dims`.
         """
         # extract dimensions that are regressed independently
-        self.normalize_predictor(self.predictor_values)
         predictor_shape = tuple(
             [self.predictor_values.shape[i] for i in sorted(self.independent_dims)]
         )
@@ -331,10 +323,6 @@ class GompertzExtrapolation(Extrapolation):
         "growth_rate",
     ]
 
-    def normalize_predictor(self, predictor):
-        p = predictor
-        predictor[...] = (p - np.mean(p)) / np.std(p)
-
     def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         """
         x : structured array with fields 'x1' and 'x2'
@@ -377,11 +365,6 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
         "x2_offset",
         "x2_growth_rate",
     ]
-
-    def normalize_predictor(self, predictor):
-        for component in ["x1", "x2"]:
-            p = predictor[component]
-            predictor[component] = (p - np.mean(p)) / np.std(p)
 
     def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
         self.check_predictor(x)

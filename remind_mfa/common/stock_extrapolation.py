@@ -50,6 +50,7 @@ class StockExtrapolation(RemindMFABaseModel):
         self.init_arrays()
         self.calc_arrays_from_parameters_dict()
         self.set_predictor()
+        self.standardize_predictor()
         self.get_pure_regression()
         self.fit()
         self.smooth_transition()
@@ -158,6 +159,12 @@ class StockExtrapolation(RemindMFABaseModel):
                 predictor["x1"] = np.log10(gdppc)
                 predictor["x2"] = time
                 return predictor
+            
+    def standardize_predictor(self):
+        self.predictor_mean = np.mean(self.predictor)
+        self.predictor_std = np.std(self.predictor)
+        if self.predictor_std > 0:
+            self.predictor = (self.predictor - self.predictor_mean) / self.predictor_std
 
     def get_pure_regression(self):
         """Regress over the chosen predictor, common for all regions.
