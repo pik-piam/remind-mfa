@@ -394,8 +394,8 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
         x1, x2 = x["x1"], x["x2"]
 
         f1 = np.ones_like(x1) * a
-        f2 = np.exp(-np.exp(b_x1) * np.exp(-c_x1 * x1))
-        f3 = np.exp(-np.exp(b_x2) * np.exp(-c_x2 * x2))
+        f2 = np.exp(-np.exp(-c_x1 * (x1 + b_x1)) * np.log(2))
+        f3 = np.exp(-np.exp(-c_x2 * (x2 + b_x2)) * np.log(2))
         factors = {"f1": f1, "f2": f2, "f3": f3}
         return self.selective_product(factor, factors)
 
@@ -407,10 +407,10 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
         max_level = np.max(data_to_extrapolate)
         sat_level_guess = 2.0 * max_level
 
-        c_x1_guess = 0
+        c_x1_guess = 1
         b_x1_guess = 1
 
-        c_x2_guess = 0
+        c_x2_guess = 1
         b_x2_guess = 1
 
         return np.array([sat_level_guess, b_x1_guess, c_x1_guess, b_x2_guess, c_x2_guess])
