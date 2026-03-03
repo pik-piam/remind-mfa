@@ -333,8 +333,8 @@ class GompertzExtrapolation(Extrapolation):
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
         f = self.func(x, prms)
-        if f == 0: # TODO remove? Not physically possible, but can happen due to numerical issues with exp overflow.
-            return np.zeros(3)  # degenerate: exp overflow made f=0, log(f/a) would be -inf
+        if f == 0:
+            return np.zeros(3)
         # Use log(f/a) = -exp(-c*(x+b))*log(2) to avoid intermediate overflow
         log_f_over_a = np.log(f / a)
         da = f / a
