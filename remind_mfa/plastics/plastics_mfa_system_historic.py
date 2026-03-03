@@ -32,18 +32,14 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         trd["final_his"].exports[...] = trd["final_his"].exports.minimum(flw["sysenv => fabrication"])
         trd["final_his"].balance(to="minimum")
 
-        flw["good_market => use"][...] = trd["final_his"].imports 
-        flw["fabrication => good_market"][...] = trd["final_his"].exports 
-        flw["sysenv => good_market"][...] = flw["good_market => use"]
-        flw["good_market => sysenv"][...] = flw["fabrication => good_market"]
-
-        flw["fabrication => use"][...] = (
-            flw["sysenv => fabrication"] - flw["fabrication => good_market"]
-        )
+        flw["fabrication => good_market"][...] = flw["sysenv => fabrication"] 
+        flw["good_market => use"][...] = flw["fabrication => good_market"] - trd["final_his"].exports + trd["final_his"].imports
+        flw["good_market => sysenv"][...] = trd["final_his"].exports 
+        flw["sysenv => good_market"][...] = trd["final_his"].imports 
 
     def compute_historic_stock(self):
         self.stocks["in_use_historic"].inflow[...] = (
-            self.flows["good_market => use"] + self.flows["fabrication => use"]
+            self.flows["good_market => use"]
         )
         self.stocks["in_use_historic"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}], 
@@ -57,5 +53,5 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         # get material split from historic stock inflow
         self.parameters["material_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "r", "m", "g"],
-            values=(self.flows["good_market => use"] + self.flows["fabrication => use"]).get_shares_over(("m",)).values,
+            values=(self.flows["good_market => use"]).get_shares_over(("m",)).values,
         )
