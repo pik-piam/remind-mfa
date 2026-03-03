@@ -333,9 +333,13 @@ class GompertzExtrapolation(Extrapolation):
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
         f = self.func(x, prms)
+        if f == 0: # TODO remove? Not physically possible, but can happen due to numerical issues with exp overflow.
+            return np.zeros(3)  # degenerate: exp overflow made f=0, log(f/a) would be -inf
+        # Use log(f/a) = -exp(-c*(x+b))*log(2) to avoid intermediate overflow
+        log_f_over_a = np.log(f / a)
         da = f / a
-        db = f * -np.exp(-c * (x + b)) * np.log(2) * -c
-        dc = f * -np.exp(-c * (x + b)) * np.log(2) * -(x + b)
+        db = -f * c * log_f_over_a
+        dc = -f * (x + b) * log_f_over_a
         return np.stack([da, db, dc], axis=-1)
 
     def initial_guess(
