@@ -2,13 +2,14 @@ import flodym as fd
 import numpy as np
 from scipy.optimize import minimize
 from pydantic import model_validator
+from typing import ClassVar
 
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_extrapolations import Extrapolation
 
 
 class StockFitter(RemindMFABaseModel):
-    historic_stocks_pc: fd.FlodymArray  # pC
+    historic_stocks_pc: fd.FlodymArray
     extrapolation: Extrapolation
     dims_out: fd.DimensionSet
     penalty_weights: dict
@@ -37,6 +38,7 @@ class StockFitter(RemindMFABaseModel):
     def check_prms(self):
         e = self.extrapolation
         # TODO: adapt for logistic; also get common normalization
+        # harmonize parameter names and find comparable way of measurement
         if e.prm_names[0] != "saturation_level":
             raise ValueError("saturation_level not in prm_names.")
         if e.prm_names[1] != "offset":
@@ -207,9 +209,12 @@ class StockFitter(RemindMFABaseModel):
         return arr[self._n_hist - 1]
 
     def last_hist_slope(self, arr):
-        n = 10
-        return (arr[self._n_hist - 1] - arr[self._n_hist - 1 - n]) / (n / 20)
+        # TODO use real years, use propper fit (this would reduce performance)?
+        # if we use relative slope optimization, even dividing by n (or years) is not necessary
+        n = 3
+        return (arr[self._n_hist - 1] - arr[self._n_hist - 1 - n]) / n
 
     def first_future_slope(self, arr, func):
-        n = 10
-        return (func(arr[self._n_hist + n - 1]) - func(arr[self._n_hist - 1])) / (n / 20)
+        # TODO use real years
+        n = 3
+        return (func(arr[self._n_hist + n - 1]) - func(arr[self._n_hist - 1])) / n
