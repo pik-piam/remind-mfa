@@ -182,6 +182,7 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
+        self.sector_specific_sat_level = sector_specific_sat_level
         long_term_stock = self.stock_handler.stocks * sector_specific_sat_level
         return long_term_stock
 
