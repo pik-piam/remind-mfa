@@ -118,7 +118,6 @@ class StockFitter(RemindMFABaseModel):
             self.pen_data_0th_order(historic, predictor, prms)
             + self.pen_rel_data_0th_order(historic, predictor, prms)
             + self.pen_data_1st_order(historic, predictor, prms)
-            + self.pen_rel_data_1st_order(historic, predictor, prms)
             + self.pen_common(prms, prms_0)
         )
 
@@ -147,7 +146,6 @@ class StockFitter(RemindMFABaseModel):
             self.dpen_data_0th_order(historic, predictor, prms)
             + self.dpen_rel_data_0th_order(historic, predictor, prms)
             + self.dpen_data_1st_order(historic, predictor, prms)
-            + self.dpen_rel_data_1st_order(historic, predictor, prms)
             + self.dpen_common(prms, prms_0)
         )
 
@@ -177,14 +175,6 @@ class StockFitter(RemindMFABaseModel):
         fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
         target_slope = self.last_hist_slope(historic)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
-    
-    def pen_rel_data_1st_order(self, historic, predictor, prms):
-        """Penalty on the relative magnitude of fit slope vs. last historic slope on log-scale.
-        """
-        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        target_slope = self.last_hist_slope(historic)
-        log_ratio = self.calc_log_ratio(fit_slope, target_slope)
-        return self.norm(log_ratio) * self.penalty_weights["rel_data_1st_order"]
 
     def dpen_data_0th_order(self, historic, predictor, prms):
         """derivative of pen_data_0th_order with respect to prms"""
@@ -224,20 +214,6 @@ class StockFitter(RemindMFABaseModel):
             self.dnorm((fit_slope - target_slope))
             * dfit_slope
             * self.penalty_weights["data_1st_order"]
-        )
-    
-    def dpen_rel_data_1st_order(self, historic, predictor, prms):
-        """Derivative of pen_rel_data_1st_order w.r.t. prms."""
-        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        dfit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.jacobian(x, prms))
-        target_slope = self.last_hist_slope(historic)
-        log_ratio = self.calc_log_ratio(fit_slope, target_slope)
-        dlog_ratio_dfit_slope = self.calc_dlog_ratio_dfit(fit_slope, target_slope)
-        return (
-            self.dnorm(log_ratio)
-            * dlog_ratio_dfit_slope
-            * dfit_slope
-            * self.penalty_weights["rel_data_1st_order"]
         )
 
     def pen_common(self, prms, prms_0):

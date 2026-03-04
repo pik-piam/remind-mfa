@@ -232,7 +232,6 @@ class StockExtrapolation(RemindMFABaseModel):
             "data_0th_order": 20.0,
             "rel_data_0th_order": 20.0,
             "data_1st_order": 10.0,
-            "rel_data_1st_order": 10.0,
             "prms": np.array(
                 [
                     10.0,  # saturation_level
