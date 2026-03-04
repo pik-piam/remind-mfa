@@ -50,7 +50,6 @@ class StockExtrapolation(RemindMFABaseModel):
         self.init_arrays()
         self.calc_arrays_from_parameters_dict()
         self.set_predictor()
-        self.standardize_predictor()
         self.get_pure_regression()
         self.fit()
         self.smooth_transition()
@@ -129,42 +128,39 @@ class StockExtrapolation(RemindMFABaseModel):
         """wrapper for the get_predictor function using class attributes.
         get_predictor is designed to be called with other gdp values, e.g. for visualization
         """
-        self.predictor = self.get_predictor(self.gdppc.values, self.gdp_weight_in_weighted_sum)
+        self.predictor = self.get_predictor(self.gdppc.values)
 
-    def get_predictor(
-        self, gdppc: np.ndarray, gdp_weight_in_weighted_sum: Optional[float] = None
-    ) -> np.ndarray:
-        """Get regression predictor: GDP per capita, population, or a sum or combination of those
+    def get_predictor(self, gdppc: np.ndarray) -> np.ndarray:
+        """Get regression predictor: Can be either log GDP per capita or a combination of log GDP per capita and time.
+        In all cases, the predictor is standardized to have a mean of 0 and a range of approximately 1.
 
         Args:
             gdppc (np.ndarray): GDP per capita values to use; having this as an input allows to use
               different GDP per capita values for visualization of the regression predictor, for example.
-            gdp_weight_in_weighted_sum (Optional[float], optional): Weight of logGDPpC if a weighted sum of logGDPpC and time is used.
 
         Returns:
             np.ndarray: The predictor values for the regression
         """
+        # Standardize time and GDPpc:
+        # The mean is data-driven and therefore dependent on the predictor, but also unit-independent.
+        # Nevertheless, this should not have an impact on the regression result, as it only shifts the values.
+        # The range is hardcoded in units of years/$, which makes it independent of the predictor data.
+        # This is necessary to ensure comparable regression results on different predictor data.
+        # If other units are used, the range needs to be adapted accordingly.
+        time = np.array(self.dims["t"].items)
+        normalized_time = (time - np.mean(time)) / (2100 - 1900)
+        log_gdppc = np.log10(gdppc)
+        normalized_gdppc = (log_gdppc - np.log10(1e4)) / (np.mean(log_gdppc) - np.log10(1e3))
+
         match self.cfg.regress_over:
-            case RegressOverModes.GDPPC:
-                return gdppc
             case RegressOverModes.LOGGDPPC:
-                return np.log10(gdppc)
-            case RegressOverModes.LOCGDPPC_TIME_WEIGHTED_SUM:
-                time = np.array(self.dims["t"].items)
-                return np.log10(gdppc) * gdp_weight_in_weighted_sum + time[:, None, None]
+                return normalized_gdppc
             case RegressOverModes.LOGGDPPC_TIME:
-                time = np.array(self.dims["t"].items)
-                time = broadcast_trailing_dimensions(time, gdppc)
+                time = broadcast_trailing_dimensions(normalized_time, normalized_gdppc)
                 predictor = np.empty(gdppc.shape, dtype=[("x1", np.float64), ("x2", np.float64)])
-                predictor["x1"] = np.log10(gdppc)
+                predictor["x1"] = normalized_gdppc
                 predictor["x2"] = time
                 return predictor
-            
-    def standardize_predictor(self):
-        self.predictor_mean = np.mean(self.predictor)
-        self.predictor_std = np.std(self.predictor)
-        if self.predictor_std > 0:
-            self.predictor = (self.predictor - self.predictor_mean) / self.predictor_std
 
     def get_pure_regression(self):
         """Regress over the chosen predictor, common for all regions.
@@ -231,6 +227,7 @@ class StockExtrapolation(RemindMFABaseModel):
         Details on the penalty function and the optimization can be found in the StockFitter class.
         """
 
+        # TODO add comment
         penalty_weights = {
             "data_0th_order": 20.0,
             "rel_data_0th_order": 20.0,
