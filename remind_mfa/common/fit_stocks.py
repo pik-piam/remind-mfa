@@ -226,12 +226,12 @@ class StockFitter(RemindMFABaseModel):
     @staticmethod
     def norm(x):
         """How the penalty reacts to deviations from target values"""
-        return x**2  # + np.abs(x)
+        return x**2
 
     @staticmethod
     def dnorm(x):
         """derivative of norm"""
-        return 2 * x  # + np.sign(x)
+        return 2 * x
 
     def last_hist(self, arr):
         # TODO: refine

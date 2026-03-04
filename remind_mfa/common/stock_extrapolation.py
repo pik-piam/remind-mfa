@@ -227,11 +227,12 @@ class StockExtrapolation(RemindMFABaseModel):
         Details on the penalty function and the optimization can be found in the StockFitter class.
         """
 
-        # TODO add comment
+        # Note that the weights do not necessarily reflect the importance of different metrics during the optimization.
+        # This is due to the fact that different metrics may operate on different regimes and have different units.
         penalty_weights = {
             "data_0th_order": 20.0,
-            "rel_data_0th_order": 20.0,
-            "data_1st_order": 10.0,
+            "rel_data_0th_order": 2.0, # penalty max w/o weight: 10**2
+            "data_1st_order": 4e3, # data_0th_order ** 2 
             "prms": np.array(
                 [
                     10.0,  # saturation_level

@@ -56,7 +56,7 @@ visualization:
   extrapolation:
     do_visualize: True
   carbonation:
-    do_visualize: True
+    do_visualize: False
 
 export:
   do_export: False
