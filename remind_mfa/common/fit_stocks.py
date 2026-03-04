@@ -179,13 +179,11 @@ class StockFitter(RemindMFABaseModel):
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
     
     def pen_rel_data_1st_order(self, historic, predictor, prms):
-        """Penalty on the relative magnitude of the slope of fit vs. the last historic slope on log-scale.
-        Uses absolute values with calc_log_ratio: floored at eps, capped at ±max_log.
-        Sign mismatch is handled separately by pen_data_1st_order.
+        """Penalty on the relative magnitude of fit slope vs. last historic slope on log-scale.
         """
         fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
         target_slope = self.last_hist_slope(historic)
-        log_ratio = self.calc_log_ratio(np.abs(fit_slope), np.abs(target_slope))
+        log_ratio = self.calc_log_ratio(fit_slope, target_slope)
         return self.norm(log_ratio) * self.penalty_weights["rel_data_1st_order"]
 
     def dpen_data_0th_order(self, historic, predictor, prms):
@@ -194,8 +192,12 @@ class StockFitter(RemindMFABaseModel):
         fit = self.extrapolation.func(last_x, prms)
         dfit = self.extrapolation.jacobian(last_x, prms)
         target = self.last_hist(historic)
-        return self.dnorm((fit - target)) * self.penalty_weights["data_0th_order"] * dfit
-    
+        return (
+            self.dnorm((fit - target))
+            * dfit
+            * self.penalty_weights["data_0th_order"]
+        )    
+
     def dpen_rel_data_0th_order(self, historic, predictor, prms):
         """Derivative of pen_rel_data_0th_order w.r.t. prms."""
         last_x = self.last_hist(predictor)
@@ -204,7 +206,12 @@ class StockFitter(RemindMFABaseModel):
         target = self.last_hist(historic)
         log_ratio = self.calc_log_ratio(fit, target)
         dlog_ratio_dfit = self.calc_dlog_ratio_dfit(fit, target)
-        return self.dnorm(log_ratio) * dlog_ratio_dfit * dfit * self.penalty_weights["rel_data_0th_order"]
+        return (
+            self.dnorm(log_ratio)
+            * dlog_ratio_dfit
+            * dfit
+            * self.penalty_weights["rel_data_0th_order"]
+        )
 
     def dpen_data_1st_order(self, historic, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
@@ -215,25 +222,23 @@ class StockFitter(RemindMFABaseModel):
         target_slope = self.last_hist_slope(historic)
         return (
             self.dnorm((fit_slope - target_slope))
-            * self.penalty_weights["data_1st_order"]
             * dfit_slope
+            * self.penalty_weights["data_1st_order"]
         )
     
     def dpen_rel_data_1st_order(self, historic, predictor, prms):
-        """Derivative of pen_rel_data_1st_order w.r.t. prms.
-        pen_rel_data_1st_order uses |fit_slope|, so by the chain rule:
-        d/d(fit_slope) log(|fit_slope|) = sign(fit_slope) * d/d(|fit_slope|) log(|fit_slope|).
-        """
+        """Derivative of pen_rel_data_1st_order w.r.t. prms."""
         fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        dfit_slope = self.first_future_slope(
-            predictor, lambda x: self.extrapolation.jacobian(x, prms)
-        )
+        dfit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.jacobian(x, prms))
         target_slope = self.last_hist_slope(historic)
-        log_ratio = self.calc_log_ratio(np.abs(fit_slope), np.abs(target_slope))
-        dlog_ratio_dfit_slope = np.sign(fit_slope) * self.calc_dlog_ratio_dfit(
-            np.abs(fit_slope), np.abs(target_slope)
+        log_ratio = self.calc_log_ratio(fit_slope, target_slope)
+        dlog_ratio_dfit_slope = self.calc_dlog_ratio_dfit(fit_slope, target_slope)
+        return (
+            self.dnorm(log_ratio)
+            * dlog_ratio_dfit_slope
+            * dfit_slope
+            * self.penalty_weights["rel_data_1st_order"]
         )
-        return self.dnorm(log_ratio) * dlog_ratio_dfit_slope * dfit_slope * self.penalty_weights["rel_data_1st_order"]
 
     def pen_common(self, prms, prms_0):
         return np.sum(self.norm(prms - prms_0) * self.penalty_weights["prms"])
@@ -274,22 +279,27 @@ class StockFitter(RemindMFABaseModel):
         """
         eps = 1e-2
         max_log = np.log(10)
+        if np.sign(fit) != np.sign(target):
+            return np.sign(fit - target) * max_log
         fit_reg = max(fit, 0.0) + eps
         target_reg = max(target, 0.0) + eps
         return np.clip(np.log(fit_reg / target_reg), -max_log, max_log)
 
     def calc_dlog_ratio_dfit(self, fit, target):
-        """Derivative of calc_log_ratio(fit, target) w.r.t. fit.
-        Zero when fit ≤ 0 (max(fit, 0) is flat there) or at the clip boundary.
-        Otherwise 1/(fit + eps), the derivative of log(fit + eps).
+        """Derivative of calc_log_ratio(|fit|, |target|) w.r.t. fit.
+        Mirrors the logic of calc_log_ratio:
+        - Zero for sign mismatch or fit == 0 (constant penalty region).
+        - Zero at the clip boundary.
+        - Otherwise sign(fit) / (|fit| + eps), incorporating d|fit|/d(fit) = sign(fit).
+        Can be called with raw (possibly negative) values, e.g. slopes.
         """
         eps = 1e-2
         max_log = np.log(10)
-        if fit <= 0.0:
+        if np.sign(fit) != np.sign(target) or fit == 0.0:
             return 0.0
-        fit_reg = fit + eps
-        target_reg = max(target, 0.0) + eps
-        if np.abs(np.log(fit_reg / target_reg)) >= max_log:
+        abs_fit_reg = np.abs(fit) + eps
+        abs_target_reg = np.abs(target) + eps
+        if np.abs(np.log(abs_fit_reg / abs_target_reg)) >= max_log:
             return 0.0
-        return 1.0 / fit_reg
+        return np.sign(fit) / abs_fit_reg
 
