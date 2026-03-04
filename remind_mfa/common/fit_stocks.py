@@ -172,8 +172,8 @@ class StockFitter(RemindMFABaseModel):
         """penalty for the deviation of the slope of the fitted function from the slope of the
         historic data in the last historic data points (w.r.t. time).
         """
-        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        target_slope = self.last_hist_slope(historic)
+        fit_slope = self.last_slope(predictor, lambda x: self.extrapolation.func(x, prms))
+        target_slope = self.last_slope(historic)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
 
     def dpen_data_0th_order(self, historic, predictor, prms):
@@ -205,11 +205,9 @@ class StockFitter(RemindMFABaseModel):
 
     def dpen_data_1st_order(self, historic, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
-        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        dfit_slope = self.first_future_slope(
-            predictor, lambda x: self.extrapolation.jacobian(x, prms)
-        )
-        target_slope = self.last_hist_slope(historic)
+        fit_slope = self.last_slope(predictor, lambda x: self.extrapolation.func(x, prms))
+        dfit_slope = self.last_slope(predictor, lambda x: self.extrapolation.jacobian(x, prms))
+        target_slope = self.last_slope(historic)
         return (
             self.dnorm((fit_slope - target_slope))
             * dfit_slope
@@ -237,17 +235,16 @@ class StockFitter(RemindMFABaseModel):
         # TODO: refine
         return arr[self._n_hist - 1]
 
-    def last_hist_slope(self, arr):
-        # TODO use real years, use propper fit (this would reduce performance)?
-        # if we use relative slope optimization, even dividing by n (or years) is not necessary
-        n = 3
-        return (arr[self._n_hist - 1] - arr[self._n_hist - 1 - n]) / n
+    def last_slope(self, arr, func=lambda x: x):
+        """Calculate the average slope of the last n arr data points.
+        If func is provided, it is applied to the data points before calculating the slope.
+        """
+        n = 10
+        time = self.dims_out["t"].items
+        darr = func(arr[self._n_hist - 1]) - func(arr[self._n_hist - 1 - n])
+        dtime = time[self._n_hist - 1] - time[self._n_hist - 1 - n]
+        return darr / dtime
 
-    def first_future_slope(self, arr, func):
-        # TODO use real years
-        n = 3
-        return (func(arr[self._n_hist + n - 1]) - func(arr[self._n_hist - 1])) / n
-    
     def calc_log_ratio(self, fit, target):
         """Log ratio of fit to target, both shifted up by eps to avoid log(0).
         Uses max(val, 0) + eps so negative values are treated as zero.
