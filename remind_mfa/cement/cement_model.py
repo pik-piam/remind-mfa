@@ -34,8 +34,8 @@ class CementModel(CommonModel):
     # TODO: unify, then delete
     end_use_good_letter: str = "s"
     historic_stock_name: str = "historic_cement_in_use"
-    stock_projection_saturation_level: int = 24 # TODO replace this first guess
+    stock_projection_saturation_level: int = 24  # TODO replace this first guess
 
     def modify_parameters(self):
         # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]  
+        self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]

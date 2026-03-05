@@ -151,7 +151,7 @@ class CommonModel:
         sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
 
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = historic_stocks/sector_specific_sat_level
+        normalized_historic_stock = historic_stocks / sector_specific_sat_level
 
         # after normalization, target saturation level is 1 across all regions and sectors.
         sat_level_bound = Bound(

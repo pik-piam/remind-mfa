@@ -30,7 +30,7 @@ class PlasticsModel(CommonModel):
     # TODO: unify, then delete
     end_use_good_letter: str = "g"
     historic_stock_name: str = "in_use_historic"
-    stock_projection_saturation_level: int = 3 #TODO replace this first guess
+    stock_projection_saturation_level: int = 3  # TODO replace this first guess
 
     def modify_parameters(self):
         # copy/rename for use in common model

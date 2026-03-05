@@ -169,11 +169,7 @@ class StockFitter(RemindMFABaseModel):
         fit = self.extrapolation.func(last_x, prms)
         dfit = self.extrapolation.jacobian(last_x, prms)
         target = self.last_hist(historic)
-        return (
-            self.dnorm((fit - target))
-            * dfit
-            * self.penalty_weights["data_0th_order"]
-        )    
+        return self.dnorm((fit - target)) * dfit * self.penalty_weights["data_0th_order"]
 
     def dpen_data_1st_order(self, historic, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
@@ -209,19 +205,17 @@ class StockFitter(RemindMFABaseModel):
         # TODO: refine
         return arr[self._n_hist - 1]
 
-    def last_hist_slope(self, arr, n = 10):
-        """Calculate the average slope of the last n arr data points.
-        """
+    def last_hist_slope(self, arr, n=10):
+        """Calculate the average slope of the last n arr data points."""
         time = self.dims_out["t"].items
         start = self._n_hist - 1 - n
         end = self._n_hist - 1
         darr = arr[end] - arr[start]
         dtime = time[end] - time[start]
         return darr / dtime
-    
-    def first_future_slope(self, predictor, func, n = 10):
-        """Calculate the average slope of the fitted function in the first n future data points.
-        """
+
+    def first_future_slope(self, predictor, func, n=10):
+        """Calculate the average slope of the fitted function in the first n future data points."""
         time = self.dims_out["t"].items
         start = self._n_hist
         end = self._n_hist + n

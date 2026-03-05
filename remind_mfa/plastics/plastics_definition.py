@@ -64,52 +64,143 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ]
     else:
         flows = [
-            fd.FlowDefinition(from_process="sysenv", to_process="virginfoss", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virginbio", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virgindaccu", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virginccu", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="virginbio", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="virgindaccu", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="virginfoss", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virginbio", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(
+                from_process="sysenv", to_process="virginfoss", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv", to_process="virginbio", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv", to_process="virgindaccu", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv", to_process="virginccu", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="atmosphere", to_process="virginbio", dim_letters=("t", "e", "r")
+            ),
+            fd.FlowDefinition(
+                from_process="atmosphere", to_process="virgindaccu", dim_letters=("t", "e", "r")
+            ),
+            fd.FlowDefinition(
+                from_process="virginfoss", to_process="virgin", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="virginbio", to_process="virgin", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="virgindaccu", to_process="virgin", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="virginccu", to_process="virgin", dim_letters=("t", "e", "r", "m")
+            ),
             # primary stages
-            fd.FlowDefinition(from_process="virgin", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virgin", to_process="primary_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="primary_market", to_process="sysenv", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(
+                from_process="virgin", to_process="fabrication", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="virgin", to_process="primary_market", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="primary_market",
+                to_process="fabrication",
+                dim_letters=("t", "e", "r", "m"),
+            ),
+            fd.FlowDefinition(
+                from_process="primary_market", to_process="sysenv", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv", to_process="primary_market", dim_letters=("t", "e", "r", "m")
+            ),
             # fabrication stages
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","m","g")),
-            fd.FlowDefinition(from_process="fabrication", to_process="use", dim_letters=("t","e","r","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(
+                from_process="fabrication",
+                to_process="good_market",
+                dim_letters=("t", "e", "r", "m", "g"),
+            ),
+            fd.FlowDefinition(
+                from_process="good_market", to_process="use", dim_letters=("t", "e", "r", "m", "g")
+            ),
+            fd.FlowDefinition(
+                from_process="fabrication", to_process="use", dim_letters=("t", "e", "r", "m", "g")
+            ),
+            fd.FlowDefinition(
+                from_process="good_market", to_process="sysenv", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv", to_process="good_market", dim_letters=("t", "e", "r", "m")
+            ),
             # use stage
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","m","g")),
+            fd.FlowDefinition(
+                from_process="use", to_process="eol", dim_letters=("t", "e", "r", "m", "g")
+            ),
             # end-of-life stages
-            fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="reclmech", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="reclchem", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="landfill", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclchem", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="incineration", to_process="emission", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="emission", to_process="captured", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="emission", to_process="atmosphere", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="captured", to_process="virginccu", dim_letters=("t","e","r")),
+            fd.FlowDefinition(
+                from_process="eol", to_process="collected", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="eol", to_process="mismanaged", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="collected", to_process="reclmech", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="collected", to_process="reclchem", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="collected", to_process="landfill", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="collected",
+                to_process="incineration",
+                dim_letters=("t", "e", "r", "m"),
+            ),
+            fd.FlowDefinition(
+                from_process="mismanaged",
+                to_process="uncontrolled",
+                dim_letters=("t", "e", "r", "m"),
+            ),
+            fd.FlowDefinition(
+                from_process="reclmech", to_process="fabrication", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="reclchem", to_process="virgin", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="reclmech", to_process="uncontrolled", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="reclmech", to_process="incineration", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="incineration", to_process="emission", dim_letters=("t", "e", "r")
+            ),
+            fd.FlowDefinition(
+                from_process="emission", to_process="captured", dim_letters=("t", "e", "r")
+            ),
+            fd.FlowDefinition(
+                from_process="emission", to_process="atmosphere", dim_letters=("t", "e", "r")
+            ),
+            fd.FlowDefinition(
+                from_process="captured", to_process="virginccu", dim_letters=("t", "e", "r")
+            ),
             # waste trade
-            fd.FlowDefinition(from_process="waste_market", to_process="collected", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="waste_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="waste_market", to_process="sysenv", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="waste_market", dim_letters=("t","e","r","m")),
-
+            fd.FlowDefinition(
+                from_process="waste_market",
+                to_process="collected",
+                dim_letters=("t", "e", "r", "m"),
+            ),
+            fd.FlowDefinition(
+                from_process="collected",
+                to_process="waste_market",
+                dim_letters=("t", "e", "r", "m"),
+            ),
+            fd.FlowDefinition(
+                from_process="waste_market", to_process="sysenv", dim_letters=("t", "e", "r", "m")
+            ),
+            fd.FlowDefinition(
+                from_process="sysenv", to_process="waste_market", dim_letters=("t", "e", "r", "m")
+            ),
         ]
         # fmt: on
 

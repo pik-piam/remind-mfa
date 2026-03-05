@@ -229,7 +229,7 @@ class StockExtrapolation(RemindMFABaseModel):
         # This is due to the fact that different metrics may operate on different regimes and have different units.
         penalty_weights = {
             "data_0th_order": 20.0,
-            "data_1st_order": 4e3, # 20 ** 2 * 10 
+            "data_1st_order": 4e3,  # 20 ** 2 * 10
             "prms": np.array(
                 [
                     10.0,  # saturation_level
@@ -289,9 +289,7 @@ class StockExtrapolation(RemindMFABaseModel):
         stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
-    def critically_damped_blend(
-        self, historical: np.ndarray, prediction: np.ndarray
-    ) -> np.ndarray:
+    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
         """
         Blend historical and extrapolated stock values using a critically damped system approach to ensure a smooth transition.
         In a critically damped system (e.g. spring that returns to equilibrium as quickly as possible without oscillating),
@@ -329,20 +327,22 @@ class StockExtrapolation(RemindMFABaseModel):
             name="years for blending to regression",
             value=approaching_time,
             description=(
-                "Number of years for the blending from historical to regressed in-use stocks." \
-                "After this time, the initial offset between historical and regressed stock is reduced to 5 percent." \
+                "Number of years for the blending from historical to regressed in-use stocks."
+                "After this time, the initial offset between historical and regressed stock is reduced to 5 percent."
             ),
         )
-        
+
         # Construct time that starts at 0 in last historical year.
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
         delta_t = time_extended - last_history_year
-        
+
         # Amplitude decreases to 5 percent after approaching_time years
-        k = 4.74 / approaching_time 
+        k = 4.74 / approaching_time
 
         # Critically damped system solution
-        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(-k * delta_t)
+        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(
+            -k * delta_t
+        )
 
         return prediction[...] + correction
 
