@@ -12,7 +12,6 @@ class StockFitter(RemindMFABaseModel):
     dims_out: fd.DimensionSet
     penalty_weights: dict
     predictor: np.ndarray
-    good_dimletter: str
     _n_hist: int = None
 
     @model_validator(mode="after")
