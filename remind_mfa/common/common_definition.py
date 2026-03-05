@@ -41,7 +41,8 @@ scenario_parameters = [
         name="lifetime_factor",
         dim_letters=("r",),
     ),
-    PlainDataPointDefinition(
-        name="lifetime_factor_blending_year",
+    RemindMFAParameterDefinition(
+        name="lifetime_factor_year",
+        dim_letters=("r",),
     ),
 ]

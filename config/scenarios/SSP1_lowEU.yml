@@ -1,6 +1,0 @@
-- parameter: saturation_level_factor
-  models:
-  - steel
-  index:
-    Region: EUR
-  value: 0.5

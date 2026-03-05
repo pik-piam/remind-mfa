@@ -4,9 +4,9 @@ import csv
 import flodym as fd
 from pydantic import field_validator
 from typing import List, Dict, Optional
-import yaml
 
 from remind_mfa.common.common_definition import PlainDataPointDefinition
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
@@ -48,21 +48,10 @@ class ScenarioReader(RemindMFABaseModel):
 
     def read_single(self, name: str) -> "Scenario":
         csv_file = os.path.join(self.base_path, f"{name}.csv")
-        yml_file = os.path.join(self.base_path, f"{name}.yml")
         if os.path.exists(csv_file):
             return self._read_csv(name, csv_file)
-        elif os.path.exists(yml_file):
-            return self._read_yml(name, yml_file)
         else:
-            raise FileNotFoundError(f"No scenario file found for '{name}' (tried .csv and .yml)")
-
-    def _read_yml(self, name: str, file_name: str) -> "Scenario":
-        parent = self._read_parent_from_inheritance(name)
-        with open(file_name, "r") as f:
-            data = yaml.safe_load(f)
-        if data is None:
-            data = []
-        return Scenario(name=name, parent=parent, data=data)
+            raise FileNotFoundError(f"No scenario file found for '{name}' (tried .csv)")
 
     def _read_csv(self, name: str, file_name: str) -> "Scenario":
         parent = self._read_parent_from_inheritance(name)
@@ -73,14 +62,25 @@ class ScenarioReader(RemindMFABaseModel):
 
     @staticmethod
     def _parse_csv_row(row: dict) -> "ScenarioDataPoint":
-        skip_cols = {"parameter", "models", "value", "metadata", "description"}
         parsed = {col: ScenarioReader._parse_csv_value(val) for col, val in row.items()}
-        index = {col: parsed[col] for col in parsed if col not in skip_cols and parsed[col] is not None}
+        index_prefix = "index:"
+        index = {
+            col[len(index_prefix):]: parsed[col]
+            for col in parsed
+            if col.startswith(index_prefix) and parsed[col] is not None
+        }
+        extra_prefix = "extra:"
+        extra = {
+            col[len(extra_prefix):]: float(parsed[col])
+            for col in parsed
+            if col.startswith(extra_prefix) and parsed[col] is not None
+        }
         return ScenarioDataPoint(
             parameter=parsed["parameter"],
             models=parsed["models"] if parsed["models"] is not None else "all",
             value=float(parsed["value"]),
             index=index,
+            extra=extra,
         )
 
     @staticmethod
@@ -126,6 +126,7 @@ class ScenarioDataPoint(RemindMFABaseModel):
     models: List[ModelNames] | str = "all"
     index: Dict[str, str] = {}
     value: float
+    extra: Dict[str, float] = {}
 
     @field_validator("models", mode="before")
     @classmethod
@@ -134,17 +135,22 @@ class ScenarioDataPoint(RemindMFABaseModel):
             if value == "all":
                 return list(ModelNames)
             else:
-                return [ModelNames(value)]
+                return [ModelNames(v.strip()) for v in value.split(",")]
         return value
 
     def apply(self, parameters: dict):
-        parameter = parameters[self.parameter]
+        self.apply_single(parameters, self.parameter, self.value)
+        for extra_name, extra_val in self.extra.items():
+            self.apply_single(parameters, f"{self.parameter}_{extra_name}", extra_val)
+
+    def apply_single(self, parameters: dict, param_name: str, val: float):
+        parameter = parameters[param_name]
         if isinstance(parameter, fd.Parameter):
             if self.index:
-                parameter[self.index] = self.value
+                parameter[self.index] = val
             else:
-                parameter[...] = self.value
+                parameter[...] = val
         else:
             if self.index:
                 raise ValueError("Index should be empty for plain parameters.")
-            parameters[self.parameter] = self.value
+            parameters[param_name] = val

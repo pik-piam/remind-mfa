@@ -1,4 +1,0 @@
-- parameter: saturation_level_factor
-  models:
-  - steel
-  value: 0.8
