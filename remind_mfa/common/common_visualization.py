@@ -303,7 +303,6 @@ class CommonVisualizer(RemindMFABaseModel):
 
         for factor_name, title, predictor_key, predictor_name in factors:
             kwargs = {} if factor_name is None else {"factor": factor_name}
-            extrapolation.normalize_predictor(predictor)
             values = extrapolation.func(predictor, prms, **kwargs)
             array = to_flodym(values, name=factor_name)
             if predictor_key:
