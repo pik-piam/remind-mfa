@@ -1,5 +1,7 @@
 model: 'plastics'
 
+transience: True
+
 input:
   madrat_output_path: '../../madrat/output_cluster'
   force_extract_tgz: False
@@ -54,7 +56,7 @@ visualization:
         #- "good_market"
       exclude_flows: [ ]
   flows:
-    do_visualize: True
+    do_visualize: False
 
 export:
   do_export: False

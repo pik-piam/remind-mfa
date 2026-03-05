@@ -1,6 +1,7 @@
 import flodym as fd
 import numpy as np
 import logging
+import pandas as pd
 
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
@@ -69,9 +70,29 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             self.parameters["material_shares_use_inflow"]
             * self.parameters["carbon_content_materials"]
         )
-        self.stocks["in_use"].stock[...] = self.stocks["in_use_dsm"].stock * split
         self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
-        self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split
+        self.stocks["in_use"].lifetime_model.set_prms(
+            mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"],
+        )
+        # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
+        self.stocks["in_use"].lifetime_model.n_pts_per_interval = 10
+        
+        if self.cfg.transience == True:
+            demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"] * self.parameters["carbon_content_materials"]
+            mapping = pd.read_csv("data/plastics/input/EU_MFA_mapping_plastics.csv", sep=";")
+            materials = list(mapping[mapping["original_dimension"] == "polymers"]["target_element"].unique())
+            goods = list(mapping[mapping["original_dimension"] == "end_use_sectors_MainSectors"]["target_element"].unique())
+            material_subdim = fd.Dimension(name="m_eu", letter="n", items=materials)
+            good_subdim = fd.Dimension(name="g_eu", letter="f", items=goods)
+            # TODO extrapolate EU-MFA data or run MFA only until 2060
+            time_subdim = fd.Dimension(name="t_eu", letter="s", items=list(range(1950, 2061)))
+
+            self.stocks["in_use"].inflow[{"r": "EUR", "m": material_subdim, "g": good_subdim, "t": time_subdim}] = demand_EU_MFA[{"r": "EUR", "m": material_subdim, "g": good_subdim, "t": time_subdim}]
+            logging.warning(
+                "TRANSIENCE mode is on. In-use stock inflow for EUR region is not computed from stock projection, but taken from EU-MFA"
+            )
+        
+        self.stocks["in_use"].compute()
 
     def compute_flows(self, historic_trade: TradeSet):
 
@@ -134,6 +155,9 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow 
+        # imports of final goods cannot exceed plastics demand
+        historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}])
+        historic_trade["final_his"].balance(to="minimum")
     
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["final_his"],
