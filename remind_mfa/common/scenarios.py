@@ -56,9 +56,17 @@ class ScenarioReader(RemindMFABaseModel):
     def _read_csv(self, name: str, file_name: str) -> "Scenario":
         parent = self._read_parent_from_inheritance(name)
         with open(file_name, "r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
+            reader = csv.DictReader(self._iter_active_csv_lines(f))
             data_points = [self._parse_csv_row(row) for row in reader]
         return Scenario(name=name, parent=parent, data=data_points)
+
+    @staticmethod
+    def _iter_active_csv_lines(file_obj):
+        for line in file_obj:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            yield line
 
     @staticmethod
     def _parse_csv_row(row: dict) -> "ScenarioDataPoint":
@@ -100,7 +108,7 @@ class ScenarioReader(RemindMFABaseModel):
                 f"inheritance.csv not found in {self.base_path}"
             )
         with open(inheritance_file, "r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
+            reader = csv.DictReader(self._iter_active_csv_lines(f))
             for row in reader:
                 if row["scenario"] == name:
                     parent = row.get("parent", "").strip()
