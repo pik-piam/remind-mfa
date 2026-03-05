@@ -315,6 +315,10 @@ class GompertzExtrapolation(Extrapolation):
     """
     Gompertz extrapolation:
     Prm order: [saturation_level, offset, growth_rate]
+    In this parameterization, 
+    - the offset shifts the curve horizontally, setting the half-point (50% saturation) at x = -offset,
+    - and the growth_rate controls the steepness of the curve.
+    The maximum derivative (at the inflection point) is exactly equal to: saturation_level * growth_rate / e.
     """
 
     prm_names: ClassVar[list[str]] = [
