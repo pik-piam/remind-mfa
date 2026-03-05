@@ -1,4 +1,3 @@
-from typing import List
 import flodym as fd
 
 from remind_mfa.common.common_definition import RemindMFADefinition
