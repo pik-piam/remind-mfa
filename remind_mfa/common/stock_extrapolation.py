@@ -39,8 +39,6 @@ class StockExtrapolation(RemindMFABaseModel):
     """bound_list (BoundList): List of bounds for the extrapolation. Defaults to an empty BoundList."""
     do_gdppc_accumulation: bool = True
     """do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True."""
-    gdp_weight_in_weighted_sum: Optional[float] = None
-    """relative weight of gdp in predictor weighted sum for predictor type LOGGDPPC_TIME_WEIGHTED_SUM"""
     transition_smoothing: str = "critically_damped"
     """transition_smoothing (str): Method for blending between historical and future stock. Possible values are "critically_damped", "shift_zeroth_order", "none". Defaults to "critically_damped"."""
 
