@@ -141,7 +141,6 @@ class CommonModel:
 
     def get_stock_sector_split_limit(self):
         prm = self.parameters
-        # TODO: harmonize stock type split across materials
         stock_sector_split = (self.limit_lifetime() * prm["sector_split_limit"]).get_shares_over(
             self.end_use_good_letter
         )
