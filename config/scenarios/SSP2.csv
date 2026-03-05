@@ -1,6 +1,9 @@
 parameter,models,value,extra:year,index:Region,description
+saturation_level,steel,11,,,
+saturation_level,plastics,3,,,
+saturation_level,cement,24,,,
+stock_factor,all,1.0,2100,,
 lifetime_factor,all,1.0,2040,,
-saturation_level_factor,steel,1.0,,,
 waste_his_imports,plastics,0,2030,,
 waste_his_exports,plastics,0,2030,,
 collection_rate,plastics,1.0,2100,,

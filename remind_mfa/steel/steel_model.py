@@ -29,7 +29,6 @@ class SteelModel(CommonModel):
     # TODO: unify, then delete
     end_use_good_letter: str = "g"
     historic_stock_name: str = "historic_in_use"
-    stock_projection_saturation_level: int = 11
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
@@ -57,12 +56,12 @@ class SteelModel(CommonModel):
         self.parameters["lifetime_factor"] = lifetime_factor_prm
 
         self.parameters["lifetime_mean"] = fd.Parameter(
-            dims=self.dims["t", "g"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"]).values,
+            dims=self.dims["t", "r", "g"],
+            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"]).cast_to(self.dims["t", "r", "g"]).values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
-            dims=self.dims["t", "g"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values
+            dims=self.dims["t", "r", "g"],
+            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).cast_to(self.dims["t", "r", "g"]).values
             * 1.5,
         )
         construction_lifetime_factor = 1.2

@@ -13,6 +13,7 @@ from remind_mfa.common.common_definition import get_definition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 
@@ -31,7 +32,6 @@ class CommonModel:
     # TODO: unify, then delete
     end_use_good_letter: str = None
     historic_stock_name: str = None
-    stock_projection_saturation_level: int = None
 
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
@@ -39,6 +39,7 @@ class CommonModel:
         self.read_data()
         self.read_scenario_parameters()
         self.modify_parameters()
+        self.apply_scenario_adjustments_to_parameters()
         self.init_export_and_visualization()
 
     def run(self):
@@ -94,6 +95,15 @@ class CommonModel:
         """Manual changes to parameters"""
         pass
 
+    def apply_scenario_adjustments_to_parameters(self):
+        """Apply scenario adjustments to parameters"""
+        # lifetime:
+        for prm_name in ["lifetime_mean", "lifetime_std"]:
+            self.apply_scenario_factor(
+                array=self.parameters[prm_name],
+                scen_prm_name="lifetime_factor",
+            )
+
     def init_export_and_visualization(self):
         display_names = self.DisplayNamesCls()
         self.data_writer = self.DataExporterCls(
@@ -147,7 +157,7 @@ class CommonModel:
         return stock_sector_split
 
     def get_long_term_stock(self) -> fd.FlodymArray:
-        saturation_level = self.stock_projection_saturation_level
+        saturation_level = self.scenario_parameters["saturation_level"]
         sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
 
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
@@ -183,7 +193,27 @@ class CommonModel:
         # denormalize
         self.sector_specific_sat_level = sector_specific_sat_level
         long_term_stock = self.stock_handler.stocks * sector_specific_sat_level
+
+        self.apply_scenario_factor(
+            array=long_term_stock,
+            scen_prm_name="stock_factor")
+
         return long_term_stock
+
+    def apply_scenario_factor(self, array: fd.FlodymArray, scen_prm_name: str) -> fd.FlodymArray:
+        target_dims = array.dims.union_with(self.dims["t"])
+        if isinstance(self.scenario_parameters[scen_prm_name], fd.FlodymArray):
+            target_dims = target_dims.union_with(self.scenario_parameters[scen_prm_name].dims)
+
+        factor = blend(
+            target_dims=target_dims,
+            y_lower=1,
+            y_upper=self.scenario_parameters[scen_prm_name],
+            x="t",
+            x_lower=self.dims["h"].items[-1],
+            x_upper=self.scenario_parameters[f"{scen_prm_name}_year"],
+        )
+        array[...] *= factor
 
     def limit_lifetime(self):
         """Effective lifetime when saturation level is reached.

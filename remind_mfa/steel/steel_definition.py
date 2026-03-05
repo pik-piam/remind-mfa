@@ -260,8 +260,4 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
 
 
 scenario_parameters = [
-    RemindMFAParameterDefinition(
-        name="saturation_level_factor",
-        dim_letters=("r",),
-    ),
 ]

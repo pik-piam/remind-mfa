@@ -37,6 +37,18 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 
 
 scenario_parameters = [
+    PlainDataPointDefinition(
+        name="saturation_level",
+        description="Saturation level for material use per capita (unit depends on the material, e.g. t/capita)",
+    ),
+    RemindMFAParameterDefinition(
+        name="stock_factor",
+        dim_letters=("r",),
+    ),
+    RemindMFAParameterDefinition(
+        name="stock_factor_year",
+        dim_letters=("r",),
+    ),
     RemindMFAParameterDefinition(
         name="lifetime_factor",
         dim_letters=("r",),

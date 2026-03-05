@@ -1,2 +1,3 @@
 parameter,models,value,extra:year,index:Region,description
-saturation_level_factor,steel,0.8,,,
+stock_factor,all,0.8,,,
+lifetime_factor,all,1.2,,,
