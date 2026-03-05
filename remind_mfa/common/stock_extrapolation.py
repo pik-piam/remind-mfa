@@ -234,7 +234,7 @@ class StockExtrapolation(RemindMFABaseModel):
                 [
                     10.0,  # saturation_level
                     1.0,  # offset
-                    2.0,  # growth_rate
+                    1.0,  # growth_rate
                 ]
             ),
         }
