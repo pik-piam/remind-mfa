@@ -148,7 +148,7 @@ class StockExtrapolation(RemindMFABaseModel):
         time = np.array(self.dims["t"].items)
         normalized_time = (time - np.mean(time)) / (2100 - 1900)
         log_gdppc = np.log10(gdppc)
-        normalized_gdppc = (log_gdppc - np.log10(1e4)) / (np.mean(log_gdppc) - np.log10(1e3))
+        normalized_gdppc = (log_gdppc - np.mean(log_gdppc)) / (np.log10(1e5) - np.log10(1e3))
 
         match self.cfg.regress_over:
             case RegressOverModes.LOGGDPPC:
