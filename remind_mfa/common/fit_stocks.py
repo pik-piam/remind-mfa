@@ -159,8 +159,8 @@ class StockFitter(RemindMFABaseModel):
         """penalty for the deviation of the slope of the fitted function from the slope of the
         historic data in the last historic data points (w.r.t. time).
         """
-        fit_slope = self.last_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        target_slope = self.last_slope(historic)
+        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
+        target_slope = self.last_hist_slope(historic)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
 
     def dpen_data_0th_order(self, historic, predictor, prms):
@@ -177,9 +177,11 @@ class StockFitter(RemindMFABaseModel):
 
     def dpen_data_1st_order(self, historic, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
-        fit_slope = self.last_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        dfit_slope = self.last_slope(predictor, lambda x: self.extrapolation.jacobian(x, prms))
-        target_slope = self.last_slope(historic)
+        fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
+        dfit_slope = self.first_future_slope(
+            predictor, lambda x: self.extrapolation.jacobian(x, prms)
+        )
+        target_slope = self.last_hist_slope(historic)
         return (
             self.dnorm((fit_slope - target_slope))
             * dfit_slope
@@ -207,12 +209,22 @@ class StockFitter(RemindMFABaseModel):
         # TODO: refine
         return arr[self._n_hist - 1]
 
-    def last_slope(self, arr, func=lambda x: x):
+    def last_hist_slope(self, arr, n = 10):
         """Calculate the average slope of the last n arr data points.
-        If func is provided, it is applied to the data points before calculating the slope.
         """
-        n = 10
         time = self.dims_out["t"].items
-        darr = func(arr[self._n_hist - 1]) - func(arr[self._n_hist - 1 - n])
-        dtime = time[self._n_hist - 1] - time[self._n_hist - 1 - n]
+        start = self._n_hist - 1 - n
+        end = self._n_hist - 1
+        darr = arr[end] - arr[start]
+        dtime = time[end] - time[start]
         return darr / dtime
+    
+    def first_future_slope(self, predictor, func, n = 10):
+        """Calculate the average slope of the fitted function in the first n future data points.
+        """
+        time = self.dims_out["t"].items
+        start = self._n_hist
+        end = self._n_hist + n
+        dfunc = func(predictor[end]) - func(predictor[start])
+        dtime = time[end] - time[start]
+        return dfunc / dtime
