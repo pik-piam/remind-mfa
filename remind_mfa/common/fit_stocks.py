@@ -188,12 +188,25 @@ class StockFitter(RemindMFABaseModel):
             * self.penalty_weights["data_1st_order"]
         )
 
+    @property
+    def c(self):
+        return 10.
+
     def pen_common(self, prms, prms_0):
-        return np.sum(self.norm(prms - prms_0) * self.penalty_weights["prms"])
+        uncoupled = np.sum(self.norm(prms - prms_0) * self.penalty_weights["prms"][:3])
+        delta = prms - prms_0
+        coupled = self.norm(delta[1] + self.c * delta[2]) * self.penalty_weights["prms"][3]
+        print(delta[1], delta[2], delta[1] + self.c * delta[2])
+        return uncoupled + coupled
 
     def dpen_common(self, prms, prms_0):
         """derivative of pen_common with respect to prms"""
-        return self.dnorm(prms - prms_0) * self.penalty_weights["prms"]
+        uncoupled = self.dnorm(prms - prms_0) * self.penalty_weights["prms"][:3]
+        delta = prms - prms_0
+        coupled = self.dnorm(delta[1] + self.c * delta[2]) * self.penalty_weights["prms"][3] * (
+           np.array([0, 1, self.c])
+        )
+        return uncoupled + coupled
 
     @staticmethod
     def norm(x):
