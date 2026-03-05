@@ -10,9 +10,9 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     # 1) Dimensions
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
+        fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
-        fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
         # carbonation dimensions
@@ -113,7 +113,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     # 5) Parameters
     parameters = [
         # historic + future parameters: if time-dependent (h), they will have to be projected to (t)
-        RemindMFAParameterDefinition(name="stock_type_split", dim_letters=("r", "s"),
+        RemindMFAParameterDefinition(name="stock_type_split", dim_letters=("r", "s",),
                                      description="Split of cement production into different stock types."),
         RemindMFAParameterDefinition(name="cement_production", dim_letters=("h", "r"),
                                      description="Historic cement production volume for each region and year."),
@@ -121,9 +121,9 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Historic net cement trade flows per region and year."),
         RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("h", "r"),
                                      description="Historic clinker-to-cement ratio for each region."),
-        RemindMFAParameterDefinition(name="use_lifetime_mean", dim_letters=("h", "r", "s"),
+        RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("h", "r", "s"),
                                      description="Mean lifetime of historic cement stocks by region and stock type."),
-        RemindMFAParameterDefinition(name="use_lifetime_rel_std", dim_letters=(),
+        RemindMFAParameterDefinition(name="lifetime_rel_std", dim_letters=(),
                                      description="Relative standard deviation of lifetime of cement in buildings and infrastructure."),
         # future parameters
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"),

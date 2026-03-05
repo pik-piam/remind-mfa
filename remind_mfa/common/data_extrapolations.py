@@ -27,11 +27,10 @@ class Extrapolation(RemindMFABaseModel):
     """Bounds for the parameters to be fitted. Defaults to no bounds."""
     independent_dims: Tuple[int, ...] = ()
     """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly."""
-    _fit_prms: np.ndarray = PrivateAttr(default=None)
-    """Optimized parameters after regression (set by calling regress())."""
-
     prm_names: ClassVar[list[str]] = []
     """Names of the parameters to be fitted. Set in subclasses."""
+    _fit_prms: np.ndarray = PrivateAttr(default=None)
+    """Optimized parameters after regression (set by calling regress())."""
 
     @model_validator(mode="after")
     def validate_data(self):
@@ -97,13 +96,6 @@ class Extrapolation(RemindMFABaseModel):
         """gets either one-dimensional or multi-dimensional data, but always returns one scalar value per prm"""
         pass
 
-    def normalize_predictor(self, predictor: np.ndarray) -> np.ndarray:
-        """Some extrapolation methods may require normalization of the predictor values.
-        This is a placeholder method that can be overridden in subclasses if needed.
-        Predictor is modified in-place.
-        """
-        pass
-
     def get_fitting_function(
         self,
         predictor_values: np.ndarray,
@@ -124,7 +116,6 @@ class Extrapolation(RemindMFABaseModel):
         The regression is performed independently for each dimension specified in `independent_dims`.
         """
         # extract dimensions that are regressed independently
-        self.normalize_predictor(self.predictor_values)
         predictor_shape = tuple(
             [self.predictor_values.shape[i] for i in sorted(self.independent_dims)]
         )
@@ -188,7 +179,7 @@ class Extrapolation(RemindMFABaseModel):
 
 class ProportionalExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["proportionality_factor"]
+    prm_names: ClassVar[list[str]] = ["proportionality_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -200,7 +191,7 @@ class ProportionalExtrapolation(Extrapolation):
 
 class PehlExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -217,7 +208,7 @@ class PehlExtrapolation(Extrapolation):
 
 class ExponentialSaturationExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -235,7 +226,7 @@ class ExponentialSaturationExtrapolation(Extrapolation):
 
 class LogisticExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor", "x_offset"]
 
     @staticmethod
     def func(x, prms):
@@ -285,7 +276,7 @@ class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
     """
     single_predictor_cls = LogisticExtrapolation
 
-    prm_names: list[str] = [
+    prm_names: ClassVar[list[str]] = [
         "saturation_level",
         "x1_stretch_factor",
         "x1_offset",
@@ -327,17 +318,17 @@ class GompertzExtrapolation(Extrapolation):
     """
     Gompertz extrapolation:
     Prm order: [saturation_level, offset, growth_rate]
+    In this parameterization,
+    - the offset shifts the curve horizontally, setting the half-point (50% saturation) at x = -offset,
+    - and the growth_rate controls the steepness of the curve.
+    The maximum derivative (at the inflection point) is exactly equal to: saturation_level * growth_rate / e.
     """
 
-    prm_names: list[str] = [
+    prm_names: ClassVar[list[str]] = [
         "saturation_level",
         "offset",
         "growth_rate",
     ]
-
-    def normalize_predictor(self, predictor):
-        p = predictor
-        predictor[...] = (p - np.mean(p)) / np.std(p)
 
     def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         """
@@ -349,9 +340,13 @@ class GompertzExtrapolation(Extrapolation):
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
         f = self.func(x, prms)
+        if f == 0:
+            return np.zeros(3)
+        # Use log(f/a) = -exp(-c*(x+b))*log(2) to avoid intermediate overflow
+        log_f_over_a = np.log(f / a)
         da = f / a
-        db = f * -np.exp(-c * (x + b)) * np.log(2) * -c
-        dc = f * -np.exp(-c * (x + b)) * np.log(2) * -(x + b)
+        db = -f * c * log_f_over_a
+        dc = -f * (x + b) * log_f_over_a
         return np.stack([da, db, dc], axis=-1)
 
     def initial_guess(
@@ -375,18 +370,13 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
     """
     single_predictor_cls = GompertzExtrapolation
 
-    prm_names: list[str] = [
+    prm_names: ClassVar[list[str]] = [
         "saturation_level",
         "x1_offset",
         "x1_growth_rate",
         "x2_offset",
         "x2_growth_rate",
     ]
-
-    def normalize_predictor(self, predictor):
-        for component in ["x1", "x2"]:
-            p = predictor[component]
-            predictor[component] = (p - np.mean(p)) / np.std(p)
 
     def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
         self.check_predictor(x)

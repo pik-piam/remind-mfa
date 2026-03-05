@@ -1,7 +1,6 @@
-from typing import List
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition, PlainDataPointDefinition
+from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -12,8 +11,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
-        fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
+        fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
     ]
@@ -53,8 +52,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             "atmosphere",
         ]
 
+    # fmt: off
     if historic:
-        # fmt: off
         # names are auto-generated, see Flow class documentation
         flows = [
             fd.FlowDefinition(from_process="sysenv", to_process="fabrication", dim_letters=("h", "r", "m", "g")),
@@ -115,7 +114,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="imports", to_process="waste_market", dim_letters=("t","e","r","m")),
 
         ]
-        # fmt: on
+    # fmt: on
 
     if historic:
         stocks = [

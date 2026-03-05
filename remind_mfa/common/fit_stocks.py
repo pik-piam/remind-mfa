@@ -2,13 +2,12 @@ import flodym as fd
 import numpy as np
 from scipy.optimize import minimize
 from pydantic import model_validator
-
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_extrapolations import Extrapolation
 
 
 class StockFitter(RemindMFABaseModel):
-    historic_stocks_pc: fd.FlodymArray  # pC
+    historic_stocks_pc: fd.FlodymArray
     extrapolation: Extrapolation
     dims_out: fd.DimensionSet
     penalty_weights: dict
@@ -36,6 +35,7 @@ class StockFitter(RemindMFABaseModel):
     def check_prms(self):
         e = self.extrapolation
         # TODO: adapt for logistic; also get common normalization
+        # harmonize parameter names and find comparable way of measurement
         if e.prm_names[0] != "saturation_level":
             raise ValueError("saturation_level not in prm_names.")
         if e.prm_names[1] != "offset":
@@ -57,23 +57,18 @@ class StockFitter(RemindMFABaseModel):
             shape=(hdims["r"].len, hdims[self.goods_dim_letter].len, self.extrapolation.n_prms)
         )
         self._n_hist = hdims["h"].len
-        # normalize by saturation level to make absolute values and gradients more comparable across goods
-        fit_prms = self.extrapolation.fit_prms
-        sat_level = fd.FlodymArray(dims=hdims["g",], values=fit_prms[..., 0].copy())
-        historic = (self.historic_stocks_pc / sat_level).values
-        fit_prms[..., 0] = 1.0
         for ig in range(hdims[self.goods_dim_letter].len):
             for ir in range(hdims["r"].len):
                 prms[ir, ig, :] = self.fit_single(
-                    historic=historic[:, ir, ig],
+                    historic=self.historic_stocks_pc.values[:, ir, ig],
                     predictor=self.predictor[:, ir, ig],
-                    prms_0=fit_prms[ig, :],
+                    prms_0=self.extrapolation.fit_prms[ig, :],
                 )
         values_out = self.extrapolation.func(
             self.predictor[np.newaxis, ...], np.moveaxis(prms[np.newaxis, ...], -1, 0)
         )
-        # reverse above normalization
-        stocks_pc_out = fd.FlodymArray(dims=self.dims_out, values=values_out[0, ...]) * sat_level
+
+        stocks_pc_out = fd.FlodymArray(dims=self.dims_out, values=values_out[0, ...])
         return stocks_pc_out
 
     def fit_single(
@@ -162,11 +157,19 @@ class StockFitter(RemindMFABaseModel):
 
     def pen_data_1st_order(self, historic, predictor, prms):
         """penalty for the deviation of the slope of the fitted function from the slope of the
-        historic data in the last historic data points
+        historic data in the last historic data points (w.r.t. time).
         """
         fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
         target_slope = self.last_hist_slope(historic)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
+
+    def dpen_data_0th_order(self, historic, predictor, prms):
+        """derivative of pen_data_0th_order with respect to prms"""
+        last_x = self.last_hist(predictor)
+        fit = self.extrapolation.func(last_x, prms)
+        dfit = self.extrapolation.jacobian(last_x, prms)
+        target = self.last_hist(historic)
+        return self.dnorm((fit - target)) * dfit * self.penalty_weights["data_0th_order"]
 
     def dpen_data_1st_order(self, historic, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
@@ -177,17 +180,9 @@ class StockFitter(RemindMFABaseModel):
         target_slope = self.last_hist_slope(historic)
         return (
             self.dnorm((fit_slope - target_slope))
-            * self.penalty_weights["data_1st_order"]
             * dfit_slope
+            * self.penalty_weights["data_1st_order"]
         )
-
-    def dpen_data_0th_order(self, historic, predictor, prms):
-        """derivative of pen_data_0th_order with respect to prms"""
-        last_x = self.last_hist(predictor)
-        fit = self.extrapolation.func(last_x, prms)
-        dfit = self.extrapolation.jacobian(last_x, prms)
-        target = self.last_hist(historic)
-        return self.dnorm((fit - target)) * self.penalty_weights["data_0th_order"] * dfit
 
     def pen_common(self, prms, prms_0):
         return np.sum(self.norm(prms - prms_0) * self.penalty_weights["prms"])
@@ -199,21 +194,31 @@ class StockFitter(RemindMFABaseModel):
     @staticmethod
     def norm(x):
         """How the penalty reacts to deviations from target values"""
-        return x**2  # + np.abs(x)
+        return x**2
 
     @staticmethod
     def dnorm(x):
         """derivative of norm"""
-        return 2 * x  # + np.sign(x)
+        return 2 * x
 
     def last_hist(self, arr):
         # TODO: refine
         return arr[self._n_hist - 1]
 
-    def last_hist_slope(self, arr):
-        n = 10
-        return (arr[self._n_hist - 1] - arr[self._n_hist - 1 - n]) / (n / 20)
+    def last_hist_slope(self, arr, n=10):
+        """Calculate the average slope of the last n arr data points."""
+        time = self.dims_out["t"].items
+        start = self._n_hist - 1 - n
+        end = self._n_hist - 1
+        darr = arr[end] - arr[start]
+        dtime = time[end] - time[start]
+        return darr / dtime
 
-    def first_future_slope(self, arr, func):
-        n = 10
-        return (func(arr[self._n_hist + n - 1]) - func(arr[self._n_hist - 1])) / (n / 20)
+    def first_future_slope(self, predictor, func, n=10):
+        """Calculate the average slope of the fitted function in the first n future data points."""
+        time = self.dims_out["t"].items
+        start = self._n_hist
+        end = self._n_hist + n
+        dfunc = func(predictor[end]) - func(predictor[start])
+        dtime = time[end] - time[start]
+        return dfunc / dtime

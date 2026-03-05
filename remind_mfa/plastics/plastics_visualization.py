@@ -466,7 +466,9 @@ class PlasticsVisualizer(CommonVisualizer):
 
         self._show_and_save_plotly(fig, name="sankey")
 
-    def visualize_extrapolation(self, model: "PlasticsModel", subplot_dim="Region", linecolor_dim=None):
+    def visualize_extrapolation(
+        self, model: "PlasticsModel", subplot_dim="Region", linecolor_dim=None
+    ):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         stock = mfa.stocks["in_use"].stock

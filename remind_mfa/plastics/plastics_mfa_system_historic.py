@@ -24,8 +24,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         trd = self.trade_set
 
         flw["sysenv => fabrication"][...] = (
-            prm["consumption"]
-            * self.parameters["material_shares_in_goods"]
+            prm["consumption"] * self.parameters["material_shares_in_goods"]
         )
         
         # exports of final goods cannot exceed plastics fabrication
@@ -42,7 +41,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
             self.flows["good_market => use"]
         )
         self.stocks["in_use_historic"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}], 
+            mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}],
             std=self.parameters["lifetime_std"],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year

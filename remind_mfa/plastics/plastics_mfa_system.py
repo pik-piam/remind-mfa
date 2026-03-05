@@ -37,7 +37,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
     def compute_stock(self, stock_projection: fd.FlodymArray):
         self.stocks["in_use_dsm"].stock[...] = stock_projection
         self.stocks["in_use_dsm"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"],
+            mean=self.parameters["lifetime_mean"],
+            std=self.parameters["lifetime_std"],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["in_use_dsm"].lifetime_model.n_pts_per_interval = 10
