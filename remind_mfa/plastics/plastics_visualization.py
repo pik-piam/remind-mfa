@@ -500,7 +500,7 @@ class PlasticsVisualizer(CommonVisualizer):
             if letter not in dimlist
         )
         pure_prediction = (
-            model.stock_handler.fitted_regression.sum_over(other_dimletters) 
+            (model.stock_handler.fitted_regression * model.sector_specific_sat_level).sum_over(other_dimletters) 
         )
 
         if self.cfg.use_stock.over_gdp:

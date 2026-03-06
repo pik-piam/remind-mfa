@@ -179,13 +179,13 @@ class CommonModel:
         if self.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
             growth_rate_bound_gdp = Bound(
                 var_name="x1_growth_rate",
-                lower_bound=fd.FlodymArray.full_like(sector_specific_sat_level, 0.),
-                upper_bound=fd.FlodymArray.full_like(sector_specific_sat_level, np.inf),
+                lower_bound=0,
+                upper_bound=np.inf,
             )
             growth_rate_bound_time = Bound(
                 var_name="x2_growth_rate",
-                lower_bound=fd.FlodymArray.full_like(sector_specific_sat_level, 0.),
-                upper_bound=fd.FlodymArray.full_like(sector_specific_sat_level, np.inf),
+                lower_bound=0,
+                upper_bound=np.inf,
             )
             bound_list_obj = BoundList(
                 target_dims=self.dims[self.end_use_good_letter,],
