@@ -15,6 +15,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="SSP", dim_letter="S", dtype=str),
     ]
 
     if historic:
@@ -208,9 +209,9 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Mean lifetime of goods",),
         RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("g",),
                                      description="Standard deviation of lifetime",),
-        RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"),
+        RemindMFAParameterDefinition(name="population", dim_letters=("t", "r", "S"),
                                      description="Population",),
-        RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r"),
+        RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r", "S"),
                                      description="GDP per capita",),
     ]
     # fmt: on

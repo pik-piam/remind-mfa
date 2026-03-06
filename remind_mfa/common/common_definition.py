@@ -38,6 +38,10 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 
 scenario_parameters = [
     PlainDataPointDefinition(
+        name="gdp_pop_scen",
+        description="Name of the (SSP) scenario to use for GDP and population"
+    ),
+    PlainDataPointDefinition(
         name="saturation_level",
         description="Saturation level for material use per capita (unit depends on the material, e.g. t/capita)",
     ),

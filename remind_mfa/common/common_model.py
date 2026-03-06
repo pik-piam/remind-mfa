@@ -36,8 +36,8 @@ class CommonModel:
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
         self.set_definition()
-        self.read_data()
         self.read_scenario_parameters()
+        self.read_data()
         self.modify_parameters()
         self.apply_scenario_adjustments_to_parameters()
         self.init_export_and_visualization()
@@ -72,22 +72,31 @@ class CommonModel:
             cfg=self.cfg,
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
-            allow_missing_values=True,  # needed for steel scrap data, among others
-            # allow_extra_values=True,  # FIXME hotfix for cement smooth gdp&pop in plastics
+            allow_missing_values=True,  # needed for at least steel scrap data
+            allow_extra_values=False,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
+        self.select_gdp_pop_scen()
+
+    def select_gdp_pop_scen(self):
+        """Select GDP and population scenario parameters based on scenario name"""
+        scen_name = self.scenario_parameters["gdp_pop_scen"]
+        for prm_name in ["gdppc", "population"]:
+            slice = self.parameters[prm_name][{"S": scen_name}]
+            self.parameters[prm_name] = fd.Parameter(dims=self.dims["t", "r"])
+            self.parameters[prm_name][...] = slice
 
     def read_scenario_parameters(self):
-        parameter_definitions = common_scn_prm_def + self.custom_scn_prm_def
+        scn_prm_def = common_scn_prm_def + self.custom_scn_prm_def
         scenario_reader = ScenarioReader(
             name=self.cfg.model_switches.scenario,
             base_path=self.cfg.input.scenarios_path,
             model=self.cfg.model,
             dims=self.dims,
-            parameter_definitions=parameter_definitions,
+            parameter_definitions=scn_prm_def,
         )
         self.scenario_parameters = scenario_reader.get_parameters()
 

@@ -3,16 +3,16 @@ model: 'steel'
 input:
   madrat_output_path: '../remind_mfa_data'
   force_extract_tgz: False
-  input_data_path: '../remind_mfa_data/h12'
-  # input_data_path: '../remind_mfa_data/eu21'
-  # input_data_path: '../remind_mfa_data/ISOcountries'
   scenarios_path: 'config/scenarios'
+  input_data_path: '../remind_mfa_data/h12'
   input_data_version: 'rev1.0.0_h12_1584d780_mfa'
+  # input_data_path: '../remind_mfa_data/eu21'
   # input_data_version: 'rev1.0.0_2b1450bc_1584d780_mfa'
+  # input_data_path: '../remind_mfa_data/ISOcountries'
   # input_data_version: 'rev1.0.0test_ISO2ISO_99727f0b_1584d780_mfa'
 
 model_switches:
-  scenario: 'SSP2'
+  scenario: 'SSP1'
   # stock_extrapolation_class_name: 'TwoPredictorGompertzExtrapolation'
   # regress_over: loggdppc_time
   stock_extrapolation_class_name: 'GompertzExtrapolation'
@@ -58,16 +58,16 @@ visualization:
       exclude_flows: [ ]
 
 export:
-  do_export: False
+  do_export: True
   path: 'data/steel/output/export'
   pickle:
-    do_export: True
+    do_export: False
   csv:
     do_export: True
   iamc:
     do_export: True
   assumptions:
-    do_export: True
+    do_export: False
   docs:
-    do_export: True
+    do_export: False
     path: 'docs/steel'

@@ -1,3 +1,4 @@
 parameter,models,value,extra:year,index:Region,description
-stock_factor,all,0.8,,,
+gdp_pop_scen,all,SSP1,,,
+stock_factor,all,0.9,,,
 lifetime_factor,all,1.2,,,
