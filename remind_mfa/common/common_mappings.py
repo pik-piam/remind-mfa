@@ -20,6 +20,7 @@ class CommonDimensionFiles(Mapping):
         "Time": "time_in_years",
         "Historic Time": "historic_years",
         "Region": "regions",
+        "SSP": "ssp",
     }
 
 
