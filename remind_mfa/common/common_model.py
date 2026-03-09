@@ -15,6 +15,8 @@ from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationMana
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.data_extrapolations import GompertzExtrapolation
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 
 
 class CommonModel:
@@ -160,6 +162,18 @@ class CommonModel:
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
         normalized_historic_stock = historic_stocks / sector_specific_sat_level
 
+        time = np.array(self.dims["t"].items)
+        lifetime = self.limit_lifetime()  # shape (g,)
+        time_factor = fd.FlodymArray(dims=self.dims["t", "g"])
+        for g in self.dims["g"].items:
+            # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
+            # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
+            lt = lifetime[{"g": g}].values.item()
+            b = -1980.05 - lt
+            prms = [1, b, 0.02797]
+            time_factor[{"g": g}] = GompertzExtrapolation.func(None, time, prms)
+        normalized_historic_stock = normalized_historic_stock / time_factor[{"t": self.dims["h"]}]
+
         # after normalization, target saturation level is 1 across all regions and sectors.
         sat_level_bound = Bound(
             var_name="saturation_level",
@@ -204,8 +218,8 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
-        self.sector_specific_sat_level = sector_specific_sat_level
-        long_term_stock = self.stock_handler.stocks * sector_specific_sat_level
+        self.sector_specific_sat_level = sector_specific_sat_level * time_factor
+        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
         return long_term_stock
 
     def limit_lifetime(self):
