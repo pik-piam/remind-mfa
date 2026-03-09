@@ -54,3 +54,8 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
             dims=self.dims["h", "r", "m", "g"],
             values=(self.flows["good_market => use"]).get_shares_over(("m",)).values,
         )
+        # get good split from historic stock inflow
+        self.parameters["good_shares_use_inflow"] = fd.Parameter(
+            dims=self.dims["r", "g"],
+            values=(self.flows["good_market => use"]).sum_over(("h","m",)).get_shares_over(("g",)).values,
+        )
