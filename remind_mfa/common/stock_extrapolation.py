@@ -264,6 +264,7 @@ class StockExtrapolation(RemindMFABaseModel):
         # This is due to the fact that different metrics may operate on different regimes and have different units.
         penalty_weights = {
             "data_0th_order": 20.0,
+            "rel_data_0th_order": 1.0, # penalty max w/o weight: 1
             "data_1st_order": 4e3,  # 20 ** 2 * 10
             "prms": np.array(
                 [
