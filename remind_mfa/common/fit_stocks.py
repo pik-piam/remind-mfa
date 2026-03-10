@@ -184,17 +184,21 @@ class StockFitter(RemindMFABaseModel):
         return self.dnorm((fit - target)) * dfit * self.penalty_weights["data_0th_order"]
     
     def dpen_rel_data_0th_order(self, historic, predictor, prms):
-        """Derivative of pen_rel_data_0th_order w.r.t. prms."""
+        """Derivative of pen_rel_data_0th_order w.r.t. prms.
+        Uses log_jacobian (d(log f)/d(prms)) directly instead of chain rule
+        (1/f)*df/dprms, which is numerically unstable when f ≈ 0.
+        """
         last_x = self.last_hist(predictor)
         fit = self.extrapolation.func(last_x, prms)
-        dfit = self.extrapolation.jacobian(last_x, prms)
         target = self.last_hist(historic)
         log_ratio = self.calc_log_ratio(fit, target)
-        dlog_ratio_dfit = self.calc_dlog_ratio_dfit(fit, target)
+        # d(log_ratio)/d(prms) = d(log(fit_reg))/d(prms) = d(log(fit))/d(prms) when fit >> eps
+        # For fit ≈ 0, log_ratio ≈ log(eps/target_reg) which is constant w.r.t. prms,
+        # but log_jacobian still gives the correct direction to move.
+        dlog_fit_dprms = self.extrapolation.log_jacobian(last_x, prms)
         return (
             self.dnorm(log_ratio)
-            * dlog_ratio_dfit
-            * dfit
+            * dlog_fit_dprms
             * self.penalty_weights["rel_data_0th_order"]
         )
 
@@ -251,37 +255,13 @@ class StockFitter(RemindMFABaseModel):
         return dfunc / dtime
 
     def calc_log_ratio(self, fit, target):
-        """Log ratio of fit to target, both shifted up by eps to avoid log(0).
-        Uses max(val, 0) + eps so negative values are treated as zero.
-        Capped at ±1 to limit the influence of extreme deviations.
+        """Log ratio of fit to target.
+        For Gompertz, fit is always positive (a * exp(...)), so log(fit) is always defined.
+        Target is shifted by eps to avoid log(0) when target == 0.
+        No clipping or saturation — log is already slowly-growing and well-behaved.
         """
-        eps = 1e-3 # insensitive to exact value
-        max_log = 1 # = ln(e), with e the maximum ratio of fit to target.
-        if np.sign(fit) != np.sign(target):
-            return np.sign(fit - target) * max_log
-        fit_reg = max(fit, 0.0) + eps
-        target_reg = max(target, 0.0) + eps
-        return np.clip(np.log(fit_reg / target_reg), -max_log, max_log)
-
-    def calc_dlog_ratio_dfit(self, fit, target):
-        """Derivative of calc_log_ratio(fit, target) w.r.t. fit.
-        Mirrors the logic of calc_log_ratio using max(val, 0) + eps regularization:
-        - Small nudge towards target for sign mismatch (not mathematically exact, helps optimizer).
-        - Zero for fit <= 0 (d(max(fit,0)+eps)/d(fit) = 0 for fit <= 0).
-        - Small nudge back into unclipped region at the clip boundary (not mathematically exact).
-        - Otherwise 1 / (fit + eps), i.e. d(log(fit_reg/target_reg))/d(fit).
-        """
-        eps = 1e-3 # insensitive to exact value
-        max_log = 1  # = ln(e), with e the maximum ratio of fit to target.
-        if np.sign(fit) != np.sign(target):
-            # nudge fit towards target (not mathematically exact, helps optimizer escape flat region)
-            return -eps * np.sign(fit - target)
+        eps = 1e-6
         if fit <= 0.0:
-            # In this case, target is also <= 0
-            return 0.0
-        fit_reg = fit + eps
+            fit = eps
         target_reg = max(target, 0.0) + eps
-        if np.log(fit_reg / target_reg) >= max_log:
-            # nudge back into unclipped region (not mathematically exact)
-            return -eps * np.sign(np.log(fit_reg / target_reg))
-        return 1.0 / fit_reg
+        return np.log(fit / target_reg)
