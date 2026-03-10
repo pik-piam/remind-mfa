@@ -96,6 +96,9 @@ class StockVisualizationCfg(BaseVisualizationCfg):
     accumulate_gdp: bool = False
     """Whether to accumulate GDPpC over time (i.e. do not allow decreasing GDPpC) for visualization purposes."""
 
+class ProductionVisualizationCfg(BaseVisualizationCfg):
+    per_capita: bool = False
+    """Whether to visualize production per capita."""
 
 class VisualizationCfg(BaseVisualizationCfg):
     figures_path: str
@@ -111,7 +114,7 @@ class VisualizationCfg(BaseVisualizationCfg):
 
     use_stock: StockVisualizationCfg
     """Visualization configuration for use stock."""
-    production: BaseVisualizationCfg
+    production: ProductionVisualizationCfg
     """Visualization configuration for production."""
     sankey: SankeyVisualizationCfg
     """Visualization configuration for sankey."""

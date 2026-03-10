@@ -195,18 +195,24 @@ class PlasticsVisualizer(CommonVisualizer):
         self.plot_and_save_figure(ap, f"{name}_flow{tag}.png")
 
     def visualize_demand(self, mfa: fd.MFASystem):
+        per_capita = self.cfg.production.per_capita
+        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
+        population = mfa.parameters["population"]
+        if per_capita:
+            demand = demand / population
+        pc_str = "pC" if per_capita else ""
+
         fig, ap_demand = self.plot_history_and_future(
             mfa=mfa,
-            data_to_plot=mfa.stocks["in_use"].inflow.sum_over(("m", "e")),
+            data_to_plot=demand,
             subplot_dim="Region",
             linecolor_dim="Good",
             x_label="Year",
-            y_label="Demand [t]",
-            title="Demand [t]",
+            y_label=f"Demand {pc_str} [t]",
+            title=f"Demand {pc_str} [t]",
         )
-        self.plot_and_save_figure(ap_demand, "demand_history_and_future.png", do_plot=False)
+        self.plot_and_save_figure(ap_demand, f"demand_history_and_future{pc_str}.png", do_plot=False)
 
-        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
         good_dim = demand.dims.index("g")
         demand = demand.apply(np.cumsum, kwargs={"axis": good_dim})
         ap = self.plotter_class(
@@ -216,10 +222,10 @@ class PlasticsVisualizer(CommonVisualizer):
             linecolor_dim="Good",
             chart_type="area",
             display_names=self.display_names.dct,
-            title="Demand [t]",
+            title=f"Demand {pc_str} [t]",
         )
         fig = ap.plot()
-        self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
+        self.plot_and_save_figure(ap, f"demand_stacked{pc_str}.png", do_plot=False)
 
     def compare_demand(self, mfa: fd.MFASystem):
         df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
@@ -247,7 +253,6 @@ class PlasticsVisualizer(CommonVisualizer):
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-
         stock = mfa.stocks["in_use"].stock.sum_over(("r", "m", "e"))
         good_dim = stock.dims.index("g")
         stock = stock.apply(np.cumsum, kwargs={"axis": good_dim})
