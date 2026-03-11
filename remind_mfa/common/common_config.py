@@ -34,6 +34,8 @@ class ModelSwitches(RemindMFABaseModel):
     """Whether to perform stock extrapolation by good category."""
     regress_over: RegressOverModes
     """Variable to use as a predictor for stock extrapolation."""
+    do_stock_extrapolation_with_time_factor: bool = False
+    """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
     parameter_extrapolation: Optional[dict[str, str]] = None
     """Mapping of parameter names to extrapolation subclass names for parameter extrapolation from historical values into the future."""
 
