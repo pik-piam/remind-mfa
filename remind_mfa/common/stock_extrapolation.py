@@ -265,17 +265,31 @@ class StockExtrapolation(RemindMFABaseModel):
         # Note that the weights do not necessarily reflect the importance of different metrics during the optimization.
         # This is due to the fact that different metrics may operate on different regimes and have different units.
         penalty_weights = {
-            "data_0th_order": 20.0,
-            "rel_data_0th_order": 1, # penalty max w/o weight: 1
-            "data_1st_order": 4e3,  # 20 ** 2 * 10
+            "data_0th_order": 0.2,
+            "rel_data_0th_order": 0.25, 
+            "data_1st_order": 0.4,  
             "prms": np.array(
                 [
-                    10.0,  # saturation_level
-                    3.0,  # offset
-                    .002,  # growth_rate
+                    0.4,  # saturation_level
+                    0.1,  # offset
+                    0.2,  # growth_rate
                 ]
             ),
         }
+        # order of magnitude of a realistic, but significant change / discrepancy
+        order_of_magnitude = {
+            "data_0th_order": 0.1,
+            "rel_data_0th_order": 0.5,
+            "data_1st_order": 0.01,  # TODO
+            "prms": np.array(
+                [
+                    0.2,  # saturation_level
+                    0.2,  # offset
+                    10.,  # growth_rate
+                ]
+            ),
+        }
+        penalty_weights = {k: penalty_weights[k] / order_of_magnitude[k]**2 for k in penalty_weights}
         stock_fitter = StockFitter(
             historic_stocks_pc=self.stocks_to_fit,
             extrapolation=self.extrapolation_single_predictor,
