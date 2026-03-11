@@ -370,7 +370,7 @@ class StockExtrapolation(RemindMFABaseModel):
             lower = 3
             upper = 30
             for g in range(self.historic_stocks_pc.dims[2].len):
-                Lclip = min(max(self.lifetime[g], lower), upper)
+                Lclip = min(max(self.lifetime.values[g], lower), upper)
                 alpha = (np.log(Lclip)-np.log(lower))/np.log(upper)
                 avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (1-alpha) * avg_slope(time, historical[:, :, g], n=10)
                 avg_slope_pred = alpha * avg_slope(time, prediction[:, :, g], n=1) + (1-alpha) * avg_slope(time, prediction[:, :, g], n=10)
