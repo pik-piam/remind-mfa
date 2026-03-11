@@ -3,6 +3,7 @@ import flodym as fd
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.trade import TradeDefinition
 
 
 def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition:
@@ -25,43 +26,68 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     if historic:
         processes = [
             "sysenv",
+            "prod_cement",
+            "market_cement",
             "use",
         ]
     else:
         processes = [
             "sysenv",
             "prod_clinker",
+            "market_clinker",
             "prod_cement",
+            "market_cement",
             "prod_product",
             "use",
             "eol",
             "atmosphere",
             "carbonation",
+            "imports",
+            "exports",
         ]
 
     # fmt: off
     # 3) Flows
     if historic:
         flows = [
-            fd.FlowDefinition(from_process="sysenv", to_process="use", dim_letters=("h", "r", "s")),
+            fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="prod_cement", to_process="market_cement", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("h", "r")),  # cement losses
+            fd.FlowDefinition(from_process="market_cement", to_process="sysenv", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="market_cement", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="market_cement", to_process="use", dim_letters=("h", "r", "s")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "s")),
         ]
     else:
         flows = [
-            # historic flows
+            # clinker production
             fd.FlowDefinition(from_process="sysenv", to_process="prod_clinker", dim_letters=("t", "r", "m", "s")),
-            fd.FlowDefinition(from_process="prod_clinker", to_process="prod_cement", dim_letters=("t", "r", "m", "s")),
+            fd.FlowDefinition(from_process="prod_clinker", to_process="market_clinker", dim_letters=("t", "r", "m", "s")),
             fd.FlowDefinition(from_process="prod_clinker", to_process="sysenv", dim_letters=("t", "r", "m", "s")),  # CKD production
+            # clinker trade
+            fd.FlowDefinition(from_process="market_clinker", to_process="exports", dim_letters=("t", "r", "m", "s")),
+            fd.FlowDefinition(from_process="imports", to_process="market_clinker", dim_letters=("t", "r", "m", "s")),
+            # cement production
+            fd.FlowDefinition(from_process="market_clinker", to_process="prod_cement", dim_letters=("t", "r", "m", "s")),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("t", "r", "m", "s")),
-            fd.FlowDefinition(from_process="prod_cement", to_process="prod_product", dim_letters=("t", "r", "m", "s")),
+            fd.FlowDefinition(from_process="prod_cement", to_process="market_cement", dim_letters=("t", "r", "m", "s")),
             fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r", "m", "s")),  # cement losses
+            # cement trade
+            fd.FlowDefinition(from_process="market_cement", to_process="exports", dim_letters=("t", "r", "m", "s")),
+            fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("t", "r", "m", "s")),
+            # product production
+            fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("t", "r", "m", "s")),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m", "s")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
+            # use and end-of-life
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "m", "a", "s")),
             fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "a", "s")),
             # atmosphere
             fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m", "s")),
             fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m", "c", "s")),
+            # trade
+            fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r", "m", "s")),
+            fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r", "m", "s")),
         ]
 
     # fmt: on
@@ -70,7 +96,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     if historic:
         stocks = [
             fd.StockDefinition(
-                name="historic_cement_in_use",
+                name="in_use",
                 process="use",
                 dim_letters=("h", "r", "s"),
                 subclass=fd.InflowDrivenDSM,
@@ -117,14 +143,21 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Split of cement production into different stock types."),
         RemindMFAParameterDefinition(name="cement_production", dim_letters=("h", "r"),
                                      description="Historic cement production volume for each region and year."),
-        RemindMFAParameterDefinition(name="cement_trade", dim_letters=("h", "r"),
-                                     description="Historic net cement trade flows per region and year."),
         RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("h", "r"),
                                      description="Historic clinker-to-cement ratio for each region."),
         RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("h", "r", "s"),
                                      description="Mean lifetime of historic cement stocks by region and stock type."),
         RemindMFAParameterDefinition(name="lifetime_rel_std", dim_letters=(),
                                      description="Relative standard deviation of lifetime of cement in buildings and infrastructure."),
+        # trade parameters
+        RemindMFAParameterDefinition(name="clinker_imports", dim_letters=("h", "r"),
+                                     description=""),
+        RemindMFAParameterDefinition(name="clinker_exports", dim_letters=("h", "r"),
+                                     description=""),
+        RemindMFAParameterDefinition(name="cement_imports", dim_letters=("h", "r"),
+                                     description=""),
+        RemindMFAParameterDefinition(name="cement_exports", dim_letters=("h", "r"),
+                                        description=""),
         # future parameters
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"),
                                      description="Historic and projected population for each region and model year."),
@@ -180,15 +213,27 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         RemindMFAParameterDefinition(name="waste_size_max", dim_letters=("w", "p"),
                                      description="Maximum particle size represented for each waste type and class."),
     ]
-
     # fmt: on
+
+    # 6) Trades
+    if historic:
+        trades = [
+            TradeDefinition(name="cement", dim_letters=("h", "r")),
+        ]
+    else:
+        trades = [
+            TradeDefinition(name="cement", dim_letters=("t", "r")),
+            TradeDefinition(name="clinker", dim_letters=("t", "r")),
+        ]
+
+    
     return RemindMFADefinition(
         dimensions=dimensions,
         processes=processes,
         flows=flows,
         stocks=stocks,
         parameters=parameters,
+        trades=trades,
     )
-
 
 scenario_parameters = []
