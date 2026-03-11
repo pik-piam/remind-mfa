@@ -41,6 +41,8 @@ class StockExtrapolation(RemindMFABaseModel):
     """do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True."""
     transition_smoothing: str = "critically_damped"
     """transition_smoothing (str): Method for blending between historical and future stock. Possible values are "critically_damped", "shift_zeroth_order", "none". Defaults to "critically_damped"."""
+    lifetime: Optional[fd.FlodymArray] = None
+    """lifetime of the stock, used to determine the number of timesteps that are used for the average slope calculation in the critically damped blend."""
 
     def extrapolate(self):
         """Preprocessing and extrapolation."""
@@ -363,6 +365,16 @@ class StockExtrapolation(RemindMFABaseModel):
 
         # offset of the 1st derivative at the transition point
         difference_1st = avg_slope(time, historical) - avg_slope(time, prediction)
+        # if the lifetime is given, the number of historical timesteps used for the average slope calculation is determined by the lifetime
+        if self.lifetime is not None:
+            lower = 3
+            upper = 30
+            for g in range(self.historic_stocks_pc.dims[2].len):
+                Lclip = min(max(self.lifetime[g], lower), upper)
+                alpha = (np.log(Lclip)-np.log(lower))/np.log(upper)
+                avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (1-alpha) * avg_slope(time, historical[:, :, g], n=10)
+                avg_slope_pred = alpha * avg_slope(time, prediction[:, :, g], n=1) + (1-alpha) * avg_slope(time, prediction[:, :, g], n=10)
+                difference_1st[:, g] = avg_slope_hist - avg_slope_pred
 
         approaching_time = 80
         add_assumption_doc(

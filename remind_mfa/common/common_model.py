@@ -214,6 +214,7 @@ class CommonModel:
             target_dim_letters="all",
             indep_fit_dim_letters=(self.end_use_good_letter,),
             bound_list=bound_list_obj,
+            lifetime=self.limit_lifetime(),
         )
         self.stock_handler.extrapolate()
 
