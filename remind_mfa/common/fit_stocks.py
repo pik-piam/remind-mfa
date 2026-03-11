@@ -86,10 +86,22 @@ class StockFitter(RemindMFABaseModel):
         Returns:
             np.ndarray: fitted parameters fot that good and region
         """
+        # for Regions with very low gdppc, the optimizer does not know which direction to go for minimizing the 0th order penalties since we are in a region where the Gompertz function is very flat
+        # we therefore vary the offset parameter to find a better starting point for the optimization.
+        # vary prms_0[1] (offset) between 0 and 1 in 0.1 steps. take the penalty for each. use the prms_0 with the lowest penalty as x0
+        x0 = prms_0.copy()  # avoid modifying the original initial parameters
+        penalties = []
+        n = 50
+        for offset in np.arange(0, 1.1, 1/n):
+            x0[1] = prms_0[1] + offset
+            penalties.append(self.penalty(historic, predictor, x0, prms_0))
+        min_penalty_idx = np.argmin(penalties)
+        x0[1] = prms_0[1] + np.arange(0, 1.1, 1/n)[min_penalty_idx]
+
         result = minimize(
             fun=lambda prms: self.penalty(historic, predictor, prms, prms_0),
             jac=lambda prms: self.jacobian(historic, predictor, prms, prms_0),
-            x0=prms_0,
+            x0=x0,
             tol=0.001,
         )
         if result.success:
@@ -115,7 +127,7 @@ class StockFitter(RemindMFABaseModel):
         """
         return (
             self.pen_data_0th_order(historic, predictor, prms)
-            + self.pen_rel_data_0th_order(historic, predictor, prms)
+            + self.pen_data_0th_order(historic, predictor, prms, relative=True)
             + self.pen_data_1st_order(historic, predictor, prms)
             + self.pen_common(prms, prms_0)
         )
@@ -143,30 +155,26 @@ class StockFitter(RemindMFABaseModel):
         """
         return (
             self.dpen_data_0th_order(historic, predictor, prms)
-            + self.dpen_rel_data_0th_order(historic, predictor, prms)
+            + self.dpen_data_0th_order(historic, predictor, prms, relative=True)
             + self.dpen_data_1st_order(historic, predictor, prms)
             + self.dpen_common(prms, prms_0)
         )
 
-    def pen_data_0th_order(self, historic, predictor, prms):
+    def pen_data_0th_order(self, historic, predictor, prms, relative=False):
         """penalty for the absolute deviation of the fitted function from the last historic data
         points
         """
         last_x = self.last_hist(predictor)
         fit = self.extrapolation.func(last_x, prms)
         target = self.last_hist(historic)
-        return self.norm((fit - target)) * self.penalty_weights["data_0th_order"]
+        diff = fit - target
+        if relative: 
+            diff /= max(target, 1e-6)
+            prefix = "rel_"
+        else:
+            prefix = "" 
+        return self.norm(diff) * self.penalty_weights[f"{prefix}data_0th_order"]
     
-    def pen_rel_data_0th_order(self, historic, predictor, prms):
-        """Penalty on the relative deviation of fit from the last historic data point on log-scale.
-        Uses calc_log_ratio: floored at eps, capped at ±max_log.
-        """
-        last_x = self.last_hist(predictor)
-        fit = self.extrapolation.func(last_x, prms)
-        target = self.last_hist(historic)
-        log_ratio = self.calc_log_ratio(fit, target)
-        return self.norm(log_ratio) * self.penalty_weights["rel_data_0th_order"]
-
     def pen_data_1st_order(self, historic, predictor, prms):
         """penalty for the deviation of the slope of the fitted function from the slope of the
         historic data in the last historic data points (w.r.t. time).
@@ -175,32 +183,19 @@ class StockFitter(RemindMFABaseModel):
         target_slope = self.last_hist_slope(historic)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
 
-    def dpen_data_0th_order(self, historic, predictor, prms):
+    def dpen_data_0th_order(self, historic, predictor, prms, relative=False):
         """derivative of pen_data_0th_order with respect to prms"""
         last_x = self.last_hist(predictor)
         fit = self.extrapolation.func(last_x, prms)
         dfit = self.extrapolation.jacobian(last_x, prms)
         target = self.last_hist(historic)
-        return self.dnorm((fit - target)) * dfit * self.penalty_weights["data_0th_order"]
-    
-    def dpen_rel_data_0th_order(self, historic, predictor, prms):
-        """Derivative of pen_rel_data_0th_order w.r.t. prms.
-        Uses log_jacobian (d(log f)/d(prms)) directly instead of chain rule
-        (1/f)*df/dprms, which is numerically unstable when f ≈ 0.
-        """
-        last_x = self.last_hist(predictor)
-        fit = self.extrapolation.func(last_x, prms)
-        target = self.last_hist(historic)
-        log_ratio = self.calc_log_ratio(fit, target)
-        # d(log_ratio)/d(prms) = d(log(fit_reg))/d(prms) = d(log(fit))/d(prms) when fit >> eps
-        # For fit ≈ 0, log_ratio ≈ log(eps/target_reg) which is constant w.r.t. prms,
-        # but log_jacobian still gives the correct direction to move.
-        dlog_fit_dprms = self.extrapolation.log_jacobian(last_x, prms)
-        return (
-            self.dnorm(log_ratio)
-            * dlog_fit_dprms
-            * self.penalty_weights["rel_data_0th_order"]
-        )
+        diff = fit - target
+        if relative:
+            diff /= max(target, 1e-2)**2
+            prefix = "rel_"
+        else:
+            prefix = ""
+        return self.dnorm(diff) * dfit * self.penalty_weights[f"{prefix}data_0th_order"]
 
     def dpen_data_1st_order(self, historic, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
@@ -253,15 +248,4 @@ class StockFitter(RemindMFABaseModel):
         dfunc = func(predictor[end]) - func(predictor[start])
         dtime = time[end] - time[start]
         return dfunc / dtime
-
-    def calc_log_ratio(self, fit, target):
-        """Log ratio of fit to target.
-        For Gompertz, fit is always positive (a * exp(...)), so log(fit) is always defined.
-        Target is shifted by eps to avoid log(0) when target == 0.
-        No clipping or saturation — log is already slowly-growing and well-behaved.
-        """
-        eps = 1e-6
-        if fit <= 0.0:
-            fit = eps
-        target_reg = max(target, 0.0) + eps
-        return np.log(fit / target_reg)
+  
