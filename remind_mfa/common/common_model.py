@@ -36,8 +36,8 @@ class CommonModel:
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
         self.set_definition()
-        self.read_scenario_parameters()
         self.read_data()
+        self.read_scenario_parameters()
         self.modify_parameters()
         self.apply_scenario_adjustments_to_parameters()
         self.init_export_and_visualization()

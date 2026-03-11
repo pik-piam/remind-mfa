@@ -12,7 +12,7 @@ input:
   # input_data_version: 'rev1.0.0test_ISO2ISO_99727f0b_1584d780_mfa'
 
 model_switches:
-  scenario: 'SSP1'
+  scenario: 'SSP2'
   # stock_extrapolation_class_name: 'TwoPredictorGompertzExtrapolation'
   # regress_over: loggdppc_time
   stock_extrapolation_class_name: 'GompertzExtrapolation'
