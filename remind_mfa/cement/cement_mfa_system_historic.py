@@ -13,11 +13,15 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
+        self.balance_trade()
         self.compute_flows()
         self.compute_in_use_stock()
         self.compute_other_flows()
         self.check_mass_balance()
         self.check_flows()
+
+    def balance_trade(self):
+        self.trade_set.balance()
 
     def compute_flows(self):
         prm = self.parameters
@@ -30,9 +34,10 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         flw["sysenv => prod_cement"][...] = flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
 
         # trade
-        trd["cement"].balance()
-        flw["market_cement => sysenv"][...] = trd["cement"].exports
-        flw["sysenv => market_cement"][...] = trd["cement"].imports
+        flw["market_cement => exports"][...] = trd["cement"].exports
+        flw["imports => market_cement"][...] = trd["cement"].imports
+        flw["exports => sysenv"][...] = flw["market_cement => exports"]
+        flw["sysenv => imports"][...] = flw["imports => market_cement"]
 
         # use
         flw["market_cement => use"][...] = (

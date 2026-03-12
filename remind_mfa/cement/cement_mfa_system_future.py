@@ -6,6 +6,7 @@ from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 
 
 class StockDrivenCementMFASystem(CommonMFASystem):
@@ -21,7 +22,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
 
         self.compute_in_use_stock(stock_projection)
-        self.compute_flows()
+        self.compute_flows(historic_trade)
         self.compute_other_stocks()
         if self.cfg.model_switches.carbon_flow:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
@@ -47,50 +48,63 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
         stk["in_use"].compute()
 
-    def compute_flows(self):
+    def compute_flows(self, historic_trade: TradeSet):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
+        trd = self.trade_set
 
-        # go backwards from in-use stock
+        # product production
         flw["prod_product => use"][...] = stk["in_use"].inflow
+        flw["market_cement => prod_product"][...] = flw["prod_product => use"] * self.cement_ratio
+        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - self.cement_ratio)
 
-        add_assumption_doc(
-            type="ad-hoc fix",
-            name="Regional product production is actually apparent consumption.",
-            description=(
-                "The concrete stock considers both cement production and trade. "
-                "The concrete production is constructed by concrete stock. "
-                "The regional concrete production does not consider trade, "
-                "therefore, it is actually apparent consumption. "
-                "With this fix, we do not have any regional production jumps "
-                "between historical and future data, as trade is not yet modeled in the future."
-                "This fix propagates through to cement and clinker production."
-            ),
+        # cement trade
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["cement"],
+            future_trade=trd["cement"],
+            future_dom_demand=flw["market_cement => prod_product"],
         )
-
-        flw["prod_cement => prod_product"][...] = flw["prod_product => use"] * self.cement_ratio
-        # cement losses are on top of the inflow of stock, but are relative to total cement production
-        flw["prod_cement => sysenv"][...] = flw["prod_cement => prod_product"] * (
-            prm["cement_losses"] / (1 - prm["cement_losses"])
+        extrapolator.run()
+        flw["market_cement => exports"][...] = trd["cement"].exports
+        flw["imports => market_cement"][...] = trd["cement"].imports
+        
+        # cement production
+        flw["prod_cement => market_cement"][...] = flw["market_cement => prod_product"] + trd["cement"].net_imports
+        flw["prod_cement => sysenv"][...] = (
+            flw["prod_cement => market_cement"]
+            * prm["cement_losses"] / (1 - prm["cement_losses"]) # losses are relative to total production
         )
-        # clinker production is based on cement production
-        flw["prod_clinker => prod_cement"][...] = (
-            flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]
-        ) * prm["clinker_ratio"]
-        # clinker losses (CKD) are on top of clinker production.
-        flw["prod_clinker => sysenv"][...] = (
-            flw["prod_clinker => prod_cement"] * prm["clinker_losses"]
-        )
-
-        # sysenv flows for mass balance
-        flw["sysenv => prod_clinker"][...] = (
-            flw["prod_clinker => prod_cement"] + flw["prod_clinker => sysenv"]
+        flw["market_clinker => prod_cement"][...] = (
+            (flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"])
+            * prm["clinker_ratio"]
         )
         flw["sysenv => prod_cement"][...] = (
-            flw["prod_cement => prod_product"] + flw["prod_cement => sysenv"]
-        ) * (1 - prm["clinker_ratio"])
-        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - self.cement_ratio)
+            (flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"])
+            * (1 - prm["clinker_ratio"])
+        )
+
+        # clinker trade
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["clinker"],
+            future_trade=trd["clinker"],
+            future_dom_demand=flw["market_clinker => prod_cement"],
+        )
+        extrapolator.run()
+        flw["imports => market_clinker"][...] = trd["clinker"].imports
+        flw["market_clinker => exports"][...] = trd["clinker"].exports
+
+        # clinker production
+        flw["prod_clinker => market_clinker"][...] = flw["market_clinker => prod_cement"] + trd["clinker"].net_imports
+        flw["prod_clinker => sysenv"][...] = (
+            flw["prod_clinker => market_clinker"]
+            * prm["clinker_losses"] / (1 - prm["clinker_losses"]) # losses are relative to total production
+        )
+        flw["sysenv => prod_clinker"][...] = flw["prod_clinker => market_clinker"] + flw["prod_clinker => sysenv"]
+
+        # balance trade with sysenv
+        flw["exports => sysenv"][...] = flw["market_cement => exports"] + flw["market_clinker => exports"]
+        flw["sysenv => imports"][...] = flw["imports => market_cement"] + flw["imports => market_clinker"]
 
     def compute_other_stocks(self):
         flw = self.flows
