@@ -159,17 +159,20 @@ class CommonModel:
         saturation_level = self.stock_projection_saturation_level
         sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
 
-        time_factor = fd.FlodymArray(dims=self.dims["t", "g"], values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))))
+        # add static time-dependent penetration curve if desired.
         if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
+            time_factor = fd.FlodymArray(dims=self.dims["t", "g"], values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))))
             time = np.array(self.dims["t"].items)
             lifetime = self.limit_lifetime()  # shape (g,)
-            for g in self.dims["g"].items:
+            for g in self.dims[self.end_use_good_letter].items:
                 # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
                 # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
-                lt = lifetime[{"g": g}].values.item()
+                lt = lifetime[{self.end_use_good_letter: g}].values.item()
                 b = -1980.05 - lt
                 prms = [1, b, 0.02797]
-                time_factor[{"g": g}] = GompertzExtrapolation.func(None, time, prms)
+                time_factor[{self.end_use_good_letter: g}] = GompertzExtrapolation.func(None, time, prms)
+        else:
+            time_factor = fd.FlodymArray.full(dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1)
         
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
         normalized_historic_stock = historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
