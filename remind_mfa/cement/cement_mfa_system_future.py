@@ -70,7 +70,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["imports => market_cement"][...] = trd["cement"].imports
         
         # cement production
-        flw["prod_cement => market_cement"][...] = flw["market_cement => prod_product"] + trd["cement"].net_imports
+        flw["prod_cement => market_cement"][...] = flw["market_cement => prod_product"] + trd["cement"].net_exports
         flw["prod_cement => sysenv"][...] = (
             flw["prod_cement => market_cement"]
             * prm["cement_losses"] / (1 - prm["cement_losses"]) # losses are relative to total production
@@ -95,7 +95,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["market_clinker => exports"][...] = trd["clinker"].exports
 
         # clinker production
-        flw["prod_clinker => market_clinker"][...] = flw["market_clinker => prod_cement"] + trd["clinker"].net_imports
+        flw["prod_clinker => market_clinker"][...] = flw["market_clinker => prod_cement"] + trd["clinker"].net_exports
         flw["prod_clinker => sysenv"][...] = (
             flw["prod_clinker => market_clinker"]
             * prm["clinker_losses"] / (1 - prm["clinker_losses"]) # losses are relative to total production

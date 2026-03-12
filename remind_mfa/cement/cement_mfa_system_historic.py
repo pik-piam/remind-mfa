@@ -13,6 +13,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
+        self.fill_trade()
         self.balance_trade()
         self.compute_flows()
         self.compute_in_use_stock()
