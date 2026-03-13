@@ -15,7 +15,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
-        fd.DimensionDefinition(name="SSP", dim_letter="S", dtype=str),
+        fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
         # carbonation dimensions
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),

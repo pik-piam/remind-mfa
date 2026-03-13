@@ -15,7 +15,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
-        fd.DimensionDefinition(name="SSP", dim_letter="S", dtype=str),
+        fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
     if historic:

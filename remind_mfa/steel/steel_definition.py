@@ -12,7 +12,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
-        fd.DimensionDefinition(name="SSP", dim_letter="S", dtype=str),
+        fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
     if historic:
