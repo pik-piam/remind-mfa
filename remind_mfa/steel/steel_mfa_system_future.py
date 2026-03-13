@@ -89,12 +89,11 @@ class SteelMFASystem(CommonMFASystem):
 
         if self.cfg.transience == True:
             # TODO extrapolate EU-MFA data or run MFA only until 2050
-            time_subdim = fd.Dimension(name="t_eu", letter="u", items=list(range(1900, 2051)))
-            self.demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"][{"r": "EUR", "t": time_subdim}]
+            self.demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"][{"r": "EUR"}]
             # store original inflow for comparison
-            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EUR", "t": time_subdim}]
+            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}]
             # Replace with EU-MFA data
-            self.stocks["in_use"].inflow[{"r": "EUR", "t": time_subdim}] = self.demand_EU_MFA
+            self.stocks["in_use"].inflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
             # comparison
             rel_difference = self.demand_EU_MFA/self.demand_REMIND_MFA
             logging.warning(
