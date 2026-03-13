@@ -135,6 +135,8 @@ class InputCfg(RemindMFABaseModel):
 class CommonCfg(RemindMFABaseModel):
     model: ModelNames
     """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
+    transience: bool = False
+    """Whether the model is run with input data from other MIC3 models in the TRANSIENCE project."""
     input: InputCfg
     """Input data configuration."""
     model_switches: ModelSwitches

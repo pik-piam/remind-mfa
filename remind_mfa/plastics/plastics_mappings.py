@@ -7,6 +7,9 @@ class PlasticsDimensionFiles(CommonDimensionFiles):
         "Material": "materials",
         "Good": "goods_in_use",
         "Scenario": "scenarios",
+        "EU-MFA_Good": "eu_mfa_goods",
+        "EU-MFA_Material": "eu_mfa_materials",
+        "EU-MFA_Time": "eu_mfa_time",
     }
 
 

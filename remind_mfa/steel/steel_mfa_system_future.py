@@ -1,6 +1,7 @@
 import flodym as fd
 import numpy as np
 import logging
+import pandas as pd
 
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
@@ -85,7 +86,23 @@ class SteelMFASystem(CommonMFASystem):
                 process=self.stocks["in_use"].process,
             )
             self.stocks["in_use"].inflow[...] = corrected_inflow
-            self.stocks["in_use"].compute()
+
+        if self.cfg.transience == True:
+            # TODO extrapolate EU-MFA data or run MFA only until 2050
+            time_subdim = fd.Dimension(name="t_eu", letter="u", items=list(range(1900, 2051)))
+            self.demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"][{"r": "EUR", "t": time_subdim}]
+            # store original inflow for comparison
+            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EUR", "t": time_subdim}]
+            # Replace with EU-MFA data
+            self.stocks["in_use"].inflow[{"r": "EUR", "t": time_subdim}] = self.demand_EU_MFA
+            # comparison
+            rel_difference = self.demand_EU_MFA/self.demand_REMIND_MFA
+            logging.warning(
+                f"TRANSIENCE mode is on. In-use stock inflow for EUR region is not computed from stock projection, but taken from EU-MFA. "
+                f"EU-MFA demand differs from original REMIND_MFA demand by a factor of: {np.min(rel_difference.values)} to {np.max(rel_difference.values)} "
+            )
+        
+        self.stocks["in_use"].compute()
 
     def compute_flows(self, historic_trade: TradeSet):
         # abbreviations for better readability

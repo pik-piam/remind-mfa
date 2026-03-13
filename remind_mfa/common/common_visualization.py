@@ -46,6 +46,9 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_sankey(model.future_mfa)
         # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
         # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
+        if model.cfg.transience:
+            self.visualize_transience_comparison(mfa=model.future_mfa, subplot_dim="EU-MFA_Good")
+            self.visualize_transience_comparison(mfa=model.future_mfa)
 
     def visualize_custom(self, model: "CommonModel"):
         """To be overwritten by model subclasses"""
@@ -327,3 +330,44 @@ class CommonVisualizer(RemindMFABaseModel):
                 f"regression_function_{factor_name}_{regional_str}",
                 do_plot=False,
             )
+
+    def visualize_transience_comparison(self, mfa: fd.MFASystem, subplot_dim: str = None):
+        # visualize comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data
+        demand_REMIND_MFA = mfa.demand_REMIND_MFA
+        demand_EU_MFA = mfa.demand_EU_MFA
+        dimlist = ["u"]
+        if subplot_dim is not None:
+            subplot_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
+            )
+            dimlist.append(subplot_dimletter)
+        # sum over all dimensions except time, subplot_dim and linecolor_dim
+        other_dimletters = tuple(letter for letter in demand_REMIND_MFA.dims.letters if letter not in dimlist)
+        for dimletter in other_dimletters:
+            demand_REMIND_MFA = demand_REMIND_MFA.sum_over(dimletter)
+            demand_EU_MFA = demand_EU_MFA.sum_over(dimletter)
+
+        ap = self.plotter_class(
+            array=demand_REMIND_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            line_label="REMIND-MFA",
+            title="Comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Demand [t]",
+        )
+        fig = ap.plot()
+        ap_2 = self.plotter_class(
+            array=demand_EU_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            fig=fig,
+            line_type="dot",
+            line_label="EU-MFA",
+            color_map=ap.color_map * 2,
+            title="Comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Demand [t]",
+        )
+        fig = ap_2.plot()
+        self._show_and_save_plotly(fig, name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")

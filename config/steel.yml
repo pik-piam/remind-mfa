@@ -1,7 +1,9 @@
 model: 'steel'
 
+transience: True
+
 input:
-  madrat_output_path: '../remind_mfa_data'
+  madrat_output_path: '../../madrat/output_cluster'
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data/h12'
   # input_data_path: '../remind_mfa_data/eu21'

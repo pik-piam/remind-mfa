@@ -13,6 +13,8 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Good", dim_letter="f", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="u", dtype=int),
     ]
 
     if historic:
@@ -233,6 +235,11 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         RemindMFAParameterDefinition(
             name="scrap_exports", dim_letters=("h", "r"),
             description="Historic combined eol product and scrap exports"
+        ),
+        # for TRANSIENCE: output parameters from other MIC3 models
+        RemindMFAParameterDefinition(
+            name="stock_inflow_EU-MFA", dim_letters=("u", "r", "f"),
+            description="Stock inflow for EU27+3",
         ),
     ]
     # fmt: on

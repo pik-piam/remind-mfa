@@ -16,6 +16,9 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Good", dim_letter="f", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Material", dim_letter="n", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="u", dtype=int),
     ]
 
     if historic:
@@ -218,7 +221,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r"),
                                      description="GDP per capita",),
         # for TRANSIENCE: output parameters from other MIC3 models
-        RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("t", "r", "m", "g"),
+        RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("u", "r", "n", "f"),
                                      description="Stock inflow for EU27+3",),
     ]
     # fmt: on

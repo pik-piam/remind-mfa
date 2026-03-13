@@ -78,18 +78,17 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         self.stocks["in_use"].lifetime_model.n_pts_per_interval = 10
         
         if self.cfg.transience == True:
-            demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"] * self.parameters["carbon_content_materials"]
-            mapping = pd.read_csv("data/plastics/input/EU_MFA_mapping_plastics.csv", sep=";")
-            materials = list(mapping[mapping["original_dimension"] == "polymers"]["target_element"].unique())
-            goods = list(mapping[mapping["original_dimension"] == "end_use_sectors_MainSectors"]["target_element"].unique())
-            material_subdim = fd.Dimension(name="m_eu", letter="n", items=materials)
-            good_subdim = fd.Dimension(name="g_eu", letter="f", items=goods)
             # TODO extrapolate EU-MFA data or run MFA only until 2060
-            time_subdim = fd.Dimension(name="t_eu", letter="s", items=list(range(1950, 2061)))
-
-            self.stocks["in_use"].inflow[{"r": "EUR", "m": material_subdim, "g": good_subdim, "t": time_subdim}] = demand_EU_MFA[{"r": "EUR", "m": material_subdim, "g": good_subdim, "t": time_subdim}]
+            demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"] * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
+            self.demand_EU_MFA = demand_EU_MFA[{"r": "EUR"}]
+            # store original inflow for comparison
+            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EUR", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}]
+            # Replace with EU-MFA data
+            self.stocks["in_use"].inflow[{"r": "EUR", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
+            rel_difference = self.demand_EU_MFA/self.demand_REMIND_MFA
             logging.warning(
-                "TRANSIENCE mode is on. In-use stock inflow for EUR region is not computed from stock projection, but taken from EU-MFA"
+                f"TRANSIENCE mode is on. In-use stock inflow for EUR region is not computed from stock projection, but taken from EU-MFA. "
+                f"EU-MFA demand differs from original REMIND_MFA demand by a factor of: {np.min(rel_difference.values)} to {np.max(rel_difference.values)} "
             )
         
         self.stocks["in_use"].compute()
