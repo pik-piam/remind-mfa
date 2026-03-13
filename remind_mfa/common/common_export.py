@@ -1,8 +1,9 @@
 import os
+from datetime import datetime
 from typing import Any, TYPE_CHECKING
-from pydantic import model_validator
 import flodym as fd
 import flodym.export as fde
+import pickle
 
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.helpers import RemindMFABaseModel
@@ -30,6 +31,8 @@ class CommonDataExporter(RemindMFABaseModel):
         mfa = model.future_mfa
         if self.cfg.pickle.do_export:
             fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("pickle", "mfa.pickle"))
+            self.export_model_to_pickle(model=model)
+            pickle.dump(model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
@@ -47,6 +50,15 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def export_custom(self, model: "CommonModel"):
         pass
+
+    def export_model_to_pickle(self, model: "CommonModel"):
+        material = model.cfg.model
+        scenario = model.cfg.model_switches.scenario
+        datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"model_{material}_{scenario}_{datetime_str}.pickle"
+        export_path = self.export_path("pickle", filename)
+        with open(export_path, "wb") as f:
+            pickle.dump(model, f)
 
     def write_iamc(self, mfa: "CommonMFASystem"):
         raise NotImplementedError("Subclasses must implement write_iamc method")
