@@ -3,7 +3,7 @@ import ast
 import csv
 import flodym as fd
 from pydantic import field_validator
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 from remind_mfa.common.common_definition import PlainDataPointDefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
@@ -79,14 +79,14 @@ class ScenarioReader(RemindMFABaseModel):
         }
         extra_prefix = "extra:"
         extra = {
-            col[len(extra_prefix):]: float(parsed[col])
+            col[len(extra_prefix):]: parsed[col]
             for col in parsed
             if col.startswith(extra_prefix) and parsed[col] is not None
         }
         return ScenarioDataPoint(
             parameter=parsed["parameter"],
             models=parsed["models"] if parsed["models"] is not None else "all",
-            value=float(parsed["value"]),
+            value=parsed["value"],
             index=index,
             extra=extra,
         )
@@ -132,9 +132,9 @@ class Scenario(RemindMFABaseModel):
 class ScenarioDataPoint(RemindMFABaseModel):
     parameter: str
     models: List[ModelNames] | str = "all"
-    index: Dict[str, str] = {}
-    value: float
-    extra: Dict[str, float] = {}
+    index: Dict[str, Any] = {}
+    value: Any
+    extra: Dict[str, Any] = {}
 
     @field_validator("models", mode="before")
     @classmethod

@@ -38,6 +38,7 @@ class CommonModel:
         self.set_definition()
         self.read_data()
         self.read_scenario_parameters()
+        self.select_gdp_pop_scen()
         self.modify_parameters()
         self.apply_scenario_adjustments_to_parameters()
         self.init_export_and_visualization()
@@ -79,7 +80,6 @@ class CommonModel:
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
-        self.select_gdp_pop_scen()
 
     def select_gdp_pop_scen(self):
         """Select GDP and population scenario parameters based on scenario name"""

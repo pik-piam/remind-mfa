@@ -1,6 +1,8 @@
-import flodym as fd
 from typing import Optional
+
+import flodym as fd
 import pandas as pd
+from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolation
@@ -120,16 +122,30 @@ class VisualizationCfg(BaseVisualizationCfg):
 
 
 class InputCfg(RemindMFABaseModel):
-    madrat_output_path: str
-    """Where to find the madrat output archives to extract input data from."""
+    madrat_output_path: Optional[str] = None
+    """Where to find the madrat output archives to extract input data from. If None, MADRAT_OUTPUT_FOLDER is used."""
     force_extract_tgz: bool
     """Whether to force re-extraction of input data from tgz files. If False, extraction is only performed if pre-extracted data is not up-to date."""
     input_data_path: str
     """Path to the input data directory."""
     scenarios_path: str
     """Path to the scenario definition directory."""
-    input_data_version: str
-    """Version of the input data to use"""
+    input_data_revision: str
+    """Target input-data revision, corresponding to rev<revision> in tgz names."""
+    region_mapping: str
+    """Target region mapping, corresponding to <region> in tgz names."""
+
+    @staticmethod
+    def _normalize_revision(revision: str) -> str:
+        revision = revision.strip()
+        if revision.startswith("rev"):
+            return revision[3:]
+        return revision
+
+    @model_validator(mode="after")
+    def validate_input_data_selector(self):
+        self.input_data_revision = self._normalize_revision(self.input_data_revision)
+        return self
 
 
 class CommonCfg(RemindMFABaseModel):

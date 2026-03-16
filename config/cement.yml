@@ -1,10 +1,10 @@
 model: 'cement'
 
 input:
-  madrat_output_path: '../madrat_wd/output'
   force_extract_tgz: False
-  input_data_path: '../remind_mfa_data/h12'
-  input_data_version: 'rev1.0.0_h12_1584d780_mfa'
+  input_data_path: '../remind_mfa_data'
+  input_data_revision: '1.1.2'
+  region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
 
 model_switches:

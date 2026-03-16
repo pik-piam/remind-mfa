@@ -1,15 +1,11 @@
 model: 'steel'
 
 input:
-  madrat_output_path: '../remind_mfa_data'
   force_extract_tgz: False
   scenarios_path: 'config/scenarios'
-  input_data_path: '../remind_mfa_data/h12'
-  input_data_version: 'rev1.0.0_h12_1584d780_mfa'
-  # input_data_path: '../remind_mfa_data/eu21'
-  # input_data_version: 'rev1.0.0_2b1450bc_1584d780_mfa'
-  # input_data_path: '../remind_mfa_data/ISOcountries'
-  # input_data_version: 'rev1.0.0test_ISO2ISO_99727f0b_1584d780_mfa'
+  input_data_path: '../remind_mfa_data/'
+  input_data_revision: '1.1.2'
+  region_mapping: 'h12'
 
 model_switches:
   scenario: 'SSP2'
