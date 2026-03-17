@@ -205,32 +205,42 @@ class StockExtrapolation(RemindMFABaseModel):
 
     def get_pure_regression_single_predictor(self):
         """Get a single-predictor regression based only on GDP per capita, which is used for the stock fitting.
-        Historic stocks are divided by the time-dependent extrapolation function and then regressed only over GDP per capita."""
+        Historic stocks are divided by the time-dependent extrapolation function and then regressed only over GDP per capita.
+        """
         if self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
             # transform historic stocks by dividing by the time-dependent part of the regression
-            prms = [self.extrapolation.fit_prms[np.newaxis, ..., i] for i in range(self.extrapolation.n_prms)]
-            time_dependent_func = self.extrapolation.func(self.extrapolation.predictor_values, prms, factor = "f3")[: self.n_historic]
+            prms = [
+                self.extrapolation.fit_prms[np.newaxis, ..., i]
+                for i in range(self.extrapolation.n_prms)
+            ]
+            time_dependent_func = self.extrapolation.func(
+                self.extrapolation.predictor_values, prms, factor="f3"
+            )[: self.n_historic]
             data_to_extrapolate = self.extrapolation.data_to_extrapolate / time_dependent_func
             self.single_predictor = self.predictor["x1"]
             # adapt the bounds
             new_bounds = [b for b in self.bound_list.bound_list if b.var_name != "x2_growth_rate"]
             for i, b in enumerate(new_bounds):
-                if b.var_name == 'x1_growth_rate':
+                if b.var_name == "x1_growth_rate":
                     new_bounds[i].var_name = "growth_rate"
                     break
             bound_list = BoundList(
                 target_dims=self.dims[self.indep_fit_dim_letters],
                 bound_list=new_bounds,
             )
-            self.extrapolation_single_predictor = self.cfg.stock_extrapolation_class.single_predictor_cls(
-                data_to_extrapolate=data_to_extrapolate,
-                predictor_values=self.single_predictor,
-                independent_dims=self.fit_dim_idx,
-                bound_list=bound_list,
-                weights=self.extrapolation.weights,
+            self.extrapolation_single_predictor = (
+                self.cfg.stock_extrapolation_class.single_predictor_cls(
+                    data_to_extrapolate=data_to_extrapolate,
+                    predictor_values=self.single_predictor,
+                    independent_dims=self.fit_dim_idx,
+                    bound_list=bound_list,
+                    weights=self.extrapolation.weights,
+                )
             )
             self.extrapolation_single_predictor.regress()
-            self.stocks_to_fit = fd.StockArray(dims=self.dims[self.historic_dim_letters], values=data_to_extrapolate)
+            self.stocks_to_fit = fd.StockArray(
+                dims=self.dims[self.historic_dim_letters], values=data_to_extrapolate
+            )
         else:
             self.extrapolation_single_predictor = self.extrapolation
             self.stocks_to_fit = self.historic_stocks_pc
@@ -264,8 +274,8 @@ class StockExtrapolation(RemindMFABaseModel):
         # This is due to the fact that different metrics may operate on different regimes and have different units.
         penalty_weights = {
             "data_0th_order": 0.2,
-            "rel_data_0th_order": 0.25, 
-            "data_1st_order": 0.4,  
+            "rel_data_0th_order": 0.25,
+            "data_1st_order": 0.4,
             "prms": np.array(
                 [
                     0.4,  # saturation_level
@@ -287,7 +297,9 @@ class StockExtrapolation(RemindMFABaseModel):
                 ]
             ),
         }
-        penalty_weights = {k: penalty_weights[k] / StockFitter.norm(order_of_magnitude[k]) for k in penalty_weights}
+        penalty_weights = {
+            k: penalty_weights[k] / StockFitter.norm(order_of_magnitude[k]) for k in penalty_weights
+        }
         stock_fitter = StockFitter(
             historic_stocks_pc=self.stocks_to_fit,
             extrapolation=self.extrapolation_single_predictor,
@@ -300,8 +312,13 @@ class StockExtrapolation(RemindMFABaseModel):
     def transform_two_predictor_regression(self):
         """If the regression was performed with two predictors (e.g. time and GDP per capita), we need to transform it back to a regression over only GDP per capita for the stock correction."""
         if self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
-            prms = [self.extrapolation.fit_prms[np.newaxis, ..., i] for i in range(self.extrapolation.n_prms)]
-            time_dependent_func = self.extrapolation.func(self.extrapolation.predictor_values, prms, factor = "f3")
+            prms = [
+                self.extrapolation.fit_prms[np.newaxis, ..., i]
+                for i in range(self.extrapolation.n_prms)
+            ]
+            time_dependent_func = self.extrapolation.func(
+                self.extrapolation.predictor_values, prms, factor="f3"
+            )
             self.fitted_regression[...] = self.fitted_regression.values * time_dependent_func
 
     def smooth_transition(self):
@@ -383,9 +400,13 @@ class StockExtrapolation(RemindMFABaseModel):
             upper = 30
             for g in range(self.historic_stocks_pc.dims[2].len):
                 Lclip = min(max(self.lifetime.values[g], lower), upper)
-                alpha = (np.log(Lclip)-np.log(lower))/np.log(upper)
-                avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (1-alpha) * avg_slope(time, historical[:, :, g], n=10)
-                avg_slope_pred = alpha * avg_slope(time, prediction[:, :, g], n=1) + (1-alpha) * avg_slope(time, prediction[:, :, g], n=10)
+                alpha = (np.log(Lclip) - np.log(lower)) / np.log(upper)
+                avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (
+                    1 - alpha
+                ) * avg_slope(time, historical[:, :, g], n=10)
+                avg_slope_pred = alpha * avg_slope(time, prediction[:, :, g], n=1) + (
+                    1 - alpha
+                ) * avg_slope(time, prediction[:, :, g], n=10)
                 difference_1st[:, g] = avg_slope_hist - avg_slope_pred
 
         approaching_time = 80

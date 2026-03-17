@@ -13,6 +13,7 @@ from remind_mfa.common.common_definition import get_definition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.helpers import RegressOverModes
 from remind_mfa.common.data_extrapolations import GompertzExtrapolation
@@ -34,14 +35,15 @@ class CommonModel:
     # TODO: unify, then delete
     end_use_good_letter: str = None
     historic_stock_name: str = None
-    stock_projection_saturation_level: int = None
 
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
         self.set_definition()
         self.read_data()
         self.read_scenario_parameters()
+        self.select_gdp_pop_scen()
         self.modify_parameters()
+        self.apply_scenario_adjustments_to_parameters()
         self.init_export_and_visualization()
 
     def run(self):
@@ -76,28 +78,45 @@ class CommonModel:
             cfg=self.cfg,
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
-            allow_missing_values=True,  # needed for steel scrap data, among others
-            # allow_extra_values=True,  # FIXME hotfix for cement smooth gdp&pop in plastics
+            allow_missing_values=True,  # needed for at least steel scrap data
+            allow_extra_values=False,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
 
+    def select_gdp_pop_scen(self):
+        """Select GDP and population scenario parameters based on scenario name"""
+        scen_name = self.scenario_parameters["gdp_pop_scen"]
+        for prm_name in ["gdppc", "population"]:
+            slice = self.parameters[prm_name][{"S": scen_name}]
+            self.parameters[prm_name] = fd.Parameter(dims=self.dims["t", "r"])
+            self.parameters[prm_name][...] = slice
+
     def read_scenario_parameters(self):
-        parameter_definitions = common_scn_prm_def + self.custom_scn_prm_def
+        scn_prm_def = common_scn_prm_def + self.custom_scn_prm_def
         scenario_reader = ScenarioReader(
             name=self.cfg.model_switches.scenario,
             base_path=self.cfg.input.scenarios_path,
             model=self.cfg.model,
             dims=self.dims,
-            parameter_definitions=parameter_definitions,
+            parameter_definitions=scn_prm_def,
         )
         self.scenario_parameters = scenario_reader.get_parameters()
 
     def modify_parameters(self):
         """Manual changes to parameters"""
         pass
+
+    def apply_scenario_adjustments_to_parameters(self):
+        """Apply scenario adjustments to parameters"""
+        # lifetime:
+        for prm_name in ["lifetime_mean", "lifetime_std"]:
+            self.apply_scenario_factor(
+                array=self.parameters[prm_name],
+                scen_prm_name="lifetime_factor",
+            )
 
     def transfer_historic_parameters(self):
         """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""
@@ -156,12 +175,15 @@ class CommonModel:
         return stock_sector_split
 
     def get_long_term_stock(self) -> fd.FlodymArray:
-        saturation_level = self.stock_projection_saturation_level
+        saturation_level = self.scenario_parameters["saturation_level"]
         sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
 
         # add static time-dependent penetration curve if desired.
         if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray(dims=self.dims["t", "g"], values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))))
+            time_factor = fd.FlodymArray(
+                dims=self.dims["t", "g"],
+                values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))),
+            )
             time = np.array(self.dims["t"].items)
             lifetime = self.limit_lifetime()  # shape (g,)
             for g in self.dims[self.end_use_good_letter].items:
@@ -170,12 +192,18 @@ class CommonModel:
                 lt = lifetime[{self.end_use_good_letter: g}].values.item()
                 b = -1980.05 - lt
                 prms = [1, b, 0.02797]
-                time_factor[{self.end_use_good_letter: g}] = GompertzExtrapolation.func(None, time, prms)
+                time_factor[{self.end_use_good_letter: g}] = GompertzExtrapolation.func(
+                    None, time, prms
+                )
         else:
-            time_factor = fd.FlodymArray.full(dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1)
-        
+            time_factor = fd.FlodymArray.full(
+                dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1
+            )
+
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
+        normalized_historic_stock = (
+            historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
+        )
 
         # after normalization, target saturation level is 1 across all regions and sectors.
         sat_level_bound = Bound(
@@ -222,9 +250,29 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
-        self.sector_specific_sat_level = sector_specific_sat_level * time_factor # to be used in visualization of extrapolation functions
+        self.sector_specific_sat_level = (
+            sector_specific_sat_level * time_factor
+        )  # to be used in visualization of extrapolation functions
         long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
+
+        self.apply_scenario_factor(array=long_term_stock, scen_prm_name="stock_factor")
+
         return long_term_stock
+
+    def apply_scenario_factor(self, array: fd.FlodymArray, scen_prm_name: str) -> fd.FlodymArray:
+        target_dims = array.dims.union_with(self.dims["t"])
+        if isinstance(self.scenario_parameters[scen_prm_name], fd.FlodymArray):
+            target_dims = target_dims.union_with(self.scenario_parameters[scen_prm_name].dims)
+
+        factor = blend(
+            target_dims=target_dims,
+            y_lower=1,
+            y_upper=self.scenario_parameters[scen_prm_name],
+            x="t",
+            x_lower=self.dims["h"].items[-1],
+            x_upper=self.scenario_parameters[f"{scen_prm_name}_year"],
+        )
+        array[...] *= factor
 
     def limit_lifetime(self):
         """Effective lifetime when saturation level is reached.

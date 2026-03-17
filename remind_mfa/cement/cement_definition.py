@@ -15,6 +15,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
+        fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
         # carbonation dimensions
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
@@ -126,9 +127,9 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         RemindMFAParameterDefinition(name="lifetime_rel_std", dim_letters=(),
                                      description="Relative standard deviation of lifetime of cement in buildings and infrastructure."),
         # future parameters
-        RemindMFAParameterDefinition(name="population", dim_letters=("t", "r"),
+        RemindMFAParameterDefinition(name="population", dim_letters=("t", "r", "S"),
                                      description="Historic and projected population for each region and model year."),
-        RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r"),
+        RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r", "S"),
                                      description="Historic and projected GDP per capita for each region and model year."),
         RemindMFAParameterDefinition(name="cement_losses", dim_letters=(),
                                      description="Share of cement lost during cement production."),

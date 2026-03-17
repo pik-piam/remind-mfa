@@ -1,6 +1,0 @@
-parent: SSP2
-data:
-- parameter: saturation_level_factor
-  models:
-  - steel
-  value: 0.8

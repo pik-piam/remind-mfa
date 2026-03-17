@@ -2,7 +2,10 @@ import flodym as fd
 
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.steel.steel_config import SteelCfg
-from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import (
+    RemindMFAParameterDefinition,
+    RemindMFAParameterDefinition,
+)
 from remind_mfa.common.trade import TradeDefinition
 
 
@@ -12,6 +15,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
     if historic:
@@ -145,11 +149,11 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Combined collection and recovery rate at end-of-life - share of all end-of life material that is recycled"
         ),
         RemindMFAParameterDefinition(
-            name="population", dim_letters=("t", "r"),
+            name="population", dim_letters=("t", "r", "S"),
             description="Population"
         ),
         RemindMFAParameterDefinition(
-            name="gdppc", dim_letters=("t", "r"),
+            name="gdppc", dim_letters=("t", "r", "S"),
             description="GDP per capita"
         ),
         RemindMFAParameterDefinition(
@@ -259,9 +263,4 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
     )
 
 
-scenario_parameters = [
-    RemindMFAParameterDefinition(
-        name="saturation_level_factor",
-        dim_letters=("r",),
-    ),
-]
+scenario_parameters = []

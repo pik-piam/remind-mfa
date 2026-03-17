@@ -92,11 +92,11 @@ class StockFitter(RemindMFABaseModel):
         x0 = prms_0.copy()  # avoid modifying the original initial parameters
         penalties = []
         n = 50
-        for offset in np.arange(0, 1.1, 1/n):
+        for offset in np.arange(0, 1.1, 1 / n):
             x0[1] = prms_0[1] + offset
             penalties.append(self.penalty(historic, predictor, x0, prms_0))
         min_penalty_idx = np.argmin(penalties)
-        x0[1] = prms_0[1] + np.arange(0, 1.1, 1/n)[min_penalty_idx]
+        x0[1] = prms_0[1] + np.arange(0, 1.1, 1 / n)[min_penalty_idx]
 
         result = minimize(
             fun=lambda prms: self.penalty(historic, predictor, prms, prms_0),
@@ -168,13 +168,13 @@ class StockFitter(RemindMFABaseModel):
         fit = self.extrapolation.func(last_x, prms)
         target = self.last_hist(historic)
         diff = fit - target
-        if relative: 
+        if relative:
             diff /= max(target, 1e-6)
             prefix = "rel_"
         else:
-            prefix = "" 
+            prefix = ""
         return self.norm(diff) * self.penalty_weights[f"{prefix}data_0th_order"]
-    
+
     def pen_data_1st_order(self, historic, predictor, prms):
         """penalty for the deviation of the slope of the fitted function from the slope of the
         historic data in the last historic data points (w.r.t. time).
@@ -191,7 +191,7 @@ class StockFitter(RemindMFABaseModel):
         target = self.last_hist(historic)
         diff = fit - target
         if relative:
-            diff /= max(target, 1e-2)**2
+            diff /= max(target, 1e-2) ** 2
             prefix = "rel_"
         else:
             prefix = ""
@@ -248,4 +248,3 @@ class StockFitter(RemindMFABaseModel):
         dfunc = func(predictor[end]) - func(predictor[start])
         dtime = time[end] - time[start]
         return dfunc / dtime
-  

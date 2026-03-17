@@ -30,11 +30,10 @@ class PlasticsModel(CommonModel):
     # TODO: unify, then delete
     end_use_good_letter: str = "g"
     historic_stock_name: str = "in_use_historic"
-    stock_projection_saturation_level: int = 3  # TODO replace this first guess
 
     def modify_parameters(self):
         # copy/rename for use in common model
-        #self.parameters["sector_split_limit"] = self.parameters["sector_split"]
+        self.parameters["sector_split_limit"] = self.parameters["sector_split"]
         # cast lifetime mean to correct dimensions for use in common model
         self.parameters["lifetime_mean"] = fd.Parameter(
             dims=self.dims["t", "g"],
@@ -52,6 +51,8 @@ class PlasticsModel(CommonModel):
 
     def transfer_historic_parameters(self):
         # get material split of stock inflow from historic MFA to be extrapolated by ParameterExtrapolation for use in future MFA
-        self.parameters["material_shares_use_inflow"] = self.historic_mfa.parameters["material_shares_use_inflow"]
+        self.parameters["material_shares_use_inflow"] = self.historic_mfa.parameters[
+            "material_shares_use_inflow"
+        ]
         # get good split of stock inflow from historic MFA and use this to calculate the stock sector split in common model
-        self.parameters["sector_split_limit"] = self.historic_mfa.parameters["good_shares_use_inflow"]
+        # self.parameters["sector_split_limit"] = self.historic_mfa.parameters["good_shares_use_inflow"][self.historic_mfa.dims["h"].items[-1]]
