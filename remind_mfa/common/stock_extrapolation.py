@@ -399,7 +399,9 @@ class StockExtrapolation(RemindMFABaseModel):
             lower = 3
             upper = 30
             if len(self.indep_fit_dim_letters) > 1:
-                raise ValueError("Multiple independent fit dimensions are not supported here. Please fix")
+                raise ValueError(
+                    "Multiple independent fit dimensions are not supported here. Please fix"
+                )
             else:
                 good_letter = self.indep_fit_dim_letters[0]
             lifetime = self.lifetime.cast_to(self.dims_out)[{"t": self.dims["h"].items[-1]}]
@@ -433,9 +435,8 @@ class StockExtrapolation(RemindMFABaseModel):
         k = 4.74 / approaching_time
 
         # Critically damped system solution
-        correction = (
-            (difference_0th + (difference_1st + k * difference_0th) * delta_t)
-            * np.exp(-k * delta_t)
+        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(
+            -k * delta_t
         )
 
         return prediction[...] + correction
