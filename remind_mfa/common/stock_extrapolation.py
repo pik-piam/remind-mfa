@@ -398,9 +398,14 @@ class StockExtrapolation(RemindMFABaseModel):
         if self.lifetime is not None:
             lower = 3
             upper = 30
-            for g in range(self.historic_stocks_pc.dims[2].len):
-                Lclip = min(max(self.lifetime.values[g], lower), upper)
-                alpha = (np.log(Lclip) - np.log(lower)) / np.log(upper)
+            if len(self.indep_fit_dim_letters) > 1:
+                raise ValueError("Multiple independent fit dimensions are not supported here. Please fix")
+            else:
+                good_letter = self.indep_fit_dim_letters[0]
+            lifetime = self.lifetime.cast_to(self.dims_out)[{"t": self.dims["h"].items[-1]}]
+            for g in range(self.historic_stocks_pc.dims[good_letter].len):
+                lt_clip = np.minimum(np.maximum(lifetime.values[:, g], lower), upper)
+                alpha = (np.log(lt_clip) - np.log(lower)) / np.log(upper)
                 avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (
                     1 - alpha
                 ) * avg_slope(time, historical[:, :, g], n=10)
@@ -429,7 +434,7 @@ class StockExtrapolation(RemindMFABaseModel):
 
         # Critically damped system solution
         correction = (
-            (difference_0th + (difference_1st + k * difference_0th) * delta_t) 
+            (difference_0th + (difference_1st + k * difference_0th) * delta_t)
             * np.exp(-k * delta_t)
         )
 
