@@ -2,10 +2,7 @@ import flodym as fd
 
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.steel.steel_config import SteelCfg
-from remind_mfa.common.common_definition import (
-    RemindMFAParameterDefinition,
-    RemindMFAParameterDefinition,
-)
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
 
 
