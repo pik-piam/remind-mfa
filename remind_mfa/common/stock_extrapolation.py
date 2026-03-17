@@ -293,7 +293,7 @@ class StockExtrapolation(RemindMFABaseModel):
                 [
                     0.2,  # saturation_level
                     0.2,  # offset
-                    5.,  # growth_rate
+                    5.0,  # growth_rate
                 ]
             ),
         }
@@ -428,9 +428,8 @@ class StockExtrapolation(RemindMFABaseModel):
         k = 4.74 / approaching_time
 
         # Critically damped system solution
-        correction = (
-            (difference_0th + (difference_1st + k * difference_0th) * delta_t) 
-            * np.exp(-k * delta_t)
+        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(
+            -k * delta_t
         )
 
         return prediction[...] + correction
