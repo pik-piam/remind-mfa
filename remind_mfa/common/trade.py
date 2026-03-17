@@ -48,8 +48,8 @@ class Trade(RemindMFABaseModel):
         new_imports = self.imports * import_factor
         new_exports = self.exports * export_factor
 
-        self.imports = new_imports
-        self.exports = new_exports
+        self.imports[...] = new_imports
+        self.exports[...] = new_exports
 
     @staticmethod
     def get_reference_trade(

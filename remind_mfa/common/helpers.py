@@ -32,6 +32,5 @@ class RemindMFABaseModel(BaseModel):
 
 
 class RegressOverModes(str, Enum):
-    GDPPC = "gdppc"
     LOGGDPPC = "loggdppc"
-    LOCGDPPC_TIME_WEIGHTED_SUM = "loggdppc_time_weighted_sum"
+    LOGGDPPC_TIME = "loggdppc_time"

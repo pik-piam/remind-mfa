@@ -114,8 +114,8 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
         )
 
         # get target from scenario parameters
-        parameter_target = self.scenario_parameters[old_param.name + "_target_value"]
-        parameter_target_year = self.scenario_parameters[old_param.name + "_target_year"]
+        parameter_target = self.scenario_parameters[old_param.name]
+        parameter_target_year = self.scenario_parameters[old_param.name + "_year"]
         # get last historic value
         last_historic_year = old_param.dims["h"].items[-1]
         last_value = old_param[{"h": last_historic_year}]
