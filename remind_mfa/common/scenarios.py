@@ -73,13 +73,13 @@ class ScenarioReader(RemindMFABaseModel):
         parsed = {col: ScenarioReader._parse_csv_value(val) for col, val in row.items()}
         index_prefix = "index:"
         index = {
-            col[len(index_prefix):]: parsed[col]
+            col[len(index_prefix) :]: parsed[col]
             for col in parsed
             if col.startswith(index_prefix) and parsed[col] is not None
         }
         extra_prefix = "extra:"
         extra = {
-            col[len(extra_prefix):]: parsed[col]
+            col[len(extra_prefix) :]: parsed[col]
             for col in parsed
             if col.startswith(extra_prefix) and parsed[col] is not None
         }
@@ -104,9 +104,7 @@ class ScenarioReader(RemindMFABaseModel):
     def _read_parent_from_inheritance(self, name: str) -> Optional[str]:
         inheritance_file = os.path.join(self.base_path, "inheritance.csv")
         if not os.path.exists(inheritance_file):
-            raise FileNotFoundError(
-                f"inheritance.csv not found in {self.base_path}"
-            )
+            raise FileNotFoundError(f"inheritance.csv not found in {self.base_path}")
         with open(inheritance_file, "r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(self._iter_active_csv_lines(f))
             for row in reader:

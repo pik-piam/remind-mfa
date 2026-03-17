@@ -102,12 +102,12 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["collected => waste_market"][...] = trd["waste"].exports
         flw["imports => waste_market"][...] = flw["waste_market => collected"]
         flw["waste_market => exports"][...] = flw["collected => waste_market"]
-        
+
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
         flw["reclmech => fabrication"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
-        flw["reclmech => fabrication"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension 
+        flw["reclmech => fabrication"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => fabrication"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
@@ -127,15 +127,15 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["eol => mismanaged"][...] = flw["use => eol"] - flw["eol => collected"]
         flw["mismanaged => uncontrolled"][...] = flw["eol => mismanaged"]
-        
+
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
         flw["emission => captured"][...] = flw["incineration => emission"] * prm["emission_capture_rate"]
         flw["emission => atmosphere"][...] = flw["incineration => emission"] - flw["emission => captured"]
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         # now trades and production flows are computed starting from the stock inflow
-        flw["good_market => use"][...] = stk["in_use"].inflow 
-    
+        flw["good_market => use"][...] = stk["in_use"].inflow
+
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["final_his"],
             future_trade=self.trade_set["final"],
@@ -173,7 +173,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         flw["virgin => primary_market"][...] = (
             flw["primary_market => fabrication"]
-            - flw["imports => primary_market"] 
+            - flw["imports => primary_market"]
             + flw["primary_market => exports"]
         )
 

@@ -38,8 +38,7 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 
 scenario_parameters = [
     PlainDataPointDefinition(
-        name="gdp_pop_scen",
-        description="Name of the (SSP) scenario to use for GDP and population"
+        name="gdp_pop_scen", description="Name of the (SSP) scenario to use for GDP and population"
     ),
     PlainDataPointDefinition(
         name="saturation_level",

@@ -24,7 +24,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_custom(self, model: "PlasticsModel"):
         if self.cfg.use_stock.do_visualize:
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
-        
+
         if self.cfg.production.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
@@ -46,7 +46,10 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=(model.future_mfa.flows["virgin => primary_market"] - model.future_mfa.flows["primary_market => exports"]),
+                flow=(
+                    model.future_mfa.flows["virgin => primary_market"]
+                    - model.future_mfa.flows["primary_market => exports"]
+                ),
                 name="Domestic primary production",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -60,7 +63,10 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=(model.future_mfa.flows["fabrication => good_market"] - model.future_mfa.flows["good_market => exports"]),
+                flow=(
+                    model.future_mfa.flows["fabrication => good_market"]
+                    - model.future_mfa.flows["good_market => exports"]
+                ),
                 name="Domestic Fabrication",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -211,7 +217,9 @@ class PlasticsVisualizer(CommonVisualizer):
             y_label=f"Demand {pc_str} [t]",
             title=f"Demand {pc_str} [t]",
         )
-        self.plot_and_save_figure(ap_demand, f"demand_history_and_future{pc_str}.png", do_plot=False)
+        self.plot_and_save_figure(
+            ap_demand, f"demand_history_and_future{pc_str}.png", do_plot=False
+        )
 
         good_dim = demand.dims.index("g")
         demand = demand.apply(np.cumsum, kwargs={"axis": good_dim})
@@ -302,8 +310,7 @@ class PlasticsVisualizer(CommonVisualizer):
             {
                 fn: emission_color
                 for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("atmosphere", "mismanaged", "uncontrolled", "emission")
+                if f.to_process.name in ("atmosphere", "mismanaged", "uncontrolled", "emission")
             }
         )
 
@@ -322,8 +329,8 @@ class PlasticsVisualizer(CommonVisualizer):
             {
                 fn: trade_color
                 for fn, f in mfa.flows.items()
-                if f.from_process.name in ("imports","exports")
-                or f.to_process.name in ("imports","exports")
+                if f.from_process.name in ("imports", "exports")
+                or f.to_process.name in ("imports", "exports")
             }
         )
 
@@ -402,15 +409,15 @@ class PlasticsVisualizer(CommonVisualizer):
             dimlist.append(linecolor_dimletter)
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        stock = stock.sum_over(other_dimletters) 
+        stock = stock.sum_over(other_dimletters)
         other_dimletters = tuple(
             letter
             for letter in model.stock_handler.fitted_regression.dims.letters
             if letter not in dimlist
         )
         pure_prediction = (
-            (model.stock_handler.fitted_regression * model.sector_specific_sat_level).sum_over(other_dimletters) 
-        )
+            model.stock_handler.fitted_regression * model.sector_specific_sat_level
+        ).sum_over(other_dimletters)
 
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"

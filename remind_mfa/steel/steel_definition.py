@@ -2,7 +2,10 @@ import flodym as fd
 
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.steel.steel_config import SteelCfg
-from remind_mfa.common.common_definition import RemindMFAParameterDefinition, RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import (
+    RemindMFAParameterDefinition,
+    RemindMFAParameterDefinition,
+)
 from remind_mfa.common.trade import TradeDefinition
 
 
@@ -260,5 +263,4 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
     )
 
 
-scenario_parameters = [
-]
+scenario_parameters = []

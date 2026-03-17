@@ -180,7 +180,10 @@ class CommonModel:
 
         # add static time-dependent penetration curve if desired.
         if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray(dims=self.dims["t", "g"], values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))))
+            time_factor = fd.FlodymArray(
+                dims=self.dims["t", "g"],
+                values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))),
+            )
             time = np.array(self.dims["t"].items)
             lifetime = self.limit_lifetime()  # shape (g,)
             for g in self.dims[self.end_use_good_letter].items:
@@ -189,12 +192,18 @@ class CommonModel:
                 lt = lifetime[{self.end_use_good_letter: g}].values.item()
                 b = -1980.05 - lt
                 prms = [1, b, 0.02797]
-                time_factor[{self.end_use_good_letter: g}] = GompertzExtrapolation.func(None, time, prms)
+                time_factor[{self.end_use_good_letter: g}] = GompertzExtrapolation.func(
+                    None, time, prms
+                )
         else:
-            time_factor = fd.FlodymArray.full(dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1)
+            time_factor = fd.FlodymArray.full(
+                dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1
+            )
 
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
+        normalized_historic_stock = (
+            historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
+        )
 
         # after normalization, target saturation level is 1 across all regions and sectors.
         sat_level_bound = Bound(
@@ -241,12 +250,12 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
-        self.sector_specific_sat_level = sector_specific_sat_level * time_factor # to be used in visualization of extrapolation functions
+        self.sector_specific_sat_level = (
+            sector_specific_sat_level * time_factor
+        )  # to be used in visualization of extrapolation functions
         long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
 
-        self.apply_scenario_factor(
-            array=long_term_stock,
-            scen_prm_name="stock_factor")
+        self.apply_scenario_factor(array=long_term_stock, scen_prm_name="stock_factor")
 
         return long_term_stock
 
