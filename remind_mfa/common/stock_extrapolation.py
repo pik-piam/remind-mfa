@@ -41,6 +41,8 @@ class StockExtrapolation(RemindMFABaseModel):
     """do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True."""
     transition_smoothing: str = "critically_damped"
     """transition_smoothing (str): Method for blending between historical and future stock. Possible values are "critically_damped", "shift_zeroth_order", "none". Defaults to "critically_damped"."""
+    lifetime: Optional[fd.FlodymArray] = None
+    """lifetime of the stock, used to determine the number of timesteps that are used for the average slope calculation in the critically damped blend."""
 
     def extrapolate(self):
         """Preprocessing and extrapolation."""
@@ -49,7 +51,9 @@ class StockExtrapolation(RemindMFABaseModel):
         self.calc_arrays_from_parameters_dict()
         self.set_predictor()
         self.get_pure_regression()
+        self.get_pure_regression_single_predictor()
         self.fit()
+        self.transform_two_predictor_regression()
         self.smooth_transition()
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
@@ -201,6 +205,39 @@ class StockExtrapolation(RemindMFABaseModel):
 
         self.export_pure_parameters()
 
+    def get_pure_regression_single_predictor(self):
+        """Get a single-predictor regression based only on GDP per capita, which is used for the stock fitting.
+        Historic stocks are divided by the time-dependent extrapolation function and then regressed only over GDP per capita."""
+        if self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            # transform historic stocks by dividing by the time-dependent part of the regression
+            prms = [self.extrapolation.fit_prms[np.newaxis, ..., i] for i in range(self.extrapolation.n_prms)]
+            time_dependent_func = self.extrapolation.func(self.extrapolation.predictor_values, prms, factor = "f3")[: self.n_historic]
+            data_to_extrapolate = self.extrapolation.data_to_extrapolate / time_dependent_func
+            self.single_predictor = self.predictor["x1"]
+            # adapt the bounds
+            new_bounds = [b for b in self.bound_list.bound_list if b.var_name != "x2_growth_rate"]
+            for i, b in enumerate(new_bounds):
+                if b.var_name == 'x1_growth_rate':
+                    new_bounds[i].var_name = "growth_rate"
+                    break
+            bound_list = BoundList(
+                target_dims=self.dims[self.indep_fit_dim_letters],
+                bound_list=new_bounds,
+            )
+            self.extrapolation_single_predictor = self.cfg.stock_extrapolation_class.single_predictor_cls(
+                data_to_extrapolate=data_to_extrapolate,
+                predictor_values=self.single_predictor,
+                independent_dims=self.fit_dim_idx,
+                bound_list=bound_list,
+                weights=self.extrapolation.weights,
+            )
+            self.extrapolation_single_predictor.regress()
+            self.stocks_to_fit = fd.StockArray(dims=self.dims[self.historic_dim_letters], values=data_to_extrapolate)
+        else:
+            self.extrapolation_single_predictor = self.extrapolation
+            self.stocks_to_fit = self.historic_stocks_pc
+            self.single_predictor = self.predictor
+
     def export_pure_parameters(self):
         """for export to csv, used in plastics
         TODO: check if still needed
@@ -228,24 +265,46 @@ class StockExtrapolation(RemindMFABaseModel):
         # Note that the weights do not necessarily reflect the importance of different metrics during the optimization.
         # This is due to the fact that different metrics may operate on different regimes and have different units.
         penalty_weights = {
-            "data_0th_order": 20.0,
-            "data_1st_order": 4e3, # 20 ** 2 * 10 
+            "data_0th_order": 0.2,
+            "rel_data_0th_order": 0.25, 
+            "data_1st_order": 0.4,  
             "prms": np.array(
                 [
-                    10.0,  # saturation_level
-                    1.0,  # offset
-                    1.0,  # growth_rate
+                    0.4,  # saturation_level
+                    0.1,  # offset
+                    0.2,  # growth_rate
                 ]
             ),
         }
+        # order of magnitude of a realistic, but significant change / discrepancy
+        order_of_magnitude = {
+            "data_0th_order": 0.1,
+            "rel_data_0th_order": 0.5,
+            "data_1st_order": 0.01,  # TODO
+            "prms": np.array(
+                [
+                    0.2,  # saturation_level
+                    0.2,  # offset
+                    10.,  # growth_rate
+                ]
+            ),
+        }
+        penalty_weights = {k: penalty_weights[k] / order_of_magnitude[k]**2 for k in penalty_weights}
         stock_fitter = StockFitter(
-            historic_stocks_pc=self.historic_stocks_pc,
-            extrapolation=self.extrapolation,
-            predictor=self.predictor,
+            historic_stocks_pc=self.stocks_to_fit,
+            extrapolation=self.extrapolation_single_predictor,
+            predictor=self.single_predictor,
             dims_out=self.dims_out,
             penalty_weights=penalty_weights,
         )
         self.fitted_regression = stock_fitter.fit()
+
+    def transform_two_predictor_regression(self):
+        """If the regression was performed with two predictors (e.g. time and GDP per capita), we need to transform it back to a regression over only GDP per capita for the stock correction."""
+        if self.cfg.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            prms = [self.extrapolation.fit_prms[np.newaxis, ..., i] for i in range(self.extrapolation.n_prms)]
+            time_dependent_func = self.extrapolation.func(self.extrapolation.predictor_values, prms, factor = "f3")
+            self.fitted_regression[...] = self.fitted_regression.values * time_dependent_func
 
     def smooth_transition(self):
         """The fit function returns a regression which only approximately continues historic trends.
@@ -289,9 +348,7 @@ class StockExtrapolation(RemindMFABaseModel):
         stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
-    def critically_damped_blend(
-        self, historical: np.ndarray, prediction: np.ndarray
-    ) -> np.ndarray:
+    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
         """
         Blend historical and extrapolated stock values using a critically damped system approach to ensure a smooth transition.
         In a critically damped system (e.g. spring that returns to equilibrium as quickly as possible without oscillating),
@@ -322,6 +379,16 @@ class StockExtrapolation(RemindMFABaseModel):
 
         # offset of the 1st derivative at the transition point
         difference_1st = avg_slope(time, historical) - avg_slope(time, prediction)
+        # if the lifetime is given, the number of historical timesteps used for the average slope calculation is determined by the lifetime
+        if self.lifetime is not None:
+            lower = 3
+            upper = 30
+            for g in range(self.historic_stocks_pc.dims[2].len):
+                Lclip = min(max(self.lifetime.values[g], lower), upper)
+                alpha = (np.log(Lclip)-np.log(lower))/np.log(upper)
+                avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (1-alpha) * avg_slope(time, historical[:, :, g], n=10)
+                avg_slope_pred = alpha * avg_slope(time, prediction[:, :, g], n=1) + (1-alpha) * avg_slope(time, prediction[:, :, g], n=10)
+                difference_1st[:, g] = avg_slope_hist - avg_slope_pred
 
         approaching_time = 80
         add_assumption_doc(
@@ -329,20 +396,22 @@ class StockExtrapolation(RemindMFABaseModel):
             name="years for blending to regression",
             value=approaching_time,
             description=(
-                "Number of years for the blending from historical to regressed in-use stocks." \
-                "After this time, the initial offset between historical and regressed stock is reduced to 5 percent." \
+                "Number of years for the blending from historical to regressed in-use stocks."
+                "After this time, the initial offset between historical and regressed stock is reduced to 5 percent."
             ),
         )
-        
+
         # Construct time that starts at 0 in last historical year.
         time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
         delta_t = time_extended - last_history_year
-        
+
         # Amplitude decreases to 5 percent after approaching_time years
-        k = 4.74 / approaching_time 
+        k = 4.74 / approaching_time
 
         # Critically damped system solution
-        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(-k * delta_t)
+        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(
+            -k * delta_t
+        )
 
         return prediction[...] + correction
 

@@ -15,6 +15,9 @@ from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationMana
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
+from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.data_extrapolations import GompertzExtrapolation
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 
 
 class CommonModel:
@@ -46,6 +49,8 @@ class CommonModel:
     def run(self):
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
+        self.transfer_historic_parameters()
+
         historic_trade = self.historic_mfa.trade_set
 
         # apply scenarios to parameters for future mfa
@@ -113,6 +118,10 @@ class CommonModel:
                 scen_prm_name="lifetime_factor",
             )
 
+    def transfer_historic_parameters(self):
+        """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""
+        pass
+
     def init_export_and_visualization(self):
         display_names = self.DisplayNamesCls()
         self.data_writer = self.DataExporterCls(
@@ -169,8 +178,23 @@ class CommonModel:
         saturation_level = self.scenario_parameters["saturation_level"]
         sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
 
+        # add static time-dependent penetration curve if desired.
+        if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
+            time_factor = fd.FlodymArray(dims=self.dims["t", "g"], values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))))
+            time = np.array(self.dims["t"].items)
+            lifetime = self.limit_lifetime()  # shape (g,)
+            for g in self.dims[self.end_use_good_letter].items:
+                # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
+                # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
+                lt = lifetime[{self.end_use_good_letter: g}].values.item()
+                b = -1980.05 - lt
+                prms = [1, b, 0.02797]
+                time_factor[{self.end_use_good_letter: g}] = GompertzExtrapolation.func(None, time, prms)
+        else:
+            time_factor = fd.FlodymArray.full(dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1)
+
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = historic_stocks/sector_specific_sat_level
+        normalized_historic_stock = historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
 
         # after normalization, target saturation level is 1 across all regions and sectors.
         sat_level_bound = Bound(
@@ -188,6 +212,22 @@ class CommonModel:
             bound_list=[sat_level_bound, growth_rate_bound],
         )
 
+        if self.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            growth_rate_bound_gdp = Bound(
+                var_name="x1_growth_rate",
+                lower_bound=0,
+                upper_bound=np.inf,
+            )
+            growth_rate_bound_time = Bound(
+                var_name="x2_growth_rate",
+                lower_bound=0,
+                upper_bound=np.inf,
+            )
+            bound_list_obj = BoundList(
+                target_dims=self.dims[self.end_use_good_letter,],
+                bound_list=[sat_level_bound, growth_rate_bound_gdp, growth_rate_bound_time],
+            )
+
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
             historic_stocks=normalized_historic_stock,
@@ -196,12 +236,13 @@ class CommonModel:
             target_dim_letters="all",
             indep_fit_dim_letters=(self.end_use_good_letter,),
             bound_list=bound_list_obj,
+            lifetime=self.limit_lifetime(),
         )
         self.stock_handler.extrapolate()
 
         # denormalize
-        self.sector_specific_sat_level = sector_specific_sat_level
-        long_term_stock = self.stock_handler.stocks * sector_specific_sat_level
+        self.sector_specific_sat_level = sector_specific_sat_level * time_factor # to be used in visualization of extrapolation functions
+        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
 
         self.apply_scenario_factor(
             array=long_term_stock,

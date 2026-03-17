@@ -36,6 +36,8 @@ class ModelSwitches(RemindMFABaseModel):
     """Whether to perform stock extrapolation by good category."""
     regress_over: RegressOverModes
     """Variable to use as a predictor for stock extrapolation."""
+    do_stock_extrapolation_with_time_factor: bool = False
+    """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
     parameter_extrapolation: Optional[dict[str, str]] = None
     """Mapping of parameter names to extrapolation subclass names for parameter extrapolation from historical values into the future."""
 
@@ -98,6 +100,9 @@ class StockVisualizationCfg(BaseVisualizationCfg):
     accumulate_gdp: bool = False
     """Whether to accumulate GDPpC over time (i.e. do not allow decreasing GDPpC) for visualization purposes."""
 
+class ProductionVisualizationCfg(BaseVisualizationCfg):
+    per_capita: bool = False
+    """Whether to visualize production per capita."""
 
 class VisualizationCfg(BaseVisualizationCfg):
     figures_path: str
@@ -113,7 +118,7 @@ class VisualizationCfg(BaseVisualizationCfg):
 
     use_stock: StockVisualizationCfg
     """Visualization configuration for use stock."""
-    production: BaseVisualizationCfg
+    production: ProductionVisualizationCfg
     """Visualization configuration for production."""
     sankey: SankeyVisualizationCfg
     """Visualization configuration for sankey."""

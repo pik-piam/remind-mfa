@@ -86,10 +86,22 @@ class StockFitter(RemindMFABaseModel):
         Returns:
             np.ndarray: fitted parameters fot that good and region
         """
+        # for Regions with very low gdppc, the optimizer does not know which direction to go for minimizing the 0th order penalties since we are in a region where the Gompertz function is very flat
+        # we therefore vary the offset parameter to find a better starting point for the optimization.
+        # vary prms_0[1] (offset) between 0 and 1 in 0.1 steps. take the penalty for each. use the prms_0 with the lowest penalty as x0
+        x0 = prms_0.copy()  # avoid modifying the original initial parameters
+        penalties = []
+        n = 50
+        for offset in np.arange(0, 1.1, 1/n):
+            x0[1] = prms_0[1] + offset
+            penalties.append(self.penalty(historic, predictor, x0, prms_0))
+        min_penalty_idx = np.argmin(penalties)
+        x0[1] = prms_0[1] + np.arange(0, 1.1, 1/n)[min_penalty_idx]
+
         result = minimize(
             fun=lambda prms: self.penalty(historic, predictor, prms, prms_0),
             jac=lambda prms: self.jacobian(historic, predictor, prms, prms_0),
-            x0=prms_0,
+            x0=x0,
             tol=0.001,
         )
         if result.success:
@@ -115,6 +127,7 @@ class StockFitter(RemindMFABaseModel):
         """
         return (
             self.pen_data_0th_order(historic, predictor, prms)
+            + self.pen_data_0th_order(historic, predictor, prms, relative=True)
             + self.pen_data_1st_order(historic, predictor, prms)
             + self.pen_common(prms, prms_0)
         )
@@ -142,19 +155,26 @@ class StockFitter(RemindMFABaseModel):
         """
         return (
             self.dpen_data_0th_order(historic, predictor, prms)
+            + self.dpen_data_0th_order(historic, predictor, prms, relative=True)
             + self.dpen_data_1st_order(historic, predictor, prms)
             + self.dpen_common(prms, prms_0)
         )
 
-    def pen_data_0th_order(self, historic, predictor, prms):
+    def pen_data_0th_order(self, historic, predictor, prms, relative=False):
         """penalty for the absolute deviation of the fitted function from the last historic data
         points
         """
         last_x = self.last_hist(predictor)
         fit = self.extrapolation.func(last_x, prms)
         target = self.last_hist(historic)
-        return self.norm((fit - target)) * self.penalty_weights["data_0th_order"]
-
+        diff = fit - target
+        if relative: 
+            diff /= max(target, 1e-6)
+            prefix = "rel_"
+        else:
+            prefix = "" 
+        return self.norm(diff) * self.penalty_weights[f"{prefix}data_0th_order"]
+    
     def pen_data_1st_order(self, historic, predictor, prms):
         """penalty for the deviation of the slope of the fitted function from the slope of the
         historic data in the last historic data points (w.r.t. time).
@@ -163,17 +183,19 @@ class StockFitter(RemindMFABaseModel):
         target_slope = self.last_hist_slope(historic)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
 
-    def dpen_data_0th_order(self, historic, predictor, prms):
+    def dpen_data_0th_order(self, historic, predictor, prms, relative=False):
         """derivative of pen_data_0th_order with respect to prms"""
         last_x = self.last_hist(predictor)
         fit = self.extrapolation.func(last_x, prms)
         dfit = self.extrapolation.jacobian(last_x, prms)
         target = self.last_hist(historic)
-        return (
-            self.dnorm((fit - target))
-            * dfit
-            * self.penalty_weights["data_0th_order"]
-        )    
+        diff = fit - target
+        if relative:
+            diff /= max(target, 1e-2)**2
+            prefix = "rel_"
+        else:
+            prefix = ""
+        return self.dnorm(diff) * dfit * self.penalty_weights[f"{prefix}data_0th_order"]
 
     def dpen_data_1st_order(self, historic, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
@@ -209,22 +231,21 @@ class StockFitter(RemindMFABaseModel):
         # TODO: refine
         return arr[self._n_hist - 1]
 
-    def last_hist_slope(self, arr, n = 10):
-        """Calculate the average slope of the last n arr data points.
-        """
+    def last_hist_slope(self, arr, n=10):
+        """Calculate the average slope of the last n arr data points."""
         time = self.dims_out["t"].items
         start = self._n_hist - 1 - n
         end = self._n_hist - 1
         darr = arr[end] - arr[start]
         dtime = time[end] - time[start]
         return darr / dtime
-    
-    def first_future_slope(self, predictor, func, n = 10):
-        """Calculate the average slope of the fitted function in the first n future data points.
-        """
+
+    def first_future_slope(self, predictor, func, n=10):
+        """Calculate the average slope of the fitted function in the first n future data points."""
         time = self.dims_out["t"].items
         start = self._n_hist
         end = self._n_hist + n
         dfunc = func(predictor[end]) - func(predictor[start])
         dtime = time[end] - time[start]
         return dfunc / dtime
+  
