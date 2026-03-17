@@ -95,7 +95,6 @@ class StockExtrapolation(RemindMFABaseModel):
         Only the historic part, per capita, and so on
         """
         self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
-        self.historic_gdppc = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
         if self.additional_stock_data is not None:
             self.additional_stock_data_pc = fd.StockArray(dims=self.dims_out)
@@ -108,7 +107,6 @@ class StockExtrapolation(RemindMFABaseModel):
         self.gdppc = self.parameters["gdppc"]
         self.adapt_gdppc()
         self.historic_pop[...] = self.pop[{"t": self.dims["h"]}]
-        self.historic_gdppc[...] = self.gdppc[{"t": self.dims["h"]}]
         self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
         if self.additional_stock_data is not None:
             self.additional_stock_data_pc[...] = self.additional_stock_data / self.pop
@@ -374,7 +372,7 @@ class StockExtrapolation(RemindMFABaseModel):
             """Assuming time is the first dimension, calculate the average slope over the last n historical timesteps.
             If n is 1, this is the slope between the last two historical timesteps."""
             ydiff = y[last_history_idx, :] - y[last_history_idx - n, :]
-            xdiff = x[last_history_idx] - time[last_history_idx - n]
+            xdiff = x[last_history_idx] - x[last_history_idx - n]
             return ydiff / xdiff
 
         # offset of the 1st derivative at the transition point
@@ -409,8 +407,9 @@ class StockExtrapolation(RemindMFABaseModel):
         k = 4.74 / approaching_time
 
         # Critically damped system solution
-        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(
-            -k * delta_t
+        correction = (
+            (difference_0th + (difference_1st + k * difference_0th) * delta_t) 
+            * np.exp(-k * delta_t)
         )
 
         return prediction[...] + correction
