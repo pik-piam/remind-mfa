@@ -181,20 +181,21 @@ class CommonModel:
         # add static time-dependent penetration curve if desired.
         if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
             time_factor = fd.FlodymArray(
-                dims=self.dims["t", "g"],
-                values=np.ones((len(self.dims["t"].items), len(self.dims["g"].items))),
+                dims=self.dims["t", "r", "g"],
+                values=np.ones((len(self.dims["t"].items), len(self.dims["r"].items), len(self.dims["g"].items))),
             )
             time = np.array(self.dims["t"].items)
-            lifetime = self.limit_lifetime()  # shape (g,)
-            for g in self.dims[self.end_use_good_letter].items:
-                # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
-                # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
-                lt = lifetime[{self.end_use_good_letter: g}].values.item()
-                b = -1980.05 - lt
-                prms = [1, b, 0.02797]
-                time_factor[{self.end_use_good_letter: g}] = GompertzExtrapolation.func(
-                    None, time, prms
-                )
+            lifetime = self.limit_lifetime()  # shape (g, r)
+            for r in self.dims["r"].items:
+                for g in self.dims[self.end_use_good_letter].items:
+                    # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
+                    # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
+                    lt = lifetime[{'r': r, self.end_use_good_letter: g}].values.item()
+                    b = -1980.05 - lt
+                    prms = [1, b, 0.02797]
+                    time_factor[{'r': r, self.end_use_good_letter: g}] = GompertzExtrapolation.func(
+                        None, time, prms
+                    )
         else:
             time_factor = fd.FlodymArray.full(
                 dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1
