@@ -54,8 +54,9 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_model_to_pickle(self, model: "CommonModel"):
         material = model.cfg.model
         scenario = model.cfg.model_switches.scenario
-        datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"model_{material}_{scenario}_{datetime_str}.pickle"
+        region_mapping = model.cfg.input.region_mapping
+        datetime_str = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+        filename = f"model_{material}_{scenario}_{region_mapping}_{datetime_str}.pickle"
         export_path = self.export_path("pickle", filename)
         with open(export_path, "wb") as f:
             pickle.dump(model, f)
