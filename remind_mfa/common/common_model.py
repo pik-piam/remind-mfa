@@ -263,7 +263,8 @@ class CommonModel:
     def apply_scenario_factor(self, array: fd.FlodymArray, scen_prm_name: str) -> fd.FlodymArray:
         target_dims = array.dims.union_with(self.dims["t"])
         if isinstance(self.scenario_parameters[scen_prm_name], fd.FlodymArray):
-            target_dims = target_dims.union_with(self.scenario_parameters[scen_prm_name].dims)
+            if any(l not in array.dims.letters for l in self.scenario_parameters[scen_prm_name].dims.letters):
+                raise ValueError(f"Dimensions of scenario parameter {scen_prm_name} must also be present in the base parameter.")
 
         factor = blend(
             target_dims=target_dims,
