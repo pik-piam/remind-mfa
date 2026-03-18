@@ -39,6 +39,10 @@ class PlasticsModel(CommonModel):
             dims=self.dims["t", "r", "g"],
             values=self.parameters["lifetime_mean"].cast_to(self.dims["t", "r", "g"]).values,
         )
+        self.parameters["lifetime_std"] = fd.Parameter(
+            dims=self.dims["t", "r", "g"],
+            values=self.parameters["lifetime_std"].cast_to(self.dims["t", "r", "g"]).values,
+        )
         # Conversion Mt -> t
         # TODO: move to mrmfa
         self.parameters["primary_his_imports"][...] *= 1e6

@@ -44,7 +44,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.stocks["in_use_historic"].inflow[...] = self.flows["good_market => use"]
         self.stocks["in_use_historic"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}],
-            std=self.parameters["lifetime_std"],
+            std=self.parameters["lifetime_std"][{"t": self.dims["h"]}],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["in_use_historic"].lifetime_model.n_pts_per_interval = 10
