@@ -16,6 +16,7 @@ model_switches:
   parameter_extrapolation:
     clinker_ratio: 'ConstantExtrapolation'
     lifetime_mean: 'ConstantExtrapolation'
+    lifetime_std: 'ConstantExtrapolation'
     cement_trade: 'ZeroExtrapolation'
 
 visualization:

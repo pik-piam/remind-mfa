@@ -38,3 +38,7 @@ class CementModel(CommonModel):
     def modify_parameters(self):
         # copy/rename for use in common model
         self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]
+
+        lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
+        lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
+        self.parameters["lifetime_std"] = lifetime_std

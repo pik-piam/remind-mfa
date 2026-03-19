@@ -43,7 +43,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
-            std=prm["lifetime_rel_std"] * prm["lifetime_mean"],
+            std=prm["lifetime_std"],
         )
         stk["in_use"].compute()
 
