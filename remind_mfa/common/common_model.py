@@ -261,7 +261,8 @@ class CommonModel:
         return long_term_stock
 
     def apply_scenario_factor(self, array: fd.FlodymArray, scen_prm_name: str) -> fd.FlodymArray:
-        target_dims = array.dims.union_with(self.dims["t"])
+        time_letter = "h" if "h" in array.dims.letters else "t"
+        target_dims = array.dims.union_with(self.dims[time_letter])
         if isinstance(self.scenario_parameters[scen_prm_name], fd.FlodymArray):
             if any(l not in array.dims.letters for l in self.scenario_parameters[scen_prm_name].dims.letters):
                 raise ValueError(f"Dimensions of scenario parameter {scen_prm_name} must also be present in the base parameter.")
@@ -270,7 +271,7 @@ class CommonModel:
             target_dims=target_dims,
             y_lower=1,
             y_upper=self.scenario_parameters[scen_prm_name],
-            x="t",
+            x=time_letter,
             x_lower=self.dims["h"].items[-1],
             x_upper=self.scenario_parameters[f"{scen_prm_name}_year"],
         )
