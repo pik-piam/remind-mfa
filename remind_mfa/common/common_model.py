@@ -184,7 +184,13 @@ class CommonModel:
         if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
             time_factor = fd.FlodymArray(
                 dims=self.dims["t", "r", "g"],
-                values=np.ones((len(self.dims["t"].items), len(self.dims["r"].items), len(self.dims["g"].items))),
+                values=np.ones(
+                    (
+                        len(self.dims["t"].items),
+                        len(self.dims["r"].items),
+                        len(self.dims["g"].items),
+                    )
+                ),
             )
             time = np.array(self.dims["t"].items)
             lifetime = self.limit_lifetime()  # shape (g, r)
@@ -192,10 +198,10 @@ class CommonModel:
                 for g in self.dims[self.end_use_good_letter].items:
                     # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
                     # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
-                    lt = lifetime[{'r': r, self.end_use_good_letter: g}].values.item()
+                    lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
                     b = -1980.05 - lt
                     prms = [1, b, 0.02797]
-                    time_factor[{'r': r, self.end_use_good_letter: g}] = GompertzExtrapolation.func(
+                    time_factor[{"r": r, self.end_use_good_letter: g}] = GompertzExtrapolation.func(
                         None, time, prms
                     )
         else:
@@ -265,8 +271,13 @@ class CommonModel:
     def apply_scenario_factor(self, array: fd.FlodymArray, scen_prm_name: str) -> fd.FlodymArray:
         target_dims = array.dims.union_with(self.dims["t"])
         if isinstance(self.scenario_parameters[scen_prm_name], fd.FlodymArray):
-            if any(l not in array.dims.letters for l in self.scenario_parameters[scen_prm_name].dims.letters):
-                raise ValueError(f"Dimensions of scenario parameter {scen_prm_name} must also be present in the base parameter.")
+            if any(
+                l not in array.dims.letters
+                for l in self.scenario_parameters[scen_prm_name].dims.letters
+            ):
+                raise ValueError(
+                    f"Dimensions of scenario parameter {scen_prm_name} must also be present in the base parameter."
+                )
 
         factor = blend(
             target_dims=target_dims,
