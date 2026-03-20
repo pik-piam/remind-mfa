@@ -1,10 +1,7 @@
 import numpy as np
 import flodym as fd
-from copy import deepcopy
 
 from remind_mfa.common.data_blending import blend
-from remind_mfa.common.data_transformations import Bound, BoundList
-from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.steel.steel_export import SteelDataExporter
 from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
 from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
@@ -29,31 +26,46 @@ class SteelModel(CommonModel):
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
 
+    # TODO: unify, then delete
+    end_use_good_letter: str = "g"
+    historic_stock_name: str = "historic_in_use"
+
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
 
-        scalar_lifetime_factor = 1.1
+        lifetime_factor = blend(
+            target_dims=self.dims["t",],
+            y_lower=0.9,
+            y_upper=1.1,
+            x="t",
+            x_lower=1970,
+            x_upper=2020,
+            type="linear",
+        )
         add_assumption_doc(
             type="ad-hoc fix",
             name="overall lifetime factor",
-            value=scalar_lifetime_factor,
             description=(
-                "Factor multiplied to all lifetime means and standard deviations to match "
+                "Time-dependent factor multiplied to all lifetime means and standard deviations to match "
                 "historical scrap consumption. Standard deviation gets an additional increase "
                 "of 1.5 to smooth out unrealistic dips after rapid stock build-up"
             ),
         )
-        lifetime_factor = fd.Parameter(dims=self.dims["t", "r"])
-        lifetime_factor.values[...] = scalar_lifetime_factor
-        self.parameters["lifetime_factor"] = lifetime_factor
+        lifetime_factor_prm = fd.Parameter(dims=self.dims["t",])
+        lifetime_factor_prm[...] = lifetime_factor
+        self.parameters["lifetime_factor"] = lifetime_factor_prm
 
         self.parameters["lifetime_mean"] = fd.Parameter(
             dims=self.dims["t", "r", "g"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"]).values,
+            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"])
+            .cast_to(self.dims["t", "r", "g"])
+            .values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "g"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"]).values
+            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"])
+            .cast_to(self.dims["t", "r", "g"])
+            .values
             * 1.5,
         )
         construction_lifetime_factor = 1.2
@@ -74,6 +86,10 @@ class SteelModel(CommonModel):
         self.parameters["lifetime_std"]["Construction"] = (
             self.parameters["lifetime_std"]["Construction"] * construction_lifetime_factor
         )
+        self.parameters["recovery_rate"] = fd.Parameter(
+            dims=self.dims["r", "g"],
+            values=self.parameters["recovery_rate"].cast_to(self.dims["r", "g"]).values * 0.85,
+        )
 
         add_assumption_doc(
             type="ad-hoc fix",
@@ -86,10 +102,10 @@ class SteelModel(CommonModel):
         scrap_rate_factor = blend(
             target_dims=self.dims["t",],
             y_lower=1.4,
-            y_upper=0.8,
+            y_upper=0.75,
             x="t",
-            x_lower=1980,
-            x_upper=2010,
+            x_lower=1970,
+            x_upper=2020,
             type="linear",
         )
         self.parameters["forming_yield"] = fd.Parameter(
@@ -102,142 +118,61 @@ class SteelModel(CommonModel):
             dims=self.dims["t", "g"],
             values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
         )
+        self.parameters["sector_split_high"]["Products"] *= 1.5
+        self.parameters["sector_split_high"][...] = self.parameters[
+            "sector_split_high"
+        ].get_shares_over("g")
 
-    def get_long_term_stock(self) -> fd.FlodymArray:
-        indep_fit_dim_letters = (
-            ("g",) if self.cfg.model_switches.do_stock_extrapolation_by_category else ()
-        )
-        historic_stocks = self.historic_mfa.stocks["historic_in_use"].stock
-        sat_level = self.get_saturation_level(historic_stocks)
-        sat_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=sat_level,
-            upper_bound=sat_level,
-            dims=self.dims[indep_fit_dim_letters],
-        )
-        bound_list = BoundList(
-            bound_list=[
-                sat_bound,
-            ],
-            target_dims=self.dims[indep_fit_dim_letters],
-        )
+        self.calc_sector_split()
+        self.parameters["aggregate_fabrication_yield"] = fd.Parameter(dims=self.dims["t", "r"])
+        self.parameters["aggregate_fabrication_yield"][...] = (
+            self.parameters["fabrication_yield"] * self.parameters["sector_split"]
+        ).sum_over("g")
 
+    def calc_sector_split(self) -> fd.FlodymArray:
+        """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""
+        target_dims = self.dims["t", "r", "g"]
+        self.parameters["sector_split"] = fd.Parameter(dims=target_dims, name="sector_split")
+        sector_split_1 = fd.Parameter(dims=target_dims)
+        sector_split_2 = fd.Parameter(dims=target_dims)
+        log_gdppc = self.parameters["gdppc"].apply(np.log)
+        log_gdppc_low = self.parameters["secsplit_gdppc_low"].apply(np.log)
+        log_gdppc_high = self.parameters["secsplit_gdppc_high"].apply(np.log)
         add_assumption_doc(
-            type="ad-hoc fix",
-            name="stock saturation level factor",
+            type="expert guess",
+            name="medium sector split",
             description=(
-                "Region-dependent factor multiplied to regressed saturation level to keep future "
-                "steel demand in line with other literature sources."
+                "Demand sector split for medium GDP per capita, to account for higher construction "
+                "share in medium GDP. Roughly based on given source, but adapted."
             ),
+            source="https://steel.gov.in/sites/default/files/2025-03/GSI%20Report.pdf",
         )
-        add_assumption_doc(
-            type="ad-hoc fix",
-            name="stock growth speed factor",
-            description=(
-                "Region-dependent factor multiplied to regressed stock growth speed to prevent "
-                "rapid increase in steel demand and continue historical trends."
-            ),
-        )
-        # scale stocks (y) and gdp (x) to get different vertical and horizontal scalings with just
-        # one regression:
-        # divide by factor, then regress, then multiply again, which is equivalent to
-        # multiplying targets by this factor
-        historic_stocks = historic_stocks / self.parameters["saturation_level_factor"]
-        gdppc_old = deepcopy(self.parameters["gdppc"])
-        self.parameters["gdppc"] = self.parameters["gdppc"] ** self.parameters[
-            "stock_growth_speed_factor"
-        ] * self.parameters["gdppc"][{"t": 2022}] ** (
-            1.0 - self.parameters["stock_growth_speed_factor"]
+        log_gddpc_medium = (log_gdppc_low + log_gdppc_high) / 2
+
+        sector_split_1[...] = blend(
+            target_dims=target_dims,
+            y_lower=self.parameters["sector_split_low"],
+            y_upper=self.parameters["sector_split_medium"],
+            x=log_gdppc,
+            x_lower=log_gdppc_low,
+            x_upper=log_gddpc_medium,
+            type="poly_mix",
         )
 
-        # extrapolate in use stock to future
-        self.stock_handler = StockExtrapolation(
-            cfg=self.cfg.model_switches,
-            historic_stocks=historic_stocks,
-            dims=self.dims,
-            parameters=self.parameters,
-            target_dim_letters=(
-                "all" if self.cfg.model_switches.do_stock_extrapolation_by_category else ("t", "r")
-            ),
-            indep_fit_dim_letters=indep_fit_dim_letters,
-            bound_list=bound_list,
+        sector_split_2[...] = blend(
+            target_dims=target_dims,
+            y_lower=self.parameters["sector_split_medium"],
+            y_upper=self.parameters["sector_split_high"],
+            x=log_gdppc,
+            x_lower=log_gddpc_medium,
+            x_upper=log_gdppc_high,
+            type="poly_mix",
         )
-        total_in_use_stock = self.stock_handler.stocks
+        # copy/rename for use in common model
+        self.parameters["sector_split_limit"] = self.parameters["sector_split_high"]
 
-        # scale back stocks and gdp
-        total_in_use_stock = total_in_use_stock * self.parameters["saturation_level_factor"]
-        self.parameters["gdppc"] = gdppc_old
-
-        if not self.cfg.model_switches.do_stock_extrapolation_by_category:
-            # calculate and apply sector splits for in use stock
-            sector_splits = self.calc_stock_sector_splits()
-            total_in_use_stock = total_in_use_stock * sector_splits
-        return total_in_use_stock
-
-    def get_saturation_level(self, historic_stocks: fd.StockArray):
-        pop = self.parameters["population"]
-        gdppc = self.parameters["gdppc"]
-        historic_pop = pop[{"t": self.dims["h"]}]
-        historic_stocks_pc = historic_stocks.sum_over("g") / historic_pop
-
-        multi_dim_extrapolation = self.cfg.model_switches.stock_extrapolation_class(
-            data_to_extrapolate=historic_stocks_pc.values,
-            predictor_values=np.log10(gdppc.values),
-            independent_dims=(),
+        mask = log_gdppc.cast_values_to(target_dims) < log_gddpc_medium.cast_values_to(target_dims)
+        self.parameters["sector_split"].values = np.where(
+            mask, sector_split_1.values, sector_split_2.values
         )
-        multi_dim_extrapolation.regress()
-        saturation_level = multi_dim_extrapolation.fit_prms[0]
-
-        if self.cfg.model_switches.do_stock_extrapolation_by_category:
-            high_stock_sector_split = self.get_high_stock_sector_split()
-            saturation_level = saturation_level * high_stock_sector_split.values
-
-        saturation_level_factor = 0.75
-        add_assumption_doc(
-            type="ad-hoc fix",
-            name="saturation level factor",
-            value=saturation_level_factor,
-            description=(
-                "Factor multiplied to regressed saturation level to reduce future steel demand "
-                "in line with other literature sources."
-            ),
-        )
-        saturation_level *= saturation_level_factor
-
-        return saturation_level
-
-    def get_high_stock_sector_split(self):
-        prm = self.parameters
-        last_lifetime = prm["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
-        last_gdppc = prm["gdppc"][{"t": self.dims["t"].items[-1]}]
-        av_lifetime = (last_lifetime * last_gdppc).sum_over("r") / last_gdppc.sum_over("r")
-        high_stock_sector_split = (av_lifetime * prm["sector_split_high"]).get_shares_over("g")
-        return high_stock_sector_split
-
-    def calc_stock_sector_splits(self):
-        historical_sector_splits = self.historic_mfa.stocks[
-            "historic_in_use"
-        ].stock.get_shares_over("g")
-        prm = self.parameters
-        sector_split_high = self.get_high_stock_sector_split()
-        sector_split_theory = blend(
-            target_dims=self.dims["t", "r", "g"],
-            y_lower=prm["sector_split_low"],
-            y_upper=sector_split_high,
-            x=prm["gdppc"].apply(np.log),
-            x_lower=float(np.log(1000)),
-            x_upper=float(np.log(100000)),
-        )
-        last_historical = historical_sector_splits[{"h": self.dims["h"].items[-1]}]
-        historical_extrapolated = last_historical.cast_to(self.dims["t", "r", "g"])
-        historical_extrapolated[{"t": self.dims["h"]}] = historical_sector_splits
-        sector_splits = blend(
-            target_dims=self.dims["t", "r", "g"],
-            y_lower=historical_extrapolated,
-            y_upper=sector_split_theory,
-            x="t",
-            x_lower=self.dims["h"].items[-1],
-            x_upper=self.dims["t"].items[-1],
-            type="converge_quadratic",
-        )
-        return sector_splits
+        return

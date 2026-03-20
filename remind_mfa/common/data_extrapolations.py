@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional, Tuple
+from typing import Optional, Tuple, ClassVar, Type
 import numpy as np
 import sys
 from pydantic import model_validator
@@ -27,7 +27,7 @@ class Extrapolation(RemindMFABaseModel):
     """Bounds for the parameters to be fitted. Defaults to no bounds."""
     independent_dims: Tuple[int, ...] = ()
     """Indizes for dimensions across which to regress independently. Other dimensions are regressed commonly."""
-    prm_names: list[str] = []
+    prm_names: ClassVar[list[str]] = []
     """Names of the parameters to be fitted. Set in subclasses."""
     _fit_prms: np.ndarray = PrivateAttr(default=None)
     """Optimized parameters after regression (set by calling regress())."""
@@ -119,7 +119,7 @@ class Extrapolation(RemindMFABaseModel):
         predictor_shape = tuple(
             [self.predictor_values.shape[i] for i in sorted(self.independent_dims)]
         )
-        regression = np.zeros_like(self.predictor_values)
+        regression = np.zeros(self.predictor_values.shape, dtype=float)
         self._fit_prms = np.zeros(predictor_shape + (self.n_prms,))
         bounds_array = self.bound_list.to_np_array(self.prm_names)
 
@@ -179,7 +179,7 @@ class Extrapolation(RemindMFABaseModel):
 
 class ProportionalExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["proportionality_factor"]
+    prm_names: ClassVar[list[str]] = ["proportionality_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -191,7 +191,7 @@ class ProportionalExtrapolation(Extrapolation):
 
 class PehlExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -208,7 +208,7 @@ class PehlExtrapolation(Extrapolation):
 
 class ExponentialSaturationExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
     def func(x, prms):
@@ -226,7 +226,7 @@ class ExponentialSaturationExtrapolation(Extrapolation):
 
 class LogisticExtrapolation(Extrapolation):
 
-    prm_names: list[str] = ["saturation_level", "stretch_factor", "x_offset"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor", "x_offset"]
 
     @staticmethod
     def func(x, prms):
@@ -240,3 +240,171 @@ class LogisticExtrapolation(Extrapolation):
         max_predictor = np.max(predictor_values)
         stretch_factor = 2 / (max_predictor - mean_predictor)
         return np.array([sat_level_guess, stretch_factor, mean_predictor])
+
+
+class TwoPredictorExtrapolation(Extrapolation):
+    """
+    Base class for extrapolations with two predictors.
+    Mainly used for classification of these subclasses.
+    """
+
+    # point to the corresponding single-predictor class (override in subclasses)
+    single_predictor_cls: ClassVar[Optional[Type[Extrapolation]]] = None
+
+    def check_predictor(self, x):
+        x2 = x["x2"]
+        assert (
+            x2 is not None
+        ), f"{type(self).__name__} requires a secondary predictor with field name 'x2', but it was not found in the predictor values."
+
+    def selective_product(self, key: str, factors: dict):
+        if key is None:
+            # product of all factor values
+            return np.prod(list(factors.values()), axis=0)
+        elif key in factors:
+            return factors[key]
+        else:
+            raise ValueError(
+                f"Invalid factor key: {key}. Valid keys are: {list(factors.keys())} or None for product of all factors."
+            )
+
+
+class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
+    """
+    Two-predictor logistic-style extrapolation:
+    model: A * f_x1(x1; k_x1, x1_0) * f_x2(x2; k_x2, x2_0)
+    Prm order: [saturation_level (A), k_x1, x1_0, k_x2, x2_0]
+    """
+
+    single_predictor_cls = LogisticExtrapolation
+
+    prm_names: ClassVar[list[str]] = [
+        "saturation_level",
+        "x1_stretch_factor",
+        "x1_offset",
+        "x2_stretch_factor",
+        "x2_offset",
+    ]
+
+    def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
+        self.check_predictor(x)
+        a, k_x1, x1_0, k_x2, x2_0 = prms
+        x1, x2 = x["x1"], x["X2"]
+
+        f1 = np.ones_like(x1) * a
+        f2 = 1.0 / (1.0 + np.exp(-k_x1 * (x1 - x1_0)))
+        f3 = 1.0 / (1.0 + np.exp(-k_x2 * (x2 - x2_0)))
+        factors = {"f1": f1, "f2": f2, "f3": f3}
+        return self.selective_product(factor, factors)
+
+    def initial_guess(
+        self,
+        predictor_values: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+    ) -> np.ndarray:
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2.0 * max_level
+
+        mean_x1 = np.mean(predictor_values["x1"][: self.n_historic, ...])
+        max_x1 = np.max(predictor_values["x1"][: self.n_historic, ...])
+        k_x1_guess = 2.0 / (max_x1 - mean_x1)
+
+        mean_x2 = np.mean(predictor_values["x2"][: self.n_historic, ...])
+        max_x2 = np.max(predictor_values["x2"][: self.n_historic, ...])
+        k_x2_guess = 2.0 / (max_x2 - mean_x2)
+
+        return np.array([sat_level_guess, k_x1_guess, mean_x1, k_x2_guess, mean_x2])
+
+
+class GompertzExtrapolation(Extrapolation):
+    """
+    Gompertz extrapolation:
+    Prm order: [saturation_level, offset, growth_rate]
+    In this parameterization,
+    - the offset shifts the curve horizontally, setting the half-point (50% saturation) at x = -offset,
+    - and the growth_rate controls the steepness of the curve.
+    The maximum derivative (at the inflection point) is exactly equal to: saturation_level * growth_rate / e.
+    """
+
+    prm_names: ClassVar[list[str]] = [
+        "saturation_level",
+        "offset",
+        "growth_rate",
+    ]
+
+    def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        """
+        x : structured array with fields 'x1' and 'x2'
+        """
+        a, b, c = prms[:3]
+        inner = np.clip(-c * (x + b), -500, 500)
+        return a * np.exp(-np.exp(inner) * np.log(2))
+
+    def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        a, b, c = prms[:3]
+        f = self.func(x, prms)
+        if f == 0:
+            return np.zeros(3)
+        # Use log(f/a) = -exp(-c*(x+b))*log(2) to avoid intermediate overflow
+        log_f_over_a = np.log(f / a)
+        da = f / a
+        db = -f * c * log_f_over_a
+        dc = -f * (x + b) * log_f_over_a
+        return np.stack([da, db, dc], axis=-1)
+
+    def initial_guess(
+        self,
+        predictor_values: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+    ) -> np.ndarray:
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2.0 * max_level
+
+        c_guess = 1
+        b_guess = 1
+        return np.array([sat_level_guess, b_guess, c_guess])
+
+
+class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
+    """
+    Two-predictor Gompertz extrapolation:
+    model: a * f_x1 * f_x2
+    Prm order: [saturation_level (a), b_x1, c_x1, b_x2, c_x2]
+    """
+
+    single_predictor_cls = GompertzExtrapolation
+
+    prm_names: ClassVar[list[str]] = [
+        "saturation_level",
+        "x1_offset",
+        "x1_growth_rate",
+        "x2_offset",
+        "x2_growth_rate",
+    ]
+
+    def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
+        self.check_predictor(x)
+        a, b_x1, c_x1, b_x2, c_x2 = prms
+        x1, x2 = x["x1"], x["x2"]
+
+        f1 = np.ones_like(x1) * a
+        f2 = np.exp(-np.exp(np.clip(-c_x1 * (x1 + b_x1), -500, 500)) * np.log(2))
+        f3 = np.exp(-np.exp(np.clip(-c_x2 * (x2 + b_x2), -500, 500)) * np.log(2))
+        factors = {"f1": f1, "f2": f2, "f3": f3}
+        return self.selective_product(factor, factors)
+
+    def initial_guess(
+        self,
+        predictor_values: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+    ) -> np.ndarray:
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2.0 * max_level
+
+        c_x1_guess = 1
+        b_x1_guess = 1
+
+        c_x2_guess = 1
+        b_x2_guess = 1
+
+        return np.array([sat_level_guess, b_x1_guess, c_x1_guess, b_x2_guess, c_x2_guess])

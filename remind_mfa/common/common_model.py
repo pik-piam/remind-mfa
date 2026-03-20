@@ -1,4 +1,5 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
@@ -11,6 +12,12 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import get_definition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
+from remind_mfa.common.data_transformations import Bound, BoundList
+from remind_mfa.common.data_blending import blend
+from remind_mfa.common.stock_extrapolation import StockExtrapolation
+from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.data_extrapolations import GompertzExtrapolation
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 
 
 class CommonModel:
@@ -25,25 +32,35 @@ class CommonModel:
     custom_scn_prm_def = []
     get_definition = staticmethod(get_definition)
 
+    # TODO: unify, then delete
+    end_use_good_letter: str = None
+    historic_stock_name: str = None
+
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
         self.set_definition()
         self.read_data()
         self.read_scenario_parameters()
+        self.select_gdp_pop_scen()
         self.modify_parameters()
         self.init_export_and_visualization()
 
     def run(self):
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
+        self.transfer_historic_parameters()
 
         historic_trade = self.historic_mfa.trade_set
-        stock_projection = self.get_long_term_stock()
 
         # apply scenarios to parameters for future mfa
+        # 1. extend historic parameters into future
         self.parameters = ParameterExtrapolationManager(
             self.cfg, self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
+        # 2. adjust future parameters based on scenario
+        self.apply_scenario_adjustments_to_parameters()
+
+        stock_projection = self.get_long_term_stock()
 
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(stock_projection, historic_trade)
@@ -63,21 +80,30 @@ class CommonModel:
             cfg=self.cfg,
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
-            allow_missing_values=True,
+            allow_missing_values=True,  # needed for at least steel scrap data
+            allow_extra_values=False,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
 
+    def select_gdp_pop_scen(self):
+        """Select GDP and population scenario parameters based on scenario name"""
+        scen_name = self.scenario_parameters["gdp_pop_scen"]
+        for prm_name in ["gdppc", "population"]:
+            slice = self.parameters[prm_name][{"S": scen_name}]
+            self.parameters[prm_name] = fd.Parameter(dims=self.dims["t", "r"])
+            self.parameters[prm_name][...] = slice
+
     def read_scenario_parameters(self):
-        parameter_definitions = common_scn_prm_def + self.custom_scn_prm_def
+        scn_prm_def = common_scn_prm_def + self.custom_scn_prm_def
         scenario_reader = ScenarioReader(
             name=self.cfg.model_switches.scenario,
             base_path=self.cfg.input.scenarios_path,
             model=self.cfg.model,
             dims=self.dims,
-            parameter_definitions=parameter_definitions,
+            parameter_definitions=scn_prm_def,
         )
         self.scenario_parameters = scenario_reader.get_parameters()
 
@@ -85,8 +111,18 @@ class CommonModel:
         """Manual changes to parameters"""
         pass
 
-    def get_long_term_stock(self):
-        raise NotImplementedError
+    def apply_scenario_adjustments_to_parameters(self):
+        """Apply scenario adjustments to parameters"""
+        # lifetime:
+        for prm_name in ["lifetime_mean", "lifetime_std"]:
+            self.apply_scenario_factor(
+                array=self.parameters[prm_name],
+                scen_prm_name="lifetime_factor",
+            )
+
+    def transfer_historic_parameters(self):
+        """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""
+        pass
 
     def init_export_and_visualization(self):
         display_names = self.DisplayNamesCls()
@@ -100,16 +136,6 @@ class CommonModel:
         )
 
     def make_mfa(self, historic: bool) -> CommonMFASystem:
-        """
-        Splitting production and direct trade by IP sector splits, and indirect trade by category trade sector splits (s. step 3)
-        subtracting Losses in steel forming from production by IP data
-        adding direct trade by IP to production by IP
-        transforming that to production by category via some distribution assumptions
-        subtracting losses in steel fabrication (transformation of IP to end use products)
-        adding indirect trade by category
-        This equals the inflow into the in use stock
-        via lifetime assumptions I can calculate in use stock from inflow into in use stock and lifetime
-        """
         if historic:
             definition = self.definition_historic
             mfasystem_class = self.HistoricMFASystemCls
@@ -142,3 +168,128 @@ class CommonModel:
             stocks=stocks,
             trade_set=trade_set,
         )
+
+    def get_stock_sector_split_limit(self):
+        prm = self.parameters
+        stock_sector_split = (self.limit_lifetime() * prm["sector_split_limit"]).get_shares_over(
+            self.end_use_good_letter
+        )
+        return stock_sector_split
+
+    def get_long_term_stock(self) -> fd.FlodymArray:
+        saturation_level = self.scenario_parameters["saturation_level"]
+        sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
+
+        # add static time-dependent penetration curve if desired.
+        if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
+            time_factor = fd.FlodymArray(
+                dims=self.dims["t", "r", "g"],
+                values=np.ones(
+                    (
+                        len(self.dims["t"].items),
+                        len(self.dims["r"].items),
+                        len(self.dims["g"].items),
+                    )
+                ),
+            )
+            time = np.array(self.dims["t"].items)
+            lifetime = self.limit_lifetime()  # shape (g, r)
+            for r in self.dims["r"].items:
+                for g in self.dims[self.end_use_good_letter].items:
+                    # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
+                    # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
+                    lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
+                    b = -1980.05 - lt
+                    prms = [1, b, 0.02797]
+                    time_factor[{"r": r, self.end_use_good_letter: g}] = GompertzExtrapolation.func(
+                        None, time, prms
+                    )
+        else:
+            time_factor = fd.FlodymArray.full(
+                dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1
+            )
+
+        historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
+        normalized_historic_stock = (
+            historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
+        )
+
+        # after normalization, target saturation level is 1 across all regions and sectors.
+        sat_level_bound = Bound(
+            var_name="saturation_level",
+            lower_bound=1,
+            upper_bound=1,
+        )
+        growth_rate_bound = Bound(
+            var_name="growth_rate",
+            lower_bound=0,
+            upper_bound=np.inf,
+        )
+        bound_list_obj = BoundList(
+            target_dims=self.dims[self.end_use_good_letter,],
+            bound_list=[sat_level_bound, growth_rate_bound],
+        )
+
+        if self.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
+            growth_rate_bound_gdp = Bound(
+                var_name="x1_growth_rate",
+                lower_bound=0,
+                upper_bound=np.inf,
+            )
+            growth_rate_bound_time = Bound(
+                var_name="x2_growth_rate",
+                lower_bound=0,
+                upper_bound=np.inf,
+            )
+            bound_list_obj = BoundList(
+                target_dims=self.dims[self.end_use_good_letter,],
+                bound_list=[sat_level_bound, growth_rate_bound_gdp, growth_rate_bound_time],
+            )
+
+        self.stock_handler = StockExtrapolation(
+            cfg=self.cfg.model_switches,
+            historic_stocks=normalized_historic_stock,
+            dims=self.dims,
+            parameters=self.parameters,
+            target_dim_letters="all",
+            indep_fit_dim_letters=(self.end_use_good_letter,),
+            bound_list=bound_list_obj,
+            lifetime=self.limit_lifetime(),
+        )
+        self.stock_handler.extrapolate()
+
+        # denormalize
+        self.sector_specific_sat_level = (
+            sector_specific_sat_level * time_factor
+        )  # to be used in visualization of extrapolation functions
+        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
+
+        self.apply_scenario_factor(array=long_term_stock, scen_prm_name="stock_factor")
+
+        return long_term_stock
+
+    def apply_scenario_factor(self, array: fd.FlodymArray, scen_prm_name: str) -> fd.FlodymArray:
+        target_dims = array.dims.union_with(self.dims["t"])
+        if isinstance(self.scenario_parameters[scen_prm_name], fd.FlodymArray):
+            if any(
+                l not in array.dims.letters
+                for l in self.scenario_parameters[scen_prm_name].dims.letters
+            ):
+                raise ValueError(
+                    f"Dimensions of scenario parameter {scen_prm_name} must also be present in the base parameter."
+                )
+
+        factor = blend(
+            target_dims=target_dims,
+            y_lower=1,
+            y_upper=self.scenario_parameters[scen_prm_name],
+            x="t",
+            x_lower=self.dims["h"].items[-1],
+            x_upper=self.scenario_parameters[f"{scen_prm_name}_year"],
+        )
+        array[...] *= factor
+
+    def limit_lifetime(self):
+        """Effective lifetime when saturation level is reached.
+        Currently, this is just the last modelled lifetime."""
+        return self.parameters["lifetime_mean"][{"t": self.dims["t"].items[-1]}]

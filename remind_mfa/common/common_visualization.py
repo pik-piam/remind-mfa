@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 import plotly.colors as plc
@@ -11,6 +12,10 @@ import flodym.export as fde
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
+from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
+from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
+from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -39,6 +44,8 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
+        # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
+        # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
     def visualize_custom(self, model: "CommonModel"):
         """To be overwritten by model subclasses"""
@@ -145,7 +152,7 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(
             ap_scatter_stock,
-            f"stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
+            f"stocks_global_by_region{'_and_' + subplot_dim if subplot_dim is not None else ''}{'_per_capita' if per_capita else ''}.png",
             do_plot=False,
         )
 
@@ -163,7 +170,7 @@ class CommonVisualizer(RemindMFABaseModel):
         **kwargs,
     ):
 
-        colors = plc.qualitative.Dark24
+        colors = plc.qualitative.Dark24 * 20
         if linecolor_dim:
             dimletter = next(
                 dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
@@ -241,3 +248,81 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap.plot()
 
         return fig, ap
+
+    def _get_regional_vs_global_params(self, regional: bool):
+        if regional:
+            subplot_dim = {"subplot_dim": "Region"}
+            summing_func = lambda l: l
+            name_str = "regional"
+        else:
+            subplot_dim = {}
+            summing_func = lambda l: l.sum_over("r")
+            name_str = "global"
+        return subplot_dim, summing_func, name_str
+
+    def visualize_extrapolation_functions(
+        self, model: "CommonModel", stock_handler: StockExtrapolation
+    ):
+        regional = "r" in stock_handler.indep_fit_dim_letters
+        subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
+        if goods_dim_letter := set(stock_handler.indep_fit_dim_letters) - set(("r")):
+            assert (
+                len(goods_dim_letter) == 1
+            ), "Only one non-region dimension supported in extrapolation visualization"
+            linecolor_dim = model.dims[goods_dim_letter.pop()].name
+        else:
+            linecolor_dim = None
+        extrapolation = stock_handler.extrapolation
+        fit_prms = extrapolation.fit_prms
+
+        log_gdppc = np.log10(stock_handler.gdppc.values)
+        gdppc = np.logspace(np.min(log_gdppc), np.max(log_gdppc), model.dims["t"].len)
+        gdppc = broadcast_trailing_dimensions(gdppc, stock_handler.dims_out)
+        predictor = stock_handler.get_predictor(gdppc)
+
+        def to_flodym(np_array, name=None):
+            fda = fd.FlodymArray(dims=stock_handler.dims_out, values=np_array, name=name)
+            if not regional:
+                first_region = model.dims["r"].items[0]
+                fda = fda[first_region]
+            return fda
+
+        prms = [fit_prms[np.newaxis, ..., i] for i in range(extrapolation.n_prms)]
+
+        if isinstance(extrapolation, TwoPredictorExtrapolation):
+            # see loop below for purposes of the list entries
+            factors = [
+                ["f1", "Saturation level", "x2", "Time"],
+                ["f2", "Growth over GDP", "x1", "log10(GDPpC)"],
+                ["f3", "Growth over Time", "x2", "Time"],
+            ]
+        else:
+            factors = [
+                [None, "Growth", None, stock_handler.cfg.regress_over],
+            ]
+
+        for factor_name, title, predictor_key, predictor_name in factors:
+            kwargs = {} if factor_name is None else {"factor": factor_name}
+            values = extrapolation.func(predictor, prms, **kwargs)
+            array = to_flodym(values, name=factor_name)
+            if predictor_key:
+                x_array = predictor[predictor_key]
+            else:
+                x_array = predictor
+            x_array = to_flodym(x_array, predictor_name)
+
+            ap = self.plotter_class(
+                array=array,
+                intra_line_dim="Time",
+                title=title,
+                x_array=x_array,
+                linecolor_dim=linecolor_dim,
+                **subplot_dim,
+            )
+            fig = ap.plot()
+
+            self.plot_and_save_figure(
+                ap,
+                f"regression_function_{factor_name}_{regional_str}",
+                do_plot=False,
+            )

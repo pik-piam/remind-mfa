@@ -1,109 +1,309 @@
+import sys
 import numpy as np
 import flodym as fd
+from pydantic import model_validator, ConfigDict
 
-from remind_mfa.common.data_extrapolations import ProportionalExtrapolation
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
+from remind_mfa.common.helpers import RemindMFABaseModel
 
 
-def extrapolate_trade(
-    historic_trade: Trade,
-    future_trade: Trade,
-    scaler: fd.FlodymArray,
-    scale_first: str,
-    balance_to: str = None,
-):
-    """Predict future trade values by extrapolating the trade data using a given scaler.
+class TradeExtrapolator(RemindMFABaseModel):
+    """Predict future trade values by extrapolating the trade data using a given scaler."""
 
-    Args:
-        historic_trade (Trade): Historic trade data.
-        future_trade (Trade): Future trade data, which is written to.
-        scaler (FlodyArray): The array with the values to scale the historic trade data by.
-        scale_first (str): Either 'imports' or 'exports', indicating which trade values to scale first and
-            use as a scaler for the other trade values (scale_second).
-        balance_to (str): Method to use for balancing the future trade data. If None, no balancing is done.
-            For valid options, see trade object documentation.
+    model_config = ConfigDict(extra="allow")
+
+    historic_trade: Trade
+    """historic_trade (Trade): Historic trade data."""
+    future_trade: Trade
+    """future_trade (Trade): Future trade data, which is written to."""
+    future_dom_supply: fd.FlodymArray = None
+    """future_dom_supply (FlodymArray): The domestic supply values to scale the historic exports by.
+    Setting this means calculating trade in forward mode
     """
-
-    # prepare prediction
-    assert scale_first in ["imports", "exports"], "Scale by must be either 'imports' or 'exports'."
-    assert (
-        "h" in historic_trade.imports.dims.letters and "h" in historic_trade.exports.dims.letters
-    ), "Trade data must have a historic time dimension."
-
-    scale_second = "exports" if scale_first == "imports" else "imports"
-    historic_first = getattr(historic_trade, scale_first)
-    historic_second = getattr(historic_trade, scale_second)
-    future_first = getattr(future_trade, scale_first)
-    future_second = getattr(future_trade, scale_second)
-    # TODO: make sure future_trade dims are a subset of the union of the dims of the scaler and the historic trade
-
-    missing_dims = scaler.dims.difference_with(historic_trade.imports.dims).letters[1:]
-
-    if len(missing_dims) > 0:
-        with np.errstate(divide="ignore"):
-            historic_first *= (
-                scaler[{"t": historic_first.dims["h"]}]
-                .get_shares_over(missing_dims)
-                .apply(np.nan_to_num)
-            )
-            historic_second *= (
-                scaler[{"t": historic_second.dims["h"]}]
-                .get_shares_over(missing_dims)
-                .apply(np.nan_to_num)
-            )
-
-    future_first[...] = extrapolate_to_future(historic=historic_first, scale_by=scaler)
-    future_second[...] = 0.0
-
-    # TODO: Ensure share < 1 already in extrapolation?
-    scaler_second = (scaler + future_trade.net_imports).maximum(0)
-    future_second[...] = extrapolate_to_future(historic=historic_second, scale_by=scaler_second)
-
-    # balance
-    if balance_to is not None:
-        future_trade.balance(to=balance_to)
-
-    # can't import more than what is demanded; can't export more than what is supplied.
-    future_first[...] = future_first.minimum(scaler)
-    future_trade.balance(to="minimum")
-
-
-def extrapolate_to_future(historic: fd.FlodymArray, scale_by: fd.FlodymArray) -> fd.FlodymArray:
-    """Uses the WeightedProportionalExtrapolation, basically a linear regression
-    so that the share of the historic trade in the scaler is kept constant
+    future_dom_demand: fd.FlodymArray = None
+    """future_dom_demand (FlodymArray): The domestic demand values to scale the historic imports by.
+    Setting this means calculating trade in backward mode
     """
-    if not historic.dims.letters[0] == "h":
-        raise ValueError("First dimension of historic_parameter must be historic time.")
-    if not scale_by.dims.letters[0] == "t":
-        raise ValueError("First dimension of scaler must be time.")
-    if not set(scale_by.dims.letters[1:]).issubset(historic.dims.letters[1:]):
-        raise ValueError("Scaler dimensions must be subset of historic_parameter dimensions.")
+    alpha_rel: float = 2 / 3
+    """Exponent with which increases in the scaler are applied to the trade.
+    (reductions are always applied linearly)
+    1 means linear scaling, <1 means sub-linear scaling, 0 means temporally constant trade.
+    """
+    _eps: float = 1e-6
+    """Small value to avoid division by zero and to check for near-zero values in the data."""
 
-    all_dims = historic.dims.union_with(scale_by.dims)
-    dim_letters_out = ("t",) + historic.dims.letters[1:]
-    dims_out = all_dims[dim_letters_out]
+    @model_validator(mode="after")
+    def validate_inputs(self):
+        if (self.future_dom_supply is None) == (self.future_dom_demand is None):
+            raise ValueError("Exactly one of future_dom_supply or future_dom_demand must be set.")
+        if "t" not in (self.future_dom_demand or self.future_dom_supply).dims.letters:
+            raise ValueError("Future domestic demand or supply must have a (full) time dimension.")
+        if "h" not in self.historic_trade.imports.dims:
+            raise ValueError("Historic trade data must have a historic time dimension.")
+        if "t" not in self.future_trade.imports.dims:
+            raise ValueError("Historic trade data must have a historic time dimension.")
+        # all other dims must be the same
+        if self.historic_trade.imports.dims.drop("h") != self.future_trade.imports.dims.drop("t"):
+            raise ValueError(
+                "Apart from time, historic and future trade data must have the same dimensions."
+            )
+        return self
 
-    scale_by = scale_by.cast_to(dims_out)
+    def run(self):
+        self.set_direction()
+        self.extract_attributes()
+        self.broadcast_scaler()
+        self.get_recent_averages()
+        self.calc_trade()
 
-    # calculate weights
-    n_hist_points = historic.dims.shape[0]
-    n_last_points = 5
-    weights_1d = np.maximum(0.0, np.arange(-n_hist_points, 0) + n_last_points + 1)
-    weights_1d = weights_1d / weights_1d.sum()
-    weights = broadcast_trailing_dimensions(weights_1d, historic.values)
+    def set_direction(self):
+        """Either future domestic supply or future domestic demand are known.
+        The other is calculated together with trade and depends on trade.
+        We scale imports with dom. demand and exports with dom. supply, using the same function f:
+        imports = f(dom_demand), exports = f(dom_supply)
+        The mass balance reads
+        total_supply = total demand
+        where
+        total_supply = dom_supply + imports
+        and
+        total_demand = dom_demand + exports
+        so
+        dom_supply + imports = dom_demand + exports
+        So the algorithm stays the same if we switch dom_supply with dom_demand AND imports with
+        exports. We use this symmetry to use the same code for both cases.
+        If we know dom_demand, imports are scaled first, then exports & dom_supply are calculated together.
+        If we know dom_supply, exports are scaled first, then imports & dom_demand are calculated together.
+        """
+        if self.future_dom_supply is not None:
+            self.scaler_first = self.future_dom_supply
+            self.scaled_first = "exports"
+            self.scaled_second = "imports"
+        else:
+            self.scaler_first = self.future_dom_demand
+            self.scaled_first = "imports"
+            self.scaled_second = "exports"
 
-    extrapolation = ProportionalExtrapolation(
-        data_to_extrapolate=historic.values,
-        predictor_values=scale_by.values,
-        weights=weights,
-        independent_dims=tuple(range(1, dims_out.ndim)),
-    )
-    extrapolated = fd.FlodymArray(dims=dims_out, values=extrapolation.extrapolate()).maximum(0.0)
-    last_historic = historic[historic.dims["h"].items[-1]].maximum(0.0).cast_to(dims_out)
-    alpha_rel = 0.5
-    alpha_abs = 1 - alpha_rel
-    projected = last_historic**alpha_abs * extrapolated**alpha_rel
-    projected[{"t": historic.dims["h"]}] = historic
+    def extract_attributes(self):
+        """Get flodym arrays for imports and exports depending on the direction set in
+        set_direction.
+        """
+        self.historic_first = getattr(self.historic_trade, self.scaled_first)
+        self.historic_second = getattr(self.historic_trade, self.scaled_second)
+        self.future_first = getattr(self.future_trade, self.scaled_first)
+        self.future_second = getattr(self.future_trade, self.scaled_second)
 
-    return projected
+    def broadcast_scaler(self):
+        """Sum over excess dims of scaler, broadcast across missing dims.
+        Makes sure scaler has same dims as trade data.
+        """
+        self.dims_out = self.future_trade.exports.dims
+        common_dims = self.scaler_first.dims.intersect_with(self.dims_out)
+        self.scaler_first = self.scaler_first.sum_to(common_dims.letters).cast_to(self.dims_out)
+
+        if self.future_first.dims - self.dims_out:
+            raise ValueError(
+                "All future trade dimensions must be contained either in scaler or in historic trade."
+            )
+
+    def get_recent_averages(self):
+        """Calculate weighted average across last few historical years for both imports and exports,
+        and for the scaler. These are used as starting points/reference for the extrapolation, to
+        avoid extrapolating from a single year which might be an outlier.
+        """
+        averager = RecentHistoricalAverage(dims=self.historic_first.dims)
+
+        self.historic_first_0 = averager.apply(self.historic_first).cast_to(
+            self.dims_out
+        )  # * (1 - self.eps)
+        self.historic_second_0 = averager.apply(self.historic_second).cast_to(
+            self.dims_out
+        )  # * (1 - self.eps)
+        self.scaler_first_0 = averager.apply(self.scaler_first).cast_to(self.dims_out)
+        scaler_second_hist = (
+            self.scaler_first[{"t": self.historic_first.dims["h"]}]
+            - self.historic_first
+            + self.historic_second
+        )
+        self.scaler_second_0 = averager.apply(scaler_second_hist).cast_to(self.dims_out)
+
+    def calc_trade(self):
+        """The actual trade calculations"""
+
+        self.id_hist = {"t": self.historic_first.dims["h"]}
+        first_scaling = self.scale_first()
+        stopover_trade = self.scale_stopover(first_scaling)
+        self.scale_second(first_scaling, stopover_trade)
+        self.balance()
+
+    def scale_first(self) -> fd.FlodymArray:
+        # 1) scale "first" trade flow (imports in demand-driven mode)
+        scaling = self.scaling(
+            d0=self.scaler_first_0,
+            d=self.scaler_first,
+            alpha=self.alpha_rel,
+        )
+        self.future_first[...] = self.historic_first_0 * scaling
+        # make sure historical years equal historical data
+        self.future_first[self.id_hist] = self.historic_first
+        return scaling
+
+    def scale_stopover(self, first_scaling: fd.FlodymArray) -> fd.FlodymArray:
+        """Sometimes trade exceeds domestic supply and demand.
+        For example, a country could have zero production (i.e. all supply through imports),
+        but still have some exports, because we bundle together trade across several stages
+        along the fabrication process. So it imports semi-finished products and exports
+        finished products. In this case, it makes no sense to scale exports with domestic supply,
+        as it might grow from zero to a finite value, which is an infinite relative
+        growth. So we scale by the (hopefully non-zero) value which is given to the trade
+        extrapolation (dom_demand in backwards mode).
+        We call this trade which (due to a lack of domestic supply/demand) must be im- and
+        directly exported again, "stopover_trade".
+        There are two equal ways to calculate this stopover_trade:
+        max(0, exports-dom_supply) or max(0, imports-dom_demand).
+        (Their equality results from the mass balance)
+        Since we treat this stopover_trade differently, we subtract it from the rest for
+        future calculations, and add the separately scaled stopover_trade at the end again.
+        """
+        stopover_trade_0 = (self.historic_second_0 - self.scaler_second_0).maximum(0)
+        self.historic_second_0[...] -= stopover_trade_0
+        return stopover_trade_0 * first_scaling
+
+    def scale_second(self, first_scaling: fd.FlodymArray, stopover_trade: fd.FlodymArray):
+        """Scale "second" trade flow (exports in demand-driven mode)
+        Scaled with the other domestic quantity than the first
+        (exports with dom_supply, imports with dom_demand).
+        But this depends on the second trade itself, via the mass balance, which results in
+        a 2x2 equation system. We solve it with a fixed-point iteration.
+        We start off by scaling it with the first scaler, calculate the second from the mass
+        balance, and then re-calculate the scaler for the second trade flow, and so on.
+        """
+        self.future_second[...] = self.historic_second_0 * first_scaling
+        self.future_second[self.id_hist] = self.historic_second
+        for _ in range(3):
+            self.scaler_second = (
+                self.scaler_first - self.future_first + self.future_second + stopover_trade
+            )
+            updated_scaling = self.scaling(
+                d0=self.scaler_second_0,
+                d=self.scaler_second,
+                alpha=self.alpha_rel,
+                reduced_linear=False,
+            )
+            self.future_second[...] = self.historic_second_0 * updated_scaling
+            self.future_second[self.id_hist] = self.historic_second
+
+        self.future_second[...] += stopover_trade
+        self.future_second[self.id_hist] = self.historic_second
+
+    def balance(self):
+        """We balance global imports and exports to their hmean
+        Balancing might result in a situation where imports exceed total demand or exports
+        exceed total supply, which would lead to a negative flow on one side of the trade
+        market. If this is the case, we scale down the trade flow which is too big.
+        We then balance trades again, which might lead to the situation described above again,
+        which is why we repeat the process iteratively until the excess is sufficiently small.
+        """
+        self.future_trade.balance(to="hmean")
+        for i in range(10):
+            scaler_second = self.scaler_first - self.future_first + self.future_second
+            excess_trade = -(scaler_second.minimum(0.0))
+            total_excess = excess_trade.sum_over("r")
+            if np.max(total_excess.values) < 0.1:
+                break
+            self.future_first[...] -= excess_trade
+            self.future_trade.balance(to="minimum")
+
+        np.testing.assert_array_almost_equal(
+            self.future_first.sum_over(
+                "r",
+            ).values,
+            self.future_second.sum_over(
+                "r",
+            ).values,
+            decimal=0,
+        )
+
+    @staticmethod
+    def scaling(
+        d0: fd.FlodymArray,
+        d: fd.FlodymArray,
+        alpha: float,
+        reduced_linear: bool = True,
+    ) -> fd.FlodymArray:
+        """Apply scaling depending on relative change of scaler:
+        - sub-linear scaling for _increasing_ scaler (i.e. increasing dom_demand or dom_supply)
+          Rationale: for increasing dom_demand/dom_supply, we expect trade to increase less than
+          proportionally, as there may be some inertia in historical trade patterns.
+          Also low-GDP regions currently heavily relying on imports might increase their domestic
+          supply share in the future.
+        - linear scaling for _decreasing_ scaler in future_first
+          (i.e. decreasing dom_demand or dom_supply)
+          Rationale: for decreasing dom_demand/dom_supply, we expect trade to decrease at least
+          proportionally, as there is less need/opportunity for trade. For increasing demand/dom_supply,
+          we expect trade to increase less than proportionally, to protect domestic production.
+        - even weaker scaling (more sub-linear) for decreasing scaler in future_second
+          Rationale:
+          - if domestic demand decreases, the standing production might export more
+          - if domestic supply (e.g. of EOL material) decreases, more might be imported
+        """
+        assert np.min(d.values) >= -1e-6 * np.max(np.abs(d.values))
+        assert np.min(d0.values) >= -1e-6 * np.max(np.abs(d0.values))
+        d = d.maximum(0)
+        d0 = d0.maximum(1)
+        scaling = (d / d0) ** alpha
+        if reduced_linear:
+            return (scaling).minimum(d / d0)
+        else:
+            return (scaling).maximum((d / d0) ** (alpha / 3))
+
+
+class RecentHistoricalAverage(RemindMFABaseModel):
+    """Extrapolates data by taking the average of the most recent historical years."""
+
+    dims: fd.DimensionSet
+    """Dimensions of historical data to take the average over"""
+    n_years: int = 5
+    """Number of most recent historical years to average over."""
+    _weights: fd.FlodymArray = None
+    """internal array to be filled with weights"""
+
+    @model_validator(mode="after")
+    def validate_dims(self):
+        if self.dims.letters[0] != "h":
+            raise ValueError("First dimension of dims must be historic time 'h'.")
+        return self
+
+    @property
+    def weights(self) -> fd.FlodymArray:
+        """Weights for the average calculation."""
+        if self._weights is None:
+            self.init_weights()
+        return self._weights
+
+    def init_weights(self):
+        n_hist_points = self.dims.shape[0]
+        weights_1d = np.maximum(0.0, np.arange(-n_hist_points, 0) + self.n_years + 1)
+        weights_1d = weights_1d / weights_1d.sum()
+        values = broadcast_trailing_dimensions(weights_1d, self.dims)
+        self._weights = fd.FlodymArray(dims=self.dims, values=values)
+
+    def apply(self, data: fd.FlodymArray) -> fd.FlodymArray:
+        """Calculates the weighted average over the historical dimension.
+
+        Args:
+            data (FlodymArray): Data to average over last historical years. First dimension can be t or h. Must have same shape as self.dims otherwise.
+
+        Returns:
+            FlodymArray: Averaged data.
+        """
+        if "t" in data.dims:
+            data = data[{"t": self.dims["h"]}]
+        if data.shape != self.dims.shape:
+            raise ValueError("Data shape must match the dimensions shape.")
+        average = (data * self.weights).sum_over(("h",))
+        if np.min(average.values) < -1e-6 * np.max(np.abs(average.values)):
+            items = average.items_where(lambda x: x < -1e-6 * np.max(np.abs(x)))
+            raise ValueError(f"Negative value in average: {items}")
+        else:
+            return average

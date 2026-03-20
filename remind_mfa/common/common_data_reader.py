@@ -1,7 +1,6 @@
 import os
 import glob
 import tarfile
-import shutil
 import pandas as pd
 import flodym as fd
 
@@ -23,9 +22,10 @@ class CommonDataReader(fd.CompoundDataReader):
     ):
         self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
-        self.madrat_output_path = cfg.input.madrat_output_path
         self.input_data_path = cfg.input.input_data_path
-        self.input_data_version = cfg.input.input_data_version
+        self.input_data_revision = cfg.input.input_data_revision
+        self.region_mapping = cfg.input.region_mapping
+        self.madrat_output_path = self.resolve_madrat_output_path(cfg.input.madrat_output_path)
         self.force_extract = cfg.input.force_extract_tgz
         self.definition = definition
         self.allow_missing_values = allow_missing_values
@@ -33,41 +33,47 @@ class CommonDataReader(fd.CompoundDataReader):
         self.prepare_input_readers()
 
     @property
-    def tmp_extraction_path(self) -> str:
-        return os.path.join(self.input_data_path, "tmp")
+    def shared_parameter_path(self) -> str:
+        return os.path.join(self.input_data_path, "input_data")
 
     @property
-    def version_filename(self) -> str:
-        return "version.txt"
+    def rev_filename(self) -> str:
+        return "rev.txt"
 
-    def get_material_path(self, material: str) -> str:
-        return os.path.join(self.input_data_path, material)
+    @property
+    def regions_filename(self) -> str:
+        return "regions.txt"
 
-    def get_material_parameter_path(self, material: str) -> str:
-        # TODO rename this folder to "paramters" instead of input_data
-        parameter_foldername = "input_data"
-        return os.path.join(self.get_material_path(material), parameter_foldername)
+    @staticmethod
+    def resolve_madrat_output_path(configured_path: str | None) -> str:
+        if configured_path is not None:
+            return configured_path
+        env_path = os.environ.get("MADRAT_OUTPUTFOLDER")
+        if env_path is None:
+            raise ValueError(
+                "No madrat output path configured. Set input.madrat_output_path or "
+                "environment variable MADRAT_OUTPUTFOLDER."
+            )
+        return env_path
 
     def get_material_dimension_path(self, material: str) -> str:
-        dimensions_foldername = "dimensions"
-        return os.path.join(self.get_material_path(material), dimensions_foldername)
+        return os.path.join(self.input_data_path, "dimensions", material)
 
     def prepare_input_readers(self):
         # prepare directory for extracted input data
-        material_parameter_path = self.get_material_parameter_path(self.model_class)
-        os.makedirs(material_parameter_path, exist_ok=True)
-        version_file_path = os.path.join(material_parameter_path, self.version_filename)
+        os.makedirs(self.shared_parameter_path, exist_ok=True)
 
         # extract tar file if needed
-        if self.extraction_needed(version_file_path):
-            self.extract_tar_file()
+        if self.extraction_needed(self.shared_parameter_path):
+            self.extract_tar_file(self.shared_parameter_path)
 
         # dimensions
-        dimension_files = self.get_dimension_dict(material_parameter_path)
+        dimension_files = self.get_dimension_dict(self.shared_parameter_path)
         dimension_reader = CommonDimensionReader(dimension_files)
 
         # parameters
-        parameter_files = self.get_parameter_dict(material_parameter_path)
+        parameter_files = self.get_parameter_dict(self.shared_parameter_path)
+        self.validate_parameter_files(parameter_files)
         parameter_reader = MadratParameterReader(
             parameter_files,
             allow_extra_values=self.allow_extra_values,
@@ -76,73 +82,95 @@ class CommonDataReader(fd.CompoundDataReader):
 
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
 
-    def extraction_needed(self, version_file_path: str) -> bool:
+    @staticmethod
+    def read_text_file(path: str) -> str | None:
+        if not os.path.exists(path):
+            return None
+        with open(path, "r") as f:
+            return f.read().strip()
+
+    @staticmethod
+    def write_text_file(path: str, value: str):
+        with open(path, "w") as f:
+            f.write(value)
+
+    @staticmethod
+    def parse_archive_name(filename: str) -> tuple[str, str]:
+        stem = os.path.basename(filename)
+        if stem.endswith(".tgz"):
+            stem = stem[: -len(".tgz")]
+
+        if not stem.startswith("rev") or not stem.endswith("_mfa"):
+            raise ValueError(
+                f"Invalid archive name '{filename}'. Expected format rev<rev>_<regions>_<hash>_mfa.tgz"
+            )
+
+        payload = stem[len("rev") : -len("_mfa")]
+        parts = payload.split("_")
+        if len(parts) < 3:
+            raise ValueError(
+                f"Invalid archive name '{filename}'. Expected format rev<rev>_<regions>_<hash>_mfa.tgz"
+            )
+
+        rev = "_".join(parts[:-2]).strip()
+        regions = parts[-2].strip()
+        if not rev or not regions:
+            raise ValueError(
+                f"Invalid archive name '{filename}'. Could not determine rev and regions."
+            )
+
+        return rev, regions
+
+    def extraction_needed(self, material_parameter_path: str) -> bool:
         if self.force_extract:
             return True
-        if not os.path.exists(version_file_path):
-            return True
-        with open(version_file_path, "r") as f:
-            current_version = f.read()
-            return current_version != self.input_data_version
+        rev_path = os.path.join(material_parameter_path, self.rev_filename)
+        regions_path = os.path.join(material_parameter_path, self.regions_filename)
+        current_rev = self.read_text_file(rev_path)
+        current_regions = self.read_text_file(regions_path)
+        return current_rev != self.input_data_revision or current_regions != self.region_mapping
 
-    def extract_tar_file(self):
-        """Extracts the tgz file from madrat output path to the input data path."""
-        tgz_path = os.path.join(self.madrat_output_path, self.input_data_version + ".tgz")
-        if not os.path.exists(tgz_path):
-            raise FileNotFoundError(f"TGZ file not found: {tgz_path}")
+    def get_target_tgz_path(self) -> str:
+        search_pattern = (
+            f"rev{glob.escape(self.input_data_revision)}_"
+            f"{glob.escape(self.region_mapping)}_*_mfa.tgz"
+        )
+        matches = sorted(glob.glob(os.path.join(self.madrat_output_path, search_pattern)))
+        if not matches:
+            raise FileNotFoundError(
+                "No matching tgz archive found in "
+                f"{self.madrat_output_path} for revision={self.input_data_revision}, "
+                f"region_mapping={self.region_mapping}."
+            )
+        if len(matches) > 1:
+            raise ValueError(
+                "Multiple matching tgz archives found for the selected revision/region mapping. "
+                "Make the selector more specific or remove duplicate archives. Matches: "
+                f"{[os.path.basename(match) for match in matches]}"
+            )
+        return matches[0]
 
-        self.prepare_tmp_extraction_path()
+    def extract_tar_file(self, material_parameter_path: str):
+        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
+        tgz_path = self.get_target_tgz_path()
 
         with tarfile.open(tgz_path, "r:gz") as tar:
-            tar.extractall(path=self.tmp_extraction_path)
+            tar.extractall(path=material_parameter_path)
 
-        version_file_path = os.path.join(self.tmp_extraction_path, self.version_filename)
-        with open(version_file_path, "w") as f:
-            f.write(self.input_data_version)
+        rev, regions = self.parse_archive_name(os.path.basename(tgz_path))
+        self.write_text_file(os.path.join(material_parameter_path, self.rev_filename), rev)
+        self.write_text_file(os.path.join(material_parameter_path, self.regions_filename), regions)
 
-        available_materials = self.check_available_materials()
-        self.delete_old_extracted_files(available_materials)
-        self.move_extracted_files(available_materials)
-
-    def prepare_tmp_extraction_path(self):
-        """Makes sure the path exists and is empty."""
-        if os.path.exists(self.tmp_extraction_path):
-            all_files = glob.glob(os.path.join(self.tmp_extraction_path, "*"))
-            for file in all_files:
-                if os.path.isfile(file):
-                    os.remove(file)
-                else:
-                    shutil.rmtree(file)
-        os.makedirs(self.tmp_extraction_path, exist_ok=True)
-
-    def check_available_materials(self):
-        """Check which material parameter files are available in the extracted path."""
-        parameter_files = glob.glob(os.path.join(self.tmp_extraction_path, "*.cs4r"))
-        self.validate_parameter_files(parameter_files)
-
-        available_materials = set()
-        for filepath in parameter_files:
-            filename = os.path.basename(filepath)
-            prefix = filename.split("_")[0]
-            material = module_from_prefix(prefix)
-            available_materials.add(material)
-        if self.model_class not in available_materials:
-            raise ValueError(
-                f"Selected tar version '{self.input_data_version}' "
-                f"does not contain parameter files for the selected model '{self.model_class}'. "
-                f"Only parameters of the following materials are available: {available_materials}."
-            )
-        return available_materials
-
-    def validate_parameter_files(self, parameter_files: list[str]):
-        """Validate that parameter files exist, have expected format, and prefixes."""
-
-        if not parameter_files:
-            raise ValueError(
-                f"No parameter files found in extracted tgz at {self.tmp_extraction_path}"
+    def validate_parameter_files(self, parameter_files: dict[str, str]):
+        """Validate that all expected parameter files for the selected model exist."""
+        missing = [name for name, path in parameter_files.items() if not os.path.exists(path)]
+        if missing:
+            raise FileNotFoundError(
+                "Missing parameter files in shared input_data folder for model "
+                f"'{self.model_class}': {missing}"
             )
 
-        for filepath in parameter_files:
+        for filepath in parameter_files.values():
             filename = os.path.basename(filepath)
             if "_" not in filename:
                 raise ValueError(
@@ -151,56 +179,15 @@ class CommonDataReader(fd.CompoundDataReader):
                 )
             prefix = filename.split("_")[0]
             try:
-                _ = module_from_prefix(prefix)
+                material = module_from_prefix(prefix)
             except ValueError as e:
                 raise ValueError(f"Unexpected prefix '{prefix}' in filename '{filename}'.") from e
-
-    def delete_old_extracted_files(self, available_materials: set[str]):
-        """Delete old extracted files (parameters, version, regionmapping) for each newly available material."""
-        for material in available_materials:
-            material_parameter_path = self.get_material_parameter_path(material)
-            old_files = glob.glob(os.path.join(material_parameter_path, "*"))
-            for old_file in old_files:
-                if os.path.isfile(old_file):
-                    os.remove(old_file)
-                else:
-                    raise ValueError(
-                        f"Expected only files in {material_parameter_path}, found directory: {old_file}"
-                    )
-
-    def move_file_to_material(self, oldpath: str, material: str, copy: bool = False):
-        """Move a single file to material parameter path."""
-        filename = os.path.basename(oldpath)
-        material_parameter_path = self.get_material_parameter_path(material)
-        os.makedirs(material_parameter_path, exist_ok=True)
-        destination = os.path.join(material_parameter_path, filename)
-        if copy:
-            shutil.copy2(oldpath, destination)
-        else:
-            shutil.move(oldpath, destination)
-
-    def move_extracted_files(self, available_materials: set[str]):
-        """Move extracted files from temporary extraction path to material parameter path."""
-        parameter_files = glob.glob(os.path.join(self.tmp_extraction_path, "*.cs4r"))
-        # Find other files like regionmapping and version file.
-        # Does not include hidden files like .gitignore.
-        all_files = glob.glob(os.path.join(self.tmp_extraction_path, "*"))
-        other_files = set(all_files) - set(parameter_files)
-
-        for parameter_file in parameter_files:
-            filename = os.path.basename(parameter_file)
-            prefix = filename.split("_")[0]
-            material = module_from_prefix(prefix)
-            self.move_file_to_material(parameter_file, material)
-
-        # copy regionmapping and version file to all available materials
-        for other_file in other_files:
-            for material in available_materials:
-                self.move_file_to_material(other_file, material, copy=True)
-            os.remove(other_file)
+            if material != self.model_class:
+                raise ValueError(
+                    f"Parameter file '{filename}' does not belong to selected model '{self.model_class}'."
+                )
 
     def get_dimension_dict(self, material_parameter_path: str) -> dict[str, str]:
-        material_path = self.get_material_path(self.model_class)
         material_dimension_path = self.get_material_dimension_path(self.model_class)
 
         dimension_files = {}
@@ -211,17 +198,12 @@ class CommonDataReader(fd.CompoundDataReader):
             )
         # Special case for Region dimensions
         if "Region" in dimension_files:
-            regionfiles = sorted(
-                glob.glob(os.path.join(material_parameter_path, "regionmapping*.csv"))
-            )
-            if not regionfiles:
-                raise FileNotFoundError(f"No regionmapping*.csv found in {material_path}")
-            if len(regionfiles) > 1:
-                raise ValueError(
-                    f"Expected exactly one regionmapping*.csv in {material_path}, found: "
-                    f"{[os.path.basename(m) for m in regionfiles]}"
+            regionmapping_path = os.path.join(material_parameter_path, "regionmapping.csv")
+            if not os.path.exists(regionmapping_path):
+                raise FileNotFoundError(
+                    f"No regionmapping.csv found in shared input_data folder {material_parameter_path}"
                 )
-            dimension_files["Region"] = regionfiles[0]
+            dimension_files["Region"] = regionmapping_path
 
         return dimension_files
 

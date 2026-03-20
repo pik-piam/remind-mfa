@@ -3,7 +3,7 @@ import numpy as np
 import logging
 
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.trade_extrapolation import extrapolate_trade
+from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.steel.steel_config import SteelCfg
@@ -18,8 +18,7 @@ class SteelMFASystem(CommonMFASystem):
         Perform all computations for the MFA system.
         """
         self.compute_in_use_stock(stock_projection)
-        self.extrapolate_trade_set(historic_trade)
-        self.compute_flows()
+        self.compute_flows(historic_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
@@ -74,43 +73,21 @@ class SteelMFASystem(CommonMFASystem):
                 for r in self.dims["r"].items
                 if np.min(self.stocks["in_use"].inflow[r].values) < 0
             ]
-            logging.warning(f"In-use stock inflow <0 in regions {negative_regions}!")
+            logging.warning(
+                f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
+            )
+            corrected_inflow = self.stocks["in_use"].inflow.maximum(1e-6)
+            # correct negative inflow
+            self.stocks["in_use"] = fd.InflowDrivenDSM(
+                dims=self.stocks["in_use"].dims,
+                lifetime_model=self.stocks["in_use"].lifetime_model,
+                name="in_use",
+                process=self.stocks["in_use"].process,
+            )
+            self.stocks["in_use"].inflow[...] = corrected_inflow
+            self.stocks["in_use"].compute()
 
-    def extrapolate_trade_set(self, historic_trade: TradeSet):
-        product_demand = self.stocks["in_use"].inflow
-        extrapolate_trade(
-            historic_trade["indirect"],
-            self.trade_set["indirect"],
-            product_demand,
-            "imports",
-            balance_to="hmean",
-        )
-        self.trade_set["indirect"].imports[...] = self.trade_set["indirect"].imports.minimum(
-            product_demand
-        )
-        self.trade_set["indirect"].balance(to="minimum")
-
-        fabrication = product_demand - self.trade_set["indirect"].net_imports
-        extrapolate_trade(
-            historic_trade["steel"],
-            self.trade_set["steel"],
-            fabrication,
-            "imports",
-            balance_to="hmean",
-        )
-
-        eol_products = self.stocks["in_use"].outflow * self.parameters["recovery_rate"]
-        extrapolate_trade(
-            historic_trade["scrap"],
-            self.trade_set["scrap"],
-            eol_products,
-            "exports",
-            balance_to="hmean",
-        )
-        self.trade_set["scrap"].exports[...] = self.trade_set["scrap"].exports.minimum(eol_products)
-        self.trade_set["scrap"].balance(to="minimum")
-
-    def compute_flows(self):
+    def compute_flows(self, historic_trade: TradeSet):
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
@@ -118,29 +95,43 @@ class SteelMFASystem(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "net_scrap_trade": self.get_new_array(dim_letters=("t", "r", "g")),
-            "production": self.get_new_array(dim_letters=("t", "r")),
-            "scrap_in_production": self.get_new_array(dim_letters=("t", "r")),
-            "available_scrap": self.get_new_array(dim_letters=("t", "r")),
-            "eaf_share_production": self.get_new_array(dim_letters=("t", "r")),
-            "production_inflow": self.get_new_array(dim_letters=("t", "r")),
-            "max_scrap_production": self.get_new_array(dim_letters=("t", "r")),
-            "scrap_share_production": self.get_new_array(dim_letters=("t", "r")),
-            "bof_production_inflow": self.get_new_array(dim_letters=("t", "r")),
+            "production": fd.Parameter(dims=self.dims["t", "r"]),
+            "scrap_in_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "available_scrap": fd.Parameter(dims=self.dims["t", "r"]),
+            "eaf_share_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
+            "max_scrap_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "scrap_share_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "bof_production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
         }
 
         # fmt: off
 
         flw["good_market => use"][...] = stk["in_use"].inflow
         # Pre-use
+
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["indirect"],
+            future_trade=trd["indirect"],
+            future_dom_demand=flw["good_market => use"],
+        )
+        extrapolator.run()
+
         flw["imports => good_market"][...] = trd["indirect"].imports
         flw["good_market => exports"][...] = trd["indirect"].exports
 
         flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["indirect"].net_imports
 
-        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["fabrication_yield"]
+        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["aggregate_fabrication_yield"]
         flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
         flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
+
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["steel"],
+            future_trade=trd["steel"],
+            future_dom_demand=flw["ip_market => fabrication"],
+        )
+        extrapolator.run()
 
         flw["imports => ip_market"][...] = trd["steel"].imports
         flw["ip_market => exports"][...] = trd["steel"].exports
@@ -155,11 +146,17 @@ class SteelMFASystem(CommonMFASystem):
         flw["use => eol_market"][...] = stk["in_use"].outflow * prm["recovery_rate"]
         flw["use => obsolete"][...] = stk["in_use"].outflow - flw["use => eol_market"]
 
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["scrap"],
+            future_trade=trd["scrap"],
+            future_dom_supply=flw["use => eol_market"],
+        )
+        extrapolator.run()
+
         flw["imports => eol_market"][...] = trd["scrap"].imports
         flw["eol_market => exports"][...] = trd["scrap"].exports
-        aux["net_scrap_trade"][...] = flw["imports => eol_market"] - flw["eol_market => exports"]
 
-        flw["eol_market => recycling"][...] = flw["use => eol_market"] + aux["net_scrap_trade"]
+        flw["eol_market => recycling"][...] = flw["use => eol_market"] + trd["scrap"].net_imports
         flw["recycling => scrap_market"][...] = flw["eol_market => recycling"]
 
         # PRODUCTION
@@ -173,7 +170,7 @@ class SteelMFASystem(CommonMFASystem):
         )
         aux["scrap_in_production"][...] = aux["available_scrap"].minimum(aux["max_scrap_production"])
         flw["scrap_market => excess_scrap"][...] = aux["available_scrap"] - aux["scrap_in_production"]
-        aux["scrap_share_production"][...] = aux["scrap_in_production"] / aux["production_inflow"]
+        aux["scrap_share_production"][...] = aux["scrap_in_production"] / aux["production_inflow"].maximum(1e-6)
         aux["eaf_share_production"][...] = (
             aux["scrap_share_production"]
             - prm["scrap_in_bof_rate"].cast_to(aux["scrap_share_production"].dims)

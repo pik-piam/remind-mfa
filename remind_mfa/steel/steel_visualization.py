@@ -42,7 +42,7 @@ class SteelVisualizer(CommonVisualizer):
         linecolor_dims = {
             "steel": None,
             "indirect": "Good",
-            "scrap": "Good",
+            "scrap": None,
         }
 
         for name, trade in mfa.trade_set.markets.items():
@@ -280,15 +280,31 @@ class SteelVisualizer(CommonVisualizer):
             array=summing_func(mfa.parameters["scrap_consumption"]),
             intra_line_dim="Historic Time",
             **subplot_dim,
-            line_label="Real World",
+            line_label="Real World" + (" - Reconstructed" if regional else ""),
             fig=fig,
             xlabel="Year",
             ylabel="Scrap [t]",
+            line_type="dot" if regional else "solid",
             display_names=self.display_names.dct,
             title="Scrap Demand and Supply",
         )
-
         fig = ap.plot()
+
+        if regional:
+            v = mfa.parameters["scrap_consumption_no_assumptions"].values
+            v[v == 0] = np.nan
+            ap = self.plotter_class(
+                array=summing_func(mfa.parameters["scrap_consumption_no_assumptions"]),
+                intra_line_dim="Historic Time",
+                **subplot_dim,
+                line_label="Real World",
+                fig=fig,
+                xlabel="Year",
+                ylabel="Scrap [t]",
+                display_names=self.display_names.dct,
+                title="Scrap Demand and Supply",
+            )
+            fig = ap.plot()
 
         ap = self.plotter_class(
             array=summing_func(total_production.sum_to(("h", "r"))),
@@ -299,17 +315,17 @@ class SteelVisualizer(CommonVisualizer):
             fig=fig,
         )
 
-        for trade_name, trade in mfa.trade_set.markets.items():
-            fig = ap.plot()
+        # for trade_name, trade in mfa.trade_set.markets.items():
+        #     fig = ap.plot()
 
-            ap = self.plotter_class(
-                array=summing_func(trade.net_imports[{"t": mfa.dims["h"]}].sum_to(("h", "r"))),
-                intra_line_dim="Historic Time",
-                **subplot_dim,
-                line_label=f"Net imports ({trade_name})",
-                line_type="dot",
-                fig=fig,
-            )
+        #     ap = self.plotter_class(
+        #         array=summing_func(trade.net_imports[{"t": mfa.dims["h"]}].sum_to(("h", "r"))),
+        #         intra_line_dim="Historic Time",
+        #         **subplot_dim,
+        #         line_label=f"Net imports ({trade_name})",
+        #         line_type="dot",
+        #         fig=fig,
+        #     )
 
         self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}.png")
 
@@ -336,17 +352,6 @@ class SteelVisualizer(CommonVisualizer):
         )
 
         self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
-
-    def _get_regional_vs_global_params(self, regional: bool):
-        if regional:
-            subplot_dim = {"subplot_dim": "Region"}
-            summing_func = lambda l: l
-            name_str = "regional"
-        else:
-            subplot_dim = {}
-            summing_func = lambda l: l.sum_over("r")
-            name_str = "global"
-        return subplot_dim, summing_func, name_str
 
     def visualize_extrapolation(self, model: "SteelModel"):
         mfa = model.future_mfa
@@ -392,7 +397,7 @@ class SteelVisualizer(CommonVisualizer):
             line_label="Historic + Modelled Future",
         )
 
-        pure_stock = model.stock_handler.pure_prediction.sum_over(other_dimletters)
+        pure_stock = model.stock_handler.fitted_regression.sum_over(other_dimletters)
 
         # extrapolation
         color = ["red"]

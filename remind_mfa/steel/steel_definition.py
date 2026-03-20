@@ -1,4 +1,3 @@
-from typing import List
 import flodym as fd
 
 from remind_mfa.common.common_definition import RemindMFADefinition
@@ -13,6 +12,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
     if historic:
@@ -84,10 +84,10 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t", "r", "g")),
             fd.FlowDefinition(from_process="use", to_process="obsolete", dim_letters=("t", "r", "g")),
             fd.FlowDefinition(from_process="use", to_process="eol_market", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="eol_market", to_process="recycling", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="eol_market", to_process="exports", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="imports", to_process="eol_market", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="recycling", to_process="scrap_market", dim_letters=("t", "r", "g")),
+            fd.FlowDefinition(from_process="eol_market", to_process="recycling", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="eol_market", to_process="exports", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="imports", to_process="eol_market", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="recycling", to_process="scrap_market", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="scrap_market", to_process="excess_scrap", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
@@ -146,11 +146,11 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Combined collection and recovery rate at end-of-life - share of all end-of life material that is recycled"
         ),
         RemindMFAParameterDefinition(
-            name="population", dim_letters=("t", "r"),
+            name="population", dim_letters=("t", "r", "S"),
             description="Population"
         ),
         RemindMFAParameterDefinition(
-            name="gdppc", dim_letters=("t", "r"),
+            name="gdppc", dim_letters=("t", "r", "S"),
             description="GDP per capita"
         ),
         RemindMFAParameterDefinition(
@@ -198,21 +198,13 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Loss rate of raw steel production in BF-BOF and (DRI-)EAF processes",
         ),
         RemindMFAParameterDefinition(
-            name="saturation_level_factor", dim_letters=("r",),
-            description="Regional multiplicative adjustment factor for the saturation level of the in-use steel stock based on expert judgement",
-        ),
-        RemindMFAParameterDefinition(
-            name="stock_growth_speed_factor", dim_letters=("r",),
-            description="Regional adjustment factor for the growth speed of the in-use steel stock based on expert judgement",
-        ),
-        RemindMFAParameterDefinition(
             name="scrap_consumption", dim_letters=("h", "r"),
             description="Historic scrap consumption",
         ),
-        # RemindMFAParameterDefinition(
-        #     name="scrap_consumption_no_assumptions", dim_letters=("h", "r"),
-        #     description="Historic scrap consumption",
-        # ),
+        RemindMFAParameterDefinition(
+            name="scrap_consumption_no_assumptions", dim_letters=("h", "r"),
+            description="Historic scrap consumption",
+        ),
         # WSA
         RemindMFAParameterDefinition(
             name="production", dim_letters=("h", "r"),
@@ -255,7 +247,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         trades = [
             TradeDefinition(name="steel", dim_letters=("t", "r")),
             TradeDefinition(name="indirect", dim_letters=("t", "r", "g")),
-            TradeDefinition(name="scrap", dim_letters=("t", "r", "g")),
+            TradeDefinition(name="scrap", dim_letters=("t", "r")),
         ]
 
     return RemindMFADefinition(
@@ -268,9 +260,4 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
     )
 
 
-scenario_parameters = [
-    RemindMFAParameterDefinition(
-        name="saturation_level_factor",
-        dim_letters=("r",),
-    ),
-]
+scenario_parameters = []
