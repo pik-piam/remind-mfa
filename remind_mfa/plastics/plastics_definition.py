@@ -102,6 +102,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="fabrication", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclchem", to_process="virgin", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="incineration", to_process="emission", dim_letters=("t","e","r")),
@@ -196,6 +197,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Yield of mechanical recycling",),
         RemindMFAParameterDefinition(name="reclmech_loss_uncontrolled_rate", dim_letters=("t", "r", "m"),
                                      description="Rate of mechanical recycling losses to uncontrolled disposal",),
+        RemindMFAParameterDefinition(name="chemical_recycling_yield", dim_letters=(),
+                                     description="Yield of chemical recycling",),
         # other
         RemindMFAParameterDefinition(name="material_shares_in_goods", dim_letters=("r", "m", "g"),
                                      description="Share of materials in goods",),

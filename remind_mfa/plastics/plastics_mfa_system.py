@@ -113,7 +113,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
         flw["collected => reclchem"][...] = aux["total_waste_collected"] * prm["chemical_recycling_rate"]
-        flw["reclchem => virgin"][...] = flw["collected => reclchem"]
+        flw["reclchem => virgin"][...] = flw["collected => reclchem"] * prm["chemical_recycling_yield"]
+        flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => virgin"]
 
         flw["collected => incineration"][...] = aux["total_waste_collected"] * prm["incineration_rate"]
         flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
@@ -129,8 +130,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["mismanaged => uncontrolled"][...] = flw["eol => mismanaged"]
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
-        flw["emission => captured"][...] = flw["incineration => emission"] * prm["emission_capture_rate"]
-        flw["emission => atmosphere"][...] = flw["incineration => emission"] - flw["emission => captured"]
+        flw["emission => captured"][...] = (flw["incineration => emission"] + flw["reclchem => emission"]) * prm["emission_capture_rate"]
+        flw["emission => atmosphere"][...] = flw["incineration => emission"] + flw["reclchem => emission"] - flw["emission => captured"]
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         # now trades and production flows are computed starting from the stock inflow
