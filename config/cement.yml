@@ -29,6 +29,8 @@ visualization:
     do_visualize: False
   consumption:
     do_visualize: True
+  trade:
+    do_visualize: False
   use_stock:
     do_visualize: True
     over_gdp: True

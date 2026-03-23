@@ -25,7 +25,7 @@ class PlasticsVisualizer(CommonVisualizer):
         if self.cfg.use_stock.do_visualize:
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
 
-        if self.cfg.production.do_visualize:
+        if self.cfg.consumption.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
             self.visualize_sector_splits(mfa=model.future_mfa)
@@ -106,49 +106,6 @@ class PlasticsVisualizer(CommonVisualizer):
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["good_market => exports"],
-                name="Final exports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["imports => good_market"],
-                name="Final imports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["primary_market => exports"],
-                name="Primary exports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["imports => primary_market"],
-                name="Primary imports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["collected => waste_market"],
-                name="Waste exports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["waste_market => collected"],
-                name="Waste imports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-
         self.stop_and_show()
 
     def visualize_flow(
@@ -201,7 +158,7 @@ class PlasticsVisualizer(CommonVisualizer):
         self.plot_and_save_figure(ap, f"{name}_flow{tag}.png")
 
     def visualize_demand(self, mfa: fd.MFASystem):
-        per_capita = self.cfg.production.per_capita
+        per_capita = self.cfg.consumption.per_capita
         demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
         population = mfa.parameters["population"]
         if per_capita:
@@ -259,6 +216,21 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
+
+    def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
+        if linecolor_dims is True:
+            linecolor_dims = {
+                "primary": "Material",
+                "final": "Good",
+                "waste": "Material",
+            }
+        else:
+            linecolor_dims = {
+                "primary": None,
+                "final": None,
+                "waste": None,
+            }
+        super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         stock = mfa.stocks["in_use"].stock.sum_over(("r", "m", "e"))

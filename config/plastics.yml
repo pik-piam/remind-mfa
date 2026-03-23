@@ -38,9 +38,13 @@ visualization:
     over_gdp: True
     accumulate_gdp: False
     per_capita: True
-  production:
+  consumption:
     do_visualize: True
     per_capita: True
+  production:
+    do_visualize: False
+  trade:
+    do_visualize: True
   extrapolation:
     do_visualize: True
   sankey:
