@@ -1,10 +1,12 @@
 import os
+import ast
+import csv
 import flodym as fd
 from pydantic import field_validator
-from typing import List, Dict, Optional
-import yaml
+from typing import List, Dict, Optional, Any
 
 from remind_mfa.common.common_definition import PlainDataPointDefinition
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
@@ -45,10 +47,71 @@ class ScenarioReader(RemindMFABaseModel):
             name = scenario.parent
 
     def read_single(self, name: str) -> "Scenario":
-        file_name = os.path.join(self.base_path, f"{name}.yml")
-        with open(file_name, "r") as f:
-            text = yaml.safe_load(f)
-        return Scenario(name=name, **text)
+        csv_file = os.path.join(self.base_path, f"{name}.csv")
+        if os.path.exists(csv_file):
+            return self._read_csv(name, csv_file)
+        else:
+            raise FileNotFoundError(f"No scenario file found for '{name}' (tried .csv)")
+
+    def _read_csv(self, name: str, file_name: str) -> "Scenario":
+        parent = self._read_parent_from_inheritance(name)
+        with open(file_name, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(self._iter_active_csv_lines(f))
+            data_points = [self._parse_csv_row(row) for row in reader]
+        return Scenario(name=name, parent=parent, data=data_points)
+
+    @staticmethod
+    def _iter_active_csv_lines(file_obj):
+        for line in file_obj:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            yield line
+
+    @staticmethod
+    def _parse_csv_row(row: dict) -> "ScenarioDataPoint":
+        parsed = {col: ScenarioReader._parse_csv_value(val) for col, val in row.items()}
+        index_prefix = "index:"
+        index = {
+            col[len(index_prefix) :]: parsed[col]
+            for col in parsed
+            if col.startswith(index_prefix) and parsed[col] is not None
+        }
+        extra_prefix = "extra:"
+        extra = {
+            col[len(extra_prefix) :]: parsed[col]
+            for col in parsed
+            if col.startswith(extra_prefix) and parsed[col] is not None
+        }
+        return ScenarioDataPoint(
+            parameter=parsed["parameter"],
+            models=parsed["models"] if parsed["models"] is not None else "all",
+            value=parsed["value"],
+            index=index,
+            extra=extra,
+        )
+
+    @staticmethod
+    def _parse_csv_value(val: str):
+        val = val.strip() if val else ""
+        if val == "":
+            return None
+        try:
+            return ast.literal_eval(val)
+        except (ValueError, SyntaxError):
+            return val
+
+    def _read_parent_from_inheritance(self, name: str) -> Optional[str]:
+        inheritance_file = os.path.join(self.base_path, "inheritance.csv")
+        if not os.path.exists(inheritance_file):
+            raise FileNotFoundError(f"inheritance.csv not found in {self.base_path}")
+        with open(inheritance_file, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(self._iter_active_csv_lines(f))
+            for row in reader:
+                if row["scenario"] == name:
+                    parent = row.get("parent", "").strip()
+                    return parent if parent else None
+        return None
 
 
 class Scenario(RemindMFABaseModel):
@@ -67,8 +130,9 @@ class Scenario(RemindMFABaseModel):
 class ScenarioDataPoint(RemindMFABaseModel):
     parameter: str
     models: List[ModelNames] | str = "all"
-    index: Dict[str, str] = {}
-    value: float
+    index: Dict[str, Any] = {}
+    value: Any
+    extra: Dict[str, Any] = {}
 
     @field_validator("models", mode="before")
     @classmethod
@@ -77,17 +141,22 @@ class ScenarioDataPoint(RemindMFABaseModel):
             if value == "all":
                 return list(ModelNames)
             else:
-                return [ModelNames(value)]
+                return [ModelNames(v.strip()) for v in value.split(",")]
         return value
 
     def apply(self, parameters: dict):
-        parameter = parameters[self.parameter]
+        self.apply_single(parameters, self.parameter, self.value)
+        for extra_name, extra_val in self.extra.items():
+            self.apply_single(parameters, f"{self.parameter}_{extra_name}", extra_val)
+
+    def apply_single(self, parameters: dict, param_name: str, val: float):
+        parameter = parameters[param_name]
         if isinstance(parameter, fd.Parameter):
             if self.index:
-                parameter[self.index] = self.value
+                parameter[self.index] = val
             else:
-                parameter[...] = self.value
+                parameter[...] = val
         else:
             if self.index:
                 raise ValueError("Index should be empty for plain parameters.")
-            parameters[self.parameter] = self.value
+            parameters[param_name] = val

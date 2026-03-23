@@ -24,7 +24,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_custom(self, model: "PlasticsModel"):
         if self.cfg.use_stock.do_visualize:
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
-        
+
         if self.cfg.production.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
@@ -46,7 +46,10 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=(model.future_mfa.flows["virgin => primary_market"] - model.future_mfa.flows["primary_market => exports"]),
+                flow=(
+                    model.future_mfa.flows["virgin => primary_market"]
+                    - model.future_mfa.flows["primary_market => exports"]
+                ),
                 name="Domestic primary production",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -60,7 +63,10 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=(model.future_mfa.flows["fabrication => good_market"] - model.future_mfa.flows["good_market => exports"]),
+                flow=(
+                    model.future_mfa.flows["fabrication => good_market"]
+                    - model.future_mfa.flows["good_market => exports"]
+                ),
                 name="Domestic Fabrication",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -195,18 +201,26 @@ class PlasticsVisualizer(CommonVisualizer):
         self.plot_and_save_figure(ap, f"{name}_flow{tag}.png")
 
     def visualize_demand(self, mfa: fd.MFASystem):
+        per_capita = self.cfg.production.per_capita
+        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
+        population = mfa.parameters["population"]
+        if per_capita:
+            demand = demand / population
+        pc_str = "pC" if per_capita else ""
+
         fig, ap_demand = self.plot_history_and_future(
             mfa=mfa,
-            data_to_plot=mfa.stocks["in_use"].inflow.sum_over(("m", "e")),
+            data_to_plot=demand,
             subplot_dim="Region",
             linecolor_dim="Good",
             x_label="Year",
-            y_label="Demand [t]",
-            title="Demand [t]",
+            y_label=f"Demand {pc_str} [t]",
+            title=f"Demand {pc_str} [t]",
         )
-        self.plot_and_save_figure(ap_demand, "demand_history_and_future.png", do_plot=False)
+        self.plot_and_save_figure(
+            ap_demand, f"demand_history_and_future{pc_str}.png", do_plot=False
+        )
 
-        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
         good_dim = demand.dims.index("g")
         demand = demand.apply(np.cumsum, kwargs={"axis": good_dim})
         ap = self.plotter_class(
@@ -216,10 +230,10 @@ class PlasticsVisualizer(CommonVisualizer):
             linecolor_dim="Good",
             chart_type="area",
             display_names=self.display_names.dct,
-            title="Demand [t]",
+            title=f"Demand {pc_str} [t]",
         )
         fig = ap.plot()
-        self.plot_and_save_figure(ap, "demand_stacked.png", do_plot=False)
+        self.plot_and_save_figure(ap, f"demand_stacked{pc_str}.png", do_plot=False)
 
     def compare_demand(self, mfa: fd.MFASystem):
         df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
@@ -247,7 +261,6 @@ class PlasticsVisualizer(CommonVisualizer):
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
 
     def visualize_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-
         stock = mfa.stocks["in_use"].stock.sum_over(("r", "m", "e"))
         good_dim = stock.dims.index("g")
         stock = stock.apply(np.cumsum, kwargs={"axis": good_dim})
@@ -261,102 +274,6 @@ class PlasticsVisualizer(CommonVisualizer):
         )
         fig = ap.plot()
         self.plot_and_save_figure(ap, "stock_stacked.png", do_plot=False)
-
-        per_capita = self.cfg.use_stock.per_capita
-
-        stock = mfa.stocks["in_use"].stock
-        population = mfa.parameters["population"]
-        x_array = None
-
-        pc_str = " pC" if per_capita else ""
-        x_label = "Year"
-        y_label = f"Plastic Stock{pc_str} [t]"
-        title = f"Plastic Stocks{pc_str}"
-        if self.cfg.use_stock.over_gdp:
-            title = title + f" over GDP{pc_str}"
-            x_label = f"GDP/PPP{pc_str} [2005 USD]"
-            x_array = mfa.parameters["gdppc"]
-            if not per_capita:
-                x_array = x_array * population
-
-        if subplots_by_good:
-            subplot_dim = {"subplot_dim": "Good"}
-        else:
-            subplot_dim = {}
-            stock = stock.sum_over("g")
-        stock = stock.sum_over(["e", "m"])
-
-        if per_capita:
-            stock = stock / population
-
-        colors = plc.qualitative.Dark24
-        colors = (
-            colors[: stock.dims["r"].len]
-            + colors[: stock.dims["r"].len]
-            + ["black" for _ in range(stock.dims["r"].len)]
-        )
-
-        ap_stock = self.plotter_class(
-            array=stock,
-            intra_line_dim="Time",
-            linecolor_dim="Region",
-            **subplot_dim,
-            display_names=self.display_names.dct,
-            x_array=x_array,
-            xlabel=x_label,
-            ylabel=y_label,
-            title=title,
-            color_map=colors,
-            line_type="dot",
-            suppress_legend=True,
-        )
-        fig = ap_stock.plot()
-
-        hist_stock = stock[{"t": mfa.dims["h"]}]
-        hist_x_array = x_array[{"t": mfa.dims["h"]}] if x_array is not None else None
-        ap_hist_stock = self.plotter_class(
-            array=hist_stock,
-            intra_line_dim="Historic Time",
-            linecolor_dim="Region",
-            **subplot_dim,
-            display_names=self.display_names.dct,
-            x_array=hist_x_array,
-            fig=fig,
-            color_map=colors,
-        )
-        fig = ap_hist_stock.plot()
-
-        last_year_dim = fd.Dimension(
-            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
-        )
-        scatter_stock = hist_stock[{"h": last_year_dim}]
-        scatter_x_array = hist_x_array[{"h": last_year_dim}] if hist_x_array is not None else None
-        ap_scatter_stock = self.plotter_class(
-            array=scatter_stock,
-            intra_line_dim="Last Historic Year",
-            linecolor_dim="Region",
-            **subplot_dim,
-            display_names=self.display_names.dct,
-            x_array=scatter_x_array,
-            fig=fig,
-            chart_type="scatter",
-            color_map=colors,
-            suppress_legend=True,
-        )
-        fig = ap_scatter_stock.plot()
-
-        # if self.cfg.plotting_engine == "plotly":
-        #     fig.update_xaxes(type="log", range=[3, 5])
-        # elif self.cfg.plotting_engine == "pyplot":
-        #     for ax in fig.get_axes():
-        #         ax.set_xscale("log")
-        #         ax.set_xlim(1e3, 1e5)
-
-        self.plot_and_save_figure(
-            ap_scatter_stock,
-            f"plastic_stocks_global_by_region{'_per_capita' if per_capita else ''}.png",
-            do_plot=False,
-        )
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         # Define colors for each stage
@@ -393,8 +310,7 @@ class PlasticsVisualizer(CommonVisualizer):
             {
                 fn: emission_color
                 for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("atmosphere", "mismanaged", "uncontrolled", "emission")
+                if f.to_process.name in ("atmosphere", "mismanaged", "uncontrolled", "emission")
             }
         )
 
@@ -413,8 +329,8 @@ class PlasticsVisualizer(CommonVisualizer):
             {
                 fn: trade_color
                 for fn, f in mfa.flows.items()
-                if f.from_process.name in ("imports","exports")
-                or f.to_process.name in ("imports","exports")
+                if f.from_process.name in ("imports", "exports")
+                or f.to_process.name in ("imports", "exports")
             }
         )
 
@@ -466,7 +382,9 @@ class PlasticsVisualizer(CommonVisualizer):
 
         self._show_and_save_plotly(fig, name="sankey")
 
-    def visualize_extrapolation(self, model: "PlasticsModel", subplot_dim="Region", linecolor_dim=None):
+    def visualize_extrapolation(
+        self, model: "PlasticsModel", subplot_dim="Region", linecolor_dim=None
+    ):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         stock = mfa.stocks["in_use"].stock
@@ -491,15 +409,15 @@ class PlasticsVisualizer(CommonVisualizer):
             dimlist.append(linecolor_dimletter)
 
         other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        stock = stock.sum_over(other_dimletters) 
+        stock = stock.sum_over(other_dimletters)
         other_dimletters = tuple(
             letter
             for letter in model.stock_handler.fitted_regression.dims.letters
             if letter not in dimlist
         )
         pure_prediction = (
-            model.stock_handler.fitted_regression.sum_over(other_dimletters) 
-        )
+            model.stock_handler.fitted_regression * model.sector_specific_sat_level
+        ).sum_over(other_dimletters)
 
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"

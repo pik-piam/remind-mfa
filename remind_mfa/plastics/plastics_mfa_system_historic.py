@@ -24,26 +24,27 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         trd = self.trade_set
 
         flw["sysenv => fabrication"][...] = (
-            prm["consumption"]
-            * self.parameters["material_shares_in_goods"]
+            prm["consumption"] * self.parameters["material_shares_in_goods"]
         )
-        
+
         # exports of final goods cannot exceed plastics fabrication
-        trd["final_his"].exports[...] = trd["final_his"].exports.minimum(flw["sysenv => fabrication"])
+        trd["final_his"].exports[...] = trd["final_his"].exports.minimum(
+            flw["sysenv => fabrication"]
+        )
         trd["final_his"].balance(to="minimum")
 
-        flw["fabrication => good_market"][...] = flw["sysenv => fabrication"] 
-        flw["good_market => use"][...] = flw["fabrication => good_market"] - trd["final_his"].exports + trd["final_his"].imports
-        flw["good_market => sysenv"][...] = trd["final_his"].exports 
-        flw["sysenv => good_market"][...] = trd["final_his"].imports 
+        flw["fabrication => good_market"][...] = flw["sysenv => fabrication"]
+        flw["good_market => use"][...] = (
+            flw["fabrication => good_market"] - trd["final_his"].exports + trd["final_his"].imports
+        )
+        flw["good_market => sysenv"][...] = trd["final_his"].exports
+        flw["sysenv => good_market"][...] = trd["final_his"].imports
 
     def compute_historic_stock(self):
-        self.stocks["in_use_historic"].inflow[...] = (
-            self.flows["good_market => use"]
-        )
+        self.stocks["in_use_historic"].inflow[...] = self.flows["good_market => use"]
         self.stocks["in_use_historic"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}], 
-            std=self.parameters["lifetime_std"],
+            mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}],
+            std=self.parameters["lifetime_std"][{"t": self.dims["h"]}],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["in_use_historic"].lifetime_model.n_pts_per_interval = 10
@@ -54,4 +55,12 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.parameters["material_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "r", "m", "g"],
             values=(self.flows["good_market => use"]).get_shares_over(("m",)).values,
+        )
+        # get good split from historic stock inflow
+        self.parameters["good_shares_use_inflow"] = fd.Parameter(
+            dims=self.dims["h", "r", "g"],
+            values=(self.flows["good_market => use"])
+            .sum_over(("m",))
+            .get_shares_over(("g",))
+            .values,
         )
