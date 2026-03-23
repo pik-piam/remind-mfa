@@ -329,16 +329,25 @@ class CommonVisualizer(RemindMFABaseModel):
                 do_plot=False,
             )
 
-    def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None):
+    def visualize_trade(
+        self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None
+    ):
 
         for name, trade in mfa.trade_set.markets.items():
             imports = trade.imports
             exports = trade.exports
-            
+
             linecolor_dim = linecolor_dims[name]
-            linecolor_dim_letter = imports.dims[linecolor_dim].letter if linecolor_dim is not None else None
-            dimlist = ["t", "r",] + ([linecolor_dim_letter] if linecolor_dim_letter is not None else [])
-            other_dimletters = tuple(letter for letter in imports.dims.letters if letter not in dimlist)
+            linecolor_dim_letter = (
+                imports.dims[linecolor_dim].letter if linecolor_dim is not None else None
+            )
+            dimlist = [
+                "t",
+                "r",
+            ] + ([linecolor_dim_letter] if linecolor_dim_letter is not None else [])
+            other_dimletters = tuple(
+                letter for letter in imports.dims.letters if letter not in dimlist
+            )
             imports = imports.sum_over(other_dimletters)
             exports = exports.sum_over(other_dimletters)
 
