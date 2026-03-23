@@ -106,49 +106,6 @@ class PlasticsVisualizer(CommonVisualizer):
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["good_market => exports"],
-                name="Final exports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["imports => good_market"],
-                name="Final imports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["primary_market => exports"],
-                name="Primary exports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["imports => primary_market"],
-                name="Primary imports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["collected => waste_market"],
-                name="Waste exports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-            self.visualize_flow(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["waste_market => collected"],
-                name="Waste imports",
-                subplot_dim="Region",
-                linecolor_dim="Material",
-            )
-
         self.stop_and_show()
 
     def visualize_flow(
