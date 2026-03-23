@@ -10,21 +10,19 @@ parser.add_argument('material', choices=['plastics', 'steel'], nargs='?', defaul
                     help='Material to process')
 args = parser.parse_args()
 
-# Then use args.material to select paths and logic
+OUTPUT_DIR = Path("../remind_mfa_data/input_data")
 if args.material == 'plastics':
     DATA_DIR = Path("data/plastics/input")
-    OUTPUT_DIR = Path("../remind_mfa_data/h12/plastics/input_data")
     INPUT_FILE   = DATA_DIR / "plastics_market__end_use_stock.csv"
     MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_plastics.csv"
     OUTPUT_FILE  = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
-    DIMENSION_DIR = Path("../remind_mfa_data/h12/plastics/dimensions")
+    DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
 elif args.material == 'steel':
     DATA_DIR = Path("data/steel/input")
-    OUTPUT_DIR = Path("../remind_mfa_data/h12/steel/input_data")
     INPUT_FILE   = DATA_DIR / "F_3_4_DomesticDemandNewGoods.csv"
     MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_steel.csv"
     OUTPUT_FILE  = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
-    DIMENSION_DIR = Path("../remind_mfa_data/h12/steel/dimensions")
+    DIMENSION_DIR = Path("../remind_mfa_data/dimensions/steel")
 
 def main():
     # --- load and filter ---
