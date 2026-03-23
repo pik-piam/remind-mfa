@@ -65,8 +65,8 @@ visualization:
     do_visualize: False
 
 export:
-  do_export: False
-  path: 'data/plastics/output/export'
+  do_export: True
+  path: 'data/plastics/output/transience'
   pickle:
     do_export: True
   csv:

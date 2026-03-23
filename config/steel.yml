@@ -57,7 +57,7 @@ visualization:
 
 export:
   do_export: True
-  path: 'data/steel/output/export'
+  path: 'data/steel/output/transience'
   pickle:
     do_export: False
   csv:
