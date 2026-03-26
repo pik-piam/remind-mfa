@@ -36,8 +36,12 @@ class PlasticsModel(CommonModel):
         self.parameters["sector_split_limit"] = self.parameters["sector_split"]
         # cast lifetime mean to correct dimensions for use in common model
         self.parameters["lifetime_mean"] = fd.Parameter(
-            dims=self.dims["t", "g"],
-            values=self.parameters["lifetime_mean"].cast_to(self.dims["t", "g"]).values,
+            dims=self.dims["t", "r", "g"],
+            values=self.parameters["lifetime_mean"].cast_to(self.dims["t", "r", "g"]).values,
+        )
+        self.parameters["lifetime_std"] = fd.Parameter(
+            dims=self.dims["t", "r", "g"],
+            values=self.parameters["lifetime_std"].cast_to(self.dims["t", "r", "g"]).values,
         )
         # Conversion Mt -> t
         # TODO: move to mrmfa

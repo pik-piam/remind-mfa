@@ -3,7 +3,7 @@ model: 'cement'
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.1.2'
+  input_data_revision: '1.2.0'
   region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
 
@@ -16,6 +16,7 @@ model_switches:
   parameter_extrapolation:
     clinker_ratio: 'ConstantExtrapolation'
     lifetime_mean: 'ConstantExtrapolation'
+    lifetime_std: 'ConstantExtrapolation'
     cement_trade: 'ZeroExtrapolation'
 
 visualization:
