@@ -68,11 +68,11 @@ export:
   do_export: True
   path: 'data/plastics/output/transience'
   pickle:
-    do_export: False
+    do_export: True
   csv:
-    do_export: True
+    do_export: False
   iamc:
-    do_export: True
+    do_export: False
   assumptions:
     do_export: False
   docs:
