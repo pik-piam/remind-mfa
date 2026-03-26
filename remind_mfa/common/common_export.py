@@ -52,7 +52,7 @@ class CommonDataExporter(RemindMFABaseModel):
         pass
 
     def export_model_to_pickle(self, model: "CommonModel"):
-        material = model.cfg.model
+        material = model.cfg.model.value
         scenario = model.cfg.model_switches.scenario
         region_mapping = model.cfg.input.region_mapping
         datetime_str = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")

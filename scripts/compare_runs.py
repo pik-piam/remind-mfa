@@ -64,7 +64,9 @@ fig = plotter.plot()
 fig.show()
 
 plotter = fde.PlotlyArrayPlotter(
-    array=comparison_array.sum_over("r",),
+    array=comparison_array.sum_over(
+        "r",
+    ),
     title=f"Comparison of {FLOW_NAME} across runs",
     intra_line_dim="t",
     linecolor_dim="X",
