@@ -182,10 +182,7 @@ class CommonModel:
 
         # add static time-dependent penetration curve if desired.
         if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray.full(
-                dims=self.dims["t", "r", "g"],
-                fill_value=1.0
-            )
+            time_factor = fd.FlodymArray.full(dims=self.dims["t", "r", "g"], fill_value=1.0)
             time = np.array(self.dims["t"].items)
             lifetime = self.lifetime_limit()  # shape (g, r)
             for r in self.dims["r"].items:

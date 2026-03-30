@@ -358,7 +358,7 @@ class ArctanExtrapolation(Extrapolation):
         if f == 0:
             return np.zeros(3)
         x_tilde = c * np.pi * (x - b)
-        outer = 1 / (1 + x_tilde ** 2)
+        outer = 1 / (1 + x_tilde**2)
         da = f / a
         db = a / np.pi * outer * c * -np.pi
         dc = a / np.pi * outer * (x - b) * np.pi
@@ -375,8 +375,6 @@ class ArctanExtrapolation(Extrapolation):
         c_guess = 1
         b_guess = 1
         return np.array([sat_level_guess, b_guess, c_guess])
-
-
 
 
 class GompertzExtrapolation(Extrapolation):
