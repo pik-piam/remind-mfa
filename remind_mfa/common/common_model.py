@@ -171,7 +171,7 @@ class CommonModel:
 
     def get_stock_sector_split_limit(self):
         prm = self.parameters
-        stock_sector_split = (self.limit_lifetime() * prm["sector_split_limit"]).get_shares_over(
+        stock_sector_split = (self.lifetime_limit() * prm["sector_split_limit"]).get_shares_over(
             self.end_use_good_letter
         )
         return stock_sector_split
@@ -182,27 +182,22 @@ class CommonModel:
 
         # add static time-dependent penetration curve if desired.
         if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray(
+            time_factor = fd.FlodymArray.full(
                 dims=self.dims["t", "r", "g"],
-                values=np.ones(
-                    (
-                        len(self.dims["t"].items),
-                        len(self.dims["r"].items),
-                        len(self.dims["g"].items),
-                    )
-                ),
+                fill_value=1.0
             )
             time = np.array(self.dims["t"].items)
-            lifetime = self.limit_lifetime()  # shape (g, r)
+            lifetime = self.lifetime_limit()  # shape (g, r)
             for r in self.dims["r"].items:
                 for g in self.dims[self.end_use_good_letter].items:
                     # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
                     # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
                     lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
-                    b = -1980.05 - lt
-                    prms = [1, b, 0.02797]
-                    time_factor[{"r": r, self.end_use_good_letter: g}] = GompertzExtrapolation.func(
-                        None, time, prms
+                    b = 1980 + lt
+                    prms = [1, b, 0.01]
+                    ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class
+                    time_factor[{"r": r, self.end_use_good_letter: g}] = ExtrapolationClass.func(
+                        ExtrapolationClass, time, prms
                     )
         else:
             time_factor = fd.FlodymArray.full(
@@ -254,7 +249,7 @@ class CommonModel:
             target_dim_letters="all",
             indep_fit_dim_letters=(self.end_use_good_letter,),
             bound_list=bound_list_obj,
-            lifetime=self.limit_lifetime(),
+            lifetime=self.lifetime_limit(),
         )
         self.stock_handler.extrapolate()
 
@@ -289,7 +284,7 @@ class CommonModel:
         )
         array[...] *= factor
 
-    def limit_lifetime(self):
+    def lifetime_limit(self):
         """Effective lifetime when saturation level is reached.
         Currently, this is just the last modelled lifetime."""
         return self.parameters["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
