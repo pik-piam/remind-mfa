@@ -232,7 +232,6 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             TradeDefinition(name="cement", dim_letters=("t", "r")),
         ]
 
-    
     return RemindMFADefinition(
         dimensions=dimensions,
         processes=processes,
@@ -241,5 +240,6 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         parameters=parameters,
         trades=trades,
     )
+
 
 scenario_parameters = []

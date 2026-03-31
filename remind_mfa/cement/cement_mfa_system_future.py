@@ -68,21 +68,22 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
         flw["imports => market_cement"][...] = trd["cement"].imports
-        
+
         # cement production
-        flw["prod_cement => market_cement"][...] = flw["market_cement => prod_product"] + trd["cement"].net_exports
+        flw["prod_cement => market_cement"][...] = (
+            flw["market_cement => prod_product"] + trd["cement"].net_exports
+        )
         flw["prod_cement => sysenv"][...] = (
             flw["prod_cement => market_cement"]
-            * prm["cement_losses"] / (1 - prm["cement_losses"]) # losses are relative to total production
+            * prm["cement_losses"]
+            / (1 - prm["cement_losses"])  # losses are relative to total production
         )
         flw["market_clinker => prod_cement"][...] = (
-            (flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"])
-            * prm["clinker_ratio"]
-        )
+            flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
+        ) * prm["clinker_ratio"]
         flw["sysenv => prod_cement"][...] = (
-            (flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"])
-            * (1 - prm["clinker_ratio"])
-        )
+            flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
+        ) * (1 - prm["clinker_ratio"])
 
         # clinker trade
         extrapolator = TradeExtrapolator(
@@ -95,16 +96,25 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["market_clinker => exports"][...] = trd["clinker"].exports
 
         # clinker production
-        flw["prod_clinker => market_clinker"][...] = flw["market_clinker => prod_cement"] + trd["clinker"].net_exports
+        flw["prod_clinker => market_clinker"][...] = (
+            flw["market_clinker => prod_cement"] + trd["clinker"].net_exports
+        )
         flw["prod_clinker => sysenv"][...] = (
             flw["prod_clinker => market_clinker"]
-            * prm["clinker_losses"] / (1 - prm["clinker_losses"]) # losses are relative to total production
+            * prm["clinker_losses"]
+            / (1 - prm["clinker_losses"])  # losses are relative to total production
         )
-        flw["sysenv => prod_clinker"][...] = flw["prod_clinker => market_clinker"] + flw["prod_clinker => sysenv"]
+        flw["sysenv => prod_clinker"][...] = (
+            flw["prod_clinker => market_clinker"] + flw["prod_clinker => sysenv"]
+        )
 
         # balance trade with sysenv
-        flw["exports => sysenv"][...] = flw["market_cement => exports"] + flw["market_clinker => exports"]
-        flw["sysenv => imports"][...] = flw["imports => market_cement"] + flw["imports => market_clinker"]
+        flw["exports => sysenv"][...] = (
+            flw["market_cement => exports"] + flw["market_clinker => exports"]
+        )
+        flw["sysenv => imports"][...] = (
+            flw["imports => market_cement"] + flw["imports => market_clinker"]
+        )
 
     def compute_other_stocks(self):
         flw = self.flows

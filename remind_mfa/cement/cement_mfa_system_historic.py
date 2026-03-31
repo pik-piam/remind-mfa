@@ -30,9 +30,13 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         trd = self.trade_set
 
         # production
-        flw["prod_cement => market_cement"][...] = prm["cement_production"] * (1 - prm["cement_losses"])
+        flw["prod_cement => market_cement"][...] = prm["cement_production"] * (
+            1 - prm["cement_losses"]
+        )
         flw["prod_cement => sysenv"][...] = prm["cement_production"] * prm["cement_losses"]
-        flw["sysenv => prod_cement"][...] = flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
+        flw["sysenv => prod_cement"][...] = (
+            flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
+        )
 
         # trade
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -42,15 +46,14 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
 
         # use
         flw["market_cement => use"][...] = (
-            (flw["prod_cement => market_cement"] + trd["cement"].net_imports)
-            * self.parameters["stock_type_split"]
-        )
-        
+            flw["prod_cement => market_cement"] + trd["cement"].net_imports
+        ) * self.parameters["stock_type_split"]
+
     def compute_in_use_stock(self):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
-        
+
         stk["in_use"].inflow[...] = flw["market_cement => use"]
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
