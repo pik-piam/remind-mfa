@@ -84,13 +84,10 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         aux = {
             "total_primary_fabrication": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "total_primary_virgin": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "total_primary_virgin": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "total_primary_virgin_all_mat": self.get_new_array(dim_letters=("t", "e", "r")),
-            "virgin_material_shares": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "captured_2_virginccu_by_mat": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "ratio_nonc_to_c": self.get_new_array(dim_letters=("m",)),
+            "virgin_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
 
         # fmt: off
@@ -113,7 +110,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
         flw["collected => reclchem"][...] = aux["total_waste_collected"] * prm["chemical_recycling_rate"]
-        flw["reclchem => virgin"][...] = flw["collected => reclchem"]
+        flw["reclchem => virgin"][...] = flw["collected => reclchem"] * prm["chemical_recycling_yield"]
+        flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => virgin"]
 
         flw["collected => incineration"][...] = aux["total_waste_collected"] * prm["incineration_rate"]
         flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
@@ -129,8 +127,8 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["mismanaged => uncontrolled"][...] = flw["eol => mismanaged"]
 
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
-        flw["emission => captured"][...] = flw["incineration => emission"] * prm["emission_capture_rate"]
-        flw["emission => atmosphere"][...] = flw["incineration => emission"] - flw["emission => captured"]
+        flw["emission => captured"][...] = (flw["incineration => emission"] + flw["reclchem => emission"]) * prm["emission_capture_rate"]
+        flw["emission => atmosphere"][...] = flw["incineration => emission"] + flw["reclchem => emission"] - flw["emission => captured"]
         flw["captured => virginccu"][...] = flw["emission => captured"]
 
         # now trades and production flows are computed starting from the stock inflow
@@ -181,14 +179,10 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["virgindaccu => virgin"][...] = aux["total_primary_virgin"] * prm["daccu_production_rate"]
         flw["virginbio => virgin"][...] = aux["total_primary_virgin"] * prm["bio_production_rate"]
 
-        # assumption: virgin production from CCU is split by the same material shares as overall primary virgin production
-        aux["total_primary_virgin_all_mat"][...] = aux["total_primary_virgin"]
-        aux["virgin_material_shares"][...] = aux["total_primary_virgin"] / aux["total_primary_virgin_all_mat"]
-        aux["captured_2_virginccu_by_mat"][...] = flw["captured => virginccu"] * aux["virgin_material_shares"]
-
-        flw["virginccu => virgin"]["C"] = aux["captured_2_virginccu_by_mat"]["C"]
-        aux["ratio_nonc_to_c"][...] = prm["carbon_content_materials"]["Other Elements"] / prm["carbon_content_materials"]["C"]
-        flw["virginccu => virgin"]["Other Elements"] = flw["virginccu => virgin"]["C"] * aux["ratio_nonc_to_c"]
+        # since non-C captured has no meaning & is equivalent to sysenv, non-C of virgin CCU production has to be calculated based on the same ratio as in overall virgin production
+        aux["virgin_ratio_nonc_to_c"][...] = aux["total_primary_virgin"]["Other Elements"] / aux["total_primary_virgin"]["C"]
+        flw["virginccu => virgin"]["C"] = flw["captured => virginccu"]["C"]
+        flw["virginccu => virgin"]["Other Elements"] = flw["virginccu => virgin"]["C"] * aux["virgin_ratio_nonc_to_c"]
 
         flw["virginfoss => virgin"][...] = (
             flw["virgin => primary_market"]
@@ -201,7 +195,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["sysenv => virginfoss"][...] = flw["virginfoss => virgin"]
         flw["atmosphere => virginbio"][...] = flw["virginbio => virgin"]
         flw["atmosphere => virgindaccu"][...] = flw["virgindaccu => virgin"]
-        flw["sysenv => virginccu"][...] = flw["virginccu => virgin"] - aux["captured_2_virginccu_by_mat"]
+        flw["sysenv => virginccu"][...] = flw["virginccu => virgin"] - flw["captured => virginccu"]
         flw["sysenv => imports"][...] = flw["imports => good_market"] + flw["imports => primary_market"] + flw["imports => waste_market"]
         flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"]
 
