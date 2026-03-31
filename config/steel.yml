@@ -11,7 +11,7 @@ model_switches:
   scenario: 'SSP2'
   # stock_extrapolation_class_name: 'TwoPredictorGompertzExtrapolation'
   # regress_over: loggdppc_time
-  stock_extrapolation_class_name: 'GompertzExtrapolation'
+  stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
@@ -25,7 +25,7 @@ visualization:
   extrapolation:
     do_visualize: True
   scrap_demand_supply:
-    do_visualize: True
+    do_visualize: False
   sector_splits:
     do_visualize: False
   use_stock:
@@ -38,9 +38,9 @@ visualization:
   production:
     do_visualize: True
   consumption:
-    do_visualize: True
+    do_visualize: False
   trade:
-    do_visualize: True
+    do_visualize: False
   sankey:
     do_visualize: False
     plotter_args:

@@ -92,11 +92,12 @@ class StockFitter(RemindMFABaseModel):
         x0 = prms_0.copy()  # avoid modifying the original initial parameters
         penalties = []
         n = 50
-        for offset in np.arange(0, 1.1, 1 / n):
+        offsets = np.arange(-1.1, 0, 1 / n)
+        for offset in offsets:
             x0[1] = prms_0[1] + offset
             penalties.append(self.penalty(historic, predictor, x0, prms_0))
         min_penalty_idx = np.argmin(penalties)
-        x0[1] = prms_0[1] + np.arange(0, 1.1, 1 / n)[min_penalty_idx]
+        x0[1] = prms_0[1] + offsets[min_penalty_idx]
 
         result = minimize(
             fun=lambda prms: self.penalty(historic, predictor, prms, prms_0),

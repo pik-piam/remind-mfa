@@ -10,7 +10,7 @@ input:
 model_switches:
   scenario: 'SSP2'
   mode: 'base' # can be "base", "carbon_flow"
-  stock_extrapolation_class_name: 'GompertzExtrapolation'
+  stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
   parameter_extrapolation:
@@ -29,12 +29,14 @@ visualization:
     do_visualize: False
   consumption:
     do_visualize: True
+  trade:
+    do_visualize: False
   use_stock:
     do_visualize: True
     over_gdp: True
     per_capita: True
   eol_stock:
-    do_visualize: True
+    do_visualize: False
     over_gdp: False
     per_capita: False
   prod_clinker:
@@ -44,7 +46,7 @@ visualization:
   prod_product:
     do_visualize: False
   sankey:
-    do_visualize: True
+    do_visualize: False
     plotter_args:
       slice_dict:
         t: 2050
