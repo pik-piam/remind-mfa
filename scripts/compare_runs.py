@@ -10,6 +10,7 @@ IS_STOCK = False
 RUNS = ["model_steel_SSP1_h12_2026-03-17--16-24-26", "model_steel_SSP2_h12_2026-03-17--16-25-51"]
 # RUNS = None
 LABELS = ["SSP1", "SSP2"]
+SUBPLOT_DIM_LETTER = "r"  # e.g. "r" for region, or None for no subplots
 
 DIRECTORY = pathlib.Path(DIRECTORY)
 
@@ -53,20 +54,19 @@ else:
     arrays = [mfa.flows[FLOW_NAME] for mfa in mfas]
 comparison_array = fd.flodym_array_stack(arrays, dimension=new_dim)
 
-plotter = fde.PlotlyArrayPlotter(
-    array=comparison_array,
-    title=f"Comparison of {FLOW_NAME} across runs",
-    intra_line_dim="t",
-    linecolor_dim="X",
-    subplot_dim="r",
-)
-fig = plotter.plot()
-fig.show()
+if SUBPLOT_DIM_LETTER:
+    plotter = fde.PlotlyArrayPlotter(
+        array=comparison_array.sum_to(("t", "X", SUBPLOT_DIM_LETTER)),
+        title=f"Comparison of {FLOW_NAME} across runs",
+        intra_line_dim="t",
+        linecolor_dim="X",
+        subplot_dim="r",
+    )
+    fig = plotter.plot()
+    fig.show()
 
 plotter = fde.PlotlyArrayPlotter(
-    array=comparison_array.sum_over(
-        "r",
-    ),
+    array=comparison_array.sum_to(("t", "X")),
     title=f"Comparison of {FLOW_NAME} across runs",
     intra_line_dim="t",
     linecolor_dim="X",
