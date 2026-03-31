@@ -67,19 +67,17 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     else:
         flows = [
             # sysenv
-            fd.FlowDefinition(from_process="sysenv", to_process="virginfoss", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virginbio", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virgindaccu", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virginccu", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="sysenv", to_process="virginfoss", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="virginccu", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t","e","r")),
             # monomer stages
             fd.FlowDefinition(from_process="atmosphere", to_process="virginbio", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="atmosphere", to_process="virgindaccu", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="virginfoss", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virginbio", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="virginfoss", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="virginbio", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r")),
             # primary stages
             fd.FlowDefinition(from_process="virgin", to_process="primary_market", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
