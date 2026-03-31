@@ -84,10 +84,9 @@ class PlasticsMFASystemFuture(fd.MFASystem):
 
         aux = {
             "total_primary_fabrication": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "total_primary_virgin": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "total_primary_virgin": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "total_primary_virgin_all_mat": self.get_new_array(dim_letters=("t", "r", "e")),
             "virgin_ratio_nonc_to_c": self.get_new_array(dim_letters=("t","r")),
         }
 
@@ -181,8 +180,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         flw["virginbio => virgin"][...] = aux["total_primary_virgin"] * prm["bio_production_rate"]
 
         # since non-C captured has no meaning & is equivalent to sysenv, non-C of virgin CCU production has to be calculated based on the same ratio as in overall virgin production
-        aux["total_primary_virgin_all_mat"][...] = aux["total_primary_virgin"]
-        aux["virgin_ratio_nonc_to_c"][...] = aux["total_primary_virgin_all_mat"]["Other Elements"] / aux["total_primary_virgin_all_mat"]["C"]
+        aux["virgin_ratio_nonc_to_c"][...] = aux["total_primary_virgin"]["Other Elements"] / aux["total_primary_virgin"]["C"]
         flw["virginccu => virgin"]["C"] = flw["captured => virginccu"]["C"]
         flw["virginccu => virgin"]["Other Elements"] = flw["virginccu => virgin"]["C"] * aux["virgin_ratio_nonc_to_c"]
 
