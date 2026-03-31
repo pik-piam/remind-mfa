@@ -42,6 +42,8 @@ class CommonVisualizer(RemindMFABaseModel):
         if self.cfg.use_stock.do_visualize:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=True)
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
+        if self.cfg.trade.do_visualize:
+            self.visualize_trade(model.future_mfa)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
         # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
@@ -326,3 +328,55 @@ class CommonVisualizer(RemindMFABaseModel):
                 f"regression_function_{factor_name}_{regional_str}",
                 do_plot=False,
             )
+
+    def visualize_trade(
+        self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None
+    ):
+
+        for name, trade in mfa.trade_set.markets.items():
+            imports = trade.imports
+            exports = trade.exports
+
+            linecolor_dim = linecolor_dims[name]
+            linecolor_dim_letter = (
+                imports.dims[linecolor_dim].letter if linecolor_dim is not None else None
+            )
+            dimlist = [
+                "t",
+                "r",
+            ] + ([linecolor_dim_letter] if linecolor_dim_letter is not None else [])
+            other_dimletters = tuple(
+                letter for letter in imports.dims.letters if letter not in dimlist
+            )
+            imports = imports.sum_over(other_dimletters)
+            exports = exports.sum_over(other_dimletters)
+
+            if linecolor_dim is not None:
+                n_colors = mfa.dims[linecolor_dim].len
+            else:
+                n_colors = 1
+            colors = plc.qualitative.Dark24[:n_colors] * 2
+            ap_imports = self.plotter_class(
+                array=imports,
+                intra_line_dim="Time",
+                subplot_dim="Region",
+                linecolor_dim=linecolor_dims[name],
+                display_names=self.display_names.dct,
+                color_map=colors,
+            )
+            fig = ap_imports.plot()
+            ap_exports = self.plotter_class(
+                array=-exports,
+                intra_line_dim="Time",
+                subplot_dim="Region",
+                linecolor_dim=linecolor_dims[name],
+                line_type="dash",
+                display_names=self.display_names.dct,
+                title=f"{name} Trade",
+                ylabel="Trade (Exports negative)",
+                suppress_legend=True,
+                fig=fig,
+                color_map=colors,
+            )
+            fig = ap_exports.plot()
+            self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)

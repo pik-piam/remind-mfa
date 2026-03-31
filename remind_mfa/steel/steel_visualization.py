@@ -28,8 +28,6 @@ class SteelVisualizer(CommonVisualizer):
             self.visualize_gdppc(
                 model.future_mfa, change=False, per_capita=self.cfg.gdppc["per_capita"]
             )
-        if self.cfg.trade.do_visualize:
-            self.visualize_trade(model.future_mfa)
         if self.cfg.scrap_demand_supply.do_visualize:
             self.visualize_scrap_demand_supply(model.future_mfa, regional=True)
             self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
@@ -37,49 +35,6 @@ class SteelVisualizer(CommonVisualizer):
             self.visualize_sector_splits(model.future_mfa, regional=True)
             self.visualize_sector_splits(model.future_mfa, regional=False)
         self.stop_and_show()
-
-    def visualize_trade(self, mfa: fd.MFASystem):
-        linecolor_dims = {
-            "steel": None,
-            "indirect": "Good",
-            "scrap": None,
-        }
-
-        for name, trade in mfa.trade_set.markets.items():
-            imports = trade.imports
-            exports = trade.exports
-            linecolor_dim = linecolor_dims[name]
-            if linecolor_dim is not None:
-                imports = imports.sum_over(imports.dims[linecolor_dim].letter)
-                exports = exports.sum_over(exports.dims[linecolor_dim].letter)
-                n_colors = mfa.dims[linecolor_dim].len
-            else:
-                n_colors = 1
-            colors = plc.qualitative.Dark24[:n_colors] * 2
-            ap_imports = self.plotter_class(
-                array=imports,
-                intra_line_dim="Time",
-                subplot_dim="Region",
-                # linecolor_dim=linecolor_dims[name],
-                display_names=self.display_names.dct,
-                color_map=colors,
-            )
-            fig = ap_imports.plot()
-            ap_exports = self.plotter_class(
-                array=-exports,
-                intra_line_dim="Time",
-                subplot_dim="Region",
-                # linecolor_dim=linecolor_dims[name],
-                line_type="dash",
-                display_names=self.display_names.dct,
-                title=f"{name} Trade",
-                ylabel="Trade (Exports negative)",
-                suppress_legend=True,
-                fig=fig,
-                color_map=colors,
-            )
-            fig = ap_exports.plot()
-            self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         consumption = mfa.stocks["in_use"].inflow
@@ -248,6 +203,21 @@ class SteelVisualizer(CommonVisualizer):
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
+
+    def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=False):
+        if linecolor_dims is True:
+            linecolor_dims = {
+                "steel": None,
+                "indirect": "Good",
+                "scrap": None,
+            }
+        else:
+            linecolor_dims = {
+                "steel": None,
+                "indirect": None,
+                "scrap": None,
+            }
+        super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
     def visualize_scrap_demand_supply(self, mfa: fd.MFASystem, regional=True):
 

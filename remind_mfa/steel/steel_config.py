@@ -11,10 +11,6 @@ class SteelVisualizationCfg(VisualizationCfg):
     """Visualization configuration for scrap demand and supply."""
     sector_splits: BaseVisualizationCfg
     """Visualization configuration for sector splits."""
-    trade: BaseVisualizationCfg
-    """Visualization configuration for trade."""
-    consumption: BaseVisualizationCfg
-    """Visualization configuration for consumption."""
     gdppc: GDPVisualizationCfg
     """Visualization configuration for GDP per capita."""
 

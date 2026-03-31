@@ -23,8 +23,6 @@ class CementModelSwitches(ModelSwitches):
 
 class CementVisualizationCfg(VisualizationCfg):
 
-    consumption: BaseVisualizationCfg
-    """Visualization configuration for consumption."""
     prod_clinker: BaseVisualizationCfg
     """Visualization configuration for clinker production."""
     prod_cement: BaseVisualizationCfg
