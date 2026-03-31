@@ -87,7 +87,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
             "total_primary_virgin": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "virgin_ratio_nonc_to_c": self.get_new_array(dim_letters=("t","r")),
+            "virgin_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
 
         # fmt: off
