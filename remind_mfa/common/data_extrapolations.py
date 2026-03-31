@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional, Tuple, ClassVar
+from typing import Optional, Tuple, ClassVar, Type
 import numpy as np
 import sys
 from pydantic import model_validator
@@ -248,6 +248,9 @@ class TwoPredictorExtrapolation(Extrapolation):
     Mainly used for classification of these subclasses.
     """
 
+    # point to the corresponding single-predictor class (override in subclasses)
+    single_predictor_cls: ClassVar[Optional[Type[Extrapolation]]] = None
+
     def check_predictor(self, x):
         x2 = x["x2"]
         assert (
@@ -272,6 +275,8 @@ class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
     model: A * f_x1(x1; k_x1, x1_0) * f_x2(x2; k_x2, x2_0)
     Prm order: [saturation_level (A), k_x1, x1_0, k_x2, x2_0]
     """
+
+    single_predictor_cls = LogisticExtrapolation
 
     prm_names: ClassVar[list[str]] = [
         "saturation_level",
@@ -315,7 +320,7 @@ class GompertzExtrapolation(Extrapolation):
     """
     Gompertz extrapolation:
     Prm order: [saturation_level, offset, growth_rate]
-    In this parameterization, 
+    In this parameterization,
     - the offset shifts the curve horizontally, setting the half-point (50% saturation) at x = -offset,
     - and the growth_rate controls the steepness of the curve.
     The maximum derivative (at the inflection point) is exactly equal to: saturation_level * growth_rate / e.
@@ -332,7 +337,8 @@ class GompertzExtrapolation(Extrapolation):
         x : structured array with fields 'x1' and 'x2'
         """
         a, b, c = prms[:3]
-        return a * np.exp(-np.exp(-c * (x + b)) * np.log(2))
+        inner = np.clip(-c * (x + b), -500, 500)
+        return a * np.exp(-np.exp(inner) * np.log(2))
 
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
@@ -366,6 +372,8 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
     Prm order: [saturation_level (a), b_x1, c_x1, b_x2, c_x2]
     """
 
+    single_predictor_cls = GompertzExtrapolation
+
     prm_names: ClassVar[list[str]] = [
         "saturation_level",
         "x1_offset",
@@ -380,8 +388,8 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
         x1, x2 = x["x1"], x["x2"]
 
         f1 = np.ones_like(x1) * a
-        f2 = np.exp(-np.exp(b_x1) * np.exp(-c_x1 * x1))
-        f3 = np.exp(-np.exp(b_x2) * np.exp(-c_x2 * x2))
+        f2 = np.exp(-np.exp(np.clip(-c_x1 * (x1 + b_x1), -500, 500)) * np.log(2))
+        f3 = np.exp(-np.exp(np.clip(-c_x2 * (x2 + b_x2), -500, 500)) * np.log(2))
         factors = {"f1": f1, "f2": f2, "f3": f3}
         return self.selective_product(factor, factors)
 
@@ -393,10 +401,10 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
         max_level = np.max(data_to_extrapolate)
         sat_level_guess = 2.0 * max_level
 
-        c_x1_guess = 0
+        c_x1_guess = 1
         b_x1_guess = 1
 
-        c_x2_guess = 0
+        c_x2_guess = 1
         b_x2_guess = 1
 
         return np.array([sat_level_guess, b_x1_guess, c_x1_guess, b_x2_guess, c_x2_guess])

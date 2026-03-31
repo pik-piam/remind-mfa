@@ -54,7 +54,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         stk["in_use"].inflow[...] = flw["market_cement => use"]
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
-            std=prm["lifetime_rel_std"] * prm["lifetime_mean"],
+            std=prm["lifetime_std"],
         )
         stk["in_use"].compute()
 

@@ -37,11 +37,27 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 
 
 scenario_parameters = [
+    PlainDataPointDefinition(
+        name="gdp_pop_scen", description="Name of the (SSP) scenario to use for GDP and population"
+    ),
+    PlainDataPointDefinition(
+        name="saturation_level",
+        description="Saturation level for material use per capita (unit depends on the material, e.g. t/capita)",
+    ),
+    RemindMFAParameterDefinition(
+        name="stock_factor",
+        dim_letters=("r",),
+    ),
+    RemindMFAParameterDefinition(
+        name="stock_factor_year",
+        dim_letters=("r",),
+    ),
     RemindMFAParameterDefinition(
         name="lifetime_factor",
         dim_letters=("r",),
     ),
-    PlainDataPointDefinition(
-        name="lifetime_factor_blending_year",
+    RemindMFAParameterDefinition(
+        name="lifetime_factor_year",
+        dim_letters=("r",),
     ),
 ]

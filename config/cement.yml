@@ -1,10 +1,9 @@
 model: 'cement'
 
 input:
-  madrat_output_path: '../madrat_wd/output'
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data/h12'
-  input_data_version: 'rev0trade_h12_4f8fd1ed_mfa'
+  input_data_version: 'rev1.0.0_h12_1584d780_mfa'
   scenarios_path: 'config/scenarios'
 
 model_switches:
@@ -16,6 +15,7 @@ model_switches:
   parameter_extrapolation:
     clinker_ratio: 'ConstantExtrapolation'
     lifetime_mean: 'ConstantExtrapolation'
+    lifetime_std: 'ConstantExtrapolation'
 
 visualization:
   do_visualize: True
@@ -27,6 +27,8 @@ visualization:
     do_visualize: False
   consumption:
     do_visualize: True
+  trade:
+    do_visualize: False
   use_stock:
     do_visualize: True
     over_gdp: True

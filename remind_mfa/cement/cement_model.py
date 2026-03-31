@@ -34,8 +34,12 @@ class CementModel(CommonModel):
     # TODO: unify, then delete
     end_use_good_letter: str = "s"
     historic_stock_name: str = "in_use"
-    stock_projection_saturation_level: int = 24 # TODO replace this first guess
 
     def modify_parameters(self):
         # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]  
+        self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]
+
+        # construct lifetime std from mean and relative std
+        lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
+        lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
+        self.parameters["lifetime_std"] = lifetime_std
