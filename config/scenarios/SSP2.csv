@@ -1,6 +1,6 @@
 parameter,models,value,extra:year,index:Region,description
 gdp_pop_scen,all,SSP2,,,
-saturation_level,steel,11,,,
+saturation_level,steel,10,,,
 saturation_level,plastics,3,,,
 saturation_level,cement,24,,,
 stock_factor,all,1.0,2100,,

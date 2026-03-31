@@ -9,7 +9,7 @@ input:
 
 model_switches:
   scenario: 'SSP2'
-  stock_extrapolation_class_name: 'GompertzExtrapolation'
+  stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: 'loggdppc'
   do_stock_extrapolation_with_time_factor: True
   lifetime_model_name: 'LogNormalLifetime'
