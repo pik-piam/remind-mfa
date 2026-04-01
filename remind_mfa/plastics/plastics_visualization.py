@@ -319,7 +319,8 @@ class PlasticsVisualizer(CommonVisualizer):
         )
 
         # Prepare display names and generate the Sankey diagram
-        display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
+        # display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
+        display_names_fmt = self.display_names.dct
         plotter = fde.PlotlySankeyPlotter(
             mfa=mfa, display_names=display_names_fmt, **self.cfg.sankey.plotter_args
         )
