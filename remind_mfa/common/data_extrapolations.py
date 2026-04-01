@@ -226,11 +226,22 @@ class ExponentialSaturationExtrapolation(Extrapolation):
 
 class LogisticExtrapolation(Extrapolation):
 
-    prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor", "x_offset"]
+    prm_names: ClassVar[list[str]] = ["saturation_level", "offset", "growth_rate"]
+    norm_c: ClassVar[float] = 4
 
-    @staticmethod
-    def func(x, prms):
-        return prms[0] / (1.0 + np.exp(-prms[1] * (x - prms[2])))
+    def func(self, x, prms):
+        a, b, c = prms
+        return a / (1.0 + np.exp(-c * self.norm_c * (x - b)))
+
+    def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        a, b, c = prms[:3]
+        f = self.func(x, prms)
+        if f == 0:
+            return np.zeros(3)
+        da = f / a
+        db = f * c * self.norm_c * (f / a - 1)
+        dc = -f * (x - b) * (f / a - 1) * self.norm_c
+        return np.stack([da, db, dc], axis=-1)
 
     def initial_guess(self, predictor_values, data_to_extrapolate):
         max_level = np.max(data_to_extrapolate)
@@ -238,8 +249,8 @@ class LogisticExtrapolation(Extrapolation):
 
         mean_predictor = np.mean(predictor_values)
         max_predictor = np.max(predictor_values)
-        stretch_factor = 2 / (max_predictor - mean_predictor)
-        return np.array([sat_level_guess, stretch_factor, mean_predictor])
+        growth_rate = 1 / (max_predictor - mean_predictor)
+        return np.array([sat_level_guess, mean_predictor, growth_rate])
 
 
 class TwoPredictorExtrapolation(Extrapolation):
@@ -280,20 +291,21 @@ class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
 
     prm_names: ClassVar[list[str]] = [
         "saturation_level",
-        "x1_stretch_factor",
         "x1_offset",
-        "x2_stretch_factor",
+        "x1_growth_rate",
         "x2_offset",
+        "x2_growth_rate",
     ]
+    norm_c: ClassVar[float] = 4
 
     def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
         self.check_predictor(x)
-        a, k_x1, x1_0, k_x2, x2_0 = prms
-        x1, x2 = x["x1"], x["X2"]
+        a, b_x1, c_x1, b_x2, c_x2 = prms
+        x1, x2 = x["x1"], x["x2"]
 
         f1 = np.ones_like(x1) * a
-        f2 = 1.0 / (1.0 + np.exp(-k_x1 * (x1 - x1_0)))
-        f3 = 1.0 / (1.0 + np.exp(-k_x2 * (x2 - x2_0)))
+        f2 = 1.0 / (1.0 + np.exp(-c_x1 * self.norm_c * (x1 - b_x1)))
+        f3 = 1.0 / (1.0 + np.exp(-c_x2 * self.norm_c * (x2 - b_x2)))
         factors = {"f1": f1, "f2": f2, "f3": f3}
         return self.selective_product(factor, factors)
 
@@ -305,20 +317,20 @@ class TwoPredictorLogisticExtrapolation(TwoPredictorExtrapolation):
         max_level = np.max(data_to_extrapolate)
         sat_level_guess = 2.0 * max_level
 
-        mean_x1 = np.mean(predictor_values["x1"][: self.n_historic, ...])
+        b_x1_guess = np.mean(predictor_values["x1"][: self.n_historic, ...])
         max_x1 = np.max(predictor_values["x1"][: self.n_historic, ...])
-        k_x1_guess = 2.0 / (max_x1 - mean_x1)
+        c_x1_guess = 1.0 / (max_x1 - b_x1_guess)
 
-        mean_x2 = np.mean(predictor_values["x2"][: self.n_historic, ...])
+        b_x2_guess = np.mean(predictor_values["x2"][: self.n_historic, ...])
         max_x2 = np.max(predictor_values["x2"][: self.n_historic, ...])
-        k_x2_guess = 2.0 / (max_x2 - mean_x2)
+        c_x2_guess = 1.0 / (max_x2 - b_x2_guess)
 
-        return np.array([sat_level_guess, k_x1_guess, mean_x1, k_x2_guess, mean_x2])
+        return np.array([sat_level_guess, b_x1_guess, c_x1_guess, b_x2_guess, c_x2_guess])
 
 
-class GompertzExtrapolation(Extrapolation):
+class ArctanExtrapolation(Extrapolation):
     """
-    Gompertz extrapolation:
+    Arctan extrapolation:
     Prm order: [saturation_level, offset, growth_rate]
     In this parameterization,
     - the offset shifts the curve horizontally, setting the half-point (50% saturation) at x = -offset,
@@ -337,19 +349,71 @@ class GompertzExtrapolation(Extrapolation):
         x : structured array with fields 'x1' and 'x2'
         """
         a, b, c = prms[:3]
-        inner = np.clip(-c * (x + b), -500, 500)
-        return a * np.exp(-np.exp(inner) * np.log(2))
+        # adjust growth rate so that it matches the derivative at the half-point
+        return np.arctan(c * np.pi * (x - b)) / np.pi * a + a / 2
 
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
         f = self.func(x, prms)
         if f == 0:
             return np.zeros(3)
-        # Use log(f/a) = -exp(-c*(x+b))*log(2) to avoid intermediate overflow
+        x_tilde = c * np.pi * (x - b)
+        outer = 1 / (1 + x_tilde**2)
+        da = f / a
+        db = a / np.pi * outer * c * -np.pi
+        dc = a / np.pi * outer * (x - b) * np.pi
+        return np.stack([da, db, dc], axis=-1)
+
+    def initial_guess(
+        self,
+        predictor_values: np.ndarray,
+        data_to_extrapolate: np.ndarray,
+    ) -> np.ndarray:
+        max_level = np.max(data_to_extrapolate)
+        sat_level_guess = 2.0 * max_level
+
+        c_guess = 1
+        b_guess = 1
+        return np.array([sat_level_guess, b_guess, c_guess])
+
+
+class GompertzExtrapolation(Extrapolation):
+    """
+    Gompertz extrapolation:
+    Prm order: [saturation_level, offset, growth_rate]
+    In this parameterization,
+    - the offset shifts the curve horizontally, setting the half-point (50% saturation) at x = -offset,
+    - and the growth_rate controls the steepness of the curve.
+    The maximum derivative (at the inflection point) is exactly equal to: saturation_level * growth_rate / e.
+    """
+
+    prm_names: ClassVar[list[str]] = [
+        "saturation_level",
+        "offset",
+        "growth_rate",
+    ]
+    norm_b: ClassVar[float] = np.log(2)
+    norm_c: ClassVar[float] = 2 / np.log(2)
+
+    def func(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        """
+        x : structured array with fields 'x1' and 'x2'
+        """
+        a, b, c = prms[:3]
+        # adjust growth rate so that it matches the derivative at the half-point
+        inner = np.clip(-c * self.norm_c * (x - b), -500, 500)
+        return a * np.exp(-np.exp(inner) * self.norm_b)
+
+    def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        a, b, c = prms[:3]
+        f = self.func(x, prms)
+        if f == 0:
+            return np.zeros(3)
+        # Use log(f/a) = -exp(-c_tilde*(x+b))*log(2) to avoid intermediate overflow
         log_f_over_a = np.log(f / a)
         da = f / a
-        db = -f * c * log_f_over_a
-        dc = -f * (x + b) * log_f_over_a
+        db = f * c * self.norm_c * log_f_over_a
+        dc = -f * (x - b) * log_f_over_a * self.norm_c
         return np.stack([da, db, dc], axis=-1)
 
     def initial_guess(
@@ -381,6 +445,8 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
         "x2_offset",
         "x2_growth_rate",
     ]
+    norm_b: ClassVar[float] = np.log(2)
+    norm_c: ClassVar[float] = 2 / np.log(2)
 
     def func(self, x: np.ndarray, prms: np.ndarray, factor: str = None) -> np.ndarray:
         self.check_predictor(x)
@@ -388,8 +454,8 @@ class TwoPredictorGompertzExtrapolation(TwoPredictorExtrapolation):
         x1, x2 = x["x1"], x["x2"]
 
         f1 = np.ones_like(x1) * a
-        f2 = np.exp(-np.exp(np.clip(-c_x1 * (x1 + b_x1), -500, 500)) * np.log(2))
-        f3 = np.exp(-np.exp(np.clip(-c_x2 * (x2 + b_x2), -500, 500)) * np.log(2))
+        f2 = np.exp(-np.exp(np.clip(-c_x1 * self.norm_c * (x1 - b_x1), -500, 500)) * self.norm_b)
+        f3 = np.exp(-np.exp(np.clip(-c_x2 * self.norm_c * (x2 - b_x2), -500, 500)) * self.norm_b)
         factors = {"f1": f1, "f2": f2, "f3": f3}
         return self.selective_product(factor, factors)
 
