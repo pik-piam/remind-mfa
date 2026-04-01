@@ -107,6 +107,7 @@ def _build_figure(data_imports, data_exports) -> go.Figure:
     fig.update_layout(template="plotly_white")
     return fig
 
+
 pickle_path = DIRECTORY / f"{RUN}.pickle"
 with pickle_path.open("rb") as file_handle:
     mfa = pickle.load(file_handle).future_mfa

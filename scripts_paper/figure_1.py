@@ -18,6 +18,7 @@ from constants import (
     RUN_STEEL,
 )
 
+
 @dataclass(frozen=True)
 class RunConfig:
     directory: pathlib.Path
@@ -74,6 +75,7 @@ def _get_region_color(region: str) -> str:
     if region not in region_colors:
         region_colors[region] = COLOR_PALETTE[len(region_colors) % len(COLOR_PALETTE)]
     return region_colors[region]
+
 
 for i, config in enumerate(RUN_CONFIGS):
     row = i + 1
@@ -132,8 +134,12 @@ for i, config in enumerate(RUN_CONFIGS):
             col=2,
         )
 
-    fig.add_vline(x=config.last_historical_year, line_dash="dash", line_color="black", row=row, col=1)
-    fig.add_vline(x=config.last_historical_year, line_dash="dash", line_color="black", row=row, col=2)
+    fig.add_vline(
+        x=config.last_historical_year, line_dash="dash", line_color="black", row=row, col=1
+    )
+    fig.add_vline(
+        x=config.last_historical_year, line_dash="dash", line_color="black", row=row, col=2
+    )
 
     fig.update_xaxes(title_text="Year", title_standoff=4, range=[1950, 2100], row=row, col=1)
     fig.update_xaxes(title_text="Year", title_standoff=4, range=[1950, 2100], row=row, col=2)

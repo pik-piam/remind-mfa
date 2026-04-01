@@ -53,7 +53,9 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
                 row=1,
                 col=1,
             )
-        fig.add_vline(x=LAST_HISTORICAL_YEAR_STEEL, line_dash="dash", line_color="black", row=1, col=1)
+        fig.add_vline(
+            x=LAST_HISTORICAL_YEAR_STEEL, line_dash="dash", line_color="black", row=1, col=1
+        )
     else:
         data = array.sum_to(("t", "X", subplot_dim)).to_df().reset_index()
         time_col = _get_column_name(data, "Time")
@@ -111,6 +113,7 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
     fig.for_each_yaxis(lambda axis: axis.update(title_text="Production [Mt]", title_standoff=4))
     fig.update_layout(template="plotly_white")
     return fig
+
 
 run_file_names = [f"{run_name}.pickle" for run_name in RUNS]
 
