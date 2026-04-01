@@ -279,8 +279,8 @@ class StockExtrapolation(RemindMFABaseModel):
             "prms": np.array(
                 [
                     0.4,  # saturation_level
-                    0.1,  # offset
-                    0.2,  # growth_rate
+                    0.30,  # offset
+                    0.10,  # growth_rate
                 ]
             ),
         }
@@ -293,7 +293,7 @@ class StockExtrapolation(RemindMFABaseModel):
                 [
                     0.2,  # saturation_level
                     0.2,  # offset
-                    5.0,  # growth_rate
+                    2.0,  # growth_rate
                 ]
             ),
         }

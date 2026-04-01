@@ -70,19 +70,17 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     else:
         flows = [
             # sysenv
-            fd.FlowDefinition(from_process="sysenv", to_process="virginfoss", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virginbio", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virgindaccu", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virginccu", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="sysenv", to_process="virginfoss", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="virginccu", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t","e","r")),
             # monomer stages
             fd.FlowDefinition(from_process="atmosphere", to_process="virginbio", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="atmosphere", to_process="virgindaccu", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="virginfoss", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virginbio", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="virginfoss", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="virginbio", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r")),
             # primary stages
             fd.FlowDefinition(from_process="virgin", to_process="primary_market", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
@@ -104,7 +102,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclchem", to_process="virgin", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="reclchem", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="incineration", to_process="emission", dim_letters=("t","e","r")),
@@ -200,6 +199,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Yield of mechanical recycling",),
         RemindMFAParameterDefinition(name="reclmech_loss_uncontrolled_rate", dim_letters=("t", "r", "m"),
                                      description="Rate of mechanical recycling losses to uncontrolled disposal",),
+        RemindMFAParameterDefinition(name="chemical_recycling_yield", dim_letters=(),
+                                     description="Yield of chemical recycling",),
         # other
         RemindMFAParameterDefinition(name="material_shares_in_goods", dim_letters=("r", "m", "g"),
                                      description="Share of materials in goods",),
