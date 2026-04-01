@@ -4,11 +4,11 @@ import flodym.export as fde
 import pathlib
 import questionary
 
-DIRECTORY = "data/steel/output/export/pickle"
-FLOW_NAME = "forming => ip_market"
+DIRECTORY = "data/plastics/output/transience/pickle"
+FLOW_NAME = "good_market => use"
 IS_STOCK = False
-RUNS = ["model_steel_SSP1_h12_2026-03-17--16-24-26", "model_steel_SSP2_h12_2026-03-17--16-25-51"]
-# RUNS = None
+#RUNS = ["model_steel_SSP1_h12_2026-03-17--16-24-26", "model_steel_SSP2_h12_2026-03-17--16-25-51"]
+RUNS = None
 LABELS = ["SSP1", "SSP2"]
 SUBPLOT_DIM_LETTER = "r"  # e.g. "r" for region, or None for no subplots
 
