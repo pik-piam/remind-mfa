@@ -93,4 +93,22 @@ COLOR_PALETTE_4 = [
 	"#4D3412",  # brown dark
 ]
 
+COLORS_REMIND = {
+	"CAZ": "#f58231",
+	"CHA": "#3cb44b",
+	"MEA": "#4363d8",
+	"LAM": "#96cfc8",
+	"SSA": "#911eb4",
+	"JPN": "#ff9999",
+	"USA": "#e6194B",
+	"OAS": "#800000",
+	"IND": "#808000",
+	"FRA": "#000075",
+	"DEU": "#f032e6",
+	"REF": "#9A6324",
+	"World": "#404040",
+	"NEU": "#42d4f4",
+	"EUR": "#ffd610",
+}
+
 COLOR_PALETTE = COLOR_PALETTE_1
