@@ -1,14 +1,13 @@
 import flodym as fd
-import numpy as np
-import logging
 
+from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
-class PlasticsMFASystemFuture(fd.MFASystem):
+class PlasticsMFASystemFuture(CommonMFASystem):
 
     cfg: PlasticsCfg
 
@@ -43,26 +42,7 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["in_use_dsm"].lifetime_model.n_pts_per_interval = 10
         self.stocks["in_use_dsm"].compute()
-
-        if np.min(self.stocks["in_use_dsm"].inflow.values) < 0:
-            negative_regions = [
-                r
-                for r in self.dims["r"].items
-                if np.min(self.stocks["in_use_dsm"].inflow[r].values) < 0
-            ]
-            logging.warning(
-                f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
-            )
-            corrected_inflow = self.stocks["in_use_dsm"].inflow.maximum(1e-6)
-            # correct negative inflow
-            self.stocks["in_use_dsm"] = fd.InflowDrivenDSM(
-                dims=self.stocks["in_use_dsm"].dims,
-                lifetime_model=self.stocks["in_use_dsm"].lifetime_model,
-                name="in_use",
-                process=self.stocks["in_use_dsm"].process,
-            )
-            self.stocks["in_use_dsm"].inflow[...] = corrected_inflow
-            self.stocks["in_use_dsm"].compute()
+        self.correct_negative_inflow("in_use_dsm")
 
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
