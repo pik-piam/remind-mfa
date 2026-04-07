@@ -156,13 +156,13 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Relative standard deviation of lifetime of cement in buildings and infrastructure."),
         # trade parameters
         RemindMFAParameterDefinition(name="clinker_imports", dim_letters=("h", "r"),
-                                     description=""),
+                                     description="Historic clinker imports for each region and year."),
         RemindMFAParameterDefinition(name="clinker_exports", dim_letters=("h", "r"),
-                                     description=""),
+                                     description="Historic clinker exports for each region and year."),
         RemindMFAParameterDefinition(name="cement_imports", dim_letters=("h", "r"),
-                                     description=""),
+                                     description="Historic cement imports for each region and year."),
         RemindMFAParameterDefinition(name="cement_exports", dim_letters=("h", "r"),
-                                        description=""),
+                                     description="Historic cement exports for each region and year."),
         # future parameters
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r", "S"),
                                      description="Historic and projected population for each region and model year."),

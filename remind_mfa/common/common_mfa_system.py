@@ -15,7 +15,7 @@ class CommonMFASystem(fd.MFASystem):
         """After a StockDrivenDSM computation, correct any negative inflows.
         Recomputes the stock as InflowDrivenDSM with the corrected inflow.
         As some small negative inflows may have their origin in numerical issues,
-        the corresponding warning can be suppressed with warn_small_negative=FALSE.
+        the corresponding warning can be suppressed with warn_small_negative=False.
         """
         stock = self.stocks[stock_name]
         min_inflow = stock.inflow.values.min()
