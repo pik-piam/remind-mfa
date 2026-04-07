@@ -81,18 +81,18 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             fd.FlowDefinition(from_process="market_cement", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("t", "r")),
             # product production
-            fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("t", "r", "m", "s")),
-            fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "m", "s")),
-            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "m", "s", "a")),
+            fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
+            fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
+            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
             # use and end-of-life
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "m", "s", "a")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "m", "s", "a")),
-            # atmosphere
-            fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r", "m", "s")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "m", "s", "c")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "a")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "a")),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
+            # atmosphere
+            fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "c")),
         ]
 
     # fmt: on
@@ -121,20 +121,20 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "m", "a", "s"),
+                dim_letters=("t", "r", "s", "m", "a"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),
             fd.StockDefinition(
                 name="atmosphere",
                 process="atmosphere",
-                dim_letters=("t", "r", "m", "s"),
+                dim_letters=("t", "r"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
                 name="carbonated_co2",
                 process="carbonation",
-                dim_letters=("t", "r", "m", "c", "s"),
+                dim_letters=("t", "r", "c"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),

@@ -1,9 +1,8 @@
 import flodym as fd
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.trade import TradeSet, Trade
+from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
-from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 

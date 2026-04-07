@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 import flodym as fd
 import numpy as np
 
@@ -90,9 +91,10 @@ class CommonModel:
             self.definition_future.parameters, dims=self.dims
         )
 
-    def check_parameters(self, exceptions: list = [], raise_error: bool = False):
+    def check_parameters(self, exceptions: Optional[list] = None, raise_error: bool = False):
         """Check if all parameters are free of NaN and negative values after data read-in."""
         logging.info("Checking parameters for NaN and negative values...")
+        exceptions = exceptions or []
 
         all_good = True
         for name, prm in self.parameters.items():
