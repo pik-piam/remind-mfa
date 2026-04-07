@@ -48,6 +48,8 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
         stk["in_use"].compute()
 
+        self.correct_negative_inflow("in_use", warn_small_negative=False)
+
     def compute_flows(self, historic_trade: TradeSet):
         prm = self.parameters
         flw = self.flows

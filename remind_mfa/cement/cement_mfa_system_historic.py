@@ -22,7 +22,11 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         self.check_flows()
 
     def balance_trade(self):
-        self.trade_set.balance()
+        """
+        Balance trade data to global imports.
+        This best reflects high historical US imports according to USGS DS140.
+        """
+        self.trade_set.balance(to="imports")
 
     def compute_flows(self):
         prm = self.parameters
