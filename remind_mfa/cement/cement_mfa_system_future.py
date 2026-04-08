@@ -100,10 +100,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["prod_clinker => market_clinker"][...] = (
             flw["market_clinker => prod_cement"] + trd["clinker"].net_exports
         )
+        # net cement kiln dust generation
         flw["prod_clinker => sysenv"][...] = (
-            flw["prod_clinker => market_clinker"]
-            * prm["clinker_losses"]
-            / (1 - prm["clinker_losses"])  # losses are relative to total production
+            flw["prod_clinker => market_clinker"] * prm["clinker_losses"]
         )
         flw["sysenv => prod_clinker"][...] = (
             flw["prod_clinker => market_clinker"] + flw["prod_clinker => sysenv"]
