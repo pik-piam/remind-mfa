@@ -18,8 +18,6 @@ from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.helpers import RegressOverModes
-from remind_mfa.common.data_extrapolations import GompertzExtrapolation
-from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 
 
 class CommonModel:
