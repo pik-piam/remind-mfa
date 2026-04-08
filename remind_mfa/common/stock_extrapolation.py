@@ -448,3 +448,108 @@ class StockExtrapolation(RemindMFABaseModel):
     @property
     def n_historic(self):
         return self.dims["h"].len
+    
+    def _integrate_forced_damped_system(self, y0, v0, t_array, p_array, approaching_time):
+        """
+        Numerically integrates the forced critically damped system:
+        Y'' + 2kY' + k^2Y = k^2P(t) + 2kP'(t)
+        Uses semi-implicit Euler method with forward-looking velocity prediction.
+        """
+        # Initialize output arrays matching the shape of the prediction array
+        y = np.zeros_like(p_array, dtype=float)
+        v = np.zeros_like(p_array, dtype=float)
+
+        # Initialize running state variables
+        y_curr = y0.copy()
+        v_curr = v0.copy()
+
+        # Set initial conditions
+        y[0, ...] = y_curr
+        v[0, ...] = v_curr
+
+        # Set damping parameter
+        k = 4.74 / approaching_time
+
+        # assuming equidistant time steps
+        dt = t_array[1] - t_array[0]
+
+        for i in range(1, len(t_array)):
+            p_curr = p_array[i, ...]
+
+            # forward-looking predictor velocity
+            n_forward_timesteps = 5
+            forward_idx = i + n_forward_timesteps
+            if forward_idx < len(t_array):
+                vp_curr = (p_array[forward_idx, ...] - p_array[forward_idx - 1, ...]) / dt
+            else:
+                vp_curr = (p_curr - p_array[i - 1, ...]) / dt
+
+            # --- 1. Calculate Acceleration ---
+            dv_dt = (k**2) * (p_curr - y_curr) + (2 * k) * (vp_curr - v_curr)
+
+            # --- 2. Update Velocity ---
+            v_curr = v_curr + dv_dt * dt
+
+            # --- 3. Update Position ---
+            y_curr = y_curr + v_curr * dt
+
+            # Store the state for this timestep
+            y[i, ...] = y_curr
+            v[i, ...] = v_curr
+
+        return y
+
+    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
+        """
+        Blend historical and extrapolated values using a forced critically damped 
+        system approach (PD-controller logic) to ensure a smooth transition.
+
+        The transition is modeled as a second-order dynamical system:
+            Y'' + 2kY' + k^2Y = k^2P(t) + 2kP'(t)
+
+        where:
+            Y: Blended trajectory
+            P: Extrapolation (target)
+            k: Damping parameter (derived from approaching_time)
+
+        To prevent overshooting during saturation phases, the system uses an 
+        anticipatory D-term (look-ahead). The ODE is solved using a semi-implicit 
+        Euler method for numerical stability.
+        """
+        time = np.array(self.dims["t"].items)
+        last_history_idx = len(historical) - 1
+
+        def avg_slope(t, y, n=1):
+            """Assuming time is the first dimension, calculate the average slope over the last n historical timesteps."""
+            ydiff = y[last_history_idx, :] - y[last_history_idx - n, :]
+            tdiff = t[last_history_idx] - t[last_history_idx - n]
+            return ydiff / tdiff
+
+        approaching_time = 30
+        add_assumption_doc(
+            type="integer number",
+            name="years for blending to regression",
+            value=approaching_time,
+            description=(
+                "Number of years for the blending from historical to regressed in-use stocks. "
+                "Governs the damping parameter k."
+            ),
+        )
+
+        # 1. Isolate the time window and prediction values we need to integrate over
+        t_future = time[last_history_idx:]
+        p_future = prediction[last_history_idx:]
+
+        # 2. Set the initial conditions at the transition point
+        y0 = historical[last_history_idx, :]
+        v0 = avg_slope(time, historical, n=1)
+
+        # 3. Integrate to find the blended future path Y(t)
+        y_future = self._integrate_forced_damped_system(y0, v0, t_future, p_future, approaching_time)
+
+        # 4. Construct the final contiguous array
+        blended_stock = prediction.copy()
+        blended_stock[:last_history_idx] = historical[:last_history_idx] # Preserve exact history
+        blended_stock[last_history_idx:] = y_future                      # Apply blended future
+
+        return blended_stock
