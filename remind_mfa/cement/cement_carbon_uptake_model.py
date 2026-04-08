@@ -108,7 +108,7 @@ class CementCarbonUptakeModel(BaseModel):
 
         # sum uptake over 5 years
         window_size = int(1 / annual_carbonation_fraction)
-        uptake_one_year_arr = uptake_one_year#.cast_values_to(self.stocks["atmosphere"].dims)
+        uptake_one_year_arr = uptake_one_year  # .cast_values_to(self.stocks["atmosphere"].dims)
         uptake_five_years_arr = windowed_sum(uptake_one_year_arr, window_size)
         uptake_five_years = fd.FlodymArray(
             dims=self.stocks["atmosphere"].dims, values=uptake_five_years_arr
