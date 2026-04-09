@@ -30,11 +30,11 @@ def main():
     df1 = pd.read_csv(INPUT_FILE, sep=sep)
     if args.material == "plastics":
         df1 = df1.rename(columns={"time": "Time", "region": "Region"})
-        df1 = df1[df1.Region == "EU27+3"].copy()    # TODO: think about region matching, EUR is actually EU28
+        df1 = df1[df1.Region == "EU27+3"].copy()
     elif args.material == "steel":
         df1 = df1.rename(columns={"years": "Time", "regions": "Region", "F_3_4_DomesticDemandNewGoods": "value"})
-        df1 = df1[df1.Region == "EU27+1"].copy()    # TODO: think about region matching, EUR is actually EU28
-    df1.loc[:, "Region"] = "EUR"
+        df1 = df1[df1.Region == "EU27+1"].copy()
+        df1.loc[:, "Region"] = "EUR"
     df1["value"] = df1["value"] * 1000          # kt -> t
 
     # --- load mapping ---

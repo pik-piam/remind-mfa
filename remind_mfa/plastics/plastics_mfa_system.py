@@ -81,14 +81,14 @@ class PlasticsMFASystemFuture(fd.MFASystem):
         if self.cfg.transience == True:
             # TODO extrapolate EU-MFA data or run MFA only until 2060
             demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"] * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
-            self.demand_EU_MFA = demand_EU_MFA[{"r": "EUR"}]
+            self.demand_EU_MFA = demand_EU_MFA[{"r": "EU27+3"}]
             # store original inflow for comparison
-            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EUR", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}]
+            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}]
             # Replace with EU-MFA data
-            self.stocks["in_use"].inflow[{"r": "EUR", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
+            self.stocks["in_use"].inflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
             rel_difference = self.demand_EU_MFA/self.demand_REMIND_MFA
             logging.warning(
-                f"TRANSIENCE mode is on. In-use stock inflow for EUR region is not computed from stock projection, but taken from EU-MFA. "
+                f"TRANSIENCE mode is on. In-use stock inflow for EU27+3 region is not computed from stock projection, but taken from EU-MFA. "
                 f"EU-MFA demand differs from original REMIND_MFA demand by a factor of: {np.min(rel_difference.values)} to {np.max(rel_difference.values)} "
             )
         

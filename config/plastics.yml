@@ -5,8 +5,8 @@ transience: True
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.2.0'
-  region_mapping: 'h12'
+  input_data_revision: '1.2.0leonie_regionalfix'
+  region_mapping: '2c0a4149' # EU27+3 TRANSIENCE region mapping
   scenarios_path: 'config/scenarios'
 
 model_switches:
