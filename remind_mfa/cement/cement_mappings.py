@@ -22,4 +22,6 @@ class CementDisplayNames(CommonDisplayNames):
         "eol": "End of life",
         "atmosphere": "Atmosphere",
         "carbonation": "Carbonation",
+        "market_clinker": "Market: Clinker",
+        "market_cement": "Market: Cement",
     }
