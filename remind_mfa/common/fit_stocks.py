@@ -192,7 +192,7 @@ class StockFitter(RemindMFABaseModel):
         target = self.last_hist(historic)
         diff = fit - target
         if relative:
-            diff /= max(target, 1e-2) ** 2
+            diff /= max(target, 1e-6) ** 2
             prefix = "rel_"
         else:
             prefix = ""
