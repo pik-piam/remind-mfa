@@ -340,7 +340,7 @@ class CommonVisualizer(RemindMFABaseModel):
             imports = trade.imports
             exports = trade.exports
 
-            linecolor_dim = linecolor_dims[name]
+            linecolor_dim = linecolor_dims[name] if linecolor_dims is not None else None
             linecolor_dim_letter = (
                 imports.dims[linecolor_dim].letter if linecolor_dim is not None else None
             )
@@ -363,7 +363,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 array=imports,
                 intra_line_dim="Time",
                 subplot_dim="Region",
-                linecolor_dim=linecolor_dims[name],
+                linecolor_dim=linecolor_dim,
                 display_names=self.display_names.dct,
                 color_map=colors,
             )
@@ -372,7 +372,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 array=-exports,
                 intra_line_dim="Time",
                 subplot_dim="Region",
-                linecolor_dim=linecolor_dims[name],
+                linecolor_dim=linecolor_dim,
                 line_type="dash",
                 display_names=self.display_names.dct,
                 title=f"{name} Trade",

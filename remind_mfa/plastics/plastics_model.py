@@ -1,4 +1,3 @@
-import numpy as np
 import flodym as fd
 
 from .plastics_mfa_system import PlasticsMFASystemFuture
@@ -10,9 +9,6 @@ from .plastics_mappings import PlasticsDimensionFiles, PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_model import CommonModel
-from remind_mfa.common.assumptions_doc import add_assumption_doc
-from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.data_transformations import Bound, BoundList
 
 
 class PlasticsModel(CommonModel):

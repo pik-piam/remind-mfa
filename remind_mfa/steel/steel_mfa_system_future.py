@@ -1,7 +1,6 @@
 import flodym as fd
 import numpy as np
 import logging
-import pandas as pd
 
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
@@ -67,25 +66,7 @@ class SteelMFASystem(CommonMFASystem):
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )
         self.stocks["in_use"].compute()
-
-        if np.min(self.stocks["in_use"].inflow.values) < 0:
-            negative_regions = [
-                r
-                for r in self.dims["r"].items
-                if np.min(self.stocks["in_use"].inflow[r].values) < 0
-            ]
-            logging.warning(
-                f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
-            )
-            corrected_inflow = self.stocks["in_use"].inflow.maximum(1e-6)
-            # correct negative inflow
-            self.stocks["in_use"] = fd.InflowDrivenDSM(
-                dims=self.stocks["in_use"].dims,
-                lifetime_model=self.stocks["in_use"].lifetime_model,
-                name="in_use",
-                process=self.stocks["in_use"].process,
-            )
-            self.stocks["in_use"].inflow[...] = corrected_inflow
+        self.correct_negative_inflow("in_use")
 
         if self.cfg.transience == True:
             # TODO extrapolate EU-MFA data or run MFA only until 2050
