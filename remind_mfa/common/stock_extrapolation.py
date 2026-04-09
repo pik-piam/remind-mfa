@@ -450,73 +450,71 @@ class StockExtrapolation(RemindMFABaseModel):
     def n_historic(self):
         return self.dims["h"].len
     
-    def _integrate_forced_damped_system(self, y0, v0, t_array, p_array, approaching_time):
+    def _integrate_transition(self, y0, v0, t_array, p_array, approaching_time):
         """
-        Numerically integrates the forced critically damped system:
-        Y'' + 2kY' + k^2Y = k^2P(t) + 2kP'(t)
-        Uses semi-implicit Euler method with forward-looking velocity prediction.
+        Integrates a trajectory from initial state (y0, v0) that smoothly tracks a
+        target prediction p_array using a critically damped controller, while
+        simultaneously (but slowly) quintic-blending into the prediction over time.
+
+        The controller drives Y toward P via:
+            Y'' + 2k·Y' + k²Y = k²P(t) + 2k·P'(t)
+        integrated with a semi-implicit Euler method.
+
+        To avoid overshoot during saturation phases, P'(t) is estimated using a
+        look-ahead index that decreases from 5 to 1 over
+        the first half of approaching_time.
+
+        On top of the controller output, a quintic blend progressively replaces
+        Y with P over the full time window, guaranteeing an exact match at
+        t0 + 10 * approaching_time.
+
+        In a static system (no P' term) without blending, after approaching_time,
+        the system would have converged to the prediction by 95%.
         """
-        # Initialize output arrays matching the shape of the prediction array
-        y = np.zeros_like(p_array, dtype=float)
-        v = np.zeros_like(p_array, dtype=float)
-
-        # Initialize running state variables
-        y_curr = y0.copy()
-        v_curr = v0.copy()
-
-        # Set initial conditions
-        y[0, ...] = y_curr
-        v[0, ...] = v_curr
-
-        # Set damping parameter
-        k = 4.74 / approaching_time
-
-        # assuming equidistant time steps
-        dt = t_array[1] - t_array[0]
-
-        n_forward_timesteps_max = 5
         n_steps = len(t_array)
-        n_decrease_steps = int(approaching_time / 2)
+        dt = t_array[1] - t_array[0]
+        k = 4.74 / approaching_time
         t0 = t_array[0]
-        t_end_blend = t0
         t_full_match = t0 + 10 * approaching_time
 
+        # --- Precompute look-ahead indices and predictor velocity ---
+        n_forward_timesteps_max = 5
+        n_decrease_steps = int(approaching_time / 2)
+        i_arr = np.arange(n_steps)
+        n_fwd = np.where(
+            i_arr < n_decrease_steps,
+            np.maximum(1, np.round(n_forward_timesteps_max * (1 - i_arr / n_decrease_steps)).astype(int)),
+            1,
+        )
+        fi_arr = np.minimum(i_arr + n_fwd, n_steps - 1)
+        valid_fwd = (i_arr + n_fwd) < n_steps
+        fi_diff_idx = np.where(valid_fwd, fi_arr - 1, np.maximum(i_arr - 1, 0))
+        p_diff = np.diff(p_array, axis=0) / dt                             # (n_steps-1, ...)
+        p_diff_ext = np.concatenate([p_diff, p_diff[-1:]], axis=0)         # (n_steps, ...)
+        vp_array = p_diff_ext[fi_diff_idx]                                 # look-ahead predictor velocity
+
+        # --- Precompute quintic blend weights ---
+        alpha_arr = blending_factor(
+            np.clip((t_array - t0) / (t_full_match - t0), 0.0, 1.0), "quintic"
+        )  # (n_steps,)
+
+        # --- Initialize state ---
+        y = np.zeros_like(p_array, dtype=float)
+        v = np.zeros_like(p_array, dtype=float)
+        y[0], v[0] = y0.copy(), v0.copy()
+        y_curr, v_curr = y[0].copy(), v[0].copy()
+
+        # --- Integrate (sequential: each step depends on the previous state) ---
         for i in range(1, n_steps):
-            p_curr = p_array[i, ...]
-
-            # n_forward_timesteps decreases linearly from max to 0 over n_decrease_steps, then stays at 0
-            if i < n_decrease_steps:
-                n_forward_timesteps = int(round(n_forward_timesteps_max * (1 - i / n_decrease_steps)))
-                n_forward_timesteps = max(1, n_forward_timesteps)
-            else:
-                n_forward_timesteps = 1
-            forward_idx = i + n_forward_timesteps
-            if forward_idx < n_steps:
-                vp_curr = (p_array[forward_idx, ...] - p_array[forward_idx - 1, ...]) / dt
-            else:
-                vp_curr = (p_curr - p_array[i - 1, ...]) / dt
-
-            # --- 1. Calculate Acceleration ---
-            dv_dt = (k**2) * (p_curr - y_curr) + (2 * k) * (vp_curr - v_curr)
-
-            # --- 2. Update Velocity ---
+            dv_dt = k**2 * (p_array[i] - y_curr) + 2 * k * (vp_array[i] - v_curr)
             v_curr = v_curr + dv_dt * dt
-
-            # --- 3. Update Position ---
             y_curr = y_curr + v_curr * dt
 
-            # --- 4. Additionally, blend towards prediction to eventually match it perfectly ---
-            t_now = t_array[i]
-            alpha_linear = min(1.0, max(0.0, (t_now - t_end_blend) / (t_full_match - t_end_blend)))
-            alpha = blending_factor(np.array([alpha_linear]), "quintic")[0]
-            y_curr = (1 - alpha) * y_curr + alpha * p_curr
+            # Quintic blend toward prediction
+            y_curr = (1 - alpha_arr[i]) * y_curr + alpha_arr[i] * p_array[i]
+            v_curr = (y_curr - y[i - 1]) / dt  # re-sync velocity after blend
 
-            # --- 5. Velocity Re-Sync ---
-            v_curr = (y_curr - y[i - 1, ...]) / dt
-
-            # Store the state for this timestep
-            y[i, ...] = y_curr
-            v[i, ...] = v_curr
+            y[i], v[i] = y_curr, v_curr
 
         return y
 
@@ -532,10 +530,12 @@ class StockExtrapolation(RemindMFABaseModel):
             Y: Blended trajectory
             P: Extrapolation (target)
             k: Damping parameter (derived from approaching_time)
-
-        To prevent overshooting during saturation phases, the system uses an 
-        anticipatory D-term (look-ahead). The ODE is solved using a semi-implicit 
-        Euler method for numerical stability.
+        
+        The ODE is solved using a semi-implicit Euler method for numerical stability.
+        To prevent overshooting and eliminate steady-state tracking errors, 
+        the system combines an anticipatory D-term with a long-term quintic 
+        alpha-blend. Internal state (velocity) is synchronized at each step 
+        to ensure physical consistency between the ODE and the geometric blending.
         """
         time = np.array(self.dims["t"].items)
         last_history_idx = len(historical) - 1
@@ -566,7 +566,7 @@ class StockExtrapolation(RemindMFABaseModel):
         v0 = avg_slope(time, historical, n=1)
 
         # 3. Integrate to find the blended future path Y(t)
-        y_future = self._integrate_forced_damped_system(y0, v0, t_future, p_future, approaching_time)
+        y_future = self._integrate_transition(y0, v0, t_future, p_future, approaching_time)
 
         # 4. Construct the final contiguous array
         blended_stock = prediction.copy()
