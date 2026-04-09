@@ -1,5 +1,6 @@
 import flodym as fd
 import numpy as np
+from remind_mfa.common.data_blending import blending_factor
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
 
@@ -476,6 +477,10 @@ class StockExtrapolation(RemindMFABaseModel):
         n_forward_timesteps_max = 5
         n_steps = len(t_array)
         n_decrease_steps = int(approaching_time / 2)
+        t0 = t_array[0]
+        t_end_blend = t0
+        t_full_match = t0 + 10 * approaching_time
+
         for i in range(1, n_steps):
             p_curr = p_array[i, ...]
 
@@ -499,6 +504,15 @@ class StockExtrapolation(RemindMFABaseModel):
 
             # --- 3. Update Position ---
             y_curr = y_curr + v_curr * dt
+
+            # --- 4. Additionally, blend towards prediction to eventually match it perfectly ---
+            t_now = t_array[i]
+            alpha_linear = min(1.0, max(0.0, (t_now - t_end_blend) / (t_full_match - t_end_blend)))
+            alpha = blending_factor(np.array([alpha_linear]), "quintic")[0]
+            y_curr = (1 - alpha) * y_curr + alpha * p_curr
+
+            # --- 5. Velocity Re-Sync ---
+            v_curr = (y_curr - y[i - 1, ...]) / dt
 
             # Store the state for this timestep
             y[i, ...] = y_curr
