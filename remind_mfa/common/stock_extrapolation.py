@@ -473,13 +473,20 @@ class StockExtrapolation(RemindMFABaseModel):
         # assuming equidistant time steps
         dt = t_array[1] - t_array[0]
 
-        for i in range(1, len(t_array)):
+        n_forward_timesteps_max = 5
+        n_steps = len(t_array)
+        n_decrease_steps = int(approaching_time / 2)
+        for i in range(1, n_steps):
             p_curr = p_array[i, ...]
 
-            # forward-looking predictor velocity
-            n_forward_timesteps = 5
+            # n_forward_timesteps decreases linearly from max to 0 over n_decrease_steps, then stays at 0
+            if i < n_decrease_steps:
+                n_forward_timesteps = int(round(n_forward_timesteps_max * (1 - i / n_decrease_steps)))
+                n_forward_timesteps = max(1, n_forward_timesteps)
+            else:
+                n_forward_timesteps = 1
             forward_idx = i + n_forward_timesteps
-            if forward_idx < len(t_array):
+            if forward_idx < n_steps:
                 vp_curr = (p_array[forward_idx, ...] - p_array[forward_idx - 1, ...]) / dt
             else:
                 vp_curr = (p_curr - p_array[i - 1, ...]) / dt
@@ -525,7 +532,7 @@ class StockExtrapolation(RemindMFABaseModel):
             tdiff = t[last_history_idx] - t[last_history_idx - n]
             return ydiff / tdiff
 
-        approaching_time = 30
+        approaching_time = 50
         add_assumption_doc(
             type="integer number",
             name="years for blending to regression",
