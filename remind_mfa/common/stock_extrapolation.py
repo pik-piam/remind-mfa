@@ -371,7 +371,7 @@ class StockExtrapolation(RemindMFABaseModel):
     @property
     def n_historic(self):
         return self.dims["h"].len
-    
+
     def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
