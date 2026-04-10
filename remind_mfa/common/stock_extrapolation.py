@@ -465,7 +465,7 @@ class StockExtrapolation(RemindMFABaseModel):
         the first half of approaching_time.
 
         On top of the controller output, a quintic blend progressively replaces
-        Y with P over the full time window, guaranteeing an exact match at
+        Y with P over the full time window, guaranteeing an exact match with P at
         t0 + 10 * approaching_time.
 
         In a static system (no P' term) without blending, after approaching_time,
@@ -474,26 +474,23 @@ class StockExtrapolation(RemindMFABaseModel):
         n_steps = len(t_array)
         dt = t_array[1] - t_array[0]
         k = 4.74 / approaching_time
-        t0 = t_array[0]
-        t_full_match = t0 + 10 * approaching_time
 
-        # --- Precompute look-ahead indices and predictor velocity ---
-        n_forward_timesteps_max = 5
-        n_decrease_steps = int(approaching_time / 2)
-        i_arr = np.arange(n_steps)
-        n_fwd = np.where(
-            i_arr < n_decrease_steps,
-            np.maximum(1, np.round(n_forward_timesteps_max * (1 - i_arr / n_decrease_steps)).astype(int)),
-            1,
-        )
-        fi_arr = np.minimum(i_arr + n_fwd, n_steps - 1)
-        valid_fwd = (i_arr + n_fwd) < n_steps
-        fi_diff_idx = np.where(valid_fwd, fi_arr - 1, np.maximum(i_arr - 1, 0))
-        p_diff = np.diff(p_array, axis=0) / dt                             # (n_steps-1, ...)
-        p_diff_ext = np.concatenate([p_diff, p_diff[-1:]], axis=0)         # (n_steps, ...)
-        vp_array = p_diff_ext[fi_diff_idx]                                 # look-ahead predictor velocity
+        # --- Precompute look-ahead predictor velocity for each timestep ---
+        # Using P'(t + n_fwd*dt) [fwd = forward] instead of P'(t) anticipates
+        # future behavior of P (e.g. saturation), preventing the controller from
+        # overshooting. n_fwd decreases linearly from n_fwd_max to 1 over the first
+        # n_ramp_steps, then remains 1 for the rest of the integration.
+        n_fwd_max = 5
+        n_ramp_steps = int(approaching_time / 2)
+        n_fwd = np.maximum(1, np.round(n_fwd_max * np.maximum(0.0, 1 - np.arange(n_steps) / n_ramp_steps))).astype(int)
+        # now, use n_fwd to construct index for p velocity
+        lookahead_idx = np.minimum(np.arange(n_steps) + n_fwd - 1, n_steps - 2)
+        vp_array = (p_array[lookahead_idx + 1] - p_array[lookahead_idx]) / dt
 
         # --- Precompute quintic blend weights ---
+        # Alpha blends from 0 to 1 withing 10x appoaching_time using quintic function.
+        t0 = t_array[0]
+        t_full_match = t0 + 10 * approaching_time
         alpha_arr = blending_factor(
             np.clip((t_array - t0) / (t_full_match - t0), 0.0, 1.0), "quintic"
         )  # (n_steps,)
@@ -504,9 +501,11 @@ class StockExtrapolation(RemindMFABaseModel):
         y[0], v[0] = y0.copy(), v0.copy()
         y_curr, v_curr = y[0].copy(), v[0].copy()
 
-        # --- Integrate (sequential: each step depends on the previous state) ---
+        # --- Integrate ---
         for i in range(1, n_steps):
+            # 1. Compute acceleration
             dv_dt = k**2 * (p_array[i] - y_curr) + 2 * k * (vp_array[i] - v_curr)
+            # 2. Update velocity and position
             v_curr = v_curr + dv_dt * dt
             y_curr = y_curr + v_curr * dt
 
@@ -514,6 +513,7 @@ class StockExtrapolation(RemindMFABaseModel):
             y_curr = (1 - alpha_arr[i]) * y_curr + alpha_arr[i] * p_array[i]
             v_curr = (y_curr - y[i - 1]) / dt  # re-sync velocity after blend
 
+            # Store results
             y[i], v[i] = y_curr, v_curr
 
         return y
