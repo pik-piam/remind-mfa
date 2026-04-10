@@ -371,8 +371,15 @@ class StockExtrapolation(RemindMFABaseModel):
     @property
     def n_historic(self):
         return self.dims["h"].len
-    
-    def _integrate_transition(self, y0: np.ndarray, v0: np.ndarray, t_array: np.ndarray, p_array: np.ndarray, approaching_time: float) -> np.ndarray:
+
+    def _integrate_transition(
+        self,
+        y0: np.ndarray,
+        v0: np.ndarray,
+        t_array: np.ndarray,
+        p_array: np.ndarray,
+        approaching_time: float,
+    ) -> np.ndarray:
         """
         Integrate a trajectory from an initial state (y0, v0) that smoothly tracks a target prediction p_array
         using a critically damped PD-controller, with a long-term quintic blend for exact convergence.
@@ -411,7 +418,9 @@ class StockExtrapolation(RemindMFABaseModel):
         # n_ramp_steps, then remains 1 for the rest of the integration.
         n_fwd_max = 5
         n_ramp_steps = int(approaching_time / 2)
-        n_fwd = np.maximum(1, np.round(n_fwd_max * np.maximum(0.0, 1 - np.arange(n_steps) / n_ramp_steps))).astype(int)
+        n_fwd = np.maximum(
+            1, np.round(n_fwd_max * np.maximum(0.0, 1 - np.arange(n_steps) / n_ramp_steps))
+        ).astype(int)
         # now, use n_fwd to construct index for p velocity
         lookahead_idx = np.minimum(np.arange(n_steps) + n_fwd - 1, n_steps - 2)
         vp_array = (p_array[lookahead_idx + 1] - p_array[lookahead_idx]) / dt
@@ -497,17 +506,13 @@ class StockExtrapolation(RemindMFABaseModel):
 
         # 4. Construct the final contiguous array
         blended_stock = prediction.copy()
-        blended_stock[:last_history_idx] = historical[:last_history_idx] # Preserve exact history
-        blended_stock[last_history_idx:] = y_future                      # Apply blended future
+        blended_stock[:last_history_idx] = historical[:last_history_idx]  # Preserve exact history
+        blended_stock[last_history_idx:] = y_future  # Apply blended future
 
         return blended_stock
-    
+
     def _lifetime_dependent_n(
-        self, 
-        lower_lt: float = 3.0, 
-        upper_lt: float = 30.0, 
-        min_n: int = 1, 
-        max_n: int = 10
+        self, lower_lt: float = 3.0, upper_lt: float = 30.0, min_n: int = 1, max_n: int = 10
     ) -> np.ndarray:
         """
         Calculate a dynamically scaled smoothing window size based on product lifetime.
@@ -526,7 +531,7 @@ class StockExtrapolation(RemindMFABaseModel):
                 Defaults to 10.
 
         Returns:
-            np.ndarray: Array of integer window sizes (number of time steps minus one) shaped 
+            np.ndarray: Array of integer window sizes (number of time steps minus one) shaped
             according to the spatial dimensions of the output stock array.
 
         Raises:
@@ -545,24 +550,26 @@ class StockExtrapolation(RemindMFABaseModel):
 
         # 1. Clip lifetimes to strictly enforce bounds
         lt_clip = np.clip(lifetime, lower_lt, upper_lt)
-        
+
         # 2. Logarithmic normalization (0.0 for shortest, 1.0 for longest)
         log_lt = np.log(lt_clip)
         log_lower = np.log(lower_lt)
         log_upper = np.log(upper_lt)
-        
-        if log_upper == log_lower: # Prevent division by zero edge-case
+
+        if log_upper == log_lower:  # Prevent division by zero edge-case
             return np.full_like(self.lifetime.values, max_n, dtype=int)
-            
+
         alpha = (log_lt - log_lower) / (log_upper - log_lower)
-        
+
         # 3. Inverted mapping: alpha=0 maps to max_n, alpha=1 maps to min_n
         n_float = max_n - alpha * (max_n - min_n)
-        
+
         # 4. Round to nearest integer for array indexing/window sizing
         return np.round(n_float).astype(int)
-    
-    def _trend_slope(self, t: np.ndarray, y: np.ndarray, n: Union[int, np.ndarray], idx: int, deg: int = 1) -> np.ndarray:
+
+    def _trend_slope(
+        self, t: np.ndarray, y: np.ndarray, n: Union[int, np.ndarray], idx: int, deg: int = 1
+    ) -> np.ndarray:
         """
         Calculate the slope of ``y`` at a given time index across all spatial dimensions.
 
@@ -587,7 +594,7 @@ class StockExtrapolation(RemindMFABaseModel):
             ValueError: If ``n`` is an array whose shape does not match the spatial shape of ``y``.
             ValueError: If ``deg`` is not 1 or 2.
         """
-        dim_shape = y.shape[1:] # assuming time is the first dimension
+        dim_shape = y.shape[1:]  # assuming time is the first dimension
         deriv_array = np.zeros(dim_shape, dtype=float)
 
         # Standardize n into an array so we can index it easily
@@ -596,7 +603,9 @@ class StockExtrapolation(RemindMFABaseModel):
         else:
             n_array = np.asarray(n)
             if n_array.shape != dim_shape:
-                raise ValueError(f"Shape of n {n_array.shape} must match spatial shape of y {dim_shape}.")
+                raise ValueError(
+                    f"Shape of n {n_array.shape} must match spatial shape of y {dim_shape}."
+                )
 
         for spatial_idx in np.ndindex(dim_shape):
             current_n = n_array[spatial_idx]
@@ -610,7 +619,9 @@ class StockExtrapolation(RemindMFABaseModel):
             current_deg = min(deg, current_n - 1)
             if current_deg == 0:
                 # fall back to finite difference
-                deriv_array[spatial_idx] = (y_window[-1] - y_window[-2]) / (t_window[-1] - t_window[-2])
+                deriv_array[spatial_idx] = (y_window[-1] - y_window[-2]) / (
+                    t_window[-1] - t_window[-2]
+                )
                 continue
 
             # Fit polynomial to this single 1D array
