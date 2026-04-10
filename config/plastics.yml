@@ -46,12 +46,13 @@ visualization:
   extrapolation:
     do_visualize: True
   sankey:
-    do_visualize: False
+    do_visualize: True
     plotter_args:
       slice_dict:
-        t: 2019
+        t: 2050
         #r: 'EUR'
         #m: 'Fibres'
+        e: 'C'
       exclude_processes:
         - "sysenv"
         #- "waste_market"
