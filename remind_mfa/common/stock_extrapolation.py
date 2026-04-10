@@ -371,6 +371,61 @@ class StockExtrapolation(RemindMFABaseModel):
     @property
     def n_historic(self):
         return self.dims["h"].len
+    
+    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
+        """
+        Blend historical and extrapolated values using a forced critically damped system
+        approach (PD-controller logic) to ensure a smooth transition.
+
+        The transition is modeled as a dynamic critically damped spring-damper system:
+
+            Y'' + 2kY' + k²Y = k²P(t) + 2kP'(t)
+
+        where Y is the blended trajectory, P the extrapolation target, and k the damping
+        parameter derived from ``approaching_time``. The ODE is solved using a semi-implicit
+        Euler method. To prevent overshooting and eliminate steady-state tracking errors,
+        the system combines an anticipatory D-term with a long-term quintic alpha-blend.
+        Internal state (velocity) is re-synchronized at each step after blending.
+
+        Args:
+            historical (np.ndarray): Historical stock data with time as the first axis.
+            prediction (np.ndarray): Extrapolated stock data from the regression, same shape
+                as the full output (covering both historical and future period in first axis).
+
+        Returns:
+            np.ndarray: Stock array with exact historical values preserved up to the last
+            historical index and a smooth blended trajectory thereafter.
+        """
+        time_arr = np.array(self.dims["t"].items)
+        last_history_idx = len(historical) - 1
+
+        approaching_time = 50
+        add_assumption_doc(
+            type="integer number",
+            name="years for blending to regression",
+            value=approaching_time,
+            description=(
+                "Number of years for the blending from historical to regressed in-use stocks. "
+                "Governs the damping parameter k."
+            ),
+        )
+
+        # 1. Isolate the time window and prediction values we need to integrate over
+        t_future = time_arr[last_history_idx:]
+        p_future = prediction[last_history_idx:]
+
+        # 2. Set the initial conditions at the transition point
+        y0 = historical[last_history_idx, :]
+        v0 = self._trend_slope(time_arr, historical, self._lifetime_dependent_n(), last_history_idx)
+        # 3. Integrate to find the blended future path Y(t)
+        y_future = self._integrate_transition(y0, v0, t_future, p_future, approaching_time)
+
+        # 4. Construct the final contiguous array
+        blended_stock = prediction.copy()
+        blended_stock[:last_history_idx] = historical[:last_history_idx]  # Preserve exact history
+        blended_stock[last_history_idx:] = y_future  # Apply blended future
+
+        return blended_stock
 
     def _integrate_transition(
         self,
@@ -455,61 +510,6 @@ class StockExtrapolation(RemindMFABaseModel):
             y[i], v[i] = y_curr, v_curr
 
         return y
-
-    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
-        """
-        Blend historical and extrapolated values using a forced critically damped system
-        approach (PD-controller logic) to ensure a smooth transition.
-
-        The transition is modeled as a dynamic critically damped spring-damper system:
-
-            Y'' + 2kY' + k²Y = k²P(t) + 2kP'(t)
-
-        where Y is the blended trajectory, P the extrapolation target, and k the damping
-        parameter derived from ``approaching_time``. The ODE is solved using a semi-implicit
-        Euler method. To prevent overshooting and eliminate steady-state tracking errors,
-        the system combines an anticipatory D-term with a long-term quintic alpha-blend.
-        Internal state (velocity) is re-synchronized at each step after blending.
-
-        Args:
-            historical (np.ndarray): Historical stock data with time as the first axis.
-            prediction (np.ndarray): Extrapolated stock data from the regression, same shape
-                as the full output (covering both historical and future period in first axis).
-
-        Returns:
-            np.ndarray: Stock array with exact historical values preserved up to the last
-            historical index and a smooth blended trajectory thereafter.
-        """
-        time_arr = np.array(self.dims["t"].items)
-        last_history_idx = len(historical) - 1
-
-        approaching_time = 50
-        add_assumption_doc(
-            type="integer number",
-            name="years for blending to regression",
-            value=approaching_time,
-            description=(
-                "Number of years for the blending from historical to regressed in-use stocks. "
-                "Governs the damping parameter k."
-            ),
-        )
-
-        # 1. Isolate the time window and prediction values we need to integrate over
-        t_future = time_arr[last_history_idx:]
-        p_future = prediction[last_history_idx:]
-
-        # 2. Set the initial conditions at the transition point
-        y0 = historical[last_history_idx, :]
-        v0 = self._trend_slope(time_arr, historical, self._lifetime_dependent_n(), last_history_idx)
-        # 3. Integrate to find the blended future path Y(t)
-        y_future = self._integrate_transition(y0, v0, t_future, p_future, approaching_time)
-
-        # 4. Construct the final contiguous array
-        blended_stock = prediction.copy()
-        blended_stock[:last_history_idx] = historical[:last_history_idx]  # Preserve exact history
-        blended_stock[last_history_idx:] = y_future  # Apply blended future
-
-        return blended_stock
 
     def _lifetime_dependent_n(
         self, lower_lt: float = 3.0, upper_lt: float = 30.0, min_n: int = 1, max_n: int = 10
