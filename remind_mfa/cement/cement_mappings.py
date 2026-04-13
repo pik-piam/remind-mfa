@@ -9,6 +9,8 @@ class CementDimensionFiles(CommonDimensionFiles):
         "Waste Type": "waste_types",
         "Waste Size": "waste_sizes",
         "Carbonation Location": "carbonation_locations",
+        "Function": "functions",
+        "Structure": "structures",
     }
 
 

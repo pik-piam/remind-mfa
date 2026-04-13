@@ -21,6 +21,9 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
         fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
+        # service demand
+        fd.DimensionDefinition(name="Structure", dim_letter="b", dtype=str), # b for building
+        fd.DimensionDefinition(name="Function", dim_letter="f", dtype=str),
     ]
 
     # 2) Processes
@@ -217,6 +220,15 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Minimum particle size represented for each waste type and class."),
         RemindMFAParameterDefinition(name="waste_size_max", dim_letters=("w", "p"),
                                      description="Maximum particle size represented for each waste type and class."),
+        # bottom-up parameters
+        RemindMFAParameterDefinition(name="concrete_building_mi", dim_letters=("r", "f", "b"),
+                                     description="Material intensity of concrete (t/m2) differentiated by building function and structure."),
+        RemindMFAParameterDefinition(name="function_buildings_split", dim_letters=("r", "s", "f"),
+                                     description="Split of building stock types into different functions per region."),
+        RemindMFAParameterDefinition(name="structure_buildings_split", dim_letters=("r", "f", "b"),
+                                     description="Split of building functions into different structure types per region."),
+        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "s"),
+                                     description="Historic and projected total buildings floorspace per region and stock type."),
     ]
     # fmt: on
 
