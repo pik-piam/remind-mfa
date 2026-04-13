@@ -1,5 +1,6 @@
 import flodym as fd
 import numpy as np
+from remind_mfa.common.data_blending import blending_factor
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
 
@@ -363,84 +364,6 @@ class StockExtrapolation(RemindMFABaseModel):
         stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
-    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
-        """
-        Blend historical and extrapolated stock values using a critically damped system approach to ensure a smooth transition.
-        In a critically damped system (e.g. spring that returns to equilibrium as quickly as possible without oscillating),
-        if x0 is the initial position and v0 the initial velocity, the position x at a time t is given by:
-        x(t) = (x0 + (v0 + k * x0) * t) * exp(-k * t).
-        The parameter k determines how quickly the equilibrium is restored, with higher values leading to a faster transition.
-        Here, we use the difference between historical and extrapolated stocks at the transition point as the initial offset (x0),
-        and the difference in slopes at the transition point as the initial velocity (v0).
-        Args:
-            historical (np.ndarray): Historical stock data.
-            prediction (np.ndarray): Extrapolated stock data from regression.
-        Returns:
-            np.ndarray: Stock with smooth transition from historical to prediction.
-        """
-        time = np.array(self.dims["t"].items)
-        last_history_idx = len(historical) - 1
-        last_history_year = time[last_history_idx]
-
-        # offset between historic and prediction at transition point
-        difference_0th = historical[last_history_idx, :] - prediction[last_history_idx, :]
-
-        def avg_slope(x, y, n=1):
-            """Assuming time is the first dimension, calculate the average slope over the last n historical timesteps.
-            If n is 1, this is the slope between the last two historical timesteps."""
-            ydiff = y[last_history_idx, :] - y[last_history_idx - n, :]
-            xdiff = x[last_history_idx] - x[last_history_idx - n]
-            return ydiff / xdiff
-
-        # offset of the 1st derivative at the transition point
-        difference_1st = avg_slope(time, historical) - avg_slope(time, prediction)
-        # if the lifetime is given, the number of historical timesteps used for the average slope calculation is determined by the lifetime
-        if self.lifetime is not None:
-            lower = 3
-            upper = 30
-            if len(self.indep_fit_dim_letters) > 1:
-                raise ValueError(
-                    "Multiple independent fit dimensions are not supported here. Please fix"
-                )
-            else:
-                good_letter = self.indep_fit_dim_letters[0]
-            lifetime = self.lifetime.cast_to(self.dims_out)[{"t": self.dims["h"].items[-1]}]
-            for g in range(self.historic_stocks_pc.dims[good_letter].len):
-                lt_clip = np.minimum(np.maximum(lifetime.values[:, g], lower), upper)
-                alpha = (np.log(lt_clip) - np.log(lower)) / np.log(upper)
-                avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (
-                    1 - alpha
-                ) * avg_slope(time, historical[:, :, g], n=10)
-                avg_slope_pred = alpha * avg_slope(time, prediction[:, :, g], n=1) + (
-                    1 - alpha
-                ) * avg_slope(time, prediction[:, :, g], n=10)
-                difference_1st[:, g] = avg_slope_hist - avg_slope_pred
-
-        approaching_time = 80
-        add_assumption_doc(
-            type="integer number",
-            name="years for blending to regression",
-            value=approaching_time,
-            description=(
-                "Number of years for the blending from historical to regressed in-use stocks."
-                "After this time, the initial offset between historical and regressed stock is reduced to 5 percent."
-            ),
-        )
-
-        # Construct time that starts at 0 in last historical year.
-        time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
-        delta_t = time_extended - last_history_year
-
-        # Amplitude decreases to 5 percent after approaching_time years
-        k = 4.74 / approaching_time
-
-        # Critically damped system solution
-        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(
-            -k * delta_t
-        )
-
-        return prediction[...] + correction
-
     @property
     def dims_out(self):
         return self.dims[self.target_dim_letters]
@@ -448,3 +371,267 @@ class StockExtrapolation(RemindMFABaseModel):
     @property
     def n_historic(self):
         return self.dims["h"].len
+
+    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
+        """
+        Blend historical and extrapolated values using a forced critically damped system
+        approach (PD-controller logic) to ensure a smooth transition.
+
+        The transition is modeled as a dynamic critically damped spring-damper system:
+
+            Y'' + 2kY' + k²Y = k²P(t) + 2kP'(t)
+
+        where Y is the blended trajectory, P the extrapolation target, and k the damping
+        parameter derived from ``approaching_time``. The ODE is solved using a semi-implicit
+        Euler method. To prevent overshooting and eliminate steady-state tracking errors,
+        the system combines an anticipatory D-term with a long-term quintic alpha-blend.
+        Internal state (velocity) is re-synchronized at each step after blending.
+
+        Args:
+            historical (np.ndarray): Historical stock data with time as the first axis.
+            prediction (np.ndarray): Extrapolated stock data from the regression, same shape
+                as the full output (covering both historical and future period in first axis).
+
+        Returns:
+            np.ndarray: Stock array with exact historical values preserved up to the last
+            historical index and a smooth blended trajectory thereafter.
+        """
+        time_arr = np.array(self.dims["t"].items)
+        last_history_idx = len(historical) - 1
+
+        approaching_time = 50
+        add_assumption_doc(
+            type="integer number",
+            name="years for blending to regression",
+            value=approaching_time,
+            description=(
+                "Number of years for the blending from historical to regressed in-use stocks. "
+                "Governs the damping parameter k."
+            ),
+        )
+
+        # 1. Isolate the time window and prediction values we need to integrate over
+        t_future = time_arr[last_history_idx:]
+        p_future = prediction[last_history_idx:]
+
+        # 2. Set the initial conditions at the transition point
+        y0 = historical[last_history_idx, :]
+        v0 = self._trend_slope(time_arr, historical, self._lifetime_dependent_n(), last_history_idx)
+        # 3. Integrate to find the blended future path Y(t)
+        y_future = self._integrate_transition(y0, v0, t_future, p_future, approaching_time)
+
+        # 4. Construct the final contiguous array
+        blended_stock = prediction.copy()
+        blended_stock[:last_history_idx] = historical[:last_history_idx]  # Preserve exact history
+        blended_stock[last_history_idx:] = y_future  # Apply blended future
+
+        return blended_stock
+
+    def _integrate_transition(
+        self,
+        y0: np.ndarray,
+        v0: np.ndarray,
+        t_array: np.ndarray,
+        p_array: np.ndarray,
+        approaching_time: float,
+    ) -> np.ndarray:
+        """
+        Integrate a trajectory from an initial state (y0, v0) that smoothly tracks a target prediction p_array
+        using a critically damped PD-controller, with a long-term quintic blend for exact convergence.
+
+        The controller drives Y toward P via a dynamic critically damped spring-damper system :
+            Y'' + 2k·Y' + k²Y = k²P(t) + 2k·P'(t)
+        integrated with a semi-implicit Euler method.
+
+        To avoid overshoot during saturation phases, P'(t) is estimated using a look-ahead index
+        that decreases from 5 to 1 over the first half of ``approaching_time``, then stays at 1.
+        On top of the controller, a quintic blend progressively replaces Y with P over the full
+        time window, guaranteeing an exact match with P at ``t0 + 10 * approaching_time``.
+        In a static system (no P' term) without blending, the system converges to 95% of the
+        prediction after ``approaching_time`` years.
+
+        Args:
+            y0 (np.ndarray): Initial position at the transition point. Shape ``(spatial...)``.
+            v0 (np.ndarray): Initial velocity (slope) at the transition point, same shape as ``y0``.
+            t_array (np.ndarray): 1D array of time values starting at the transition point.
+            p_array (np.ndarray): Target prediction array with time as the first axis,
+                shape ``(len(t_array), spatial...)``. Must be uniformly spaced in time.
+            approaching_time (float): Characteristic timescale in years. Governs the damping
+                parameter ``k = 4.74 / approaching_time`` and the look-ahead ramp length.
+
+        Returns:
+            np.ndarray: Integrated trajectory array of shape ``(len(t_array), spatial...)``.
+        """
+        n_steps = len(t_array)
+        dt = t_array[1] - t_array[0]
+        k = 4.74 / approaching_time
+
+        # --- Precompute look-ahead predictor velocity for each timestep ---
+        # Using P'(t + n_fwd*dt) [fwd = forward] instead of P'(t) anticipates
+        # future behavior of P (e.g. saturation), preventing the controller from
+        # overshooting. n_fwd decreases linearly from n_fwd_max to 1 over the first
+        # n_ramp_steps, then remains 1 for the rest of the integration.
+        n_fwd_max = 5
+        n_ramp_steps = int(approaching_time / 2)
+        n_fwd = np.maximum(
+            1, np.round(n_fwd_max * np.maximum(0.0, 1 - np.arange(n_steps) / n_ramp_steps))
+        ).astype(int)
+        # now, use n_fwd to construct index for p velocity
+        lookahead_idx = np.minimum(np.arange(n_steps) + n_fwd - 1, n_steps - 2)
+        vp_array = (p_array[lookahead_idx + 1] - p_array[lookahead_idx]) / dt
+
+        # --- Precompute quintic blend weights ---
+        # Alpha blends from 0 to 1 within 10x approaching_time using quintic function.
+        t0 = t_array[0]
+        t_full_match = t0 + 10 * approaching_time
+        alpha_arr = blending_factor(
+            np.clip((t_array - t0) / (t_full_match - t0), 0.0, 1.0), "quintic"
+        )  # (n_steps,)
+
+        # --- Initialize state ---
+        y = np.zeros_like(p_array, dtype=float)
+        v = np.zeros_like(p_array, dtype=float)
+        y[0], v[0] = y0.copy(), v0.copy()
+        y_curr, v_curr = y[0].copy(), v[0].copy()
+
+        # --- Integrate ---
+        for i in range(1, n_steps):
+            # 1. Compute acceleration
+            dv_dt = k**2 * (p_array[i] - y_curr) + 2 * k * (vp_array[i] - v_curr)
+            # 2. Update velocity and position
+            v_curr = v_curr + dv_dt * dt
+            y_curr = y_curr + v_curr * dt
+
+            # Quintic blend toward prediction
+            y_curr = (1 - alpha_arr[i]) * y_curr + alpha_arr[i] * p_array[i]
+            v_curr = (y_curr - y[i - 1]) / dt  # re-sync velocity after blend
+
+            # Store results
+            y[i], v[i] = y_curr, v_curr
+
+        return y
+
+    def _lifetime_dependent_n(
+        self, lower_lt: float = 3.0, upper_lt: float = 30.0, min_n: int = 1, max_n: int = 10
+    ) -> np.ndarray:
+        """
+        Calculate a dynamically scaled smoothing window size based on product lifetime.
+
+        Short-lifetime products have volatile stocks and benefit from more smoothing;
+        long-lifetime products have high inertia and need less. Window sizes are mapped
+        from ``max_n`` (shortest lifetime) to ``min_n`` (longest lifetime) on a logarithmic
+        scale.
+
+        Args:
+            lower_lt (float): Lower bound for clipping product lifetime in years. Defaults to 3.0.
+            upper_lt (float): Upper bound for clipping product lifetime in years. Defaults to 30.0.
+            min_n (int): Minimum smoothing window size (applied to long-lifetime products).
+                Defaults to 1.
+            max_n (int): Maximum smoothing window size (applied to short-lifetime products).
+                Defaults to 10.
+
+        Returns:
+            np.ndarray: Array of integer window sizes (number of time steps minus one) shaped
+            according to the spatial dimensions of the output stock array.
+
+        Raises:
+            ValueError: If more than one independent fit dimension is set.
+        """
+        if len(self.indep_fit_dim_letters) > 1:
+            raise ValueError(
+                "Multiple independent fit dimensions are not supported here. Please fix"
+            )
+
+        if self.lifetime is None:
+            return np.full(self.dims_out.drop("t").shape, min_n, dtype=int)
+
+        # use last historical lifetime
+        lifetime = self.lifetime.cast_to(self.dims_out)[{"t": self.dims["h"].items[-1]}].values
+
+        # 1. Clip lifetimes to strictly enforce bounds
+        lt_clip = np.clip(lifetime, lower_lt, upper_lt)
+
+        # 2. Logarithmic normalization (0.0 for shortest, 1.0 for longest)
+        log_lt = np.log(lt_clip)
+        log_lower = np.log(lower_lt)
+        log_upper = np.log(upper_lt)
+
+        if log_upper == log_lower:  # Prevent division by zero edge-case
+            return np.full_like(self.lifetime.values, max_n, dtype=int)
+
+        alpha = (log_lt - log_lower) / (log_upper - log_lower)
+
+        # 3. Inverted mapping: alpha=0 maps to max_n, alpha=1 maps to min_n
+        n_float = max_n - alpha * (max_n - min_n)
+
+        # 4. Round to nearest integer for array indexing/window sizing
+        return np.round(n_float).astype(int)
+
+    def _trend_slope(
+        self, t: np.ndarray, y: np.ndarray, n: Union[int, np.ndarray], idx: int, deg: int = 1
+    ) -> np.ndarray:
+        """
+        Calculate the slope of ``y`` at a given time index across all spatial dimensions.
+
+        For each dimension element combination a polynomial of degree ``deg`` (at most) is fitted to the
+        ``n`` most recent time steps ending at ``idx``, and the analytical derivative of that
+        polynomial is evaluated at ``t[idx]``. When fewer than two points are available
+        (``current_deg == 0``), a simple  backward finite-difference fallback is used.
+
+        Args:
+            t (np.ndarray): 1-D array of time values.
+            y (np.ndarray): Data array with time as the first axis, arbitrary spatial shape thereafter.
+            n (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
+                positions or an array matching the spatial shape of ``y``.
+            idx (int): Time index at which to evaluate the slope (typically the last historical index).
+            deg (int): Maximum polynomial degree for the local fit. Defaults to 2.
+                Only degrees 1 and 2 are supported.
+
+        Returns:
+            np.ndarray: Array of slopes with the same shape as ``y.shape[1:]``.
+
+        Raises:
+            ValueError: If ``n`` is an array whose shape does not match the spatial shape of ``y``.
+            ValueError: If ``deg`` is not 1 or 2.
+        """
+        dim_shape = y.shape[1:]  # assuming time is the first dimension
+        deriv_array = np.zeros(dim_shape, dtype=float)
+
+        # Standardize n into an array so we can index it easily
+        if isinstance(n, (int, np.integer)):
+            n_array = np.full(dim_shape, n, dtype=int)
+        else:
+            n_array = np.asarray(n)
+            if n_array.shape != dim_shape:
+                raise ValueError(
+                    f"Shape of n {n_array.shape} must match spatial shape of y {dim_shape}."
+                )
+
+        for spatial_idx in np.ndindex(dim_shape):
+            current_n = n_array[spatial_idx]
+            start_idx = max(0, idx - current_n)
+
+            time_slice = slice(start_idx, idx + 1)
+            t_window = t[time_slice]
+            y_window = y[(time_slice,) + spatial_idx]
+
+            # Set degree based on available points, not exceeding specified deg
+            current_deg = min(deg, current_n - 1)
+            if current_deg == 0:
+                # fall back to finite difference
+                deriv_array[spatial_idx] = (y_window[-1] - y_window[-2]) / (
+                    t_window[-1] - t_window[-2]
+                )
+                continue
+
+            # Fit polynomial to this single 1D array
+            coeffs = np.polyfit(t_window, y_window, deg=current_deg)
+
+            if current_deg == 1:
+                deriv_array[spatial_idx] = coeffs[0]
+            elif current_deg == 2:
+                deriv_array[spatial_idx] = 2 * coeffs[0] * t_window[-1] + coeffs[1]
+            else:
+                raise ValueError("Only polynomial degrees 1 or 2 are supported.")
+
+        return deriv_array
