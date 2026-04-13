@@ -23,7 +23,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         self.compute_in_use_stock(stock_projection)
         self.compute_flows(historic_trade)
         self.compute_other_stocks()
-        if self.cfg.model_switches.carbon_flow:
+        if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows(raise_error=False)

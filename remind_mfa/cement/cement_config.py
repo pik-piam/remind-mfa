@@ -7,18 +7,13 @@ from remind_mfa.common.common_config import (
     StockVisualizationCfg,
 )
 
-
-class CementModes(str, Enum):
-    BASE = "base"
-    CARBON_FLOW = "carbon_flow"
-
-
 class CementModelSwitches(ModelSwitches):
-    mode: CementModes
-
-    @property
-    def carbon_flow(self) -> bool:
-        return self.mode == CementModes.CARBON_FLOW
+    """This class adds extra model switches specific to the cement MFA."""
+    
+    carbonation: bool = False
+    """Whether to run the carbonation model to account for process CO2 emissions and carbon uptake."""
+    bottom_up_reconciliation: bool = False
+    """Whether to perform a reconciliation with bottom-up (BU) stock data and use BU stock extrapolation where possible."""
 
 
 class CementVisualizationCfg(VisualizationCfg):

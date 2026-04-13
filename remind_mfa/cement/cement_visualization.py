@@ -1,11 +1,10 @@
-from plotly import colors as plc
 import flodym as fd
 from typing import TYPE_CHECKING
 import numpy as np
 import logging
 
 from remind_mfa.common.common_visualization import CommonVisualizer
-from remind_mfa.cement.cement_config import CementVisualizationCfg, CementModes
+from remind_mfa.cement.cement_config import CementVisualizationCfg
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 
 if TYPE_CHECKING:
@@ -33,7 +32,7 @@ class CementVisualizer(CommonVisualizer):
             # self.visualize_extrapolation(model=model, show_future=False)
             self.visualize_extrapolation(model=model)
         if self.cfg.carbonation.do_visualize:
-            if not model.cfg.model_switches.mode == CementModes.CARBON_FLOW:
+            if not model.cfg.model_switches.carbonation:
                 logging.warning(
                     "Carbonation visualization requested, but carbonation module not activated."
                 )
