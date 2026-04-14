@@ -12,8 +12,6 @@ class CementModelSwitches(ModelSwitches):
     
     carbonation: bool = False
     """Whether to run the carbonation model to account for process CO2 emissions and carbon uptake."""
-    bottom_up_reconciliation: bool = False
-    """Whether to perform a reconciliation with bottom-up (BU) stock data and use BU stock extrapolation where possible."""
 
 
 class CementVisualizationCfg(VisualizationCfg):
