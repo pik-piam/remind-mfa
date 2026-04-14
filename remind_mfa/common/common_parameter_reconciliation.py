@@ -5,20 +5,24 @@ import logging
 import itertools
 import math
 import random
-
-from remind_mfa.cement.cement_config import CementCfg
-from remind_mfa.cement.cement_stock_models import CementStockModels
-
 from copy import deepcopy
-class ParameterReconciliation:
+from abc import abstractmethod
+
+from remind_mfa.common.common_mfa_system import CommonMFASystem
+
+class CommonParameterReconciliation:
     """Parameter reconciliation of top-down and bottom-up models."""
     # TODO inherit from separate helper class?
     # TODO pydantic?
 
-    def __init__(self, cfg: "CementCfg", prms: dict[str, fd.Parameter], dims: fd.DimensionSet, uncoupled: bool = False):
-
-        self.cfg = cfg
-        self._year_of_reconciliation = self.cfg.model_switches.parameter_reconciliation["year_of_reconciliation"]
+    def __init__(self,
+                 ref_mfa: CommonMFASystem,
+                 uncoupled: bool = False,
+                ):
+        
+        self.ref_mfa = ref_mfa
+        
+        self._year_of_reconciliation = 2023
         self._reduced_stock_type = fd.Dimension(name="Reduced Stock Type", letter="u", items=["Res", "Com"])
         # save computation time
         self._no_correction_dim_letters = ('t', 'h') # instead of df/dx, now calculating df/dd 
@@ -29,27 +33,32 @@ class ParameterReconciliation:
         # TODO set and skip over known sensitivity parameters
         # TODO check if I can use [...] more for flodym arrays to avoid dimension issues
 
-        self.prepare_dims(dims)
-        self.prepare_prms(prms)
+        # TODO see if it's smarter to instantiate a new MFA instead of copying and modifying the reference MFA's parameters, flows, stocks, and trade data. I think the latter is more flexible and less error-prone, but it is computationally more expensive. Maybe I can optimize by only copying the relevant parameters, flows, stocks, and trade data, and modifying them in place?
+        self.prepare_dims()
+        self.prepare_prms()
+        self.prepare_flws()
+        self.prepare_stks()
+        self.prepare_trds()
 
-    def prepare_dims(self, dims: fd.DimensionSet):
-        self.input_dims = deepcopy(dims)
-        self.dims = dims.replace('s', self._reduced_stock_type)
+    def prepare_dims(self):
+        """If not overwritten in subclass, leave dimensions as is."""
+        pass
 
-    def prepare_prms(self, prms: dict[str, fd.Parameter]):
-        self.input_prms = deepcopy(prms)
-        self.prms: dict[str, fd.Parameter] = {}
-        self.prms_adj_dims: dict[str, fd.DimensionSet] = {}
-        for key, val in prms.items():
-            # reduce stock type dimension
-            if "s" in val.dims.letters:
-                val = val[{"s": self._reduced_stock_type}]
-            # remove time dimension
-            if key in ["floorspace"]:
-                val = val[{"t": self._year_of_reconciliation}]
-            self.prms[key] = val
-            self.prms_adj_dims[key] = self.remove_fd_dims_if_present(val.dims, self._no_correction_dim_letters)
+    def prepare_prms(self):
+        """If not overwritten in subclass, leave parameters as is."""
+        pass
 
+    def prepare_flws(self):
+        """If not overwritten in subclass, leave flows as is."""
+        self.flws = deepcopy(self.ref_mfa.flows)
+
+    def prepare_stks(self):
+        """If not overwritten in subclass, leave stocks as is."""
+        self.stks = deepcopy(self.ref_mfa.stocks)
+
+    def prepare_trds(self):
+        """If not overwritten in subclass, leave trade as is."""
+        self.trds = deepcopy(self.ref_mfa.trade_set)
 
     @staticmethod
     def remove_fd_dims_if_present(dims: fd.DimensionSet, letters_to_remove: Tuple) -> fd.DimensionSet:
@@ -60,12 +69,15 @@ class ParameterReconciliation:
         return new_dims
 
     def correct_parameters(self):
-        self.td = self.calc_top_down_stock(self.prms)
-        self.bu = self.calc_bottom_up_stock(self.prms)
+        """This is the main function to call for parameter reconciliation.
+        It returns a dictionary of corrected parameters with the same keys as the input parameters,
+        filled with values as FlodymArrays that have the same dimensions as the input parameters."""
+        self.td = self.f2(self.prms)
+        self.bu = self.f1(self.prms)
 
         # Assume (without loss of generality) target function of td/bu = 1s
-        self.pre_compute_sensitivity(self.calc_top_down_stock, self.td)
-        self.pre_compute_sensitivity(self.calc_bottom_up_stock, self.bu, denominator=True)
+        self.pre_compute_sensitivity(self.f2, self.td)
+        self.pre_compute_sensitivity(self.f1, self.bu, denominator=True)
 
         self.pre_compute_lambda()
         self.calc_corrections()
@@ -85,22 +97,13 @@ class ParameterReconciliation:
             )
         return self.output_prms
 
-    def calc_bottom_up_stock(self, prm: dict[str, fd.FlodymArray]):
-        return CementStockModels.calc_stock_bottom_up_minimal(
-            prm, 
-            stock_type_dimletter=self._reduced_stock_type.letter
-        )
-
-    def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]):
-        stk = CementStockModels.calc_stock_top_down_minimal(
-            prm,
-            lifetime_model=fd.LogNormalLifetime, # TODO take this from cfg
-            time_letter="h",
-        )
-
-        # TODO see if there is a way to only calculate this year in the first place
-        stk = stk[{"h": self._year_of_reconciliation}]
-        return stk
+    @abstractmethod
+    def f1(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
+        pass
+    
+    @abstractmethod
+    def f2(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
+        pass
 
     def pre_compute_sensitivity(self, f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray], f0: fd.FlodymArray, denominator: bool = False):
         """
@@ -411,8 +414,8 @@ class ParameterReconciliation:
         for key, prm in prms.items():
             if "s" in prm.dims.letters:
                 prms[key] = prm[{"s": self._reduced_stock_type}]
-        td = self.calc_top_down_stock(prms)
-        bu = self.calc_bottom_up_stock(prms)
+        td = self.f2(prms)
+        bu = self.f1(prms)
         return td / bu
 
 class DependencyTracker(dict):
@@ -435,7 +438,7 @@ class AnalyzeParameterReconciliation:
 
     def __init__(
             self,
-            pr: "ParameterReconciliation",
+            pr: "CommonParameterReconciliation",
             original_prms: dict[str, fd.Parameter],
             adjusted_prms: dict[str, fd.Parameter],
         ):
