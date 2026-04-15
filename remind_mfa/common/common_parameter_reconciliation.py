@@ -72,12 +72,12 @@ class CommonParameterReconciliation:
         """This is the main function to call for parameter reconciliation.
         It returns a dictionary of corrected parameters with the same keys as the input parameters,
         filled with values as FlodymArrays that have the same dimensions as the input parameters."""
-        self.td = self.f2(self.prms)
-        self.bu = self.f1(self.prms)
+        self.td = self.calc_top_down_stock(self.prms).copy()
+        self.bu = self.calc_bottom_up_stock(self.prms).copy()
 
         # Assume (without loss of generality) target function of td/bu = 1s
-        self.pre_compute_sensitivity(self.f2, self.td)
-        self.pre_compute_sensitivity(self.f1, self.bu, denominator=True)
+        self.pre_compute_sensitivity(self.calc_top_down_stock, self.td)
+        self.pre_compute_sensitivity(self.calc_bottom_up_stock, self.bu, denominator=True)
 
         self.pre_compute_lambda()
         self.calc_corrections()
@@ -98,11 +98,11 @@ class CommonParameterReconciliation:
         return self.output_prms
 
     @abstractmethod
-    def f1(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
+    def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
         pass
     
     @abstractmethod
-    def f2(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
+    def calc_bottom_up_stock(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
         pass
 
     def pre_compute_sensitivity(self, f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray], f0: fd.FlodymArray, denominator: bool = False):
@@ -414,8 +414,8 @@ class CommonParameterReconciliation:
         for key, prm in prms.items():
             if "s" in prm.dims.letters:
                 prms[key] = prm[{"s": self._reduced_stock_type}]
-        td = self.f2(prms)
-        bu = self.f1(prms)
+        td = self.calc_top_down_stock(prms)
+        bu = self.calc_bottom_up_stock(prms)
         return td / bu
 
 class DependencyTracker(dict):

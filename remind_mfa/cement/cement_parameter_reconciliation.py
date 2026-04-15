@@ -1,6 +1,7 @@
 import flodym as fd
 from copy import deepcopy
 
+from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.common.common_parameter_reconciliation import CommonParameterReconciliation
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 
@@ -51,47 +52,45 @@ class CementParameterReconciliation(CommonParameterReconciliation):
                     val.lifetime_model.dims = val.inflow.dims
             self.stks[key] = val
     
-    def f1(self, prm: dict[str, fd.FlodymArray]):
-        """Top-down stock calculation."""
+    def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]):
+        """Top-down stock calculation for reconciliaton."""
         
+        # 1. Compute product stock from hisoric MFA
         cement_stock = InflowDrivenHistoricCementMFASystem.compute_cement_stock(prm, self.trds, self.flws, self.stks)
+        product_stock = StockDrivenCementMFASystem.transform_cement_to_product_stock(cement_stock, prm)
 
-        cement_stock = cement_stock[{"h": self._year_of_reconciliation}]
+        # 2. Reduce dimensions to match bottom-up stock dimensions
+        # 2.1 Use only reconciliation year
+        product_stock = product_stock[{"h": self._year_of_reconciliation}]
 
-        # TODO harmonize output dims
+        # 2.2 Use only material (m) concrete [no mortar]
+        concrete_mask = {'m': 'concrete'}
+        concrete_stock = product_stock[concrete_mask]
 
-        return cement_stock
+        # 2.3 Remove application dim
+        concrete_stock = concrete_stock.sum_over("a")
 
-    def f2(self, prm: dict[str, fd.FlodymArray]):
-        """Bottom-up stock calculation."""
+        return concrete_stock
 
+    @staticmethod
+    def calc_bottom_up_stock(prm: dict[str, fd.FlodymArray], stock_type_letter: str = 'u'):
+        """Bottom-up stock calculation for reconciliation."""
+
+        # 1. Compute concrete stock through bottom-up calculation
         concrete_stk = (
-            prm["concrete_building_mi"]
+            prm["floorspace"]
             * prm["function_buildings_split"]
             * prm["structure_buildings_split"]
-            * prm["floorspace"]
+            * prm["concrete_building_mi"]
         )
 
-        # TODO do this in prm adjustment
-        concrete_mask = {'m': 'concrete'}
-        concrete_application_mask = prm["product_material_application_transform"][concrete_mask].values == 1
-        concrete_application_dim_items = [item for i, item in enumerate(prm["product_material_application_transform"].dims['a'].items) if concrete_application_mask[i]]
-        concrete_application_dim = fd.Dimension(name='Concrete Application', letter='x', items=concrete_application_dim_items)
+        # 2. Reduce dimensions to match top-down stock dimensions
+        # 2.1 Remove building function
+        reduced_cement_stock = fd.FlodymArray(dims=concrete_stk.dims.drop("f"))
+        reduced_cement_stock[{stock_type_letter: 'Res'}] = concrete_stk[{'f': 'RS', stock_type_letter: "Res"}] + concrete_stk[{'f': 'RM', stock_type_letter: "Res"}]
+        reduced_cement_stock[{stock_type_letter: 'Com'}] = concrete_stk[{'f': 'Com', stock_type_letter: "Com"}]
         
-        cement_stock = (
-            concrete_stk
-            # split in materials and applications
-            * prm["product_material_split"][concrete_mask]
-            * prm["product_application_split"][{"a": concrete_application_dim}]
-            # transform from product to cement stock
-            * prm["product_density"][concrete_mask]
-            / prm["product_cement_content"][{"a": concrete_application_dim}]
-        )
-
-        # harmonize output dims
-        reduced_cement_stock = fd.FlodymArray(dims=cement_stock.dims.drop("f"))
-        reduced_cement_stock[{'u': 'Res'}] = cement_stock[{'f': 'RS', 'u': "Res"}] + cement_stock[{'f': 'RM', 'u': "Res"}]
-        reduced_cement_stock[{'u': 'Com'}] = cement_stock[{'f': 'Com', 'u': "Com"}]
-        reduced_cement_stock = reduced_cement_stock.sum_over(('b', 'x'))
+        # 2.2 Remove building structure
+        reduced_cement_stock = reduced_cement_stock.sum_over('b')
 
         return reduced_cement_stock

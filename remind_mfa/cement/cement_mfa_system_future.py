@@ -12,7 +12,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
     cfg: CementCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
+    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet, **kwargs):
         """
         Perform all computations for the MFA system.
         """
@@ -20,7 +20,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             self.parameters["product_cement_content"] / self.parameters["product_density"]
         )
 
-        self.compute_in_use_stock(stock_projection)
+        self.compute_in_use_stock(stock_projection, **kwargs)
         self.compute_flows(historic_trade)
         self.compute_other_stocks()
         if self.cfg.model_switches.carbonation:
@@ -28,18 +28,14 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
-    def compute_in_use_stock(self, cement_stock_projection: fd.FlodymArray):
+    def compute_in_use_stock(self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True, **kwargs):
         prm = self.parameters
         stk = self.stocks
 
-        # transform historic cement stock into product stock
-        stk["in_use"].stock = (
-            cement_stock_projection
-            * prm["product_material_split"]
-            * prm["product_material_application_transform"]
-            * prm["product_application_split"]
-            / self.cement_ratio
-        )
+        if stock_is_cement:
+            stock_projection = self.transform_cement_to_product_stock(stock_projection, prm)
+        
+        stk["in_use"].stock = stock_projection
 
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
@@ -48,6 +44,28 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk["in_use"].compute()
 
         self.correct_negative_inflow("in_use", warn_small_negative=False)
+
+    @staticmethod
+    def product_split(prm: dict[str, fd.FlodymArray]):
+        split = (
+            prm["product_material_split"]
+            * prm["product_material_application_transform"]
+            * prm["product_application_split"]
+        )
+        return split
+        
+    @staticmethod
+    def transform_cement_to_product_stock(cement_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]):
+        product_stock = (
+                cement_stock
+                * StockDrivenCementMFASystem.product_split(prm)
+                * prm["product_density"] # TODO replace with cement ratio
+                / prm["product_cement_content"]
+
+            )
+        return product_stock
+    
+    
 
     def compute_flows(self, historic_trade: TradeSet):
         prm = self.parameters

@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import logging
 from typing import Optional
 import flodym as fd
@@ -18,6 +19,7 @@ from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.common_parameter_reconciliation import CommonParameterReconciliation
 
 
 class CommonModel:
@@ -29,6 +31,7 @@ class CommonModel:
     DisplayNamesCls = CommonDisplayNames
     HistoricMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
+    ParameterReconciliationCls = CommonParameterReconciliation
     custom_scn_prm_def = []
     get_definition = staticmethod(get_definition)
 
@@ -51,7 +54,10 @@ class CommonModel:
         self.historic_mfa.compute()
         self.transfer_historic_parameters()
 
-        historic_trade = self.historic_mfa.trade_set
+        self.reconcile_parameters()
+        
+        # TODO trade will now be calculated based on reconciled mfa, even though it itself was not part of reconciliation.
+        self.historic_trade = self.historic_mfa.trade_set
 
         # apply scenarios to parameters for future mfa
         # 1. extend historic parameters into future
@@ -61,10 +67,45 @@ class CommonModel:
         # 2. adjust future parameters based on scenario
         self.apply_scenario_adjustments_to_parameters()
 
-        stock_projection = self.get_long_term_stock()
+        self.stock_projection = self.get_long_term_stock()
 
         self.future_mfa = self.make_mfa(historic=False)
-        self.future_mfa.compute(stock_projection, historic_trade)
+        self.future_mfa.compute(self.stock_projection, self.historic_trade)
+
+        if self.cfg.model_switches.combined_mfa:
+            self.compute_combined_mfa()
+    
+    def reconcile_parameters(self):
+        if not self.cfg.model_switches.parameter_reconciliation:
+            return
+        
+        # TODO make the number of iterations more transparent.
+        n_iter = 1
+        logging.info("Starting parameter reconciliation...")
+        for i in range(n_iter):
+            logging.info(f"Parameter reconciliation iteration {i + 1}/{n_iter}")
+            ref_mfa = self.HistoricMFASystemCls(
+                cfg=self.cfg,
+                parameters=self.parameters,
+                processes=self.historic_mfa.processes,
+                dims=self.dims,
+                flows=self.historic_mfa.flows,
+                stocks=self.historic_mfa.stocks,
+                trade_set=self.historic_mfa.trade_set,
+            )
+
+            self.parameter_reconciliation = self.ParameterReconciliationCls(
+                ref_mfa=ref_mfa,
+                uncoupled=True
+            )
+            self.parameters = self.parameter_reconciliation.correct_parameters()
+
+        # recalculate historic MFA
+        self.historic_mfa = self.make_mfa(historic=True)
+        self.historic_mfa.compute()
+
+    def compute_combined_mfa(self):
+        raise NotImplementedError("Please implement combined MFA in subclass.")
 
     def export(self):
         self.data_writer.export(model=self)
@@ -81,7 +122,7 @@ class CommonModel:
             cfg=self.cfg,
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
-            allow_missing_values=True,  # needed for at least steel scrap data
+            allow_missing_values=True,  # needed for at least steel scrap data and for bottom-up (cement)
             allow_extra_values=False,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
