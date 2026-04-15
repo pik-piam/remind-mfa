@@ -372,6 +372,7 @@ class StockExtrapolation(RemindMFABaseModel):
     def n_historic(self):
         return self.dims["h"].len
 
+    # TODO see if I can make all of these staticmethods, or move them to a different class?
     def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system

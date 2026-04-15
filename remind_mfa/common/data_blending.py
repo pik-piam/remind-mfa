@@ -8,11 +8,42 @@ def blend(
     target_dims: fd.DimensionSet,
     y_lower: fd.FlodymArray,
     y_upper: fd.FlodymArray,
-    x: Union[fd.FlodymArray, str],  # str: dimension letter
+    x: Union[fd.FlodymArray, str],
     x_lower: Union[fd.FlodymArray, int, float],
     x_upper: Union[fd.FlodymArray, int, float],
     type: str = "poly_mix",
 ) -> fd.FlodymArray:
+    """
+    Blend between two arrays (y_lower, y_upper) along a dimension or variable x, using a specified blending function.
+
+    This function interpolates (or blends) between y_lower and y_upper based on the normalized position of x between x_lower and x_upper,
+    using a chosen blending curve (e.g., linear, sigmoid, hermite, quintic, etc.).
+
+    Args:
+        target_dims (fd.DimensionSet):
+            The target dimensions for the output array. All input arrays and scalars are broadcast/cast to these dimensions.
+        y_lower (fd.FlodymArray):
+            The value (array) to use when x == x_lower (i.e., at the lower bound).
+        y_upper (fd.FlodymArray):
+            The value (array) to use when x == x_upper (i.e., at the upper bound).
+        x (Union[fd.FlodymArray, str]):
+            The variable to blend along. Can be a FlodymArray (values for each point) or a string (dimension name/letter) to use the corresponding dimension values from target_dims.
+        x_lower (Union[fd.FlodymArray, int, float]):
+            The lower bound for x (can be scalar or array). Where x == x_lower, the result is y_lower.
+        x_upper (Union[fd.FlodymArray, int, float]):
+            The upper bound for x (can be scalar or array). Where x == x_upper, the result is y_upper.
+        type (str, optional):
+            The blending function to use. Options include: 'linear', 'sigmoid3', 'sigmoid4', 'hermite', 'quintic', 'poly_mix', etc.
+            Default is 'poly_mix'.
+
+    Returns:
+        fd.FlodymArray: The blended/interpolated array, with dimensions target_dims.
+
+    Example:
+        blend(target_dims, y_lower, y_upper, x="t", x_lower=2020, x_upper=2050, type="hermite")
+        # Blends y_lower to y_upper as the 't' dimension goes from 2020 to 2050 using a Hermite curve.
+
+    """
     if isinstance(x, str):
         x = fd.FlodymArray(dims=target_dims[(x,)], values=np.array(target_dims[x].items))
     x = x.cast_to(target_dims)

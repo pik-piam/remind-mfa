@@ -1,6 +1,6 @@
 import flodym as fd
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_config import CommonCfg
