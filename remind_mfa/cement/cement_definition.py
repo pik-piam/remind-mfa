@@ -84,8 +84,8 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             fd.FlowDefinition(from_process="market_cement", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("t", "r")),
             # product production
-            fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
-            fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
+            fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("t", "r", "s", "m", "a")),
+            fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "s", "m", "a")),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
             # use and end-of-life
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "a")),
