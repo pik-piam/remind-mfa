@@ -12,6 +12,7 @@ model_switches:
   scenario: 'SSP2'
   carbonation: False # currently not working
   parameter_reconciliation: True
+  combined_mfa: True
   stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
