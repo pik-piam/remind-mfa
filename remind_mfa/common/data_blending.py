@@ -100,14 +100,15 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
         raise ValueError("value must be either a FlodymArray or a scalar.")
     return array
 
+
 class CriticallyDampedBlender:
 
     def __init__(
-            self,
-            time: Union[np.ndarray, list],
-            historical: np.ndarray,
-            prediction: np.ndarray,
-            lifetime: Optional[np.ndarray] = None,
+        self,
+        time: Union[np.ndarray, list],
+        historical: np.ndarray,
+        prediction: np.ndarray,
+        lifetime: Optional[np.ndarray] = None,
     ):
         """
         Args:
@@ -122,14 +123,22 @@ class CriticallyDampedBlender:
         self.time = np.array(time)
         self.historical = historical
         self.prediction = prediction
-        
-        assert self.time.shape[0] == self.prediction.shape[0], "Time and prediction must have the same length."
-        assert self.historical.shape[1:] == self.prediction.shape[1:], "Historical and prediction must have the same spatial shape."
-        assert self.historical.shape[0] <= self.prediction.shape[0], "Historical data cannot be longer than prediction."
+
+        assert (
+            self.time.shape[0] == self.prediction.shape[0]
+        ), "Time and prediction must have the same length."
+        assert (
+            self.historical.shape[1:] == self.prediction.shape[1:]
+        ), "Historical and prediction must have the same spatial shape."
+        assert (
+            self.historical.shape[0] <= self.prediction.shape[0]
+        ), "Historical data cannot be longer than prediction."
 
         self.lifetime = lifetime
         if self.lifetime is not None:
-            assert self.lifetime.shape == self.prediction.shape[1:], "Lifetime must match spatial shape of prediction."
+            assert (
+                self.lifetime.shape == self.prediction.shape[1:]
+            ), "Lifetime must match spatial shape of prediction."
 
     def blend(self) -> np.ndarray:
         """
@@ -169,13 +178,17 @@ class CriticallyDampedBlender:
 
         # 2. Set the initial conditions at the transition point
         y0 = self.historical[last_history_idx, :]
-        v0 = self._trend_slope(self.time, self.historical, self._lifetime_dependent_n(), last_history_idx)
+        v0 = self._trend_slope(
+            self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
+        )
         # 3. Integrate to find the blended future path Y(t)
         y_future = self._integrate_transition(y0, v0, t_future, p_future, approaching_time)
 
         # 4. Construct the final contiguous array
         blended_stock = self.prediction.copy()
-        blended_stock[:last_history_idx] = self.historical[:last_history_idx]  # Preserve exact history
+        blended_stock[:last_history_idx] = self.historical[
+            :last_history_idx
+        ]  # Preserve exact history
         blended_stock[last_history_idx:] = y_future  # Apply blended future
 
         return blended_stock
