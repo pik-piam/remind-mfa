@@ -380,11 +380,13 @@ class StockExtrapolation(RemindMFABaseModel):
 
     def _prepare_lifetime_for_blender(self):
         if len(self.indep_fit_dim_letters) > 1:
-            lifetime = None
             logging.warning(
                 "Multiple independent fit dimensions are not supported for lifetime-dependent blending."
                 "Lifetime-independent blending is used instead,"
                 "i.e., the trend from the last historical year is used."
             )
+            return None
+        if self.lifetime is None:
+            return None
         lifetime = self.lifetime.cast_to(self.dims_out)[{"t": self.dims["h"].items[-1]}].values
         return lifetime
