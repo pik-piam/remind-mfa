@@ -346,7 +346,6 @@ class CriticallyDampedBlender:
             n (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
                 positions or an array matching the spatial shape of ``y``.
             idx (int): Time index at which to evaluate the slope (typically the last historical index).
-            deg (int): Maximum polynomial degree for the local fit. Defaults to 2.
             deg (int): Maximum polynomial degree for the local fit. Defaults to 1.
 
         Returns:
