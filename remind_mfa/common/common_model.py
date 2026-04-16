@@ -73,7 +73,8 @@ class CommonModel:
         self.future_mfa.compute(self.stock_projection, self.historic_trade)
 
         if self.cfg.model_switches.combined_mfa:
-            self.compute_combined_mfa()
+            # update future mfa with bottom_up future where possible
+            self.future_mfa = self.compute_combined_mfa()
     
     def reconcile_parameters(self):
         if not self.cfg.model_switches.parameter_reconciliation:

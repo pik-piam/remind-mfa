@@ -43,7 +43,8 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
         stk["in_use"].compute()
 
-        self.correct_negative_inflow("in_use", warn_small_negative=False)
+        # TODO add this back in once no more negative flows
+        # self.correct_negative_inflow("in_use", warn_small_negative=False)
 
     @staticmethod
     def product_split(prm: dict[str, fd.FlodymArray]):
@@ -82,7 +83,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["cement"],
             future_trade=trd["cement"],
-            future_dom_demand=flw["market_cement => prod_product"],
+            future_dom_demand=flw["market_cement => prod_product"].maximum(0), # TODO remove this once no more negative flows
         )
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -108,7 +109,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["clinker"],
             future_trade=trd["clinker"],
-            future_dom_demand=flw["market_clinker => prod_cement"],
+            future_dom_demand=flw["market_clinker => prod_cement"].maximum(0),  # TODO remove this once no more negative flows
         )
         extrapolator.run()
         flw["imports => market_clinker"][...] = trd["clinker"].imports
