@@ -238,7 +238,7 @@ class CriticallyDampedBlender:
         # overshooting. n_fwd decreases linearly from n_fwd_max to 1 over the first
         # n_ramp_steps, then remains 1 for the rest of the integration.
         n_fwd_max = 5
-        n_ramp_steps = int(approaching_time / 2)
+        n_ramp_steps = max(1, int((approaching_time / 2) / dt))
         n_fwd = np.maximum(
             1, np.round(n_fwd_max * np.maximum(0.0, 1 - np.arange(n_steps) / n_ramp_steps))
         ).astype(int)
