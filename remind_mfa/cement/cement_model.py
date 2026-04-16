@@ -2,9 +2,6 @@ import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.cement.cement_definition import get_cement_definition
-from remind_mfa.cement.cement_mfa_system_historic import (
-    InflowDrivenHistoricCementMFASystem,
-)
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDimensionFiles, CementDisplayNames
@@ -13,8 +10,7 @@ from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
-from remind_mfa.common.data_blending import blend
-from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.data_blending import CriticallyDampedBlender
 
 
 class CementModel(CommonModel):
@@ -58,7 +54,7 @@ class CementModel(CommonModel):
         # build bottom up stock
         prm = self.parameters
         bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(prm, stock_type_letter=self.end_use_good_letter)
-        self.bu_stock = bu_concrete_stock * StockDrivenCementMFASystem.product_split(prm)
+        bu_stock = bu_concrete_stock * StockDrivenCementMFASystem.product_split(prm)
 
         # 
         # bottom-up stock only available for concrete (constraining m and a), and Res/Com (constraining s)
@@ -66,20 +62,31 @@ class CementModel(CommonModel):
         concrete_application_mask = prm["product_material_application_transform"][concrete_mask].values == 1
         concrete_application_dim_items = [item for i, item in enumerate(prm["product_material_application_transform"].dims['a'].items) if concrete_application_mask[i]]
         concrete_application_dim = fd.Dimension(name='Concrete Application', letter='x', items=concrete_application_dim_items)
-        future_time = fd.Dimension(name='Future Time', letter='z', items=[i for i in range(2024,2101)])
-
+    
         reduced_dim_mask = {
             'm': 'concrete',
             'a': concrete_application_dim,
             's': self.parameter_reconciliation._reduced_stock_type,
-            't': future_time
         }
 
-        reduced_bu_stock = self.bu_stock[reduced_dim_mask]
+        reduced_bu_stock = bu_stock[reduced_dim_mask]
+        reduced_td_stock = td_stock[reduced_dim_mask][{'t': self.dims["h"]}]
+
+        # blend smoothly between historic td and future bu
+        blender = CriticallyDampedBlender(
+            time=self.dims["t"].items,
+            historical=reduced_td_stock.values,
+            prediction=reduced_bu_stock.values,
+            # TODO set lifetime here,
+        )
+        blended_stock = fd.FlodymArray.full_like(
+            other=reduced_bu_stock,
+            fill_value=blender.blend(),
+        )
 
         # prepare combined stock
         combined_stock = td_stock.copy()
-        combined_stock[reduced_dim_mask] = reduced_bu_stock
+        combined_stock[reduced_dim_mask] = blended_stock
 
         # compute combined mfa
         self.combined_mfa = self.make_mfa(historic=False)
