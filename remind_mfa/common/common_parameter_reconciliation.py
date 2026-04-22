@@ -21,11 +21,12 @@ class CommonParameterReconciliation:
                 ):
         
         self.ref_mfa = ref_mfa
-        
-        self._year_of_reconciliation = 2023
+        self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
+
+        # TODO potentially move this to material specific reconciliation
         self._reduced_stock_type = fd.Dimension(name="Reduced Stock Type", letter="u", items=["Res", "Com"])
         # save computation time
-        self._no_correction_dim_letters = ('t', 'h') # instead of df/dx, now calculating df/dd 
+        self._no_correction_dim_letters = ('t', 'h') # instead of df/dx, now calculating df/dd
 
         self.output_dims_are_independent = uncoupled
         # TODO call this diagonal_jacobian, and invert the logic
@@ -390,6 +391,7 @@ class CommonParameterReconciliation:
         return fd.FlodymArray(dims=target_dims, values=reshaped_values)
 
     def cast_correction_to_original_prm_dim(self, correction_factor: fd.FlodymArray) -> fd.FlodymArray:
+        # TODO this should be moved to material specific reconciliatoin
         if self._reduced_stock_type.letter not in correction_factor.dims.letters:
             return correction_factor
 
