@@ -28,6 +28,7 @@ class CommonParameterReconciliation:
         self._no_correction_dim_letters = ('t', 'h') # instead of df/dx, now calculating df/dd 
 
         self.output_dims_are_independent = uncoupled
+        # TODO call this diagonal_jacobian, and invert the logic
         # NB this does not mean that all parameter dimensions are independent, only that output dimensions, if existant in parameters
 
         # TODO set and skip over known sensitivity parameters
@@ -68,28 +69,53 @@ class CommonParameterReconciliation:
                 new_dims = new_dims.drop(letter)
         return new_dims
 
-    def correct_parameters(self):
-        """This is the main function to call for parameter reconciliation.
-        It returns a dictionary of corrected parameters with the same keys as the input parameters,
-        filled with values as FlodymArrays that have the same dimensions as the input parameters."""
-        self.td = self.calc_top_down_stock(self.prms).copy()
-        self.bu = self.calc_bottom_up_stock(self.prms).copy()
+    def correct_parameters(self, max_iter: int = 1, tol: Optional[float] = None):
+        """Iteratively correct parameters to reconcile top-down and bottom-up stocks.
 
-        # Assume (without loss of generality) target function of td/bu = 1s
-        self.pre_compute_sensitivity(self.calc_top_down_stock, self.td)
-        self.pre_compute_sensitivity(self.calc_bottom_up_stock, self.bu, denominator=True)
+        Each iteration linearises around the current working parameters, computes a
+        least-squares log-correction, and applies it in-place.  Cumulative corrections
+        are tracked so the final output is always expressed relative to the original
+        input parameters.
 
-        self.pre_compute_lambda()
-        self.calc_corrections()
+        Args:
+            max_iter: Maximum number of correction iterations.
+            tol: Convergence tolerance.  Stop early when
+                ``max(|log(td / bu)|) < tol``.  If *None*, always run
+                ``max_iter`` iterations.
+        """
+        cumulative_corrections: dict[str, fd.FlodymArray] = {}
 
-        # TODO see if I really want to do the mulitplication here, or rather in parameter extrapolation?
+        for i in range(max_iter):
+            self.td = self.calc_top_down_stock(self.prms).copy()
+            self.bu = self.calc_bottom_up_stock(self.prms).copy()
+
+            mismatch = float(np.max(np.abs(np.log(self.td.values / self.bu.values))))
+            logging.info(f"Reconciliation iteration {i + 1}/{max_iter}: max |log(td/bu)| = {mismatch:.4f}")
+
+            if tol is not None and mismatch < tol:
+                logging.info(f"Converged after {i} iteration(s) (mismatch {mismatch:.4f} < tol {tol}).")
+                break
+
+            # Fresh sensitivity matrices each iteration (re-linearise around current prms)
+            self.S_matrices = {}
+            self.pre_compute_sensitivity(self.calc_top_down_stock, self.td)
+            self.pre_compute_sensitivity(self.calc_bottom_up_stock, self.bu, denominator=True)
+
+            self.pre_compute_lambda()
+            self.calc_corrections()
+
+            for prm_name, c in self.correction_factors.items():
+                self.prms[prm_name][...] = self.prms[prm_name] * c
+                if prm_name in cumulative_corrections:
+                    cumulative_corrections[prm_name][...] *= c
+                else:
+                    cumulative_corrections[prm_name] = c.copy()
+
         self.output_prms = deepcopy(self.input_prms)
-        for prm_name, c in self.correction_factors.items():
-            # TODO do I want to do the correction directy on self.prms, or rather return and or create self.corrected_prms?
-            c = self.cast_correction_to_original_prm_dim(c)
-            self.output_prms[prm_name][...] = self.input_prms[prm_name] * c
+        for prm_name, c in cumulative_corrections.items():
+            c_full = self.cast_correction_to_original_prm_dim(c)
+            self.output_prms[prm_name][...] = self.input_prms[prm_name] * c_full
             self.normalize_parameter(prm_name)
-            # transform from FlodymArray to Parameter
             self.output_prms[prm_name] = fd.Parameter(
                 name=self.output_prms[prm_name].name,
                 dims=self.output_prms[prm_name].dims,
@@ -372,6 +398,7 @@ class CommonParameterReconciliation:
         new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
 
         # fill calculated correction values where possible
+        # TODO what about the other stock types that may have to be rescaled
         new_correction[{"s": self._reduced_stock_type}] = correction_factor
         return new_correction
 

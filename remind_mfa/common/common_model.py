@@ -76,30 +76,38 @@ class CommonModel:
             # update future mfa with bottom_up future where possible
             self.future_mfa = self.compute_combined_mfa()
     
-    def reconcile_parameters(self):
+    def reconcile_parameters(self, max_iter: int = 1, tol: Optional[float] = None):
+        """Reconcile parameters between top-down and bottom-up stocks.
+
+        Args:
+            max_iter: Maximum number of correction iterations.
+            tol: Convergence tolerance; stop early when max |log(td/bu)| < tol.
+                 If None, always run max_iter iterations.
+        """
         if not self.cfg.model_switches.parameter_reconciliation:
             return
-        
-        # TODO make the number of iterations more transparent.
-        n_iter = 1
-        logging.info("Starting parameter reconciliation...")
-        for i in range(n_iter):
-            logging.info(f"Parameter reconciliation iteration {i + 1}/{n_iter}")
-            ref_mfa = self.HistoricMFASystemCls(
-                cfg=self.cfg,
-                parameters=self.parameters,
-                processes=self.historic_mfa.processes,
-                dims=self.dims,
-                flows=self.historic_mfa.flows,
-                stocks=self.historic_mfa.stocks,
-                trade_set=self.historic_mfa.trade_set,
-            )
 
-            self.parameter_reconciliation = self.ParameterReconciliationCls(
-                ref_mfa=ref_mfa,
-                uncoupled=True
-            )
-            self.parameters = self.parameter_reconciliation.correct_parameters()
+        logging.info(
+            f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})..."
+        )
+
+        ref_mfa = self.HistoricMFASystemCls(
+            cfg=self.cfg,
+            parameters=self.parameters,
+            processes=self.historic_mfa.processes,
+            dims=self.dims,
+            flows=self.historic_mfa.flows,
+            stocks=self.historic_mfa.stocks,
+            trade_set=self.historic_mfa.trade_set,
+        )
+
+        self.parameter_reconciliation = self.ParameterReconciliationCls(
+            ref_mfa=ref_mfa,
+            uncoupled=True,
+        )
+        self.parameters = self.parameter_reconciliation.correct_parameters(
+            max_iter=max_iter, tol=tol
+        )
 
         # recalculate historic MFA
         self.historic_mfa = self.make_mfa(historic=True)
