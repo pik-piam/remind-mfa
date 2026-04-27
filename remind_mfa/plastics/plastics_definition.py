@@ -224,6 +224,9 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         # for TRANSIENCE: output parameters from other MIC3 models
         RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("u", "r", "n", "f"),
                                      description="Stock inflow for EU27+3",),
+        RemindMFAParameterDefinition(name="stock_outflow_EU-MFA", dim_letters=("u", "r", "n", "f"),
+                                     description="Stock outflow for EU27+3",
+        ),
     ]
     # fmt: on
 

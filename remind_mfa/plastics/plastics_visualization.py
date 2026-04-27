@@ -479,3 +479,11 @@ class PlasticsVisualizer(CommonVisualizer):
             summing_func = lambda l: l.sum_over("r", "m", "e")
             name_str = "global"
         return subplot_dim, summing_func, name_str
+    
+    def visualize_transience_inflow(self, model: "PlasticsModel", subplot_dim: str = None):
+        EU_region = "EU27+3"
+        super().visualize_transience_inflow(model, EU_region = EU_region, subplot_dim=subplot_dim)
+
+    def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None):
+        EU_region = "EU27+3"
+        super().visualize_transience_outflow(model, EU_region = EU_region, subplot_dim=subplot_dim)

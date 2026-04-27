@@ -239,15 +239,15 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         # for TRANSIENCE: output parameters from other MIC3 models
         RemindMFAParameterDefinition(
             name="stock_inflow_EU-MFA", dim_letters=("u", "r", "f"),
-            description="Stock inflow for EU27+3",
+            description="Stock inflow for EU28",
         ),
         RemindMFAParameterDefinition(
             name="stock_outflow_EU-MFA", dim_letters=("u", "r", "f"),
-            description="Stock outflow for EU27+3",
+            description="Stock outflow for EU28",
         ),
         RemindMFAParameterDefinition(
             name="available_scrap_EU-MFA", dim_letters=("u", "r"),
-            description="Available scrap for EU27+3",
+            description="Available scrap for EU28",
         ),
     ]
     # fmt: on
