@@ -74,15 +74,22 @@ class SteelMFASystem(CommonMFASystem):
             # store original inflow for comparison
             self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}]
             # Replace with EU-MFA data
+            inflow = self.stocks["in_use"].inflow
+            self.stocks["in_use"] = fd.InflowDrivenDSM(
+                dims=self.stocks["in_use"].dims,
+                lifetime_model=self.stocks["in_use"].lifetime_model,
+                name=self.stocks["in_use"].name,
+                process=self.stocks["in_use"].process,
+            )
+            self.stocks["in_use"].inflow[...] = inflow
             self.stocks["in_use"].inflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
+            self.stocks["in_use"].compute()
             # comparison
             rel_difference = self.demand_EU_MFA/self.demand_REMIND_MFA
             logging.warning(
                 f"TRANSIENCE mode is on. In-use stock inflow for EUR region is not computed from stock projection, but taken from EU-MFA. "
                 f"EU-MFA demand differs from original REMIND_MFA demand by a factor of: {np.min(rel_difference.values)} to {np.max(rel_difference.values)} "
             )
-        
-        self.stocks["in_use"].compute()
 
     def compute_flows(self, historic_trade: TradeSet):
         # abbreviations for better readability
