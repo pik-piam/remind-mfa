@@ -6,33 +6,44 @@ from backcast_by_reference import backcast_by_reference
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('material', choices=['plastics', 'steel'], nargs='?', default='steel',
+parser.add_argument('material', choices=['plastics', 'steel'], nargs='?', default='plastics',
                     help='Material to process')
+parser.add_argument('flow', choices=['demand', 'eol', 'scrap'], nargs='?', default='demand',
+                    help='Flow to process')
 args = parser.parse_args()
 
 OUTPUT_DIR = Path("../remind_mfa_data/input_data")
 if args.material == 'plastics':
     DATA_DIR = Path("data/plastics/input")
-    INPUT_FILE   = DATA_DIR / "plastics_market__end_use_stock.csv"
     MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_plastics.csv"
-    OUTPUT_FILE  = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
+    if args.flow == 'demand':
+        INPUT_FILE   = DATA_DIR / "plastics_market__end_use_stock.csv"
+        OUTPUT_FILE  = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
+    elif args.flow == 'eol':
+        INPUT_FILE   = DATA_DIR / "waste_collection__waste_sorting.csv"
+        OUTPUT_FILE  = OUTPUT_DIR / "pl_stock_outflow_EU-MFA.cs4r"
     DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
 elif args.material == 'steel':
     DATA_DIR = Path("data/steel/input")
-    INPUT_FILE   = DATA_DIR / "F_3_4_DomesticDemandNewGoods.csv"
     MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_steel.csv"
-    OUTPUT_FILE  = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
+    if args.flow == 'demand':
+        INPUT_FILE   = DATA_DIR / "steel_goods_market__end_use_stock.csv"
+        OUTPUT_FILE  = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
+    elif args.flow == 'eol':
+        INPUT_FILE   = DATA_DIR / "end_use_stock__waste_management.csv"
+        OUTPUT_FILE  = OUTPUT_DIR / "st_stock_outflow_EU-MFA.cs4r"
+    elif args.flow == 'scrap':
+        INPUT_FILE   = DATA_DIR / "waste_management__available_scrap_sysenv.csv"
+        OUTPUT_FILE  = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
     DIMENSION_DIR = Path("../remind_mfa_data/dimensions/steel")
 
 def main():
     # --- load and filter ---
-    sep = "," if args.material == "plastics" else ";"
-    df1 = pd.read_csv(INPUT_FILE, sep=sep)
+    df1 = pd.read_csv(INPUT_FILE, sep=",")
+    df1 = df1.rename(columns={"time": "Time", "region": "Region"})
     if args.material == "plastics":
-        df1 = df1.rename(columns={"time": "Time", "region": "Region"})
         df1 = df1[df1.Region == "EU27+3"].copy()
     elif args.material == "steel":
-        df1 = df1.rename(columns={"years": "Time", "regions": "Region", "F_3_4_DomesticDemandNewGoods": "value"})
         df1 = df1[df1.Region == "EU27+1"].copy()
         df1.loc[:, "Region"] = "EUR"
     df1["value"] = df1["value"] * 1000          # kt -> t
@@ -88,29 +99,37 @@ def main():
         )
         
     elif args.material == "steel":
-        # --- map end-use sectors -> Good ---
-        sector_map = mapping[mapping.original_dimension == "end_use_sectors"][
-            ["original_element", "target_element"]
-        ]
-        df2 = df1.merge(
-            sector_map,
-            left_on="sectors",
-            right_on="original_element",
-            how="left",
-        ).rename(columns={"target_element": "Good"}).drop(columns="original_element")
+        if args.flow == "scrap":
+            # --- aggregate ---
+            df_EU_MFA = (
+                df1.groupby(["Time", "Region"], as_index=False)["value"]
+                .sum()
+            )
+            dimensions = "(EU-MFA_Time,Region,value)"
+        else: 
+            # --- map end-use sectors -> Good ---
+            sector_map = mapping[mapping.original_dimension == "end_use_sectors"][
+                ["original_element", "target_element"]
+            ]
+            df2 = df1.merge(
+                sector_map,
+                left_on="sector",
+                right_on="original_element",
+                how="left",
+            ).rename(columns={"target_element": "Good"}).drop(columns="original_element")
 
-        # --- report unmapped entries ---
-        n_unmapped_good = df2["Good"].isna().sum()
-        if n_unmapped_good > 0:
-            print(f"WARNING: {n_unmapped_good} rows with unmapped sector (Good=NaN):")
-            print(df2[df2["Good"].isna()]["sectors"].unique())
+            # --- report unmapped entries ---
+            n_unmapped_good = df2["Good"].isna().sum()
+            if n_unmapped_good > 0:
+                print(f"WARNING: {n_unmapped_good} rows with unmapped sector (Good=NaN):")
+                print(df2[df2["Good"].isna()]["sector"].unique())
 
-        # --- aggregate ---
-        df_EU_MFA = (
-            df2.groupby(["Time", "Region", "Good"], as_index=False)["value"]
-            .sum()
-        )
-        dimensions = "(EU-MFA_Time,Region,EU-MFA_Good,value)"
+            # --- aggregate ---
+            df_EU_MFA = (
+                df2.groupby(["Time", "Region", "Good"], as_index=False)["value"]
+                .sum()
+            )
+            dimensions = "(EU-MFA_Time,Region,EU-MFA_Good,value)"
 
         # --- load reference (Historic Time, Region, Good, value) ---
         ref = pd.read_csv(
@@ -143,11 +162,11 @@ def main():
         for t in time:
             f.write(f"{t}\n")
     # save Good dimension
-    goods = df_backcasted["Good"].dropna().unique()
-    with open(DIMENSION_DIR / "eu_mfa_goods.csv", "w") as f:
-        for g in goods:
-            f.write(f"{g}\n")
-
+    if args.flow != "scrap":  # scrap flow has no Good dimension
+        goods = df_backcasted["Good"].dropna().unique()
+        with open(DIMENSION_DIR / "eu_mfa_goods.csv", "w") as f:
+            for g in goods:
+                f.write(f"{g}\n")
     if args.material == "plastics":
         # save Material dimension
         materials = df_backcasted["Material"].dropna().unique()
