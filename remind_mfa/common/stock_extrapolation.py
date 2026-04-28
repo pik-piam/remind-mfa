@@ -1,5 +1,8 @@
+import logging
+
 import flodym as fd
 import numpy as np
+from remind_mfa.common.data_blending import CriticallyDampedBlender
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
 
@@ -332,9 +335,13 @@ class StockExtrapolation(RemindMFABaseModel):
             case "none":
                 stocks_pc_out[...] = self.fitted_regression.values
             case "critically_damped":
-                stocks_pc_out[...] = self.critically_damped_blend(
-                    self.historic_stocks_pc.values, self.fitted_regression.values
+                blender = CriticallyDampedBlender(
+                    time=self.dims["t"].items,
+                    historical=self.historic_stocks_pc.values,
+                    prediction=self.fitted_regression.values,
+                    lifetime=self._prepare_lifetime_for_blender(),
                 )
+                stocks_pc_out[...] = blender.blend()
                 add_assumption_doc(
                     type="model assumption",
                     name="Usage of critically damped blend",
@@ -363,84 +370,6 @@ class StockExtrapolation(RemindMFABaseModel):
         stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
-    def critically_damped_blend(self, historical: np.ndarray, prediction: np.ndarray) -> np.ndarray:
-        """
-        Blend historical and extrapolated stock values using a critically damped system approach to ensure a smooth transition.
-        In a critically damped system (e.g. spring that returns to equilibrium as quickly as possible without oscillating),
-        if x0 is the initial position and v0 the initial velocity, the position x at a time t is given by:
-        x(t) = (x0 + (v0 + k * x0) * t) * exp(-k * t).
-        The parameter k determines how quickly the equilibrium is restored, with higher values leading to a faster transition.
-        Here, we use the difference between historical and extrapolated stocks at the transition point as the initial offset (x0),
-        and the difference in slopes at the transition point as the initial velocity (v0).
-        Args:
-            historical (np.ndarray): Historical stock data.
-            prediction (np.ndarray): Extrapolated stock data from regression.
-        Returns:
-            np.ndarray: Stock with smooth transition from historical to prediction.
-        """
-        time = np.array(self.dims["t"].items)
-        last_history_idx = len(historical) - 1
-        last_history_year = time[last_history_idx]
-
-        # offset between historic and prediction at transition point
-        difference_0th = historical[last_history_idx, :] - prediction[last_history_idx, :]
-
-        def avg_slope(x, y, n=1):
-            """Assuming time is the first dimension, calculate the average slope over the last n historical timesteps.
-            If n is 1, this is the slope between the last two historical timesteps."""
-            ydiff = y[last_history_idx, :] - y[last_history_idx - n, :]
-            xdiff = x[last_history_idx] - x[last_history_idx - n]
-            return ydiff / xdiff
-
-        # offset of the 1st derivative at the transition point
-        difference_1st = avg_slope(time, historical) - avg_slope(time, prediction)
-        # if the lifetime is given, the number of historical timesteps used for the average slope calculation is determined by the lifetime
-        if self.lifetime is not None:
-            lower = 3
-            upper = 30
-            if len(self.indep_fit_dim_letters) > 1:
-                raise ValueError(
-                    "Multiple independent fit dimensions are not supported here. Please fix"
-                )
-            else:
-                good_letter = self.indep_fit_dim_letters[0]
-            lifetime = self.lifetime.cast_to(self.dims_out)[{"t": self.dims["h"].items[-1]}]
-            for g in range(self.historic_stocks_pc.dims[good_letter].len):
-                lt_clip = np.minimum(np.maximum(lifetime.values[:, g], lower), upper)
-                alpha = (np.log(lt_clip) - np.log(lower)) / np.log(upper)
-                avg_slope_hist = alpha * avg_slope(time, historical[:, :, g], n=1) + (
-                    1 - alpha
-                ) * avg_slope(time, historical[:, :, g], n=10)
-                avg_slope_pred = alpha * avg_slope(time, prediction[:, :, g], n=1) + (
-                    1 - alpha
-                ) * avg_slope(time, prediction[:, :, g], n=10)
-                difference_1st[:, g] = avg_slope_hist - avg_slope_pred
-
-        approaching_time = 80
-        add_assumption_doc(
-            type="integer number",
-            name="years for blending to regression",
-            value=approaching_time,
-            description=(
-                "Number of years for the blending from historical to regressed in-use stocks."
-                "After this time, the initial offset between historical and regressed stock is reduced to 5 percent."
-            ),
-        )
-
-        # Construct time that starts at 0 in last historical year.
-        time_extended = time.reshape(-1, *([1] * len(difference_0th.shape)))
-        delta_t = time_extended - last_history_year
-
-        # Amplitude decreases to 5 percent after approaching_time years
-        k = 4.74 / approaching_time
-
-        # Critically damped system solution
-        correction = (difference_0th + (difference_1st + k * difference_0th) * delta_t) * np.exp(
-            -k * delta_t
-        )
-
-        return prediction[...] + correction
-
     @property
     def dims_out(self):
         return self.dims[self.target_dim_letters]
@@ -448,3 +377,16 @@ class StockExtrapolation(RemindMFABaseModel):
     @property
     def n_historic(self):
         return self.dims["h"].len
+
+    def _prepare_lifetime_for_blender(self):
+        if len(self.indep_fit_dim_letters) > 1:
+            logging.warning(
+                "Multiple independent fit dimensions are not supported for lifetime-dependent blending."
+                "Lifetime-independent blending is used instead,"
+                "i.e., the trend from the last historical year is used."
+            )
+            return None
+        if self.lifetime is None:
+            return None
+        lifetime = self.lifetime.cast_to(self.dims_out)[{"t": self.dims["h"].items[-1]}].values
+        return lifetime
