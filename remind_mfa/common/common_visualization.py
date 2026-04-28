@@ -386,9 +386,10 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
-    def visualize_transience_inflow(self, model: "CommonModel", subplot_dim: str = None, EU_region = "EUR"):
+    def visualize_transience_inflow(self, model: "CommonModel", subplot_dim: str = None, EU_region = "EUR", inflow = None):
         # visualize comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data
-        inflow = model.future_mfa.stocks["in_use"].inflow[{"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}]
+        if inflow is None:
+            inflow = model.future_mfa.stocks["in_use"].inflow[{"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}]
         demand_REMIND_MFA = model.future_mfa.demand_REMIND_MFA
         demand_EU_MFA = model.future_mfa.demand_EU_MFA
         dimlist = ["u"]
@@ -439,9 +440,10 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(fig, name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")
 
-    def visualize_transience_outflow(self, model: "CommonModel", subplot_dim: str = None, EU_region = "EUR"):
+    def visualize_transience_outflow(self, model: "CommonModel", subplot_dim: str = None, EU_region = "EUR", inflow = None):
         # visualize comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data
-        inflow = model.future_mfa.stocks["in_use"].inflow[{"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}]
+        if inflow is None:
+            inflow = model.future_mfa.stocks["in_use"].inflow[{"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}]
         outflow_REMIND_MFA = model.future_mfa.stocks["in_use"].outflow[{"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}]
         outflow_EU_MFA = model.parameters["stock_outflow_EU-MFA"][{"r": EU_region}]
         dimlist = ["u"]
