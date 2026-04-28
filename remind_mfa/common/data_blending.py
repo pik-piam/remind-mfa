@@ -269,7 +269,7 @@ class CriticallyDampedBlender:
         # overshooting. n_fwd decreases linearly from n_fwd_max to 1 over the first
         # n_ramp_steps, then remains 1 for the rest of the integration.
         n_fwd_max = 5
-        n_ramp_steps = int(approaching_time / 2)
+        n_ramp_steps = max(1, int((approaching_time / 2) / dt))
         n_fwd = np.maximum(
             1, np.round(n_fwd_max * np.maximum(0.0, 1 - np.arange(n_steps) / n_ramp_steps))
         ).astype(int)
@@ -377,7 +377,6 @@ class CriticallyDampedBlender:
             n (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
                 positions or an array matching the spatial shape of ``y``.
             idx (int): Time index at which to evaluate the slope (typically the last historical index).
-            deg (int): Maximum polynomial degree for the local fit. Defaults to 2.
             deg (int): Maximum polynomial degree for the local fit. Defaults to 1.
 
         Returns:
