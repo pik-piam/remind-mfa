@@ -480,12 +480,13 @@ class PlasticsVisualizer(CommonVisualizer):
             name_str = "global"
         return subplot_dim, summing_func, name_str
     
-    def visualize_transience_inflow(self, model: "PlasticsModel", subplot_dim: str = None, inflow = None):
+    def visualize_transience_inflow(self, model: "PlasticsModel", subplot_dim: str = None):
         EU_region = "EU27+3"
         inflow = model.future_mfa.stocks["in_use"].inflow[{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}]
         super().visualize_transience_inflow(model, EU_region = EU_region, subplot_dim=subplot_dim, inflow=inflow)
 
-    def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None, inflow = None):
+    def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None):
         EU_region = "EU27+3"
         inflow = model.future_mfa.stocks["in_use"].inflow[{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}]
-        super().visualize_transience_outflow(model, EU_region = EU_region, subplot_dim=subplot_dim, inflow=inflow)
+        outflow = model.future_mfa.stocks["in_use"].outflow[{"r": EU_region, "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}]
+        super().visualize_transience_outflow(model, EU_region = EU_region, subplot_dim=subplot_dim, inflow=inflow, outflow_REMIND_MFA=outflow)
