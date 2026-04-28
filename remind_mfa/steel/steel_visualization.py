@@ -389,3 +389,9 @@ class SteelVisualizer(CommonVisualizer):
             f"stocks_extrapolation.png",
             do_plot=False,
         )
+
+    def visualize_transience_eol(self, model: "SteelModel", subplot_dim: str = None):
+        inflow = model.future_mfa.stocks["in_use"].inflow[{"r": "EUR", "g": model.dims["f"], "t": model.dims["u"]}]
+        eol_REMIND_MFA = model.future_mfa.stocks["in_use"].outflow[{"r": "EUR", "g": model.dims["f"], "t": model.dims["u"]}]
+        eol_EU_MFA = model.parameters["collected_eol_EU-MFA"][{"r": "EUR"}] + model.parameters["lost_eol_EU-MFA"][{"r": "EUR"}]
+        super().visualize_transience_eol(model, inflow=inflow, eol_REMIND_MFA=eol_REMIND_MFA, eol_EU_MFA=eol_EU_MFA, subplot_dim=subplot_dim)

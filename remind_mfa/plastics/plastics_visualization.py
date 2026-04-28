@@ -485,8 +485,8 @@ class PlasticsVisualizer(CommonVisualizer):
         inflow = model.future_mfa.stocks["in_use"].inflow[{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}]
         super().visualize_transience_inflow(model, EU_region = EU_region, subplot_dim=subplot_dim, inflow=inflow)
 
-    def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None):
-        EU_region = "EU27+3"
+    def visualize_transience_eol(self, model: "PlasticsModel", subplot_dim: str = None):
         inflow = model.future_mfa.stocks["in_use"].inflow[{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}]
-        outflow = model.future_mfa.stocks["in_use"].outflow[{"r": EU_region, "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}]
-        super().visualize_transience_outflow(model, EU_region = EU_region, subplot_dim=subplot_dim, inflow=inflow, outflow_REMIND_MFA=outflow)
+        eol_REMIND_MFA = model.future_mfa.stocks["in_use"].outflow[{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}]
+        eol_EU_MFA = model.parameters["collected_eol_EU-MFA"][{"r": "EU27+3"}]
+        super().visualize_transience_eol(model, inflow=inflow, eol_REMIND_MFA=eol_REMIND_MFA, eol_EU_MFA=eol_EU_MFA, subplot_dim=subplot_dim)

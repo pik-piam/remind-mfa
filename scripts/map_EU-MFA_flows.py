@@ -8,7 +8,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('material', choices=['plastics', 'steel'], nargs='?', default='plastics',
                     help='Material to process')
-parser.add_argument('flow', choices=['demand', 'eol', 'scrap'], nargs='?', default='demand',
+parser.add_argument('flow', choices=['demand', 'collected_eol', 'lost_eol', 'scrap'], nargs='?', default='demand',
                     help='Flow to process')
 args = parser.parse_args()
 
@@ -19,9 +19,9 @@ if args.material == 'plastics':
     if args.flow == 'demand':
         INPUT_FILE   = DATA_DIR / "plastics_market__end_use_stock.csv"
         OUTPUT_FILE  = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
-    elif args.flow == 'eol':
+    elif args.flow == 'collected_eol':
         INPUT_FILE   = DATA_DIR / "waste_collection__waste_sorting.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "pl_stock_outflow_EU-MFA.cs4r"
+        OUTPUT_FILE  = OUTPUT_DIR / "pl_collected_eol_EU-MFA.cs4r"
     DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
 elif args.material == 'steel':
     DATA_DIR = Path("data/steel/input")
@@ -29,9 +29,12 @@ elif args.material == 'steel':
     if args.flow == 'demand':
         INPUT_FILE   = DATA_DIR / "steel_goods_market__end_use_stock.csv"
         OUTPUT_FILE  = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
-    elif args.flow == 'eol':
+    elif args.flow == 'collected_eol':
         INPUT_FILE   = DATA_DIR / "end_use_stock__waste_management.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "st_stock_outflow_EU-MFA.cs4r"
+        OUTPUT_FILE  = OUTPUT_DIR / "st_collected_eol_EU-MFA.cs4r"
+    elif args.flow == 'lost_eol':
+        INPUT_FILE   = DATA_DIR / "end_use_stock__sysenv.csv"
+        OUTPUT_FILE  = OUTPUT_DIR / "st_lost_eol_EU-MFA.cs4r"
     elif args.flow == 'scrap':
         INPUT_FILE   = DATA_DIR / "waste_management__available_scrap_sysenv.csv"
         OUTPUT_FILE  = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
@@ -42,7 +45,7 @@ def main():
     df1 = pd.read_csv(INPUT_FILE, sep=",")
     df1 = df1.rename(columns={"time": "Time", "region": "Region"})
     if args.material == "plastics":
-        if args.flow == "eol": # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
+        if args.flow == "collected_eol": # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
             eu_subregions = ["Germany", "West", "South", "North", "East"]
             df1 = df1[df1.Region.isin(eu_subregions)].copy()
             df1["Region"] = "EU27+3"

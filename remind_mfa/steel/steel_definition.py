@@ -242,8 +242,12 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Stock inflow for EU28",
         ),
         RemindMFAParameterDefinition(
-            name="stock_outflow_EU-MFA", dim_letters=("u", "r", "f"),
-            description="Stock outflow for EU28",
+            name="collected_eol_EU-MFA", dim_letters=("u", "r", "f"),
+            description="Collected EOL steel goods for EU28",
+        ),
+        RemindMFAParameterDefinition(
+            name="lost_eol_EU-MFA", dim_letters=("u", "r", "f"),
+            description="Lost EOL steel goods for EU28",
         ),
         RemindMFAParameterDefinition(
             name="available_scrap_EU-MFA", dim_letters=("u", "r"),
