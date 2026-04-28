@@ -44,6 +44,7 @@ def main():
     # --- load and filter ---
     df1 = pd.read_csv(INPUT_FILE, sep=",")
     df1 = df1.rename(columns={"time": "Time", "region": "Region"})
+    df1 = df1[df1.element == "All"].copy() # only consider total flows, no Cu contamination flow for steel
     if args.material == "plastics":
         if args.flow == "collected_eol": # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
             eu_subregions = ["Germany", "West", "South", "North", "East"]
