@@ -22,7 +22,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
         fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
         # service demand
-        fd.DimensionDefinition(name="Structure", dim_letter="b", dtype=str), # b for building
+        fd.DimensionDefinition(name="Structure", dim_letter="b", dtype=str),  # b for building
         fd.DimensionDefinition(name="Function", dim_letter="f", dtype=str),
     ]
 

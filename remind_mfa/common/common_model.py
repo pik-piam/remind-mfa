@@ -57,7 +57,7 @@ class CommonModel:
             self.reconcile_parameters()
 
         self.transfer_historic_parameters()
-        
+
         # TODO trade will now be calculated based on reconciled mfa, even though it itself was not part of reconciliation.
         self.historic_trade = self.historic_mfa.trade_set
 
@@ -74,10 +74,13 @@ class CommonModel:
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(self.stock_projection, self.historic_trade)
 
-        if self.cfg.model_switches.parameter_reconciliation and self.cfg.model_switches.combined_mfa:
+        if (
+            self.cfg.model_switches.parameter_reconciliation
+            and self.cfg.model_switches.combined_mfa
+        ):
             # update future mfa with bottom_up future where possible
             self.future_mfa = self.compute_combined_mfa()
-    
+
     def reconcile_parameters(self, max_iter: int = 5, tol: Optional[float] = None):
         """Reconcile parameters between top-down and bottom-up stocks.
 
@@ -86,12 +89,12 @@ class CommonModel:
             tol: Convergence tolerance; stop early when max |log(td/bu)| < tol.
                  If None, always run max_iter iterations.
         """
-        logging.info(
-            f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})..."
-        )
-            
+        logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
+
         ref_mfa = self.make_mfa(historic=True)
-        ref_mfa.trade_set = self.historic_mfa.trade_set # trade is not altered during reconciliation, so we can just take it from the already computed historic MFA
+        ref_mfa.trade_set = (
+            self.historic_mfa.trade_set
+        )  # trade is not altered during reconciliation, so we can just take it from the already computed historic MFA
 
         self.parameter_reconciliation = self.ParameterReconciliationCls(
             ref_mfa=ref_mfa,

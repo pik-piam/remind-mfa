@@ -28,13 +28,15 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
-    def compute_in_use_stock(self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True, **kwargs):
+    def compute_in_use_stock(
+        self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True, **kwargs
+    ):
         prm = self.parameters
         stk = self.stocks
 
         if stock_is_cement:
             stock_projection = self.transform_cement_to_product_stock(stock_projection, prm)
-        
+
         stk["in_use"].stock = stock_projection
 
         stk["in_use"].lifetime_model.set_prms(
@@ -54,19 +56,18 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             * prm["product_application_split"]
         )
         return split
-        
-    @staticmethod
-    def transform_cement_to_product_stock(cement_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]):
-        product_stock = (
-                cement_stock
-                * StockDrivenCementMFASystem.product_split(prm)
-                * prm["product_density"] # TODO replace with cement ratio
-                / prm["product_cement_content"]
 
-            )
+    @staticmethod
+    def transform_cement_to_product_stock(
+        cement_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
+    ):
+        product_stock = (
+            cement_stock
+            * StockDrivenCementMFASystem.product_split(prm)
+            * prm["product_density"]  # TODO replace with cement ratio
+            / prm["product_cement_content"]
+        )
         return product_stock
-    
-    
 
     def compute_flows(self, historic_trade: TradeSet):
         prm = self.parameters
@@ -83,7 +84,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["cement"],
             future_trade=trd["cement"],
-            future_dom_demand=flw["market_cement => prod_product"].maximum(0), # TODO remove this once no more negative flows
+            future_dom_demand=flw["market_cement => prod_product"].maximum(
+                0
+            ),  # TODO remove this once no more negative flows
         )
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -109,7 +112,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["clinker"],
             future_trade=trd["clinker"],
-            future_dom_demand=flw["market_clinker => prod_cement"].maximum(0),  # TODO remove this once no more negative flows
+            future_dom_demand=flw["market_clinker => prod_cement"].maximum(
+                0
+            ),  # TODO remove this once no more negative flows
         )
         extrapolator.run()
         flw["imports => market_clinker"][...] = trd["clinker"].imports

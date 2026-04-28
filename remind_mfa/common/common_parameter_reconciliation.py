@@ -10,23 +10,28 @@ from abc import abstractmethod
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 
+
 class CommonParameterReconciliation:
     """Parameter reconciliation of top-down and bottom-up models."""
+
     # TODO inherit from separate helper class?
     # TODO pydantic?
 
-    def __init__(self,
-                 ref_mfa: CommonMFASystem,
-                 uncoupled: bool = False,
-                ):
-        
+    def __init__(
+        self,
+        ref_mfa: CommonMFASystem,
+        uncoupled: bool = False,
+    ):
+
         self.ref_mfa = ref_mfa
         self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
 
         # TODO potentially move this to material specific reconciliation
-        self._reduced_stock_type = fd.Dimension(name="Reduced Stock Type", letter="u", items=["Res", "Com"])
+        self._reduced_stock_type = fd.Dimension(
+            name="Reduced Stock Type", letter="u", items=["Res", "Com"]
+        )
         # save computation time
-        self._no_correction_dim_letters = ('t', 'h') # instead of df/dx, now calculating df/dd
+        self._no_correction_dim_letters = ("t", "h")  # instead of df/dx, now calculating df/dd
 
         self.output_dims_are_independent = uncoupled
         # TODO call this diagonal_jacobian, and invert the logic
@@ -63,7 +68,9 @@ class CommonParameterReconciliation:
         self.trds = deepcopy(self.ref_mfa.trade_set)
 
     @staticmethod
-    def remove_fd_dims_if_present(dims: fd.DimensionSet, letters_to_remove: Tuple) -> fd.DimensionSet:
+    def remove_fd_dims_if_present(
+        dims: fd.DimensionSet, letters_to_remove: Tuple
+    ) -> fd.DimensionSet:
         new_dims = dims
         for letter in letters_to_remove:
             if letter in new_dims.letters:
@@ -92,11 +99,17 @@ class CommonParameterReconciliation:
             self.bu = self.calc_bottom_up_stock(self.prms).copy()
 
             mismatch = float(np.max(np.abs(np.log(self.td.values / self.bu.values))))
-            percent_mismatch = float(np.max(np.abs(self.td.values - self.bu.values) / np.abs(self.bu.values)) * 100)
-            logging.info(f"Reconciliation iteration {i + 1}/{max_iter}: max |log(td/bu)| = {mismatch:.4f}, max percent mismatch = {percent_mismatch:.2f}%")
+            percent_mismatch = float(
+                np.max(np.abs(self.td.values - self.bu.values) / np.abs(self.bu.values)) * 100
+            )
+            logging.info(
+                f"Reconciliation iteration {i + 1}/{max_iter}: max |log(td/bu)| = {mismatch:.4f}, max percent mismatch = {percent_mismatch:.2f}%"
+            )
 
             if tol is not None and mismatch < tol:
-                logging.info(f"Converged after {i} iteration(s) (mismatch {mismatch:.4f} < tol {tol}).")
+                logging.info(
+                    f"Converged after {i} iteration(s) (mismatch {mismatch:.4f} < tol {tol})."
+                )
                 break
 
             # Fresh sensitivity matrices each iteration (re-linearise around current prms)
@@ -124,11 +137,11 @@ class CommonParameterReconciliation:
                 )
 
             # set output prms as new curr prms
-            self.prepare_prms() # TODO this needs to become cleaner
+            self.prepare_prms()  # TODO this needs to become cleaner
             # TODO is this reset necessary?
             self.prepare_flws()
             self.prepare_stks()
-            self.prepare_trds() # not altered - therefore probably not necessary
+            self.prepare_trds()  # not altered - therefore probably not necessary
             # resetting dims should not be necessary
 
         return self.output_prms
@@ -136,12 +149,17 @@ class CommonParameterReconciliation:
     @abstractmethod
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
         pass
-    
+
     @abstractmethod
     def calc_bottom_up_stock(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
         pass
 
-    def pre_compute_sensitivity(self, f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray], f0: fd.FlodymArray, denominator: bool = False):
+    def pre_compute_sensitivity(
+        self,
+        f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
+        f0: fd.FlodymArray,
+        denominator: bool = False,
+    ):
         """
         Pre-compute sensitivity matrices for parameters used in the given model function.
         Pre-existing sensitivities are added to newly computed ones.
@@ -157,7 +175,9 @@ class CommonParameterReconciliation:
             S_mat = self.calc_sensitivity(f, f0, prm_name, denominator=denominator)
             if prm_name in self.S_matrices:
                 # TODO double check if that makes sense
-                logging.info(f"Sensitivity for parameter {prm_name} already exists; summing matrices.")
+                logging.info(
+                    f"Sensitivity for parameter {prm_name} already exists; summing matrices."
+                )
                 self.S_matrices[prm_name] = self.S_matrices[prm_name] + S_mat
             else:
                 self.S_matrices[prm_name] = S_mat
@@ -175,7 +195,13 @@ class CommonParameterReconciliation:
 
         return spy_prms.accessed_keys
 
-    def calc_sensitivity(self, f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray], f0: fd.FlodymArray, prm_name: str, denominator: bool = False):
+    def calc_sensitivity(
+        self,
+        f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
+        f0: fd.FlodymArray,
+        prm_name: str,
+        denominator: bool = False,
+    ):
         # TODO set jacobian to zero if std is zero.
         J = self.calc_jacobian(f, f0, prm_name)
 
@@ -190,14 +216,26 @@ class CommonParameterReconciliation:
             return -S
         return S
 
-    def calc_jacobian(self, f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray], f0: fd.FlodymArray, prm_name: str, epsilon=1e-5):
+    def calc_jacobian(
+        self,
+        f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
+        f0: fd.FlodymArray,
+        prm_name: str,
+        epsilon=1e-5,
+    ):
         # TODO I could do everything with flodym by just introducing new parameter dimensions for output dimensions
         # matrix multiplication would then be (A*B).sum_over(dims), instead of A @ B
         if self.output_dims_are_independent:
             return self._calc_jacobian_independent(f, f0, prm_name)
         return self._calc_jacobian_full(f, f0, prm_name)
 
-    def _calc_jacobian_independent(self, f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray], f0: fd.FlodymArray, prm_name: str, epsilon=1e-5):
+    def _calc_jacobian_independent(
+        self,
+        f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
+        f0: fd.FlodymArray,
+        prm_name: str,
+        epsilon=1e-5,
+    ):
         prm = self.prms[prm_name]
         original_prm = prm.copy()
 
@@ -226,7 +264,13 @@ class CommonParameterReconciliation:
 
         return J
 
-    def _calc_jacobian_full(self, f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray], f0: fd.FlodymArray, prm_name: str, epsilon=1e-5):
+    def _calc_jacobian_full(
+        self,
+        f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
+        f0: fd.FlodymArray,
+        prm_name: str,
+        epsilon=1e-5,
+    ):
         prm = self.prms[prm_name]
         original_prm = prm.copy()
         dims_to_adj = self.prms_adj_dims[prm_name]
@@ -250,7 +294,7 @@ class CommonParameterReconciliation:
     def iter_dim_slicers(dims: fd.DimensionSet):
         """
         Iterate over all element combinations of a DimensionSet, yielding dict slicers.
-        
+
         Yields dicts like {'r': 'USA', 'u': 'Res'} for each element in the Cartesian product.
         Order matches numpy flatten (C-order): last dimension varies fastest.
         """
@@ -270,16 +314,16 @@ class CommonParameterReconciliation:
     ) -> np.ndarray:
         """
         Convert a FlodymArray Jacobian into a 2D numpy sensitivity matrix.
-        
+
         The Jacobian J has dimensions that are the union of output_dims and param_dims.
         Dimensions shared between output and parameter create block-diagonal structure:
         each element of the shared dimension only affects its corresponding output.
-        
+
         Args:
             J: FlodymArray with dims = union(output_dims, param_dims)
             output_dims: Dimensions of the model output (e.g., region, stock_type)
             param_dims: Dimensions of the parameter being varied
-            
+
         Returns:
             2D numpy array of shape (output_size, param_size)
         """
@@ -297,8 +341,7 @@ class CommonParameterReconciliation:
                 # Check if shared dimensions match
                 # If they don't match, the sensitivity is zero (block-diagonal structure)
                 shared_match = all(
-                    out_slicer[letter] == prm_slicer[letter]
-                    for letter in shared_letters
+                    out_slicer[letter] == prm_slicer[letter] for letter in shared_letters
                 )
 
                 if shared_match:
@@ -348,13 +391,18 @@ class CommonParameterReconciliation:
         rel_std = {
             # BU parameters
             "concrete_building_mi": fd.FlodymArray.from_dims_superset(
-                dims_superset = self.dims,
-                dim_letters = ('r',),
-                values = np.array([0.2 if self.prms["industrialized_regions"][{"r": region}].values else 0.5 for region in self.dims["r"].items])
+                dims_superset=self.dims,
+                dim_letters=("r",),
+                values=np.array(
+                    [
+                        0.2 if self.prms["industrialized_regions"][{"r": region}].values else 0.5
+                        for region in self.dims["r"].items
+                    ]
+                ),
             ),
             "function_buildings_split": 0.2,
             "structure_buildings_split": 0.2,
-            "floorspace": 1.,
+            "floorspace": 1.0,
             # TD parameters
             "cement_losses": 0.2,
             "cement_production": 0.01,
@@ -396,26 +444,32 @@ class CommonParameterReconciliation:
         grad = S.T @ self.lmda
         # TODO prepare sigma vector beforehand
         var_vec = self.get_sigma(prm_name)
-        d = - var_vec * grad
+        d = -var_vec * grad
         d = self.reshape_np_to_fd(d, self.prms_adj_dims[prm_name])
         if self.total_correction_factors:
             d -= self.total_correction_factors[prm_name].apply(np.log)
         return d
 
-    def reshape_np_to_fd(self, flat_arr: np.ndarray, target_dims: fd.DimensionSet) -> fd.FlodymArray:
+    def reshape_np_to_fd(
+        self, flat_arr: np.ndarray, target_dims: fd.DimensionSet
+    ) -> fd.FlodymArray:
         """Reshape a 1D numpy array back into a FlodymArray with the same shape as the template."""
         if flat_arr.size != target_dims.total_size:
             raise ValueError("Size of flat array does not match size of template.")
         reshaped_values = flat_arr.reshape(target_dims.shape)
         return fd.FlodymArray(dims=target_dims, values=reshaped_values)
 
-    def cast_correction_to_original_prm_dim(self, correction_factor: fd.FlodymArray) -> fd.FlodymArray:
+    def cast_correction_to_original_prm_dim(
+        self, correction_factor: fd.FlodymArray
+    ) -> fd.FlodymArray:
         # TODO this should be moved to material specific reconciliatoin
         if self._reduced_stock_type.letter not in correction_factor.dims.letters:
             return correction_factor
 
         # build new correction factor
-        new_dims = correction_factor.dims.replace(self._reduced_stock_type.letter, self.input_dims["s"])
+        new_dims = correction_factor.dims.replace(
+            self._reduced_stock_type.letter, self.input_dims["s"]
+        )
         new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
 
         # fill calculated correction values where possible
@@ -423,18 +477,19 @@ class CommonParameterReconciliation:
         new_correction[{"s": self._reduced_stock_type}] = correction_factor
         return new_correction
 
-
     def normalize_output_parameter(self, prm_name: str):
         """
         Normalize share or split parameters to sum up to 1 along their relevant dimensions.
         """
         # TODO find better way to know which parameters need normalization and along which dimensions
         normalization_dims = {
-            "building_split": ("Structure", "Function",),
+            "building_split": (
+                "Structure",
+                "Function",
+            ),
             "product_application_split": ("Product Application",),
             "product_material_split": ("Product Material",),
             "stock_type_split": ("Stock Type",),
-
         }
         if prm_name not in normalization_dims:
             return
@@ -442,15 +497,21 @@ class CommonParameterReconciliation:
         prm = self.output_prms[prm_name]
         if prm_name == "product_application_split":
             # TODO redefine parameter such that no such special treatment is necessary
-            concrete_application_dim = fd.Dimension(name="Concrete Product Application", letter="y", items=['C15', 'C20', 'C30', 'C35'])
-            mortar_application_dim = fd.Dimension(name="Mortar Product Application", letter="z", items=['finishing', 'masonry', 'maintenance'])
-            concrete_prm = prm[{'a': concrete_application_dim}]
-            mortar_prm = prm[{'a': mortar_application_dim}]
-            sum_concrete = concrete_prm.sum_over('y')
-            sum_mortar = mortar_prm.sum_over('z')
-            prm[{'a': concrete_application_dim}] = concrete_prm / sum_concrete
-            prm[{'a': mortar_application_dim}] = mortar_prm / sum_mortar
-        else: 
+            concrete_application_dim = fd.Dimension(
+                name="Concrete Product Application", letter="y", items=["C15", "C20", "C30", "C35"]
+            )
+            mortar_application_dim = fd.Dimension(
+                name="Mortar Product Application",
+                letter="z",
+                items=["finishing", "masonry", "maintenance"],
+            )
+            concrete_prm = prm[{"a": concrete_application_dim}]
+            mortar_prm = prm[{"a": mortar_application_dim}]
+            sum_concrete = concrete_prm.sum_over("y")
+            sum_mortar = mortar_prm.sum_over("z")
+            prm[{"a": concrete_application_dim}] = concrete_prm / sum_concrete
+            prm[{"a": mortar_application_dim}] = mortar_prm / sum_mortar
+        else:
             prm_sum = prm.sum_over(normalization_dims[prm_name])
             # avoid division by zero: zero values can occur due to `self._reduced_stock_type`
             if "s" in prm_sum.dims.letters:
@@ -465,6 +526,7 @@ class CommonParameterReconciliation:
         td = self.calc_top_down_stock(prms)
         bu = self.calc_bottom_up_stock(prms)
         return td / bu
+
 
 class DependencyTracker(dict):
     """Dictionary that tracks accessed keys."""
@@ -485,17 +547,21 @@ class AnalyzeParameterReconciliation:
     """Class to analyze parameter reconciliation results."""
 
     def __init__(
-            self,
-            pr: "CommonParameterReconciliation",
-            original_prms: dict[str, fd.Parameter],
-            adjusted_prms: dict[str, fd.Parameter],
-        ):
+        self,
+        pr: "CommonParameterReconciliation",
+        original_prms: dict[str, fd.Parameter],
+        adjusted_prms: dict[str, fd.Parameter],
+    ):
         self.pr = pr
         self.original_prms = deepcopy(original_prms)
         self.adjusted_prms = deepcopy(adjusted_prms)
 
-        self.original_prms['floorspace'] = self.original_prms['floorspace'][{'t': pr._year_of_reconciliation}]
-        self.adjusted_prms['floorspace'] = self.adjusted_prms['floorspace'][{'t': pr._year_of_reconciliation}]
+        self.original_prms["floorspace"] = self.original_prms["floorspace"][
+            {"t": pr._year_of_reconciliation}
+        ]
+        self.adjusted_prms["floorspace"] = self.adjusted_prms["floorspace"][
+            {"t": pr._year_of_reconciliation}
+        ]
 
         # TODO I could also scale down to pr._reduced_stock_type here
 
@@ -507,17 +573,17 @@ class AnalyzeParameterReconciliation:
     ):
         """
         Calculate parameter impact using Shapley values.
-        
+
         If the number of permutations (n!) exceeds max_permutations, Monte Carlo
         sampling is used instead of exhaustive enumeration.
-        
+
         Args:
             f: Model function that takes parameters and returns a FlodymArray.
             max_permutations: Maximum number of permutations to evaluate. If n! exceeds
                 this, random sampling is used. Default is 1000 (covers up to n=6 exactly,
                 n=7 would be 5040 permutations).
             random_seed: Optional seed for reproducibility when using Monte Carlo sampling.
-        
+
         Returns:
             FlodymArray with Shapley values for each parameter.
         """
@@ -535,8 +601,10 @@ class AnalyzeParameterReconciliation:
             logging.info(
                 f"Using Monte Carlo sampling for Shapley values: {num_samples} samples "
                 f"out of {total_permutations} possible permutations (n={n} parameters)."
-            )            
-            permutation_iterator = self.get_random_permutations(relevant_prm_names, num_samples, random_seed=random_seed)
+            )
+            permutation_iterator = self.get_random_permutations(
+                relevant_prm_names, num_samples, random_seed=random_seed
+            )
         else:
             logging.info(
                 f"Using full enumeration for Shapley values: {total_permutations} permutations (n={n} parameters)."
@@ -556,9 +624,7 @@ class AnalyzeParameterReconciliation:
             if i >= num_samples:
                 break
             # Initialize the current parameters at original values
-            p = {
-                name: self.original_prms[name].copy() for name in relevant_prm_names
-            }
+            p = {name: self.original_prms[name].copy() for name in relevant_prm_names}
             # Initialize the current state of f
             f0 = f(p)
 
@@ -605,10 +671,12 @@ class AnalyzeParameterReconciliation:
         max_perms = math.factorial(n)
 
         if k > max_perms:
-            raise ValueError(f"Limit exceeded: You requested {k} permutations, but only {max_perms} exist.")
+            raise ValueError(
+                f"Limit exceeded: You requested {k} permutations, but only {max_perms} exist."
+            )
 
         # STRATEGY 1: POOL METHOD
-        # If the total number of possibilities is small (e.g., < 50,000), 
+        # If the total number of possibilities is small (e.g., < 50,000),
         # it is faster to build them all and sample.
         # n=8 is 40,320 perms. n=9 is 362,880 perms.
         if max_perms < 5e4:
