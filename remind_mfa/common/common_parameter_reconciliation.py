@@ -85,6 +85,7 @@ class CommonParameterReconciliation:
                 ``max_iter`` iterations.
         """
         self.output_prms = deepcopy(self.input_prms)
+        self.total_correction_factors: dict[str, fd.FlodymArray] = {}
 
         for i in range(max_iter):
             self.td = self.calc_top_down_stock(self.prms).copy()
@@ -106,8 +107,12 @@ class CommonParameterReconciliation:
             self.pre_compute_lambda()
             self.calc_corrections()
 
-            # update parameters
+            # update parameters and store total correction factors
             for prm_name, c in self.correction_factors.items():
+                if prm_name in self.total_correction_factors:
+                    self.total_correction_factors[prm_name] *= c
+                else:
+                    self.total_correction_factors[prm_name] = c
                 c_full = self.cast_correction_to_original_prm_dim(c)
                 self.output_prms[prm_name][...] = self.output_prms[prm_name] * c_full
                 self.normalize_output_parameter(prm_name)
@@ -306,16 +311,23 @@ class CommonParameterReconciliation:
 
     def pre_compute_lambda(self):
         """Solve Aλ = b for λ."""
-        b = self.flatten_fd_to_np(self.td.apply(np.log) - self.bu.apply(np.log))
-        D = b.size
+        log_f = self.flatten_fd_to_np(self.td.apply(np.log) - self.bu.apply(np.log))
+        D = log_f.size
         A = np.zeros((D, D))
+        Sd_sum = np.zeros(D)
 
         for prm_name, S in self.S_matrices.items():
             var_vec = self.get_sigma(prm_name)
             S_weighted = S * var_vec[np.newaxis, :]
             A += S_weighted @ S.T
 
-        # solve for lambda
+            if self.total_correction_factors:
+                d_accum = self.flatten_fd_to_np(
+                    self.total_correction_factors[prm_name].apply(np.log)
+                )
+                Sd_sum += S @ d_accum
+
+        b = log_f - Sd_sum
         self.lmda = np.linalg.solve(A, b)
 
     def get_sigma(self, prm_name: str) -> np.ndarray:
@@ -385,7 +397,10 @@ class CommonParameterReconciliation:
         # TODO prepare sigma vector beforehand
         var_vec = self.get_sigma(prm_name)
         d = - var_vec * grad
-        return self.reshape_np_to_fd(d, self.prms_adj_dims[prm_name])
+        d = self.reshape_np_to_fd(d, self.prms_adj_dims[prm_name])
+        if self.total_correction_factors:
+            d -= self.total_correction_factors[prm_name].apply(np.log)
+        return d
 
     def reshape_np_to_fd(self, flat_arr: np.ndarray, target_dims: fd.DimensionSet) -> fd.FlodymArray:
         """Reshape a 1D numpy array back into a FlodymArray with the same shape as the template."""
