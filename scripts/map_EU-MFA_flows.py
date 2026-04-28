@@ -42,6 +42,10 @@ def main():
     df1 = pd.read_csv(INPUT_FILE, sep=",")
     df1 = df1.rename(columns={"time": "Time", "region": "Region"})
     if args.material == "plastics":
+        if args.flow == "eol": # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
+            eu_subregions = ["Germany", "West", "South", "North", "East"]
+            df1 = df1[df1.Region.isin(eu_subregions)].copy()
+            df1["Region"] = "EU27+3"
         df1 = df1[df1.Region == "EU27+3"].copy()
     elif args.material == "steel":
         df1 = df1[df1.Region == "EU27+1"].copy()
