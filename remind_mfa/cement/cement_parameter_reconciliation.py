@@ -17,7 +17,8 @@ class CementParameterReconciliation(CommonParameterReconciliation):
         self.input_prms = deepcopy(prms)
         self.prms: dict[str, fd.Parameter] = {}
         self.prms_adj_dims: dict[str, fd.DimensionSet] = {}
-        for key, val in prms.items():
+        ref_prms = self.output_prms if hasattr(self, "output_prms") else prms
+        for key, val in ref_prms.items():
             # reduce stock type dimension
             if "s" in val.dims.letters:
                 val = val[{"s": self._reduced_stock_type}]

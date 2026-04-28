@@ -84,14 +84,15 @@ class CommonParameterReconciliation:
                 ``max(|log(td / bu)|) < tol``.  If *None*, always run
                 ``max_iter`` iterations.
         """
-        cumulative_corrections: dict[str, fd.FlodymArray] = {}
+        self.output_prms = deepcopy(self.input_prms)
 
         for i in range(max_iter):
             self.td = self.calc_top_down_stock(self.prms).copy()
             self.bu = self.calc_bottom_up_stock(self.prms).copy()
 
             mismatch = float(np.max(np.abs(np.log(self.td.values / self.bu.values))))
-            logging.info(f"Reconciliation iteration {i + 1}/{max_iter}: max |log(td/bu)| = {mismatch:.4f}")
+            percent_mismatch = float(np.max(np.abs(self.td.values - self.bu.values) / np.abs(self.bu.values)) * 100)
+            logging.info(f"Reconciliation iteration {i + 1}/{max_iter}: max |log(td/bu)| = {mismatch:.4f}, max percent mismatch = {percent_mismatch:.2f}%")
 
             if tol is not None and mismatch < tol:
                 logging.info(f"Converged after {i} iteration(s) (mismatch {mismatch:.4f} < tol {tol}).")
@@ -105,23 +106,26 @@ class CommonParameterReconciliation:
             self.pre_compute_lambda()
             self.calc_corrections()
 
+            # update parameters
             for prm_name, c in self.correction_factors.items():
-                self.prms[prm_name][...] = self.prms[prm_name] * c
-                if prm_name in cumulative_corrections:
-                    cumulative_corrections[prm_name][...] *= c
-                else:
-                    cumulative_corrections[prm_name] = c.copy()
+                c_full = self.cast_correction_to_original_prm_dim(c)
+                self.output_prms[prm_name][...] = self.output_prms[prm_name] * c_full
+                self.normalize_output_parameter(prm_name)
+                # TODO improve FlodymArray to Parameter conversion
+                self.output_prms[prm_name] = fd.Parameter(
+                    name=self.output_prms[prm_name].name,
+                    dims=self.output_prms[prm_name].dims,
+                    values=self.output_prms[prm_name].values,
+                )
 
-        self.output_prms = deepcopy(self.input_prms)
-        for prm_name, c in cumulative_corrections.items():
-            c_full = self.cast_correction_to_original_prm_dim(c)
-            self.output_prms[prm_name][...] = self.input_prms[prm_name] * c_full
-            self.normalize_parameter(prm_name)
-            self.output_prms[prm_name] = fd.Parameter(
-                name=self.output_prms[prm_name].name,
-                dims=self.output_prms[prm_name].dims,
-                values=self.output_prms[prm_name].values,
-            )
+            # set output prms as new curr prms
+            self.prepare_prms() # TODO this needs to become cleaner
+            # TODO is this reset necessary?
+            self.prepare_flws()
+            self.prepare_stks()
+            self.prepare_trds() # not altered - therefore probably not necessary
+            # resetting dims should not be necessary
+
         return self.output_prms
 
     @abstractmethod
@@ -355,11 +359,11 @@ class CommonParameterReconciliation:
 
         out = rel_std.get(prm_name)
         if out is None:
-            logging.warning(
-                "Relative standard deviation missing for %s; using default %f",
-                prm_name,
-                default_rel_std,
-            )
+            # logging.warning(
+            #     "Relative standard deviation missing for %s; using default %f",
+            #     prm_name,
+            #     default_rel_std,
+            # )
             out = default_rel_std
 
         if isinstance(out, (float, int)):
@@ -405,7 +409,7 @@ class CommonParameterReconciliation:
         return new_correction
 
 
-    def normalize_parameter(self, prm_name: str):
+    def normalize_output_parameter(self, prm_name: str):
         """
         Normalize share or split parameters to sum up to 1 along their relevant dimensions.
         """
