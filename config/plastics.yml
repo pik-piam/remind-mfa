@@ -3,7 +3,7 @@ model: 'plastics'
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.3.0'
+  input_data_revision: '1.4.0'
   region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
 
