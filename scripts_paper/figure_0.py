@@ -18,12 +18,12 @@ def _get_column_name(df, target_name: str) -> str:
 
 
 fig = make_subplots(
-    rows=1,
-    cols=2,
-    horizontal_spacing=0.14,
+    rows=2,
+    cols=1,
+    vertical_spacing=0.17,
     subplot_titles=("a) Over GDP per capita", "b) Over time"),
 )
-extrapolated_region = "Japan"
+extrapolated_region = REGION_DISPLAY_NAMES["JPN"]
 
 
 pickle_path = PATH_STEEL / f"{RUN_STEEL}.pickle"
@@ -43,6 +43,9 @@ value_col_stock = _get_column_name(stock_pc, "value")
 time_col_gdppc_hist = _get_column_name(gdppc_hist, "Historic Time")
 region_col_gdppc_hist = _get_column_name(gdppc_hist, "Region")
 value_col_gdppc_hist = _get_column_name(gdppc_hist, "value")
+
+stock_pc = stock_pc[stock_pc[time_col_stock] >= 1920].copy()
+gdppc_hist = gdppc_hist[gdppc_hist[time_col_gdppc_hist] >= 1920].copy()
 
 extrapolated_region_code = None
 
@@ -96,8 +99,8 @@ for region, region_df in stock_pc.groupby(region_col_stock):
             showlegend=False,
             line={"color": line_color, "width": line_width},
         ),
-        row=1,
-        col=2,
+        row=2,
+        col=1,
     )
 
 if extrapolated_region_code is None:
@@ -132,8 +135,29 @@ value_col_gdppc_full = _get_column_name(gdppc_full_df, "value")
 extrapolated_region_gdppc_full_df = gdppc_full_df[
     gdppc_full_df[region_col_gdppc_full] == extrapolated_region_code
 ]
+gdppc_1920_row = extrapolated_region_gdppc_full_df[
+    extrapolated_region_gdppc_full_df[time_col_gdppc_full] == 1920
+]
+if gdppc_1920_row.empty:
+    raise ValueError(
+        f"Could not find GDP per capita value in 1920 for region '{extrapolated_region}'."
+    )
+gdppc_1920 = float(gdppc_1920_row[value_col_gdppc_full].iloc[0])
+last_hist_gdppc_row = extrapolated_region_gdppc_full_df[
+    extrapolated_region_gdppc_full_df[time_col_gdppc_full] == LAST_HISTORICAL_YEAR_STEEL
+]
+if last_hist_gdppc_row.empty:
+    raise ValueError(
+        "Could not find GDP per capita value at the last historical year "
+        f"for region '{extrapolated_region}'."
+    )
+last_hist_gdppc = float(last_hist_gdppc_row[value_col_gdppc_full].iloc[0])
 
-# Show only the extrapolated (future) portion for the final smoothed result.
+# Show common regression only from 1920 onward.
+pure_df = pure_df[pure_df[time_col_extrap] >= 1920].copy()
+
+# Show only future years for regional adaptation and transition smoothing.
+fitted_df = fitted_df[fitted_df[time_col_extrap] >= LAST_HISTORICAL_YEAR_STEEL].copy()
 smoothed_df = smoothed_df[smoothed_df[time_col_extrap] >= LAST_HISTORICAL_YEAR_STEEL].copy()
 
 
@@ -174,8 +198,8 @@ fig.add_trace(
         showlegend=False,
         line={"color": "#1f77b4", "width": 3},
     ),
-    row=1,
-    col=2,
+    row=2,
+    col=1,
 )
 
 fig.add_trace(
@@ -202,8 +226,8 @@ fig.add_trace(
         showlegend=False,
         line={"color": "#ff7f0e", "width": 3},
     ),
-    row=1,
-    col=2,
+    row=2,
+    col=1,
 )
 
 fig.add_trace(
@@ -230,51 +254,75 @@ fig.add_trace(
         showlegend=False,
         line={"color": "#2ca02c", "width": 3},
     ),
-    row=1,
-    col=2,
+    row=2,
+    col=1,
 )
 
-fig.add_vline(x=LAST_HISTORICAL_YEAR_STEEL, line_dash="dash", line_color="black", row=1, col=2)
+fig.add_shape(
+    type="line",
+    x0=last_hist_gdppc,
+    x1=last_hist_gdppc,
+    y0=0,
+    y1=12.5,
+    xref="x",
+    yref="y",
+    line={"dash": "dash", "color": "black"},
+)
+fig.add_shape(
+    type="line",
+    x0=LAST_HISTORICAL_YEAR_STEEL,
+    x1=LAST_HISTORICAL_YEAR_STEEL,
+    y0=0,
+    y1=12.5,
+    xref="x2",
+    yref="y2",
+    line={"dash": "dash", "color": "black"},
+)
 fig.update_xaxes(
     title_text="GDP per capita [USD 2017]",
     title_standoff=4,
     type="log",
-    range=[math.log10(5000), math.log10(200000)],
+    range=[math.log10(gdppc_1920), math.log10(500000)],
     row=1,
     col=1,
 )
-fig.update_xaxes(title_text="Year", title_standoff=4, range=[1950, 2100], row=1, col=2)
+fig.update_xaxes(title_text="Year", title_standoff=4, range=[1920, 2175], row=2, col=1)
 fig.update_yaxes(
-    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 14.7], row=1, col=1
+    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 12.7], row=1, col=1
 )
 fig.update_yaxes(
-    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 14.7], row=1, col=2
+    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 12.7], row=2, col=1
 )
 
-# Manual in-plot labels replacing the legend. Positions are approximate and can be tuned.
-title_y = 0.995
-within_group_spacing = 0.06 * 0.8
-title_to_group_spacing = 0.045 * 1.1
-group_top_y = title_y - title_to_group_spacing
+figure_height = 900
+figure_width = 630
 
-for x_left, x_right in [(0.02, 0.21), (0.59, 0.78)]:
+within_group_spacing = 0.05 * 900 / figure_height
+title_to_group_spacing = 0.055 * 900 / figure_height
+
+top_hist_group_top_y = 0.5
+top_extrap_group_top_y = 0.86
+
+bottom_hist_group_top_y = 0.92
+bottom_extrap_group_top_y = 0.86
+
+hist_group_x = 0.02
+extrap_group_x = 0.72
+
+def _add_historical_group(
+    x_left: float,
+    group_top_y: float,
+    yref: str,
+    within_group_spacing: float,
+    title_to_group_spacing: float,
+):
+    title_y = group_top_y + title_to_group_spacing
     fig.add_annotation(
         x=x_left,
         y=title_y,
         xref="paper",
-        yref="paper",
+        yref=yref,
         text="<b>Historical</b>",
-        showarrow=False,
-        xanchor="left",
-        align="left",
-        font={"color": "black", "size": 14},
-    )
-    fig.add_annotation(
-        x=x_right,
-        y=title_y,
-        xref="paper",
-        yref="paper",
-        text="<b>Extrapolation</b>",
         showarrow=False,
         xanchor="left",
         align="left",
@@ -284,7 +332,7 @@ for x_left, x_right in [(0.02, 0.21), (0.59, 0.78)]:
         x=x_left,
         y=group_top_y,
         xref="paper",
-        yref="paper",
+        yref=yref,
         text="Extrapolated region",
         showarrow=False,
         xanchor="left",
@@ -295,18 +343,39 @@ for x_left, x_right in [(0.02, 0.21), (0.59, 0.78)]:
         x=x_left,
         y=group_top_y - within_group_spacing,
         xref="paper",
-        yref="paper",
+        yref=yref,
         text="Other regions",
         showarrow=False,
         xanchor="left",
         align="left",
         font={"color": "#808080", "size": 13},
     )
+
+
+def _add_extrapolation_group(
+    x_right: float,
+    group_top_y: float,
+    yref: str,
+    within_group_spacing: float,
+    title_to_group_spacing: float,
+):
+    title_y = group_top_y + title_to_group_spacing
+    fig.add_annotation(
+        x=x_right,
+        y=title_y,
+        xref="paper",
+        yref=yref,
+        text="<b>Extrapolation</b>",
+        showarrow=False,
+        xanchor="left",
+        align="left",
+        font={"color": "black", "size": 14},
+    )
     fig.add_annotation(
         x=x_right,
         y=group_top_y - 2 * within_group_spacing,
         xref="paper",
-        yref="paper",
+        yref=yref,
         text="Step 1: Common regression",
         showarrow=False,
         xanchor="left",
@@ -317,7 +386,7 @@ for x_left, x_right in [(0.02, 0.21), (0.59, 0.78)]:
         x=x_right,
         y=group_top_y - within_group_spacing,
         xref="paper",
-        yref="paper",
+        yref=yref,
         text="Step 2: Regional adaptation",
         showarrow=False,
         xanchor="left",
@@ -328,13 +397,43 @@ for x_left, x_right in [(0.02, 0.21), (0.59, 0.78)]:
         x=x_right,
         y=group_top_y,
         xref="paper",
-        yref="paper",
+        yref=yref,
         text="Step 3: Transition smoothing",
         showarrow=False,
         xanchor="left",
         align="left",
         font={"color": "#2ca02c", "size": 13},
     )
+
+
+_add_historical_group(
+    x_left=hist_group_x,
+    group_top_y=top_hist_group_top_y,
+    yref="y domain",
+    within_group_spacing=within_group_spacing,
+    title_to_group_spacing=title_to_group_spacing,
+)
+_add_extrapolation_group(
+    x_right=extrap_group_x,
+    group_top_y=top_extrap_group_top_y,
+    yref="y domain",
+    within_group_spacing=within_group_spacing,
+    title_to_group_spacing=title_to_group_spacing,
+)
+_add_historical_group(
+    x_left=hist_group_x,
+    group_top_y=bottom_hist_group_top_y,
+    yref="y2 domain",
+    within_group_spacing=within_group_spacing,
+    title_to_group_spacing=title_to_group_spacing,
+)
+_add_extrapolation_group(
+    x_right=extrap_group_x,
+    group_top_y=bottom_extrap_group_top_y,
+    yref="y2 domain",
+    within_group_spacing=within_group_spacing,
+    title_to_group_spacing=title_to_group_spacing,
+)
 
 # Slightly raise subplot titles without affecting custom label annotations.
 for annotation in fig.layout.annotations:
@@ -343,8 +442,8 @@ for annotation in fig.layout.annotations:
 
 
 fig.update_layout(
-    height=600,
-    width=1000,
+    height=figure_height,
+    width=figure_width,
     showlegend=False,
     template="plotly_white",
 )
