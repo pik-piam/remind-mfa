@@ -309,6 +309,7 @@ bottom_extrap_group_top_y = 0.86
 hist_group_x = 0.02
 extrap_group_x = 0.72
 
+
 def _add_historical_group(
     x_left: float,
     group_top_y: float,
