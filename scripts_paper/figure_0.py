@@ -263,7 +263,7 @@ fig.add_shape(
     x0=last_hist_gdppc,
     x1=last_hist_gdppc,
     y0=0,
-    y1=12.5,
+    y1=12,
     xref="x",
     yref="y",
     line={"dash": "dash", "color": "black"},
@@ -273,7 +273,7 @@ fig.add_shape(
     x0=LAST_HISTORICAL_YEAR_STEEL,
     x1=LAST_HISTORICAL_YEAR_STEEL,
     y0=0,
-    y1=12.5,
+    y1=12,
     xref="x2",
     yref="y2",
     line={"dash": "dash", "color": "black"},
@@ -282,32 +282,32 @@ fig.update_xaxes(
     title_text="GDP per capita [USD 2017]",
     title_standoff=4,
     type="log",
-    range=[math.log10(gdppc_1920), math.log10(500000)],
+    range=[math.log10(10000), math.log10(120000)],
     row=1,
     col=1,
 )
-fig.update_xaxes(title_text="Year", title_standoff=4, range=[1920, 2175], row=2, col=1)
+fig.update_xaxes(title_text="Year", title_standoff=4, range=[1950, 2100], row=2, col=1)
 fig.update_yaxes(
-    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 12.7], row=1, col=1
+    title_text="In-use stock per capita [t]", title_standoff=4, range=[4, 12], row=1, col=1
 )
 fig.update_yaxes(
-    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 12.7], row=2, col=1
+    title_text="In-use stock per capita [t]", title_standoff=4, range=[4, 12], row=2, col=1
 )
 
-figure_height = 900
-figure_width = 630
+figure_height = 750
+figure_width = 580
 
-within_group_spacing = 0.05 * 900 / figure_height
-title_to_group_spacing = 0.055 * 900 / figure_height
+within_group_spacing = 0.055 * 900 / figure_height
+title_to_group_spacing = 0.06 * 900 / figure_height
 
-top_hist_group_top_y = 0.5
-top_extrap_group_top_y = 0.86
+top_hist_group_top_y = 0.8
+top_extrap_group_top_y = 0.5
 
-bottom_hist_group_top_y = 0.92
-bottom_extrap_group_top_y = 0.86
+bottom_hist_group_top_y = 0.97
+bottom_extrap_group_top_y = 0.55
 
 hist_group_x = 0.02
-extrap_group_x = 0.72
+extrap_group_x = 0.65
 
 def _add_historical_group(
     x_left: float,
@@ -348,7 +348,7 @@ def _add_historical_group(
         showarrow=False,
         xanchor="left",
         align="left",
-        font={"color": "#808080", "size": 13},
+        font={"color": "#B0B0B0", "size": 13},
     )
 
 
