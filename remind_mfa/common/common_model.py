@@ -78,12 +78,12 @@ class CommonModel:
             tol: Convergence tolerance; stop early when max |log(td/bu)| < tol.
                  If None, always run max_iter iterations.
         """
-        logging.info(
-            f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})..."
-        )
-            
+        logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
+
         ref_mfa = self.make_mfa(historic=True)
-        ref_mfa.trade_set = self.historic_mfa.trade_set # trade is not altered during reconciliation, so we can just take it from the already computed historic MFA
+        ref_mfa.trade_set = (
+            self.historic_mfa.trade_set
+        )  # trade is not altered during reconciliation, so we can just take it from the already computed historic MFA
 
         self.parameter_reconciliation = self.ParameterReconciliationCls(
             ref_mfa=ref_mfa,

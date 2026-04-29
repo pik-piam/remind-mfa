@@ -87,23 +87,33 @@ class CementModel(CommonModel):
 
         # build bottom up stock (concrete only)
         prm = self.parameters
-        bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(prm, stock_type_letter=self.end_use_good_letter)
+        bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
+            prm, stock_type_letter=self.end_use_good_letter
+        )
         bu_stock = bu_concrete_stock * prm["product_application_split"]
 
         # bottom-up stock only available for concrete (constraining m and a), and Res/Com (constraining s)
-        concrete_mask = {'m': 'concrete'}
-        concrete_application_mask = prm["product_material_application_transform"][concrete_mask].values == 1
-        concrete_application_dim_items = [item for i, item in enumerate(prm["product_material_application_transform"].dims['a'].items) if concrete_application_mask[i]]
-        concrete_application_dim = fd.Dimension(name='Concrete Application', letter='x', items=concrete_application_dim_items)
+        concrete_mask = {"m": "concrete"}
+        concrete_application_mask = (
+            prm["product_material_application_transform"][concrete_mask].values == 1
+        )
+        concrete_application_dim_items = [
+            item
+            for i, item in enumerate(prm["product_material_application_transform"].dims["a"].items)
+            if concrete_application_mask[i]
+        ]
+        concrete_application_dim = fd.Dimension(
+            name="Concrete Application", letter="x", items=concrete_application_dim_items
+        )
 
         reduced_dim_mask = {
-            'a': concrete_application_dim,
-            's': self.parameter_reconciliation._reduced_stock_type,
+            "a": concrete_application_dim,
+            "s": self.parameter_reconciliation._reduced_stock_type,
         }
         combined_dim_mask = {**reduced_dim_mask, **concrete_mask}
 
         reduced_bu_stock = bu_stock[reduced_dim_mask]
-        reduced_td_stock = td_stock[combined_dim_mask][{'t': self.dims["h"]}]
+        reduced_td_stock = td_stock[combined_dim_mask][{"t": self.dims["h"]}]
 
         # blend smoothly between historic td and future bu
         blender = CriticallyDampedBlender(
@@ -122,9 +132,8 @@ class CementModel(CommonModel):
         combined_stock[combined_dim_mask] = blended_stock
 
         # compute combined mfa
-        
+
         self.combined_mfa = self.make_mfa(historic=False)
         self.combined_mfa.compute(combined_stock, self.historic_trade, stock_is_cement=False)
 
         return self.combined_mfa
-

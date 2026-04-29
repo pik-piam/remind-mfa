@@ -37,7 +37,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
     def compute_cement_stock(prm, trd, flw, stk):
         """Compute relevant flows for stock build-up and compute the stock.
         For reconciliation, returns in use stock."""
-        
+
         # production
         flw["prod_cement => market_cement"][...] = prm["cement_production"] * (
             1 - prm["cement_losses"]

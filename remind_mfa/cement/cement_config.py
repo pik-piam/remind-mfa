@@ -7,9 +7,10 @@ from remind_mfa.common.common_config import (
     StockVisualizationCfg,
 )
 
+
 class CementModelSwitches(ModelSwitches):
     """This class adds extra model switches specific to the cement MFA."""
-    
+
     carbonation: bool = False
     """Whether to run the carbonation model to account for process CO2 emissions and carbon uptake."""
 
