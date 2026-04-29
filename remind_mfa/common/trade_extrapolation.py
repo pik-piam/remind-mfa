@@ -1,4 +1,5 @@
 import sys
+import logging
 import numpy as np
 import flodym as fd
 from pydantic import model_validator, ConfigDict
@@ -307,3 +308,87 @@ class RecentHistoricalAverage(RemindMFABaseModel):
             raise ValueError(f"Negative value in average: {items}")
         else:
             return average
+        
+
+class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
+    """Trade extrapolation for a scenario where one region's domestic supply is fixed to
+    the baseline scenario (e.g. EUR supply locked to REMIND-MFA baseline).
+
+    Any change in demand relative to baseline is absorbed by trade:
+    - ``import_adjustment_share`` (alpha) fraction via increased/decreased imports
+    - ``(1 - alpha)`` fraction via decreased/increased exports
+
+    Mass balance for the fixed-supply region:
+        supply_fixed + imports_new = demand_new + exports_new
+    with delta = demand_new - demand_baseline:
+        imports_new  = imports_baseline + alpha * delta
+        exports_new  = exports_baseline - (1 - alpha) * delta
+
+    All other regions keep their baseline future trade unchanged; global trade is
+    re-balanced after the EUR adjustment.
+    """
+
+    baseline_future_trade: Trade
+    """Trade computed by the regular TradeExtrapolator using baseline (REMIND-MFA) demand."""
+    future_trade: Trade
+    """Future trade object to write results into."""
+    baseline_dom_demand: fd.FlodymArray
+    """Baseline domestic demand for all regions (dims must include 't' and 'r')."""
+    future_dom_demand: fd.FlodymArray
+    """New domestic demand for all regions (EU-MFA for fixed-supply region, same as
+    baseline for others). Must have the same dims as baseline_dom_demand."""
+    import_adjustment_share: float = 0.5
+    """Fraction of demand delta absorbed by imports. 0 = only exports adjust, 1 = only imports adjust."""
+    fixed_supply_region: str = "EUR"
+    """Label of the region whose supply is fixed to the baseline."""
+
+    @model_validator(mode="after")
+    def validate_inputs(self):
+        if not 0.0 <= self.import_adjustment_share <= 1.0:
+            raise ValueError("import_adjustment_share must be between 0 and 1.")
+        if "t" not in self.baseline_dom_demand.dims.letters:
+            raise ValueError("baseline_dom_demand must have a time dimension 't'.")
+        if self.baseline_dom_demand.dims != self.future_dom_demand.dims:
+            raise ValueError("baseline_dom_demand and future_dom_demand must have the same dims.")
+        if self.fixed_supply_region not in self.future_trade.imports.dims["r"].items:
+            raise ValueError(
+                f"fixed_supply_region '{self.fixed_supply_region}' not found in region dimension."
+            )
+        return self
+
+    def run(self):
+        """Compute future trade with fixed supply for the target region."""
+        alpha = self.import_adjustment_share
+        r = self.fixed_supply_region
+
+        # start from baseline trade for all regions
+        self.future_trade.imports[...] = self.baseline_future_trade.imports
+        self.future_trade.exports[...] = self.baseline_future_trade.exports
+
+        # demand delta for the fixed-supply region (summed over any extra dims to match trade dims)
+        trade_dims = self.future_trade.imports.dims
+        demand_dims_common = self.baseline_dom_demand.dims.intersect_with(trade_dims)
+        delta = (
+            (self.future_dom_demand - self.baseline_dom_demand)
+            .sum_to(demand_dims_common.letters)
+            .cast_to(trade_dims)
+        )
+        delta_r = delta[{"r": r}]
+
+        # apply trade adjustment for fixed-supply region
+        self.future_trade.imports[{"r": r}] = (
+            self.baseline_future_trade.imports[{"r": r}] + alpha * delta_r
+        )
+        self.future_trade.exports[{"r": r}] = (
+            self.baseline_future_trade.exports[{"r": r}] - (1.0 - alpha) * delta_r
+        )
+
+        # re-balance global imports == exports
+        self.future_trade.balance(to="hmean")
+
+        logging.info(
+            f"FixedSupplyTradeExtrapolator: supply of '{r}' fixed to baseline. "
+            f"import_adjustment_share={alpha}. "
+            f"Mean demand delta for '{r}': {delta_r.values.mean():.2f}"
+        )
+
