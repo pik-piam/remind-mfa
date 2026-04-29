@@ -32,7 +32,7 @@ with pickle_path.open("rb") as file_handle:
     mfa = model.future_mfa
 
 stock = mfa.stocks["in_use"].stock.sum_to(("t", "r"))
-stock_pc = (stock / mfa.parameters["population"])
+stock_pc = stock / mfa.parameters["population"]
 stock_pc = stock_pc[{"t": mfa.dims["h"]}].to_df().reset_index()
 gdppc_hist = mfa.parameters["gdppc"][{"t": mfa.dims["h"]}].to_df().reset_index()
 
@@ -244,8 +244,12 @@ fig.update_xaxes(
     col=1,
 )
 fig.update_xaxes(title_text="Year", title_standoff=4, range=[1950, 2100], row=1, col=2)
-fig.update_yaxes(title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 14.7], row=1, col=1)
-fig.update_yaxes(title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 14.7], row=1, col=2)
+fig.update_yaxes(
+    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 14.7], row=1, col=1
+)
+fig.update_yaxes(
+    title_text="In-use stock per capita [t]", title_standoff=4, range=[0, 14.7], row=1, col=2
+)
 
 # Manual in-plot labels replacing the legend. Positions are approximate and can be tuned.
 title_y = 0.995
