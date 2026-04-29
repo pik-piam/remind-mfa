@@ -42,7 +42,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         if "h" not in self.historic_trade.imports.dims:
             raise ValueError("Historic trade data must have a historic time dimension.")
         if "t" not in self.future_trade.imports.dims:
-            raise ValueError("Historic trade data must have a historic time dimension.")
+            raise ValueError("Future trade data must have a time dimension.")
         # all other dims must be the same
         if self.historic_trade.imports.dims.drop("h") != self.future_trade.imports.dims.drop("t"):
             raise ValueError(

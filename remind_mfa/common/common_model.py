@@ -1,3 +1,5 @@
+import logging
+from typing import Optional
 import flodym as fd
 import numpy as np
 
@@ -16,8 +18,6 @@ from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.helpers import RegressOverModes
-from remind_mfa.common.data_extrapolations import GompertzExtrapolation
-from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 
 
 class CommonModel:
@@ -40,6 +40,7 @@ class CommonModel:
         self.cfg = self.ConfigCls(**cfg)
         self.set_definition()
         self.read_data()
+        self.check_parameters()
         self.read_scenario_parameters()
         self.select_gdp_pop_scen()
         self.modify_parameters()
@@ -87,6 +88,31 @@ class CommonModel:
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
+
+    def check_parameters(self, exceptions: Optional[list] = None, raise_error: bool = False):
+        """Check if all parameters are free of NaN and negative values after data read-in."""
+        logging.info("Checking parameters for NaN and negative values...")
+        exceptions = exceptions or []
+
+        all_good = True
+        for name, prm in self.parameters.items():
+            if name in exceptions:
+                continue
+            if np.any(np.isnan(prm.values)):
+                msg = f"NaN values found in parameter '{name}'!"
+                if raise_error:
+                    raise ValueError(msg)
+                logging.warning(msg)
+                all_good = False
+            if np.any(prm.values < 0):
+                msg = f"Negative values found in parameter '{name}'!"
+                if raise_error:
+                    raise ValueError(msg)
+                logging.warning(msg)
+                all_good = False
+
+        if all_good:
+            logging.info("Success - No NaN or negative values found in parameters.")
 
     def select_gdp_pop_scen(self):
         """Select GDP and population scenario parameters based on scenario name"""
