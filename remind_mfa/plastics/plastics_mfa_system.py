@@ -91,7 +91,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
         flw["collected => reclchem"][...] = aux["total_waste_collected"] * prm["chemical_recycling_rate"]
-        
+
         flw["collected => incineration"][...] = aux["total_waste_collected"] * prm["incineration_rate"]
         flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
 
@@ -161,11 +161,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["reclchem => HVC_input"][...] = flw["collected => reclchem"].sum_to(("t", "r")) * aux["HVC_c_content"] * prm["chemical_recycling_yield"] # TODO: differentiate yield by element instead of using C content of HVC!
         flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => HVC_input"]
         aux["total_primary_HVC"][...] = flw["HVC_input => polymerization"] - flw["reclchem => HVC_input"]
-        
+
         # carbon cycles via bio daccu feedstocks
         flw["feeddaccu => HVC_input"][...] = aux["total_primary_HVC"] * prm["daccu_production_rate"]
         flw["feedbio => HVC_input"][...] = aux["total_primary_HVC"] * prm["bio_production_rate"]
-        
+
         # captured emissions and ccu feedstocks
         # non-C atmosphere & captured has no meaning & is equivalent to sysenv
         flw["emission => captured"][...] = (flw["incineration => emission"] + flw["reclchem => emission"]) * prm["emission_capture_rate"]

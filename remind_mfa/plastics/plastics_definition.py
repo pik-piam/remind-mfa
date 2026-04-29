@@ -54,7 +54,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             "captured",
             "atmosphere",
             "other_reactants",
-            "losses"
+            "losses",
         ]
 
     # fmt: off
