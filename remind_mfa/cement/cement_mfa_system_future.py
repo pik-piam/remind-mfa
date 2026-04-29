@@ -66,8 +66,6 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             )
         return product_stock
     
-    
-
     def compute_flows(self, historic_trade: TradeSet):
         prm = self.parameters
         flw = self.flows

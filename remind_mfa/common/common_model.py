@@ -53,12 +53,8 @@ class CommonModel:
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
 
-        if self.cfg.model_switches.parameter_reconciliation:
-            self.reconcile_parameters()
-
         self.transfer_historic_parameters()
         
-        # TODO trade will now be calculated based on reconciled mfa, even though it itself was not part of reconciliation.
         self.historic_trade = self.historic_mfa.trade_set
 
         # apply scenarios to parameters for future mfa
@@ -73,12 +69,8 @@ class CommonModel:
 
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(self.stock_projection, self.historic_trade)
-
-        if self.cfg.model_switches.parameter_reconciliation and self.cfg.model_switches.combined_mfa:
-            # update future mfa with bottom_up future where possible
-            self.future_mfa = self.compute_combined_mfa()
     
-    def reconcile_parameters(self, max_iter: int = 5, tol: Optional[float] = None):
+    def reconcile_parameters(self, max_iter: int = 1, tol: Optional[float] = None):
         """Reconcile parameters between top-down and bottom-up stocks.
 
         Args:
@@ -100,13 +92,6 @@ class CommonModel:
         self.parameters = self.parameter_reconciliation.correct_parameters(
             max_iter=max_iter, tol=tol
         )
-
-        # recalculate historic MFA
-        self.historic_mfa = self.make_mfa(historic=True)
-        self.historic_mfa.compute()
-
-    def compute_combined_mfa(self):
-        raise NotImplementedError("Please implement combined MFA in subclass.")
 
     def export(self):
         self.data_writer.export(model=self)

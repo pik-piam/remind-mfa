@@ -11,6 +11,7 @@ from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
 from remind_mfa.common.data_blending import CriticallyDampedBlender
+from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 
 
 class CementModel(CommonModel):
@@ -30,6 +31,46 @@ class CementModel(CommonModel):
     end_use_good_letter: str = "s"
     historic_stock_name: str = "in_use"
 
+    def run(self):
+        self.original_parameters_hist = self.parameters.copy()
+        super().run()
+
+        if not self.cfg.model_switches.parameter_reconciliation:
+            return
+        
+        self.td_hist_mfa = self.historic_mfa
+        self.td_mfa = self.future_mfa
+        self.bu_mfa = None
+
+        self.parameters = self.original_parameters_hist
+        self.reconcile_parameters()
+
+        self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
+        self.td_hist_mfa_reconciled.compute()
+
+        # apply scenarios to parameters for future mfa
+        # 1. extend historic parameters into future
+        self.parameters = ParameterExtrapolationManager(
+            self.cfg, self.dims["t"]
+        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
+        # 2. adjust future parameters based on scenario
+        self.apply_scenario_adjustments_to_parameters()
+
+        self.reconciled_stock_projection = self.get_long_term_stock()
+        
+        self.td_mfa_reconciled = self.make_mfa(historic=False)
+        self.td_mfa_reconciled.compute(self.reconciled_stock_projection, self.td_hist_mfa_reconciled.trade_set)
+        self.bu_mfa_reconciled = self.make_mfa()
+
+        # update future mfa with bottom_up future where possible
+        self.combined_mfa = self.compute_combined_mfa(
+            td_stock=self.td_mfa_reconciled.stocks["in_use"].stock,
+            #bu_stock=self.bu_mfa_reconciled.stocks["in_use"].stock,
+        )
+
+        if self.cfg.model_switches.combined_mfa:
+            self.future_mfa = self.combined_mfa
+
     def modify_parameters(self):
         # copy/rename for use in common model
         self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]
@@ -40,16 +81,9 @@ class CementModel(CommonModel):
         self.parameters["lifetime_std"] = lifetime_std
 
         # TODO add cement ratio as parameter here, or rather in mrmfa?
-    
-    def set_material_specific_variables(self):
-        # TODO here, things like concrete mask, concrete application dim, etc could be stored
-        # TODO function has to be added to common_model
-        pass
 
-    def compute_combined_mfa(self):
-        # TODO should this go in separate combined MFA class?
-        # Bottom up MFA
-        td_stock = self.future_mfa.stocks["in_use"].stock.copy()
+    def compute_combined_mfa(self, td_stock):
+        # TODO use td_stock, bu_stock as arguments/inputs        
 
         # build bottom up stock (concrete only)
         prm = self.parameters
