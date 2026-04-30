@@ -160,7 +160,7 @@ class CriticallyDampedBlender:
         ), "Time and prediction must have the same length."
         assert (
             self.historical.shape[1:] == self.prediction.shape[1:]
-        ), "Historical and prediction must have the same spatial shape."
+        ), "Historical and prediction must have the same shape, except along the time dimension."
         assert (
             self.historical.shape[0] <= self.prediction.shape[0]
         ), "Historical data cannot be longer than prediction."

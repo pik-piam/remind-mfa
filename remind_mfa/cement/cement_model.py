@@ -1,4 +1,5 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.cement.cement_definition import get_cement_definition
@@ -31,46 +32,6 @@ class CementModel(CommonModel):
     end_use_good_letter: str = "s"
     historic_stock_name: str = "in_use"
 
-    def run(self):
-        self.original_parameters_hist = self.parameters.copy()
-        super().run()
-
-        if not self.cfg.model_switches.parameter_reconciliation:
-            return
-        
-        self.td_hist_mfa = self.historic_mfa
-        self.td_mfa = self.future_mfa
-        self.bu_mfa = None
-
-        self.parameters = self.original_parameters_hist
-        self.reconcile_parameters()
-
-        self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
-        self.td_hist_mfa_reconciled.compute()
-
-        # apply scenarios to parameters for future mfa
-        # 1. extend historic parameters into future
-        self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["t"]
-        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
-        # 2. adjust future parameters based on scenario
-        self.apply_scenario_adjustments_to_parameters()
-
-        self.reconciled_stock_projection = self.get_long_term_stock()
-        
-        self.td_mfa_reconciled = self.make_mfa(historic=False)
-        self.td_mfa_reconciled.compute(self.reconciled_stock_projection, self.td_hist_mfa_reconciled.trade_set)
-        self.bu_mfa_reconciled = self.make_mfa()
-
-        # update future mfa with bottom_up future where possible
-        self.combined_mfa = self.compute_combined_mfa(
-            td_stock=self.td_mfa_reconciled.stocks["in_use"].stock,
-            #bu_stock=self.bu_mfa_reconciled.stocks["in_use"].stock,
-        )
-
-        if self.cfg.model_switches.combined_mfa:
-            self.future_mfa = self.combined_mfa
-
     def modify_parameters(self):
         # copy/rename for use in common model
         self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]
@@ -82,38 +43,104 @@ class CementModel(CommonModel):
 
         # TODO add cement ratio as parameter here, or rather in mrmfa?
 
-    def compute_combined_mfa(self, td_stock):
-        # TODO use td_stock, bu_stock as arguments/inputs        
+    def run(self):
+        self.original_parameters_hist = self.parameters.copy()
+        super().run()
 
-        # build bottom up stock (concrete only)
-        prm = self.parameters
-        bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
-            prm, stock_type_letter=self.end_use_good_letter
+        if not self.cfg.model_switches.parameter_reconciliation:
+            return
+        
+        self.td_hist_mfa = self.historic_mfa
+        self.td_mfa = self.future_mfa
+
+        # reconcile parameters
+        self.parameters = self.original_parameters_hist
+        self.reconcile_parameters()
+
+        # compute reconciled historic mfa
+        self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
+        self.td_hist_mfa_reconciled.compute()
+
+        # apply scenarios to parameters for future mfa (as in common model)
+        # 1. extend historic parameters into future
+        self.parameters = ParameterExtrapolationManager(
+            self.cfg, self.dims["t"]
+        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
+        # 2. adjust future parameters based on scenario
+        self.apply_scenario_adjustments_to_parameters()
+
+        # compute reconciled future top-down mfa
+        self.td_stock_reconciled = self.get_long_term_stock() # cement stock        
+        self.td_mfa_reconciled = self.make_mfa(historic=False)
+        self.td_mfa_reconciled.compute(self.td_stock_reconciled, self.td_hist_mfa_reconciled.trade_set)
+
+        # compute reconciled future bottom-up mfa
+        self.bu_stock_reconciled = self.get_bottom_up_stock() # concrete stock
+        self.bu_mfa_reconciled = self.make_mfa(historic=False)
+        # assume trade as zero, so this MFA is most representative for demands
+        bu_trade = self.td_hist_mfa_reconciled.trade_set
+        for market in bu_trade.markets.keys():
+            bu_trade[market].imports[...] = fd.FlodymArray.full_like(bu_trade[market].imports, fill_value=0)
+            bu_trade[market].exports[...] = fd.FlodymArray.full_like(bu_trade[market].exports, fill_value=0)
+        self.bu_mfa_reconciled.compute(self.bu_stock_reconciled, bu_trade, stock_is_cement=False)
+
+        # compute combined mfa, using bu where possible and td as fallback
+        self.combined_mfa = self.compute_combined_mfa(
+            td_stock=self.td_mfa_reconciled.stocks["in_use"].stock,
+            bu_stock=self.bu_mfa_reconciled.stocks["in_use"].stock,
         )
-        bu_stock = bu_concrete_stock * prm["product_application_split"]
+        if self.cfg.model_switches.combined_mfa:
+            self.future_mfa = self.combined_mfa
 
-        # bottom-up stock only available for concrete (constraining m and a), and Res/Com (constraining s)
-        concrete_mask = {"m": "concrete"}
+    def get_bottom_up_stock(self):
+        """Calculate bottom-up product stock.
+        Unavailible stock dimensions, e.g. mortar or civ/ind are filled with zeros.
+        Data available until 1990. To fill pre-1990 data,
+        the stock is backcasted by using growth rate of top-down stock."""
+        td_stock = self.td_mfa_reconciled.stocks["in_use"].stock
+        stock = fd.FlodymArray.full_like(td_stock, fill_value=0)
+
+        bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
+            self.parameters, stock_type_letter=self.end_use_good_letter
+        )
+        concrete_application_split = self.parameters["product_application_split"][self.concrete_application_mask]
+        bu_stock = bu_concrete_stock * concrete_application_split
+        stock[{**self.concrete_mask, **self.concrete_application_mask}] = bu_stock
+        stock = backcast_by_reference(stock, td_stock, anchor_year=1990)
+        return stock
+    
+    @property
+    def concrete_mask(self):
+        return {"m": "concrete"}
+
+    @property
+    def concrete_application_mask(self):
         concrete_application_mask = (
-            prm["product_material_application_transform"][concrete_mask].values == 1
+            self.parameters["product_material_application_transform"][self.concrete_mask].values == 1
         )
         concrete_application_dim_items = [
             item
-            for i, item in enumerate(prm["product_material_application_transform"].dims["a"].items)
+            for i, item in enumerate(self.parameters["product_material_application_transform"].dims["a"].items)
             if concrete_application_mask[i]
         ]
         concrete_application_dim = fd.Dimension(
             name="Concrete Application", letter="x", items=concrete_application_dim_items
         )
+        return {"a": concrete_application_dim}
 
+    @property
+    def bottom_up_mask(self):
         reduced_dim_mask = {
-            "a": concrete_application_dim,
+            **self.concrete_mask,
+            **self.concrete_application_mask,
             "s": self.parameter_reconciliation._reduced_stock_type,
         }
-        combined_dim_mask = {**reduced_dim_mask, **concrete_mask}
+        return reduced_dim_mask
 
-        reduced_bu_stock = bu_stock[reduced_dim_mask]
-        reduced_td_stock = td_stock[combined_dim_mask][{"t": self.dims["h"]}]
+    def compute_combined_mfa(self, td_stock, bu_stock):
+
+        reduced_bu_stock = bu_stock[self.bottom_up_mask]
+        reduced_td_stock = td_stock[self.bottom_up_mask][{"t": self.dims["h"]}]
 
         # blend smoothly between historic td and future bu
         blender = CriticallyDampedBlender(
@@ -129,7 +156,7 @@ class CementModel(CommonModel):
 
         # prepare combined stock
         combined_stock = td_stock.copy()
-        combined_stock[combined_dim_mask] = blended_stock
+        combined_stock[self.bottom_up_mask] = blended_stock
 
         # compute combined mfa
 
@@ -137,3 +164,61 @@ class CementModel(CommonModel):
         self.combined_mfa.compute(combined_stock, self.historic_trade, stock_is_cement=False)
 
         return self.combined_mfa
+
+def backcast_by_reference(
+    x: fd.FlodymArray,
+    ref: fd.FlodymArray,
+    anchor_year,
+    time_letter: str = "t",
+) -> fd.FlodymArray:
+    """Fill years before ``anchor_year`` in ``x`` with ``ref`` rescaled to match at the anchor.
+    Inspired but simplified from backcast_by_reference in mrmfa: https://github.com/pik-piam/mrmfa.
+ 
+    For each non-time cell the scaling factor is ``x[anchor] / ref[anchor]``.
+    That factor is applied to ``ref`` for every year strictly before the anchor,
+    so filled values match ``x``'s level at the anchor year and inherit
+    ``ref``'s growth in the backcast period. Years at or after the anchor are
+    kept as-is from ``x``. Cells where ``ref`` is zero at the anchor (so the
+    ratio is undefined) are filled with zero in the backcast period.
+ 
+    Parameters
+    ----------
+    x
+        Array with leading zeros (or any values to be overwritten) before the
+        anchor year.
+    ref
+        Reference array with full coverage and the same dimensions as ``x``.
+    anchor_year
+        Item from the time dimension where ``x`` is known.
+    time_letter
+        Letter of the time dimension (default ``"t"``).
+    """
+    if x.dims.letters != ref.dims.letters:
+        raise ValueError(
+            f"x and ref must share dimensions; got {x.dims.letters} vs {ref.dims.letters}"
+        )
+ 
+    # Per-cell scaling factor at the anchor year. Slicing on a single item
+    # drops the time dimension, so the ratio broadcasts over time below.
+    # Where ref[anchor] == 0 the ratio is undefined; set it to 0 so the
+    # backcast period is filled with zeros for those cells.
+    x_anchor = x[{time_letter: anchor_year}]
+    ref_anchor = ref[{time_letter: anchor_year}]
+    ratio = fd.FlodymArray(dims=x_anchor.dims)
+    np.divide(
+        x_anchor.values, ref_anchor.values,
+        out=ratio.values, where=ref_anchor.values != 0,
+    )
+ 
+    # Mask of years strictly before the anchor, shaped to broadcast over the
+    # time axis only.
+    time_dim = x.dims[time_letter]
+    t_axis = x.dims.letters.index(time_letter)
+    before = np.array(time_dim.items) < anchor_year
+    before = before.reshape([-1 if i == t_axis else 1 for i in range(x.values.ndim)])
+ 
+    # Build the filled array: ref * ratio before the anchor, x from the anchor on.
+    scaled = ref * ratio
+    out = fd.FlodymArray(dims=x.dims, name=getattr(x, "name", None))
+    out.values[...] = np.where(before, scaled.values, x.values)
+    return out
