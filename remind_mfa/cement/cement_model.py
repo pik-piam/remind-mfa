@@ -1,3 +1,4 @@
+from copy import deepcopy
 import flodym as fd
 import numpy as np
 
@@ -50,8 +51,17 @@ class CementModel(CommonModel):
         if not self.cfg.model_switches.parameter_reconciliation.do_reconcile:
             return
         
+        # collect non-reconciled mfas
         self.td_hist_mfa = self.historic_mfa
         self.td_mfa = self.future_mfa
+
+        # assume trade as zero for BU MFA's, so those are only representative for demands
+        zero_trade = self._create_zero_trade(self.td_hist_mfa.trade_set)
+
+        # compute non-reconiled bottom-up mfa
+        self.bu_stock = self.get_bottom_up_stock(stock_ref=self.td_mfa.stocks["in_use"].stock) # concrete stock
+        self.bu_mfa = self.make_mfa(historic=False)
+        self.bu_mfa.compute(self.bu_stock, zero_trade, stock_is_cement=False)
 
         # reconcile parameters
         self.parameters = self.original_parameters_hist
@@ -75,14 +85,9 @@ class CementModel(CommonModel):
         self.td_mfa_reconciled.compute(self.td_stock_reconciled, self.td_hist_mfa_reconciled.trade_set)
 
         # compute reconciled future bottom-up mfa
-        self.bu_stock_reconciled = self.get_bottom_up_stock() # concrete stock
+        self.bu_stock_reconciled = self.get_bottom_up_stock(stock_ref=self.td_mfa_reconciled.stocks["in_use"].stock) # concrete stock
         self.bu_mfa_reconciled = self.make_mfa(historic=False)
-        # assume trade as zero, so this MFA is most representative for demands
-        bu_trade = self.td_hist_mfa_reconciled.trade_set
-        for market in bu_trade.markets.keys():
-            bu_trade[market].imports[...] = fd.FlodymArray.full_like(bu_trade[market].imports, fill_value=0)
-            bu_trade[market].exports[...] = fd.FlodymArray.full_like(bu_trade[market].exports, fill_value=0)
-        self.bu_mfa_reconciled.compute(self.bu_stock_reconciled, bu_trade, stock_is_cement=False)
+        self.bu_mfa_reconciled.compute(self.bu_stock_reconciled, zero_trade, stock_is_cement=False)
 
         # compute combined mfa, using bu where possible and td as fallback
         self.combined_mfa = self.compute_combined_mfa(
@@ -92,13 +97,19 @@ class CementModel(CommonModel):
         if self.cfg.model_switches.parameter_reconciliation.do_combine_mfas:
             self.future_mfa = self.combined_mfa
 
-    def get_bottom_up_stock(self):
+    def _create_zero_trade(self, trade_ref):
+        zero_trade = deepcopy(trade_ref)
+        for market in trade_ref.markets.keys():
+            zero_trade[market].imports = fd.FlodymArray.full_like(trade_ref[market].imports, fill_value=0)
+            zero_trade[market].exports = fd.FlodymArray.full_like(trade_ref[market].exports, fill_value=0)
+        return zero_trade
+
+    def get_bottom_up_stock(self, stock_ref):
         """Calculate bottom-up product stock.
         Unavailible stock dimensions, e.g. mortar or civ/ind are filled with zeros.
         Data available until 1990. To fill pre-1990 data,
         the stock is backcasted by using growth rate of top-down stock."""
-        td_stock = self.td_mfa_reconciled.stocks["in_use"].stock
-        stock = fd.FlodymArray.full_like(td_stock, fill_value=0)
+        stock = fd.FlodymArray.full_like(stock_ref, fill_value=0)
 
         bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
             self.parameters, stock_type_letter=self.end_use_good_letter
@@ -106,7 +117,7 @@ class CementModel(CommonModel):
         concrete_application_split = self.parameters["product_application_split"][self.concrete_application_mask]
         bu_stock = bu_concrete_stock * concrete_application_split
         stock[{**self.concrete_mask, **self.concrete_application_mask}] = bu_stock
-        stock = backcast_by_reference(stock, td_stock, anchor_year=1990)
+        stock = backcast_by_reference(stock, stock_ref, anchor_year=1990)
         return stock
     
     @property
