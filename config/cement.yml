@@ -10,7 +10,7 @@ input:
 
 model_switches:
   scenario: 'SSP2'
-  carbonation: False # currently not working
+  carbonation: False
   parameter_reconciliation:
     do_reconcile: True
     do_combine_mfas: True

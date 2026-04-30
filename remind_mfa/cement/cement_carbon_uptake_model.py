@@ -108,10 +108,10 @@ class CementCarbonUptakeModel(BaseModel):
 
         # sum uptake over 5 years
         window_size = int(1 / annual_carbonation_fraction)
-        uptake_one_year_arr = uptake_one_year  # .cast_values_to(self.stocks["atmosphere"].dims)
+        uptake_one_year_arr = uptake_one_year.values
         uptake_five_years_arr = windowed_sum(uptake_one_year_arr, window_size)
         uptake_five_years = fd.FlodymArray(
-            dims=self.stocks["atmosphere"].dims, values=uptake_five_years_arr
+            dims=uptake_one_year.dims, values=uptake_five_years_arr
         )
 
         return uptake_five_years
@@ -183,6 +183,8 @@ class CementCarbonUptakeModel(BaseModel):
             _, mass_values = get_age_distribution(stk, t)
             mass_dims = sliced_agedimset.union_with(stk.dims).drop("t")
             mass = fd.FlodymArray(dims=mass_dims, values=mass_values)
+            # expand mass over carbonation applications
+            mass = mass * self.parameters["material_application_split"]
 
             # slice parameters as necessary
             rel_add_sliced = rel_add[{ageletter: sliced_age_dim}]
@@ -192,7 +194,9 @@ class CementCarbonUptakeModel(BaseModel):
             # calculate carbonated mass convert to CO2
             carbonated_mass = mass * rel_add_sliced
             carbonated_co2 = carbonated_mass * f_sliced
-            carbonation[{"t": stk_dims["t"].items[t]}] = carbonated_co2.sum_over(sliced_ageletter)
+            # sum over age and product application
+            summed = carbonated_co2.sum_over((sliced_ageletter, "a"))
+            carbonation[{"t": stk_dims["t"].items[t]}] = summed
 
         return carbonation
 
@@ -201,7 +205,7 @@ class CementCarbonUptakeModel(BaseModel):
         Returns the available CaO for carbonation in the in-use stock.
         """
         prm = self.parameters
-        cement_ratio = prm["product_cement_content"] / prm["product_density"]
+        cement_ratio = prm["cement_ratio"]
         f = (
             cement_ratio
             * prm["clinker_ratio"]
@@ -245,7 +249,7 @@ class CementCarbonUptakeModel(BaseModel):
         Here, the concrete is assumed to be crushed into spherical particles.
         First, for 0.4 years, particles are assumed to be exposed to air (demolition).
         After that, they are used for different waste categories, where they are either recycled or buried.
-        This influences their carbonation rate (k).
+        This influences their carbonation rate.
         """
         add_assumption_doc(
             type="model assumption",
@@ -260,15 +264,21 @@ class CementCarbonUptakeModel(BaseModel):
 
         prm = self.parameters
         stk_in_use = self.stocks["in_use"]
-        k_free_arr = k_free_in.cast_values_to(stk_in_use.dims)
-        thickness_in = self.parameters["product_thickness"].cast_values_to(stk_in_use.dims)
+        eol_dims = self.stocks["eol"].dims
+        # use application-weighted averages for EOL (EOL stock has no application dimension)
+        k_free_in_mean = self._application_weighted_average(k_free_in)  # (r, m)
+        thickness_mean = self._application_weighted_average(
+            self.parameters["product_thickness"]
+        )  # (m,)
+        k_free_arr = k_free_in_mean.cast_values_to(stk_in_use.dims)
+        thickness_in = thickness_mean.cast_values_to(stk_in_use.dims)
 
         uncarbonated_inflow = np.zeros(stk_in_use.dims.shape)
 
-        for t in range(1, self.stocks["in_use"]._n_t):
+        for t in range(1, stk_in_use._n_t):
 
             # (I1) get outflow by cohort
-            ages, inflow = get_age_distribution(self.stocks["in_use"], t, data_type="outflow")
+            ages, inflow = get_age_distribution(stk_in_use, t, data_type="outflow")
 
             # (I2) get carbonation depth by cohort
             k_free = k_free_arr[: t + 1, ...]
@@ -389,6 +399,16 @@ class CementCarbonUptakeModel(BaseModel):
             if letter not in used_letters:
                 return letter
         raise RuntimeError("No unused dimension letters available.")
+    
+    
+    def _application_weighted_average(self, arr: fd.FlodymArray) -> fd.FlodymArray:
+        """Average a (a, ...) array over a weighted by material_application_split (r, m, a).
+
+        Returns an array with a summed into m (i.e. a-axis weighted sum becomes m-axis).
+        """
+        split = self.parameters["material_application_split"]  # (m, a)
+        weighted = arr * split  # broadcasts to (..., m, a)
+        return weighted.sum_over("a")
 
 
 # Utitly functions

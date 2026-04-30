@@ -70,7 +70,7 @@ class CommonModel:
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(self.stock_projection, self.historic_trade)
     
-    def reconcile_parameters(self, max_iter: int = 1, tol: Optional[float] = None):
+    def reconcile_parameters(self, max_iter: int = 10, tol: Optional[float] = None):
         """Reconcile parameters between top-down and bottom-up stocks.
 
         Args:

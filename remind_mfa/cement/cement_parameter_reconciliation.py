@@ -75,9 +75,6 @@ class CementParameterReconciliation(CommonParameterReconciliation):
         concrete_mask = {"m": "concrete"}
         concrete_stock = product_stock[concrete_mask]
 
-        # 2.3 Remove application dim
-        concrete_stock = concrete_stock.sum_over("a")
-
         return concrete_stock
 
     @staticmethod

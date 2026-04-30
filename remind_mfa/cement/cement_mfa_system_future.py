@@ -16,10 +16,6 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
-        self.cement_ratio = (
-            self.parameters["product_cement_content"] / self.parameters["product_density"]
-        )
-
         self.compute_in_use_stock(stock_projection, **kwargs)
         self.compute_flows(historic_trade)
         self.compute_other_stocks()
@@ -49,23 +45,13 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         # self.correct_negative_inflow("in_use", warn_small_negative=False)
 
     @staticmethod
-    def product_split(prm: dict[str, fd.FlodymArray]):
-        split = (
-            prm["product_material_split"]
-            * prm["product_material_application_transform"]
-            * prm["product_application_split"]
-        )
-        return split
-
-    @staticmethod
     def transform_cement_to_product_stock(
         cement_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
     ):
         product_stock = (
             cement_stock
-            * StockDrivenCementMFASystem.product_split(prm)
-            * prm["product_density"]  # TODO replace with cement ratio
-            / prm["product_cement_content"]
+            * prm["product_material_split"]
+            / prm["cement_ratio"]
         )
         return product_stock
     
@@ -77,8 +63,8 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # product production
         flw["prod_product => use"][...] = stk["in_use"].inflow
-        flw["market_cement => prod_product"][...] = flw["prod_product => use"] * self.cement_ratio
-        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - self.cement_ratio)
+        flw["market_cement => prod_product"][...] = flw["prod_product => use"] * prm["cement_ratio"]
+        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - prm["cement_ratio"])
 
         # cement trade
         extrapolator = TradeExtrapolator(

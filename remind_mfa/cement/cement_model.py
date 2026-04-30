@@ -114,9 +114,7 @@ class CementModel(CommonModel):
         bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
             self.parameters, stock_type_letter=self.end_use_good_letter
         )
-        concrete_application_split = self.parameters["product_application_split"][self.concrete_application_mask]
-        bu_stock = bu_concrete_stock * concrete_application_split
-        stock[{**self.concrete_mask, **self.concrete_application_mask}] = bu_stock
+        stock[self.concrete_mask] = bu_concrete_stock
         stock = backcast_by_reference(stock, stock_ref, anchor_year=1990)
         return stock
     
@@ -125,25 +123,9 @@ class CementModel(CommonModel):
         return {"m": "concrete"}
 
     @property
-    def concrete_application_mask(self):
-        concrete_application_mask = (
-            self.parameters["product_material_application_transform"][self.concrete_mask].values == 1
-        )
-        concrete_application_dim_items = [
-            item
-            for i, item in enumerate(self.parameters["product_material_application_transform"].dims["a"].items)
-            if concrete_application_mask[i]
-        ]
-        concrete_application_dim = fd.Dimension(
-            name="Concrete Application", letter="x", items=concrete_application_dim_items
-        )
-        return {"a": concrete_application_dim}
-
-    @property
     def bottom_up_mask(self):
         reduced_dim_mask = {
             **self.concrete_mask,
-            **self.concrete_application_mask,
             "s": self.parameter_reconciliation._reduced_stock_type,
         }
         return reduced_dim_mask

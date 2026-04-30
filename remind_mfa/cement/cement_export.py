@@ -11,7 +11,6 @@ class CementDataExporter(CommonDataExporter):
         scenario = "SSP2_NPi"
         constants = {"model": model, "scenario": scenario}
 
-        cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
         reported_dims = ("t", "r", "s")
 
         # production (same as demand + losses as no trade is considered yet)
@@ -87,7 +86,7 @@ class CementDataExporter(CommonDataExporter):
         )
 
         # stocks
-        cement_stock_by_stock_type = mfa.stocks["in_use"].stock * cement_ratio
+        cement_stock_by_stock_type = mfa.stocks["in_use"].stock * mfa.parameters["cement_ratio"]
         other_dimletters = tuple(
             letter
             for letter in cement_stock_by_stock_type.dims.letters
@@ -110,7 +109,7 @@ class CementDataExporter(CommonDataExporter):
         )
 
         # scrap
-        cement_scrap_by_stock_type = mfa.stocks["in_use"].outflow * cement_ratio
+        cement_scrap_by_stock_type = mfa.stocks["in_use"].outflow * mfa.parameters["cement_ratio"]
         other_dimletters = tuple(
             letter
             for letter in cement_scrap_by_stock_type.dims.letters

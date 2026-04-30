@@ -95,8 +95,7 @@ class CementVisualizer(CommonVisualizer):
         self.visualize_production(mfa=mfa, production=production, name="Product")
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
-        consumption = mfa.stocks["in_use"].inflow * cement_ratio
+        consumption = mfa.stocks["in_use"].inflow * mfa.parameters["cement_ratio"]
         plot_letters = ["t", "r", "s"]
         other_letters = tuple(
             letter for letter in consumption.dims.letters if letter not in plot_letters
@@ -123,8 +122,7 @@ class CementVisualizer(CommonVisualizer):
         # TODO: find way to name subplots_by_good back to subplot_by_stock_type
         # This is a workaround to streamline across materials.
         subplot_dim = "Stock Type" if subplots_by_good else None
-        cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
-        stock = mfa.stocks["in_use"].stock * cement_ratio
+        stock = mfa.stocks["in_use"].stock * mfa.parameters["cement_ratio"]
         super().visualize_use_stock(mfa, stock=stock, subplot_dim=subplot_dim)
 
     def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):

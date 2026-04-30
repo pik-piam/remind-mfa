@@ -406,11 +406,8 @@ class CommonParameterReconciliation:
             # TD parameters
             "cement_losses": 0.2,
             "cement_production": 0.01,
+            "cement_ratio": 0.1,
             "cement_trade": 0.0,
-            "product_application_split": 0.4,
-            "product_cement_content": 0.1,
-            "product_density": 0.05,
-            "product_material_application_transform": 0.0,
             "product_material_split": 0.4,
             "stock_type_split": 0.5,
             "use_lifetime_mean": 0.6,
@@ -487,7 +484,6 @@ class CommonParameterReconciliation:
                 "Structure",
                 "Function",
             ),
-            "product_application_split": ("Product Application",),
             "product_material_split": ("Product Material",),
             "stock_type_split": ("Stock Type",),
         }
@@ -495,28 +491,11 @@ class CommonParameterReconciliation:
             return
 
         prm = self.output_prms[prm_name]
-        if prm_name == "product_application_split":
-            # TODO redefine parameter such that no such special treatment is necessary
-            concrete_application_dim = fd.Dimension(
-                name="Concrete Product Application", letter="y", items=["C15", "C20", "C30", "C35"]
-            )
-            mortar_application_dim = fd.Dimension(
-                name="Mortar Product Application",
-                letter="z",
-                items=["finishing", "masonry", "maintenance"],
-            )
-            concrete_prm = prm[{"a": concrete_application_dim}]
-            mortar_prm = prm[{"a": mortar_application_dim}]
-            sum_concrete = concrete_prm.sum_over("y")
-            sum_mortar = mortar_prm.sum_over("z")
-            prm[{"a": concrete_application_dim}] = concrete_prm / sum_concrete
-            prm[{"a": mortar_application_dim}] = mortar_prm / sum_mortar
-        else:
-            prm_sum = prm.sum_over(normalization_dims[prm_name])
-            # avoid division by zero: zero values can occur due to `self._reduced_stock_type`
-            if "s" in prm_sum.dims.letters:
-                prm_sum.values[prm_sum.values == 0] = 1
-            prm[...] = prm / prm_sum
+        prm_sum = prm.sum_over(normalization_dims[prm_name])
+        # avoid division by zero: zero values can occur due to `self._reduced_stock_type`
+        if "s" in prm_sum.dims.letters:
+            prm_sum.values[prm_sum.values == 0] = 1
+        prm[...] = prm / prm_sum
 
     def system_model(self, prms: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
         """This can be used with original parameter dimensions."""
