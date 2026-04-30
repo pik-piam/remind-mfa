@@ -47,7 +47,7 @@ class CementModel(CommonModel):
         self.original_parameters_hist = self.parameters.copy()
         super().run()
 
-        if not self.cfg.model_switches.parameter_reconciliation:
+        if not self.cfg.model_switches.parameter_reconciliation.do_reconcile:
             return
         
         self.td_hist_mfa = self.historic_mfa
@@ -89,7 +89,7 @@ class CementModel(CommonModel):
             td_stock=self.td_mfa_reconciled.stocks["in_use"].stock,
             bu_stock=self.bu_mfa_reconciled.stocks["in_use"].stock,
         )
-        if self.cfg.model_switches.combined_mfa:
+        if self.cfg.model_switches.parameter_reconciliation.do_combine_mfas:
             self.future_mfa = self.combined_mfa
 
     def get_bottom_up_stock(self):

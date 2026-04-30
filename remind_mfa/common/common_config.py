@@ -40,11 +40,6 @@ class ModelSwitches(RemindMFABaseModel):
     """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
     parameter_extrapolation: Optional[dict[str, str]] = None
     """Mapping of parameter names to extrapolation subclass names for parameter extrapolation from historical values into the future."""
-    parameter_reconciliation: bool = False
-    """Whether to perform a reconciliation with bottom-up (BU) stock data and use BU stock extrapolation where possible."""
-    combined_mfa: bool = False
-    """Whether to compute a combined MFA that uses bottom-up stock where available and top-down stock for the remainder.
-    Requires parameter_reconciliation to be True."""
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
