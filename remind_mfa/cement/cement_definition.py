@@ -15,6 +15,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
+        fd.DimensionDefinition(name="Material Constituent", dim_letter="k", dtype=str),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
         # carbonation dimensions
         fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
@@ -86,10 +87,10 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             # product production
             fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
-            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m")),
+            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "k")),
             # use and end-of-life
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "k")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "k")),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
@@ -117,14 +118,14 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             fd.StockDefinition(
                 name="in_use",
                 process="use",
-                dim_letters=("t", "r", "s", "m"),
+                dim_letters=("t", "r", "s", "m", "k"),
                 subclass=fd.StockDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "s", "m"),
+                dim_letters=("t", "r", "s", "m", "k"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),

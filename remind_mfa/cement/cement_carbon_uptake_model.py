@@ -133,7 +133,8 @@ class CementCarbonUptakeModel(BaseModel):
         )
 
         stk = self.stocks["in_use"]
-        stk_dims = stk.dims
+        stk_dims = stk.dims.drop("k")
+        cement_k_idx = list(stk.dims["k"].items).index("cement")
 
         # create age dimension
         ages = [i for i in range(stk._n_t)][::-1]
@@ -179,9 +180,10 @@ class CementCarbonUptakeModel(BaseModel):
                 dtype=int,
             )
 
-            # get age cohort of products at time t
+            # get age cohort of cement mass at time t
             _, mass_values = get_age_distribution(stk, t)
-            mass_dims = sliced_agedimset.union_with(stk.dims).drop("t")
+            mass_values = mass_values[..., cement_k_idx]  # select cement constituent only
+            mass_dims = sliced_agedimset.union_with(stk_dims).drop("t")
             mass = fd.FlodymArray(dims=mass_dims, values=mass_values)
             # expand mass over carbonation applications
             mass = mass * self.parameters["material_application_split"]
@@ -205,10 +207,8 @@ class CementCarbonUptakeModel(BaseModel):
         Returns the available CaO for carbonation in the in-use stock.
         """
         prm = self.parameters
-        cement_ratio = prm["cement_ratio"]
         f = (
-            cement_ratio
-            * prm["clinker_ratio"]
+            prm["clinker_ratio"]
             * prm["clinker_cao_ratio"]
             * prm["cao_emission_factor"]
             * prm["cao_carbonation_share"]
@@ -265,20 +265,25 @@ class CementCarbonUptakeModel(BaseModel):
         prm = self.parameters
         stk_in_use = self.stocks["in_use"]
         eol_dims = self.stocks["eol"].dims
+        stk_dims_no_k = stk_in_use.dims.drop("k")
+        eol_dims_no_k = eol_dims.drop("k")
+        cement_k_idx = list(stk_in_use.dims["k"].items).index("cement")
         # use application-weighted averages for EOL (EOL stock has no application dimension)
         k_free_in_mean = self._application_weighted_average(k_free_in)  # (r, m)
         thickness_mean = self._application_weighted_average(
             self.parameters["product_thickness"]
         )  # (m,)
-        k_free_arr = k_free_in_mean.cast_values_to(stk_in_use.dims)
-        thickness_in = thickness_mean.cast_values_to(stk_in_use.dims)
+        k_free_arr = k_free_in_mean.cast_values_to(stk_dims_no_k)
+        thickness_in = thickness_mean.cast_values_to(stk_dims_no_k)
 
-        uncarbonated_inflow = np.zeros(stk_in_use.dims.shape)
+        uncarbonated_inflow = np.zeros(stk_dims_no_k.shape)
 
         for t in range(1, stk_in_use._n_t):
 
-            # (I1) get outflow by cohort
+            # (I1) get outflow by cohort (cement mass)
             ages, inflow = get_age_distribution(stk_in_use, t, data_type="outflow")
+            inflow = inflow[..., cement_k_idx]  # select cement constituent only
+            ages = ages.reshape((-1,) + (1,) * (inflow.ndim - 1))  # re-shape for new ndim (k was dropped)
 
             # (I2) get carbonation depth by cohort
             k_free = k_free_arr[: t + 1, ...]
@@ -292,14 +297,13 @@ class CementCarbonUptakeModel(BaseModel):
             # (I4) sum over all age cohorts, convert to flodym array
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
 
-        uncarbonated_inflow = fd.FlodymArray(dims=stk_in_use.dims, values=uncarbonated_inflow)
+        uncarbonated_inflow = fd.FlodymArray(dims=stk_dims_no_k, values=uncarbonated_inflow)
 
         # (II) calculate further carbonation in EOL stock
 
-        eol_dims = self.stocks["eol"].dims
         # split inflow by waste type and size, reduce unnecessary dimensions
         uncarbonated_inflow = (
-            uncarbonated_inflow.sum_to(eol_dims) * prm["waste_type_split"] * prm["waste_size_share"]
+            uncarbonated_inflow.sum_to(eol_dims_no_k) * prm["waste_type_split"] * prm["waste_size_share"]
         )
 
         # create new age dimension
@@ -351,8 +355,8 @@ class CementCarbonUptakeModel(BaseModel):
         carbonation_share = carbonation_volume / sphere_volume
 
         # (II5) calc carbonated product mass in each year by hard-coded convolution and subsequently convert to CO2
-        new_carbonated_mass = fd.FlodymArray(dims=eol_dims)
-        for i, t in enumerate(eol_dims["t"].items):
+        new_carbonated_mass = fd.FlodymArray(dims=eol_dims_no_k)
+        for i, t in enumerate(eol_dims_no_k["t"].items):
             # prepare dimensions accoring to the current time step
             sliced_ageletter = self.get_unused_dimletter(exclude_letters=ageletter)
             sliced_age_dim = fd.Dimension(
@@ -367,7 +371,7 @@ class CementCarbonUptakeModel(BaseModel):
             sliced_t_dim = fd.Dimension(
                 name="sliced time",
                 letter=sliced_timeletter,
-                items=eol_dims["t"].items[: i + 1],
+                items=eol_dims_no_k["t"].items[: i + 1],
                 dtype=int,
             )
 
@@ -382,8 +386,8 @@ class CementCarbonUptakeModel(BaseModel):
             new_carbonated_mass[{"t": t}] = carbonated_mass.sum_over(sliced_ageletter)
 
         # (II6) translate carbonated product mass to co2, sum frequently to reduce dimension overhead
-        added_co2 = new_carbonated_mass.sum_to(eol_dims.union_with(f_in.dims)) * f_in
-        uptake = added_co2.sum_to(eol_dims)
+        added_co2 = new_carbonated_mass.sum_to(eol_dims_no_k.union_with(f_in.dims)) * f_in
+        uptake = added_co2.sum_to(eol_dims_no_k)
 
         return uptake
 

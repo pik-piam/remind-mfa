@@ -104,11 +104,12 @@ class CementModel(CommonModel):
             zero_trade[market].exports = fd.FlodymArray.full_like(trade_ref[market].exports, fill_value=0)
         return zero_trade
 
-    def get_bottom_up_stock(self, stock_ref):
-        """Calculate bottom-up product stock.
+    def get_bottom_up_stock(self, stock_ref: fd.FlodymArray):
+        """Calculate bottom-up product stock (product mass, no k constituent dimension).
         Unavailible stock dimensions, e.g. mortar or civ/ind are filled with zeros.
         Data available until 1990. To fill pre-1990 data,
         the stock is backcasted by using growth rate of top-down stock."""
+        stock_ref = stock_ref.sum_over("k")  # work at product-mass level
         stock = fd.FlodymArray.full_like(stock_ref, fill_value=0)
 
         bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
@@ -131,6 +132,9 @@ class CementModel(CommonModel):
         return reduced_dim_mask
 
     def compute_combined_mfa(self, td_stock, bu_stock):
+        # blend at product-mass level (k is a derived quantity, not an independent trajectory)
+        td_stock = td_stock.sum_over("k")
+        bu_stock = bu_stock.sum_over("k")
 
         reduced_bu_stock = bu_stock[self.bottom_up_mask]
         reduced_td_stock = td_stock[self.bottom_up_mask][{"t": self.dims["h"]}]

@@ -31,9 +31,12 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
 
         if stock_is_cement:
-            stock_projection = self.transform_cement_to_product_stock(stock_projection, prm)
-
-        stk["in_use"].stock = stock_projection
+            # Input is cement stock (t, r, s): apply material split and convert to total product mass.
+            product_stock = stock_projection * prm["product_material_split"] / prm["cement_ratio"]
+        else:
+            # Input is already product mass (t, r, s, m): just add k dim.
+            product_stock = stock_projection
+        stk["in_use"].stock = self.add_constituent_split(product_stock, prm)
 
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
@@ -44,16 +47,23 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         # TODO add this back in once no more negative flows
         # self.correct_negative_inflow("in_use", warn_small_negative=False)
 
-    @staticmethod
-    def transform_cement_to_product_stock(
-        cement_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
-    ):
-        product_stock = (
-            cement_stock
-            * prm["product_material_split"]
-            / prm["cement_ratio"]
+    def add_constituent_split(
+        self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
+    ) -> fd.FlodymArray:
+        """Add the Material Constituent (k) dimension to a product stock (t, r, s, m).
+
+        Splits into cement and non-cement using cement_ratio.
+        Returns an array with dim_letters (t, r, s, m, k).
+        """
+        k_dim = fd.Dimension(
+            name="Material Constituent", letter="k",
+            items=["cement", "non-cement"], dtype=str,
         )
-        return product_stock
+        constituent_dims = product_stock.dims.append(k_dim)
+        constituent_stock = fd.FlodymArray(dims=constituent_dims)
+        constituent_stock[{"k": "cement"}] = product_stock * prm["cement_ratio"]
+        constituent_stock[{"k": "non-cement"}] = product_stock * (1 - prm["cement_ratio"])
+        return constituent_stock
     
     def compute_flows(self, historic_trade: TradeSet):
         prm = self.parameters
@@ -63,8 +73,8 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # product production
         flw["prod_product => use"][...] = stk["in_use"].inflow
-        flw["market_cement => prod_product"][...] = flw["prod_product => use"] * prm["cement_ratio"]
-        flw["sysenv => prod_product"][...] = flw["prod_product => use"] * (1 - prm["cement_ratio"])
+        flw["market_cement => prod_product"][...] = flw["prod_product => use"][{"k": "cement"}]
+        flw["sysenv => prod_product"][...] = flw["prod_product => use"][{"k": "non-cement"}]
 
         # cement trade
         extrapolator = TradeExtrapolator(

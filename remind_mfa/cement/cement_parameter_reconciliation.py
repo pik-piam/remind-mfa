@@ -1,7 +1,6 @@
 import flodym as fd
 from copy import deepcopy
 
-from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.common.common_parameter_reconciliation import CommonParameterReconciliation
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 
@@ -63,9 +62,7 @@ class CementParameterReconciliation(CommonParameterReconciliation):
         cement_stock = InflowDrivenHistoricCementMFASystem.compute_cement_stock(
             prm, self.trds, self.flws, self.stks
         )
-        product_stock = StockDrivenCementMFASystem.transform_cement_to_product_stock(
-            cement_stock, prm
-        )
+        product_stock = cement_stock * prm["product_material_split"] / prm["cement_ratio"]
 
         # 2. Reduce dimensions to match bottom-up stock dimensions
         # 2.1 Use only reconciliation year

@@ -86,7 +86,7 @@ class CementDataExporter(CommonDataExporter):
         )
 
         # stocks
-        cement_stock_by_stock_type = mfa.stocks["in_use"].stock * mfa.parameters["cement_ratio"]
+        cement_stock_by_stock_type = mfa.stocks["in_use"].stock[{"k": "cement"}]
         other_dimletters = tuple(
             letter
             for letter in cement_stock_by_stock_type.dims.letters
@@ -109,7 +109,7 @@ class CementDataExporter(CommonDataExporter):
         )
 
         # scrap
-        cement_scrap_by_stock_type = mfa.stocks["in_use"].outflow * mfa.parameters["cement_ratio"]
+        cement_scrap_by_stock_type = mfa.stocks["in_use"].outflow[{"k": "cement"}]
         other_dimletters = tuple(
             letter
             for letter in cement_scrap_by_stock_type.dims.letters
