@@ -146,24 +146,34 @@ for i, config in enumerate(RUN_CONFIGS):
     fig.update_yaxes(title_text="In-use stock per capita [t]", title_standoff=4, row=row, col=1)
     fig.update_yaxes(title_text="Production [Mt]", title_standoff=4, row=row, col=2)
 
-
-for row, config in enumerate(RUN_CONFIGS, start=1):
-    row_domain = fig.get_subplot(row, 1).yaxis.domain
-    fig.add_annotation(
-        x=0.5,
-        y=row_domain[1] + 0.02,
-        xref="paper",
-        yref="paper",
-        text=f"<b>{config.label}</b>",
-        showarrow=False,
-        font={"size": 14},
-    )
+if len(RUN_CONFIGS) > 1:
+    for row, config in enumerate(RUN_CONFIGS, start=1):
+        row_domain = fig.get_subplot(row, 1).yaxis.domain
+        fig.add_annotation(
+            x=0.5,
+            y=row_domain[1] + 0.02,
+            xref="paper",
+            yref="paper",
+            text=f"<b>{config.label}</b>",
+            showarrow=False,
+            font={"size": 14},
+        )
 
 
 fig.update_layout(
     height=400 * len(RUN_CONFIGS),
     width=1000,
     template="plotly_white",
+)
+
+
+# Save a high-resolution static copy while preserving on-figure relative sizing.
+output_path = pathlib.Path(__file__).with_name("figure_1.png")
+fig.write_image(
+    output_path,
+    width=fig.layout.width,
+    height=fig.layout.height,
+    scale=3,
 )
 
 
