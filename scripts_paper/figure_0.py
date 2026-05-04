@@ -37,11 +37,13 @@ elif MAT == "steel":
     y_lower = 4
     y_upper = 12
 
+
 def _get_column_name(df, target_name: str) -> str:
     for column in df.columns:
         if str(column).strip().lower() == target_name.lower():
             return column
     raise KeyError(f"Could not find column '{target_name}' in dataframe columns {list(df.columns)}")
+
 
 # isos = list(REGION_DISPLAY_NAMES.keys())
 isos = ["JPN"]
@@ -56,8 +58,6 @@ for iso in isos:
         vertical_spacing=0.17,
         subplot_titles=("a) Over GDP per capita", "b) Over time"),
     )
-
-
 
     pickle_path = PATH_MAT / f"{RUN_MAT}.pickle"
     with pickle_path.open("rb") as file_handle:
@@ -137,7 +137,9 @@ for iso in isos:
         )
 
     if extrapolated_region_code is None:
-        raise ValueError(f"Could not identify region '{extrapolated_region}' in historical stock data.")
+        raise ValueError(
+            f"Could not identify region '{extrapolated_region}' in historical stock data."
+        )
 
     stock_handler = model.stock_handler
     sat_level = model.sector_specific_sat_level
@@ -148,11 +150,9 @@ for iso in isos:
             "Please rerun the model with the updated stock_extrapolation code and regenerate the pickle."
         )
 
-
     def _to_region_df(stock_pc_array):
         region_series = (stock_pc_array * sat_level).sum_to(("t", "r"))
         return region_series[{"r": extrapolated_region_code}].to_df().reset_index()
-
 
     pure_df = _to_region_df(stock_handler.pure_regression)
     fitted_df = _to_region_df(stock_handler.fitted_regression)
@@ -193,7 +193,6 @@ for iso in isos:
     fitted_df = fitted_df[fitted_df[time_col_extrap] >= LAST_HISTORICAL_YEAR_MAT].copy()
     smoothed_df = smoothed_df[smoothed_df[time_col_extrap] >= LAST_HISTORICAL_YEAR_MAT].copy()
 
-
     def _merge_extrap_with_gdppc(extrap_df):
         return extrap_df.merge(
             extrapolated_region_gdppc_full_df,
@@ -201,7 +200,6 @@ for iso in isos:
             right_on=time_col_gdppc_full,
             suffixes=("_stock", "_gdppc"),
         )
-
 
     pure_gdppc_df = _merge_extrap_with_gdppc(pure_df)
     fitted_gdppc_df = _merge_extrap_with_gdppc(fitted_df)
@@ -321,10 +319,18 @@ for iso in isos:
     )
     fig.update_xaxes(title_text="Year", title_standoff=4, range=[x_lower, 2100], row=2, col=1)
     fig.update_yaxes(
-        title_text="In-use stock per capita [t]", title_standoff=4, range=[y_lower, y_upper], row=1, col=1
+        title_text="In-use stock per capita [t]",
+        title_standoff=4,
+        range=[y_lower, y_upper],
+        row=1,
+        col=1,
     )
     fig.update_yaxes(
-        title_text="In-use stock per capita [t]", title_standoff=4, range=[y_lower, y_upper], row=2, col=1
+        title_text="In-use stock per capita [t]",
+        title_standoff=4,
+        range=[y_lower, y_upper],
+        row=2,
+        col=1,
     )
 
     figure_height = 750
@@ -341,7 +347,6 @@ for iso in isos:
 
     hist_group_x = 0.02
     extrap_group_x = 0.65
-
 
     def _add_historical_group(
         x_left: float,
@@ -384,7 +389,6 @@ for iso in isos:
             align="left",
             font={"color": "#B0B0B0", "size": 13},
         )
-
 
     def _add_extrapolation_group(
         x_right: float,
@@ -439,7 +443,6 @@ for iso in isos:
             font={"color": "#2ca02c", "size": 13},
         )
 
-
     _add_historical_group(
         x_left=hist_group_x,
         group_top_y=top_hist_group_top_y,
@@ -474,14 +477,12 @@ for iso in isos:
         if annotation.text in ("a) Over GDP per capita", "b) Over time"):
             annotation.y = annotation.y + 0.02
 
-
     fig.update_layout(
         height=figure_height,
         width=figure_width,
         showlegend=False,
         template="plotly_white",
     )
-
 
     # Save a high-resolution static copy while preserving on-figure relative sizing.
     output_path = pathlib.Path(__file__).with_name(f"figure_0_{iso}.png")
