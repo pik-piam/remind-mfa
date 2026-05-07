@@ -40,6 +40,10 @@ class CommonParameterReconciliation:
         # TODO set and skip over known sensitivity parameters
         # TODO check if I can use [...] more for flodym arrays to avoid dimension issues
 
+        # TODO read this in from mrmfa
+        self.target_ratio = fd.FlodymArray.full(dims=fd.DimensionSet(dim_list=[self.ref_mfa.dims["r"], self._reduced_stock_type]), fill_value=1.0)
+        self.target_ratio["CHA"] = 1.0 / (1.0 - 0.174) # number from https://www.nature.com/articles/s41558-025-02527-3?fromPaywallRec=false#Fig3
+
         # TODO see if it's smarter to instantiate a new MFA instead of copying and modifying the reference MFA's parameters, flows, stocks, and trade data. I think the latter is more flexible and less error-prone, but it is computationally more expensive. Maybe I can optimize by only copying the relevant parameters, flows, stocks, and trade data, and modifying them in place?
         self.prepare_dims()
         self.prepare_prms()
@@ -77,7 +81,11 @@ class CommonParameterReconciliation:
                 new_dims = new_dims.drop(letter)
         return new_dims
 
-    def correct_parameters(self, max_iter: int = 1, tol: Optional[float] = None):
+    def correct_parameters(
+        self,
+        max_iter: int = 1,
+        tol: Optional[float] = None,
+    ):
         """Iteratively correct parameters to reconcile top-down and bottom-up stocks.
 
         Each iteration linearises around the current working parameters, computes a
@@ -91,24 +99,37 @@ class CommonParameterReconciliation:
                 ``max(|log(td / bu)|) < tol``.  If *None*, always run
                 ``max_iter`` iterations.
         """
+        self.max_iter = max_iter
         self.output_prms = deepcopy(self.input_prms)
         self.total_correction_factors: dict[str, fd.FlodymArray] = {}
 
-        for i in range(max_iter):
+        for i in range(self.max_iter):
             self.td = self.calc_top_down_stock(self.prms).copy()
             self.bu = self.calc_bottom_up_stock(self.prms).copy()
 
-            mismatch = float(np.max(np.abs(np.log(self.td.values / self.bu.values))))
+            residual_log = self.td.apply(np.log) - self.bu.apply(np.log) - self.target_ratio.apply(np.log)
+            mismatch = float(np.max(np.abs(residual_log.values)))
+
             percent_mismatch = float(
                 np.max(np.abs(self.td.values - self.bu.values) / np.abs(self.bu.values)) * 100
             )
+            target_adjusted_percent_mismatch = float(
+                np.max(np.abs((self.td.values / self.bu.values) / self.target_ratio.values - 1.0))
+                * 100
+            )
             logging.info(
-                f"Reconciliation iteration {i + 1}/{max_iter}: max |log(td/bu)| = {mismatch:.4f}, max percent mismatch = {percent_mismatch:.2f}%"
+                "Reconciliation iteration "
+                f"{i + 1}/{self.max_iter}: "
+                f"max |log(td/bu) - log(target)| = {mismatch:.4f}, "
+                f"max percent mismatch = {percent_mismatch:.2f}%, "
+                "max target-adjusted percent mismatch = "
+                f"{target_adjusted_percent_mismatch:.2f}%"
             )
 
             if tol is not None and mismatch < tol:
                 logging.info(
-                    f"Converged after {i} iteration(s) (mismatch {mismatch:.4f} < tol {tol})."
+                    f"Converged after {i} iteration(s) "
+                    f"(target-adjusted mismatch {mismatch:.4f} < tol {tol})."
                 )
                 break
 
@@ -354,7 +375,9 @@ class CommonParameterReconciliation:
 
     def pre_compute_lambda(self):
         """Solve Aλ = b for λ."""
-        log_f = self.flatten_fd_to_np(self.td.apply(np.log) - self.bu.apply(np.log))
+        log_f = self.flatten_fd_to_np(
+            self.td.apply(np.log) - self.bu.apply(np.log) - self.target_ratio.apply(np.log)
+        )
         D = log_f.size
         A = np.zeros((D, D))
         Sd_sum = np.zeros(D)
