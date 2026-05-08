@@ -143,10 +143,21 @@ class ParameterExtrapolationManager:
     def __init__(
         self,
         cfg: "CommonCfg",
+        historic_time: fd.Dimension,
         extended_time: fd.Dimension,
     ):
         self.parameter_extrapolation_classes = cfg.model_switches.parameter_extrapolation_classes
+        self.historic_time = historic_time
         self.extended_time = extended_time
+
+    def _ensure_historic_time_dimension(self, parameter: fd.Parameter) -> fd.Parameter:
+        """Expand non-time-dependent parameters over historic time before extrapolation."""
+
+        if "h" in parameter.dims.letters:
+            return parameter
+
+        expanded_dims = parameter.dims.expand_by([self.historic_time])
+        parameter.cast_to(expanded_dims, inplace=True)
 
     def apply_prm_extrapolation(
         self,
@@ -163,6 +174,8 @@ class ParameterExtrapolationManager:
         for param_name, extrapolation_class in self.parameter_extrapolation_classes.items():
             if param_name not in modified_parameters:
                 raise ValueError(f"Parameter '{param_name}' not found in parameters.")
+
+            self._ensure_historic_time_dimension(modified_parameters[param_name])
 
             if extrapolation_class == LinearToTargetExtrapolation:
                 if scenario_parameters is None:
