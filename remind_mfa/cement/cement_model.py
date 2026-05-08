@@ -74,7 +74,7 @@ class CementModel(CommonModel):
         # apply scenarios to parameters for future mfa (as in common model)
         # 1. extend historic parameters into future
         self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["t"]
+            self.cfg, self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
         # 2. adjust future parameters based on scenario
         self.apply_scenario_adjustments_to_parameters()
