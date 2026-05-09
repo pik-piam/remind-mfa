@@ -115,6 +115,9 @@ class CementModel(CommonModel):
         bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
             self.parameters, stock_type_letter=self.end_use_good_letter
         )
+        # TODO make this a parameter in mrmfa
+        # Scale up Chinese building stock to account for hibernating stock
+        bu_concrete_stock["CHA"] = bu_concrete_stock["CHA"] / (1.0 - 0.174) # 17.4% unused buildings from https://www.nature.com/articles/s41558-025-02527-3?fromPaywallRec=false#Fig3
         stock[self.concrete_mask] = bu_concrete_stock
         stock = backcast_by_reference(stock, stock_ref, anchor_year=1990)
         return stock
