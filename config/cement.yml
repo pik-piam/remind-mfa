@@ -3,7 +3,7 @@ model: 'cement'
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: 'rev1.3.0reconciliation1'
+  input_data_revision: 'rev1.3.0_rec_0.5'
   region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
   madrat_output_path: 'C:\Users\bennetwe\Documents\Code\madrat_outputfolder'
