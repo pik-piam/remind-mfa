@@ -164,8 +164,11 @@ class ZeroExtrapolation(ParameterExtrapolation):
     def description(self) -> str:
         return "Parameter is set to zero in the future."
 
+class ScenarioExtrapolation(ParameterExtrapolation):
+    """Base class for extrapolation methods that require scenario parameters in their constructor."""
+    pass
 
-class LinearToTargetExtrapolation(ParameterExtrapolation):
+class LinearToTargetExtrapolation(ScenarioExtrapolation):
     """Linearly interpolate to a future target value according to scenario settings."""
 
     def __init__(self, scenario_parameters: Dict[str, Number]):
@@ -200,7 +203,7 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
         return "Parameter is linearly interpolated to a future target value by a target year according to scenario settings."
 
 
-class SmoothScalingExtrapolation(ParameterExtrapolation):
+class SmoothScalingExtrapolation(ScenarioExtrapolation):
     """Future values are scaled by a factor that changes linearly to a target factor."""
 
     def __init__(self, scenario_parameters: Dict[str, Number]):
@@ -305,14 +308,8 @@ class ParameterExtrapolationManager:
         
         Classes that require scenario_parameters in their constructor will receive them.
         Other classes are instantiated with no arguments.
-        """
-        # Classes that require scenario_parameters
-        classes_requiring_scenario_params = (
-            LinearToTargetExtrapolation,
-            SmoothScalingExtrapolation,
-        )
-        
-        if issubclass(extrapolation_class, classes_requiring_scenario_params):
+        """      
+        if issubclass(extrapolation_class, ScenarioExtrapolation):
             if scenario_parameters is None:
                 raise ValueError(
                     f"scenario_parameters required for {extrapolation_class.__name__}"
