@@ -33,6 +33,14 @@ class ParameterExtrapolation(ABC):
         return new_param
 
     @staticmethod
+    def last_historic_year(param: fd.Parameter):
+        return param.dims["h"].items[-1]
+
+    @staticmethod
+    def last_value(param: fd.Parameter) -> fd.FlodymArray:
+        return param[{"h": ParameterExtrapolation.last_historic_year(param)}]
+
+    @staticmethod
     def initialize_empty_parameter(
         parameter: fd.Parameter, extended_time: fd.Dimension
     ) -> fd.Parameter:
@@ -62,12 +70,7 @@ class ConstantExtrapolation(ParameterExtrapolation):
             description=self.description,
         )
 
-        # get last historic value
-        last_historic_year = old_param.dims["h"].items[-1]
-        last_value = old_param[{"h": last_historic_year}]
-
-        # set values to last historic value
-        new_param[...] = last_value.cast_to(new_param.dims)
+        new_param[...] = self.last_value(old_param).cast_to(new_param.dims)
 
         return new_param
 
@@ -113,19 +116,14 @@ class LinearToTargetExtrapolation(ParameterExtrapolation):
             description=self.description,
         )
 
-        # get target from scenario parameters
         parameter_target = self.scenario_parameters[old_param.name]
         parameter_target_year = self.scenario_parameters[old_param.name + "_year"]
-        # get last historic value
-        last_historic_year = old_param.dims["h"].items[-1]
-        last_value = old_param[{"h": last_historic_year}]
-        # blend linearly from last historic value to target
         new_param[...] = blend(
             target_dims=new_param.dims,
-            y_lower=last_value,
+            y_lower=self.last_value(old_param),
             y_upper=parameter_target,
             x="t",
-            x_lower=last_historic_year,
+            x_lower=self.last_historic_year(old_param),
             x_upper=parameter_target_year,
             type="linear",
         )
@@ -177,9 +175,9 @@ class ParameterExtrapolationManager:
 
             self._ensure_historic_time_dimension(modified_parameters[param_name])
 
-            if extrapolation_class == LinearToTargetExtrapolation:
+            if issubclass(extrapolation_class, LinearToTargetExtrapolation):
                 if scenario_parameters is None:
-                    raise ValueError("scenario_parameters required for LinearToTargetExtrapolation")
+                    raise ValueError(f"scenario_parameters required for {extrapolation_class.__name__}")
                 extrapolation_instance = extrapolation_class(scenario_parameters)
             else:
                 extrapolation_instance = extrapolation_class()
