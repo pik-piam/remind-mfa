@@ -1,5 +1,6 @@
 import sys
 import logging
+from copy import deepcopy
 import numpy as np
 import flodym as fd
 from pydantic import model_validator, ConfigDict
@@ -365,17 +366,11 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
         self.future_trade.imports[...] = self.baseline_future_trade.imports
         self.future_trade.exports[...] = self.baseline_future_trade.exports
 
-        # demand delta for the fixed-supply region (summed over any extra dims to match trade dims)
-        trade_dims = self.future_trade.imports.dims
-        demand_dims_common = self.baseline_dom_demand.dims.intersect_with(trade_dims)
-        delta = (
-            (self.future_dom_demand - self.baseline_dom_demand)
-            .sum_to(demand_dims_common.letters)
-            .cast_to(trade_dims)
-        )
+        # demand delta for the fixed-supply region 
+        delta = self.future_dom_demand - self.baseline_dom_demand
         delta_r = delta[{"r": r}]
 
-        # apply trade adjustment for fixed-supply region
+        # Step 1: apply trade adjustment for fixed-supply region
         self.future_trade.imports[{"r": r}] = (
             self.baseline_future_trade.imports[{"r": r}] + alpha * delta_r
         )
@@ -383,8 +378,25 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
             self.baseline_future_trade.exports[{"r": r}] - (1.0 - alpha) * delta_r
         )
 
-        # re-balance global imports == exports
-        self.future_trade.balance(to="hmean")
+        # Step 2: balance trade by adjusting only non-EUR regions
+        #
+        # eu_import_origin_shares: each non-EUR region's share of non-EUR exports.
+        # Approximates where EUR imports originate (who exports to EUR).
+        non_eur_exports = deepcopy(self.baseline_future_trade.exports)
+        non_eur_exports[{"r": r}] = 0.0
+        eu_import_origin_shares = non_eur_exports.get_shares_over("r")
+
+        # eu_export_destination_shares: each non-EUR region's share of non-EUR imports.
+        # Approximates where EUR exports are destined (who imports from EUR).
+        non_eur_imports = deepcopy(self.baseline_future_trade.imports)
+        non_eur_imports[{"r": r}] = 0.0
+        eu_export_destination_shares = non_eur_imports.get_shares_over("r")
+
+        # EUR imports increase by alpha*delta_r  → non-EUR regions export more (to supply EUR)
+        # EUR exports decrease by (1-alpha)*delta_r → non-EUR regions import less (less supply from EUR)
+        # The EUR slice has zero share in both share arrays, so only non-EUR is affected.
+        self.future_trade.exports[...] += eu_import_origin_shares * alpha * delta_r
+        self.future_trade.imports[...] -= eu_export_destination_shares * (1.0 - alpha) * delta_r
 
         logging.info(
             f"FixedSupplyTradeExtrapolator: supply of '{r}' fixed to baseline. "

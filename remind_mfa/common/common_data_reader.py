@@ -1,8 +1,10 @@
 import os
 import glob
+import pickle
 import tarfile
 import pandas as pd
 import flodym as fd
+from typing import Optional
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
@@ -31,6 +33,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
         self.prepare_input_readers()
+        self.baseline_pickle_path = os.path.join(*(cfg.export.path, "pickle"), cfg.transience.baseline_pickle_path) if cfg.transience.baseline_pickle_path else None
 
     @property
     def shared_parameter_path(self) -> str:
@@ -186,6 +189,20 @@ class CommonDataReader(fd.CompoundDataReader):
                 raise ValueError(
                     f"Parameter file '{filename}' does not belong to selected model '{self.model_class}'."
                 )
+
+    def read_baseline_trade(self) -> dict:
+        """Load trade set from a baseline pickle file."""
+        with open(self.baseline_pickle_path, "rb") as fh:
+            baseline_model = pickle.load(fh)
+        baseline_trade = baseline_model.future_mfa.trade_set
+        return baseline_trade
+    
+    def read_baseline_flows(self) -> dict:
+        """Load flows dictionary from a baseline pickle file."""
+        with open(self.baseline_pickle_path, "rb") as fh:
+            baseline_model = pickle.load(fh)
+        baseline_flows = baseline_model.future_mfa.flows
+        return baseline_flows
 
     def get_dimension_dict(self, material_parameter_path: str) -> dict[str, str]:
         material_dimension_path = self.get_material_dimension_path(self.model_class)

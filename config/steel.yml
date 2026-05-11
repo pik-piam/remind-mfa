@@ -1,6 +1,10 @@
 model: 'steel'
 
-transience: True
+transience: 
+  transience_run: True
+  baseline_pickle_path: NULL
+  transience_scenario: 'baseline'
+  trade_scenario: 'default'
 
 input:
   force_extract_tgz: False

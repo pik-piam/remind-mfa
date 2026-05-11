@@ -53,7 +53,11 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def export_model_to_pickle(self, model: "CommonModel"):
         material = model.cfg.model.value
-        scenario = model.cfg.model_switches.scenario
+        if model.cfg.transience.transience_run == True:
+            transience = "_transience" + "_" + model.cfg.transience.transience_scenario + "_" + model.cfg.transience.trade_scenario
+        else:
+            transience = ""
+        scenario = model.cfg.model_switches.scenario + transience
         region_mapping = model.cfg.input.region_mapping
         datetime_str = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
         filename = f"model_{material}_{scenario}_{region_mapping}_{datetime_str}.pickle"

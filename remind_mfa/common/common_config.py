@@ -157,13 +157,24 @@ class InputCfg(RemindMFABaseModel):
     def validate_input_data_selector(self):
         self.input_data_revision = self._normalize_revision(self.input_data_revision)
         return self
+    
+
+class TransienceCfg(RemindMFABaseModel):
+    transience_run: bool = False
+    """Whether model run is a run with input data from other MIC3 models in the TRANSIENCE project."""
+    baseline_pickle_path: Optional[str] = None
+    """Name of the run to use as baseline for transience trade extrapolations."""
+    transience_scenario: str = "baseline"
+    """Name of the scenario to use. Must be one of 'baseline', 'ME', 'RU'."""
+    trade_scenario: str = "default"
+    """Name of the trade extrapolation scenario to use. Must be one of 'default', 'fix_supply'."""
 
 
 class CommonCfg(RemindMFABaseModel):
     model: ModelNames
     """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
-    transience: bool = False
-    """Whether the model is run with input data from other MIC3 models in the TRANSIENCE project."""
+    transience: TransienceCfg
+    """Configuration for runs with input data from other MIC3 models in the TRANSIENCE project."""
     input: InputCfg
     """Input data configuration."""
     model_switches: ModelSwitches

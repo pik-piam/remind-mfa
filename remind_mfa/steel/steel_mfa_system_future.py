@@ -68,7 +68,7 @@ class SteelMFASystem(CommonMFASystem):
         self.stocks["in_use"].compute()
         self.correct_negative_inflow("in_use")
 
-        if self.cfg.transience == True:
+        if self.cfg.transience.transience_run == True:
             # TODO extrapolate EU-MFA data or run MFA only until 2050
             self.demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"][{"r": "EUR"}]
             # store original inflow for comparison

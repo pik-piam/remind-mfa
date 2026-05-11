@@ -64,7 +64,7 @@ class CommonModel:
         stock_projection = self.get_long_term_stock()
 
         self.future_mfa = self.make_mfa(historic=False)
-        self.future_mfa.compute(stock_projection, historic_trade)
+        self.future_mfa.compute(stock_projection, historic_trade, self.baseline_trade, self.baseline_flows)
 
     def export(self):
         self.data_writer.export(model=self)
@@ -88,6 +88,12 @@ class CommonModel:
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
+        if self.cfg.transience.baseline_pickle_path is not None:
+            self.baseline_trade = self.data_reader.read_baseline_trade()
+            self.baseline_flows = self.data_reader.read_baseline_flows()
+        else:
+            self.baseline_trade = None
+            self.baseline_flows = None
 
     def check_parameters(self, exceptions: Optional[list] = None, raise_error: bool = False):
         """Check if all parameters are free of NaN and negative values after data read-in."""
@@ -277,10 +283,9 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
-        self.sector_specific_sat_level = (
-            sector_specific_sat_level * time_factor
-        )  # to be used in visualization of extrapolation functions
-        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
+        self.time_factor = time_factor  # store for later use in visualization
+        self.sector_specific_sat_level = sector_specific_sat_level # store for later use in visualization
+        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level * self.time_factor
 
         self.apply_scenario_factor(array=long_term_stock, scen_prm_name="stock_factor")
 
