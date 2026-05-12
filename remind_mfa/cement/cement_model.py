@@ -71,6 +71,9 @@ class CementModel(CommonModel):
         self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
         self.td_hist_mfa_reconciled.compute()
 
+        # save reconciled historic mfa for reconciled stock extrapolation
+        self.historic_mfa = self.td_hist_mfa_reconciled
+
         # apply scenarios to parameters for future mfa (as in common model)
         # 1. extend historic parameters into future
         self.parameters = ParameterExtrapolationManager(
