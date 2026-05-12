@@ -182,7 +182,6 @@ class CommonParameterReconciliation:
             self.S_matrices = {}
 
         for prm_name in relevant_params:
-            logging.info(f"Calculating sensitivity for parameter: {prm_name}")
             S_mat = self.calc_sensitivity(f, f0, prm_name, denominator=denominator)
             if prm_name in self.S_matrices:
                 # TODO double check if that makes sense
@@ -415,25 +414,24 @@ class CommonParameterReconciliation:
             ),
             "function_buildings_split": 0.2,
             "structure_buildings_split": 0.2,
-            "floorspace": 1.0,
+            "floorspace": 0.4,
             # TD parameters
             "cement_losses": 0.2,
-            "cement_production": 0.01,
+            "cement_production": 0.0,
             "cement_ratio": 0.1,
-            "cement_trade": 0.0,
             "product_material_split": 0.4,
             "stock_type_split": 0.5,
-            "use_lifetime_mean": 0.6,
-            "use_lifetime_rel_std": 0.4,
+            "lifetime_mean": 0.4,
+            "lifetime_std": 0.0,
         }
 
         out = rel_std.get(prm_name)
         if out is None:
-            # logging.warning(
-            #     "Relative standard deviation missing for %s; using default %f",
-            #     prm_name,
-            #     default_rel_std,
-            # )
+            logging.warning(
+                "Relative standard deviation missing for %s; using default %f",
+                prm_name,
+                default_rel_std,
+            )
             out = default_rel_std
 
         if isinstance(out, (float, int)):
@@ -493,10 +491,8 @@ class CommonParameterReconciliation:
         """
         # TODO find better way to know which parameters need normalization and along which dimensions
         normalization_dims = {
-            "building_split": (
-                "Structure",
-                "Function",
-            ),
+            "structure_buildings_split": ("Structure",),
+            "function_buildings_split": ("Function",),
             "product_material_split": ("Product Material",),
             "stock_type_split": ("Stock Type",),
         }
