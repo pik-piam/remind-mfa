@@ -61,6 +61,10 @@ class CommonModel:
         # 2. adjust future parameters based on scenario
         self.apply_scenario_adjustments_to_parameters()
 
+        # compute parameter modifications for transience
+        if self.cfg.transience.transience_run:
+            self.compute_transience_parameters()
+
         stock_projection = self.get_long_term_stock()
 
         self.future_mfa = self.make_mfa(historic=False)
@@ -141,6 +145,10 @@ class CommonModel:
 
     def modify_parameters(self):
         """Manual changes to parameters"""
+        pass
+
+    def compute_transience_parameters(self):
+        """Calculate parameters for EU region for transience based on flows from EU-MFA"""
         pass
 
     def apply_scenario_adjustments_to_parameters(self):

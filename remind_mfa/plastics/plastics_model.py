@@ -56,3 +56,33 @@ class PlasticsModel(CommonModel):
         ]
         # get good split of stock inflow from historic MFA and use this to calculate the stock sector split in common model
         # self.parameters["sector_split_limit"] = self.historic_mfa.parameters["good_shares_use_inflow"][self.historic_mfa.dims["h"].items[-1]]
+
+    def compute_transience_parameters(self):
+        self.parameters["collection_rate_EU-MFA"] = fd.Parameter(
+            dims=self.dims["u", "r", "n", "f"],
+            values=(self.parameters["collected_eol_EU-MFA"]/self.parameters["stock_outflow_EU-MFA"]).values,
+        )
+        self.parameters["mechanical_recycling_rate_EU-MFA"] = fd.Parameter(
+            dims=self.dims["u", "r", "n"],
+            values=(self.parameters["sorted_eol_EU-MFA"].sum_to(("u", "r", "n"))/self.parameters["collected_eol_EU-MFA"].sum_to(("u", "r", "n"))).values,
+        )
+        self.parameters["mechanical_recycling_yield_EU-MFA"] = fd.Parameter(
+            dims=self.dims["u", "r", "n"],
+            values=(self.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))/self.parameters["sorted_eol_EU-MFA"].sum_to(("u", "r", "n"))).values,
+        )
+        # adjust dimensions of REMIND-MFA rates and replace EU region with EU-MFA rates
+        self.parameters["collection_rate"] = fd.Parameter(
+            dims=self.dims["t", "r", "m", "g"],
+            values=self.parameters["collection_rate"].cast_to(self.dims["t", "r", "m", "g"]).values,
+        )
+        self.parameters["collection_rate"][{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}] = self.parameters["collection_rate_EU-MFA"]
+        self.parameters["mechanical_recycling_rate"] = fd.Parameter(
+            dims=self.dims["t", "r", "m"],
+            values=self.parameters["mechanical_recycling_rate"].cast_to(self.dims["t", "r", "m"]).values,
+        )
+        self.parameters["mechanical_recycling_rate"][{"r": "EU27+3", "m": self.dims["n"], "t": self.dims["u"]}] = self.parameters["mechanical_recycling_rate_EU-MFA"]
+        self.parameters["mechanical_recycling_yield"] = fd.Parameter(
+            dims=self.dims["t", "r", "m"],
+            values=self.parameters["mechanical_recycling_yield"].cast_to(self.dims["t", "r", "m"]).values,
+        )
+        self.parameters["mechanical_recycling_yield"][{"r": "EU27+3", "m": self.dims["n"], "t": self.dims["u"]}] = self.parameters["mechanical_recycling_yield_EU-MFA"]

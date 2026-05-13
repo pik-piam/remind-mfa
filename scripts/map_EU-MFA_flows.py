@@ -7,7 +7,7 @@ import argparse
 
 MATERIALS = ['plastics', 'steel']
 FLOWS_BY_MATERIAL = {
-    'plastics': ['demand', 'collected_eol'],
+    'plastics': ['demand', 'stock_outflow', 'collected_eol', 'sorted_eol', 'recycled_eol'],
     'steel': ['demand', 'collected_eol', 'lost_eol', 'scrap'],
 }
 SCENARIOS = ['baseline', 'test']
@@ -25,17 +25,26 @@ def run_combination(material: str, flow: str, scenario: str):
     REF_DIR = Path("../remind_mfa_data/transience/reference")
     if material == 'plastics':
         DATA_DIR = Path("data/plastics/input/transience") / scenario
-        MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_plastics.csv"
+        MAPPING_FILE = Path("data/plastics/input/transience/EU_MFA_mapping_plastics.csv")
         if flow == 'demand':
             INPUT_FILE  = DATA_DIR / "plastics_market__end_use_stock.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
+        elif flow == 'stock_outflow':
+            INPUT_FILE  = DATA_DIR / "end_use_stock__waste_collection.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "pl_stock_outflow_EU-MFA.cs4r"
         elif flow == 'collected_eol':
             INPUT_FILE  = DATA_DIR / "waste_collection__waste_sorting.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_collected_eol_EU-MFA.cs4r"
+        elif flow == 'sorted_eol':
+            INPUT_FILE  = DATA_DIR / "waste_sorting__sorted_waste_market.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "pl_sorted_eol_EU-MFA.cs4r"
+        elif flow == 'recycled_eol':
+            INPUT_FILE  = DATA_DIR / "recycling__recyclate_sysenv.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "pl_recycled_eol_EU-MFA.cs4r"
         DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
     elif material == 'steel':
         DATA_DIR = Path("data/steel/input/transience") / scenario
-        MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_steel.csv"
+        MAPPING_FILE = Path("data/steel/input/transience/EU_MFA_mapping_steel.csv")
         if flow == 'demand':
             INPUT_FILE  = DATA_DIR / "steel_goods_market__end_use_stock.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
@@ -61,7 +70,15 @@ def run_combination(material: str, flow: str, scenario: str):
             eu_subregions = ["Germany", "West", "South", "North", "East"]
             df1 = df1[df1.Region.isin(eu_subregions)].copy()
             df1["Region"] = "EU27+3"
-        df1 = df1[df1.Region == "EU27+3"].copy()
+        elif flow == "sorted_eol": # currently, only mechanical recycling to granulate is considered
+            df1 = df1[df1.waste_category == "Mechanical recycling"].copy()
+        elif flow == "recycled_eol": # currently, only mechanical recycling to granulate is considered
+            df1 = df1[df1.secondary_raw_material == "Granulate"].copy()
+        if flow == "sorted_eol" or flow == "recycled_eol":
+            df1 = df1[df1.Region == "Intra-EU27+3"].copy() # sorting and recycling rates are given for within EU27+3 and RoW...
+            df1.loc[:, "Region"] = "EU27+3"
+        else:
+            df1 = df1[df1.Region == "EU27+3"].copy()
     elif material == "steel":
         df1 = df1[df1.Region == "EU27+1"].copy()
         df1.loc[:, "Region"] = "EUR"

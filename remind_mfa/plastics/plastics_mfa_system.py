@@ -56,22 +56,39 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["in_use"].lifetime_model.n_pts_per_interval = 10
+        self.stocks["in_use"].compute()
         
         if self.cfg.transience.transience_run == True:
+            # store original inflow for comparison
+            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}]
+            # Replace with EU-MFA data 
             # TODO extrapolate EU-MFA data or run MFA only until 2060
             demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"] * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
             self.demand_EU_MFA = demand_EU_MFA[{"r": "EU27+3"}]
-            # store original inflow for comparison
-            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}]
-            # Replace with EU-MFA data
             self.stocks["in_use"].inflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
-            rel_difference = self.demand_EU_MFA/self.demand_REMIND_MFA
-            logging.warning(
-                f"TRANSIENCE mode is on. In-use stock inflow for EU27+3 region is not computed from stock projection, but taken from EU-MFA. "
-                f"EU-MFA demand differs from original REMIND_MFA demand by a factor of: {np.min(rel_difference.values)} to {np.max(rel_difference.values)} "
+            self.stocks["in_use"].compute()
+            # store original outflow (generated from EU-MFA inflow and REMIND-MFA lifetime model) for comparison
+            self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}]
+            # Replace with EU-MFA data
+            stock_outflow_EU_MFA = self.parameters["stock_outflow_EU-MFA"] * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
+            self.stock_outflow_EU_MFA = stock_outflow_EU_MFA[{"r": "EU27+3"}]
+            inflow = self.stocks["in_use"].inflow
+            outflow = self.stocks["in_use"].outflow
+            self.stocks["in_use"] = fd.SimpleFlowDrivenStock(
+                dims=self.stocks["in_use"].dims,
+                lifetime_model=self.stocks["in_use"].lifetime_model,
+                name=self.stocks["in_use"].name,
+                process=self.stocks["in_use"].process,
             )
-        
-        self.stocks["in_use"].compute()
+            self.stocks["in_use"].inflow[...] = inflow
+            self.stocks["in_use"].inflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
+            self.stocks["in_use"].outflow[...] = outflow
+            self.stocks["in_use"].outflow[{"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}] = self.stock_outflow_EU_MFA
+            self.stocks["in_use"].compute()
+            logging.warning(
+                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for EU27+3 region are not computed from stock projection, but taken from EU-MFA. "
+                f"The stock is calculated as a simple flow-driven stock. "
+            )
 
     def compute_flows(self, historic_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict):
 

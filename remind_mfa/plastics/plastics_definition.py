@@ -94,7 +94,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             # use stage
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","m","g")),
             # end-of-life stages
-            fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","m","g")),
             fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="reclmech", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="reclchem", dim_letters=("t","e","r","m")),
@@ -225,10 +225,18 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("u", "r", "n", "f"),
                                      description="Stock inflow for EU27+3",
                                      scenario_folder="transience",),
+        RemindMFAParameterDefinition(name="stock_outflow_EU-MFA", dim_letters=("u", "r", "n", "f"),
+                                     description="Stock outflow for EU27+3",
+                                     scenario_folder="transience",),
         RemindMFAParameterDefinition(name="collected_eol_EU-MFA", dim_letters=("u", "r", "n", "f"),
                                      description="Collected EOL plastics for EU27+3",
-                                     scenario_folder="transience",
-        ),
+                                     scenario_folder="transience",),
+        RemindMFAParameterDefinition(name="sorted_eol_EU-MFA", dim_letters=("u", "r", "n", "f"),
+                                     description="Sorted EOL plastics for EU27+3",
+                                     scenario_folder="transience",),
+        RemindMFAParameterDefinition(name="recycled_eol_EU-MFA", dim_letters=("u", "r", "n", "f"),
+                                     description="Recycled EOL plastics for EU27+3",
+                                     scenario_folder="transience",),
     ]
     # fmt: on
 
