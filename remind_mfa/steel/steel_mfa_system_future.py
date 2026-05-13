@@ -3,7 +3,7 @@ import numpy as np
 import logging
 
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.trade_extrapolation import TradeExtrapolator
+from remind_mfa.common.trade_extrapolation import TradeExtrapolator, FixedSupplyTradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.steel.steel_config import SteelCfg
@@ -13,12 +13,12 @@ class SteelMFASystem(CommonMFASystem):
 
     cfg: SteelCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
+    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict):
         """
         Perform all computations for the MFA system.
         """
         self.compute_in_use_stock(stock_projection)
-        self.compute_flows(historic_trade)
+        self.compute_flows(historic_trade, baseline_trade, baseline_flows)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
@@ -91,7 +91,7 @@ class SteelMFASystem(CommonMFASystem):
                 f"EU-MFA demand differs from original REMIND_MFA demand by a factor of: {np.min(rel_difference.values)} to {np.max(rel_difference.values)} "
             )
 
-    def compute_flows(self, historic_trade: TradeSet):
+    def compute_flows(self, historic_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict):
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
@@ -114,11 +114,21 @@ class SteelMFASystem(CommonMFASystem):
         flw["good_market => use"][...] = stk["in_use"].inflow
         # Pre-use
 
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["indirect"],
-            future_trade=trd["indirect"],
-            future_dom_demand=flw["good_market => use"],
-        )
+        if self.cfg.transience.trade_scenario == "fix_supply":
+            if self.cfg.transience.baseline_pickle_path is None:
+                raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
+            extrapolator = FixedSupplyTradeExtrapolator(
+                baseline_future_trade = baseline_trade["indirect"],
+                future_trade = self.trade_set["indirect"],
+                baseline_dom_demand = baseline_flows["good_market => use"],
+                future_dom_demand = flw["good_market => use"],
+            )
+        else:
+            extrapolator = TradeExtrapolator(
+                historic_trade=historic_trade["indirect"],
+                future_trade=trd["indirect"],
+                future_dom_demand=flw["good_market => use"],
+            )
         extrapolator.run()
 
         flw["imports => good_market"][...] = trd["indirect"].imports
@@ -130,11 +140,21 @@ class SteelMFASystem(CommonMFASystem):
         flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
         flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
 
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["steel"],
-            future_trade=trd["steel"],
-            future_dom_demand=flw["ip_market => fabrication"],
-        )
+        if self.cfg.transience.trade_scenario == "fix_supply":
+            if self.cfg.transience.baseline_pickle_path is None:
+                raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
+            extrapolator = FixedSupplyTradeExtrapolator(
+                baseline_future_trade = baseline_trade["steel"],
+                future_trade = self.trade_set["steel"],
+                baseline_dom_demand = baseline_flows["ip_market => fabrication"],
+                future_dom_demand = flw["ip_market => fabrication"],
+            )
+        else:
+            extrapolator = TradeExtrapolator(
+                historic_trade=historic_trade["steel"],
+                future_trade=trd["steel"],
+                future_dom_demand=flw["ip_market => fabrication"],
+            )
         extrapolator.run()
 
         flw["imports => ip_market"][...] = trd["steel"].imports

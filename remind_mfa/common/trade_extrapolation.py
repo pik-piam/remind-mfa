@@ -385,12 +385,14 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
         non_eur_exports = deepcopy(self.baseline_future_trade.exports)
         non_eur_exports[{"r": r}] = 0.0
         eu_import_origin_shares = non_eur_exports.get_shares_over("r")
+        eu_import_origin_shares.values[np.isnan(eu_import_origin_shares.values)] = 0.0
 
         # eu_export_destination_shares: each non-EUR region's share of non-EUR imports.
         # Approximates where EUR exports are destined (who imports from EUR).
         non_eur_imports = deepcopy(self.baseline_future_trade.imports)
         non_eur_imports[{"r": r}] = 0.0
         eu_export_destination_shares = non_eur_imports.get_shares_over("r")
+        eu_export_destination_shares.values[np.isnan(eu_export_destination_shares.values)] = 0.0
 
         # EUR imports increase by alpha*delta_r  → non-EUR regions export more (to supply EUR)
         # EUR exports decrease by (1-alpha)*delta_r → non-EUR regions import less (less supply from EUR)
