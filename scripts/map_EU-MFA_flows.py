@@ -5,53 +5,64 @@ sys.path.insert(0, str(Path(__file__).parent))
 from backcast_by_reference import backcast_by_reference
 import argparse
 
+MATERIALS = ['plastics', 'steel']
+FLOWS_BY_MATERIAL = {
+    'plastics': ['demand', 'collected_eol'],
+    'steel': ['demand', 'collected_eol', 'lost_eol', 'scrap'],
+}
+SCENARIOS = ['baseline', 'test']
+
 parser = argparse.ArgumentParser()
-parser.add_argument('material', choices=['plastics', 'steel'], nargs='?', default='plastics',
-                    help='Material to process')
-parser.add_argument('flow', choices=['demand', 'collected_eol', 'lost_eol', 'scrap'], nargs='?', default='demand',
-                    help='Flow to process')
+parser.add_argument('material', choices=MATERIALS, nargs='?', default=None,
+                    help='Material to process (default: all materials)')
+parser.add_argument('scenario', choices=SCENARIOS, nargs='?', default='baseline',
+                    help='Scenario to process (default: baseline)')
 args = parser.parse_args()
 
-OUTPUT_DIR = Path("../remind_mfa_data/input_data")
-if args.material == 'plastics':
-    DATA_DIR = Path("data/plastics/input")
-    MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_plastics.csv"
-    if args.flow == 'demand':
-        INPUT_FILE   = DATA_DIR / "plastics_market__end_use_stock.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
-    elif args.flow == 'collected_eol':
-        INPUT_FILE   = DATA_DIR / "waste_collection__waste_sorting.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "pl_collected_eol_EU-MFA.cs4r"
-    DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
-elif args.material == 'steel':
-    DATA_DIR = Path("data/steel/input")
-    MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_steel.csv"
-    if args.flow == 'demand':
-        INPUT_FILE   = DATA_DIR / "steel_goods_market__end_use_stock.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
-    elif args.flow == 'collected_eol':
-        INPUT_FILE   = DATA_DIR / "end_use_stock__waste_management.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "st_collected_eol_EU-MFA.cs4r"
-    elif args.flow == 'lost_eol':
-        INPUT_FILE   = DATA_DIR / "end_use_stock__sysenv.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "st_lost_eol_EU-MFA.cs4r"
-    elif args.flow == 'scrap':
-        INPUT_FILE   = DATA_DIR / "waste_management__available_scrap_sysenv.csv"
-        OUTPUT_FILE  = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
-    DIMENSION_DIR = Path("../remind_mfa_data/dimensions/steel")
 
-def main():
+def run_combination(material: str, flow: str, scenario: str):
+    OUTPUT_DIR = Path("../remind_mfa_data/transience") / scenario
+    REF_DIR = Path("../remind_mfa_data/transience/reference")
+    if material == 'plastics':
+        DATA_DIR = Path("data/plastics/input/transience") / scenario
+        MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_plastics.csv"
+        if flow == 'demand':
+            INPUT_FILE  = DATA_DIR / "plastics_market__end_use_stock.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
+        elif flow == 'collected_eol':
+            INPUT_FILE  = DATA_DIR / "waste_collection__waste_sorting.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "pl_collected_eol_EU-MFA.cs4r"
+        DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
+    elif material == 'steel':
+        DATA_DIR = Path("data/steel/input/transience") / scenario
+        MAPPING_FILE = DATA_DIR / "EU_MFA_mapping_steel.csv"
+        if flow == 'demand':
+            INPUT_FILE  = DATA_DIR / "steel_goods_market__end_use_stock.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
+        elif flow == 'collected_eol':
+            INPUT_FILE  = DATA_DIR / "end_use_stock__waste_management.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "st_collected_eol_EU-MFA.cs4r"
+        elif flow == 'lost_eol':
+            INPUT_FILE  = DATA_DIR / "end_use_stock__sysenv.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "st_lost_eol_EU-MFA.cs4r"
+        elif flow == 'scrap':
+            INPUT_FILE  = DATA_DIR / "waste_management__available_scrap_sysenv.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
+        DIMENSION_DIR = Path("../remind_mfa_data/dimensions/steel")
+
+    print(f"\n=== {material} / {flow} / {scenario} ===")
+
     # --- load and filter ---
     df1 = pd.read_csv(INPUT_FILE, sep=",")
     df1 = df1.rename(columns={"time": "Time", "region": "Region"})
     df1 = df1[df1.element == "All"].copy() # only consider total flows, no Cu contamination flow for steel
-    if args.material == "plastics":
-        if args.flow == "collected_eol": # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
+    if material == "plastics":
+        if flow == "collected_eol": # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
             eu_subregions = ["Germany", "West", "South", "North", "East"]
             df1 = df1[df1.Region.isin(eu_subregions)].copy()
             df1["Region"] = "EU27+3"
         df1 = df1[df1.Region == "EU27+3"].copy()
-    elif args.material == "steel":
+    elif material == "steel":
         df1 = df1[df1.Region == "EU27+1"].copy()
         df1.loc[:, "Region"] = "EUR"
     df1["value"] = df1["value"] * 1000          # kt -> t
@@ -59,7 +70,7 @@ def main():
     # --- load mapping ---
     mapping = pd.read_csv(MAPPING_FILE, sep=";")
 
-    if args.material == "plastics":
+    if material == "plastics":
         # --- map polymers -> Material ---
         polymer_map = mapping[mapping.original_dimension == "polymers"][
             ["original_element", "target_element"]
@@ -101,13 +112,13 @@ def main():
 
         # --- load reference (Historic Time, Region, Good, value) ---
         ref = pd.read_csv(
-            OUTPUT_DIR / "pl_consumption.cs4r",
+            REF_DIR / "pl_consumption.cs4r",
             comment="*", header=None,
             names=["Time", "Region", "Good", "value"],
         )
         
-    elif args.material == "steel":
-        if args.flow == "scrap":
+    elif material == "steel":
+        if flow == "scrap":
             # --- aggregate ---
             df_EU_MFA = (
                 df1.groupby(["Time", "Region"], as_index=False)["value"]
@@ -141,7 +152,7 @@ def main():
 
         # --- load reference (Historic Time, Region, Good, value) ---
         ref = pd.read_csv(
-            OUTPUT_DIR / "st_production.cs4r",
+            REF_DIR / "st_production.cs4r",
             comment="*", header=None,
             names=["Time", "Region", "value"],
         )
@@ -170,12 +181,12 @@ def main():
         for t in time:
             f.write(f"{t}\n")
     # save Good dimension
-    if args.flow != "scrap":  # scrap flow has no Good dimension
+    if flow != "scrap":  # scrap flow has no Good dimension
         goods = df_backcasted["Good"].dropna().unique()
         with open(DIMENSION_DIR / "eu_mfa_goods.csv", "w") as f:
             for g in goods:
                 f.write(f"{g}\n")
-    if args.material == "plastics":
+    if material == "plastics":
         # save Material dimension
         materials = df_backcasted["Material"].dropna().unique()
         with open(DIMENSION_DIR / "eu_mfa_materials.csv", "w") as f:
@@ -183,7 +194,9 @@ def main():
                 f.write(f"{m}\n")
     print(f"Saved dimensions to {DIMENSION_DIR}")
 
+
 if __name__ == "__main__":
-    main()
-
-
+    materials = [args.material] if args.material else MATERIALS
+    for material in materials:
+        for flow in FLOWS_BY_MATERIAL[material]:
+            run_combination(material, flow, args.scenario)

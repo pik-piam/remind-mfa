@@ -223,9 +223,11 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="GDP per capita",),
         # for TRANSIENCE: output parameters from other MIC3 models
         RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("u", "r", "n", "f"),
-                                     description="Stock inflow for EU27+3",),
+                                     description="Stock inflow for EU27+3",
+                                     scenario_folder="transience",),
         RemindMFAParameterDefinition(name="collected_eol_EU-MFA", dim_letters=("u", "r", "n", "f"),
                                      description="Collected EOL plastics for EU27+3",
+                                     scenario_folder="transience",
         ),
     ]
     # fmt: on

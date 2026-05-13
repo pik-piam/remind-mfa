@@ -3,8 +3,8 @@ model: 'plastics'
 transience: 
   transience_run: True
   baseline_pickle_path: 'model_plastics_SSP2_transience_baseline_default_2c0a4149_2026-05-11--18-27-20.pickle'
-  transience_scenario: 'test'
-  trade_scenario: 'fix_supply'
+  transience_scenario: 'baseline'
+  trade_scenario: 'default'
 
 input:
   force_extract_tgz: False

@@ -32,6 +32,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
+        self.transience_scenario = cfg.transience.transience_scenario
         self.prepare_input_readers()
         self.baseline_pickle_path = os.path.join(*(cfg.export.path, "pickle"), cfg.transience.baseline_pickle_path) if cfg.transience.baseline_pickle_path else None
 
@@ -166,14 +167,29 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def validate_parameter_files(self, parameter_files: dict[str, str]):
         """Validate that all expected parameter files for the selected model exist."""
-        missing = [name for name, path in parameter_files.items() if not os.path.exists(path)]
-        if missing:
+        # Separate shared parameters from scenario-specific ones.
+        # Scenario-specific parameters have their own folder and are only checked for existence.
+        scenario_param_names = {
+            p.name for p in self.definition.parameters if p.scenario_folder is not None
+        }
+        shared_files = {k: v for k, v in parameter_files.items() if k not in scenario_param_names}
+        scenario_files = {k: v for k, v in parameter_files.items() if k in scenario_param_names}
+
+        missing_shared = [name for name, path in shared_files.items() if not os.path.exists(path)]
+        if missing_shared:
             raise FileNotFoundError(
                 "Missing parameter files in shared input_data folder for model "
-                f"'{self.model_class}': {missing}"
+                f"'{self.model_class}': {missing_shared}"
             )
 
-        for filepath in parameter_files.values():
+        missing_scenario = [name for name, path in scenario_files.items() if not os.path.exists(path)]
+        if missing_scenario:
+            raise FileNotFoundError(
+                f"Missing scenario-specific parameter files for model '{self.model_class}', "
+                f"scenario '{self.transience_scenario}': {missing_scenario}"
+            )
+
+        for filepath in shared_files.values():
             filename = os.path.basename(filepath)
             if "_" not in filename:
                 raise ValueError(
@@ -228,10 +244,21 @@ class CommonDataReader(fd.CompoundDataReader):
         material_prefix = prefix_from_module(self.model_class)
         parameter_files = {}
         for parameter in self.definition.parameters:
-            material_specific_file = os.path.join(
-                material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
-            )
-            parameter_files[parameter.name] = material_specific_file
+            if parameter.scenario_folder is not None:
+                # scenario-specific parameter: read from input_data/<scenario_folder>/<scenario>/
+                scenario_path = os.path.join(
+                    self.input_data_path,
+                    parameter.scenario_folder,
+                    self.transience_scenario,
+                )
+                filepath = os.path.join(
+                    scenario_path, f"{material_prefix}_{parameter.name}.cs4r"
+                )
+            else:
+                filepath = os.path.join(
+                    material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
+                )
+            parameter_files[parameter.name] = filepath
 
         return parameter_files
 

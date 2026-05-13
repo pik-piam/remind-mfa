@@ -2,7 +2,7 @@ model: 'steel'
 
 transience: 
   transience_run: True
-  baseline_pickle_path: NULL
+  baseline_pickle_path: 'model_steel_SSP2_transience_baseline_default_h12_2026-05-13--09-18-17.pickle'
   transience_scenario: 'baseline'
   trade_scenario: 'default'
 

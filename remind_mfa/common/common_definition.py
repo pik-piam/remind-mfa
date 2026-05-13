@@ -12,6 +12,10 @@ class RemindMFAParameterDefinition(fd.ParameterDefinition):
 
     description: Optional[str] = None
     """Description of the parameter."""
+    scenario_folder: Optional[str] = None
+    """If set, the parameter file is read from ``input_data/<scenario_folder>/<scenario>/``
+    instead of the shared ``input_data/`` directory, where ``<scenario>`` comes from
+    ``cfg.transience.transience_scenario``. Use this for parameters that differ between transience scenarios."""
 
 
 class RemindMFADefinition(fd.MFADefinition):
