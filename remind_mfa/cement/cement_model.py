@@ -120,7 +120,7 @@ class CementModel(CommonModel):
 
         self.parameter_reconciliation = CementParameterReconciliation(
             ref_mfa=ref_mfa,
-            uncoupled=True,
+            output_dims_are_independent=True,
         )
         self.parameters = self.parameter_reconciliation.correct_parameters(
             max_iter=max_iter,

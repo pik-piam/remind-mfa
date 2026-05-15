@@ -18,8 +18,19 @@ class CementParameterReconciliation:
     def __init__(
         self,
         ref_mfa: CommonMFASystem,
-        uncoupled: bool = False,
+        output_dims_are_independent: bool = False,
     ):
+        """
+        Initialize the parameter reconciliation.
+
+        Args:
+            ref_mfa: The reference MFA system providing parameters, flows, stocks, and dimensions.
+            output_dims_are_independent: If True, assumes that dimensions shared between a
+                parameter and the reconciliation output are independent across their values
+                (e.g., changing a parameter for region EU does not affect the output for Asia).
+                This allows a more efficient block-diagonal Jacobian computation instead of
+                building the full output × parameter matrix.
+        """
         self.ref_mfa = ref_mfa
         self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
 
@@ -29,8 +40,7 @@ class CementParameterReconciliation:
         # parameters will get one correction factor across all time steps.
         self._no_correction_dim_letters = ("t", "h")  # instead of df/dx, now calculating df/dd
 
-        self.output_dims_are_independent = uncoupled
-        # NB this does not mean that all parameter dimensions are independent, only that output dimensions, if existant in parameters
+        self.output_dims_are_independent = output_dims_are_independent
 
         # TODO set and skip over known sensitivity parameters
         # TODO check if I can use [...] more for flodym arrays to avoid dimension issues
