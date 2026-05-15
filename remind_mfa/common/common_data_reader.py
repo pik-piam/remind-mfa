@@ -167,29 +167,14 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def validate_parameter_files(self, parameter_files: dict[str, str]):
         """Validate that all expected parameter files for the selected model exist."""
-        # Separate shared parameters from scenario-specific ones.
-        # Scenario-specific parameters have their own folder and are only checked for existence.
-        scenario_param_names = {
-            p.name for p in self.definition.parameters if p.scenario_folder is not None
-        }
-        shared_files = {k: v for k, v in parameter_files.items() if k not in scenario_param_names}
-        scenario_files = {k: v for k, v in parameter_files.items() if k in scenario_param_names}
-
-        missing_shared = [name for name, path in shared_files.items() if not os.path.exists(path)]
-        if missing_shared:
+        missing = [name for name, path in parameter_files.items() if not os.path.exists(path)]
+        if missing:
             raise FileNotFoundError(
                 "Missing parameter files in shared input_data folder for model "
-                f"'{self.model_class}': {missing_shared}"
+                f"'{self.model_class}': {missing}"
             )
 
-        missing_scenario = [name for name, path in scenario_files.items() if not os.path.exists(path)]
-        if missing_scenario:
-            raise FileNotFoundError(
-                f"Missing scenario-specific parameter files for model '{self.model_class}', "
-                f"scenario '{self.transience_scenario}': {missing_scenario}"
-            )
-
-        for filepath in shared_files.values():
+        for filepath in parameter_files.values():
             filename = os.path.basename(filepath)
             if "_" not in filename:
                 raise ValueError(
