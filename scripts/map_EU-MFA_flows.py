@@ -66,19 +66,16 @@ def run_combination(material: str, flow: str, scenario: str):
     df1 = df1.rename(columns={"time": "Time", "region": "Region"})
     df1 = df1[df1.element == "All"].copy() # only consider total flows, no Cu contamination flow for steel
     if material == "plastics":
-        if flow == "collected_eol": # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
+        if flow == "collected_eol" or flow == "sorted_eol" or flow == "recycled_eol": 
+            # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
             eu_subregions = ["Germany", "West", "South", "North", "East"]
             df1 = df1[df1.Region.isin(eu_subregions)].copy()
             df1["Region"] = "EU27+3"
-        elif flow == "sorted_eol": # currently, only mechanical recycling to granulate is considered
+        if flow == "sorted_eol": # currently, only mechanical recycling to granulate is considered
             df1 = df1[df1.waste_category == "Mechanical recycling"].copy()
-        elif flow == "recycled_eol": # currently, only mechanical recycling to granulate is considered
+        if flow == "recycled_eol": # currently, only mechanical recycling to granulate is considered
             df1 = df1[df1.secondary_raw_material == "Granulate"].copy()
-        if flow == "sorted_eol" or flow == "recycled_eol":
-            df1 = df1[df1.Region == "Intra-EU27+3"].copy() # sorting and recycling rates are given for within EU27+3 and RoW...
-            df1.loc[:, "Region"] = "EU27+3"
-        else:
-            df1 = df1[df1.Region == "EU27+3"].copy()
+        df1 = df1[df1.Region == "EU27+3"].copy()
     elif material == "steel":
         df1 = df1[df1.Region == "EU27+1"].copy()
         df1.loc[:, "Region"] = "EUR"
@@ -175,6 +172,19 @@ def run_combination(material: str, flow: str, scenario: str):
         )
 
     # --- backcast: extend df_EU_MFA into historic years using ref ---
+    last_ref_year = ref["Time"].max()
+    first_flow_year = df_EU_MFA["Time"].min()
+
+    if first_flow_year > last_ref_year:
+        # EU-MFA starts after last historic year → fill the gap [last_ref_year, first_flow_year)
+        # by holding the first EU-MFA value constant, so backcast_by_reference has an anchor point
+        first_rows = df_EU_MFA[df_EU_MFA["Time"] == first_flow_year].copy()
+        gap_years = range(last_ref_year, first_flow_year)  # includes last_ref_year, excludes first_flow_year
+        extensions = [first_rows.assign(Time=y) for y in gap_years]
+        df_EU_MFA = pd.concat([pd.concat(extensions), df_EU_MFA], ignore_index=True)
+        df_EU_MFA = df_EU_MFA.sort_values("Time").reset_index(drop=True)
+        print(f"WARNING: mapped flow starts in {first_flow_year}, but reference data only goes up to {last_ref_year}. Filled gap years {last_ref_year}–{first_flow_year - 1} by holding EU-MFA value at {first_flow_year} constant. backcast_by_reference will extrapolate further into the past.")
+
     df_backcasted = backcast_by_reference(
         x=df_EU_MFA,
         ref=ref,
