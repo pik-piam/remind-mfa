@@ -173,7 +173,7 @@ class CementModel(CommonModel):
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
             prediction=reduced_bu_stock.values,
-            # TODO set lifetime here,
+            # lifetime independent blend,
         )
         blended_stock = fd.FlodymArray.full_like(
             other=reduced_bu_stock,
