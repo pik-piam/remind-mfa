@@ -43,8 +43,6 @@ class CementModel(CommonModel):
         lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
         self.parameters["lifetime_std"] = lifetime_std
 
-        # TODO add cement ratio as parameter here, or rather in mrmfa?
-
     def run(self):
         self.original_parameters_hist = self.parameters.copy()
         super().run()
@@ -148,7 +146,6 @@ class CementModel(CommonModel):
             self.parameters, stock_type_letter=self.end_use_good_letter
         )
         stock[self.concrete_mask] = bu_concrete_stock
-        stock = backcast_by_reference(stock, stock_ref, anchor_year=1990)
         return stock
     
     @property
@@ -193,61 +190,3 @@ class CementModel(CommonModel):
         self.combined_mfa.compute(combined_stock, self.historic_trade, stock_is_cement=False)
 
         return self.combined_mfa
-
-def backcast_by_reference(
-    x: fd.FlodymArray,
-    ref: fd.FlodymArray,
-    anchor_year,
-    time_letter: str = "t",
-) -> fd.FlodymArray:
-    """Fill years before ``anchor_year`` in ``x`` with ``ref`` rescaled to match at the anchor.
-    Inspired but simplified from backcast_by_reference in mrmfa: https://github.com/pik-piam/mrmfa.
- 
-    For each non-time cell the scaling factor is ``x[anchor] / ref[anchor]``.
-    That factor is applied to ``ref`` for every year strictly before the anchor,
-    so filled values match ``x``'s level at the anchor year and inherit
-    ``ref``'s growth in the backcast period. Years at or after the anchor are
-    kept as-is from ``x``. Cells where ``ref`` is zero at the anchor (so the
-    ratio is undefined) are filled with zero in the backcast period.
- 
-    Parameters
-    ----------
-    x
-        Array with leading zeros (or any values to be overwritten) before the
-        anchor year.
-    ref
-        Reference array with full coverage and the same dimensions as ``x``.
-    anchor_year
-        Item from the time dimension where ``x`` is known.
-    time_letter
-        Letter of the time dimension (default ``"t"``).
-    """
-    if x.dims.letters != ref.dims.letters:
-        raise ValueError(
-            f"x and ref must share dimensions; got {x.dims.letters} vs {ref.dims.letters}"
-        )
- 
-    # Per-cell scaling factor at the anchor year. Slicing on a single item
-    # drops the time dimension, so the ratio broadcasts over time below.
-    # Where ref[anchor] == 0 the ratio is undefined; set it to 0 so the
-    # backcast period is filled with zeros for those cells.
-    x_anchor = x[{time_letter: anchor_year}]
-    ref_anchor = ref[{time_letter: anchor_year}]
-    ratio = fd.FlodymArray(dims=x_anchor.dims)
-    np.divide(
-        x_anchor.values, ref_anchor.values,
-        out=ratio.values, where=ref_anchor.values != 0,
-    )
- 
-    # Mask of years strictly before the anchor, shaped to broadcast over the
-    # time axis only.
-    time_dim = x.dims[time_letter]
-    t_axis = x.dims.letters.index(time_letter)
-    before = np.array(time_dim.items) < anchor_year
-    before = before.reshape([-1 if i == t_axis else 1 for i in range(x.values.ndim)])
- 
-    # Build the filled array: ref * ratio before the anchor, x from the anchor on.
-    scaled = ref * ratio
-    out = fd.FlodymArray(dims=x.dims, name=getattr(x, "name", None))
-    out.values[...] = np.where(before, scaled.values, x.values)
-    return out

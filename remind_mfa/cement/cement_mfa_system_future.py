@@ -22,7 +22,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
-        self.check_flows(raise_error=False)
+        self.check_flows()
 
     def compute_in_use_stock(
         self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True, **kwargs
@@ -44,8 +44,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
         stk["in_use"].compute()
 
-        # TODO add this back in once no more negative flows
-        # self.correct_negative_inflow("in_use", warn_small_negative=False)
+        self.correct_negative_inflow("in_use", warn_small_negative=False)
 
     def add_constituent_split(
         self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
@@ -80,9 +79,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["cement"],
             future_trade=trd["cement"],
-            future_dom_demand=flw["market_cement => prod_product"].maximum(
-                0
-            ),  # TODO remove this once no more negative flows
+            future_dom_demand=flw["market_cement => prod_product"],
         )
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -108,9 +105,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["clinker"],
             future_trade=trd["clinker"],
-            future_dom_demand=flw["market_clinker => prod_cement"].maximum(
-                0
-            ),  # TODO remove this once no more negative flows
+            future_dom_demand=flw["market_clinker => prod_cement"],
         )
         extrapolator.run()
         flw["imports => market_clinker"][...] = trd["clinker"].imports

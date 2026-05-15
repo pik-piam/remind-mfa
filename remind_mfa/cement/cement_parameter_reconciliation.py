@@ -14,32 +14,27 @@ class CementParameterReconciliation:
     """Parameter reconciliation of top-down and bottom-up models."""
 
     # TODO inherit from separate helper class?
-    # TODO pydantic?
 
     def __init__(
         self,
         ref_mfa: CommonMFASystem,
         uncoupled: bool = False,
     ):
-
         self.ref_mfa = ref_mfa
         self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
 
-        # TODO potentially move this to material specific reconciliation
         self._reduced_stock_type = fd.Dimension(
             name="Reduced Stock Type", letter="u", items=["Res", "Com"]
         )
-        # save computation time
+        # parameters will get one correction factor across all time steps.
         self._no_correction_dim_letters = ("t", "h")  # instead of df/dx, now calculating df/dd
 
         self.output_dims_are_independent = uncoupled
-        # TODO call this diagonal_jacobian, and invert the logic
         # NB this does not mean that all parameter dimensions are independent, only that output dimensions, if existant in parameters
 
         # TODO set and skip over known sensitivity parameters
         # TODO check if I can use [...] more for flodym arrays to avoid dimension issues
 
-        # TODO see if it's smarter to instantiate a new MFA instead of copying and modifying the reference MFA's parameters, flows, stocks, and trade data. I think the latter is more flexible and less error-prone, but it is computationally more expensive. Maybe I can optimize by only copying the relevant parameters, flows, stocks, and trade data, and modifying them in place?
         self.prepare_dims()
         self.prepare_prms()
         self.prepare_flws()
