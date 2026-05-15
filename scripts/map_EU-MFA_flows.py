@@ -201,25 +201,26 @@ def run_combination(material: str, flow: str, scenario: str):
     print(f"Saved {len(df_backcasted)} rows to {OUTPUT_FILE}")
     print(df_backcasted.head())
 
-    # --- save dimension files ---
-    # save Time dimension
-    time = df_backcasted["Time"].dropna().unique()
-    with open(DIMENSION_DIR / "eu_mfa_time.csv", "w") as f:
-        for t in time:
-            f.write(f"{t}\n")
-    # save Good dimension
-    if flow != "scrap":  # scrap flow has no Good dimension
-        goods = df_backcasted["Good"].dropna().unique()
-        with open(DIMENSION_DIR / "eu_mfa_goods.csv", "w") as f:
-            for g in goods:
-                f.write(f"{g}\n")
-    if material == "plastics":
-        # save Material dimension
-        materials = df_backcasted["Material"].dropna().unique()
-        with open(DIMENSION_DIR / "eu_mfa_materials.csv", "w") as f:
-            for m in materials:
-                f.write(f"{m}\n")
-    print(f"Saved dimensions to {DIMENSION_DIR}")
+    # --- save dimension files, use demand flow as reference ---
+    if flow == "demand":
+        # save Time dimension
+        time = df_backcasted["Time"].dropna().unique()
+        with open(DIMENSION_DIR / "eu_mfa_time.csv", "w") as f:
+            for t in time:
+                f.write(f"{t}\n")
+        # save Good dimension
+        if flow != "scrap":  # scrap flow has no Good dimension
+            goods = df_backcasted["Good"].dropna().unique()
+            with open(DIMENSION_DIR / "eu_mfa_goods.csv", "w") as f:
+                for g in goods:
+                    f.write(f"{g}\n")
+        if material == "plastics":
+            # save Material dimension
+            materials = df_backcasted["Material"].dropna().unique()
+            with open(DIMENSION_DIR / "eu_mfa_materials.csv", "w") as f:
+                for m in materials:
+                    f.write(f"{m}\n")
+        print(f"Saved dimensions to {DIMENSION_DIR}")
 
 
 if __name__ == "__main__":
