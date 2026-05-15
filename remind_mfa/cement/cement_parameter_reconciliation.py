@@ -15,6 +15,13 @@ class CementParameterReconciliation:
 
     # TODO inherit from separate helper class?
 
+    _normalization_dims: dict[str, tuple[str, ...]] = {
+        "structure_buildings_split": ("Structure",),
+        "function_buildings_split": ("Function",),
+        "product_material_split": ("Product Material",),
+        "stock_type_split": ("Stock Type",),
+    }
+
     def __init__(
         self,
         ref_mfa: CommonMFASystem,
@@ -47,6 +54,7 @@ class CementParameterReconciliation:
         self.prepare_flws()
         self.prepare_stks()
         self.prepare_trds()
+        self._rel_stds = self._build_rel_stds()
 
     def prepare_dims(self):
         dims = self.ref_mfa.dims
@@ -462,16 +470,10 @@ class CementParameterReconciliation:
         sigma = self.flatten_fd_to_np(rel_std) ** 2
         return sigma
 
-    def rel_std(self, prm_name: str) -> fd.FlodymArray:
-        """
-        Get the relative standard deviation of a parameter.
-        Returns a FlodymArray with the same dimensions as the parameter.
-        """
-        default_rel_std = 0.2
-
-        # TODO move rel std to mrmfa
-        rel_std = {
+    def _build_rel_stds(self) -> dict[str, float | fd.FlodymArray]:
+        return {
             # BU parameters
+            # TODO MI std could be calculated from source in mrmfa (maybe other parameters, too)
             "concrete_building_mi": fd.FlodymArray.from_dims_superset(
                 dims_superset=self.dims,
                 dim_letters=("r",),
@@ -495,7 +497,14 @@ class CementParameterReconciliation:
             "lifetime_std": 0.0,
         }
 
-        out = rel_std.get(prm_name)
+    def rel_std(self, prm_name: str) -> fd.FlodymArray:
+        """
+        Get the relative standard deviation of a parameter.
+        Returns a FlodymArray with the same dimensions as the parameter.
+        """
+        default_rel_std = 0.2
+
+        out = self._rel_stds.get(prm_name)
         if out is None:
             logging.warning(
                 "Relative standard deviation missing for %s; using default %f",
@@ -553,17 +562,11 @@ class CementParameterReconciliation:
         """
         Normalize share or split parameters to sum up to 1 along their relevant dimensions.
         """
-        normalization_dims = {
-            "structure_buildings_split": ("Structure",),
-            "function_buildings_split": ("Function",),
-            "product_material_split": ("Product Material",),
-            "stock_type_split": ("Stock Type",),
-        }
-        if prm_name not in normalization_dims:
+        if prm_name not in self._normalization_dims:
             return
 
         prm = self.output_prms[prm_name]
-        prm_sum = prm.sum_over(normalization_dims[prm_name])
+        prm_sum = prm.sum_over(self._normalization_dims[prm_name])
         # avoid division by zero: zero values can occur due to `self._reduced_stock_type`
         if "s" in prm_sum.dims.letters:
             prm_sum.values[prm_sum.values == 0] = 1
