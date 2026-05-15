@@ -312,8 +312,8 @@ class CementParameterReconciliation:
         # TODO I could do everything with flodym by just introducing new parameter dimensions for output dimensions
         # matrix multiplication would then be (A*B).sum_over(dims), instead of A @ B
         if self.output_dims_are_independent:
-            return self._calc_jacobian_independent(f, f0, prm_name)
-        return self._calc_jacobian_full(f, f0, prm_name)
+            return self._calc_jacobian_independent(f, f0, prm_name, epsilon)
+        return self._calc_jacobian_full(f, f0, prm_name, epsilon)
 
     def _calc_jacobian_independent(
         self,

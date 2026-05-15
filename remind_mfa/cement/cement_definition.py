@@ -100,7 +100,6 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         ]
 
     # fmt: on
-    # TODO remove historic_in_use stock, just use in_use, later change from h to t dimension
     # 4) Stocks
     if historic:
         stocks = [
