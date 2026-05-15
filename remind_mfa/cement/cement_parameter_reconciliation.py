@@ -43,7 +43,6 @@ class CementParameterReconciliation:
         self.output_dims_are_independent = output_dims_are_independent
 
         # TODO set and skip over known sensitivity parameters
-        # TODO check if I can use [...] more for flodym arrays to avoid dimension issues
 
         self.prepare_dims()
         self.prepare_prms()
@@ -177,7 +176,6 @@ class CementParameterReconciliation:
                 c_full = self.cast_correction_to_original_prm_dim(c)
                 self.output_prms[prm_name][...] = self.output_prms[prm_name] * c_full
                 self.normalize_output_parameter(prm_name)
-                # TODO improve FlodymArray to Parameter conversion
                 self.output_prms[prm_name] = fd.Parameter(
                     name=self.output_prms[prm_name].name,
                     dims=self.output_prms[prm_name].dims,
@@ -185,12 +183,7 @@ class CementParameterReconciliation:
                 )
 
             # set output prms as new curr prms
-            self.prepare_prms()  # TODO this needs to become cleaner
-            # TODO is this reset necessary?
-            self.prepare_flws()
-            self.prepare_stks()
-            self.prepare_trds()  # not altered - therefore probably not necessary
-            # resetting dims should not be necessary
+            self.prepare_prms()
 
         return self.output_prms
 
@@ -263,9 +256,11 @@ class CementParameterReconciliation:
             self.S_matrices = {}
 
         for prm_name in relevant_params:
+            # zero uncertainty parameters do not need to be adjusted
+            if not np.any(self.get_sigma(prm_name)):
+                continue
             S_mat = self.calc_sensitivity(f, f0, prm_name, denominator=denominator)
             if prm_name in self.S_matrices:
-                # TODO double check if that makes sense
                 logging.info(
                     f"Sensitivity for parameter {prm_name} already exists; summing matrices."
                 )
@@ -293,7 +288,6 @@ class CementParameterReconciliation:
         prm_name: str,
         denominator: bool = False,
     ):
-        # TODO set jacobian to zero if std is zero.
         J = self.calc_jacobian(f, f0, prm_name)
 
         if self.output_dims_are_independent:
@@ -476,11 +470,9 @@ class CementParameterReconciliation:
         Get the relative standard deviation of a parameter.
         Returns a FlodymArray with the same dimensions as the parameter.
         """
-
-        # TODO some parameters are manually created, they need rel_std of zero.
-
         default_rel_std = 0.2
 
+        # TODO move rel std to mrmfa
         rel_std = {
             # BU parameters
             "concrete_building_mi": fd.FlodymArray.from_dims_superset(
@@ -523,7 +515,6 @@ class CementParameterReconciliation:
 
     def calc_corrections(self):
         self.correction_factors = {}
-        # TODO self.S_matrices.keys() replace this with list of corrected parameters
         for prm_name in self.S_matrices.keys():
             log_correction = self.calc_log_correction(prm_name)
             self.correction_factors[prm_name] = log_correction.apply(np.exp)
@@ -531,7 +522,6 @@ class CementParameterReconciliation:
     def calc_log_correction(self, prm_name: str) -> fd.FlodymArray:
         S = self.S_matrices[prm_name]
         grad = S.T @ self.lmda
-        # TODO prepare sigma vector beforehand
         var_vec = self.get_sigma(prm_name)
         d = -var_vec * grad
         d = self.reshape_np_to_fd(d, self.prms_adj_dims[prm_name])
@@ -551,7 +541,6 @@ class CementParameterReconciliation:
     def cast_correction_to_original_prm_dim(
         self, correction_factor: fd.FlodymArray
     ) -> fd.FlodymArray:
-        # TODO this should be moved to material specific reconciliatoin
         if self._reduced_stock_type.letter not in correction_factor.dims.letters:
             return correction_factor
 
