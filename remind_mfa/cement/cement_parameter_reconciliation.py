@@ -42,8 +42,6 @@ class CementParameterReconciliation:
 
         self.output_dims_are_independent = output_dims_are_independent
 
-        # TODO set and skip over known sensitivity parameters
-
         self.prepare_dims()
         self.prepare_prms()
         self.prepare_flws()
@@ -248,6 +246,7 @@ class CementParameterReconciliation:
         """
         Pre-compute sensitivity matrices for parameters used in the given model function.
         Pre-existing sensitivities are added to newly computed ones.
+        TODO Analytical sensitivities for parameters could be provided to reduce computation time.
         """
         relevant_params = self.get_relevant_parameters(f, self.prms)
 
@@ -549,9 +548,6 @@ class CementParameterReconciliation:
             self._reduced_stock_type.letter, self.input_dims["s"]
         )
         new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
-
-        # fill calculated correction values where possible
-        # TODO what about the other stock types that may have to be rescaled
         new_correction[{"s": self._reduced_stock_type}] = correction_factor
         return new_correction
 
@@ -559,7 +555,6 @@ class CementParameterReconciliation:
         """
         Normalize share or split parameters to sum up to 1 along their relevant dimensions.
         """
-        # TODO find better way to know which parameters need normalization and along which dimensions
         normalization_dims = {
             "structure_buildings_split": ("Structure",),
             "function_buildings_split": ("Function",),
@@ -620,8 +615,6 @@ class AnalyzeParameterReconciliation:
         self.adjusted_prms["floorspace"] = self.adjusted_prms["floorspace"][
             {"t": pr._year_of_reconciliation}
         ]
-
-        # TODO I could also scale down to pr._reduced_stock_type here
 
     def calc_parameter_impact(
         self,
