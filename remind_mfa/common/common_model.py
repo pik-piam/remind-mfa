@@ -18,7 +18,6 @@ from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.helpers import RegressOverModes
-from remind_mfa.common.common_parameter_reconciliation import CommonParameterReconciliation
 
 
 class CommonModel:
@@ -30,7 +29,6 @@ class CommonModel:
     DisplayNamesCls = CommonDisplayNames
     HistoricMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
-    ParameterReconciliationCls = CommonParameterReconciliation
     custom_scn_prm_def = []
     get_definition = staticmethod(get_definition)
 
@@ -68,34 +66,6 @@ class CommonModel:
 
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(self.stock_projection, self.historic_trade)
-    
-    def reconcile_parameters(
-        self,
-        max_iter: int = 10,
-        tol: Optional[float] = None,
-    ):
-        """Reconcile parameters between top-down and bottom-up stocks.
-
-        Args:
-            max_iter: Maximum number of correction iterations.
-            tol: Convergence tolerance; stop early when max |log(td/bu)| < tol.
-                 If None, always run max_iter iterations.
-        """
-        logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
-
-        ref_mfa = self.make_mfa(historic=True)
-        ref_mfa.trade_set = (
-            self.historic_mfa.trade_set
-        )  # trade is not altered during reconciliation, so we can just take it from the already computed historic MFA
-
-        self.parameter_reconciliation = self.ParameterReconciliationCls(
-            ref_mfa=ref_mfa,
-            uncoupled=True,
-        )
-        self.parameters = self.parameter_reconciliation.correct_parameters(
-            max_iter=max_iter,
-            tol=tol,
-        )
 
     def export(self):
         self.data_writer.export(model=self)

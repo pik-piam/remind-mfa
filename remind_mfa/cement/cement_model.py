@@ -1,3 +1,5 @@
+import logging
+from typing import Optional
 from copy import deepcopy
 import flodym as fd
 import numpy as np
@@ -25,7 +27,6 @@ class CementModel(CommonModel):
     DisplayNamesCls = CementDisplayNames
     HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
-    ParameterReconciliationCls = CementParameterReconciliation
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
@@ -100,6 +101,34 @@ class CementModel(CommonModel):
         if self.cfg.model_switches.parameter_reconciliation.do_combine_mfas:
             self.future_mfa = self.combined_mfa
 
+    def reconcile_parameters(
+        self,
+        max_iter: int = 10,
+        tol: Optional[float] = None,
+    ):
+        """Reconcile parameters between top-down and bottom-up stocks.
+
+        Args:
+            max_iter: Maximum number of correction iterations.
+            tol: Convergence tolerance; stop early when max |log(td/bu)| < tol.
+                 If None, always run max_iter iterations.
+        """
+        logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
+
+        ref_mfa = self.make_mfa(historic=True)
+        ref_mfa.trade_set = (
+            self.historic_mfa.trade_set
+        )  # trade is not altered during reconciliation, so we can just take it from the already computed historic MFA
+
+        self.parameter_reconciliation = CementParameterReconciliation(
+            ref_mfa=ref_mfa,
+            uncoupled=True,
+        )
+        self.parameters = self.parameter_reconciliation.correct_parameters(
+            max_iter=max_iter,
+            tol=tol,
+        )
+
     def _create_zero_trade(self, trade_ref):
         zero_trade = deepcopy(trade_ref)
         for market in trade_ref.markets.keys():
@@ -115,7 +144,7 @@ class CementModel(CommonModel):
         stock_ref = stock_ref.sum_over("k")  # work at product-mass level
         stock = fd.FlodymArray.full_like(stock_ref, fill_value=0)
 
-        bu_concrete_stock = self.ParameterReconciliationCls.calc_bottom_up_stock(
+        bu_concrete_stock = CementParameterReconciliation.calc_bottom_up_stock(
             self.parameters, stock_type_letter=self.end_use_good_letter
         )
         stock[self.concrete_mask] = bu_concrete_stock
