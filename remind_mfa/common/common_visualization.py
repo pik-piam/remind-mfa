@@ -51,8 +51,8 @@ class CommonVisualizer(RemindMFABaseModel):
         if model.cfg.transience:
             self.visualize_transience_inflow(model=model, subplot_dim="EU-MFA_Good")
             self.visualize_transience_inflow(model=model)
-            self.visualize_transience_eol(model=model, subplot_dim="EU-MFA_Good")
-            self.visualize_transience_eol(model=model)
+            self.visualize_transience_outflow(model=model, subplot_dim="EU-MFA_Good")
+            self.visualize_transience_outflow(model=model)
 
     def visualize_custom(self, model: "CommonModel"):
         """To be overwritten by model subclasses"""
@@ -386,7 +386,7 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
-    def visualize_transience_inflow(self, model: "CommonModel", subplot_dim: str = None, EU_region = "EUR", inflow = None):
+    def visualize_transience_inflow(self, model: "CommonModel", subplot_dim: str = None, EU_region: str = "EUR", inflow: fd.FlodymArray = None):
         # visualize comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data
         if inflow is None:
             inflow = model.future_mfa.stocks["in_use"].inflow[{"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}]
@@ -440,15 +440,12 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(fig, name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")
 
-    def visualize_transience_eol(
-            self, 
-            model: "CommonModel",
-            inflow: fd.FlodymArray, 
-            eol_REMIND_MFA: fd.FlodymArray,
-            eol_EU_MFA: fd.FlodymArray, 
-            subplot_dim: str = None
-    ):
+    def visualize_transience_outflow(self, model: "CommonModel", EU_region: str = "EUR", subplot_dim: str = None, inflow: fd.FlodymArray = None):
         # visualize comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data
+        if inflow is None:
+            inflow = model.future_mfa.stocks["in_use"].inflow[{"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}]
+        outflow_REMIND_MFA = model.future_mfa.stock_outflow_REMIND_MFA
+        outflow_EU_MFA = model.future_mfa.stock_outflow_EU_MFA
         dimlist = ["u"]
         if subplot_dim is not None:
             subplot_dimletter = next(
@@ -456,11 +453,11 @@ class CommonVisualizer(RemindMFABaseModel):
             )
             dimlist.append(subplot_dimletter)
         inflow = inflow.sum_to(dimlist)
-        eol_REMIND_MFA = eol_REMIND_MFA.sum_to(dimlist)
-        eol_EU_MFA = eol_EU_MFA.sum_to(dimlist)
+        outflow_REMIND_MFA = outflow_REMIND_MFA.sum_to(dimlist)
+        outflow_EU_MFA = outflow_EU_MFA.sum_to(dimlist)
 
         ap = self.plotter_class(
-            array=eol_REMIND_MFA,
+            array=outflow_REMIND_MFA,
             intra_line_dim="EU-MFA_Time",
             subplot_dim=subplot_dim,
             line_label="REMIND-MFA",
@@ -470,7 +467,7 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap.plot()
         ap_2 = self.plotter_class(
-            array=eol_EU_MFA,
+            array=outflow_EU_MFA,
             intra_line_dim="EU-MFA_Time",
             subplot_dim=subplot_dim,
             fig=fig,

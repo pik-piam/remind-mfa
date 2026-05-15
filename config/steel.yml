@@ -26,7 +26,7 @@ visualization:
   do_visualize: True
   do_show_figs: True
   do_save_figs: False
-  figures_path: 'data/steel/output/figures'
+  figures_path: 'data/steel/output/transience/figures'
   plotting_engine: 'plotly'
   extrapolation:
     do_visualize: True
