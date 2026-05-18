@@ -86,7 +86,7 @@ class CommonModel:
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
             allow_missing_values=True,  # needed for at least steel scrap data
-            allow_extra_values=False,
+            allow_extra_values=True, # for transience, to allow removing dimension items that are not part of the scope of EU-MFA
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
