@@ -66,16 +66,15 @@ def run_combination(material: str, flow: str, scenario: str):
     df1 = df1.rename(columns={"time": "Time", "region": "Region"})
     df1 = df1[df1.element == "All"].copy() # only consider total flows, no Cu contamination flow for steel
     if material == "plastics":
-        if flow == "collected_eol" or flow == "sorted_eol" or flow == "recycled_eol": 
-            # stocks and therefore also stock outflows are calculated separately for subregions due to differentiated lifetimes
-            eu_subregions = ["Germany", "West", "South", "North", "East"]
-            df1 = df1[df1.Region.isin(eu_subregions)].copy()
-            df1["Region"] = "EU27+3"
+        # flows are available at subregion level with differentiated lifetimes;
+        # use subregions for consistency
+        eu_subregions = ["Germany", "West", "South", "North", "East"] 
+        df1 = df1[df1.Region.isin(eu_subregions)].copy()
+        df1["Region"] = "EU27+3"
         if flow == "sorted_eol": # currently, only mechanical recycling to granulate is considered
             df1 = df1[df1.waste_category == "Mechanical recycling"].copy()
         if flow == "recycled_eol": # currently, only mechanical recycling to granulate is considered
             df1 = df1[df1.secondary_raw_material == "Granulate"].copy()
-        df1 = df1[df1.Region == "EU27+3"].copy()
     elif material == "steel":
         df1 = df1[df1.Region == "EU27+1"].copy()
         df1.loc[:, "Region"] = "EUR"
