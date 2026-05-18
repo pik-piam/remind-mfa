@@ -195,6 +195,7 @@ class SteelModel(CommonModel):
             values=(self.parameters["available_scrap_EU-MFA"][{"r": "EUR"}]/self.parameters["collected_eol_EU-MFA"][{"r": "EUR"}].sum_to("u")).values,
         )
         self.parameters["recovery_rate"] = fd.Parameter(
+            name="recovery_rate",
             dims=self.dims["t", "r", "g"],
             values=self.parameters["recovery_rate"].cast_to(self.dims["t", "r", "g"]).values,
         )

@@ -34,6 +34,18 @@ class SteelVisualizer(CommonVisualizer):
         if self.cfg.sector_splits.do_visualize:
             self.visualize_sector_splits(model.future_mfa, regional=True)
             self.visualize_sector_splits(model.future_mfa, regional=False)
+        if model.cfg.transience.transience_run:
+            self.visualize_transience_eol_parameters(
+                model, 
+                parameter_REMIND_MFA=model.parameters["recovery_rate"][{"r": "EUR", "t": model.dims["u"], "g": model.dims["f"]}],
+                parameter_EU_MFA=model.parameters["recovery_rate_EU-MFA"]*model.parameters["collection_rate_EU-MFA"],
+                linecolor_dim="EU-MFA_Good",
+            )
+            self.visualize_transience_eol_parameters(
+                model, 
+                parameter_REMIND_MFA=model.future_mfa.flows["use => eol_market"].sum_to(("t", "r"))[{"r": "EUR", "t": model.dims["u"]}],
+                parameter_EU_MFA=model.parameters["available_scrap_EU-MFA"][{"r": "EU27+3"}],
+            )
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):

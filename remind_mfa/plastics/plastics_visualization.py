@@ -106,6 +106,31 @@ class PlasticsVisualizer(CommonVisualizer):
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
+
+        if model.cfg.transience.transience_run:
+            self.visualize_transience_eol_parameters(
+                model, 
+                parameter_REMIND_MFA=model.parameters["collection_rate"][{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}],
+                parameter_EU_MFA=model.parameters["collection_rate_EU-MFA"],
+                subplot_dim="EU-MFA_Good",
+                linecolor_dim="EU-MFA_Material",)
+            self.visualize_transience_eol_parameters(
+                model, 
+                parameter_REMIND_MFA=model.parameters["mechanical_recycling_rate"][{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
+                parameter_EU_MFA=model.parameters["mechanical_recycling_rate_EU-MFA"],
+                linecolor_dim="EU-MFA_Material",)
+            self.visualize_transience_eol_parameters(
+                model, 
+                parameter_REMIND_MFA=model.parameters["mechanical_recycling_yield"][{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
+                parameter_EU_MFA=model.parameters["mechanical_recycling_yield_EU-MFA"],
+                linecolor_dim="EU-MFA_Material",)
+            self.visualize_transience_eol_parameters(
+                model, 
+                parameter_REMIND_MFA=model.future_mfa.flows["reclmech => fabrication"].sum_to(("t", "r", "m"))[{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
+                parameter_EU_MFA=model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[{"r": "EU27+3"}],
+                linecolor_dim="EU-MFA_Material",)
+            # these flows are not totally equal because REMIND-MFA includes trade while for EU-MFA recycling rate we currently assume that no waste is traded (TODO get sorted_waste_market__recycling flow to be sure that this is correct)
+
         self.stop_and_show()
 
     def visualize_flow(

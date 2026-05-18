@@ -48,7 +48,7 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_sankey(model.future_mfa)
         # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
         # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
-        if model.cfg.transience:
+        if model.cfg.transience.transience_run:
             self.visualize_transience_inflow(model=model, subplot_dim="EU-MFA_Good")
             self.visualize_transience_inflow(model=model)
             self.visualize_transience_outflow(model=model, subplot_dim="EU-MFA_Good")
@@ -493,3 +493,34 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap_3.plot()
         self._show_and_save_plotly(fig, name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")
+
+    def visualize_transience_eol_parameters(self, model: "CommonModel", parameter_EU_MFA: fd.FlodymArray, parameter_REMIND_MFA: fd.FlodymArray, subplot_dim: str = None, linecolor_dim: str = None):
+        # visualize comparison of EOL parameters for EUR region between REMIND-MFA and EU-MFA data
+        if linecolor_dim is not None:
+            n_colors = model.dims[linecolor_dim].len
+        else:
+            n_colors = 1
+        colors = plc.qualitative.Dark24[:n_colors] * 2
+        
+        ap = self.plotter_class(
+            array=parameter_REMIND_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            color_map=colors,
+        )
+        fig = ap.plot()
+        ap_2 = self.plotter_class(
+            array=parameter_EU_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            fig=fig,
+            line_type="dot",
+            color_map=colors,
+            title=f"Comparison of {parameter_REMIND_MFA.name} for EUR region between REMIND-MFA and EU-MFA data (dotted)",
+            xlabel="Year",
+            ylabel="Parameter value",
+        )
+        fig = ap_2.plot()
+        self._show_and_save_plotly(fig, name=f"transience_comparison_{parameter_REMIND_MFA.name}.png")

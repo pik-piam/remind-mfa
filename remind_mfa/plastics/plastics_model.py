@@ -77,6 +77,7 @@ class PlasticsModel(CommonModel):
         )
         # adjust dimensions of REMIND-MFA rates and replace EU region with EU-MFA rates
         self.parameters["collection_rate"] = fd.Parameter(
+            name="collection_rate",
             dims=self.dims["t", "r", "m", "g"],
             values=self.parameters["collection_rate"].cast_to(self.dims["t", "r", "m", "g"]).values,
         )
@@ -97,6 +98,7 @@ class PlasticsModel(CommonModel):
             dims=self.dims["u", "n", "f"], values=eu_mfa_collection_rate
         )
         self.parameters["mechanical_recycling_rate"] = fd.Parameter(
+            name="mechanical_recycling_rate",
             dims=self.dims["t", "r", "m"],
             values=self.parameters["mechanical_recycling_rate"].cast_to(self.dims["t", "r", "m"]).values,
         )
@@ -117,6 +119,7 @@ class PlasticsModel(CommonModel):
             dims=self.dims["u", "n"], values=eu_mfa_mech_rate
         )
         self.parameters["mechanical_recycling_yield"] = fd.Parameter(
+            name="mechanical_recycling_yield",
             dims=self.dims["t", "r", "m"],
             values=self.parameters["mechanical_recycling_yield"].cast_to(self.dims["t", "r", "m"]).values,
         )

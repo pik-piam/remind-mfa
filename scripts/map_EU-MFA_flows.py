@@ -124,6 +124,10 @@ def run_combination(material: str, flow: str, scenario: str):
         )
         dimensions = "(EU-MFA_Time,Region,EU-MFA_Material,EU-MFA_Good,value)"
 
+        # for collected_eol and stock_outflow, the value for PVC in packaging is at around 1e-30 in 2031 (because PVC in packaging is stopped in 2030 and the small amount is a result of the lifetime model)
+        # this causes issues for parameter calculation in the MFA, so set values that are <100kg to zero
+        df_EU_MFA.loc[df_EU_MFA["value"] < 0.1, "value"] = 0.0
+
         # --- load reference (Historic Time, Region, Good, value) ---
         ref = pd.read_csv(
             REF_DIR / "pl_consumption.cs4r",
@@ -172,24 +176,26 @@ def run_combination(material: str, flow: str, scenario: str):
         )
 
     # --- backcast: extend df_EU_MFA into historic years using ref ---
-    last_ref_year = ref["Time"].max()
-    first_flow_year = df_EU_MFA["Time"].min()
-
-    if first_flow_year > last_ref_year:
-        # EU-MFA starts after last historic year → fill the gap [last_ref_year, first_flow_year)
-        # by holding the first EU-MFA value constant, so backcast_by_reference has an anchor point
-        first_rows = df_EU_MFA[df_EU_MFA["Time"] == first_flow_year].copy()
-        gap_years = range(last_ref_year, first_flow_year)  # includes last_ref_year, excludes first_flow_year
-        extensions = [first_rows.assign(Time=y) for y in gap_years]
-        df_EU_MFA = pd.concat([pd.concat(extensions), df_EU_MFA], ignore_index=True)
-        df_EU_MFA = df_EU_MFA.sort_values("Time").reset_index(drop=True)
-        print(f"WARNING: mapped flow starts in {first_flow_year}, but reference data only goes up to {last_ref_year}. Filled gap years {last_ref_year}–{first_flow_year - 1} by holding EU-MFA value at {first_flow_year} constant. backcast_by_reference will extrapolate further into the past.")
-
-    df_backcasted = backcast_by_reference(
-        x=df_EU_MFA,
-        ref=ref,
-        max_n=5,
-    )
+    if material == "steel" or flow == "demand":
+        df_backcasted = backcast_by_reference(
+            x=df_EU_MFA,
+            ref=ref,
+            max_n=5,
+        )
+    else:
+        # for plastics non-demand flows, we don't backcast by reference because eol flows start in different years for EU-MFA and this distorts the eol parameter calculation
+        # we instead assume zero before the first value in df_EU_MFA
+        # get all dimension columns except Time and value
+        group_dims = [c for c in df_EU_MFA.columns if c not in ("Time", "value")]
+        # create full grid of all combinations of Time and group_dims, using ref for Time values before the first year in df_EU_MFA
+        EU_MFA_years   = sorted(df_EU_MFA["Time"].unique())
+        ref_years = sorted(ref["Time"].unique())
+        all_years = sorted(set(EU_MFA_years) | set(ref_years))
+        full_grid = pd.DataFrame({"Time": all_years}).merge(
+            df_EU_MFA[group_dims].drop_duplicates(), how="cross"
+        )
+        df_backcasted = full_grid.merge(df_EU_MFA, on=["Time"] + group_dims, how="left")
+        df_backcasted["value"] = df_backcasted["value"].fillna(0.0)
 
     # --- save ---
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
