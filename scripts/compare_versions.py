@@ -1,7 +1,6 @@
 import pickle
 import numpy as np
 
-
 old_path = "data/steel/output_old/export/mfa.pickle"
 new_path = "data/steel/output/export/mfa.pickle"
 
