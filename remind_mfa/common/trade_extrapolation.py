@@ -6,6 +6,8 @@ from pydantic import model_validator, ConfigDict
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
 from remind_mfa.common.helpers import RemindMFABaseModel
+from remind_mfa.common.data_blending import blend
+
 
 
 class TradeExtrapolator(RemindMFABaseModel):
@@ -24,11 +26,6 @@ class TradeExtrapolator(RemindMFABaseModel):
     future_dom_demand: fd.FlodymArray = None
     """future_dom_demand (FlodymArray): The domestic demand values to scale the historic imports by.
     Setting this means calculating trade in backward mode
-    """
-    alpha_rel: float = 2 / 3
-    """Exponent with which increases in the scaler are applied to the trade.
-    (reductions are always applied linearly)
-    1 means linear scaling, <1 means sub-linear scaling, 0 means temporally constant trade.
     """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
@@ -138,15 +135,14 @@ class TradeExtrapolator(RemindMFABaseModel):
 
     def scale_first(self) -> fd.FlodymArray:
         # 1) scale "first" trade flow (imports in demand-driven mode)
-        scaling = self.scaling(
+        self.future_first[...] = self.scaling(
+            i0=self.historic_first_0,
             d0=self.scaler_first_0,
             d=self.scaler_first,
-            alpha=self.alpha_rel,
         )
-        self.future_first[...] = self.historic_first_0 * scaling
         # make sure historical years equal historical data
         self.future_first[self.id_hist] = self.historic_first
-        return scaling
+        return self.future_first / self.historic_first_0.maximum(1)
 
     def scale_stopover(self, first_scaling: fd.FlodymArray) -> fd.FlodymArray:
         """Sometimes trade exceeds domestic supply and demand.
@@ -184,13 +180,12 @@ class TradeExtrapolator(RemindMFABaseModel):
             self.scaler_second = (
                 self.scaler_first - self.future_first + self.future_second + stopover_trade
             )
-            updated_scaling = self.scaling(
+            self.future_second[...] = self.scaling(
+                i0=self.historic_second_0,
                 d0=self.scaler_second_0,
                 d=self.scaler_second,
-                alpha=self.alpha_rel,
                 reduced_linear=False,
             )
-            self.future_second[...] = self.historic_second_0 * updated_scaling
             self.future_second[self.id_hist] = self.historic_second
 
         self.future_second[...] += stopover_trade
@@ -224,11 +219,11 @@ class TradeExtrapolator(RemindMFABaseModel):
             decimal=0,
         )
 
-    @staticmethod
     def scaling(
+        self,
+        i0: fd.FlodymArray,
         d0: fd.FlodymArray,
         d: fd.FlodymArray,
-        alpha: float,
         reduced_linear: bool = True,
     ) -> fd.FlodymArray:
         """Apply scaling depending on relative change of scaler:
@@ -249,13 +244,29 @@ class TradeExtrapolator(RemindMFABaseModel):
         """
         assert np.min(d.values) >= -1e-6 * np.max(np.abs(d.values))
         assert np.min(d0.values) >= -1e-6 * np.max(np.abs(d0.values))
+        i0 = i0.maximum(0)
         d = d.maximum(0)
         d0 = d0.maximum(1)
-        scaling = (d / d0) ** alpha
+        d_ratio = d / d0
+        alpha = blend(
+            target_dims=self.dims_out,
+            y_lower=0,
+            y_upper=1,
+            x=d_ratio,
+            x_lower=1,
+            x_upper=10,
+            type="quintic",
+        )
+        global_share_first_0 = (i0.sum_over(("r",)) / d0.sum_over(("r",))).cast_to(self.dims_out)
+        # hack to get scaling structure
+        # i = i0 * scaling
+        # i = d * (i0/d0)^(1-alpha) * (ig0/dg0)^alpha
+        i = d * (i0 / d0)**(1-alpha) * global_share_first_0 ** alpha
+
         if reduced_linear:
-            return (scaling).minimum(d / d0)
+            return i
         else:
-            return (scaling).maximum((d / d0) ** (alpha / 3))
+            return i.maximum(i0)
 
 
 class RecentHistoricalAverage(RemindMFABaseModel):
