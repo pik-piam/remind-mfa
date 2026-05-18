@@ -38,28 +38,29 @@ visualization:
   do_save_figs: False
   figures_path: 'data/plastics/output/transience/figures'
   use_stock:
-    do_visualize: True
+    do_visualize: False
     over_gdp: True
     accumulate_gdp: False
     per_capita: True
   consumption:
-    do_visualize: True
+    do_visualize: False
     per_capita: True
   production:
-    do_visualize: False
+    do_visualize: True
   trade:
     do_visualize: True
   extrapolation:
-    do_visualize: True
-  sankey:
     do_visualize: False
+  sankey:
+    do_visualize: True
     plotter_args:
       slice_dict:
-        t: 2019
-        #r: 'EUR'
+        t: 2050
+        r: 'EU27+3'
         #m: 'Fibres'
       exclude_processes:
         - "sysenv"
+        - "atmosphere"
         #- "waste_market"
         #- "primary_market"
         #- "intermediate_market"

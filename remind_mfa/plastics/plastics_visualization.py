@@ -280,56 +280,61 @@ class PlasticsVisualizer(CommonVisualizer):
         recycle_color = "#86BCB6"
         emission_color = "#E15759"
         trade_color = "#D37295"
+        # differentiate materials with a color gradient
+        material_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(len(mfa.dims["Material"].items))]
 
         # Initialize default flow color mapping
-        flow_color_dict = {"default": production_color}
-
-        # Assign colors to 'use' flows
+        flow_color_dict = {"default": use_color}
         flow_color_dict.update(
-            {
-                fn: use_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "use" or f.to_process.name == "use"
-            }
+            {fn: ("Material", material_colors) for fn, f in mfa.flows.items() if "Material" in f.dims}
         )
 
-        # Assign colors to end-of-life flows
-        flow_color_dict.update(
-            {
-                fn: eol_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("eol", "collected")
-            }
-        )
+        # # Assign colors to 'use' flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: use_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name == "use" or f.to_process.name == "use"
+        #     }
+        # )
 
-        # Assign colors to emission flows
-        flow_color_dict.update(
-            {
-                fn: emission_color
-                for fn, f in mfa.flows.items()
-                if f.to_process.name in ("atmosphere", "mismanaged", "uncontrolled", "emission")
-            }
-        )
+        # # Assign colors to end-of-life flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: eol_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name in ("eol", "collected")
+        #     }
+        # )
 
-        # Assign colors to recycling flows
-        flow_color_dict.update(
-            {
-                fn: recycle_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("reclmech", "reclchem")
-                or f.to_process.name in ("reclmech", "reclchem")
-            }
-        )
+        # # Assign colors to emission flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: emission_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.to_process.name in ("atmosphere", "mismanaged", "uncontrolled", "emission")
+        #     }
+        # )
 
-        # Assign colors to trade flows
-        flow_color_dict.update(
-            {
-                fn: trade_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("imports", "exports")
-                or f.to_process.name in ("imports", "exports")
-            }
-        )
+        # # Assign colors to recycling flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: recycle_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name in ("reclmech", "reclchem")
+        #         or f.to_process.name in ("reclmech", "reclchem")
+        #     }
+        # )
+
+        # # Assign colors to trade flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: trade_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name in ("imports", "exports")
+        #         or f.to_process.name in ("imports", "exports")
+        #     }
+        # )
 
         # Update Sankey layout configuration
         self.cfg.sankey.plotter_args.update(
@@ -352,13 +357,15 @@ class PlasticsVisualizer(CommonVisualizer):
 
         # Add legend entries
         legend_entries = [
-            (production_color, "Production"),
-            (use_color, "Use"),
-            (eol_color, "End-of-Life"),
-            (recycle_color, "Recycling"),
-            (emission_color, "Losses"),
-            (trade_color, "Trade"),
+            # (production_color, "Production"),
+            (use_color, "Total"),
+            # (eol_color, "End-of-Life"),
+            # (recycle_color, "Recycling"),
+            # (emission_color, "Losses"),
+            # (trade_color, "Trade"),
         ]
+        for material, color in zip(mfa.dims["Material"].items, material_colors):
+            legend_entries.append([color, material])
         for color, label in legend_entries:
             fig.add_trace(
                 go.Scatter(
