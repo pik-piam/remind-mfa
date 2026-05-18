@@ -9,7 +9,6 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_blending import blend
 
 
-
 class TradeExtrapolator(RemindMFABaseModel):
     """Predict future trade values by extrapolating the trade data using a given scaler."""
 
@@ -261,7 +260,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         # hack to get scaling structure
         # i = i0 * scaling
         # i = d * (i0/d0)^(1-alpha) * (ig0/dg0)^alpha
-        i = d * (i0 / d0)**(1-alpha) * global_share_first_0 ** alpha
+        i = d * (i0 / d0) ** (1 - alpha) * global_share_first_0**alpha
 
         if reduced_linear:
             return i
