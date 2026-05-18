@@ -185,6 +185,12 @@ class SteelMFASystem(CommonMFASystem):
         flw["use => eol_market"][...] = stk["in_use"].outflow * prm["recovery_rate"]
         flw["use => obsolete"][...] = stk["in_use"].outflow - flw["use => eol_market"]
 
+        if self.cfg.transience.transience_run == True:
+            # historic scrap trade needs to be scaled down to not exceed the EU-MFA stock outflow * recovery_rate (which would be the case for 1903-1950)
+            # in a normal run, this happens in the historic MFA, but since we replaced the stock outflow with EU-MFA data, we need to ensure the scrap trade is consistent with this 
+            historic_trade["scrap"].exports[...] = historic_trade["scrap"].exports.minimum(flw["use => eol_market"][{"t": self.dims["h"]}])
+            historic_trade["scrap"].balance(to="minimum")
+
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["scrap"],
             future_trade=trd["scrap"],
