@@ -6,7 +6,6 @@ import pandas as pd
 
 from remind_mfa.common.helpers import RemindMFABaseModel
 
-
 _assumptions = []
 
 
