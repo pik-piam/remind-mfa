@@ -39,7 +39,7 @@ class PlasticsVisualizer(CommonVisualizer):
         if self.cfg.flows.do_visualize:
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["virgin => primary_market"],
+                flow=model.future_mfa.flows["polymerization => primary_market"],
                 name="Primary production",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -47,10 +47,10 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=(
-                    model.future_mfa.flows["virgin => primary_market"]
+                    model.future_mfa.flows["polymerization => primary_market"]
                     - model.future_mfa.flows["primary_market => exports"]
                 ),
-                name="Domestic primary production",
+                name="Primary production for domestic market",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
@@ -67,7 +67,7 @@ class PlasticsVisualizer(CommonVisualizer):
                     model.future_mfa.flows["fabrication => good_market"]
                     - model.future_mfa.flows["good_market => exports"]
                 ),
-                name="Domestic Fabrication",
+                name="Fabrication for domestic market",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
@@ -87,10 +87,9 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclchem => virgin"],
+                flow=model.future_mfa.flows["reclchem => HVC_input"],
                 name="Chemical recycling",
                 subplot_dim="Region",
-                linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
@@ -101,8 +100,22 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
+                flow=model.future_mfa.flows["collected => reclmech"],
+                name="Sorted to mechanical recycling",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => landfill"],
                 name="Landfilled",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["collected => incineration"],
+                name="Incinerated",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
