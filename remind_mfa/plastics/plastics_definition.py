@@ -31,11 +31,13 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     else:
         processes = [
             "sysenv",
-            "virginfoss",
-            "virginbio",
-            "virgindaccu",
-            "virginccu",
-            "virgin",
+            "feedfoss",
+            "feedbio",
+            "feeddaccu",
+            "feedccu",
+            "HVC_input",
+            "C4_input",
+            "polymerization",
             "fabrication",
             "primary_market",
             "waste_market",
@@ -54,6 +56,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             "emission",
             "captured",
             "atmosphere",
+            "other_reactants",
+            "losses",
         ]
 
     # fmt: off
@@ -70,19 +74,26 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     else:
         flows = [
             # sysenv
-            fd.FlowDefinition(from_process="sysenv", to_process="virginfoss", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="sysenv", to_process="virginccu", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="feedfoss", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="feedccu", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="C4_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="other_reactants", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="losses", to_process="sysenv", dim_letters=("t","e","r")),
             # monomer stages
-            fd.FlowDefinition(from_process="atmosphere", to_process="virginbio", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="virgindaccu", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="virginfoss", to_process="virgin", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="virginbio", to_process="virgin", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="virgindaccu", to_process="virgin", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="virginccu", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="atmosphere", to_process="feedbio", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="atmosphere", to_process="feeddaccu", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="feedfoss", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="feedbio", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="feeddaccu", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="feedccu", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="HVC_input", to_process="polymerization", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="C4_input", to_process="polymerization", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="other_reactants", to_process="polymerization", dim_letters=("t","e","r")),
             # primary stages
-            fd.FlowDefinition(from_process="virgin", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="polymerization", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="polymerization", to_process="losses", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="primary_market", to_process="exports", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="imports", to_process="primary_market", dim_letters=("t","e","r","m")),
@@ -102,14 +113,14 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclchem", to_process="virgin", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="reclchem", to_process="HVC_input", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="incineration", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="emission", to_process="captured", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="emission", to_process="atmosphere", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="captured", to_process="virginccu", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="captured", to_process="feedccu", dim_letters=("t","e","r")),
             # waste trade
             fd.FlowDefinition(from_process="waste_market", to_process="collected", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="waste_market", dim_letters=("t","e","r","m")),
@@ -189,11 +200,18 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Historic plastic waste imports",),
         RemindMFAParameterDefinition(name="waste_his_exports", dim_letters=("h", "r", "m"),
                                      description="Historic plastic waste exports",),
-        # virgin production rates
+        # renewable production rates
         RemindMFAParameterDefinition(name="bio_production_rate", dim_letters=("h", "r"),
-                                     description="Share of bio-based plastics in virgin production",),
+                                     description="Share of bio-based HVC production",),
         RemindMFAParameterDefinition(name="daccu_production_rate", dim_letters=("h", "r"),
-                                     description="Share of DACCU plastics in virgin production",),
+                                     description="Share of DACCU HVC production",),
+        # HVC input
+        RemindMFAParameterDefinition(name="HVC_input_ratio", dim_letters=("m", "e"),
+                                     description="Ratio of HVC inputs to polymerization",),
+        RemindMFAParameterDefinition(name="C4_input_ratio", dim_letters=("m", "e"),
+                                     description="Ratio of C4 inputs to polymerization",),
+        RemindMFAParameterDefinition(name="polymerization_yield", dim_letters=("m",),
+                                     description="Polymerization yield",),
         # recycling losses
         RemindMFAParameterDefinition(name="mechanical_recycling_yield", dim_letters=("t", "r", "m"),
                                      description="Yield of mechanical recycling",),

@@ -9,7 +9,7 @@ transience:
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.2.0leonie_regionalfix'
+  input_data_revision: '1.4.0'
   region_mapping: '2c0a4149' # EU27+3 TRANSIENCE region mapping
   scenarios_path: 'config/scenarios'
 
@@ -58,6 +58,7 @@ visualization:
         t: 2050
         r: 'EU27+3'
         #m: 'Fibres'
+        e: 'C'
       exclude_processes:
         - "sysenv"
         - "atmosphere"

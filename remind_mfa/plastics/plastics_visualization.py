@@ -312,7 +312,7 @@ class PlasticsVisualizer(CommonVisualizer):
         #     {
         #         fn: emission_color
         #         for fn, f in mfa.flows.items()
-        #         if f.to_process.name in ("atmosphere", "mismanaged", "uncontrolled", "emission")
+        #         if f.to_process.name in ("atmosphere", "mismanaged", "uncontrolled", "emission", "losses")
         #     }
         # )
 

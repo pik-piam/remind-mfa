@@ -16,11 +16,15 @@ class PlasticsDimensionFiles(CommonDimensionFiles):
 class PlasticsDisplayNames(CommonDisplayNames):
     _own_mapping = {
         "sysenv": "System environment",
-        "virginfoss": "Feedstock(fossil)",
-        "virginbio": "Feedstock(biomass)",
-        "virgindaccu": "Feedstock(daccu)",
-        "virginccu": "Feedstock(ccu)",
-        "virgin": "Virgin Production",
+        "feedfoss": "Feedstock(fossil)",
+        "feedbio": "Feedstock(biomass)",
+        "feeddaccu": "Feedstock(daccu)",
+        "feedccu": "Feedstock(ccu)",
+        "HVC_input": "High Value Chemical input",
+        "C4_input": "C4 input",
+        "other_reactants": "Other Reactants",
+        "polymerization": "Polymerization",
+        "losses": "Losses",
         "processing": "Processing",
         "fabrication": "Fabrication",
         "reclmech": "Mechanical Recycling",
@@ -39,4 +43,6 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "primary_market": "Primary Market",
         "intermediate_market": "Intermediate Market",
         "good_market": "Good Market",
+        "imports": "Imports",
+        "exports": "Exports",
     }
