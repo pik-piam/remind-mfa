@@ -18,7 +18,7 @@ model_switches:
     waste_his_imports: LinearToTargetExtrapolation
     waste_his_exports: LinearToTargetExtrapolation
     collection_rate: LinearToTargetExtrapolation
-    incineration_rate: LinearToTargetExtrapolation
+    landfill_rate: LinearToTargetExtrapolation
     mechanical_recycling_rate: LinearToTargetExtrapolation
     chemical_recycling_rate: LinearToTargetExtrapolation
     bio_production_rate: LinearToTargetExtrapolation
@@ -61,7 +61,7 @@ visualization:
         #- "good_market"
       exclude_flows: [ ]
   flows:
-    do_visualize: False
+    do_visualize: True
 
 export:
   do_export: False

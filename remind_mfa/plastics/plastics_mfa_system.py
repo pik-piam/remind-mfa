@@ -92,15 +92,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         flw["collected => reclchem"][...] = aux["total_waste_collected"] * prm["chemical_recycling_rate"]
 
-        flw["collected => incineration"][...] = aux["total_waste_collected"] * prm["incineration_rate"]
-        flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
-
-        flw["collected => landfill"][...] = (
+        flw["collected => landfill"][...] = aux["total_waste_collected"] * prm["landfill_rate"]
+        
+        flw["collected => incineration"][...] = (
             aux["total_waste_collected"]
             - flw["collected => reclmech"]
             - flw["collected => reclchem"]
-            - flw["collected => incineration"]
+            - flw["collected => landfill"]
         )
+        flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
 
         flw["eol => mismanaged"][...] = flw["use => eol"] - flw["eol => collected"]
         flw["mismanaged => uncontrolled"][...] = flw["eol => mismanaged"]

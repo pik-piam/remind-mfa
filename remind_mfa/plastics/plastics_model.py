@@ -39,6 +39,14 @@ class PlasticsModel(CommonModel):
             dims=self.dims["t", "r", "g"],
             values=self.parameters["lifetime_std"].cast_to(self.dims["t", "r", "g"]).values,
         )
+
+        # calculate landfill rate from historic eol rates (1 - sum of other eol rates)
+        self.parameters["landfill_rate"] = fd.Parameter(
+            name="landfill_rate",
+            dims=self.dims["h", "r"],
+            values=(1 - self.parameters["incineration_rate"] - self.parameters["mechanical_recycling_rate"] - self.parameters["chemical_recycling_rate"]).values,
+        )
+
         # Conversion Mt -> t
         # TODO: move to mrmfa
         self.parameters["primary_his_imports"][...] *= 1e6
