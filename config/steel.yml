@@ -8,7 +8,7 @@ input:
   region_mapping: 'h12'
 
 model_switches:
-  scenario: 'SSP2'
+  scenario: 'SSP1_LD'
   # stock_extrapolation_class_name: 'TwoPredictorGompertzExtrapolation'
   # regress_over: loggdppc_time
   stock_extrapolation_class_name: 'LogisticExtrapolation'

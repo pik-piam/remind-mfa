@@ -61,16 +61,16 @@ visualization:
     do_visualize: False
 
 export:
-  do_export: False
+  do_export: True
   path: 'data/cement/output/export'
   pickle:
     do_export: True
   csv:
-    do_export: True
+    do_export: False
   iamc:
-    do_export: True
+    do_export: False
   assumptions:
-    do_export: True
+    do_export: False
   docs:
-    do_export: True
+    do_export: False
     path: 'docs/cement'
