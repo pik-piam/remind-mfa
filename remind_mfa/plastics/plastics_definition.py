@@ -90,7 +90,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="other_reactants", to_process="polymerization", dim_letters=("t","e","r")),
             # primary stages
             fd.FlowDefinition(from_process="polymerization", to_process="primary_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="polymerization", to_process="losses", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="polymerization", to_process="losses", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="primary_market", to_process="exports", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="imports", to_process="primary_market", dim_letters=("t","e","r","m")),
