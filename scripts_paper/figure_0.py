@@ -17,6 +17,11 @@ from constants import (
 )
 
 MAT = "steel"
+HIDE_EXTR_LABELS = True
+# isos = list(REGION_DISPLAY_NAMES.keys())
+isos = ["JPN"]
+STEPS = [0, 1, 2, 3]
+
 
 if MAT == "cement":
     RUN_MAT = RUN_CEMENT
@@ -33,7 +38,7 @@ elif MAT == "steel":
     RUN_MAT = RUN_STEEL
     PATH_MAT = PATH_STEEL
     LAST_HISTORICAL_YEAR_MAT = LAST_HISTORICAL_YEAR_STEEL
-    x_lower = 1920
+    x_lower = 1950
     y_lower = 4
     y_upper = 12
 
@@ -45,10 +50,7 @@ def _get_column_name(df, target_name: str) -> str:
     raise KeyError(f"Could not find column '{target_name}' in dataframe columns {list(df.columns)}")
 
 
-# isos = list(REGION_DISPLAY_NAMES.keys())
-isos = ["JPN"]
-
-for iso in isos:
+for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
 
     extrapolated_region = REGION_DISPLAY_NAMES[iso]
 
@@ -205,89 +207,92 @@ for iso in isos:
     fitted_gdppc_df = _merge_extrap_with_gdppc(fitted_df)
     smoothed_gdppc_df = _merge_extrap_with_gdppc(smoothed_df)
 
-    fig.add_trace(
-        go.Scatter(
-            x=pure_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
-            y=pure_gdppc_df[f"{value_col_extrap}_stock"],
-            mode="lines",
-            name="Step 1: Common regression",
-            legendgroup="pure_regression",
-            showlegend=False,
-            line={"color": "#1f77b4", "width": 3},
-        ),
-        row=1,
-        col=1,
-    )
+    if STEP >= 1:
+        fig.add_trace(
+            go.Scatter(
+                x=pure_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
+                y=pure_gdppc_df[f"{value_col_extrap}_stock"],
+                mode="lines",
+                name="Step 1: Common regression",
+                legendgroup="pure_regression",
+                showlegend=False,
+                line={"color": "#1f77b4", "width": 3},
+            ),
+            row=1,
+            col=1,
+        )
 
-    fig.add_trace(
-        go.Scatter(
-            x=pure_df[time_col_extrap],
-            y=pure_df[value_col_extrap],
-            mode="lines",
-            name="Step 1: Common regression",
-            legendgroup="pure_regression",
-            showlegend=False,
-            line={"color": "#1f77b4", "width": 3},
-        ),
-        row=2,
-        col=1,
-    )
+        fig.add_trace(
+            go.Scatter(
+                x=pure_df[time_col_extrap],
+                y=pure_df[value_col_extrap],
+                mode="lines",
+                name="Step 1: Common regression",
+                legendgroup="pure_regression",
+                showlegend=False,
+                line={"color": "#1f77b4", "width": 3},
+            ),
+            row=2,
+            col=1,
+        )
 
-    fig.add_trace(
-        go.Scatter(
-            x=fitted_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
-            y=fitted_gdppc_df[f"{value_col_extrap}_stock"],
-            mode="lines",
-            name="Step 2: Regional adaptation",
-            legendgroup="after_fit",
-            showlegend=False,
-            line={"color": "#ff7f0e", "width": 3},
-        ),
-        row=1,
-        col=1,
-    )
+    if STEP >= 2:
+        fig.add_trace(
+            go.Scatter(
+                x=fitted_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
+                y=fitted_gdppc_df[f"{value_col_extrap}_stock"],
+                mode="lines",
+                name="Step 2: Regional adaptation",
+                legendgroup="after_fit",
+                showlegend=False,
+                line={"color": "#ff7f0e", "width": 3},
+            ),
+            row=1,
+            col=1,
+        )
 
-    fig.add_trace(
-        go.Scatter(
-            x=fitted_df[time_col_extrap],
-            y=fitted_df[value_col_extrap],
-            mode="lines",
-            name="Step 2: Regional adaptation",
-            legendgroup="after_fit",
-            showlegend=False,
-            line={"color": "#ff7f0e", "width": 3},
-        ),
-        row=2,
-        col=1,
-    )
+        fig.add_trace(
+            go.Scatter(
+                x=fitted_df[time_col_extrap],
+                y=fitted_df[value_col_extrap],
+                mode="lines",
+                name="Step 2: Regional adaptation",
+                legendgroup="after_fit",
+                showlegend=False,
+                line={"color": "#ff7f0e", "width": 3},
+            ),
+            row=2,
+            col=1,
+        )
 
-    fig.add_trace(
-        go.Scatter(
-            x=smoothed_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
-            y=smoothed_gdppc_df[f"{value_col_extrap}_stock"],
-            mode="lines",
-            name="Step 3: Transition smoothing",
-            legendgroup="after_smooth_transition",
-            showlegend=False,
-            line={"color": "#2ca02c", "width": 3},
-        ),
-        row=1,
-        col=1,
-    )
+    if STEP >= 3:
+        fig.add_trace(
+            go.Scatter(
+                x=smoothed_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
+                y=smoothed_gdppc_df[f"{value_col_extrap}_stock"],
+                mode="lines",
+                name="Step 3: Transition smoothing",
+                legendgroup="after_smooth_transition",
+                showlegend=False,
+                line={"color": "#2ca02c", "width": 3},
+            ),
+            row=1,
+            col=1,
+        )
 
-    fig.add_trace(
-        go.Scatter(
-            x=smoothed_df[time_col_extrap],
-            y=smoothed_df[value_col_extrap],
-            mode="lines",
-            name="Step 3: Transition smoothing",
-            legendgroup="after_smooth_transition",
-            showlegend=False,
-            line={"color": "#2ca02c", "width": 3},
-        ),
-        row=2,
-        col=1,
-    )
+        fig.add_trace(
+            go.Scatter(
+                x=smoothed_df[time_col_extrap],
+                y=smoothed_df[value_col_extrap],
+                mode="lines",
+                name="Step 3: Transition smoothing",
+                legendgroup="after_smooth_transition",
+                showlegend=False,
+                line={"color": "#2ca02c", "width": 3},
+            ),
+            row=2,
+            col=1,
+        )
 
     fig.add_shape(
         type="line",
@@ -397,6 +402,9 @@ for iso in isos:
         within_group_spacing: float,
         title_to_group_spacing: float,
     ):
+        if HIDE_EXTR_LABELS or STEP == 0:
+            return
+
         title_y = group_top_y + title_to_group_spacing
         fig.add_annotation(
             x=x_right,
@@ -409,39 +417,26 @@ for iso in isos:
             align="left",
             font={"color": "black", "size": 14},
         )
-        fig.add_annotation(
-            x=x_right,
-            y=group_top_y - 2 * within_group_spacing,
-            xref="paper",
-            yref=yref,
-            text="Step 1: Common regression",
-            showarrow=False,
-            xanchor="left",
-            align="left",
-            font={"color": "#1f77b4", "size": 13},
-        )
-        fig.add_annotation(
-            x=x_right,
-            y=group_top_y - within_group_spacing,
-            xref="paper",
-            yref=yref,
-            text="Step 2: Regional adaptation",
-            showarrow=False,
-            xanchor="left",
-            align="left",
-            font={"color": "#ff7f0e", "size": 13},
-        )
-        fig.add_annotation(
-            x=x_right,
-            y=group_top_y,
-            xref="paper",
-            yref=yref,
-            text="Step 3: Transition smoothing",
-            showarrow=False,
-            xanchor="left",
-            align="left",
-            font={"color": "#2ca02c", "size": 13},
-        )
+
+        steps_in_display_order = [
+            (3, "Step 3: Transition smoothing", "#2ca02c"),
+            (2, "Step 2: Regional adaptation", "#ff7f0e"),
+            (1, "Step 1: Common regression", "#1f77b4"),
+        ]
+        visible_steps = [step for step in steps_in_display_order if step[0] <= STEP]
+
+        for idx, (_, label, color) in enumerate(visible_steps):
+            fig.add_annotation(
+                x=x_right,
+                y=group_top_y - idx * within_group_spacing,
+                xref="paper",
+                yref=yref,
+                text=label,
+                showarrow=False,
+                xanchor="left",
+                align="left",
+                font={"color": color, "size": 13},
+            )
 
     _add_historical_group(
         x_left=hist_group_x,
@@ -485,7 +480,7 @@ for iso in isos:
     )
 
     # Save a high-resolution static copy while preserving on-figure relative sizing.
-    output_path = pathlib.Path(__file__).with_name(f"figure_0_{iso}.png")
+    output_path = pathlib.Path(__file__).with_name(f"figure_0_{MAT}_{iso}_s{STEP}.png")
     fig.write_image(
         output_path,
         width=fig.layout.width,
