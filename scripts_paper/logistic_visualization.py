@@ -24,8 +24,8 @@ def create_logistic_parameter_plot():
     """
     # Create base x and y arrays (calculated once)
     x_base = np.linspace(-6, 6, 500)
-    x_lower = [x_base, 2*x_base, x_base-2]
-    x_upper = [x_base, 0.5*x_base, x_base+2]
+    x_lower = [x_base, 2 * x_base, x_base - 2]
+    x_upper = [x_base, 0.5 * x_base, x_base + 2]
     L_base = 1.0
     k_base = 1.0
     x0_base = 0.0
@@ -37,7 +37,8 @@ def create_logistic_parameter_plot():
 
     # Create subplots with 1 row and 3 columns
     fig = plotly.subplots.make_subplots(
-        rows=1, cols=3,
+        rows=1,
+        cols=3,
         subplot_titles=("Saturation Level", "Growth Rate", "Horizontal Offset"),
         horizontal_spacing=0.02,
     )
@@ -52,7 +53,8 @@ def create_logistic_parameter_plot():
                 hoverinfo="skip",
                 showlegend=False,
             ),
-            row=1, col=i+1,
+            row=1,
+            col=i + 1,
         )
         fig.add_trace(
             go.Scatter(
@@ -63,7 +65,8 @@ def create_logistic_parameter_plot():
                 hoverinfo="skip",
                 showlegend=False,
             ),
-            row=1, col=i+1,
+            row=1,
+            col=i + 1,
         )
         fig.add_trace(
             go.Scatter(
@@ -74,7 +77,8 @@ def create_logistic_parameter_plot():
                 hoverinfo="skip",
                 showlegend=False,
             ),
-            row=1, col=i+1,
+            row=1,
+            col=i + 1,
         )
 
     # Update x and y axes for all subplots

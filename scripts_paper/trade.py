@@ -17,7 +17,7 @@ show_labels = False
 
 for demand_case, stage in ((d, s) for d, sv in stages_show.items() for s in sv):
 
-    show = show_all[0:stage+1]
+    show = show_all[0 : stage + 1]
     # Simple illustrative trade balance around a market node.
 
     if demand_case == "historical":
@@ -136,10 +136,25 @@ for demand_case, stage in ((d, s) for d, sv in stages_show.items() for s in sv):
                 link={
                     "source": [0, 1, 2, 3, 4, 5, 4, 7],
                     "target": [1, 4, 3, 4, 5, 6, 7, 8],
-                    "value": [imports, imports, production, production, exports, exports, demand, demand],
+                    "value": [
+                        imports,
+                        imports,
+                        production,
+                        production,
+                        exports,
+                        exports,
+                        demand,
+                        demand,
+                    ],
                     "color": link_colors,
                 },
-                textfont={"size": 16, "color": "black", "family": "Arial", "weight": 700, "shadow": "none"},
+                textfont={
+                    "size": 16,
+                    "color": "black",
+                    "family": "Arial",
+                    "weight": 700,
+                    "shadow": "none",
+                },
             )
         ]
     )
@@ -147,9 +162,8 @@ for demand_case, stage in ((d, s) for d, sv in stages_show.items() for s in sv):
     fig.update_layout(
         font={"size": 16, "color": "black", "family": "Arial"},
         width=600,
-        height=15 * height_factor+200,
+        height=15 * height_factor + 200,
     )
-
 
     output_path = pathlib.Path(__file__).with_name(f"trade_{demand_case}_{stage}.png")
     fig.write_image(
