@@ -61,6 +61,12 @@ visualization:
       exclude_processes:
         - "sysenv"
         - "atmosphere"
+        - "virginfoss"
+        - "virginbio"
+        - "virgindaccu"
+        - "virginccu"
+        - "emission"
+        - "uncontrolled"
         #- "waste_market"
         #- "primary_market"
         #- "intermediate_market"
