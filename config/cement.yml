@@ -3,14 +3,13 @@ model: 'cement'
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: 'rev1.3.0_rec_0.5'
+  input_data_revision: 'rev1.5.0'
   region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
-  madrat_output_path: 'C:\Users\bennetwe\Documents\Code\madrat_outputfolder'
 
 model_switches:
   scenario: 'SSP2'
-  carbonation: False
+  carbonation: True
   parameter_reconciliation:
     do_reconcile: True
     do_combine_mfas: True
@@ -62,19 +61,19 @@ visualization:
   extrapolation:
     do_visualize: True
   carbonation:
-    do_visualize: False
+    do_visualize: True
 
 export:
-  do_export: False
+  do_export: True
   path: 'data/cement/output/export'
   pickle:
     do_export: True
   csv:
-    do_export: True
+    do_export: False
   iamc:
-    do_export: True
+    do_export: False
   assumptions:
-    do_export: True
+    do_export: False
   docs:
-    do_export: True
+    do_export: False
     path: 'docs/cement'
