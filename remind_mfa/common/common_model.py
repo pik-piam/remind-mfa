@@ -52,7 +52,7 @@ class CommonModel:
 
         self.transfer_historic_parameters()
         
-        self.historic_trade = self.historic_mfa.trade_set
+        historic_trade = self.historic_mfa.trade_set
 
         # apply scenarios to parameters for future mfa
         # 1. extend historic parameters into future
@@ -62,10 +62,10 @@ class CommonModel:
         # 2. adjust future parameters based on scenario
         self.apply_scenario_adjustments_to_parameters()
 
-        self.stock_projection = self.get_long_term_stock()
+        stock_projection = self.get_long_term_stock()
 
         self.future_mfa = self.make_mfa(historic=False)
-        self.future_mfa.compute(self.stock_projection, self.historic_trade)
+        self.future_mfa.compute(stock_projection, historic_trade)
 
     def export(self):
         self.data_writer.export(model=self)

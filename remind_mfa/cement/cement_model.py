@@ -95,6 +95,7 @@ class CementModel(CommonModel):
         self.combined_mfa = self.compute_combined_mfa(
             td_stock=self.td_mfa_reconciled.stocks["in_use"].stock,
             bu_stock=self.bu_mfa_reconciled.stocks["in_use"].stock,
+            historical_trade=self.td_hist_mfa.trade_set,
         )
         if self.cfg.model_switches.parameter_reconciliation.do_combine_mfas:
             self.future_mfa = self.combined_mfa
@@ -160,7 +161,7 @@ class CementModel(CommonModel):
         }
         return reduced_dim_mask
 
-    def compute_combined_mfa(self, td_stock, bu_stock):
+    def compute_combined_mfa(self, td_stock, bu_stock, historical_trade):
         # blend at product-mass level (k is a derived quantity, not an independent trajectory)
         td_stock = td_stock.sum_over("k")
         bu_stock = bu_stock.sum_over("k")
@@ -187,6 +188,6 @@ class CementModel(CommonModel):
         # compute combined mfa
 
         self.combined_mfa = self.make_mfa(historic=False)
-        self.combined_mfa.compute(combined_stock, self.historic_trade, stock_is_cement=False)
+        self.combined_mfa.compute(combined_stock, historical_trade, stock_is_cement=False)
 
         return self.combined_mfa
