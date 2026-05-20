@@ -11,12 +11,12 @@ from remind_mfa.common.data_blending import blend
 
 class ParameterExtrapolation(ABC):
     """Base class for parameter transformations including extrapolation and scenario application.
-    
+
     Handles three cases:
     1. Parameters with 'h' dimension → extend to 't' dimension
     2. Parameters with 't' dimension → modify future values
     3. Parameters with no time dimension → add time dimension and apply transformation to future values
-    
+
     Important: fill_values() always receives a prepared parameter with 't' dimension.
     Historic values are automatically preserved by the transform() method.
     """
@@ -28,14 +28,14 @@ class ParameterExtrapolation(ABC):
         new_param: fd.Parameter,
     ) -> fd.Parameter:
         """Sets values of new_param based on transformation method.
-        
+
         Args:
             prepared_param: Parameter with 't' dimension (converted from 'h' if necessary)
             new_param: New parameter with 't' dimension to fill
-            
+
         Returns:
             Parameter with filled values
-            
+
         Note:
             Historic values will be overwritten with original data after this method returns.
             Focus on computing the desired future values.
@@ -55,22 +55,22 @@ class ParameterExtrapolation(ABC):
         extended_time: fd.Dimension,
     ) -> fd.Parameter:
         """Transform parameter to extended time dimension, applying the transformation method.
-        
+
         Handles all three cases: h→t extrapolation, t→t modification, and static→t expansion.
         Historic values are always preserved from the original parameter.
         """
         self.historic_time = historic_time
         self.extended_time = extended_time
-        
+
         # Prepare parameter: convert h→t or add t dimension if needed
         prepared_param = self._prepare_parameter(parameter)
-        
+
         # Initialize new parameter with extended time dimension
         new_param = fd.Parameter(dims=prepared_param.dims, name=prepared_param.name)
-        
+
         # Fill values using the specific transformation method
         new_param = self.fill_values(prepared_param, new_param)
-        
+
         # Preserve original historic values
         new_param[{"t": self.historic_time}] = prepared_param[{"t": self.historic_time}]
 
@@ -81,38 +81,39 @@ class ParameterExtrapolation(ABC):
         parameter: fd.Parameter,
     ) -> fd.Parameter:
         """Prepare parameter to have 't' dimension.
-        
+
         - h→t: Expand historic parameter to full time dimension
         - static→t: Add time dimension
         - t→t: Return as-is
         """
         if "t" in parameter.dims.letters:
             return parameter
-        
+
         if "h" in parameter.dims.letters:
             # Convert h to t: expand historic data to extended time
             new_dims = parameter.dims.replace("h", self.extended_time)
             new_param = fd.Parameter(dims=new_dims, name=parameter.name)
             new_param[{"t": self.historic_time}] = parameter
             return new_param
-        
+
         # Static parameter: add time dimension
         new_dims = parameter.dims.prepend(self.extended_time)
         new_param = parameter.cast_to(new_dims)
         return new_param
-    
+
     @property
     def _last_historic_time(self) -> Number:
         """Get the last historic year from the historic time dimension."""
         return self.historic_time.items[-1]
-    
+
     def _get_last_historic_value(self, prepared_param: fd.Parameter) -> fd.FlodymArray:
         """Get the value at the last historic year from a prepared (t-dimension) parameter."""
         return prepared_param[{"t": self._last_historic_time}]
 
+
 class ConstantExtrapolation(ParameterExtrapolation):
     """Keep parameter constant at last observed value.
-    
+
     Special case of BlendExtrapolation where start and end values are the same.
     """
 
@@ -121,7 +122,7 @@ class ConstantExtrapolation(ParameterExtrapolation):
         prepared_param: fd.Parameter,
         new_param: fd.Parameter,
     ) -> fd.Parameter:
-        
+
         add_assumption_doc(
             type="model switch",
             name=f"Keep {prepared_param.name} constant",
@@ -149,7 +150,7 @@ class ZeroExtrapolation(ParameterExtrapolation):
         prepared_param: fd.Parameter,
         new_param: fd.FlodymArray,
     ) -> fd.Parameter:
-        
+
         add_assumption_doc(
             type="model switch",
             name=f"Set {prepared_param.name} to zero",
@@ -164,9 +165,12 @@ class ZeroExtrapolation(ParameterExtrapolation):
     def description(self) -> str:
         return "Parameter is set to zero in the future."
 
+
 class ScenarioExtrapolation(ParameterExtrapolation):
     """Base class for extrapolation methods that require scenario parameters in their constructor."""
+
     pass
+
 
 class LinearToTargetExtrapolation(ScenarioExtrapolation):
     """Linearly interpolate to a future target value according to scenario settings."""
@@ -179,7 +183,7 @@ class LinearToTargetExtrapolation(ScenarioExtrapolation):
         prepared_param: fd.Parameter,
         new_param: fd.FlodymArray,
     ) -> fd.Parameter:
-        
+
         add_assumption_doc(
             type="model switch",
             name=f"Linear interpolation of {prepared_param.name} to target value by target year.",
@@ -212,9 +216,9 @@ class SmoothScalingExtrapolation(ScenarioExtrapolation):
     def fill_values(
         self,
         prepared_param: fd.Parameter,
-        new_param: fd.FlodymArray,   
+        new_param: fd.FlodymArray,
     ) -> fd.Parameter:
-        
+
         add_assumption_doc(
             type="model switch",
             name=f"Scaling of {prepared_param.name} by factor that increases linearly to target value by target year.",
@@ -234,16 +238,17 @@ class SmoothScalingExtrapolation(ScenarioExtrapolation):
         new_param[...] = prepared_param * scaling_factors
 
         return new_param
-    
+
     @property
     def description(self) -> str:
         return "Parameter values are scaled by a factor that changes linearly to a target factor by a target year according to scenario settings."
 
+
 class ParameterExtrapolationManager:
     """Manager for applying parameter transformations (extrapolation and scenario application).
-    
+
     Handles transformation of parameters from:
-    - Historic ('h') to extended time ('t') 
+    - Historic ('h') to extended time ('t')
     - Already-future ('t') parameters with scenario modifications
     - Static (no time dim) parameters with scenario application
     """
@@ -269,13 +274,13 @@ class ParameterExtrapolationManager:
         scenario_parameters: Dict[str, Number] = None,
     ) -> Dict[str, fd.Parameter]:
         """Apply transformation to parameters.
-        
+
         Only parameters listed in parameter_extrapolation in config model switches are adjusted.
-        
+
         Args:
             parameters: Dictionary of parameters to potentially transform
             scenario_parameters: Dictionary of scenario-specific values (required for some transformations)
-            
+
         Returns:
             Dictionary of parameters with transformations applied where configured
         """
@@ -305,15 +310,13 @@ class ParameterExtrapolationManager:
         scenario_parameters: Dict[str, Number],
     ) -> ParameterExtrapolation:
         """Create an instance of the extrapolation class with appropriate constructor arguments.
-        
+
         Classes that require scenario_parameters in their constructor will receive them.
         Other classes are instantiated with no arguments.
-        """      
+        """
         if issubclass(extrapolation_class, ScenarioExtrapolation):
             if scenario_parameters is None:
-                raise ValueError(
-                    f"scenario_parameters required for {extrapolation_class.__name__}"
-                )
+                raise ValueError(f"scenario_parameters required for {extrapolation_class.__name__}")
             return extrapolation_class(scenario_parameters)
         else:
             return extrapolation_class()

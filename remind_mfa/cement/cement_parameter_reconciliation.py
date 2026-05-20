@@ -10,6 +10,7 @@ from copy import deepcopy
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 
+
 class CementParameterReconciliation:
     """Parameter reconciliation of top-down and bottom-up models."""
 
@@ -104,7 +105,6 @@ class CementParameterReconciliation:
                     val.lifetime_model.dims = val.inflow.dims
             self.stks[key] = val
 
-
     def prepare_trds(self):
         """Leave trade as is."""
         self.trds = deepcopy(self.ref_mfa.trade_set)
@@ -160,8 +160,7 @@ class CementParameterReconciliation:
 
             if tol is not None and mismatch < tol:
                 logging.info(
-                    f"Converged after {i} iteration(s) "
-                    f"(mismatch {mismatch:.4f} < tol {tol})."
+                    f"Converged after {i} iteration(s) " f"(mismatch {mismatch:.4f} < tol {tol})."
                 )
                 break
 
@@ -442,9 +441,7 @@ class CementParameterReconciliation:
 
     def pre_compute_lambda(self):
         """Solve Aλ = b for λ."""
-        log_f = self.flatten_fd_to_np(
-            self.td.apply(np.log) - self.bu.apply(np.log)
-        )
+        log_f = self.flatten_fd_to_np(self.td.apply(np.log) - self.bu.apply(np.log))
         D = log_f.size
         A = np.zeros((D, D))
         Sd_sum = np.zeros(D)
