@@ -238,10 +238,8 @@ class CementParameterReconciliation:
         # 2.2 Remove building structure
         reduced_cement_stock = reduced_cement_stock.sum_over("b")
 
-        # TODO move this to mrmfa as a parameter
-        # Scale up Chinese building stock to account for hibernating stock
-        # 17.4% unused buildings from https://www.nature.com/articles/s41558-025-02527-3?fromPaywallRec=false#Fig3
-        reduced_cement_stock[{"r": "CHA"}] = reduced_cement_stock[{"r": "CHA"}] / (1.0 - 0.174)
+        # 3. Scale up building stock to account for hibernating (unused) stock
+        reduced_cement_stock = reduced_cement_stock / (1.0 - prm["hibernating_stock_share"])
 
         return reduced_cement_stock
 
