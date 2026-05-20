@@ -110,9 +110,7 @@ class CementCarbonUptakeModel(BaseModel):
         window_size = int(1 / annual_carbonation_fraction)
         uptake_one_year_arr = uptake_one_year.values
         uptake_five_years_arr = windowed_sum(uptake_one_year_arr, window_size)
-        uptake_five_years = fd.FlodymArray(
-            dims=uptake_one_year.dims, values=uptake_five_years_arr
-        )
+        uptake_five_years = fd.FlodymArray(dims=uptake_one_year.dims, values=uptake_five_years_arr)
 
         return uptake_five_years
 
@@ -283,7 +281,9 @@ class CementCarbonUptakeModel(BaseModel):
             # (I1) get outflow by cohort (cement mass)
             ages, inflow = get_age_distribution(stk_in_use, t, data_type="outflow")
             inflow = inflow[..., cement_k_idx]  # select cement constituent only
-            ages = ages.reshape((-1,) + (1,) * (inflow.ndim - 1))  # re-shape for new ndim (k was dropped)
+            ages = ages.reshape(
+                (-1,) + (1,) * (inflow.ndim - 1)
+            )  # re-shape for new ndim (k was dropped)
 
             # (I2) get carbonation depth by cohort
             k_free = k_free_arr[: t + 1, ...]
@@ -303,7 +303,9 @@ class CementCarbonUptakeModel(BaseModel):
 
         # split inflow by waste type and size, reduce unnecessary dimensions
         uncarbonated_inflow = (
-            uncarbonated_inflow.sum_to(eol_dims_no_k) * prm["waste_type_split"] * prm["waste_size_share"]
+            uncarbonated_inflow.sum_to(eol_dims_no_k)
+            * prm["waste_type_split"]
+            * prm["waste_size_share"]
         )
 
         # create new age dimension
@@ -403,8 +405,7 @@ class CementCarbonUptakeModel(BaseModel):
             if letter not in used_letters:
                 return letter
         raise RuntimeError("No unused dimension letters available.")
-    
-    
+
     def _application_weighted_average(self, arr: fd.FlodymArray) -> fd.FlodymArray:
         """Average a (a, ...) array over a weighted by material_application_split (r, m, a).
 

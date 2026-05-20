@@ -172,9 +172,9 @@ class CriticallyDampedBlender:
             ), "Lifetime must match spatial shape of prediction."
 
     def blend(
-            self,
-            approaching_time: float = 50,
-            ensured_convergence_time: Optional[float] = None,
+        self,
+        approaching_time: float = 50,
+        ensured_convergence_time: Optional[float] = None,
     ) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
@@ -292,7 +292,11 @@ class CriticallyDampedBlender:
         # --- Precompute quintic blend weights ---
         # Alpha blends from 0 to 1 within 10x approaching_time using quintic function.
         t0 = t_array[0]
-        t_full_match = t0 + 10 * approaching_time if ensured_convergence_time is None else t0 + ensured_convergence_time
+        t_full_match = (
+            t0 + 10 * approaching_time
+            if ensured_convergence_time is None
+            else t0 + ensured_convergence_time
+        )
         alpha_arr = blending_factor(
             np.clip((t_array - t0) / (t_full_match - t0), 0.0, 1.0), "quintic"
         )  # (n_steps,)

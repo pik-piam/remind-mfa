@@ -55,15 +55,17 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         Returns an array with dim_letters (t, r, s, m, k).
         """
         k_dim = fd.Dimension(
-            name="Material Constituent", letter="k",
-            items=["cement", "non-cement"], dtype=str,
+            name="Material Constituent",
+            letter="k",
+            items=["cement", "non-cement"],
+            dtype=str,
         )
         constituent_dims = product_stock.dims.append(k_dim)
         constituent_stock = fd.FlodymArray(dims=constituent_dims)
         constituent_stock[{"k": "cement"}] = product_stock * prm["cement_ratio"]
         constituent_stock[{"k": "non-cement"}] = product_stock * (1 - prm["cement_ratio"])
         return constituent_stock
-    
+
     def compute_flows(self, historic_trade: TradeSet):
         prm = self.parameters
         flw = self.flows

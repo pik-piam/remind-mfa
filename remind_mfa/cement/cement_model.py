@@ -48,7 +48,7 @@ class CementModel(CommonModel):
 
         if not self.cfg.model_switches.parameter_reconciliation.do_reconcile:
             return
-        
+
         # collect non-reconciled mfas
         self.td_hist_mfa = self.historic_mfa
         self.td_mfa = self.future_mfa
@@ -57,7 +57,9 @@ class CementModel(CommonModel):
         zero_trade = self._create_zero_trade(self.td_hist_mfa.trade_set)
 
         # compute non-reconiled bottom-up mfa
-        self.bu_stock = self.get_bottom_up_stock(stock_ref=self.td_mfa.stocks["in_use"].stock) # concrete stock
+        self.bu_stock = self.get_bottom_up_stock(
+            stock_ref=self.td_mfa.stocks["in_use"].stock
+        )  # concrete stock
         self.bu_mfa = self.make_mfa(historic=False)
         self.bu_mfa.compute(self.bu_stock, zero_trade, stock_is_cement=False)
 
@@ -81,12 +83,16 @@ class CementModel(CommonModel):
         self.apply_scenario_adjustments_to_parameters()
 
         # compute reconciled future top-down mfa
-        self.td_stock_reconciled = self.get_long_term_stock() # cement stock        
+        self.td_stock_reconciled = self.get_long_term_stock()  # cement stock
         self.td_mfa_reconciled = self.make_mfa(historic=False)
-        self.td_mfa_reconciled.compute(self.td_stock_reconciled, self.td_hist_mfa_reconciled.trade_set)
+        self.td_mfa_reconciled.compute(
+            self.td_stock_reconciled, self.td_hist_mfa_reconciled.trade_set
+        )
 
         # compute reconciled future bottom-up mfa
-        self.bu_stock_reconciled = self.get_bottom_up_stock(stock_ref=self.td_mfa_reconciled.stocks["in_use"].stock) # concrete stock
+        self.bu_stock_reconciled = self.get_bottom_up_stock(
+            stock_ref=self.td_mfa_reconciled.stocks["in_use"].stock
+        )  # concrete stock
         self.bu_mfa_reconciled = self.make_mfa(historic=False)
         self.bu_mfa_reconciled.compute(self.bu_stock_reconciled, zero_trade, stock_is_cement=False)
 
@@ -130,8 +136,12 @@ class CementModel(CommonModel):
     def _create_zero_trade(self, trade_ref):
         zero_trade = deepcopy(trade_ref)
         for market in trade_ref.markets.keys():
-            zero_trade[market].imports = fd.FlodymArray.full_like(trade_ref[market].imports, fill_value=0)
-            zero_trade[market].exports = fd.FlodymArray.full_like(trade_ref[market].exports, fill_value=0)
+            zero_trade[market].imports = fd.FlodymArray.full_like(
+                trade_ref[market].imports, fill_value=0
+            )
+            zero_trade[market].exports = fd.FlodymArray.full_like(
+                trade_ref[market].exports, fill_value=0
+            )
         return zero_trade
 
     def get_bottom_up_stock(self, stock_ref: fd.FlodymArray):
@@ -147,7 +157,7 @@ class CementModel(CommonModel):
         )
         stock[self.concrete_mask] = bu_concrete_stock
         return stock
-    
+
     @property
     def concrete_mask(self):
         return {"m": "concrete"}
