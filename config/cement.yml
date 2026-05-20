@@ -9,9 +9,9 @@ input:
 
 model_switches:
   scenario: 'SSP2'
-  carbonation: True
+  carbonation: False
   parameter_reconciliation:
-    do_reconcile: True
+    do_reconcile: False
     do_combine_mfas: True
   stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
