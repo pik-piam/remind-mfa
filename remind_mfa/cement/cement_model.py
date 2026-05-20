@@ -2,7 +2,6 @@ import logging
 from typing import Optional
 from copy import deepcopy
 import flodym as fd
-import numpy as np
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.cement.cement_definition import get_cement_definition

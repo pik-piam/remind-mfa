@@ -51,7 +51,7 @@ class CommonModel:
         self.historic_mfa.compute()
 
         self.transfer_historic_parameters()
-        
+
         historic_trade = self.historic_mfa.trade_set
 
         # apply scenarios to parameters for future mfa
