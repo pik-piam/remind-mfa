@@ -487,7 +487,9 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
-        material_shares =mfa.parameters["material_shares_use_inflow"][{"t": 2019}] #material shares are kept constant over time, so we can just take the value for one year
+        material_shares = mfa.parameters["material_shares_use_inflow"][
+            {"t": 2019}
+        ]  # material shares are kept constant over time, so we can just take the value for one year
         material_shares = material_shares.cumsum(dim_letter="m")
 
         ap_sector_splits = self.plotter_class(

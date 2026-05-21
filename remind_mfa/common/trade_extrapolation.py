@@ -177,8 +177,8 @@ class TradeExtrapolator(RemindMFABaseModel):
         Note: using first_scaling directly as initialization would cause divergence when
         historic_first is near zero (e.g. a region with zero historic imports but large
         exports), because first_scaling = future_first / max(avg_first, 1) can be very
-        large in absolute terms. Instead, we estimate scaler_second growth using 
-        historic_second_0 as a proxy for future_second. We then use the minimum of 
+        large in absolute terms. Instead, we estimate scaler_second growth using
+        historic_second_0 as a proxy for future_second. We then use the minimum of
         first_scaling and this estimate as the initializer.
         """
         # Estimate scaler_second growth using historic_second_0 as proxy for future_second.
