@@ -15,12 +15,16 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Stock Type", dim_letter="s", dtype=str),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
-        fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
+        fd.DimensionDefinition(name="Material Constituent", dim_letter="k", dtype=str),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
         # carbonation dimensions
+        fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
         fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
+        # service demand
+        fd.DimensionDefinition(name="Structure", dim_letter="b", dtype=str),  # b for building
+        fd.DimensionDefinition(name="Function", dim_letter="f", dtype=str),
     ]
 
     # 2) Processes
@@ -83,10 +87,10 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             # product production
             fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("t", "r", "s", "m")),
-            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "a")),
+            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("t", "r", "s", "m", "k")),
             # use and end-of-life
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "a")),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "a")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t", "r", "s", "m", "k")),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=("t", "r", "s", "m", "k")),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
@@ -96,7 +100,6 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
         ]
 
     # fmt: on
-    # TODO remove historic_in_use stock, just use in_use, later change from h to t dimension
     # 4) Stocks
     if historic:
         stocks = [
@@ -114,14 +117,14 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
             fd.StockDefinition(
                 name="in_use",
                 process="use",
-                dim_letters=("t", "r", "s", "m", "a"),
+                dim_letters=("t", "r", "s", "m", "k"),
                 subclass=fd.StockDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=("t", "r", "s", "m", "a"),
+                dim_letters=("t", "r", "s", "m", "k"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),
@@ -172,18 +175,10 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Share of cement lost during cement production."),
         RemindMFAParameterDefinition(name="clinker_losses", dim_letters=(),
                                      description="Share of clinker lost during clinker production."),
-        RemindMFAParameterDefinition(name="product_density", dim_letters=("m",),
-                                     description="Material density associated with each product."),
-        RemindMFAParameterDefinition(name="product_application_split", dim_letters=("r", "a"),
-                                     description="Share of product output allocated to each application by region."),
+        RemindMFAParameterDefinition(name="cement_ratio", dim_letters=("r", "m",),
+                                     description="Share of product mass that is cement for each product material."),
         RemindMFAParameterDefinition(name="product_material_split", dim_letters=("r", "m"),
                                      description="Share of product output allocated to each material by region."),
-        RemindMFAParameterDefinition(name="product_material_application_transform", dim_letters=("m", "a"),
-                                     description="Transformation matrix linking product materials to applications."),
-        RemindMFAParameterDefinition(name="product_cement_content", dim_letters=("a",),
-                                     description="Cement content per cubic meter of product application."),
-        RemindMFAParameterDefinition(name="stock_saturation_level", dim_letters=("r",),
-                                     description="Saturation level of in-use cement stock in each region."),
         RemindMFAParameterDefinition(name="industrialized_regions", dim_letters=("r",),
                                      description="List of regions considered industrialized for stock extrapolation."),
         # carbonation parameters
@@ -209,6 +204,8 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Carbonation rate modifier factoring in cement additives."),
         RemindMFAParameterDefinition(name="product_thickness", dim_letters=("a",),
                                      description="Average thickness assumed for each product application."),
+        RemindMFAParameterDefinition(name="material_application_split", dim_letters=("r", "m", "a"),
+                                     description="Share of each product material distributed across product applications, by region."),
         RemindMFAParameterDefinition(name="waste_type_split", dim_letters=("r", "w"),
                                      description="Share of end-of-life cement flows by waste type and region."),
         RemindMFAParameterDefinition(name="waste_size_share", dim_letters=("r", "w", "p"),
@@ -217,6 +214,17 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Minimum particle size represented for each waste type and class."),
         RemindMFAParameterDefinition(name="waste_size_max", dim_letters=("w", "p"),
                                      description="Maximum particle size represented for each waste type and class."),
+        # bottom-up parameters
+        RemindMFAParameterDefinition(name="concrete_building_mi", dim_letters=("r", "f", "b"),
+                                     description="Material intensity of concrete (t/m2) differentiated by building function and structure."),
+        RemindMFAParameterDefinition(name="function_buildings_split", dim_letters=("r", "s", "f"),
+                                     description="Split of building stock types into different functions per region."),
+        RemindMFAParameterDefinition(name="structure_buildings_split", dim_letters=("r", "f", "b"),
+                                     description="Split of building functions into different structure types per region."),
+        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "s"),
+                                     description="Historic and projected total buildings floorspace per region and stock type."),
+        RemindMFAParameterDefinition(name="hibernating_stock_share", dim_letters=("r",),
+                                     description="Share of building stock that is hibernating (built but unused and not demolished)."),
     ]
     # fmt: on
 

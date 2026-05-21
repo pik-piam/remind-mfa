@@ -6,9 +6,12 @@ class CementDimensionFiles(CommonDimensionFiles):
         "Stock Type": "stock_types",
         "Product Material": "product_materials",
         "Product Application": "product_applications",
+        "Material Constituent": "material_constituents",
         "Waste Type": "waste_types",
         "Waste Size": "waste_sizes",
         "Carbonation Location": "carbonation_locations",
+        "Function": "functions",
+        "Structure": "structures",
     }
 
 

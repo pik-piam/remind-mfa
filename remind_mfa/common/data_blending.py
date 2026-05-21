@@ -10,11 +10,42 @@ def blend(
     target_dims: fd.DimensionSet,
     y_lower: fd.FlodymArray,
     y_upper: fd.FlodymArray,
-    x: Union[fd.FlodymArray, str],  # str: dimension letter
+    x: Union[fd.FlodymArray, str],
     x_lower: Union[fd.FlodymArray, int, float],
     x_upper: Union[fd.FlodymArray, int, float],
     type: str = "poly_mix",
 ) -> fd.FlodymArray:
+    """
+    Blend between two arrays (y_lower, y_upper) along a dimension or variable x, using a specified blending function.
+
+    This function interpolates (or blends) between y_lower and y_upper based on the normalized position of x between x_lower and x_upper,
+    using a chosen blending curve (e.g., linear, sigmoid, hermite, quintic, etc.).
+
+    Args:
+        target_dims (fd.DimensionSet):
+            The target dimensions for the output array. All input arrays and scalars are broadcast/cast to these dimensions.
+        y_lower (fd.FlodymArray):
+            The value (array) to use when x == x_lower (i.e., at the lower bound).
+        y_upper (fd.FlodymArray):
+            The value (array) to use when x == x_upper (i.e., at the upper bound).
+        x (Union[fd.FlodymArray, str]):
+            The variable to blend along. Can be a FlodymArray (values for each point) or a string (dimension name/letter) to use the corresponding dimension values from target_dims.
+        x_lower (Union[fd.FlodymArray, int, float]):
+            The lower bound for x (can be scalar or array). Where x == x_lower, the result is y_lower.
+        x_upper (Union[fd.FlodymArray, int, float]):
+            The upper bound for x (can be scalar or array). Where x == x_upper, the result is y_upper.
+        type (str, optional):
+            The blending function to use. Options include: 'linear', 'sigmoid3', 'sigmoid4', 'hermite', 'quintic', 'poly_mix', etc.
+            Default is 'poly_mix'.
+
+    Returns:
+        fd.FlodymArray: The blended/interpolated array, with dimensions target_dims.
+
+    Example:
+        blend(target_dims, y_lower, y_upper, x="t", x_lower=2020, x_upper=2050, type="hermite")
+        # Blends y_lower to y_upper as the 't' dimension goes from 2020 to 2050 using a Hermite curve.
+
+    """
     if isinstance(x, str):
         x = fd.FlodymArray(dims=target_dims[(x,)], values=np.array(target_dims[x].items))
     x = x.cast_to(target_dims)
@@ -129,7 +160,7 @@ class CriticallyDampedBlender:
         ), "Time and prediction must have the same length."
         assert (
             self.historical.shape[1:] == self.prediction.shape[1:]
-        ), "Historical and prediction must have the same spatial shape."
+        ), "Historical and prediction must have the same shape, except along the time dimension."
         assert (
             self.historical.shape[0] <= self.prediction.shape[0]
         ), "Historical data cannot be longer than prediction."
@@ -140,7 +171,11 @@ class CriticallyDampedBlender:
                 self.lifetime.shape == self.prediction.shape[1:]
             ), "Lifetime must match spatial shape of prediction."
 
-    def blend(self) -> np.ndarray:
+    def blend(
+        self,
+        approaching_time: float = 50,
+        ensured_convergence_time: Optional[float] = None,
+    ) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
         approach (PD-controller logic) to ensure a smooth transition.
@@ -155,22 +190,19 @@ class CriticallyDampedBlender:
         the system combines an anticipatory D-term with a long-term quintic alpha-blend.
         Internal state (velocity) is re-synchronized at each step after blending.
 
+        Args:
+            approaching_time (float): Characteristic timescale in years governing the damping
+                parameter ``k = 4.74 / approaching_time``. In a static system without blending,
+                the trajectory reaches ~95% of the prediction after this many years. Defaults to 50.
+            ensured_convergence_time (Optional[float]): If given, overrides the default full-match
+                time of ``10 * approaching_time`` years. The quintic blend will reach exact
+                convergence with the prediction at this many years after the transition point.
+
         Returns:
             np.ndarray: Stock array with exact historical values preserved up to the last
             historical index and a smooth blended trajectory thereafter.
         """
         last_history_idx = len(self.historical) - 1
-
-        approaching_time = 50
-        add_assumption_doc(
-            type="integer number",
-            name="years for blending to regression",
-            value=approaching_time,
-            description=(
-                "Number of years for the blending from historical to regressed in-use stocks. "
-                "Governs the damping parameter k."
-            ),
-        )
 
         # 1. Isolate the time window and prediction values we need to integrate over
         t_future = self.time[last_history_idx:]
@@ -182,7 +214,14 @@ class CriticallyDampedBlender:
             self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
         )
         # 3. Integrate to find the blended future path Y(t)
-        y_future = self._integrate_transition(y0, v0, t_future, p_future, approaching_time)
+        y_future = self._integrate_transition(
+            y0,
+            v0,
+            t_future,
+            p_future,
+            approaching_time,
+            ensured_convergence_time,
+        )
 
         # 4. Construct the final contiguous array
         blended_stock = self.prediction.copy()
@@ -200,6 +239,7 @@ class CriticallyDampedBlender:
         t_array: np.ndarray,
         p_array: np.ndarray,
         approaching_time: float,
+        ensured_convergence_time: Optional[float] = None,
     ) -> np.ndarray:
         """
         Integrate a trajectory from an initial state (y0, v0) that smoothly tracks a target prediction p_array
@@ -224,6 +264,9 @@ class CriticallyDampedBlender:
                 shape ``(len(t_array), spatial...)``. Must be uniformly spaced in time.
             approaching_time (float): Characteristic timescale in years. Governs the damping
                 parameter ``k = 4.74 / approaching_time`` and the look-ahead ramp length.
+            ensured_convergence_time (Optional[float]): If given, overrides the default full-match
+                time of ``10 * approaching_time`` years. The quintic blend reaches exact convergence
+                with the prediction at this many years after ``t_array[0]``.
 
         Returns:
             np.ndarray: Integrated trajectory array of shape ``(len(t_array), spatial...)``.
@@ -249,7 +292,11 @@ class CriticallyDampedBlender:
         # --- Precompute quintic blend weights ---
         # Alpha blends from 0 to 1 within 10x approaching_time using quintic function.
         t0 = t_array[0]
-        t_full_match = t0 + 10 * approaching_time
+        t_full_match = (
+            t0 + 10 * approaching_time
+            if ensured_convergence_time is None
+            else t0 + ensured_convergence_time
+        )
         alpha_arr = blending_factor(
             np.clip((t_array - t0) / (t_full_match - t0), 0.0, 1.0), "quintic"
         )  # (n_steps,)
