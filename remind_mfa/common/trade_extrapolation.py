@@ -6,6 +6,7 @@ from pydantic import model_validator, ConfigDict
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
 from remind_mfa.common.helpers import RemindMFABaseModel
+from remind_mfa.common.data_blending import blend
 
 
 class TradeExtrapolator(RemindMFABaseModel):
@@ -24,11 +25,6 @@ class TradeExtrapolator(RemindMFABaseModel):
     future_dom_demand: fd.FlodymArray = None
     """future_dom_demand (FlodymArray): The domestic demand values to scale the historic imports by.
     Setting this means calculating trade in backward mode
-    """
-    alpha_rel: float = 2 / 3
-    """Exponent with which increases in the scaler are applied to the trade.
-    (reductions are always applied linearly)
-    1 means linear scaling, <1 means sub-linear scaling, 0 means temporally constant trade.
     """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
@@ -138,15 +134,14 @@ class TradeExtrapolator(RemindMFABaseModel):
 
     def scale_first(self) -> fd.FlodymArray:
         # 1) scale "first" trade flow (imports in demand-driven mode)
-        scaling = self.scaling(
-            d0=self.scaler_first_0,
-            d=self.scaler_first,
-            alpha=self.alpha_rel,
+        self.future_first[...] = self.scaling(
+            trd_0=self.historic_first_0,
+            dom_0=self.scaler_first_0,
+            dom=self.scaler_first,
         )
-        self.future_first[...] = self.historic_first_0 * scaling
         # make sure historical years equal historical data
         self.future_first[self.id_hist] = self.historic_first
-        return scaling
+        return self.future_first / self.historic_first_0.maximum(1)
 
     def scale_stopover(self, first_scaling: fd.FlodymArray) -> fd.FlodymArray:
         """Sometimes trade exceeds domestic supply and demand.
@@ -184,13 +179,12 @@ class TradeExtrapolator(RemindMFABaseModel):
             self.scaler_second = (
                 self.scaler_first - self.future_first + self.future_second + stopover_trade
             )
-            updated_scaling = self.scaling(
-                d0=self.scaler_second_0,
-                d=self.scaler_second,
-                alpha=self.alpha_rel,
+            self.future_second[...] = self.scaling(
+                trd_0=self.historic_second_0,
+                dom_0=self.scaler_second_0,
+                dom=self.scaler_second,
                 reduced_linear=False,
             )
-            self.future_second[...] = self.historic_second_0 * updated_scaling
             self.future_second[self.id_hist] = self.historic_second
 
         self.future_second[...] += stopover_trade
@@ -224,38 +218,47 @@ class TradeExtrapolator(RemindMFABaseModel):
             decimal=0,
         )
 
-    @staticmethod
     def scaling(
-        d0: fd.FlodymArray,
-        d: fd.FlodymArray,
-        alpha: float,
+        self,
+        trd_0: fd.FlodymArray,
+        dom_0: fd.FlodymArray,
+        dom: fd.FlodymArray,
         reduced_linear: bool = True,
     ) -> fd.FlodymArray:
         """Apply scaling depending on relative change of scaler:
-        - sub-linear scaling for _increasing_ scaler (i.e. increasing dom_demand or dom_supply)
-          Rationale: for increasing dom_demand/dom_supply, we expect trade to increase less than
-          proportionally, as there may be some inertia in historical trade patterns.
-          Also low-GDP regions currently heavily relying on imports might increase their domestic
-          supply share in the future.
-        - linear scaling for _decreasing_ scaler in future_first
-          (i.e. decreasing dom_demand or dom_supply)
-          Rationale: for decreasing dom_demand/dom_supply, we expect trade to decrease at least
-          proportionally, as there is less need/opportunity for trade. For increasing demand/dom_supply,
-          we expect trade to increase less than proportionally, to protect domestic production.
-        - even weaker scaling (more sub-linear) for decreasing scaler in future_second
+        Base method:
+        - linear scaling (exports with production, imports with demand), constant local trade shares
+        Modifications:
+        - for large relative increases of the scaler, global trade shares (e/p an i/d) slowly
+          replace local ones, as such large changes diminish the predictive power of local
+          historical trade patterns. Phase-in of global shares is governed by the alpha parameter
+        - no scaling for decreasing scaler in future_second
           Rationale:
           - if domestic demand decreases, the standing production might export more
           - if domestic supply (e.g. of EOL material) decreases, more might be imported
         """
-        assert np.min(d.values) >= -1e-6 * np.max(np.abs(d.values))
-        assert np.min(d0.values) >= -1e-6 * np.max(np.abs(d0.values))
-        d = d.maximum(0)
-        d0 = d0.maximum(1)
-        scaling = (d / d0) ** alpha
+        assert np.min(dom.values) >= -1e-6 * np.max(np.abs(dom.values))
+        assert np.min(dom_0.values) >= -1e-6 * np.max(np.abs(dom_0.values))
+        trd_0 = trd_0.maximum(0)
+        dom = dom.maximum(0)
+        dom_0 = dom_0.maximum(1)
+        dom_ratio = (dom / dom_0).maximum(1).apply(np.log) / np.log(50)
+        alpha = blend(
+            target_dims=self.dims_out,
+            y_lower=0,
+            y_upper=1,
+            x=dom_ratio,
+            x_lower=0,
+            x_upper=1,
+            type="quintic",
+        )
+        trd_share_glob_0 = (trd_0.sum_over(("r",)) / dom_0.sum_over(("r",))).cast_to(self.dims_out)
+        trd = dom * (trd_0 / dom_0) ** (1 - alpha) * trd_share_glob_0**alpha
+
         if reduced_linear:
-            return (scaling).minimum(d / d0)
+            return trd
         else:
-            return (scaling).maximum((d / d0) ** (alpha / 3))
+            return trd.maximum(trd_0)
 
 
 class RecentHistoricalAverage(RemindMFABaseModel):
