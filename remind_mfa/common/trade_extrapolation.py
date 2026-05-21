@@ -9,7 +9,6 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_blending import blend
 
 
-
 class TradeExtrapolator(RemindMFABaseModel):
     """Predict future trade values by extrapolating the trade data using a given scaler."""
 

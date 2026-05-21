@@ -40,7 +40,7 @@ visualization:
   consumption:
     do_visualize: False
   trade:
-    do_visualize: False
+    do_visualize: True
   sankey:
     do_visualize: False
     plotter_args:
