@@ -1,4 +1,5 @@
 import flodym as fd
+import numpy as np
 
 from .plastics_mfa_system import PlasticsMFASystemFuture
 from .plastics_mfa_system_historic import PlasticsMFASystemHistoric
@@ -9,6 +10,7 @@ from .plastics_mappings import PlasticsDimensionFiles, PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_model import CommonModel
+from remind_mfa.common.data_blending import blend
 
 
 class PlasticsModel(CommonModel):
@@ -28,8 +30,6 @@ class PlasticsModel(CommonModel):
     historic_stock_name: str = "in_use_historic"
 
     def modify_parameters(self):
-        # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["sector_split"]
         # cast lifetime mean to correct dimensions for use in common model
         self.parameters["lifetime_mean"] = fd.Parameter(
             dims=self.dims["t", "r", "g"],
@@ -57,10 +57,37 @@ class PlasticsModel(CommonModel):
         self.parameters["waste_his_exports"][...] *= 1e6
         self.parameters["consumption"][...] *= 1e6
 
+    def get_sector_split_limit(self):
+        """ Sector splits differ between regions, which may be due to different consumption preference patterns which we would like to keep, but
+        also due to different economic conditions. For low-gdp regions, we cannot assume that the current split will be maintained in the future.
+        Therefore, we use the historic split for highest gdp region, but blend to the global split if historic gdp is low in regions """
+        
+        # get regional good split of stock inflow from historic MFA 
+        self.parameters["historic_sector_split"] = fd.Parameter(
+            dims = self.dims["r","g"],
+            values = self.historic_mfa.parameters["good_shares_use_inflow"][self.dims["h"].items[-1]].values,
+        )
+        # get historic gdp per capita for blending
+        hist_gdp = self.parameters["gdppc"][self.dims["h"].items[-1]]
+
+        alpha = blend(
+            target_dims=self.dims["r",],
+            y_lower=0,
+            y_upper=1,
+            x=hist_gdp,
+            x_lower=np.min(hist_gdp.values),
+            x_upper=np.max(hist_gdp.values),
+            type="quintic",
+        )
+        sector_split_limit = (self.parameters["sector_split"].cast_to(self.dims["r", "g"]) ** (1 - alpha) * self.parameters["historic_sector_split"]**alpha).get_shares_over("g")
+        self.parameters["sector_split_limit"] = fd.Parameter(
+            dims = self.dims["r","g"],
+            values = sector_split_limit.values,
+        )
+    
     def transfer_historic_parameters(self):
         # get material split of stock inflow from historic MFA to be extrapolated by ParameterExtrapolation for use in future MFA
         self.parameters["material_shares_use_inflow"] = self.historic_mfa.parameters[
             "material_shares_use_inflow"
         ]
-        # get good split of stock inflow from historic MFA and use this to calculate the stock sector split in common model
-        # self.parameters["sector_split_limit"] = self.historic_mfa.parameters["good_shares_use_inflow"][self.historic_mfa.dims["h"].items[-1]]
+        self.get_sector_split_limit()
