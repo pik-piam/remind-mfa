@@ -247,14 +247,14 @@ class TradeExtrapolator(RemindMFABaseModel):
         i0 = i0.maximum(0)
         d = d.maximum(0)
         d0 = d0.maximum(1)
-        d_ratio = d / d0
+        d_ratio = (d / d0).maximum(1).apply(np.log) / np.log(50)
         alpha = blend(
             target_dims=self.dims_out,
             y_lower=0,
             y_upper=1,
             x=d_ratio,
-            x_lower=1,
-            x_upper=10,
+            x_lower=0,
+            x_upper=1,
             type="quintic",
         )
         global_share_first_0 = (i0.sum_over(("r",)) / d0.sum_over(("r",))).cast_to(self.dims_out)
