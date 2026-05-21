@@ -43,11 +43,30 @@ class CementModel(CommonModel):
         self.parameters["lifetime_std"] = lifetime_std
 
     def run(self):
+        # copy parameters for optional reconciliation first, as they are altered in super().run()
         self.original_parameters_hist = self.parameters.copy()
         super().run()
 
-        if not self.cfg.model_switches.parameter_reconciliation.do_reconcile:
-            return
+        if self.cfg.model_switches.parameter_reconciliation.do_reconcile:
+            return self.run_with_reconciliation()
+
+    def run_with_reconciliation(self):
+        """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
+
+        Called by `run()` when `do_reconcile` is enabled. Extends the base model run with a
+        parameter reconciliation loop that aligns historic top-down and bottom-up stocks, then
+        propagates reconciled parameters into the future projection.
+
+        Saves the full set of MFAs as attributes:
+        - `td_hist_mfa`: Original historical top-down MFA (pre-reconciliation) as calculated in super.run().
+        - `td_mfa`: Original future top-down MFA (pre-reconciliation) as calculated in super.run().
+        - `bu_mfa`: Future bottom-up MFA calculated from original parameters and zero trade (pre-reconciliation).
+        - `td_hist_mfa_reconciled`: Reconciled historical top-down MFA.
+        - `td_mfa_reconciled`: Reconciled future top-down MFA.
+        - `bu_mfa_reconciled`: Reconciled future bottom-up MFA.
+        - `combined_mfa`: Future MFA combining reconciled bottom-up where available and top-down as fallback (if enabled in config).
+
+        """
 
         # collect non-reconciled mfas
         self.td_hist_mfa = self.historic_mfa
