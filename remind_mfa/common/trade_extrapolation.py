@@ -253,7 +253,7 @@ class TradeExtrapolator(RemindMFABaseModel):
             type="quintic",
         )
         trd_share_glob_0 = (trd_0.sum_over(("r",)) / dom_0.sum_over(("r",))).cast_to(self.dims_out)
-        trd = dom * (trd_0 / dom_0)**(1-alpha) * trd_share_glob_0 ** alpha
+        trd = dom * (trd_0 / dom_0) ** (1 - alpha) * trd_share_glob_0**alpha
 
         if reduced_linear:
             return trd
