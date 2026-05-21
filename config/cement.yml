@@ -31,7 +31,7 @@ visualization:
   trade:
     do_visualize: True
   use_stock:
-    do_visualize: False
+    do_visualize: True
     over_gdp: True
     per_capita: True
   eol_stock:

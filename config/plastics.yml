@@ -32,7 +32,7 @@ visualization:
   do_save_figs: False
   figures_path: 'data/plastics/output/figures'
   use_stock:
-    do_visualize: False
+    do_visualize: True
     over_gdp: True
     accumulate_gdp: False
     per_capita: True
@@ -44,9 +44,9 @@ visualization:
   trade:
     do_visualize: True
   extrapolation:
-    do_visualize: False
+    do_visualize: True
   sankey:
-    do_visualize: False
+    do_visualize: True
     plotter_args:
       slice_dict:
         t: 2050
