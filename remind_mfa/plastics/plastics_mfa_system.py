@@ -19,7 +19,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         self.compute_flows(historic_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
-        self.check_flows(raise_error=False)
+        self.check_flows(raise_error=False, verbose=True)
 
     def compute_waste_trade(self):
         # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historic MFA system
@@ -62,7 +62,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "total_primary_fabrication": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "net_other_polymerization_input": self.get_new_array(dim_letters=("t", "e", "r")),
+            "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "total_primary_HVC": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
@@ -75,13 +76,17 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # EoL flows are computed first, starting from the stock outflow, since recycling flows are needed for the trade extrapolation
         flw["use => eol"][...] = stk["in_use"].outflow
+        flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
+
+        # exports of plastic waste cannot exceed collected eol plastics
+        trd["waste"].exports[...] = trd["waste"].exports.minimum(flw["eol => collected"])
+        trd["waste"].balance(to="minimum")
 
         flw["waste_market => collected"][...] = trd["waste"].imports
         flw["collected => waste_market"][...] = trd["waste"].exports
         flw["imports => waste_market"][...] = flw["waste_market => collected"]
         flw["waste_market => exports"][...] = flw["collected => waste_market"]
 
-        flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
         flw["reclmech => fabrication"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
@@ -92,15 +97,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         flw["collected => reclchem"][...] = aux["total_waste_collected"] * prm["chemical_recycling_rate"]
 
-        flw["collected => incineration"][...] = aux["total_waste_collected"] * prm["incineration_rate"]
-        flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
+        flw["collected => landfill"][...] = aux["total_waste_collected"] * prm["landfill_rate"]
 
-        flw["collected => landfill"][...] = (
+        flw["collected => incineration"][...] = (
             aux["total_waste_collected"]
             - flw["collected => reclmech"]
             - flw["collected => reclchem"]
-            - flw["collected => incineration"]
+            - flw["collected => landfill"]
         )
+        flw["incineration => emission"][...] = flw["collected => incineration"] + flw["reclmech => incineration"]
 
         flw["eol => mismanaged"][...] = flw["use => eol"] - flw["eol => collected"]
         flw["mismanaged => uncontrolled"][...] = flw["eol => mismanaged"]
@@ -124,14 +129,14 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["fabrication => good_market"][...] = flw["good_market => use"] - flw["imports => good_market"] + flw["good_market => exports"]
 
         # imports of primary plastics cannot exceed primary plastics demand in fabrication (plastics fabrication - mechanically recycled plastics)
-        aux["total_primary_fabrication"][...] = flw["fabrication => good_market"] - flw["reclmech => fabrication"]
-        historic_trade["primary_his"].imports[...] = historic_trade["primary_his"].imports.minimum(aux["total_primary_fabrication"][{"t": self.dims["h"]}])
+        flw["primary_market => fabrication"][...] = flw["fabrication => good_market"] - flw["reclmech => fabrication"]
+        historic_trade["primary_his"].imports[...] = historic_trade["primary_his"].imports.minimum(flw["primary_market => fabrication"][{"t": self.dims["h"]}])
         historic_trade["primary_his"].balance(to="minimum")
 
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["primary_his"],
             future_trade=self.trade_set["primary"],
-            future_dom_demand=aux["total_primary_fabrication"],
+            future_dom_demand=flw["primary_market => fabrication"],
         )
         extrapolator.run()
 
@@ -141,7 +146,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["imports => primary_market"][...] = (
             trd["primary"].imports * self.parameters["carbon_content_materials"]
         )
-        flw["primary_market => fabrication"][...] = aux["total_primary_fabrication"]
 
         flw["polymerization => primary_market"][...] = (
             flw["primary_market => fabrication"]
@@ -150,11 +154,13 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
 
         aux["total_polymerization_feed"][...] = flw["polymerization => primary_market"] / prm["polymerization_yield"]
-        flw["polymerization => losses"][...] = aux["total_polymerization_feed"] - flw["polymerization => primary_market"]
-        flw["losses => sysenv"][...] = flw["polymerization => losses"]
         flw["HVC_input => polymerization"][...] = aux["total_polymerization_feed"].sum_to(("t", "r", "m")) * prm["HVC_input_ratio"]
         flw["C4_input => polymerization"][...] = aux["total_polymerization_feed"].sum_to(("t", "r", "m")) * prm["C4_input_ratio"]
-        flw["other_reactants => polymerization"][...] = aux["total_polymerization_feed"] - flw["HVC_input => polymerization"] - flw["C4_input => polymerization"]
+        aux["net_other_polymerization_input"] = aux["total_polymerization_feed"] - flw["HVC_input => polymerization"] - flw["C4_input => polymerization"] # this is all input to polymerization that is not total HVC or C4 input - can be positive because of other reactants or negative because of upstream losses (e.g. for production of styrene from ethylene and benzene)
+        flw["other_reactants => polymerization"][...] = aux["net_other_polymerization_input"].maximum(0) # the positive part is counted as other reactants input
+        aux["upstream_losses"][...] = - aux["net_other_polymerization_input"].minimum(0) # the negative part is counted as upstream losses, i.e.
+        flw["polymerization => losses"][...] = aux["total_polymerization_feed"] - flw["polymerization => primary_market"] + aux["upstream_losses"]
+        flw["losses => sysenv"][...] = flw["polymerization => losses"]
         aux["HVC_c_content"][...] = flw["HVC_input => polymerization"] / flw["HVC_input => polymerization"].sum_to(("t", "r"))
 
         # chemical recycling

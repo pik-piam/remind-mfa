@@ -2,16 +2,10 @@ import flodym as fd
 import numpy as np
 import pandas as pd
 
-from plotly import colors as plc
-from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-import pyam
 from typing import TYPE_CHECKING
 import flodym.export as fde
-from typing import Any, List, Optional
-import plotly.colors as pc
 import plotly.express as px
-import matplotlib.pyplot as plt
 
 from remind_mfa.common.common_visualization import CommonVisualizer
 
@@ -29,6 +23,7 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
             self.visualize_sector_splits(mfa=model.future_mfa)
+            self.visualize_material_splits(mfa=model.future_mfa)
 
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model, subplot_dim="Region")
@@ -39,7 +34,7 @@ class PlasticsVisualizer(CommonVisualizer):
         if self.cfg.flows.do_visualize:
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["virgin => primary_market"],
+                flow=model.future_mfa.flows["polymerization => primary_market"],
                 name="Primary production",
                 subplot_dim="Region",
                 linecolor_dim="Material",
@@ -47,10 +42,17 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=(
-                    model.future_mfa.flows["virgin => primary_market"]
+                    model.future_mfa.flows["polymerization => primary_market"]
                     - model.future_mfa.flows["primary_market => exports"]
                 ),
-                name="Domestic primary production",
+                name="Primary production for domestic market",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["primary_market => fabrication"],
+                name="Primary plastics demand",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
@@ -67,7 +69,7 @@ class PlasticsVisualizer(CommonVisualizer):
                     model.future_mfa.flows["fabrication => good_market"]
                     - model.future_mfa.flows["good_market => exports"]
                 ),
-                name="Domestic Fabrication",
+                name="Fabrication for domestic market",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
@@ -81,16 +83,15 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["reclmech => fabrication"],
-                name="Mechanical recycling",
+                name="Mechanically recycled",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclchem => virgin"],
-                name="Chemical recycling",
+                flow=model.future_mfa.flows["reclchem => HVC_input"],
+                name="Chemically recycled",
                 subplot_dim="Region",
-                linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
@@ -101,8 +102,22 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
+                flow=model.future_mfa.flows["collected => reclmech"],
+                name="Sorted to mechanical recycling",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => landfill"],
                 name="Landfilled",
+                subplot_dim="Region",
+                linecolor_dim="Material",
+            )
+            self.visualize_flow(
+                mfa=model.future_mfa,
+                flow=model.future_mfa.flows["collected => incineration"],
+                name="Incinerated",
                 subplot_dim="Region",
                 linecolor_dim="Material",
             )
@@ -221,7 +236,7 @@ class PlasticsVisualizer(CommonVisualizer):
         if linecolor_dims is True:
             linecolor_dims = {
                 "primary": "Material",
-                "final": "Good",
+                "final": "Material",
                 "waste": "Material",
             }
         else:
@@ -469,6 +484,27 @@ class PlasticsVisualizer(CommonVisualizer):
         )
 
         self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
+
+    def visualize_material_splits(self, mfa: fd.MFASystem):
+
+        material_shares = mfa.parameters["material_shares_use_inflow"][
+            {"t": 2019}
+        ]  # material shares are kept constant over time, so we can just take the value for one year
+        material_shares = material_shares.cumsum(dim_letter="m")
+
+        ap_sector_splits = self.plotter_class(
+            array=material_shares,
+            intra_line_dim="Region",
+            subplot_dim="Good",
+            linecolor_dim="Material",
+            xlabel="Year",
+            ylabel="Material Splits [%]",
+            display_names=self.display_names.dct,
+            title=f"Product demand material splits",
+            chart_type="area",
+        )
+
+        self.plot_and_save_figure(ap_sector_splits, f"material_splits.png")
 
     def _get_regional_vs_global_params(self, regional: bool):
         if regional:

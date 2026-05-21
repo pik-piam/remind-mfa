@@ -170,10 +170,25 @@ class TradeExtrapolator(RemindMFABaseModel):
         (exports with dom_supply, imports with dom_demand).
         But this depends on the second trade itself, via the mass balance, which results in
         a 2x2 equation system. We solve it with a fixed-point iteration.
-        We start off by scaling it with the first scaler, calculate the second from the mass
-        balance, and then re-calculate the scaler for the second trade flow, and so on.
+        We start off by estimating the scaler_second growth and use it as initialization,
+        then calculate the second from the mass balance, and then re-calculate the scaler
+        for the second trade flow, and so on.
+
+        Note: using first_scaling directly as initialization would cause divergence when
+        historic_first is near zero (e.g. a region with zero historic imports but large
+        exports), because first_scaling = future_first / max(avg_first, 1) can be very
+        large in absolute terms. Instead, we estimate scaler_second growth using
+        historic_second_0 as a proxy for future_second. We then use the minimum of
+        first_scaling and this estimate as the initializer.
         """
-        self.future_second[...] = self.historic_second_0 * first_scaling
+        # Estimate scaler_second growth using historic_second_0 as proxy for future_second.
+        # This prevents blowup when historic_first_0 ≈ 0 (first_scaling artificially large).
+        projected_scaler_second = (
+            self.scaler_first - self.future_first + self.historic_second_0 + stopover_trade
+        ).maximum(0)
+        d_ratio_second_estimate = projected_scaler_second / self.scaler_second_0.maximum(1)
+        safe_first_scaling = first_scaling.minimum(d_ratio_second_estimate.maximum(1))
+        self.future_second[...] = self.historic_second_0 * safe_first_scaling
         self.future_second[self.id_hist] = self.historic_second
         for _ in range(3):
             self.scaler_second = (
