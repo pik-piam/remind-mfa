@@ -49,6 +49,7 @@ class CommonModel:
     def run(self):
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
+
         self.transfer_historic_parameters()
 
         historic_trade = self.historic_mfa.trade_set
@@ -56,7 +57,7 @@ class CommonModel:
         # apply scenarios to parameters for future mfa
         # 1. extend historic parameters into future
         self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["t"]
+            self.cfg, self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
         # 2. adjust future parameters based on scenario
         self.apply_scenario_adjustments_to_parameters()
@@ -81,7 +82,7 @@ class CommonModel:
             cfg=self.cfg,
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
-            allow_missing_values=True,  # needed for at least steel scrap data
+            allow_missing_values=True,  # needed for at least steel scrap data and for bottom-up (cement)
             allow_extra_values=False,
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)

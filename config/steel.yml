@@ -4,7 +4,7 @@ input:
   force_extract_tgz: False
   scenarios_path: 'config/scenarios'
   input_data_path: '../remind_mfa_data/'
-  input_data_revision: '1.4.0'
+  input_data_revision: '1.5.0'
   region_mapping: 'h12'
 
 model_switches:
