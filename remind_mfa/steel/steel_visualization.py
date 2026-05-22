@@ -168,7 +168,7 @@ class SteelVisualizer(CommonVisualizer):
 
         self.plot_and_save_figure(plotter, f"production_{name_str}.png", do_plot=False)
 
-    def visualize_production(self, mfa: fd.MFASystem, regional = True):
+    def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
         self.visualize_flow(mfa=mfa, flow=production, name="Steel production", regional=regional)
 

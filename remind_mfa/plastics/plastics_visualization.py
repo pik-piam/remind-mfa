@@ -117,8 +117,8 @@ class PlasticsVisualizer(CommonVisualizer):
             flow=demand,
             name="Plastic consumption",
             linecolor_dim="Good",
-            per_capita = per_capita,
-            regional = True,
+            per_capita=per_capita,
+            regional=True,
         )
 
     def compare_demand(self, mfa: fd.MFASystem):
