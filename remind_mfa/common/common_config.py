@@ -105,6 +105,7 @@ class ConsumptionVisualizationCfg(BaseVisualizationCfg):
     per_capita: bool = False
     """Whether to visualize consumption per capita."""
 
+
 class GDPVisualizationCfg(BaseVisualizationCfg):
     per_capita: bool = False
     """Whether to visualize gdp per capita."""
