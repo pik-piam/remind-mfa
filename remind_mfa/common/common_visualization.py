@@ -39,6 +39,8 @@ class CommonVisualizer(RemindMFABaseModel):
         self.stop_and_show()
 
     def visualize_common(self, model: "CommonModel"):
+        if self.cfg.gdppc.do_visualize:
+            self.visualize_gdppc(model.future_mfa, change=False, per_capita=self.cfg.gdppc.per_capita)
         if self.cfg.use_stock.do_visualize:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=True)
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
@@ -51,8 +53,9 @@ class CommonVisualizer(RemindMFABaseModel):
         if self.cfg.sector_splits.do_visualize:
             self.visualize_sector_splits(model, regional=True)
             self.visualize_sector_splits(model, regional=False)
-        # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
-        # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
+        if self.cfg.extrapolation.do_visualize:
+            self.visualize_extrapolation(model=model)
+            self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
     def visualize_custom(self, model: "CommonModel"):
         """To be overwritten by model subclasses"""
@@ -151,11 +154,11 @@ class CommonVisualizer(RemindMFABaseModel):
         # Adjust x-axis
         if self.cfg.use_stock.over_gdp:
             if self.cfg.plotting_engine == "plotly":
-                fig.update_xaxes(type="log", range=[3, 5])
+                fig.update_xaxes(title=x_label, type="log")
             elif self.cfg.plotting_engine == "pyplot":
                 for ax in fig.get_axes():
                     ax.set_xscale("log")
-                    ax.set_xlim(1e3, 1e5)
+                    ax.set_xlabel(x_label)
 
         self.plot_and_save_figure(
             ap_scatter_stock,
@@ -468,3 +471,113 @@ class CommonVisualizer(RemindMFABaseModel):
             ap, f"{name}_stacked_{pc_str}_{regional_tag}.png", do_plot=False
         )
     
+    def visualize_extrapolation(
+        self, model: "CommonModel", subplot_dim: str = "Region", linecolor_dim: Optional[str] = None, show_extrapolation: bool = True, show_future: bool = True
+    ):
+        mfa = model.future_mfa
+        per_capita = self.cfg.use_stock.per_capita
+        population = model.parameters["population"]
+        stock = model.stock_handler.stocks * model.sector_specific_sat_level
+        extrapolation = model.stock_handler.fitted_regression * model.sector_specific_sat_level
+        x_array = None
+
+        pc_str = "pC" if per_capita else ""
+        x_label = "Year"
+        y_label = f"Stock{pc_str} [t]"
+        title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
+        if self.cfg.use_stock.over_gdp:
+            title = title + f" over GDP{pc_str}"
+            x_label = f"GDP/PPP{pc_str} [2005 USD]"
+            x_array = model.parameters["gdppc"]
+            if not per_capita:
+                x_array = x_array * population
+
+        dimlist = ["t"]
+        if subplot_dim is not None:
+            subplot_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
+            )
+            dimlist.append(subplot_dimletter)
+        if linecolor_dim is not None:
+            linecolor_dimletter = next(
+                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
+            )
+            dimlist.append(linecolor_dimletter)
+        stock = stock.sum_to(dimlist)
+        extrapolation = extrapolation.sum_to(dimlist)
+
+        if per_capita:
+            stock_to_plot = stock / population
+            extrapolation_to_plot = extrapolation
+        else:
+            stock_to_plot = stock
+            extrapolation_to_plot = extrapolation * population
+
+        fig, ap = self.plot_history_and_future(
+            mfa=mfa,
+            data_to_plot=stock_to_plot,
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            x_array=x_array,
+            x_label=x_label,
+            y_label=y_label,
+            title=title,
+            line_label="Historic + Modelled Future" if linecolor_dim is None else None,
+            future_stock=show_future,
+        )
+
+        if show_extrapolation:
+            ap = self.plotter_class(
+                array=extrapolation_to_plot,
+                intra_line_dim="Time",
+                subplot_dim=subplot_dim,
+                linecolor_dim=linecolor_dim,
+                x_array=x_array,
+                title=title,
+                fig=fig,
+                line_type="dot",
+                line_label="Pure Extrapolation" if linecolor_dim is None else None,
+                color_map=ap.color_map * 2 if linecolor_dim is not None else ["red"] * len(ap.color_map)*2,
+                suppress_legend=True if linecolor_dim is not None else False,
+            )
+            fig = ap.plot()
+
+        if self.cfg.plotting_engine == "plotly" and self.cfg.use_stock.over_gdp:
+            fig.update_xaxes(title=x_label, type="log")
+        elif self.cfg.plotting_engine == "pyplot" and self.cfg.use_stock.over_gdp:
+            for ax in fig.get_axes():
+                ax.set_xscale("log")
+                ax.set_xlabel(x_label)
+
+        extrapolation_name = "_extrapolation" if show_extrapolation else ""
+        future_name = "_projection" if show_future else "_historic"
+        linecolor_str = f"_by_{linecolor_dim}" if linecolor_dim is not None else ""
+        subplot_str = f"_by_{subplot_dim}" if subplot_dim is not None else ""
+        over_str = "_overGDP" if self.cfg.use_stock.over_gdp else "_overTime"
+        self.plot_and_save_figure(
+            ap,
+            f"stocks{extrapolation_name}{future_name}{subplot_str}{linecolor_str}{over_str}.png",
+            do_plot=False,
+        )
+
+    def visualize_gdppc(self, mfa: fd.MFASystem, change=False, per_capita=False):
+        gdppc = mfa.parameters["gdppc"]
+        if not per_capita:
+            gdppc = gdppc * mfa.parameters["population"]
+        if change:
+            gdppc = gdppc.apply(np.diff, kwargs={"axis": 0, "prepend": 0})
+            gdppc[1900] = gdppc[1901]
+        ap = self.plotter_class(
+            array=gdppc,
+            intra_line_dim="Time",
+            linecolor_dim="Region",
+            display_names=self.display_names.dct,
+            title=f"GDP{' per capita' if per_capita else ''}{' growth rate' if change else ''}",
+        )
+        fig = ap.plot()
+        if change:
+            self.plot_and_save_figure(ap, "gdppc_change.png", do_plot=False)
+        else:
+            fig.update_yaxes(type="log")
+            self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
+        

@@ -33,7 +33,10 @@ visualization:
   use_stock:
     do_visualize: True
     over_gdp: True
-    per_capita: True
+    per_capita: False
+  gdppc:
+    do_visualize: False
+    per_capita: False
   eol_stock:
     do_visualize: False
     over_gdp: False

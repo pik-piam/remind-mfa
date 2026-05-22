@@ -26,10 +26,6 @@ class CementVisualizer(CommonVisualizer):
             self.visualize_prod_product(mfa=mfa)
         if self.cfg.eol_stock.do_visualize:
             self.visualize_eol_stock(mfa=mfa)
-        if self.cfg.extrapolation.do_visualize:
-            # self.visualize_extrapolation(model=model, show_extrapolation=False, show_future=False)
-            # self.visualize_extrapolation(model=model, show_future=False)
-            self.visualize_extrapolation(model=model)
         if self.cfg.carbonation.do_visualize:
             if not model.cfg.model_switches.mode == CementModes.CARBON_FLOW:
                 logging.warning(
@@ -129,81 +125,6 @@ class CementVisualizer(CommonVisualizer):
         )
 
         self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
-
-    def visualize_extrapolation(
-        self, model: "CementModel", show_extrapolation: bool = True, show_future: bool = True
-    ):
-        mfa = model.future_mfa
-        per_capita = self.cfg.use_stock.per_capita
-        subplot_dim = "Region"
-        population = model.parameters["population"]
-        stock = model.stock_handler.stocks * model.sector_specific_sat_level
-        extrapolation = model.stock_handler.fitted_regression * model.sector_specific_sat_level
-        x_array = None
-
-        pc_str = "pC" if per_capita else ""
-        x_label = "Year"
-        y_label = f"Stock{pc_str} [t]"
-        title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
-        if self.cfg.use_stock.over_gdp:
-            title = title + f" over GDP{pc_str}"
-            x_label = f"GDP/PPP{pc_str} [2005 USD]"
-            x_array = model.parameters["gdppc"]
-            if not per_capita:
-                x_array = x_array * population
-
-        if subplot_dim is None:
-            dimlist = ["t"]
-        else:
-            subplot_dimletter = next(
-                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
-            )
-            dimlist = ["t", subplot_dimletter]
-
-        other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        if other_dimletters:
-            stock = stock.sum_over(other_dimletters)
-            extrapolation = extrapolation.sum_over(other_dimletters)
-
-        if per_capita:
-            stock_to_plot = stock / population
-            extrapolation_to_plot = extrapolation
-        else:
-            stock_to_plot = stock
-            extrapolation_to_plot = extrapolation * population
-
-        fig, ap = self.plot_history_and_future(
-            mfa=mfa,
-            data_to_plot=stock_to_plot,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            x_label=x_label,
-            y_label=y_label,
-            title=title,
-            line_label="Historic + Modelled Future",
-            future_stock=show_future,
-        )
-
-        if show_extrapolation:
-            ap = self.plotter_class(
-                array=extrapolation_to_plot,
-                intra_line_dim="Time",
-                subplot_dim=subplot_dim,
-                x_array=x_array,
-                title=title,
-                fig=fig,
-                line_type="dot",
-                line_label="Pure Extrapolation",
-            )
-            fig = ap.plot()
-
-        extrapolation_name = "_extrapolation" if show_extrapolation else ""
-        future_name = "_projection" if show_future else "_historic"
-        self.plot_and_save_figure(
-            ap,
-            f"cement_stocks{extrapolation_name}{future_name}.png",
-            do_plot=False,
-        )
 
     def visualize_carbonation(self, mfa: fd.MFASystem):
         annual_uptake = mfa.stocks["carbonated_co2"].inflow
