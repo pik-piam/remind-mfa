@@ -46,6 +46,9 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_trade(model.future_mfa)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
+        if self.cfg.sector_splits.do_visualize:
+            self.visualize_sector_splits(model, regional=True)
+            self.visualize_sector_splits(model, regional=False)
         # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler_common)
         # self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
@@ -380,3 +383,28 @@ class CommonVisualizer(RemindMFABaseModel):
             )
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
+
+    def visualize_sector_splits(self, model: "CommonModel", regional: bool = True):
+
+        end_use_good_letter = model.end_use_good_letter
+        subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
+
+        consumption = summing_func(model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", end_use_good_letter)))
+        sector_splits = consumption.get_shares_over(end_use_good_letter)
+        sector_splits = sector_splits.cumsum(dim_letter=end_use_good_letter)
+
+        ap_sector_splits = self.plotter_class(
+            array=sector_splits,
+            intra_line_dim="Time",
+            **subplot_dim,
+            linecolor_dim=model.dims[end_use_good_letter].name,
+            xlabel="Year",
+            ylabel="Sector Splits [%]",
+            display_names=self.display_names.dct,
+            title=f"Product demand sector splits ({name_str})",
+            chart_type="area",
+        )
+
+        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
+
+    

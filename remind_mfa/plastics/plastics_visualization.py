@@ -22,7 +22,6 @@ class PlasticsVisualizer(CommonVisualizer):
         if self.cfg.consumption.do_visualize:
             self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
-            self.visualize_sector_splits(mfa=model.future_mfa)
             self.visualize_material_splits(mfa=model.future_mfa)
 
         if self.cfg.extrapolation.do_visualize:
@@ -463,28 +462,6 @@ class PlasticsVisualizer(CommonVisualizer):
             do_plot=False,
         )
 
-    def visualize_sector_splits(self, mfa: fd.MFASystem, regional: bool = True):
-
-        subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
-
-        consumption = summing_func(mfa.stocks["in_use"].inflow)
-        sector_splits = consumption.get_shares_over("g")
-        sector_splits = sector_splits.cumsum(dim_letter="g")
-
-        ap_sector_splits = self.plotter_class(
-            array=sector_splits,
-            intra_line_dim="Time",
-            **subplot_dim,
-            linecolor_dim="Good",
-            xlabel="Year",
-            ylabel="Sector Splits [%]",
-            display_names=self.display_names.dct,
-            title=f"Product demand sector splits ({name_str})",
-            chart_type="area",
-        )
-
-        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
-
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
         material_shares = mfa.parameters["material_shares_use_inflow"][
@@ -505,14 +482,3 @@ class PlasticsVisualizer(CommonVisualizer):
         )
 
         self.plot_and_save_figure(ap_sector_splits, f"material_splits.png")
-
-    def _get_regional_vs_global_params(self, regional: bool):
-        if regional:
-            subplot_dim = {"subplot_dim": "Region"}
-            summing_func = lambda l: l.sum_over(("m", "e"))
-            name_str = "regional"
-        else:
-            subplot_dim = {}
-            summing_func = lambda l: l.sum_over("r", "m", "e")
-            name_str = "global"
-        return subplot_dim, summing_func, name_str

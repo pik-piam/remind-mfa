@@ -31,9 +31,6 @@ class SteelVisualizer(CommonVisualizer):
         if self.cfg.scrap_demand_supply.do_visualize:
             self.visualize_scrap_demand_supply(model.future_mfa, regional=True)
             self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
-        if self.cfg.sector_splits.do_visualize:
-            self.visualize_sector_splits(model.future_mfa, regional=True)
-            self.visualize_sector_splits(model.future_mfa, regional=False)
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
@@ -298,30 +295,6 @@ class SteelVisualizer(CommonVisualizer):
         #     )
 
         self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}.png")
-
-    def visualize_sector_splits(self, mfa: fd.MFASystem, regional: bool = True):
-
-        subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
-
-        flw = mfa.flows
-
-        fabrication = summing_func(flw["good_market => use"])
-        sector_splits = fabrication.get_shares_over("g")
-        sector_splits = sector_splits.cumsum(dim_letter="g")
-
-        ap_sector_splits = self.plotter_class(
-            array=sector_splits,
-            intra_line_dim="Time",
-            **subplot_dim,
-            linecolor_dim="Good",
-            xlabel="Year",
-            ylabel="Sector Splits [%]",
-            display_names=self.display_names.dct,
-            title=f"Product demand sector splits ({name_str})",
-            chart_type="area",
-        )
-
-        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
 
     def visualize_extrapolation(self, model: "SteelModel"):
         mfa = model.future_mfa

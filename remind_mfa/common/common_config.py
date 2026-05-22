@@ -130,6 +130,8 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Visualization configuration for sankey."""
     extrapolation: BaseVisualizationCfg
     """Visualization configuration for extrapolation."""
+    sector_splits: BaseVisualizationCfg
+    """Visualization configuration for sector splits."""
 
 
 class InputCfg(RemindMFABaseModel):
