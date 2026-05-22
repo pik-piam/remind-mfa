@@ -20,7 +20,6 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_stock(mfa=model.future_mfa, subplots_by_good=False)
 
         if self.cfg.consumption.do_visualize:
-            self.visualize_demand(mfa=model.future_mfa)
             self.compare_demand(mfa=model.future_mfa)
             self.visualize_material_splits(mfa=model.future_mfa)
 
@@ -35,7 +34,6 @@ class PlasticsVisualizer(CommonVisualizer):
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["polymerization => primary_market"],
                 name="Primary production",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
@@ -45,21 +43,18 @@ class PlasticsVisualizer(CommonVisualizer):
                     - model.future_mfa.flows["primary_market => exports"]
                 ),
                 name="Primary production for domestic market",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["primary_market => fabrication"],
                 name="Primary plastics demand",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["fabrication => good_market"],
                 name="Fabrication",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
@@ -69,142 +64,62 @@ class PlasticsVisualizer(CommonVisualizer):
                     - model.future_mfa.flows["good_market => exports"]
                 ),
                 name="Fabrication for domestic market",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.stocks["in_use"].inflow,
                 name="Demand",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["reclmech => fabrication"],
                 name="Mechanically recycled",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["reclchem => HVC_input"],
                 name="Chemically recycled",
-                subplot_dim="Region",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["eol => collected"],
                 name="Collected",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => reclmech"],
                 name="Sorted to mechanical recycling",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => landfill"],
                 name="Landfilled",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
             self.visualize_flow(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => incineration"],
                 name="Incinerated",
-                subplot_dim="Region",
                 linecolor_dim="Material",
             )
         self.stop_and_show()
 
-    def visualize_flow(
-        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, subplot_dim=None, linecolor_dim=None
-    ):
-
-        x_array = None
-        x_label = "Year"
-        y_label = "Flow [t]"
-        subplot_dimletter = ()
-        linecolor_dimletter = ()
-        if subplot_dim is not None:
-            subplot_dimletter = next(
-                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
-            )
-        if linecolor_dim is not None:
-            linecolor_dimletter = next(
-                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == linecolor_dim
-            )
-        sum_dims = tuple(
-            x for x in flow.dims.letters if x not in (subplot_dimletter, linecolor_dimletter, "t")
-        )
-        flow = flow.sum_over(sum_dims)
-
-        if subplot_dim == "Region":
-            title = f"Regional {name} Flow"
-            tag = "_regional"
-        elif subplot_dim == "Material":
-            title = f"Material {name} Flow"
-            tag = "_perMaterial"
-        elif subplot_dim == "Good":
-            title = f"Good {name} Flow"
-            tag = "_perGood"
-        else:
-            subplot_dim = None
-            tag = ""
-            title = f"Global {name} Flow"
-
-        ap = self.plotter_class(
-            array=flow,
-            intra_line_dim="Time",
-            linecolor_dim=linecolor_dim,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            title=title,
-            line_type="dot",
-            x_label=x_label,
-            y_label=y_label,
-        )
-        self.plot_and_save_figure(ap, f"{name}_flow{tag}.png")
-
-    def visualize_demand(self, mfa: fd.MFASystem):
+    def visualize_consumption(self, mfa: fd.MFASystem):
         per_capita = self.cfg.consumption.per_capita
         demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
-        population = mfa.parameters["population"]
-        if per_capita:
-            demand = demand / population
-        pc_str = "pC" if per_capita else ""
-
-        fig, ap_demand = self.plot_history_and_future(
+        self.visualize_flow_stacked(
             mfa=mfa,
-            data_to_plot=demand,
-            subplot_dim="Region",
+            flow=demand,
+            name="Plastic consumption",
             linecolor_dim="Good",
-            x_label="Year",
-            y_label=f"Demand {pc_str} [t]",
-            title=f"Demand {pc_str} [t]",
+            per_capita = per_capita,
+            regional = True,
         )
-        self.plot_and_save_figure(
-            ap_demand, f"demand_history_and_future{pc_str}.png", do_plot=False
-        )
-
-        good_dim = demand.dims.index("g")
-        demand = demand.apply(np.cumsum, kwargs={"axis": good_dim})
-        ap = self.plotter_class(
-            array=demand,
-            intra_line_dim="Time",
-            subplot_dim="Region",
-            linecolor_dim="Good",
-            chart_type="area",
-            display_names=self.display_names.dct,
-            title=f"Demand {pc_str} [t]",
-        )
-        fig = ap.plot()
-        self.plot_and_save_figure(ap, f"demand_stacked{pc_str}.png", do_plot=False)
 
     def compare_demand(self, mfa: fd.MFASystem):
         df = pd.read_csv("data/plastics/input/validation.csv", sep=";")

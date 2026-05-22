@@ -17,8 +17,6 @@ class CementVisualizer(CommonVisualizer):
 
     def visualize_custom(self, model: "CementModel"):
         mfa: StockDrivenCementMFASystem = model.future_mfa
-        if self.cfg.consumption.do_visualize:
-            self.visualize_consumption(mfa=mfa)
         if self.cfg.prod_clinker.do_visualize:
             self.visualize_prod_clinker(mfa=mfa)
         if self.cfg.prod_cement.do_visualize:
@@ -40,82 +38,28 @@ class CementVisualizer(CommonVisualizer):
             else:
                 self.visualize_carbonation(mfa=mfa)
 
-    def visualize_production(
-        self, mfa: fd.MFASystem, production: fd.Flow, name: str, regional: bool = False
-    ):
-
-        x_array = None
-        # intra_line_dim = "Time"
-        # line_label = f"{name} Production"
-        x_label = "Year"
-        y_label = "Production [t]"
-        linecolor_dim = None
-        plot_letters = ["t"]
-
-        if regional:
-            subplot_dim = "Region"
-            title = f"Regional {name} Production"
-            regional_tag = "_regional"
-            plot_letters += ["r"]
-        else:
-            subplot_dim = None
-            regional_tag = "_global"
-            title = f"Global {name} Production"
-
-        other_letters = tuple(
-            letter for letter in production.dims.letters if letter not in plot_letters
-        )
-        production = production.sum_over(other_letters)
-
-        fig, ap_production = self.plot_history_and_future(
-            mfa=mfa,
-            data_to_plot=production,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            linecolor_dim=linecolor_dim,
-            x_label=x_label,
-            y_label=y_label,
-            title=title,
-            line_label="Production",
-        )
-
-        self.plot_and_save_figure(
-            ap_production, f"{name}_production{regional_tag}.png", do_plot=False
-        )
-
-    def visualize_prod_clinker(self, mfa: fd.MFASystem):
+    def visualize_prod_clinker(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["prod_clinker => market_clinker"]
-        self.visualize_production(mfa=mfa, production=production, name="Clinker")
+        self.visualize_flow(mfa=mfa, flow=production, name="Clinker production", regional=regional)
 
     def visualize_prod_cement(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["prod_cement => market_cement"]
-        self.visualize_production(mfa=mfa, production=production, name="Cement", regional=regional)
+        self.visualize_flow(mfa=mfa, flow=production, name="Cement production", regional=regional)
 
-    def visualize_prod_product(self, mfa: fd.MFASystem):
+    def visualize_prod_product(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["prod_product => use"].sum_over("s")
-        self.visualize_production(mfa=mfa, production=production, name="Product")
+        self.visualize_flow(mfa=mfa, flow=production, name="Product production", regional=regional)
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         cement_ratio = mfa.parameters["product_cement_content"] / mfa.parameters["product_density"]
         consumption = mfa.stocks["in_use"].inflow * cement_ratio
-        plot_letters = ["t", "r", "s"]
-        other_letters = tuple(
-            letter for letter in consumption.dims.letters if letter not in plot_letters
-        )
-        consumption = consumption.sum_over(other_letters)
-        sector_dim = consumption.dims.index("s")
-        consumption = consumption.apply(np.cumsum, kwargs={"axis": sector_dim})
-        ap = self.plotter_class(
-            array=consumption,
-            intra_line_dim="Time",
-            subplot_dim="Region",
+        self.visualize_flow_stacked(
+            mfa=mfa,
+            flow=consumption,
+            name="Cement consumption",
             linecolor_dim="Stock Type",
-            chart_type="area",
-            display_names=self.display_names.dct,
-            title="Cement Consumption",
+            regional=True,
         )
-        fig = ap.plot()
-        self.plot_and_save_figure(ap, "cement_consumption.png", do_plot=False)
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         pass

@@ -22,8 +22,6 @@ class SteelVisualizer(CommonVisualizer):
         if self.cfg.production.do_visualize:
             self.visualize_production(mfa=model.future_mfa, regional=True)
             self.visualize_production(mfa=model.future_mfa, regional=False)
-        if self.cfg.consumption.do_visualize:
-            self.visualize_consumption(model.future_mfa)
         if self.cfg.gdppc.do_visualize:
             self.visualize_gdppc(
                 model.future_mfa, change=False, per_capita=self.cfg.gdppc["per_capita"]
@@ -34,20 +32,13 @@ class SteelVisualizer(CommonVisualizer):
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        consumption = mfa.stocks["in_use"].inflow
-        good_dim = consumption.dims.index("g")
-        consumption = consumption.apply(np.cumsum, kwargs={"axis": good_dim})
-        ap = self.plotter_class(
-            array=consumption,
-            intra_line_dim="Time",
-            subplot_dim="Region",
+        self.visualize_flow_stacked(
+            mfa=mfa,
+            flow=mfa.stocks["in_use"].inflow,
+            name="Consumption",
             linecolor_dim="Good",
-            chart_type="area",
-            display_names=self.display_names.dct,
-            title="Consumption",
+            regional=True,
         )
-        fig = ap.plot()
-        self.plot_and_save_figure(ap, "consumption.png", do_plot=False)
 
     def visualize_gdppc(self, mfa: fd.MFASystem, change=False, per_capita=False):
         gdppc = mfa.parameters["gdppc"]
@@ -177,25 +168,9 @@ class SteelVisualizer(CommonVisualizer):
 
         self.plot_and_save_figure(plotter, f"production_{name_str}.png", do_plot=False)
 
-    def visualize_production(self, mfa: fd.MFASystem, regional=True):
-        flw = mfa.flows
-        production = flw["bof_production => forming"] + flw["eaf_production => forming"]
-
-        subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
-
-        # visualize regional production
-        ap_production = self.plotter_class(
-            array=summing_func(production),
-            intra_line_dim="Time",
-            **subplot_dim,
-            line_label="Production",
-            display_names=self.display_names.dct,
-            xlabel="Year",
-            ylabel="Production [t]",
-            title=f"Steel Production {name_str}",
-        )
-
-        self.plot_and_save_figure(ap_production, f"production_{name_str}.png")
+    def visualize_production(self, mfa: fd.MFASystem, regional = True):
+        production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
+        self.visualize_flow(mfa=mfa, flow=production, name="Steel production", regional=regional)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None

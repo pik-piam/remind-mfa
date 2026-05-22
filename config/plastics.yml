@@ -60,8 +60,10 @@ visualization:
         #- "intermediate_market"
         #- "good_market"
       exclude_flows: [ ]
-  flows:
+  sector_splits:
     do_visualize: True
+  flows:
+    do_visualize: False
 
 export:
   do_export: False

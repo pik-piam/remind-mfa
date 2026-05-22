@@ -46,6 +46,8 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_trade(model.future_mfa)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
+        if self.cfg.consumption.do_visualize:
+            self.visualize_consumption(mfa=model.future_mfa)
         if self.cfg.sector_splits.do_visualize:
             self.visualize_sector_splits(model, regional=True)
             self.visualize_sector_splits(model, regional=False)
@@ -348,11 +350,8 @@ class CommonVisualizer(RemindMFABaseModel):
                 "t",
                 "r",
             ] + ([linecolor_dim_letter] if linecolor_dim_letter is not None else [])
-            other_dimletters = tuple(
-                letter for letter in imports.dims.letters if letter not in dimlist
-            )
-            imports = imports.sum_over(other_dimletters)
-            exports = exports.sum_over(other_dimletters)
+            imports = imports.sum_to(dimlist)
+            exports = exports.sum_to(dimlist)
 
             if linecolor_dim is not None:
                 n_colors = mfa.dims[linecolor_dim].len
@@ -407,4 +406,65 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
 
+    def visualize_flow(
+        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, regional: bool = True, per_capita: bool = False, linecolor_dim: Optional[str] = None
+    ):
+        population = mfa.parameters["population"]
+        if per_capita:
+            flow = flow / population
+        pc_str = "pC" if per_capita else ""
+        subplot_dim, summing_func, regional_tag = self._get_regional_vs_global_params(regional)
+
+        linecolor_dim_letter = (
+                mfa.dims[linecolor_dim].letter if linecolor_dim is not None else None
+            )
+        dimlist = ["t","r",] + ([linecolor_dim_letter] if linecolor_dim_letter is not None else [])
+        flow = summing_func(flow.sum_to(dimlist))
+
+        fig, ap_flow = self.plot_history_and_future(
+            mfa=mfa,
+            data_to_plot=flow,
+            **subplot_dim,
+            x_array=None,
+            linecolor_dim=linecolor_dim,
+            x_label="Year",
+            y_label=f"{name} [t]",
+            title=f"{name} {pc_str} {regional_tag}",
+            line_label=name if linecolor_dim is None else None,
+        )
+
+        self.plot_and_save_figure(
+            ap_flow, f"{name}_{pc_str}_{regional_tag}.png", do_plot=False
+        )
+
+    def visualize_flow_stacked(
+        self, mfa: fd.MFASystem, flow: fd.Flow, name: str, linecolor_dim: str, regional: bool = True, per_capita: bool = False
+    ):
+
+        population = mfa.parameters["population"]
+        if per_capita:
+            flow = flow / population
+        pc_str = "pC" if per_capita else ""
+        subplot_dim, summing_func, regional_tag = self._get_regional_vs_global_params(regional)
+
+        linecolor_dim_letter = (mfa.dims[linecolor_dim].letter)
+        dimlist = ["t","r",] + [linecolor_dim_letter] 
+        flow = summing_func(flow.sum_to(dimlist))
+        flow_stacked = flow.cumsum(dim_letter=linecolor_dim_letter)
+        
+        ap = self.plotter_class(
+            array=flow_stacked,
+            intra_line_dim="Time",
+            **subplot_dim,
+            linecolor_dim=linecolor_dim,
+            chart_type="area",
+            display_names=self.display_names.dct,
+            x_label="Year",
+            y_label=f"{name} [t]",
+            title=f"{name} {pc_str} {regional_tag}",
+        )
+        fig = ap.plot()
+        self.plot_and_save_figure(
+            ap, f"{name}_stacked_{pc_str}_{regional_tag}.png", do_plot=False
+        )
     
