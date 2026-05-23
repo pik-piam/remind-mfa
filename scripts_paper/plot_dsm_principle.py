@@ -44,7 +44,9 @@ colors = [
 # Gaussian inflow over 15 years: roughly 1 -> 2 -> 1.
 max_pos = (n_years - 1) / 2
 inflow_spread = 2.8
-inflow = 0.2 + (ages/n_years)**1.0 + 1.0 * np.exp(-0.5 * ((ages - max_pos) / inflow_spread) ** 2)
+inflow = (
+    0.2 + (ages / n_years) ** 1.0 + 1.0 * np.exp(-0.5 * ((ages - max_pos) / inflow_spread) ** 2)
+)
 
 n_categories = len(categories)
 output_dir = pathlib.Path(__file__).with_name("plot_dsm_principle_png")
@@ -60,7 +62,8 @@ for i_max in range(1, i_maxmax + 1):
 
     # Create subplot layout (3 rows, shared x)
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=3,
+        cols=1,
         shared_xaxes=True,
         vertical_spacing=0.035,
     )
@@ -80,7 +83,8 @@ for i_max in range(1, i_maxmax + 1):
                 marker_line_width=marker_line_width,
                 showlegend=True,
             ),
-            row=1, col=1
+            row=1,
+            col=1,
         )
 
     # --- Middle panel (stacked random data) ---
@@ -89,7 +93,7 @@ for i_max in range(1, i_maxmax + 1):
         y = np.zeros(n_categories)
         for age, p in enumerate(pdf):
             if j + age < n_categories:
-                y[j+age] = p * inflow[j]
+                y[j + age] = p * inflow[j]
         fig.add_trace(
             go.Bar(
                 x=categories,
@@ -99,7 +103,8 @@ for i_max in range(1, i_maxmax + 1):
                 marker_line_width=marker_line_width,
                 showlegend=False,
             ),
-            row=2, col=1
+            row=2,
+            col=1,
         )
 
     # --- Bottom panel (stacked random data) ---
@@ -107,7 +112,7 @@ for i_max in range(1, i_maxmax + 1):
         y = np.zeros(n_categories)
         for age, s in enumerate(sf):
             if j + age < n_categories:
-                y[j+age] = s * inflow[j]
+                y[j + age] = s * inflow[j]
         fig.add_trace(
             go.Bar(
                 x=categories,
@@ -117,7 +122,8 @@ for i_max in range(1, i_maxmax + 1):
                 marker_line_width=marker_line_width,
                 showlegend=False,
             ),
-            row=3, col=1
+            row=3,
+            col=1,
         )
 
     if ONLY_PDF:
@@ -126,7 +132,7 @@ for i_max in range(1, i_maxmax + 1):
         ymax = [1.8, 1.35, 12.3]
     # Make all bar plots stacked
     fig.update_layout(
-        barmode='stack',
+        barmode="stack",
         height=500,
         width=400,
         margin=dict(l=55, r=8, t=8, b=22),
