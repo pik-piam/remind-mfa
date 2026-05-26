@@ -63,10 +63,7 @@ class PlasticsDataExporter(CommonDataExporter):
         # production
         ## primary production
         prod_virgin = (
-            mfa.flows["virginfoss => virgin"]
-            + mfa.flows["virginbio => virgin"]
-            + mfa.flows["virgindaccu => virgin"]
-            + mfa.flows["virginccu => virgin"]
+            mfa.flows["polymerization => primary_market"] - mfa.flows["reclchem => HVC_input"]
         )
         prod_virgin_df = self.to_iamc_df(prod_virgin.sum_to(("t", "r")))
         prod_virgin_idf = pyam.IamDataFrame(
@@ -76,7 +73,7 @@ class PlasticsDataExporter(CommonDataExporter):
             **constants,
         )
         ## secondary production
-        prod_recl = mfa.flows["reclmech => fabrication"] + mfa.flows["reclchem => virgin"]
+        prod_recl = mfa.flows["reclmech => fabrication"] + mfa.flows["reclchem => HVC_input"]
         prod_recl_df = self.to_iamc_df(prod_recl.sum_to(("t", "r")))
         prod_recl_idf = pyam.IamDataFrame(
             prod_recl_df,

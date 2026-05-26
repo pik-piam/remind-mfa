@@ -7,3 +7,4 @@ config/
 uv.lock
 remind_mfa.egg-info
 site/
+.github/copilot-instructions.md

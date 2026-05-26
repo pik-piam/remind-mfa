@@ -105,6 +105,10 @@ class ConsumptionVisualizationCfg(BaseVisualizationCfg):
     per_capita: bool = False
     """Whether to visualize consumption per capita."""
 
+class GDPVisualizationCfg(BaseVisualizationCfg):
+    per_capita: bool = False
+    """Whether to visualize gdp per capita."""
+
 
 class VisualizationCfg(BaseVisualizationCfg):
     figures_path: str
@@ -120,6 +124,8 @@ class VisualizationCfg(BaseVisualizationCfg):
 
     use_stock: StockVisualizationCfg
     """Visualization configuration for use stock."""
+    gdppc: GDPVisualizationCfg
+    """Visualization configuration for GDP per capita."""
     production: BaseVisualizationCfg
     """Visualization configuration for production."""
     trade: BaseVisualizationCfg
@@ -130,6 +136,8 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Visualization configuration for sankey."""
     extrapolation: BaseVisualizationCfg
     """Visualization configuration for extrapolation."""
+    sector_splits: BaseVisualizationCfg
+    """Visualization configuration for sector splits."""
 
 
 class InputCfg(RemindMFABaseModel):
