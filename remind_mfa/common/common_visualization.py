@@ -498,8 +498,8 @@ class CommonVisualizer(RemindMFABaseModel):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         population = model.parameters["population"]
-        stock = model.stock_handler.stocks * model.sector_specific_sat_level
-        extrapolation = model.stock_handler.fitted_regression * model.sector_specific_sat_level
+        stock = model.stock_handler.stocks * model.sector_specific_sat_level * model.time_factor
+        extrapolation = model.stock_handler.fitted_regression * model.sector_specific_sat_level * model.time_factor
         x_array = None
 
         pc_str = "pC" if per_capita else ""
