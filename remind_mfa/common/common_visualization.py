@@ -713,7 +713,7 @@ class CommonVisualizer(RemindMFABaseModel):
     def visualize_transience_eol_parameters(self, model: "CommonModel", parameter_EU_MFA: fd.FlodymArray, parameter_REMIND_MFA: fd.FlodymArray, subplot_dim: str = None, linecolor_dim: str = None):
         # visualize comparison of EOL parameters for EUR region between REMIND-MFA and EU-MFA data
         if linecolor_dim is not None:
-            n_colors = model.dims[linecolor_dim].len
+            n_colors = parameter_REMIND_MFA.dims[linecolor_dim].len
         else:
             n_colors = 1
         colors = plc.qualitative.Dark24[:n_colors] * 2

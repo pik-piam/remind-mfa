@@ -10,7 +10,7 @@ FLOWS_BY_MATERIAL = {
     'plastics': ['demand', 'stock_outflow', 'collected_eol', 'sorted_eol', 'recycled_eol'],
     'steel': ['demand', 'collected_eol', 'lost_eol', 'scrap'],
 }
-SCENARIOS = ['baseline', 'test']
+SCENARIOS = ['baseline', 'Baseline_Steel_Preliminary_result_20_05_2026', 'Conservative_Steel_Preliminary_result_20_05_2026', 'Highly_mbitious_Steel_Preliminary_result_20_05_2026']
 
 parser = argparse.ArgumentParser()
 parser.add_argument('material', choices=MATERIALS, nargs='?', default=None,
@@ -46,16 +46,16 @@ def run_combination(material: str, flow: str, scenario: str):
         DATA_DIR = Path("data/steel/input/transience") / scenario
         MAPPING_FILE = Path("data/steel/input/transience/EU_MFA_mapping_steel.csv")
         if flow == 'demand':
-            INPUT_FILE  = DATA_DIR / "steel_goods_market__end_use_stock.csv"
+            INPUT_FILE  = DATA_DIR / "steel_goods_market__end_use_stock_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
         elif flow == 'collected_eol':
-            INPUT_FILE  = DATA_DIR / "end_use_stock__waste_management.csv"
+            INPUT_FILE  = DATA_DIR / "end_use_stock__waste_management_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_collected_eol_EU-MFA.cs4r"
         elif flow == 'lost_eol':
-            INPUT_FILE  = DATA_DIR / "end_use_stock__sysenv.csv"
+            INPUT_FILE  = DATA_DIR / "end_use_stock__sysenv_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_lost_eol_EU-MFA.cs4r"
         elif flow == 'scrap':
-            INPUT_FILE  = DATA_DIR / "waste_management__available_scrap_sysenv.csv"
+            INPUT_FILE  = DATA_DIR / "waste_management__available_scrap_sysenv_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
         DIMENSION_DIR = Path("../remind_mfa_data/dimensions/steel")
 
