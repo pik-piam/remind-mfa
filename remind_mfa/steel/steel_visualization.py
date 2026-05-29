@@ -163,7 +163,7 @@ class SteelVisualizer(CommonVisualizer):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
 
-    def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=False):
+    def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
         if linecolor_dims is True:
             linecolor_dims = {
                 "steel": None,
