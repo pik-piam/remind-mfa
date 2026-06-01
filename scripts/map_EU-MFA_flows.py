@@ -10,13 +10,16 @@ FLOWS_BY_MATERIAL = {
     'plastics': ['demand', 'stock_outflow', 'collected_eol', 'sorted_eol', 'recycled_eol'],
     'steel': ['demand', 'collected_eol', 'lost_eol', 'scrap'],
 }
-SCENARIOS = ['baseline', 'Baseline_Steel_Preliminary_result_20_05_2026', 'Conservative_Steel_Preliminary_result_20_05_2026', 'Highly_mbitious_Steel_Preliminary_result_20_05_2026']
+SCENARIOS = {
+    'plastics': ['baseline'], 
+    'steel': ['Baseline_Steel_Preliminary_result_01_06_2026', 'Conservative_Steel_Preliminary_result_01_06_2026', 'Highly_mbitious_Steel_Preliminary_result_01_06_2026']
+}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('material', choices=MATERIALS, nargs='?', default=None,
                     help='Material to process (default: all materials)')
-parser.add_argument('scenario', choices=SCENARIOS, nargs='?', default='baseline',
-                    help='Scenario to process (default: baseline)')
+parser.add_argument('scenario', choices=SCENARIOS, nargs='?', default=None,
+                    help='Scenario to process (default: all scenarios)')
 args = parser.parse_args()
 
 
@@ -231,5 +234,7 @@ def run_combination(material: str, flow: str, scenario: str):
 if __name__ == "__main__":
     materials = [args.material] if args.material else MATERIALS
     for material in materials:
-        for flow in FLOWS_BY_MATERIAL[material]:
-            run_combination(material, flow, args.scenario)
+        scenarios = [args.scenario] if args.scenario else SCENARIOS[material]
+        for scenario in scenarios:
+            for flow in FLOWS_BY_MATERIAL[material]:
+                run_combination(material, flow, scenario)
