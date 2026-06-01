@@ -126,26 +126,11 @@ class CementVisualizer(CommonVisualizer):
     def visualize_carbonation(self, mfa: fd.MFASystem):
         annual_uptake = mfa.stocks["carbonated_co2"].inflow
         cumulative_uptake = mfa.stocks["carbonated_co2"].stock
-        linecolor_dimletter = "Carbonation Location"
-        plot_letters = ["t", "c"]
-        other_dimletters = tuple(
-            letter for letter in annual_uptake.dims.letters if letter not in plot_letters
+        linecolor_dim = "Carbonation Location"
+        self.visualize_flow_stacked(
+            mfa=mfa,
+            flow=annual_uptake,
+            name="Annual CO2 uptake from carbonation",
+            linecolor_dim=linecolor_dim,
+            regional=False,
         )
-        annual_uptake = annual_uptake.sum_over(other_dimletters)
-        annual_uptake = annual_uptake.apply(
-            np.cumsum, kwargs={"axis": annual_uptake.dims.index("c")}
-        )
-
-        ap = self.plotter_class(
-            array=annual_uptake,
-            intra_line_dim="Time",
-            linecolor_dim=linecolor_dimletter,
-            chart_type="area",
-            display_names=self.display_names.dct,
-            x_label="Year",
-            y_label="Annual Co2 Uptake [t]",
-            title="Co2 Uptake from Carbonation",
-        )
-        fig = ap.plot()
-
-        self.plot_and_save_figure(ap, "cement_carbonation_annual_uptake.png", do_plot=False)
