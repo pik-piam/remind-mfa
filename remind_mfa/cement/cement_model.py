@@ -43,8 +43,6 @@ class CementModel(CommonModel):
         self.parameters["lifetime_std"] = lifetime_std
 
     def run(self):
-        # copy parameters for optional reconciliation first, as they are altered in super().run()
-        self.original_parameters_hist = self.parameters.copy()
         super().run()
 
         if self.cfg.model_switches.parameter_reconciliation.do_reconcile:
@@ -83,7 +81,7 @@ class CementModel(CommonModel):
         self.bu_mfa.compute(self.bu_stock, zero_trade, stock_is_cement=False)
 
         # reconcile parameters
-        self.parameters = self.original_parameters_hist
+        self.parameters = self.historic_parameters
         self.reconcile_parameters()
 
         # compute reconciled historic mfa

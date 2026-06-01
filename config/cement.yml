@@ -79,3 +79,5 @@ export:
   docs:
     do_export: False
     path: 'docs/cement'
+  parameter_plots:
+    do_export: False
