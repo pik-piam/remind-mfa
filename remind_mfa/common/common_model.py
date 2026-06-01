@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Optional
 import flodym as fd
@@ -55,11 +56,13 @@ class CommonModel:
         historic_trade = self.historic_mfa.trade_set
 
         # apply scenarios to parameters for future mfa
-        # 1. extend historic parameters into future
+        # 1. snapshot parameters before extrapolation
+        self.historic_parameters = copy.deepcopy(self.parameters)
+        # 2. extend historic parameters into future
         self.parameters = ParameterExtrapolationManager(
             self.cfg, self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
-        # 2. adjust future parameters based on scenario
+        # 3. adjust future parameters based on scenario
         self.apply_scenario_adjustments_to_parameters()
 
         stock_projection = self.get_long_term_stock()

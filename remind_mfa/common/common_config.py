@@ -69,6 +69,11 @@ class BaseExportCfg(RemindMFABaseModel):
     """Path to export folder for this entity"""
 
 
+class ParameterPlotsExportCfg(BaseExportCfg):
+    do_export: bool = False
+    """Whether to export the parameter sanity-check PDF."""
+
+
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
@@ -80,6 +85,8 @@ class ExportCfg(BaseExportCfg):
     """Configuration of export to documentation files."""
     iamc: BaseExportCfg
     """Configuration of export of results in IAMC format."""
+    parameter_plots: ParameterPlotsExportCfg = ParameterPlotsExportCfg()
+    """Configuration for parameter sanity-check PDF export."""
 
 
 class BaseVisualizationCfg(RemindMFABaseModel):

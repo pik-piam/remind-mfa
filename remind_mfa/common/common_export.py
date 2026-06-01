@@ -47,6 +47,17 @@ class CommonDataExporter(RemindMFABaseModel):
             self.cfg_to_markdown(cfg=model.cfg)
         if self.cfg.iamc.do_export:
             self.write_iamc(mfa=mfa)
+        if self.cfg.parameter_plots.do_export:
+            self.export_parameter_plots(model)
+
+    def export_parameter_plots(self, model: "CommonModel"):
+        from remind_mfa.common.parameter_plots import ParameterPlotsExporter
+
+        descriptions = {d.name: d.description for d in model.definition_future.parameters}
+        ParameterPlotsExporter(
+            output_path=self.export_path("parameter_plots", "parameters.pdf"),
+            last_hist_year=float(model.dims["h"].items[-1]),
+        ).export(model.parameters, model.historic_parameters, descriptions)
 
     def export_custom(self, model: "CommonModel"):
         pass
