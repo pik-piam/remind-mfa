@@ -10,12 +10,20 @@ import flodym as fd
 
 logger = logging.getLogger(__name__)
 
-# tab20 palette hex values — 20 distinct colors
+# 12 perceptually distinct colors (tab10 + yellow + burgundy)
 _COLORS = [
-    "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c",
-    "#98df8a", "#d62728", "#ff9896", "#9467bd", "#c5b0d5",
-    "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f",
-    "#c7c7c7", "#bcbd22", "#dbdb8d", "#17becf", "#9edae5",
+    "#1f77b4",  # blue
+    "#ff7f0e",  # orange
+    "#2ca02c",  # green
+    "#d62728",  # red
+    "#9467bd",  # purple
+    "#8c564b",  # brown
+    "#e377c2",  # pink
+    "#7f7f7f",  # gray
+    "#bcbd22",  # olive
+    "#17becf",  # cyan
+    "#f0e442",  # yellow
+    "#800020",  # burgundy
 ]
 _LINESTYLES = ["-", "--", ":", "-."]
 
