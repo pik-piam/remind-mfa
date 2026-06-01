@@ -39,8 +39,8 @@ class CommonVisualizer(RemindMFABaseModel):
         self.stop_and_show()
 
     def visualize_common(self, model: "CommonModel"):
-        if self.cfg.gdppc.do_visualize:
-            self.visualize_gdppc(model.future_mfa, change=False, per_capita=self.cfg.gdppc.per_capita)
+        if self.cfg.gdp.do_visualize:
+            self.visualize_gdppc(model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita)
         if self.cfg.use_stock.do_visualize:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=True)
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
@@ -363,7 +363,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 chart_type = "area"
             else:
                 n_colors = 1
-                chart_type = "scatter"
+                chart_type = "line"
             colors = plc.qualitative.Dark24[:n_colors] * 2
             ap_imports = self.plotter_class(
                 array=imports,
@@ -483,8 +483,8 @@ class CommonVisualizer(RemindMFABaseModel):
             linecolor_dim=linecolor_dim,
             chart_type="area",
             display_names=self.display_names.dct,
-            x_label="Year",
-            y_label=f"{name} [t]",
+            xlabel="Year",
+            ylabel=f"{name} [t]",
             title=f"{name} {pc_str} {regional_tag}",
         )
         fig = ap.plot()
