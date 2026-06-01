@@ -42,7 +42,7 @@ visualization:
     over_gdp: True
     accumulate_gdp: False
     per_capita: True
-  gdppc:
+  gdp:
     do_visualize: False
     per_capita: False
   consumption:

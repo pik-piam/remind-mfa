@@ -105,6 +105,7 @@ class ConsumptionVisualizationCfg(BaseVisualizationCfg):
     per_capita: bool = False
     """Whether to visualize consumption per capita."""
 
+
 class GDPVisualizationCfg(BaseVisualizationCfg):
     per_capita: bool = False
     """Whether to visualize gdp per capita."""
@@ -124,7 +125,7 @@ class VisualizationCfg(BaseVisualizationCfg):
 
     use_stock: StockVisualizationCfg
     """Visualization configuration for use stock."""
-    gdppc: GDPVisualizationCfg
+    gdp: GDPVisualizationCfg
     """Visualization configuration for GDP per capita."""
     production: BaseVisualizationCfg
     """Visualization configuration for production."""

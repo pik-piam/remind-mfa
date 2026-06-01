@@ -40,7 +40,7 @@ class SteelVisualizer(CommonVisualizer):
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        self.visualize_flow_stacked(
+        self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=mfa.stocks["in_use"].inflow,
             name="Consumption",
@@ -157,7 +157,7 @@ class SteelVisualizer(CommonVisualizer):
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
-        self.visualize_flow(mfa=mfa, flow=production, name="Steel production", regional=regional)
+        self.visualize_fdarr(mfa=mfa, flow=production, name="Steel production", regional=regional)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None

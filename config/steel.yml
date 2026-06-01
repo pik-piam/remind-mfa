@@ -38,7 +38,7 @@ visualization:
     do_visualize: True
     over_gdp: True
     per_capita: True
-  gdppc:
+  gdp:
     do_visualize: False
     per_capita: False
   production:

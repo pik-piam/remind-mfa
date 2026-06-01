@@ -39,8 +39,8 @@ class CommonVisualizer(RemindMFABaseModel):
         self.stop_and_show()
 
     def visualize_common(self, model: "CommonModel"):
-        if self.cfg.gdppc.do_visualize:
-            self.visualize_gdppc(model.future_mfa, change=False, per_capita=self.cfg.gdppc.per_capita)
+        if self.cfg.gdp.do_visualize:
+            self.visualize_gdppc(model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita)
         if self.cfg.use_stock.do_visualize:
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=True)
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
@@ -363,8 +363,12 @@ class CommonVisualizer(RemindMFABaseModel):
 
             if linecolor_dim is not None:
                 n_colors = mfa.dims[linecolor_dim].len
+                imports = imports.cumsum(dim_letter=linecolor_dim_letter)
+                exports = exports.cumsum(dim_letter=linecolor_dim_letter)
+                chart_type = "area"
             else:
                 n_colors = 1
+                chart_type = "line"
             colors = plc.qualitative.Dark24[:n_colors] * 2
             ap_imports = self.plotter_class(
                 array=imports,
@@ -373,6 +377,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 linecolor_dim=linecolor_dim,
                 display_names=self.display_names.dct,
                 color_map=colors,
+                chart_type=chart_type,
             )
             fig = ap_imports.plot()
             ap_exports = self.plotter_class(
@@ -380,13 +385,13 @@ class CommonVisualizer(RemindMFABaseModel):
                 intra_line_dim="Time",
                 subplot_dim="Region",
                 linecolor_dim=linecolor_dim,
-                line_type="dash",
                 display_names=self.display_names.dct,
                 title=f"{name} Trade",
                 ylabel="Trade (Exports negative)",
                 suppress_legend=True,
                 fig=fig,
                 color_map=colors,
+                chart_type=chart_type,
             )
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
@@ -416,10 +421,10 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
 
-    def visualize_flow(
+    def visualize_fdarr(
         self,
         mfa: fd.MFASystem,
-        flow: fd.Flow,
+        flow: fd.FlodymArray,
         name: str,
         regional: bool = True,
         per_capita: bool = False,
@@ -452,10 +457,10 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(ap_flow, f"{name}_{pc_str}_{regional_tag}.png", do_plot=False)
 
-    def visualize_flow_stacked(
+    def visualize_fdarr_stacked(
         self,
         mfa: fd.MFASystem,
-        flow: fd.Flow,
+        flow: fd.FlodymArray,
         name: str,
         linecolor_dim: str,
         regional: bool = True,
@@ -483,17 +488,20 @@ class CommonVisualizer(RemindMFABaseModel):
             linecolor_dim=linecolor_dim,
             chart_type="area",
             display_names=self.display_names.dct,
-            x_label="Year",
-            y_label=f"{name} [t]",
+            xlabel="Year",
+            ylabel=f"{name} [t]",
             title=f"{name} {pc_str} {regional_tag}",
         )
         fig = ap.plot()
-        self.plot_and_save_figure(
-            ap, f"{name}_stacked_{pc_str}_{regional_tag}.png", do_plot=False
-        )
-    
+        self.plot_and_save_figure(ap, f"{name}_stacked_{pc_str}_{regional_tag}.png", do_plot=False)
+
     def visualize_extrapolation(
-        self, model: "CommonModel", subplot_dim: str = "Region", linecolor_dim: Optional[str] = None, show_extrapolation: bool = True, show_future: bool = True
+        self,
+        model: "CommonModel",
+        subplot_dim: str = "Region",
+        linecolor_dim: Optional[str] = None,
+        show_extrapolation: bool = True,
+        show_future: bool = True,
     ):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
@@ -558,7 +566,11 @@ class CommonVisualizer(RemindMFABaseModel):
                 fig=fig,
                 line_type="dot",
                 line_label="Pure Extrapolation" if linecolor_dim is None else None,
-                color_map=ap.color_map * 2 if linecolor_dim is not None else ["red"] * len(ap.color_map)*2,
+                color_map=(
+                    ap.color_map * 2
+                    if linecolor_dim is not None
+                    else ["red"] * len(ap.color_map) * 2
+                ),
                 suppress_legend=True if linecolor_dim is not None else False,
             )
             fig = ap.plot()
