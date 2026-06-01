@@ -34,7 +34,9 @@ class CementVisualizer(CommonVisualizer):
                 self.visualize_carbonation(mfa=mfa)
 
     def visualize_prod_clinker(self, mfa: fd.MFASystem, regional: bool = False):
-        production = mfa.flows["prod_clinker => market_clinker"] + mfa.flows["prod_clinker => sysenv"]
+        production = (
+            mfa.flows["prod_clinker => market_clinker"] + mfa.flows["prod_clinker => sysenv"]
+        )
         self.visualize_fdarr(mfa=mfa, flow=production, name="Clinker production", regional=regional)
 
     def visualize_prod_cement(self, mfa: fd.MFASystem, regional: bool = False):
