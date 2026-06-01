@@ -39,7 +39,7 @@ class ModelSwitches(RemindMFABaseModel):
     do_stock_extrapolation_with_time_factor: bool = False
     """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
     parameter_extrapolation: Optional[dict[str, str]] = None
-    """Mapping of parameter names to extrapolation subclass names for parameter extrapolation from historical values into the future."""
+    """Mapping of parameter names to extrapolation class names."""
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
@@ -52,14 +52,13 @@ class ModelSwitches(RemindMFABaseModel):
 
     @property
     def parameter_extrapolation_classes(self) -> Optional[dict[str, type[ParameterExtrapolation]]]:
-        """Check if the given parameter extrapolation classes are valid subclasses of ParameterExtrapolation and return them."""
+        """Resolve parameter_extrapolation class name strings to the corresponding subclasses."""
         if self.parameter_extrapolation is None:
             return None
-
-        classes = {}
-        for param_name, class_name in self.parameter_extrapolation.items():
-            classes[param_name] = choose_subclass_by_name(class_name, ParameterExtrapolation)
-        return classes
+        return {
+            param_name: choose_subclass_by_name(cls_name, ParameterExtrapolation)
+            for param_name, cls_name in self.parameter_extrapolation.items()
+        }
 
 
 class BaseExportCfg(RemindMFABaseModel):

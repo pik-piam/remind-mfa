@@ -1,3 +1,4 @@
+import numpy as np
 import flodym as fd
 from abc import ABC, abstractmethod
 from typing import Dict, TYPE_CHECKING
@@ -271,7 +272,7 @@ class ParameterExtrapolationManager:
     def apply_prm_extrapolation(
         self,
         parameters: Dict[str, fd.Parameter],
-        scenario_parameters: Dict[str, Number] = None,
+        scenario_parameters: Dict[str, fd.Parameter | Number] = None,
     ) -> Dict[str, fd.Parameter]:
         """Apply transformation to parameters.
 
@@ -289,14 +290,11 @@ class ParameterExtrapolationManager:
         if self.parameter_extrapolation_classes is None:
             return modified_parameters
 
-        for param_name, extrapolation_class in self.parameter_extrapolation_classes.items():
+        for param_name, cls in self.parameter_extrapolation_classes.items():
             if param_name not in modified_parameters:
                 raise ValueError(f"Parameter '{param_name}' not found in parameters.")
 
-            # Instantiate the extrapolation class with appropriate arguments
-            extrapolation_instance = self._create_extrapolation_instance(
-                extrapolation_class, scenario_parameters
-            )
+            extrapolation_instance = self._create_extrapolation_instance(cls, scenario_parameters)
 
             modified_parameters[param_name] = extrapolation_instance.transform(
                 modified_parameters[param_name], self.historic_time, self.extended_time
@@ -306,17 +304,161 @@ class ParameterExtrapolationManager:
 
     def _create_extrapolation_instance(
         self,
-        extrapolation_class: type,
+        cls: type,
         scenario_parameters: Dict[str, Number],
     ) -> ParameterExtrapolation:
         """Create an instance of the extrapolation class with appropriate constructor arguments.
 
-        Classes that require scenario_parameters in their constructor will receive them.
-        Other classes are instantiated with no arguments.
+        ScenarioExtrapolation subclasses receive scenario_parameters; others are instantiated with no arguments.
         """
-        if issubclass(extrapolation_class, ScenarioExtrapolation):
+        if issubclass(cls, ScenarioExtrapolation):
             if scenario_parameters is None:
-                raise ValueError(f"scenario_parameters required for {extrapolation_class.__name__}")
-            return extrapolation_class(scenario_parameters)
+                raise ValueError(f"scenario_parameters required for {cls.__name__}")
+            return cls(scenario_parameters)
         else:
-            return extrapolation_class()
+            return cls()
+
+
+class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
+    """Extrapolate a split parameter (values sum to 1 over a dimension) while preserving the constraint.
+
+    Entries with explicit targets interpolate linearly to their target by their target year.
+    The remaining budget is distributed in one of two modes, determined per context slice
+    (each combination of non-split, non-time index values):
+
+    - **Proportional** (no receiver specified): unspecified entries scale proportionally to their
+      historic relative shares so that the sum stays 1.
+    - **Receiver** (receiver entries flagged): receiver entries absorb the cumulative delta from
+      targeted entries; all other unspecified entries remain at their historic values.
+
+    Scenario parameters required (same dims as the main parameter, 0 where not applicable):
+      - ``{param_name}_target``       – target value per entry (0 target_year = not specified)
+      - ``{param_name}_target_year``  – year to reach the target (0 = not specified)
+      - ``{param_name}_receiver``     – non-zero flags an entry as a receiver
+
+    Use a named subclass that encodes the full dimension name as a suffix, e.g.::
+
+        some_split_param: ConstrainedSplitExtrapolation_Function
+    """
+
+    split_dim_name: str = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        prefix = "ConstrainedSplitExtrapolation_"
+        if cls.__name__.startswith(prefix):
+            cls.split_dim_name = cls.__name__[len(prefix):]
+
+    def __init__(self, scenario_parameters: Dict[str, fd.Parameter]):
+        self.scenario_parameters = scenario_parameters
+
+    def fill_values(
+        self,
+        prepared_param: fd.Parameter,
+        new_param: fd.Parameter,
+    ) -> fd.Parameter:
+
+        if self.split_dim_name is None:
+            raise ValueError(
+                "Use a named subclass (e.g. ConstrainedSplitExtrapolation_Function), not the base class directly."
+            )
+
+        add_assumption_doc(
+            type="model switch",
+            name=f"Constrained split extrapolation of {prepared_param.name} over '{self.split_dim_name}' dimension.",
+            description=self.description,
+        )
+
+        split_dim_letter = prepared_param.dims[self.split_dim_name].letter
+        param_name = prepared_param.name
+        last_hist_year = float(self._last_historic_time)
+
+        target = self.scenario_parameters[f"{param_name}_target"]
+        target_year = self.scenario_parameters[f"{param_name}_target_year"]
+        receiver = self.scenario_parameters.get(f"{param_name}_receiver")
+        if receiver is None:
+            receiver = fd.Parameter.full_like(target, 0.0)
+
+        last_hist = self._get_last_historic_value(prepared_param)
+
+        # Boolean masks as 0/1 FlodymArrays for use in arithmetic
+        # year == 0 (flodym default) means "no target specified"; valid years are 4-digit numbers
+        is_targeted = fd.Parameter(dims=target_year.dims, values=(target_year.values > 0).astype(float))
+        is_receiver = fd.Parameter(dims=receiver.dims, values=(receiver.values > 0.5).astype(float))
+
+        # Safe values: replace zero sentinels so arithmetic stays valid outside the mask
+        safe_target = is_targeted * target + (1 - is_targeted) * last_hist
+        safe_year = is_targeted * target_year + (1 - is_targeted) * (last_hist_year + 1.0)
+        safe_duration = (safe_year - last_hist_year).maximum(1.0)
+
+        # Time axis as FlodymArray — broadcasts via * (union dims) to add t to all arrays below
+        t_param = fd.Parameter(
+            dims=prepared_param.dims.get_subset(("t",)),
+            values=np.array(self.extended_time.items, dtype=float),
+        )
+
+        # Progress in [0, 1] per entry over the full time range
+        progress = ((t_param - last_hist_year) / safe_duration).apply(lambda x: np.clip(x, 0.0, 1.0))
+
+        # Linearly blended values for all entries across the full time range
+        all_blended = last_hist.cast_to(new_param.dims) + progress * (safe_target - last_hist)
+
+        # Dimension letter groups used for summing over the split dimension
+        non_split_letters = tuple(d for d in new_param.dims.letters if d != split_dim_letter)
+        non_t_non_split_letters = tuple(d for d in last_hist.dims.letters if d != split_dim_letter)
+
+        # Contribution of targeted entries summed over split dim, and resulting delta vs. historic
+        specified_contribution = all_blended * is_targeted
+        specified_sum = specified_contribution.sum_to(non_split_letters)
+        specified_hist_sum = (last_hist * is_targeted).sum_to(non_t_non_split_letters)
+        delta = specified_sum - specified_hist_sum.cast_to(specified_sum.dims)
+
+        # Receiver mode: receiver entries absorb the cumulative delta
+        receiver_hist_sum = (last_hist * is_receiver).sum_to(non_t_non_split_letters)
+        has_any_receiver = fd.Parameter(
+            dims=receiver_hist_sum.dims,
+            values=(is_receiver.sum_to(non_t_non_split_letters).values > 0.5).astype(float),
+        )
+        recv_factor = 1.0 - delta / receiver_hist_sum.maximum(1.0)
+        receiver_values = recv_factor * last_hist
+
+        # Proportional mode: unspecified non-receiver entries scale with remaining budget
+        unspec_mask = (1 - is_targeted) * (1 - is_receiver)
+        unspec_hist_sum = (last_hist * unspec_mask).sum_to(non_t_non_split_letters)
+        remaining = 1.0 - specified_sum
+        proportional_factor = remaining / unspec_hist_sum.maximum(1.0)
+        proportional_values = proportional_factor * last_hist
+
+        # Assemble: targeted > receiver > constant (if receiver exists) > proportional
+        # np.where is used here as flodym has no conditional selection operation
+        full_dims = new_param.dims
+        new_param[...] = np.where(
+            is_targeted.cast_values_to(full_dims),
+            all_blended.values,
+            np.where(
+                is_receiver.cast_values_to(full_dims),
+                receiver_values.values,
+                np.where(
+                    has_any_receiver.cast_values_to(full_dims),
+                    last_hist.cast_values_to(full_dims),
+                    proportional_values.values,
+                ),
+            ),
+        )
+        return new_param
+
+    @property
+    def description(self) -> str:
+        return (
+            f"Split parameter extrapolated over '{self.split_dim_name}' dimension with sum=1 constraint. "
+            "Specified entries interpolate linearly to their targets; receiver entries absorb the "
+            "cumulative delta; remaining entries either scale proportionally or stay constant."
+        )
+
+
+class ConstrainedSplitExtrapolation_Function(ConstrainedSplitExtrapolation):
+    pass
+
+
+class ConstrainedSplitExtrapolation_Structure(ConstrainedSplitExtrapolation):
+    pass

@@ -250,4 +250,13 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
     )
 
 
-scenario_parameters = []
+# fmt: off
+scenario_parameters = [
+    RemindMFAParameterDefinition(name="function_buildings_split_target",      dim_letters=("r", "s", "f")),
+    RemindMFAParameterDefinition(name="function_buildings_split_target_year", dim_letters=("r", "s", "f")),
+    RemindMFAParameterDefinition(name="function_buildings_split_receiver",    dim_letters=("r", "s", "f")),
+    RemindMFAParameterDefinition(name="structure_buildings_split_target",      dim_letters=("r", "f", "b")),
+    RemindMFAParameterDefinition(name="structure_buildings_split_target_year", dim_letters=("r", "f", "b")),
+    RemindMFAParameterDefinition(name="structure_buildings_split_receiver",    dim_letters=("r", "f", "b")),
+]
+# fmt: on

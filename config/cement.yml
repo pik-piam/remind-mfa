@@ -8,10 +8,10 @@ input:
   scenarios_path: 'config/scenarios'
 
 model_switches:
-  scenario: 'SSP2'
+  scenario: 'SSP2_cement_reconciliation'
   carbonation: False
   parameter_reconciliation:
-    do_reconcile: False
+    do_reconcile: True
     do_combine_mfas: True
   stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
@@ -20,6 +20,8 @@ model_switches:
     clinker_ratio: 'ConstantExtrapolation'
     lifetime_mean: 'ConstantExtrapolation'
     lifetime_std: 'ConstantExtrapolation'
+    function_buildings_split: 'ConstrainedSplitExtrapolation_Function'
+    structure_buildings_split: 'ConstrainedSplitExtrapolation_Structure'
 
 visualization:
   do_visualize: True
