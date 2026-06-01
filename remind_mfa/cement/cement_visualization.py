@@ -35,19 +35,19 @@ class CementVisualizer(CommonVisualizer):
 
     def visualize_prod_clinker(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["prod_clinker => market_clinker"]
-        self.visualize_flow(mfa=mfa, flow=production, name="Clinker production", regional=regional)
+        self.visualize_fdarr(mfa=mfa, flow=production, name="Clinker production", regional=regional)
 
     def visualize_prod_cement(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["prod_cement => market_cement"]
-        self.visualize_flow(mfa=mfa, flow=production, name="Cement production", regional=regional)
+        self.visualize_fdarr(mfa=mfa, flow=production, name="Cement production", regional=regional)
 
     def visualize_prod_product(self, mfa: fd.MFASystem, regional: bool = False):
         production = mfa.flows["prod_product => use"].sum_over("s")
-        self.visualize_flow(mfa=mfa, flow=production, name="Product production", regional=regional)
+        self.visualize_fdarr(mfa=mfa, flow=production, name="Product production", regional=regional)
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         consumption = mfa.stocks["in_use"].inflow[{"k": "cement"}]
-        self.visualize_flow_stacked(
+        self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=consumption,
             name="Cement consumption",
@@ -127,7 +127,7 @@ class CementVisualizer(CommonVisualizer):
         annual_uptake = mfa.stocks["carbonated_co2"].inflow
         cumulative_uptake = mfa.stocks["carbonated_co2"].stock
         linecolor_dim = "Carbonation Location"
-        self.visualize_flow_stacked(
+        self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=annual_uptake,
             name="Annual CO2 uptake from carbonation",

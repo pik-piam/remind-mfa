@@ -416,10 +416,10 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
 
-    def visualize_flow(
+    def visualize_fdarr(
         self,
         mfa: fd.MFASystem,
-        flow: fd.Flow,
+        flow: fd.FlodymArray,
         name: str,
         regional: bool = True,
         per_capita: bool = False,
@@ -452,10 +452,10 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(ap_flow, f"{name}_{pc_str}_{regional_tag}.png", do_plot=False)
 
-    def visualize_flow_stacked(
+    def visualize_fdarr_stacked(
         self,
         mfa: fd.MFASystem,
-        flow: fd.Flow,
+        flow: fd.FlodymArray,
         name: str,
         linecolor_dim: str,
         regional: bool = True,
