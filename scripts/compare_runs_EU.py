@@ -17,6 +17,8 @@ import numpy as np
 import flodym as fd
 import questionary
 import plotly.colors as plc
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from typing import Optional
 
 # ── configuration ──────────────────────────────────────────────────────────────
@@ -125,6 +127,23 @@ def build_combined_mfa(models, run_dim: fd.Dimension) -> fd.MFASystem:
                 "parameters": new_params, "trade_set": new_trade_set}
     )
 
+def _parse_run_labels(labels: list[str]) -> dict:
+    """Return {ce_scenario: {trade_scenario: run_index}} parsed from file-stem labels."""
+    CE_TOKENS = ["Baseline", "Conservative", "Highly_mbitious"]
+    result = {}
+    for i, label in enumerate(labels):
+        trade = "fix_supply" if "fix_supply" in label else "default"
+        ce = next((tok for tok in CE_TOKENS if tok in label), "Unknown")
+        result.setdefault(ce, {})[trade] = i
+    return result
+
+
+_CE_DISPLAY  = {"Baseline": "Baseline", "Conservative": "Conservative", "Highly_mbitious": "Highly Ambitious"}
+_CE_COLORS   = {"Baseline": "#7f7f7f", "Conservative": "#1f77b4", "Highly_mbitious": "#2ca02c"}
+_TRADE_DASH  = {"default": "solid", "fix_supply": "dash"}
+_TRADE_LABEL = {"default": "default trade", "fix_supply": "fixed supply"}
+
+
 def make_comparison_visualizer(model_name: str, run_dim_name: str):
     
     from remind_mfa.common.common_visualization import CommonVisualizer as BaseVis
@@ -160,6 +179,10 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                     parameter_EU_MFA=mfa.parameters["available_scrap_EU-MFA"][{"r": "EUR"}],
                     linecolor_dim=RUN,
                 )
+            run_labels = list(mfa.dims[RUN].items)
+            self.visualize_delta_net_imports(mfa, run_labels, run_letter)
+            self.visualize_import_dependency(mfa, run_labels, run_letter)
+            self.visualize_bracketing(mfa, run_labels, run_letter)
         
         def visualize_trade(
             self, mfa: fd.MFASystem, region: Optional[str] = None, linecolor_dims: Optional[dict[str, Optional[str]]] = None, subplot_dims: Optional[dict[str, Optional[str]]] = None
@@ -247,6 +270,178 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             )
 
             self.plot_and_save_figure(ap_flow, f"{name}.png", do_plot=False)
+
+        # ── scenario-comparison helpers ───────────────────────────────────────
+
+        def _net_imports_eur(self, mfa, market_name, region, run_letter):
+            """Net imports for one market and region, shape (n_time, n_runs)."""
+            trade = mfa.trade_set.markets[market_name]
+            arr = (trade.imports - trade.exports)[{"r": region}].sum_to(["t", run_letter])
+            return arr.values
+
+        def visualize_delta_net_imports(self, mfa, run_labels, run_letter, region="EUR"):
+            """Δ net imports vs Baseline for steel and indirect trade, EUR."""
+            scenario_map = _parse_run_labels(run_labels)
+            baseline_idx = scenario_map.get("Baseline", {}).get("default")
+            if baseline_idx is None:
+                return
+            times = list(mfa.dims["t"].items)
+
+            fig = make_subplots(
+                rows=1, cols=2,
+                subplot_titles=["Steel trade", "Indirect (goods-embedded) trade"],
+            )
+            for col, market_name in enumerate(["steel", "indirect"], start=1):
+                vals = self._net_imports_eur(mfa, market_name, region, run_letter)
+                delta = vals - vals[:, baseline_idx : baseline_idx + 1]
+                for ce, trade_dict in scenario_map.items():
+                    for trade_sc, run_idx in trade_dict.items():
+                        if ce == "Baseline":
+                            continue
+                        name = f"{_CE_DISPLAY.get(ce, ce)} ({_TRADE_LABEL.get(trade_sc, trade_sc)})"
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times, y=delta[:, run_idx] / 1e6,
+                                name=name,
+                                showlegend=(col == 1),
+                                line=dict(
+                                    color=_CE_COLORS.get(ce, "black"),
+                                    dash=_TRADE_DASH.get(trade_sc, "solid"),
+                                ),
+                                mode="lines",
+                            ),
+                            row=1, col=col,
+                        )
+                fig.add_hline(y=0, line_dash="dot", line_color="gray", row=1, col=col)
+
+            fig.update_xaxes(title_text="Year")
+            fig.update_yaxes(title_text="Δ Net Imports [Mt]")
+            fig.update_layout(
+                title_text="Δ Net Imports vs Baseline — EUR steel trade",
+                hovermode="x unified",
+            )
+            self._show_and_save_plotly(fig, "delta_net_imports")
+
+        def visualize_import_dependency(self, mfa, run_labels, run_letter, region="EUR"):
+            """Import dependency ratios for EUR: goods-based and steel-based."""
+            scenario_map = _parse_run_labels(run_labels)
+            times = list(mfa.dims["t"].items)
+            eps = 1.0
+
+            indirect_net = self._net_imports_eur(mfa, "indirect", region, run_letter)
+            inflow = (
+                mfa.stocks["in_use"].inflow[{"r": region}]
+                .sum_to(["t", run_letter])
+                .values
+            )
+            dep_goods = indirect_net / np.maximum(inflow, eps)
+
+            steel_net = self._net_imports_eur(mfa, "steel", region, run_letter)
+            production = (
+                mfa.flows["ip_market => fabrication"][{"r": region}].sum_to(["t", run_letter]).values
+            )
+            dep_steel = steel_net / np.maximum(production + steel_net, eps)
+
+            fig = make_subplots(
+                rows=1, cols=2,
+                subplot_titles=[
+                    "Goods trade dependency<br>(net indirect imports / stock inflow)",
+                    "Steel trade dependency<br>(net steel imports / total steel supply)",
+                ],
+            )
+            for col, dep in enumerate([dep_goods, dep_steel], start=1):
+                for ce, trade_dict in scenario_map.items():
+                    for trade_sc, run_idx in trade_dict.items():
+                        name = f"{_CE_DISPLAY.get(ce, ce)} ({_TRADE_LABEL.get(trade_sc, trade_sc)})"
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times, y=dep[:, run_idx],
+                                name=name,
+                                showlegend=(col == 1),
+                                line=dict(
+                                    color=_CE_COLORS.get(ce, "black"),
+                                    dash=_TRADE_DASH.get(trade_sc, "solid"),
+                                ),
+                                mode="lines",
+                            ),
+                            row=1, col=col,
+                        )
+
+            fig.update_xaxes(title_text="Year")
+            fig.update_yaxes(title_text="Dependency ratio")
+            fig.update_layout(
+                title_text="Import Dependency Indicators — EUR",
+                hovermode="x unified",
+            )
+            self._show_and_save_plotly(fig, "import_dependency")
+
+        def visualize_bracketing(self, mfa, run_labels, run_letter, region="EUR"):
+            """Net imports with trade-scenario uncertainty bands (shaded) per CE scenario."""
+            scenario_map = _parse_run_labels(run_labels)
+            times = list(mfa.dims["t"].items)
+            _FILL = {
+                "Baseline": "rgba(127,127,127,0.15)",
+                "Conservative": "rgba(31,119,180,0.15)",
+                "Highly_mbitious": "rgba(44,160,44,0.15)",
+            }
+
+            fig = make_subplots(
+                rows=1, cols=2,
+                subplot_titles=["Steel trade", "Indirect (goods-embedded) trade"],
+            )
+            for col, market_name in enumerate(["steel", "indirect"], start=1):
+                vals = self._net_imports_eur(mfa, market_name, region, run_letter)
+                for ce, trade_dict in scenario_map.items():
+                    color = _CE_COLORS.get(ce, "black")
+                    fill  = _FILL.get(ce, "rgba(0,0,0,0.1)")
+                    ce_label = _CE_DISPLAY.get(ce, ce)
+
+                    if "default" in trade_dict and "fix_supply" in trade_dict:
+                        y_def = vals[:, trade_dict["default"]] / 1e6
+                        y_fix = vals[:, trade_dict["fix_supply"]] / 1e6
+                        y_lo = np.minimum(y_def, y_fix)
+                        y_hi = np.maximum(y_def, y_fix)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times, y=y_lo,
+                                name=f"{ce_label} (default trade)",
+                                showlegend=(col == 1),
+                                line=dict(color=color, dash="solid", width=1.5),
+                                mode="lines",
+                            ),
+                            row=1, col=col,
+                        )
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times, y=y_hi,
+                                name=f"{ce_label} (fixed supply)",
+                                showlegend=(col == 1),
+                                line=dict(color=color, dash="dash", width=1.5),
+                                fill="tonexty", fillcolor=fill,
+                                mode="lines",
+                            ),
+                            row=1, col=col,
+                        )
+                    elif "default" in trade_dict:
+                        y = vals[:, trade_dict["default"]] / 1e6
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times, y=y,
+                                name=ce_label,
+                                showlegend=(col == 1),
+                                line=dict(color=color, dash="solid", width=2),
+                                mode="lines",
+                            ),
+                            row=1, col=col,
+                        )
+
+            fig.update_xaxes(title_text="Year")
+            fig.update_yaxes(title_text="Net Imports [Mt]")
+            fig.update_layout(
+                title_text="Net Imports with Trade Scenario Uncertainty — EUR",
+                hovermode="x unified",
+            )
+            self._show_and_save_plotly(fig, "bracketing_net_imports")
 
     return ComparisonVisualizer
 
