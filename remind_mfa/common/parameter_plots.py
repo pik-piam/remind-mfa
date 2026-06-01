@@ -150,9 +150,11 @@ class ParameterPlotsExporter:
             shared_xlim = None
 
         # iterate over all page-dim combinations (one PDF page per combination)
-        page_combos = list(itertools.product(*[
-            list(future_param.dims[d].items) for d in page_dims
-        ])) if page_dims else [()]
+        page_combos = (
+            list(itertools.product(*[list(future_param.dims[d].items) for d in page_dims]))
+            if page_dims
+            else [()]
+        )
 
         for page_combo in page_combos:
             fix = {d: v for d, v in zip(page_dims, page_combo)}
@@ -164,9 +166,11 @@ class ParameterPlotsExporter:
             else:
                 hist_page_arr = None
 
-            page_suffix = ("  —  " + ", ".join(
-                f"{future_param.dims[d].name}: {v}" for d, v in fix.items()
-            )) if fix else ""
+            page_suffix = (
+                ("  —  " + ", ".join(f"{future_param.dims[d].name}: {v}" for d, v in fix.items()))
+                if fix
+                else ""
+            )
 
             # y-axis locking
             all_vals = page_arr.values.ravel()
@@ -179,7 +183,8 @@ class ParameterPlotsExporter:
                 shared_ylim = None
 
             fig, axes = plt.subplots(
-                nrows=nrows, ncols=ncols,
+                nrows=nrows,
+                ncols=ncols,
                 figsize=(16, 4 * nrows + 1.5),
                 squeeze=False,
             )
@@ -188,7 +193,9 @@ class ParameterPlotsExporter:
             style_note = "(—— extrapolated  |  - - pre-extrapolation)" if show_historic else ""
             fig.suptitle(
                 f"{title_line}\nDimensions: {dim_info}\n{description}\n{style_note}",
-                fontsize=9, y=1.0, va="top",
+                fontsize=9,
+                y=1.0,
+                va="top",
             )
 
             for r_idx, (region_label, region_arr) in enumerate(
@@ -217,17 +224,35 @@ class ParameterPlotsExporter:
                         if last_hist_year is not None:
                             in_hist = x_vals <= last_hist_year
                             if np.any(in_hist):
-                                ax.plot(x_vals[in_hist], y_vals[in_hist],
-                                        color=color, linestyle=ls,
-                                        alpha=0.5, linewidth=1.2)
+                                ax.plot(
+                                    x_vals[in_hist],
+                                    y_vals[in_hist],
+                                    color=color,
+                                    linestyle=ls,
+                                    alpha=0.5,
+                                    linewidth=1.2,
+                                )
                             in_future = ~in_hist
                             if np.any(in_future):
-                                ax.plot(x_vals[in_future], y_vals[in_future],
-                                        color=color, linestyle=ls,
-                                        alpha=0.9, linewidth=1.2, label=legend_label)
+                                ax.plot(
+                                    x_vals[in_future],
+                                    y_vals[in_future],
+                                    color=color,
+                                    linestyle=ls,
+                                    alpha=0.9,
+                                    linewidth=1.2,
+                                    label=legend_label,
+                                )
                         else:
-                            ax.plot(x_vals, y_vals, color=color, linestyle=ls,
-                                    alpha=0.9, linewidth=1.2, label=legend_label)
+                            ax.plot(
+                                x_vals,
+                                y_vals,
+                                color=color,
+                                linestyle=ls,
+                                alpha=0.9,
+                                linewidth=1.2,
+                                label=legend_label,
+                            )
 
                     if (
                         hist_color_arr is not None
@@ -241,14 +266,18 @@ class ParameterPlotsExporter:
                             mask = hx_vals <= last_hist_year
                             hx_vals, hy_vals = hx_vals[mask], hy_vals[mask]
                         ax.plot(
-                            hx_vals, hy_vals,
-                            color=color, linestyle="--",
-                            alpha=0.9, linewidth=1.8,
+                            hx_vals,
+                            hy_vals,
+                            color=color,
+                            linestyle="--",
+                            alpha=0.9,
+                            linewidth=1.8,
                         )
 
                 if last_hist_year is not None:
-                    ax.axvline(x=last_hist_year, color="gray",
-                               linestyle=":", alpha=0.6, linewidth=0.8)
+                    ax.axvline(
+                        x=last_hist_year, color="gray", linestyle=":", alpha=0.6, linewidth=0.8
+                    )
 
                 if shared_xlim:
                     ax.set_xlim(*shared_xlim)
@@ -279,9 +308,13 @@ class ParameterPlotsExporter:
         fig, ax = plt.subplots(figsize=(16, 3))
         ax.axis("off")
         ax.text(
-            0.5, 0.5,
+            0.5,
+            0.5,
             f"{name}\n\nDimensions: (scalar)\n{description}\n\nValue: {scalar_val}",
-            ha="center", va="center", fontsize=11, transform=ax.transAxes,
+            ha="center",
+            va="center",
+            fontsize=11,
+            transform=ax.transAxes,
         )
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
