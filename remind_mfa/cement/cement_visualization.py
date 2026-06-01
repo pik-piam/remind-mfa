@@ -65,64 +65,6 @@ class CementVisualizer(CommonVisualizer):
         stock = mfa.stocks["in_use"].stock[{"k": "cement"}]
         super().visualize_use_stock(mfa, stock=stock, subplot_dim=subplot_dim)
 
-    def visualize_stock(self, mfa: fd.MFASystem, stock, over_gdp, per_capita, name):
-        population = mfa.parameters["population"]
-        x_array = None
-
-        pc_str = " pC" if per_capita else ""
-        x_label = "Year"
-        y_label = f"{name} Stock{pc_str}[t]"
-        title = f"{name} stocks{pc_str}"
-        if over_gdp:
-            title = title + f" over GDP{pc_str}"
-
-        if over_gdp:
-            x_array = mfa.parameters["gdppc"]
-            x_label = f"GDP/PPP{pc_str}[2005 USD]"
-
-        # self.visualize_regional_stock(
-        #     stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
-        # )
-        self.visualize_global_stock(
-            stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
-        )
-
-    def visualize_global_stock(
-        self, stock, x_array, population, x_label, y_label, title, per_capita, over_gdp
-    ):
-        if over_gdp:
-            x_array = x_array * population
-            x_array = x_array.sum_over("r")
-            if per_capita:
-                # get global GDP per capita
-                x_array = x_array / population.sum_over("r")
-
-        self.visualize_global_stock_by_type(
-            stock, x_array, population, x_label, y_label, title, per_capita
-        )
-        # self.visualize_global_stock_by_region(stock, x_array, x_label, y_label, title, per_capita)
-
-    def visualize_global_stock_by_type(
-        self, stock, x_array, population, x_label, y_label, title, per_capita
-    ):
-        plot_letters = ["t", "s"]
-        stock = stock / population.sum_over("r") if per_capita else stock
-        other_letters = tuple(letter for letter in stock.dims.letters if letter not in plot_letters)
-        stock = stock.sum_over(other_letters)
-        ap_stock = self.plotter_class(
-            array=stock,
-            intra_line_dim="Time",
-            linecolor_dim="Stock Type",
-            display_names=self.display_names.dct,
-            x_array=x_array,
-            xlabel=x_label,
-            ylabel=y_label,
-            title=f"{title} (global by stock type)",
-            area=True,
-        )
-
-        self.plot_and_save_figure(ap_stock, "use_stocks_global_by_type.png")
-
     def visualize_carbonation(self, mfa: fd.MFASystem):
         annual_uptake = mfa.stocks["carbonated_co2"].inflow
         cumulative_uptake = mfa.stocks["carbonated_co2"].stock
