@@ -358,8 +358,12 @@ class CommonVisualizer(RemindMFABaseModel):
 
             if linecolor_dim is not None:
                 n_colors = mfa.dims[linecolor_dim].len
+                imports = imports.cumsum(dim_letter=linecolor_dim_letter)
+                exports = exports.cumsum(dim_letter=linecolor_dim_letter)
+                chart_type = "area"
             else:
                 n_colors = 1
+                chart_type = "scatter"
             colors = plc.qualitative.Dark24[:n_colors] * 2
             ap_imports = self.plotter_class(
                 array=imports,
@@ -368,6 +372,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 linecolor_dim=linecolor_dim,
                 display_names=self.display_names.dct,
                 color_map=colors,
+                chart_type=chart_type,
             )
             fig = ap_imports.plot()
             ap_exports = self.plotter_class(
@@ -375,13 +380,13 @@ class CommonVisualizer(RemindMFABaseModel):
                 intra_line_dim="Time",
                 subplot_dim="Region",
                 linecolor_dim=linecolor_dim,
-                line_type="dash",
                 display_names=self.display_names.dct,
                 title=f"{name} Trade",
                 ylabel="Trade (Exports negative)",
                 suppress_legend=True,
                 fig=fig,
                 color_map=colors,
+                chart_type=chart_type,
             )
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)

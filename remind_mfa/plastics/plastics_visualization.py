@@ -29,13 +29,13 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
         if self.cfg.flows.do_visualize:
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["polymerization => primary_market"],
                 name="Primary production",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=(
                     model.future_mfa.flows["polymerization => primary_market"]
@@ -44,19 +44,19 @@ class PlasticsVisualizer(CommonVisualizer):
                 name="Primary production for domestic market",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["primary_market => fabrication"],
                 name="Primary plastics demand",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["fabrication => good_market"],
                 name="Fabrication",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=(
                     model.future_mfa.flows["fabrication => good_market"]
@@ -65,13 +65,13 @@ class PlasticsVisualizer(CommonVisualizer):
                 name="Fabrication for domestic market",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.stocks["in_use"].inflow,
                 name="Demand",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["reclmech => fabrication"],
                 name="Mechanically recycled",
@@ -82,25 +82,25 @@ class PlasticsVisualizer(CommonVisualizer):
                 flow=model.future_mfa.flows["reclchem => HVC_input"],
                 name="Chemically recycled",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["eol => collected"],
                 name="Collected",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => reclmech"],
                 name="Sorted to mechanical recycling",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => landfill"],
                 name="Landfilled",
                 linecolor_dim="Material",
             )
-            self.visualize_flow(
+            self.visualize_flow_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["collected => incineration"],
                 name="Incinerated",
