@@ -488,12 +488,15 @@ class CommonVisualizer(RemindMFABaseModel):
             title=f"{name} {pc_str} {regional_tag}",
         )
         fig = ap.plot()
-        self.plot_and_save_figure(
-            ap, f"{name}_stacked_{pc_str}_{regional_tag}.png", do_plot=False
-        )
-    
+        self.plot_and_save_figure(ap, f"{name}_stacked_{pc_str}_{regional_tag}.png", do_plot=False)
+
     def visualize_extrapolation(
-        self, model: "CommonModel", subplot_dim: str = "Region", linecolor_dim: Optional[str] = None, show_extrapolation: bool = True, show_future: bool = True
+        self,
+        model: "CommonModel",
+        subplot_dim: str = "Region",
+        linecolor_dim: Optional[str] = None,
+        show_extrapolation: bool = True,
+        show_future: bool = True,
     ):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
@@ -558,7 +561,11 @@ class CommonVisualizer(RemindMFABaseModel):
                 fig=fig,
                 line_type="dot",
                 line_label="Pure Extrapolation" if linecolor_dim is None else None,
-                color_map=ap.color_map * 2 if linecolor_dim is not None else ["red"] * len(ap.color_map)*2,
+                color_map=(
+                    ap.color_map * 2
+                    if linecolor_dim is not None
+                    else ["red"] * len(ap.color_map) * 2
+                ),
                 suppress_legend=True if linecolor_dim is not None else False,
             )
             fig = ap.plot()
@@ -601,4 +608,3 @@ class CommonVisualizer(RemindMFABaseModel):
         else:
             fig.update_yaxes(type="log")
             self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
-        

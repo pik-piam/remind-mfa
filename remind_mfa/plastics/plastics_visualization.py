@@ -295,5 +295,18 @@ class PlasticsVisualizer(CommonVisualizer):
 
         self.plot_and_save_figure(ap_sector_splits, f"material_splits.png")
 
-    def visualize_extrapolation(self, model: "PlasticsModel", subplot_dim: str = "Region", linecolor_dim: str = None, show_extrapolation: bool = True, show_future: bool = True):
-        super().visualize_extrapolation(model=model, subplot_dim=subplot_dim, linecolor_dim=linecolor_dim, show_extrapolation=show_extrapolation, show_future=show_future)
+    def visualize_extrapolation(
+        self,
+        model: "PlasticsModel",
+        subplot_dim: str = "Region",
+        linecolor_dim: str = None,
+        show_extrapolation: bool = True,
+        show_future: bool = True,
+    ):
+        super().visualize_extrapolation(
+            model=model,
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            show_extrapolation=show_extrapolation,
+            show_future=show_future,
+        )
