@@ -22,7 +22,7 @@ class PlasticsVisualizer(CommonVisualizer):
                 flow=model.future_mfa.stocks["in_use"].stock,
                 name="Stock",
                 linecolor_dim="Good",
-                regional=False
+                regional=False,
             )
 
         if self.cfg.consumption.do_visualize:
