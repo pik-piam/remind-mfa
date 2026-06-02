@@ -233,7 +233,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 message = "There is more secondary plastics available than used! Items:"
                 for index in secondary_excess.items_where(lambda x: x > 0):
                     message += "\n  " + ", ".join(index)
-                logging.warning(message + "\n Iteratively adjusting primary trade to absorb secondary excess.")
+                logging.warning(
+                    message + "\n Iteratively adjusting primary trade to absorb secondary excess."
+                )
             total_trade = trd["primary"].imports + trd["primary"].exports
             import_share = trd["primary"].imports / total_trade.maximum(np.finfo(float).eps)
             import_reduction = (excess * import_share).minimum(trd["primary"].imports)
@@ -242,7 +244,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             # balance() restores global trade balance but partially dilutes the regional fix → hence the loop.
             trd["primary"].balance()
         else:
-            logging.warning("Secondary excess in primary plastics trade did not converge after 20 iterations.")
+            logging.warning(
+                "Secondary excess in primary plastics trade did not converge after 20 iterations."
+            )
 
     def compute_other_stocks(self):
 
