@@ -1,4 +1,6 @@
 import flodym as fd
+import numpy as np
+import logging
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.trade import TradeSet
@@ -62,6 +64,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
+            "secondary_excess": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "net_other_polymerization_input": self.get_new_array(dim_letters=("t", "e", "r")),
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
@@ -89,9 +92,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
-        flw["reclmech => fabrication"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
-        flw["reclmech => fabrication"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension
-        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => fabrication"]
+        flw["collected => reclmech"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension
+        flw["reclmech => primary_market"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => primary_market"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
@@ -128,8 +131,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         flw["fabrication => good_market"][...] = flw["good_market => use"] - flw["imports => good_market"] + flw["good_market => exports"]
 
-        # imports of primary plastics cannot exceed primary plastics demand in fabrication (plastics fabrication - mechanically recycled plastics)
-        flw["primary_market => fabrication"][...] = flw["fabrication => good_market"] - flw["reclmech => fabrication"]
+        # imports of primary plastics cannot exceed primary plastics demand in fabrication
+        flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
         historic_trade["primary_his"].imports[...] = historic_trade["primary_his"].imports.minimum(flw["primary_market => fabrication"][{"t": self.dims["h"]}])
         historic_trade["primary_his"].balance(to="minimum")
 
@@ -139,6 +142,16 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             future_dom_demand=flw["primary_market => fabrication"],
         )
         extrapolator.run()
+        # net exports of plastics should be at least the secondary production from mechanical recycling minus domestic plastics demand 
+        aux["secondary_excess"] = flw["reclmech => primary_market"] - flw["primary_market => fabrication"] - trd["primary"].net_exports
+        if np.any(aux["secondary_excess"].values > 0):
+            message = f"There is more secondary plastics available than used! Items:"
+            indices = aux["secondary_excess"].items_where(lambda x: x > 0)
+            for index in indices:
+                message += "\n  " + ", ".join(index)
+            logging.warning(message + "\n Imports of primary plastics are scaled down and exports are scaled up by 0.5*the excess.")
+            trd["primary"].imports[...] = trd["primary"].imports - aux["secondary_excess"].maximum(0)*0.5
+            trd["primary"].exports[...] = trd["primary"].exports + aux["secondary_excess"].maximum(0)*0.5
 
         flw["primary_market => exports"][...] = (
             trd["primary"].exports * self.parameters["carbon_content_materials"]
@@ -151,6 +164,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             flw["primary_market => fabrication"]
             - flw["imports => primary_market"]
             + flw["primary_market => exports"]
+            - flw["reclmech => primary_market"]
         )
 
         aux["total_polymerization_feed"][...] = flw["polymerization => primary_market"] / prm["polymerization_yield"]
