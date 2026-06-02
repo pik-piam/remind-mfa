@@ -340,7 +340,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             production = (
                 mfa.flows["ip_market => fabrication"][{"r": region}].sum_to(["t", run_letter]).values
             )
-            dep_steel = steel_net / np.maximum(production + steel_net, eps)
+            dep_steel = steel_net / np.maximum(production, eps)
 
             fig = make_subplots(
                 rows=1, cols=2,
