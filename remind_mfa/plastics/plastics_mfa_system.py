@@ -64,7 +64,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "secondary_excess": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "secondary_excess": self.get_new_array(dim_letters=("t", "r", "m")),
             "net_other_polymerization_input": self.get_new_array(dim_letters=("t", "e", "r")),
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
@@ -142,16 +142,29 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             future_dom_demand=flw["primary_market => fabrication"],
         )
         extrapolator.run()
-        # net exports of plastics should be at least the secondary production from mechanical recycling minus domestic plastics demand 
-        aux["secondary_excess"] = flw["reclmech => primary_market"] - flw["primary_market => fabrication"] - trd["primary"].net_exports
-        if np.any(aux["secondary_excess"].values > 0):
-            message = f"There is more secondary plastics available than used! Items:"
-            indices = aux["secondary_excess"].items_where(lambda x: x > 0)
-            for index in indices:
-                message += "\n  " + ", ".join(index)
-            logging.warning(message + "\n Imports of primary plastics are scaled down and exports are scaled up by 0.5*the excess.")
-            trd["primary"].imports[...] = trd["primary"].imports - aux["secondary_excess"].maximum(0)*0.5
-            trd["primary"].exports[...] = trd["primary"].exports + aux["secondary_excess"].maximum(0)*0.5
+        # net exports of plastics should be at least the secondary production from mechanical recycling minus domestic plastics demand.
+        # balance() applies global scaling that partially undoes the per-region correction, so we iterate until the excess is gone.
+        for iteration in range(20):
+            aux["secondary_excess"][...] = (
+                flw["reclmech => primary_market"] - flw["primary_market => fabrication"] - trd["primary"].net_exports
+            )
+            excess = aux["secondary_excess"].maximum(0)
+            if not np.any(excess.values > 1e-6):
+                break
+            if iteration == 0:
+                message = "There is more secondary plastics available than used! Items:"
+                indices = aux["secondary_excess"].items_where(lambda x: x > 0)
+                for index in indices:
+                    message += "\n  " + ", ".join(index)
+                logging.warning(message + "\n Iteratively scaling down primary imports and scaling up primary exports.")
+            # Reduce imports first (cap at 0), increase exports for any remaining excess.
+            import_reduction = excess.minimum(trd["primary"].imports)
+            trd["primary"].imports[...] = trd["primary"].imports - import_reduction
+            trd["primary"].exports[...] = trd["primary"].exports + (excess - import_reduction)
+            # balance() restores global trade balance but partially dilutes the regional fix → hence the loop.
+            trd["primary"].balance()
+        else:
+            logging.warning("Secondary excess in primary plastics trade did not converge after 20 iterations.")
 
         flw["primary_market => exports"][...] = (
             trd["primary"].exports * self.parameters["carbon_content_materials"]
