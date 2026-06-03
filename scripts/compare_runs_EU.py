@@ -399,11 +399,9 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                     if "default" in trade_dict and "fix_supply" in trade_dict:
                         y_def = vals[:, trade_dict["default"]] / 1e6
                         y_fix = vals[:, trade_dict["fix_supply"]] / 1e6
-                        y_lo = np.minimum(y_def, y_fix)
-                        y_hi = np.maximum(y_def, y_fix)
                         fig.add_trace(
                             go.Scatter(
-                                x=times, y=y_lo,
+                                x=times, y=y_def,
                                 name=f"{ce_label} (default trade)",
                                 showlegend=(col == 1),
                                 line=dict(color=color, dash="solid", width=1.5),
@@ -413,7 +411,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                         )
                         fig.add_trace(
                             go.Scatter(
-                                x=times, y=y_hi,
+                                x=times, y=y_fix,
                                 name=f"{ce_label} (fixed supply)",
                                 showlegend=(col == 1),
                                 line=dict(color=color, dash="dash", width=1.5),
