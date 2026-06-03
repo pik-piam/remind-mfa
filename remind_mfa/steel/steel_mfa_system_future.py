@@ -129,21 +129,11 @@ class SteelMFASystem(CommonMFASystem):
         flw["good_market => use"][...] = stk["in_use"].inflow
         # Pre-use
 
-        if self.cfg.transience.trade_scenario == "fix_supply":
-            if self.cfg.transience.baseline_pickle_path is None:
-                raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
-            extrapolator = FixedSupplyTradeExtrapolator(
-                baseline_future_trade = baseline_trade["indirect"],
-                future_trade = self.trade_set["indirect"],
-                baseline_dom_demand = baseline_flows["good_market => use"],
-                future_dom_demand = flw["good_market => use"],
-            )
-        else:
-            extrapolator = TradeExtrapolator(
-                historic_trade=historic_trade["indirect"],
-                future_trade=trd["indirect"],
-                future_dom_demand=flw["good_market => use"],
-            )
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["indirect"],
+            future_trade=trd["indirect"],
+            future_dom_demand=flw["good_market => use"],
+        )
         extrapolator.run()
 
         flw["imports => good_market"][...] = trd["indirect"].imports

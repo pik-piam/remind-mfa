@@ -155,22 +155,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}])
         historic_trade["final_his"].balance(to="minimum")
     
-        if self.cfg.transience.trade_scenario == "fix_supply":
-            if self.cfg.transience.baseline_pickle_path is None:
-                raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
-            extrapolator = FixedSupplyTradeExtrapolator(
-                baseline_future_trade = baseline_trade["final"],
-                future_trade = self.trade_set["final"],
-                baseline_dom_demand = baseline_flows["good_market => use"],
-                future_dom_demand = stk["in_use"].inflow,
-                fixed_supply_region = "EU27+3",
-            )
-        else:
-            extrapolator = TradeExtrapolator(
-                historic_trade=historic_trade["final_his"],
-                future_trade=self.trade_set["final"],
-                future_dom_demand=stk["in_use"].inflow,
-            )
+        extrapolator = TradeExtrapolator(
+            historic_trade=historic_trade["final_his"],
+            future_trade=self.trade_set["final"],
+            future_dom_demand=stk["in_use"].inflow,
+        )
         extrapolator.run()
 
         flw["good_market => exports"][...] = (
