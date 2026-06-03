@@ -176,7 +176,7 @@ class TransienceCfg(RemindMFABaseModel):
     transience_scenario: str = "baseline"
     """Name of the scenario to use. Must be one of 'baseline', 'ME', 'RU'."""
     trade_scenario: str = "default"
-    """Name of the trade extrapolation scenario to use. Must be one of 'default', 'fix_supply'."""
+    """Name of the trade extrapolation scenario to use. Must be one of 'default', 'fix_supply_alpha0', 'fix_supply_alpha1'."""
 
 
 class CommonCfg(RemindMFABaseModel):

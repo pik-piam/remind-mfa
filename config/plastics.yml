@@ -4,7 +4,7 @@ transience:
   transience_run: True
   baseline_pickle_path: 'model_plastics_SSP2_transience_baseline_default_2c0a4149_2026-05-11--18-27-20.pickle'
   transience_scenario: 'baseline'
-  trade_scenario: 'default'
+  trade_scenario: 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
 input:
   force_extract_tgz: False

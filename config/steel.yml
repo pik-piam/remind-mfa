@@ -2,9 +2,9 @@ model: 'steel'
 
 transience: 
   transience_run: True
-  baseline_pickle_path: 'model_steel_SSP2_transience_Baseline_Steel_Preliminary_result_01_06_2026_default_h12_2026-06-01--16-02-50.pickle'
+  baseline_pickle_path: 'model_steel_SSP2_transience_Baseline_Steel_Preliminary_result_01_06_2026_default_h12_2026-06-03--10-38-59.pickle'
   transience_scenario: 'Conservative_Steel_Preliminary_result_01_06_2026' # 'Baseline_Steel_Preliminary_result_01_06_2026' 'Conservative_Steel_Preliminary_result_01_06_2026' 'Highly_mbitious_Steel_Preliminary_result_01_06_2026'
-  trade_scenario: 'fix_supply' # 'default' or 'fix_supply'
+  trade_scenario: 'fix_supply_alpha1' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
 input:
   force_extract_tgz: False
