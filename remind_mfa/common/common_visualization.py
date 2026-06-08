@@ -46,6 +46,7 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
         if self.cfg.trade.do_visualize:
             self.visualize_trade(model.future_mfa)
+            self.visualize_net_trade(model.future_mfa)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
         if self.cfg.consumption.do_visualize:
@@ -395,6 +396,27 @@ class CommonVisualizer(RemindMFABaseModel):
             )
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
+
+    def visualize_net_trade(self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None):
+
+        for name, trade in mfa.trade_set.markets.items():
+            net_imports = trade.net_imports
+            if linecolor_dims is not None and linecolor_dims.get(name) is not None:
+                self.visualize_fdarr(
+                    mfa=mfa,
+                    flow=net_imports,
+                    name=name + " Net Imports",
+                    linecolor_dim=linecolor_dims[name],
+                    regional=True,
+                )
+            else:
+                self.visualize_fdarr(
+                    mfa=mfa,
+                    flow=net_imports,
+                    name=name + " Net Imports",
+                    linecolor_dim=None,
+                    regional=True,
+                )
 
     def visualize_sector_splits(self, model: "CommonModel", regional: bool = True):
 

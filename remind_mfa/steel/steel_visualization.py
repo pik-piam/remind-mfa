@@ -179,6 +179,21 @@ class SteelVisualizer(CommonVisualizer):
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
+    def visualize_net_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
+        if linecolor_dims is True:
+            linecolor_dims = {
+                "steel": None,
+                "indirect": "Good",
+                "scrap": None,
+            }
+        else:
+            linecolor_dims = {
+                "steel": None,
+                "indirect": None,
+                "scrap": None,
+            }
+        super().visualize_net_trade(mfa, linecolor_dims=linecolor_dims)
+
     def visualize_scrap_demand_supply(self, mfa: fd.MFASystem, regional=True):
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)

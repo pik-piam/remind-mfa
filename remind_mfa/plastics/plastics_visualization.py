@@ -179,6 +179,21 @@ class PlasticsVisualizer(CommonVisualizer):
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
+    def visualize_net_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
+        if linecolor_dims is True:
+            linecolor_dims = {
+                "primary": "Material",
+                "final": "Material",
+                "waste": "Material",
+            }
+        else:
+            linecolor_dims = {
+                "primary": None,
+                "final": None,
+                "waste": None,
+            }
+        super().visualize_net_trade(mfa, linecolor_dims=linecolor_dims)
+
     def visualize_sankey(self, mfa: fd.MFASystem):
         # Define colors for each stage
         production_color = "#EDC948"
