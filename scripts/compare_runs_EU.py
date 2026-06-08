@@ -301,6 +301,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                     color_map=colors,
                 )
                 fig = ap_exports.plot()
+                fig.update_xaxes(range=[1950, max(mfa.dims["t"].items)])
                 self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
         def visualize_flow(
@@ -333,6 +334,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                 line_label=name if linecolor_dim is None else None,
             )
 
+            fig.update_xaxes(range=[1950, max(mfa.dims["t"].items)])
             self.plot_and_save_figure(ap_flow, f"{name}.png", do_plot=False)
 
         # ── scenario-comparison helpers ───────────────────────────────────────
@@ -440,7 +442,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                 fig.add_hline(y=0, line_dash="dot", line_color="gray", row=1, col=col)
 
             good_label = f" — {good}" if good is not None else ""
-            fig.update_xaxes(title_text="Year")
+            fig.update_xaxes(title_text="Year", range=[2026, max(times)])
             fig.update_yaxes(title_text="Δ Net Imports [Mt]")
             fig.update_layout(title_text=f"Δ Net Imports vs Baseline — {region}{good_label}", hovermode="x unified")
             self._show_and_save_plotly(fig, f"delta_net_imports{good_suffix}")
@@ -555,7 +557,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                             line=dict(color=color, width=1.5, dash="dash"), mode="lines",
                         ), row=1, col=col)
 
-            fig.update_xaxes(title_text="Year")
+            fig.update_xaxes(title_text="Year", range=[1950, max(times)])
             fig.update_yaxes(title_text="Dependency ratio")
             fig.update_layout(title_text=f"Import Dependency Indicators — {region}{good_label}", hovermode="x unified")
             self._show_and_save_plotly(fig, f"import_dependency{good_suffix}")
@@ -743,7 +745,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                                 line=dict(color=color, width=1.5, dash="dash"), mode="lines",
                             ), row=1, col=col)
 
-                fig.update_xaxes(title_text="Year")
+                fig.update_xaxes(title_text="Year", range=[1950, max(times)])
                 fig.update_yaxes(title_text="[Mt]")
                 fig.update_layout(
                     title_text=f"Gross trade ({market_name}) — {region}{good_label}",
@@ -823,7 +825,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                         ), row=1, col=col)
                         legend_shown.add(r)
 
-                fig.update_xaxes(title_text="Year")
+                fig.update_xaxes(title_text="Year", range=[1950, max(times)])
                 fig.update_yaxes(title_text="[Mt]")
                 fig.update_layout(
                     title_text=f"Global {market_name} trade by region — Baseline{good_label}",
@@ -832,14 +834,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                 self._show_and_save_plotly(fig, f"global_trade_stacked_{market_name}{good_suffix}")
 
         def visualize_trade_mechanism(self, mfa, run_labels, run_letter, first_future_year=None, good=None):
-            """Trade mechanism per region: indexed levels (Fig 1) and dependency ratios (Fig 2).
-
-            Fig 1: one subplot per region — demand, supply, imports, exports indexed to the
-            recent historical average (last 5 years, linearly weighted, matching the
-            RecentHistoricalAverage used by the trade extrapolation), starting from 2022.
-            Supply = demand + exports − imports (market-balance identity).
-
-            Fig 2: one subplot per region — imports/demand and exports/supply ratios over
+            """Trade mechanism per region: one subplot per region — imports/demand and exports/supply ratios over
             the full period (all years in the t dimension).
             """
             scenario_map = _parse_run_labels(run_labels)
@@ -854,32 +849,6 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             good_suffix = f"_{good.lower()}" if good is not None else ""
             good_label  = f" — {good}" if good is not None else ""
 
-            plot_start = first_future_year
-            plot_idx = times.index(first_future_year)
-            plot_times = times[plot_idx:]
-
-            # Historic slice ends just before first_future_year (those years are in t too)
-            if first_future_year is not None and first_future_year in times:
-                hist_end = times.index(first_future_year)
-            else:
-                hist_end = plot_idx
-
-            def _rha(arr_tnr):
-                """Recent historical average (last 5 years, linearly weighted) per region."""
-                hist = arr_tnr[:hist_end, :]   # (n_hist, n_r)
-                if hist.shape[0] == 0:
-                    return np.maximum(np.abs(arr_tnr[plot_idx, :]), 1.0)
-                n_h = hist.shape[0]
-                w = np.maximum(0.0, np.arange(-n_h, 0) + 5 + 1)
-                w = w / w.sum()
-                return np.maximum((hist * w[:, np.newaxis]).sum(axis=0), 1.0)  # (n_r,)
-
-            _line_colors = {
-                "Demand":  "#1f77b4",
-                "Supply":  "#ff7f0e",
-                "Imports": "#2ca02c",
-                "Exports": "#d62728",
-            }
             _ratio_colors = {
                 "Imports / Demand": "#2ca02c",
                 "Exports / Supply": "#d62728",
@@ -910,49 +879,12 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                 exp = trade.exports[sel_base].sum_to(["t", "r"]).values
                 sup = demand + exp - imp
 
-                # --- normalization factors: recent historical average per region ---
-                norm = {
-                    "Demand":  _rha(demand),
-                    "Supply":  _rha(sup),
-                    "Imports": _rha(imp),
-                    "Exports": _rha(exp),
-                }
-
-                # --- Figure 1: indexed to recent hist. avg., starting from plot_start ---
-                fig1 = make_subplots(rows=nrows, cols=ncols, subplot_titles=all_regions)
-                for r_i in range(n_regions):
-                    row, col = r_i // ncols + 1, r_i % ncols + 1
-                    show_legend = r_i == 0
-                    for label, series in [
-                        ("Demand",  demand[:, r_i]),
-                        ("Supply",  sup[:, r_i]),
-                        ("Imports", imp[:, r_i]),
-                        ("Exports", exp[:, r_i]),
-                    ]:
-                        fig1.add_trace(go.Scatter(
-                            x=plot_times, y=series[plot_idx:] / norm[label][r_i],
-                            name=label, showlegend=show_legend,
-                            line=dict(color=_line_colors[label], width=2),
-                            mode="lines",
-                        ), row=row, col=col)
-                    fig1.add_hline(y=1.0, line_dash="dot", line_color="lightgray",
-                                   row=row, col=col)
-
-                fig1.update_xaxes(title_text="Year")
-                fig1.update_yaxes(title_text="Index (recent hist. avg. = 1)")
-                fig1.update_layout(
-                    title_text=f"{market_name} trade mechanism — indexed to recent hist. avg. — Baseline{good_label}",
-                    hovermode="x unified",
-                    height=300 * nrows,
-                )
-                self._show_and_save_plotly(fig1, f"trade_mechanism_{market_name}_by_region{good_suffix}")
-
-                # --- Figure 2: trade dependency ratios over full t period ---
+                # --- trade dependency ratios over full t period ---
                 eps = 1.0
                 ratio_id = imp / np.maximum(np.abs(demand), eps)
                 ratio_es = exp / np.maximum(np.abs(sup), eps)
 
-                fig2 = make_subplots(rows=nrows, cols=ncols, subplot_titles=all_regions)
+                fig = make_subplots(rows=nrows, cols=ncols, subplot_titles=all_regions)
                 for r_i in range(n_regions):
                     row, col = r_i // ncols + 1, r_i % ncols + 1
                     show_legend = r_i == 0
@@ -960,24 +892,98 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                         ("Imports / Demand", ratio_id[:, r_i]),
                         ("Exports / Supply", ratio_es[:, r_i]),
                     ]:
-                        fig2.add_trace(go.Scatter(
+                        fig.add_trace(go.Scatter(
                             x=times, y=ratios,
                             name=label, showlegend=show_legend,
                             line=dict(color=_ratio_colors[label], width=2),
                             mode="lines",
                         ), row=row, col=col)
 
-                fig2.add_vline(x=2022, line_dash="dot", line_color="lightgray")
-                fig2.update_xaxes(title_text="Year")
-                fig2.update_yaxes(title_text="Ratio")
-                fig2.update_layout(
+                fig.add_vline(x=2022, line_dash="dot", line_color="lightgray")
+                fig.update_xaxes(title_text="Year", range=[1950, max(times)])
+                fig.update_yaxes(title_text="Ratio")
+                fig.update_layout(
                     title_text=f"{market_name} trade ratios by region — Baseline{good_label}",
                     hovermode="x unified",
                     height=300 * nrows,
                 )
-                self._show_and_save_plotly(fig2, f"trade_ratios_{market_name}_by_region{good_suffix}")
+                self._show_and_save_plotly(fig, f"trade_ratios_{market_name}_by_region{good_suffix}")
 
     return ComparisonVisualizer
+
+
+# ── export ─────────────────────────────────────────────────────────────────────
+
+def export_trade_csv(models, labels: list[str], output_dir: pathlib.Path = None):
+    """Export imports and exports for every trade market and every run as CSV files.
+
+    One file per (run, market): <run_label>_<market>.csv
+    Columns: [Time, Region, (Good,) imports_t, exports_t, net_imports_t]
+    """
+    import pandas as pd
+
+    if output_dir is None:
+        output_dir = DIRECTORY.parent / "trade_csv"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for model, label in zip(models, labels):
+        mfa = model.future_mfa
+        if mfa.trade_set is None:
+            continue
+
+        safe_label = (
+            label.replace(" ", "_").replace("/", "_").replace("α", "alpha")
+        )
+
+        for market_name, trade in mfa.trade_set.markets.items():
+            imp_df = trade.imports.to_df().reset_index().rename(columns={"value": "imports_t"})
+            exp_df = trade.exports.to_df().reset_index().rename(columns={"value": "exports_t"})
+
+            dim_cols = [c for c in imp_df.columns if c != "imports_t"]
+            merged = imp_df.merge(exp_df, on=dim_cols)
+            merged["net_imports_t"] = merged["imports_t"] - merged["exports_t"]
+
+            out_path = output_dir / f"{safe_label}_{market_name}.csv"
+            merged.to_csv(out_path, index=False)
+            print(f"  {out_path.name}")
+
+    print(f"Trade CSVs written to {output_dir}")
+
+
+def export_flows_csv(models, labels: list[str], output_dir: pathlib.Path = None):
+    """Export steel demand and supply flows for every run as CSV files.
+
+    Three files per run:
+      <run_label>_inflow.csv          — mfa.stocks["in_use"].inflow  (demand in products)
+      <run_label>_supply_by_good.csv  — mfa.flows["fabrication => good_market"]
+      <run_label>_steel_demand.csv    — mfa.flows["ip_market => fabrication"]
+    Columns: [Time, Region, (Good,) value_t]
+    """
+    if output_dir is None:
+        output_dir = DIRECTORY.parent / "flows_csv"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    _arrays = [
+        ("inflow",         lambda mfa: mfa.stocks["in_use"].inflow),
+        ("supply_by_good", lambda mfa: mfa.flows["fabrication => good_market"]),
+        ("steel_demand",   lambda mfa: mfa.flows["ip_market => fabrication"]),
+    ]
+
+    for model, label in zip(models, labels):
+        mfa = model.future_mfa
+        safe_label = label.replace(" ", "_").replace("/", "_").replace("α", "alpha")
+
+        for name, getter in _arrays:
+            try:
+                arr = getter(mfa)
+            except KeyError:
+                continue
+            df = arr.to_df().reset_index().rename(columns={"value": "value_t"})
+            out_path = output_dir / f"{safe_label}_{name}.csv"
+            df.to_csv(out_path, index=False)
+            print(f"  {out_path.name}")
+
+    print(f"Flow CSVs written to {output_dir}")
 
 
 # ── main ───────────────────────────────────────────────────────────────────────
@@ -991,6 +997,11 @@ def main():
         print(f"  {label}: {path}")
 
     models = load_models(paths)
+
+    print("Exporting trade CSVs…")
+    export_trade_csv(models, labels)
+    print("Exporting flow CSVs…")
+    export_flows_csv(models, labels)
 
     run_dim = fd.Dimension(letter=RUN_DIM_LETTER, name=RUN_DIM_NAME, items=labels)
     combined_mfa = build_combined_mfa(models, run_dim)
