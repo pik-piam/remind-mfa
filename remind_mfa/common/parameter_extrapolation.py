@@ -369,82 +369,75 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
             description=self.description,
         )
 
-        split_dim_letter = prepared_param.dims[self.split_dim_name].letter
+        split_letter = prepared_param.dims[self.split_dim_name].letter
         param_name = prepared_param.name
-        last_hist_year = float(self._last_historic_time)
+        last_hist = self._get_last_historic_value(prepared_param)
+        last_year = float(self._last_historic_time)
 
         target = self.scenario_parameters[f"{param_name}_target"]
         target_year = self.scenario_parameters[f"{param_name}_target_year"]
         receiver = self.scenario_parameters.get(f"{param_name}_receiver")
-        if receiver is None:
-            receiver = fd.Parameter.full_like(target, 0.0)
 
-        last_hist = self._get_last_historic_value(prepared_param)
+        # Masks: target_year == 0 (flodym default) signals "no target specified"
+        is_targeted = target_year.apply(lambda x: (x > 0).astype(float))
+        is_receiver = (
+            receiver.apply(lambda x: (x > 0).astype(float))
+            if receiver is not None
+            else fd.Parameter.full_like(last_hist, 0.0)
+        )
+        unspec = (1 - is_targeted) * (1 - is_receiver)
 
-        # Boolean masks as 0/1 FlodymArrays for use in arithmetic
-        # year == 0 (flodym default) means "no target specified"; valid years are 4-digit numbers
-        is_targeted = fd.Parameter(dims=target_year.dims, values=(target_year.values > 0).astype(float))
-        is_receiver = fd.Parameter(dims=receiver.dims, values=(receiver.values > 0.5).astype(float))
-
-        # Safe values: replace zero sentinels so arithmetic stays valid outside the mask
+        # For non-targeted entries, safe fallbacks keep progress = 0, so they interpolate to last_hist
         safe_target = is_targeted * target + (1 - is_targeted) * last_hist
-        safe_year = is_targeted * target_year + (1 - is_targeted) * (last_hist_year + 1.0)
-        safe_duration = (safe_year - last_hist_year).maximum(1.0)
+        safe_year = is_targeted * target_year + (1 - is_targeted) * (last_year + 1.0)
 
-        # Time axis as FlodymArray — broadcasts via * (union dims) to add t to all arrays below
-        t_param = fd.Parameter(
-            dims=prepared_param.dims.get_subset(("t",)),
+        # Per-entry linear interpolation progress, clamped to [0, 1]
+        t_arr = fd.Parameter(
+            dims=new_param.dims.get_subset(("t",)),
             values=np.array(self.extended_time.items, dtype=float),
         )
-
-        # Progress in [0, 1] per entry over the full time range
-        progress = ((t_param - last_hist_year) / safe_duration).apply(lambda x: np.clip(x, 0.0, 1.0))
-
-        # Linearly blended values for all entries across the full time range
-        all_blended = last_hist.cast_to(new_param.dims) + progress * (safe_target - last_hist)
-
-        # Dimension letter groups used for summing over the split dimension
-        non_split_letters = tuple(d for d in new_param.dims.letters if d != split_dim_letter)
-        non_t_non_split_letters = tuple(d for d in last_hist.dims.letters if d != split_dim_letter)
-
-        # Contribution of targeted entries summed over split dim, and resulting delta vs. historic
-        specified_contribution = all_blended * is_targeted
-        specified_sum = specified_contribution.sum_to(non_split_letters)
-        specified_hist_sum = (last_hist * is_targeted).sum_to(non_t_non_split_letters)
-        delta = specified_sum - specified_hist_sum.cast_to(specified_sum.dims)
-
-        # Receiver mode: receiver entries absorb the cumulative delta
-        receiver_hist_sum = (last_hist * is_receiver).sum_to(non_t_non_split_letters)
-        has_any_receiver = fd.Parameter(
-            dims=receiver_hist_sum.dims,
-            values=(is_receiver.sum_to(non_t_non_split_letters).values > 0.5).astype(float),
+        progress = ((t_arr - last_year) / (safe_year - last_year).maximum(1.0)).apply(
+            lambda x: np.clip(x, 0.0, 1.0)
         )
-        recv_factor = 1.0 - delta / receiver_hist_sum.maximum(1.0)
-        receiver_values = recv_factor * last_hist
+        interp_vals = last_hist.cast_to(new_param.dims) + progress * (safe_target - last_hist)
 
-        # Proportional mode: unspecified non-receiver entries scale with remaining budget
-        unspec_mask = (1 - is_targeted) * (1 - is_receiver)
-        unspec_hist_sum = (last_hist * unspec_mask).sum_to(non_t_non_split_letters)
-        remaining = 1.0 - specified_sum
-        proportional_factor = remaining / unspec_hist_sum.maximum(1.0)
-        proportional_values = proportional_factor * last_hist
+        # Dimension letter tuples for summing over the split dimension
+        non_split = tuple(d for d in new_param.dims.letters if d != split_letter)
+        non_t_non_split = tuple(d for d in last_hist.dims.letters if d != split_letter)
 
-        # Assemble: targeted > receiver > constant (if receiver exists) > proportional
-        # np.where is used here as flodym has no conditional selection operation
-        full_dims = new_param.dims
-        new_param[...] = np.where(
-            is_targeted.cast_values_to(full_dims),
-            all_blended.values,
-            np.where(
-                is_receiver.cast_values_to(full_dims),
-                receiver_values.values,
-                np.where(
-                    has_any_receiver.cast_values_to(full_dims),
-                    last_hist.cast_values_to(full_dims),
-                    proportional_values.values,
-                ),
-            ),
+        # Budget accounting
+        targeted_sum = (interp_vals * is_targeted).sum_to(non_split)
+        remaining = 1.0 - targeted_sum
+        unspec_hist_sum = (last_hist * unspec).sum_to(non_t_non_split)
+        recv_hist_sum = (last_hist * is_receiver).sum_to(non_t_non_split)
+
+        # Determine mode per slice: receiver mode where any receiver exists, else proportional
+        has_recv = recv_hist_sum.apply(lambda x: (x > 1e-9).astype(float)).cast_to(remaining.dims)
+
+        # Receiver mode: receivers absorb (remaining - unspec_hist_sum); unspecified stay at historic (scale = 1)
+        recv_budget = remaining - unspec_hist_sum.cast_to(remaining.dims)
+        recv_scale = has_recv * recv_budget / recv_hist_sum.cast_to(remaining.dims).maximum(1e-9)
+
+        # Proportional mode: all unspecified entries scale to fill remaining (scale = remaining / unspec_hist_sum)
+        prop_scale = (1 - has_recv) * remaining / unspec_hist_sum.cast_to(remaining.dims).maximum(1e-9)
+
+        # Combined unspecified scale: 1 in receiver mode, prop_scale in proportional mode
+        unspec_scale = has_recv + prop_scale
+
+        # Assemble: each group fills its budget exactly, so the sum over the split dim stays 1
+        new_param[...] = (
+            interp_vals * is_targeted  # targeted entries interpolate to target
+            + recv_scale * last_hist * is_receiver  # receivers absorb the delta
+            + unspec_scale * last_hist * unspec  # unspecified: constant or proportional
+        ).cast_to(new_param.dims)
+
+        # Sanity check: new_param should sum to 1 over the split dimension for all slices
+        sums = new_param.sum_over((split_letter,))
+        assert np.allclose(sums.values, 1.0, atol=1e-6), (
+            f"'{param_name}' does not sum to 1 over '{self.split_dim_name}' after extrapolation. "
+            f"Max deviation: {np.abs(sums.values - 1.0).max():.2e}"
         )
+
         return new_param
 
     @property
