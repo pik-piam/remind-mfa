@@ -57,6 +57,13 @@ class SteelVisualizer(CommonVisualizer):
 
         flow_color_dict = {"default": production_color}
         flow_color_dict.update(
+            {
+                fn: trade_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "imports" or f.to_process.name == "exports"
+            }
+        )
+        flow_color_dict.update(
             {fn: ("Good", good_colors) for fn, f in mfa.flows.items() if "Good" in f.dims}
         )
         flow_color_dict.update(
@@ -73,13 +80,6 @@ class SteelVisualizer(CommonVisualizer):
                 if f.to_process.name in ["losses", "excess_scrap", "obsolete"]
             }
         )
-        flow_color_dict.update(
-            {
-                fn: trade_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "imports" or f.to_process.name == "exports"
-            }
-        )
         self.cfg.sankey.plotter_args["flow_color_dict"] = flow_color_dict
 
         self.cfg.sankey.plotter_args["node_color_dict"] = {"default": "gray", "use": "black"}
@@ -94,6 +94,7 @@ class SteelVisualizer(CommonVisualizer):
             [production_color, "Production Phase"],
             [scrap_color, "Scrap Treatment"],
             [losses_color, "Losses and Waste"],
+            [trade_color, "Trade"],
             ["white", ""],
             ["white", "Product Phase"],
         ]
