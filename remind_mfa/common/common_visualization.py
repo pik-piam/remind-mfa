@@ -401,22 +401,14 @@ class CommonVisualizer(RemindMFABaseModel):
 
         for name, trade in mfa.trade_set.markets.items():
             net_imports = trade.net_imports
-            if linecolor_dims is not None and linecolor_dims.get(name) is not None:
-                self.visualize_fdarr(
-                    mfa=mfa,
-                    flow=net_imports,
-                    name=name + " Net Imports",
-                    linecolor_dim=linecolor_dims[name],
-                    regional=True,
-                )
-            else:
-                self.visualize_fdarr(
-                    mfa=mfa,
-                    flow=net_imports,
-                    name=name + " Net Imports",
-                    linecolor_dim=None,
-                    regional=True,
-                )
+            self.visualize_fdarr(
+                mfa=mfa,
+                flow=net_imports,
+                name=name + " Net Imports",
+                linecolor_dim=linecolor_dims[name] if linecolor_dims is not None else None,
+                regional=True,
+                shared_yaxes=True,
+            )
 
     def visualize_sector_splits(self, model: "CommonModel", regional: bool = True):
 
@@ -451,6 +443,7 @@ class CommonVisualizer(RemindMFABaseModel):
         regional: bool = True,
         per_capita: bool = False,
         linecolor_dim: Optional[str] = None,
+        shared_yaxes: bool = False,
     ):
         population = mfa.parameters["population"]
         if per_capita:
@@ -476,6 +469,13 @@ class CommonVisualizer(RemindMFABaseModel):
             title=f"{name} {pc_str} {regional_tag}",
             line_label=name if linecolor_dim is None else None,
         )
+
+        if shared_yaxes:
+            y_vals = [y for trace in fig.data if trace.y is not None for y in trace.y if y is not None]
+            if y_vals:
+                y_min, y_max = min(y_vals), max(y_vals)
+                margin = (y_max - y_min) * 0.05
+                fig.update_yaxes(range=[y_min - margin, y_max + margin])
 
         self.plot_and_save_figure(ap_flow, f"{name}_{pc_str}_{regional_tag}.png", do_plot=False)
 
