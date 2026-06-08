@@ -442,11 +442,15 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
             + unspec_scale * last_hist * unspec  # unspecified: constant or proportional
         ).cast_to(new_param.dims)
 
-        # Sanity check: new_param should sum to 1 over the split dimension for all slices
+        # Sanity check: wherever the split was non-zero historically, result must still sum to 1.
+        # Non-applicable slices (last_hist sums to 0) are masked out by multiplying with 0.
         sums = new_param.sum_over((split_letter,))
-        assert np.allclose(sums.values, 1.0, atol=1e-6), (
+        hist_sums = last_hist.sum_over((split_letter,))
+        applicable = hist_sums.apply(lambda x: x > 1e-9).cast_to(sums.dims)
+        deviation = (sums - 1.0) * applicable
+        assert np.allclose(deviation.values, 0.0, atol=1e-6), (
             f"'{param_name}' does not sum to 1 over '{self.split_dim_name}' after extrapolation. "
-            f"Max deviation: {np.abs(sums.values - 1.0).max():.2e}"
+            f"Max deviation on applicable slices: {np.abs(deviation.values).max():.2e}"
         )
 
         return new_param
