@@ -322,32 +322,42 @@ class ParameterExtrapolationManager:
 class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
     """Extrapolate a split parameter (values sum to 1 over a dimension) while preserving the constraint.
 
-    Entries with explicit targets interpolate linearly to their target by their target year.
+    Targeted entries blend from their last historic value to a scenario target by a target year.
     The remaining budget is distributed in one of two modes, determined per context slice
     (each combination of non-split, non-time index values):
 
     - **Proportional** (no receiver specified): unspecified entries scale proportionally to their
       historic relative shares so that the sum stays 1.
-    - **Receiver** (receiver entries flagged): receiver entries absorb the cumulative delta from
-      targeted entries; all other unspecified entries remain at their historic values.
+    - **Receiver** (receiver entries flagged): unspecified entries keep their historic values;
+      receiver entries are scaled to fill whatever share is left so the sum stays 1.
 
     Scenario parameters required (same dims as the main parameter, 0 where not applicable):
-      - ``{param_name}_target``       – target value per entry (0 target_year = not specified)
-      - ``{param_name}_target_year``  – year to reach the target (0 = not specified)
-      - ``{param_name}_receiver``     – non-zero flags an entry as a receiver
+      - ``{param_name}_target``       – target value per entry (ignored where target_year == 0)
+      - ``{param_name}_target_year``  – year to reach the target (0 = entry has no target)
+      - ``{param_name}_receiver``     – non-zero flags an entry as a receiver (optional)
 
-    Use a named subclass that encodes the full dimension name as a suffix, e.g.::
+    Subclass naming convention — encode the split dimension name and optionally a blend type
+    from ``data_blending.blending_factor`` as underscored suffixes::
 
-        some_split_param: ConstrainedSplitExtrapolation_Function
+        ConstrainedSplitExtrapolation_Function            # dim=Function, blend=linear (default)
+        ConstrainedSplitExtrapolation_Function_hermite    # dim=Function, blend=hermite
+        ConstrainedSplitExtrapolation_Function_poly_mix   # dim=Function, blend=poly_mix
+
+    ``maxsplit=2`` is used when parsing the class name, so blend type names containing
+    underscores (e.g. ``poly_mix``, ``clamped_sigmoid3``) are handled correctly.
     """
 
     split_dim_name: str = None
+    blend_type: str = "linear"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        prefix = "ConstrainedSplitExtrapolation_"
-        if cls.__name__.startswith(prefix):
-            cls.split_dim_name = cls.__name__[len(prefix):]
+        parts = cls.__name__.split("_", 2)
+        # parts: [ClassName, DimName, blend_type] — maxsplit=2 keeps blend types like "poly_mix" intact
+        if len(parts) > 1:
+            cls.split_dim_name = parts[1]
+        if len(parts) > 2:
+            cls.blend_type = parts[2]
 
     def __init__(self, scenario_parameters: Dict[str, fd.Parameter]):
         self.scenario_parameters = scenario_parameters
@@ -391,15 +401,16 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
         safe_target = is_targeted * target + (1 - is_targeted) * last_hist
         safe_year = is_targeted * target_year + (1 - is_targeted) * (last_year + 1.0)
 
-        # Per-entry linear interpolation progress, clamped to [0, 1]
-        t_arr = fd.Parameter(
-            dims=new_param.dims.get_subset(("t",)),
-            values=np.array(self.extended_time.items, dtype=float),
+        # Per-entry interpolation from last_hist to safe_target, clamped outside [last_year, safe_year]
+        interp_vals = blend(
+            target_dims=new_param.dims,
+            y_lower=last_hist,
+            y_upper=safe_target,
+            x="t",
+            x_lower=last_year,
+            x_upper=safe_year,
+            type=self.blend_type,
         )
-        progress = ((t_arr - last_year) / (safe_year - last_year).maximum(1.0)).apply(
-            lambda x: np.clip(x, 0.0, 1.0)
-        )
-        interp_vals = last_hist.cast_to(new_param.dims) + progress * (safe_target - last_hist)
 
         # Dimension letter tuples for summing over the split dimension
         non_split = tuple(d for d in new_param.dims.letters if d != split_letter)
@@ -443,9 +454,9 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
     @property
     def description(self) -> str:
         return (
-            f"Split parameter extrapolated over '{self.split_dim_name}' dimension with sum=1 constraint. "
-            "Specified entries interpolate linearly to their targets; receiver entries absorb the "
-            "cumulative delta; remaining entries either scale proportionally or stay constant."
+            f"Split parameter extrapolated over '{self.split_dim_name}' dimension with sum=1 constraint "
+            f"using '{self.blend_type}' blending. Specified entries interpolate to their targets; "
+            "receiver entries absorb the delta; remaining entries either scale proportionally or stay constant."
         )
 
 
