@@ -382,7 +382,7 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
         split_letter = prepared_param.dims[self.split_dim_name].letter
         param_name = prepared_param.name
         last_hist = self._get_last_historic_value(prepared_param)
-        last_year = float(self._last_historic_time)
+        last_year = self._last_historic_time
 
         target = self.scenario_parameters[f"{param_name}_target"]
         target_year = self.scenario_parameters[f"{param_name}_target_year"]
@@ -401,7 +401,7 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
         safe_target = is_targeted * target + (1 - is_targeted) * last_hist
         safe_year = is_targeted * target_year + (1 - is_targeted) * (last_year + 1.0)
 
-        # Per-entry interpolation from last_hist to safe_target, clamped outside [last_year, safe_year]
+        # Interpolation from last_hist to safe_target
         interp_vals = blend(
             target_dims=new_param.dims,
             y_lower=last_hist,
@@ -412,15 +412,11 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
             type=self.blend_type,
         )
 
-        # Dimension letter tuples for summing over the split dimension
-        non_split = tuple(d for d in new_param.dims.letters if d != split_letter)
-        non_t_non_split = tuple(d for d in last_hist.dims.letters if d != split_letter)
-
         # Budget accounting
-        targeted_sum = (interp_vals * is_targeted).sum_to(non_split)
+        targeted_sum = (interp_vals * is_targeted).sum_over(split_letter)
         remaining = 1.0 - targeted_sum
-        unspec_hist_sum = (last_hist * unspec).sum_to(non_t_non_split)
-        recv_hist_sum = (last_hist * is_receiver).sum_to(non_t_non_split)
+        unspec_hist_sum = (last_hist * unspec).sum_over(split_letter)
+        recv_hist_sum = (last_hist * is_receiver).sum_over(split_letter)
 
         # Determine mode per slice: receiver mode where any receiver exists, else proportional
         has_recv = recv_hist_sum.apply(lambda x: (x > 1e-9).astype(float)).cast_to(remaining.dims)
@@ -440,11 +436,21 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
             interp_vals * is_targeted  # targeted entries interpolate to target
             + recv_scale * last_hist * is_receiver  # receivers absorb the delta
             + unspec_scale * last_hist * unspec  # unspecified: constant or proportional
-        ).cast_to(new_param.dims)
+        )
 
-        # Sanity check: wherever the split was non-zero historically, result must still sum to 1.
-        # Non-applicable slices (last_hist sums to 0) are masked out by multiplying with 0.
-        sums = new_param.sum_over((split_letter,))
+        self._assert_sums_to_one(new_param, last_hist, split_letter, param_name)
+
+        return new_param
+
+    def _assert_sums_to_one(
+        self,
+        param: fd.Parameter,
+        last_hist: fd.FlodymArray,
+        split_letter: str,
+        param_name: str,
+    ):
+        """Assert that param sums to 1 over split_letter for all historically non-zero slices."""
+        sums = param.sum_over((split_letter,))
         hist_sums = last_hist.sum_over((split_letter,))
         applicable = hist_sums.apply(lambda x: x > 1e-9).cast_to(sums.dims)
         deviation = (sums - 1.0) * applicable
@@ -452,8 +458,6 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
             f"'{param_name}' does not sum to 1 over '{self.split_dim_name}' after extrapolation. "
             f"Max deviation on applicable slices: {np.abs(deviation.values).max():.2e}"
         )
-
-        return new_param
 
     @property
     def description(self) -> str:
