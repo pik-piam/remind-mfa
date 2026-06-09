@@ -18,6 +18,8 @@ CE_SCENARIOS = [
     "Redesign_ Highly_Ambitious_Steel",
     "Remanufacturing_Conservative_Steel",
     "Remanufacturing_Highly_Ambitious_Steel",
+    'AHSS & HSS_ Conservative_Steel', 
+    'AHSS & HSS_ Highly_Ambitious_Steel',
     "Combined_Conservative_Steel",
     "Combined_Highly_Ambitious_Steel",
 ]
