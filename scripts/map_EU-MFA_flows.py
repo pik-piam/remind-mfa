@@ -12,7 +12,12 @@ FLOWS_BY_MATERIAL = {
 }
 SCENARIOS = {
     'plastics': ['baseline'], 
-    'steel': ['Baseline_Steel_01_06_2026', 'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel']
+    'steel': ['Baseline_Steel_01_06_2026', 
+              'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 
+              'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 
+              'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 
+              'AHSS & HSS_ Conservative_Steel', 'AHSS & HSS_ Highly_Ambitious_Steel',
+              'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel']
 }
 
 parser = argparse.ArgumentParser()
