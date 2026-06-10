@@ -127,8 +127,8 @@ def build_combined_mfa(models, run_dim: fd.Dimension) -> fd.MFASystem:
                 "parameters": new_params, "trade_set": new_trade_set}
     )
 
-_STRATEGY_TOKENS = ["Downsizing", "Redesign", "Remanufacturing", "Combined", "Baseline"]
-_STRATEGY_ORDER  = ["Downsizing", "Redesign", "Remanufacturing", "Combined"]
+_STRATEGY_TOKENS = ["Downsizing", "Redesign", "Remanufacturing", "Combined", "AHSS", "Baseline"]
+_STRATEGY_ORDER  = ["Downsizing", "Redesign", "Remanufacturing", "Combined", "AHSS"]
 _AMBITIONS       = ["Conservative", "Highly Ambitious"]
 
 _STRATEGY_DISPLAY = {
@@ -137,6 +137,7 @@ _STRATEGY_DISPLAY = {
     "Redesign":        "Redesign",
     "Remanufacturing": "Remanufacturing",
     "Combined":        "Combined",
+    "AHSS":            "AHSS & HSS",
 }
 _STRATEGY_COLORS = {
     "Baseline":        "#7f7f7f",
@@ -144,6 +145,7 @@ _STRATEGY_COLORS = {
     "Redesign":        "#ff7f0e",
     "Remanufacturing": "#2ca02c",
     "Combined":        "#d62728",
+    "AHSS":            "#9467bd",
 }
 _STRATEGY_FILL_SOLID = {
     "Baseline":        "rgba(127,127,127,0.20)",
@@ -151,6 +153,7 @@ _STRATEGY_FILL_SOLID = {
     "Redesign":        "rgba(255,127,14,0.20)",
     "Remanufacturing": "rgba(44,160,44,0.20)",
     "Combined":        "rgba(214,39,40,0.20)",
+    "AHSS":            "rgba(148,103,189,0.20)",
 }
 _STRATEGY_FILL_DASHED = {
     "Baseline":        "rgba(127,127,127,0.08)",
@@ -158,9 +161,23 @@ _STRATEGY_FILL_DASHED = {
     "Redesign":        "rgba(255,127,14,0.08)",
     "Remanufacturing": "rgba(44,160,44,0.08)",
     "Combined":        "rgba(214,39,40,0.08)",
+    "AHSS":            "rgba(148,103,189,0.08)",
 }
 
 _EU_REGION = {"steel": "EUR", "plastics": "EU27+3"}
+
+_MARKET_DISPLAY_NAMES = {
+    "indirect": "Steel in goods",
+    "steel":    "Intermediate steel products",
+    "primary":  "Primary steel",
+    "final":    "Final goods",
+}
+
+
+def _market_title(market_name: str, good: str | None = None) -> str:
+    """Human-readable title for a trade market, optionally filtered to one good."""
+    base = _MARKET_DISPLAY_NAMES.get(market_name, market_name)
+    return f"{base} — {good}" if good is not None else base
 
 
 def _make_short_label(stem: str) -> str:
@@ -225,30 +242,23 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             eu_region = _EU_REGION.get(model_name, "EUR")
             linecolor_dims = {name: RUN for name in model.future_mfa.trade_set.markets}
             subplot_dims = {name: None for name in model.future_mfa.trade_set.markets}
-            if model_name == "steel":
-                subplot_dims["indirect"] = "Good"
-            self.visualize_trade(mfa, linecolor_dims=linecolor_dims, region=eu_region, subplot_dims=subplot_dims)
+            good_filters = {"indirect": "Transport"} if model_name == "steel" else {}
+            self.visualize_trade(mfa, linecolor_dims=linecolor_dims, region=eu_region, subplot_dims=subplot_dims, good_filters=good_filters)
             self.visualize_flow(mfa, flow=mfa.stocks["in_use"].inflow, name="Stock inflow", region=eu_region, linecolor_dim=RUN, subplot_dim="Good")
             self.visualize_flow(mfa, flow=mfa.flows["fabrication => good_market"], name="Good supply", region=eu_region, linecolor_dim=RUN, subplot_dim="Good")
             self.visualize_flow(mfa, flow=mfa.flows["ip_market => fabrication"], name="Steel demand", region=eu_region, linecolor_dim=RUN, subplot_dim=None)
             run_labels = list(mfa.dims[RUN].items)
-            self.visualize_delta_net_imports(mfa, run_labels, run_letter, region=eu_region)
-            self.visualize_import_dependency(mfa, run_labels, run_letter, region=eu_region)
-            self.visualize_gross_trade_eu(mfa, run_labels, run_letter, region=eu_region)
-            self.visualize_bracketing(mfa, run_labels, run_letter, region=eu_region)
-            self.visualize_global_net_imports(mfa, run_labels, run_letter, region=eu_region)
-            first_future_year = max(model.historic_mfa.dims["h"].items) + 1
-            self.visualize_trade_mechanism(mfa, run_labels, run_letter, first_future_year=first_future_year)
-            # ── transport-only repeats ──────────────────────────────────────
-            self.visualize_delta_net_imports(mfa, run_labels, run_letter, region=eu_region, good="Transport")
-            self.visualize_import_dependency(mfa, run_labels, run_letter, region=eu_region, good="Transport")
-            self.visualize_gross_trade_eu(mfa, run_labels, run_letter, region=eu_region, good="Transport")
-            self.visualize_bracketing(mfa, run_labels, run_letter, region=eu_region, good="Transport")
-            self.visualize_global_net_imports(mfa, run_labels, run_letter, region=eu_region, good="Transport")
-            self.visualize_trade_mechanism(mfa, run_labels, run_letter, first_future_year=first_future_year, good="Transport")
+            last_hist_year = max(model.historic_mfa.dims["h"].items)
+            self.visualize_delta_net_imports(mfa, run_labels, run_letter, region=eu_region, last_hist_year=last_hist_year)
+            self.visualize_import_dependency(mfa, run_labels, run_letter, region=eu_region, last_hist_year=last_hist_year)
+            self.visualize_gross_trade(mfa, run_labels, run_letter, region=eu_region, last_hist_year=last_hist_year)
+            self.visualize_net_imports(mfa, run_labels, run_letter, region=eu_region, last_hist_year=last_hist_year)
+            self.visualize_global_trade_stacked(mfa, run_labels, run_letter, region=eu_region, last_hist_year=last_hist_year)
+            self.visualize_trade_mechanism(mfa, run_labels, run_letter, last_hist_year=last_hist_year)
+            self.visualize_demands(mfa, run_labels, run_letter, region=eu_region, last_hist_year=last_hist_year)
         
         def visualize_trade(
-            self, mfa: fd.MFASystem, region: Optional[str] = None, linecolor_dims: Optional[dict[str, Optional[str]]] = None, subplot_dims: Optional[dict[str, Optional[str]]] = None
+            self, mfa: fd.MFASystem, region: Optional[str] = None, linecolor_dims: Optional[dict[str, Optional[str]]] = None, subplot_dims: Optional[dict[str, Optional[str]]] = None, good_filters: Optional[dict[str, str]] = None
         ):
 
             for name, trade in mfa.trade_set.markets.items():
@@ -257,6 +267,11 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
 
                 if region is None:
                     subplot_dim = "Region"
+
+                mkt_good = (good_filters or {}).get(name)
+                if mkt_good is not None and "g" in imports.dims.letters:
+                    imports = imports[{"g": mkt_good}]
+                    exports = exports[{"g": mkt_good}]
 
                 linecolor_dim = linecolor_dims[name] if linecolor_dims is not None else None
                 linecolor_dim_letter = (
@@ -287,6 +302,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                     color_map=colors,
                 )
                 fig = ap_imports.plot()
+                trade_title = f"{_market_title(name, mkt_good)} Trade"
                 ap_exports = self.plotter_class(
                     array=-exports,
                     intra_line_dim="Time",
@@ -294,14 +310,14 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                     linecolor_dim=linecolor_dim,
                     line_type="dash",
                     display_names=self.display_names.dct,
-                    title=f"{name} Trade",
+                    title=trade_title,
                     ylabel="Trade (Exports negative)",
                     suppress_legend=True,
                     fig=fig,
                     color_map=colors,
                 )
                 fig = ap_exports.plot()
-                fig.update_xaxes(range=[1950, max(mfa.dims["t"].items)])
+                fig.update_xaxes(range=[2000,max(mfa.dims["t"].items)])
                 self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
         def visualize_flow(
@@ -334,7 +350,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                 line_label=name if linecolor_dim is None else None,
             )
 
-            fig.update_xaxes(range=[1950, max(mfa.dims["t"].items)])
+            fig.update_xaxes(range=[2000,max(mfa.dims["t"].items)])
             self.plot_and_save_figure(ap_flow, f"{name}.png", do_plot=False)
 
         # ── scenario-comparison helpers ───────────────────────────────────────
@@ -351,7 +367,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
         def _market_has_good_dim(self, mfa, market_name):
             return "g" in mfa.trade_set.markets[market_name].imports.dims.letters
 
-        def visualize_delta_net_imports(self, mfa, run_labels, run_letter, region="EUR", good=None):
+        def visualize_delta_net_imports(self, mfa, run_labels, run_letter, region="EUR", last_hist_year=None):
             """Δ net imports vs Baseline.
 
             Strategy = color. Ambition = filled band (Conservative → Highly Ambitious).
@@ -363,15 +379,16 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             if baseline_idx is None:
                 return
 
-            good_suffix = f"_{good.lower()}" if good is not None else ""
             times = list(mfa.dims["t"].items)
-            all_markets = [m for m in ["steel", "indirect", "primary", "final"] if m in mfa.trade_set.markets]
-            markets = [m for m in all_markets if good is None or self._market_has_good_dim(mfa, m)]
-            fig = make_subplots(rows=1, cols=len(markets), subplot_titles=markets)
+            all_markets = [m for m in ["indirect", "steel", "primary", "final"] if m in mfa.trade_set.markets]
+            markets = all_markets
+            subplot_titles = [_market_title(m) for m in markets if m != "indirect"] + ([_market_title("indirect", "Transport")] if "indirect" in markets and self._market_has_good_dim(mfa, "indirect") else [])
+            fig = make_subplots(rows=1, cols=len(markets), subplot_titles=subplot_titles)
             legend_shown = set()
 
             for col, market_name in enumerate(markets, start=1):
-                vals  = self._net_imports_eur(mfa, market_name, region, run_letter, good=good)
+                mkt_good = "Transport" if market_name == "indirect" and self._market_has_good_dim(mfa, market_name) else None
+                vals  = self._net_imports_eur(mfa, market_name, region, run_letter, good=mkt_good)
                 delta = (vals - vals[:, baseline_idx : baseline_idx + 1]) / 1e6  # Mt
 
                 for strategy in _STRATEGY_ORDER:
@@ -440,14 +457,15 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                         ), row=1, col=col)
 
                 fig.add_hline(y=0, line_dash="dot", line_color="gray", row=1, col=col)
+                if last_hist_year is not None:
+                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
 
-            good_label = f" — {good}" if good is not None else ""
             fig.update_xaxes(title_text="Year", range=[2026, max(times)])
             fig.update_yaxes(title_text="Δ Net Imports [Mt]")
-            fig.update_layout(title_text=f"Δ Net Imports vs Baseline — {region}{good_label}", hovermode="x unified")
-            self._show_and_save_plotly(fig, f"delta_net_imports{good_suffix}")
+            fig.update_layout(title_text=f"Δ Net Imports vs Baseline — {region}", hovermode="x unified")
+            self._show_and_save_plotly(fig, "delta_net_imports")
 
-        def visualize_import_dependency(self, mfa, run_labels, run_letter, region="EUR", good=None):
+        def visualize_import_dependency(self, mfa, run_labels, run_letter, region="EUR", last_hist_year=None):
             """Import dependency ratios: goods-based and material-based.
 
             Strategy = color. Ambition = filled band (Conservative → Highly Ambitious).
@@ -457,33 +475,29 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             scenario_map = _parse_run_labels(run_labels)
             times = list(mfa.dims["t"].items)
             eps   = 1.0
-            good_suffix = f"_{good.lower()}" if good is not None else ""
-            good_label  = f" — {good}" if good is not None else ""
 
             panels = []
-            if "indirect" in mfa.trade_set.markets and (good is None or self._market_has_good_dim(mfa, "indirect")):
-                inflow_sel = {"r": region}
-                if good is not None:
-                    inflow_sel["g"] = good
-                indirect_net = self._net_imports_eur(mfa, "indirect", region, run_letter, good=good)
+            if "indirect" in mfa.trade_set.markets and self._market_has_good_dim(mfa, "indirect"):
+                inflow_sel = {"r": region, "g": "Transport"}
+                indirect_net = self._net_imports_eur(mfa, "indirect", region, run_letter, good="Transport")
                 inflow = mfa.stocks["in_use"].inflow[inflow_sel].sum_to(["t", run_letter]).values
                 panels.append((
                     indirect_net / np.maximum(inflow, eps),
-                    "Goods trade dependency<br>(net indirect imports / stock inflow)",
+                    _market_title("indirect", "Transport"),
                 ))
-            if good is None and "steel" in mfa.trade_set.markets and "ip_market => fabrication" in mfa.flows:
+            if "steel" in mfa.trade_set.markets and "ip_market => fabrication" in mfa.flows:
                 steel_net = self._net_imports_eur(mfa, "steel", region, run_letter)
                 demand = mfa.flows["ip_market => fabrication"][{"r": region}].sum_to(["t", run_letter]).values
                 panels.append((
                     steel_net / np.maximum(demand, eps),
-                    "Steel trade dependency<br>(net steel imports / total steel demand)",
+                    _market_title("steel"),
                 ))
-            if good is None and "primary" in mfa.trade_set.markets and "primary_market => fabrication" in mfa.flows:
+            if "primary" in mfa.trade_set.markets and "primary_market => fabrication" in mfa.flows:
                 primary_net = self._net_imports_eur(mfa, "primary", region, run_letter)
                 demand = mfa.flows["primary_market => fabrication"][{"r": region}].sum_to(["t", run_letter]).values
                 panels.append((
                     primary_net / np.maximum(demand, eps),
-                    "Primary plastics trade dependency<br>(net primary imports / primary demand)",
+                    _market_title("primary"),
                 ))
             if not panels:
                 return
@@ -492,16 +506,6 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             legend_shown = set()
 
             for col, (dep, _) in enumerate(panels, start=1):
-                # Baseline
-                bl = scenario_map.get("Baseline", {}).get("Baseline", {})
-                bl_def = bl.get("default")
-                if bl_def is not None:
-                    fig.add_trace(go.Scatter(x=times, y=dep[:, bl_def],
-                        name="Baseline", showlegend=(col == 1 and "Baseline" not in legend_shown),
-                        line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
-                    ), row=1, col=col)
-                    legend_shown.add("Baseline")
-
                 for strategy in _STRATEGY_ORDER:
                     ambition_dict = scenario_map.get(strategy, {})
                     if not ambition_dict:
@@ -557,141 +561,266 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                             line=dict(color=color, width=1.5, dash="dash"), mode="lines",
                         ), row=1, col=col)
 
-            fig.update_xaxes(title_text="Year", range=[1950, max(times)])
+                # Baseline on top
+                bl = scenario_map.get("Baseline", {}).get("Baseline", {})
+                bl_def = bl.get("default")
+                if bl_def is not None:
+                    fig.add_trace(go.Scatter(x=times, y=dep[:, bl_def],
+                        name="Baseline", showlegend=(col == 1 and "Baseline" not in legend_shown),
+                        line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
+                    ), row=1, col=col)
+                    if col == 1:
+                        legend_shown.add("Baseline")
+                if last_hist_year is not None:
+                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+
+            fig.update_xaxes(title_text="Year", range=[2000,max(times)])
             fig.update_yaxes(title_text="Dependency ratio")
-            fig.update_layout(title_text=f"Import Dependency Indicators — {region}{good_label}", hovermode="x unified")
-            self._show_and_save_plotly(fig, f"import_dependency{good_suffix}")
+            fig.update_layout(title_text=f"Import Dependency (Net imports / Demand) — {region}", hovermode="x unified")
+            self._show_and_save_plotly(fig, "import_dependency")
 
-        def visualize_bracketing(self, mfa, run_labels, run_letter, region="EUR", good=None):
-            """Absolute net imports level with trade-scenario uncertainty band.
+        def visualize_net_imports(self, mfa, run_labels, run_letter, region="EUR", last_hist_year=None):
+            """Absolute net imports level.
 
-            Strategy = color. Ambition = line weight (thin=Conservative, thick=Highly Ambitious).
-            Band = demand-following to fix_supply range per (strategy, ambition) combination.
-
-            Note: with small CE effects the strategy lines will overlap closely, which itself
-            communicates that CE barely shifts the absolute net import level relative to the
-            trade uncertainty.
+            Strategy = color. Ambition = filled band (Conservative → Highly Ambitious).
+            Trade = line style: solid band = demand-following, dashed band = fix_supply.
+            Baseline drawn as a single line on top.
             """
             scenario_map = _parse_run_labels(run_labels)
             times = list(mfa.dims["t"].items)
-            good_suffix = f"_{good.lower()}" if good is not None else ""
-            good_label  = f" — {good}" if good is not None else ""
-            all_markets = [m for m in ["steel", "indirect", "primary", "final"] if m in mfa.trade_set.markets]
-            markets = [m for m in all_markets if good is None or self._market_has_good_dim(mfa, m)]
-            fig = make_subplots(rows=1, cols=len(markets), subplot_titles=markets)
+            all_markets = [m for m in ["indirect", "steel", "primary", "final"] if m in mfa.trade_set.markets]
+            markets = all_markets
+            subplot_titles = [_market_title(m) for m in markets]
+            fig = make_subplots(rows=1, cols=len(markets), subplot_titles=subplot_titles)
             legend_shown = set()
 
             for col, market_name in enumerate(markets, start=1):
-                vals = self._net_imports_eur(mfa, market_name, region, run_letter, good=good)
-
-                # Baseline
-                bl = scenario_map.get("Baseline", {}).get("Baseline", {})
-                bl_def = bl.get("default")
-                bl_fs  = _fs_index(bl)
-                if bl_def is not None and bl_fs is not None:
-                    y_lo = np.minimum(vals[:, bl_def], vals[:, bl_fs]) / 1e6
-                    y_hi = np.maximum(vals[:, bl_def], vals[:, bl_fs]) / 1e6
-                    fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
-                        line=dict(color=_STRATEGY_COLORS["Baseline"], width=0), mode="lines", hoverinfo="skip",
-                    ), row=1, col=col)
-                    fig.add_trace(go.Scatter(x=times, y=y_hi,
-                        name="Baseline", showlegend=(col == 1 and "Baseline" not in legend_shown),
-                        fill="tonexty", fillcolor=_STRATEGY_FILL_SOLID["Baseline"],
-                        line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
-                    ), row=1, col=col)
-                    legend_shown.add("Baseline")
-                elif bl_def is not None:
-                    fig.add_trace(go.Scatter(x=times, y=vals[:, bl_def] / 1e6,
-                        name="Baseline", showlegend=(col == 1 and "Baseline" not in legend_shown),
-                        line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
-                    ), row=1, col=col)
-                    legend_shown.add("Baseline")
+                mkt_good = "Transport" if market_name == "indirect" and self._market_has_good_dim(mfa, market_name) else None
+                vals = self._net_imports_eur(mfa, market_name, region, run_letter, good=mkt_good)
 
                 for strategy in _STRATEGY_ORDER:
                     ambition_dict = scenario_map.get(strategy, {})
                     if not ambition_dict:
                         continue
-                    color   = _STRATEGY_COLORS[strategy]
-                    fill    = _STRATEGY_FILL_SOLID[strategy]
-                    display = _STRATEGY_DISPLAY[strategy]
+                    color        = _STRATEGY_COLORS[strategy]
+                    fill_solid   = _STRATEGY_FILL_SOLID[strategy]
+                    fill_dashed  = _STRATEGY_FILL_DASHED[strategy]
+                    display      = _STRATEGY_DISPLAY[strategy]
+                    show_leg     = col == 1 and strategy not in legend_shown
 
-                    for ambition in _AMBITIONS:
-                        trade_dict = ambition_dict.get(ambition, {})
-                        if not trade_dict:
-                            continue
-                        lw      = 2.5 if ambition == "Highly Ambitious" else 1.5
-                        def_idx = trade_dict.get("default")
-                        fs_idx  = _fs_index(trade_dict)
-                        leg_key = f"{strategy}_{ambition}"
-                        show_leg = col == 1 and leg_key not in legend_shown
+                    c_def  = ambition_dict.get("Conservative", {}).get("default")
+                    ha_def = ambition_dict.get("Highly Ambitious", {}).get("default")
+                    c_fs   = _fs_index(ambition_dict.get("Conservative", {}))
+                    ha_fs  = _fs_index(ambition_dict.get("Highly Ambitious", {}))
 
-                        if def_idx is not None and fs_idx is not None:
-                            y_lo = np.minimum(vals[:, def_idx], vals[:, fs_idx]) / 1e6
-                            y_hi = np.maximum(vals[:, def_idx], vals[:, fs_idx]) / 1e6
-                            fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
-                                line=dict(color=color, width=0), mode="lines", hoverinfo="skip",
-                            ), row=1, col=col)
-                            fig.add_trace(go.Scatter(x=times, y=y_hi,
-                                name=f"{display} ({ambition})", showlegend=show_leg,
-                                fill="tonexty", fillcolor=fill,
-                                line=dict(color=color, width=lw), mode="lines",
-                            ), row=1, col=col)
-                            legend_shown.add(leg_key)
-                        elif def_idx is not None:
-                            fig.add_trace(go.Scatter(x=times, y=vals[:, def_idx] / 1e6,
-                                name=f"{display} ({ambition})", showlegend=show_leg,
-                                line=dict(color=color, width=lw), mode="lines",
-                            ), row=1, col=col)
-                            legend_shown.add(leg_key)
+                    # solid band: Conservative → Highly Ambitious, demand-following trade
+                    if c_def is not None and ha_def is not None:
+                        y_lo = np.minimum(vals[:, c_def], vals[:, ha_def]) / 1e6
+                        y_hi = np.maximum(vals[:, c_def], vals[:, ha_def]) / 1e6
+                        fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
+                            line=dict(color=color, width=0), mode="lines", hoverinfo="skip",
+                        ), row=1, col=col)
+                        fig.add_trace(go.Scatter(x=times, y=y_hi,
+                            name=display, showlegend=show_leg,
+                            fill="tonexty", fillcolor=fill_solid,
+                            line=dict(color=color, width=1.5), mode="lines",
+                        ), row=1, col=col)
+                        legend_shown.add(strategy)
+                    elif c_def is not None:
+                        fig.add_trace(go.Scatter(x=times, y=vals[:, c_def] / 1e6,
+                            name=f"{display} (Conservative)", showlegend=show_leg,
+                            line=dict(color=color, width=1.5), mode="lines",
+                        ), row=1, col=col)
+                        legend_shown.add(strategy)
+                    elif ha_def is not None:
+                        fig.add_trace(go.Scatter(x=times, y=vals[:, ha_def] / 1e6,
+                            name=f"{display} (Highly Ambitious)", showlegend=show_leg,
+                            line=dict(color=color, width=2.5), mode="lines",
+                        ), row=1, col=col)
+                        legend_shown.add(strategy)
 
-            fig.update_xaxes(title_text="Year")
+                    # dashed band: Conservative → Highly Ambitious, fix_supply trade
+                    if c_fs is not None and ha_fs is not None:
+                        y_lo = np.minimum(vals[:, c_fs], vals[:, ha_fs]) / 1e6
+                        y_hi = np.maximum(vals[:, c_fs], vals[:, ha_fs]) / 1e6
+                        fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
+                            line=dict(color=color, width=0), mode="lines", hoverinfo="skip",
+                        ), row=1, col=col)
+                        fig.add_trace(go.Scatter(x=times, y=y_hi,
+                            name=f"{display} (fixed supply)", showlegend=(col == 1),
+                            fill="tonexty", fillcolor=fill_dashed,
+                            line=dict(color=color, width=1.5, dash="dash"), mode="lines",
+                        ), row=1, col=col)
+                    elif c_fs is not None:
+                        fig.add_trace(go.Scatter(x=times, y=vals[:, c_fs] / 1e6,
+                            name=f"{display} (Conservative, fixed supply)", showlegend=False,
+                            line=dict(color=color, width=1.5, dash="dash"), mode="lines",
+                        ), row=1, col=col)
+                    elif ha_fs is not None:
+                        fig.add_trace(go.Scatter(x=times, y=vals[:, ha_fs] / 1e6,
+                            name=f"{display} (Highly Ambitious, fixed supply)", showlegend=False,
+                            line=dict(color=color, width=2.5, dash="dash"), mode="lines",
+                        ), row=1, col=col)
+
+                # Baseline on top
+                bl = scenario_map.get("Baseline", {}).get("Baseline", {})
+                bl_def = bl.get("default")
+                if bl_def is not None:
+                    fig.add_trace(go.Scatter(x=times, y=vals[:, bl_def] / 1e6,
+                        name="Baseline", showlegend=(col == 1 and "Baseline" not in legend_shown),
+                        line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
+                    ), row=1, col=col)
+                    if col == 1:
+                        legend_shown.add("Baseline")
+                if last_hist_year is not None:
+                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+
+            fig.update_xaxes(title_text="Year", range=[2000,max(times)])
             fig.update_yaxes(title_text="Net Imports [Mt]")
             fig.update_layout(
-                title_text=f"Net Imports — trade-scenario bracket — {region}{good_label}",
+                title_text=f"Net Imports — {region}",
                 hovermode="x unified",
             )
-            self._show_and_save_plotly(fig, f"bracketing_net_imports{good_suffix}")
+            self._show_and_save_plotly(fig, "net_imports")
 
-        def visualize_gross_trade_eu(self, mfa, run_labels, run_letter, region="EUR", good=None):
-            """Gross imports and exports per market for the EU region.
+        def visualize_gross_trade(self, mfa, run_labels, run_letter, region="EUR", last_hist_year=None):
+            """Gross trade per market for the EU region.
 
-            Strategy = color. Ambition = filled band (Conservative → Highly Ambitious).
-            Demand-following trade = solid band. Fixed-supply alpha range = dashed band
-            (alpha0 to alpha1); this is where alpha matters — net imports are alpha-invariant
-            but the gross import/export split is not.
+            Indirect (Transport) and steel are combined in one two-panel figure:
+            left = indirect-Transport, right = steel. Within each panel imports are
+            positive and exports negative at the same strategy colour.
+            Demand-following = solid band. Fixed-supply α range = dashed band.
+            Baseline is drawn on top of strategy bands.
             """
             scenario_map = _parse_run_labels(run_labels)
             times = list(mfa.dims["t"].items)
-            good_suffix = f"_{good.lower()}" if good is not None else ""
-            good_label  = f" — {good}" if good is not None else ""
-            all_markets = [m for m in ["steel", "indirect", "primary", "final"] if m in mfa.trade_set.markets]
-            markets = [m for m in all_markets if good is None or self._market_has_good_dim(mfa, m)]
 
-            for market_name in markets:
-                trade_mkt = mfa.trade_set.markets[market_name]
+            # ── combined indirect-Transport + steel figure ────────────────────
+            combined = []
+            for market_name in ["indirect", "steel"]:
+                if market_name not in mfa.trade_set.markets:
+                    continue
+                mkt_good = "Transport" if market_name == "indirect" and self._market_has_good_dim(mfa, market_name) else None
                 sel = {"r": region}
-                if good is not None and self._market_has_good_dim(mfa, market_name):
-                    sel["g"] = good
-                imports_all = trade_mkt.imports[sel].sum_to(["t", run_letter]).values
-                exports_all = trade_mkt.exports[sel].sum_to(["t", run_letter]).values
+                if mkt_good is not None:
+                    sel["g"] = mkt_good
+                trade_mkt = mfa.trade_set.markets[market_name]
+                combined.append((
+                    _market_title(market_name, mkt_good),
+                    trade_mkt.imports[sel].sum_to(["t", run_letter]).values,
+                    trade_mkt.exports[sel].sum_to(["t", run_letter]).values,
+                ))
 
-                fig = make_subplots(rows=1, cols=2,
-                    subplot_titles=[f"{market_name} imports", f"{market_name} exports"])
+            if combined:
+                fig = make_subplots(rows=1, cols=len(combined),
+                    subplot_titles=[c[0] for c in combined])
                 legend_shown = set()
 
-                for col, vals in enumerate([imports_all, exports_all], start=1):
-                    # Baseline
+                for col, (_, imports_all, exports_all) in enumerate(combined, start=1):
+                    fig.add_hline(y=0, line_dash="dot", line_color="lightgray", row=1, col=col)
+
+                    for strategy in _STRATEGY_ORDER:
+                        ambition_dict = scenario_map.get(strategy, {})
+                        if not ambition_dict:
+                            continue
+                        color    = _STRATEGY_COLORS[strategy]
+                        f_solid  = _STRATEGY_FILL_SOLID[strategy]
+                        f_dashed = _STRATEGY_FILL_DASHED[strategy]
+                        display  = _STRATEGY_DISPLAY[strategy]
+                        show_leg = col == 1 and strategy not in legend_shown
+
+                        c_def  = ambition_dict.get("Conservative", {}).get("default")
+                        ha_def = ambition_dict.get("Highly Ambitious", {}).get("default")
+                        fs_indices = [
+                            ambition_dict.get(amb, {}).get(k)
+                            for amb in _AMBITIONS
+                            for k in ("fix_supply_alpha0", "fix_supply_alpha1")
+                        ]
+                        fs_indices = [i for i in fs_indices if i is not None]
+
+                        for sign, vals in [(1, imports_all), (-1, exports_all)]:
+                            # solid band: ambition range, demand-following
+                            if c_def is not None and ha_def is not None:
+                                y_lo = np.minimum(sign * vals[:, c_def], sign * vals[:, ha_def]) / 1e6
+                                y_hi = np.maximum(sign * vals[:, c_def], sign * vals[:, ha_def]) / 1e6
+                                fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
+                                    line=dict(color=color, width=0), mode="lines", hoverinfo="skip",
+                                ), row=1, col=col)
+                                fig.add_trace(go.Scatter(x=times, y=y_hi,
+                                    name=display, showlegend=(show_leg and sign == 1),
+                                    fill="tonexty", fillcolor=f_solid,
+                                    line=dict(color=color, width=1.5), mode="lines",
+                                ), row=1, col=col)
+                                if sign == 1 and col == 1:
+                                    legend_shown.add(strategy)
+                            elif c_def is not None:
+                                fig.add_trace(go.Scatter(x=times, y=sign * vals[:, c_def] / 1e6,
+                                    name=f"{display} (Conservative)", showlegend=(show_leg and sign == 1),
+                                    line=dict(color=color, width=1.5), mode="lines",
+                                ), row=1, col=col)
+                                if sign == 1 and col == 1:
+                                    legend_shown.add(strategy)
+                            elif ha_def is not None:
+                                fig.add_trace(go.Scatter(x=times, y=sign * vals[:, ha_def] / 1e6,
+                                    name=f"{display} (Highly Ambitious)", showlegend=(show_leg and sign == 1),
+                                    line=dict(color=color, width=2.5), mode="lines",
+                                ), row=1, col=col)
+                                if sign == 1 and col == 1:
+                                    legend_shown.add(strategy)
+
+                            # dashed band: fix_supply alpha range
+                            if len(fs_indices) >= 2:
+                                y_lo = np.min([sign * vals[:, i] for i in fs_indices], axis=0) / 1e6
+                                y_hi = np.max([sign * vals[:, i] for i in fs_indices], axis=0) / 1e6
+                                fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
+                                    line=dict(color=color, width=0), mode="lines", hoverinfo="skip",
+                                ), row=1, col=col)
+                                fig.add_trace(go.Scatter(x=times, y=y_hi,
+                                    name=f"{display} (fixed supply, α∈[0,1])",
+                                    showlegend=(col == 1 and sign == 1),
+                                    fill="tonexty", fillcolor=f_dashed,
+                                    line=dict(color=color, width=1.5, dash="dash"), mode="lines",
+                                ), row=1, col=col)
+                            elif len(fs_indices) == 1:
+                                fig.add_trace(go.Scatter(x=times, y=sign * vals[:, fs_indices[0]] / 1e6,
+                                    name=f"{display} (fixed supply)", showlegend=(col == 1 and sign == 1),
+                                    line=dict(color=color, width=1.5, dash="dash"), mode="lines",
+                                ), row=1, col=col)
+
+                    # Baseline on top
                     bl = scenario_map.get("Baseline", {}).get("Baseline", {})
                     bl_def = bl.get("default")
                     if bl_def is not None:
-                        fig.add_trace(go.Scatter(x=times, y=vals[:, bl_def] / 1e6,
-                            name="Baseline",
-                            showlegend=(col == 1 and "Baseline" not in legend_shown),
-                            line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
-                        ), row=1, col=col)
+                        bl_color = _STRATEGY_COLORS["Baseline"]
+                        show_bl = col == 1 and "Baseline" not in legend_shown
+                        for sign, vals in [(1, imports_all), (-1, exports_all)]:
+                            fig.add_trace(go.Scatter(
+                                x=times, y=sign * vals[:, bl_def] / 1e6,
+                                name="Baseline", showlegend=show_bl,
+                                line=dict(color=bl_color, width=2), mode="lines",
+                            ), row=1, col=col)
+                            show_bl = False
                         if col == 1:
                             legend_shown.add("Baseline")
+                    if last_hist_year is not None:
+                        fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
 
+                fig.update_xaxes(title_text="Year", range=[2000,max(times)])
+                fig.update_yaxes(title_text="Imports [+] / Exports [−] [Mt]")
+                fig.update_layout(title_text=f"Gross trade — {region}", hovermode="x unified")
+                self._show_and_save_plotly(fig, "gross_trade_eu")
+
+            # ── separate figures for other markets (primary, final, …) ────────
+            for market_name in [m for m in ["primary", "final"] if m in mfa.trade_set.markets]:
+                trade_mkt = mfa.trade_set.markets[market_name]
+                imports_all = trade_mkt.imports[{"r": region}].sum_to(["t", run_letter]).values
+                exports_all = trade_mkt.exports[{"r": region}].sum_to(["t", run_letter]).values
+
+                fig = make_subplots(rows=1, cols=2,
+                    subplot_titles=[f"{_market_title(market_name)} imports", f"{_market_title(market_name)} exports"])
+                legend_shown = set()
+
+                for col, vals in enumerate([imports_all, exports_all], start=1):
                     for strategy in _STRATEGY_ORDER:
                         ambition_dict = scenario_map.get(strategy, {})
                         if not ambition_dict:
@@ -700,8 +829,6 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                         fill_solid  = _STRATEGY_FILL_SOLID[strategy]
                         fill_dashed = _STRATEGY_FILL_DASHED[strategy]
                         display     = _STRATEGY_DISPLAY[strategy]
-
-                        # solid band: ambition range, demand-following
                         c_def  = ambition_dict.get("Conservative", {}).get("default")
                         ha_def = ambition_dict.get("Highly Ambitious", {}).get("default")
                         show_leg = col == 1 and strategy not in legend_shown
@@ -718,9 +845,6 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                             ), row=1, col=col)
                             if col == 1:
                                 legend_shown.add(strategy)
-
-                        # dashed band: ambition range across alpha0→alpha1 fix_supply
-                        # Gather all 4 fix_supply endpoints (C/HA × alpha0/alpha1)
                         fs_indices = [
                             ambition_dict.get(amb, {}).get(k)
                             for amb in _AMBITIONS
@@ -745,20 +869,34 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                                 line=dict(color=color, width=1.5, dash="dash"), mode="lines",
                             ), row=1, col=col)
 
-                fig.update_xaxes(title_text="Year", range=[1950, max(times)])
+                    # Baseline on top
+                    bl = scenario_map.get("Baseline", {}).get("Baseline", {})
+                    bl_def = bl.get("default")
+                    if bl_def is not None:
+                        fig.add_trace(go.Scatter(x=times, y=vals[:, bl_def] / 1e6,
+                            name="Baseline",
+                            showlegend=(col == 1 and "Baseline" not in legend_shown),
+                            line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
+                        ), row=1, col=col)
+                        if col == 1:
+                            legend_shown.add("Baseline")
+                    if last_hist_year is not None:
+                        fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+
+                fig.update_xaxes(title_text="Year", range=[2000,max(times)])
                 fig.update_yaxes(title_text="[Mt]")
                 fig.update_layout(
-                    title_text=f"Gross trade ({market_name}) — {region}{good_label}",
+                    title_text=f"Gross trade ({market_name}) — {region}",
                     hovermode="x unified",
                 )
-                self._show_and_save_plotly(fig, f"gross_trade_{market_name}_eu{good_suffix}")
+                self._show_and_save_plotly(fig, f"gross_trade_{market_name}_eu")
 
-        def visualize_global_net_imports(self, mfa, run_labels, run_letter, region="EUR", good=None):
+        def visualize_global_trade_stacked(self, mfa, run_labels, run_letter, region="EUR", last_hist_year=None):
             """Stacked gross imports and exports by region — baseline only.
 
             Left panel: imports stacked by region. Right panel: exports stacked by region.
             EU region highlighted in red, placed on top of the stack.
-            One figure per trade market (steel, indirect).
+            One figure per trade market (indirect — Transport, steel).
 
             Shows how growing non-EU production drives export growth that the balance
             step redistributes, shrinking EU's import share over time.
@@ -771,8 +909,6 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             baseline_label = run_labels[baseline_idx]
             times = list(mfa.dims["t"].items)
             regions = list(mfa.dims["r"].items)
-            good_suffix = f"_{good.lower()}" if good is not None else ""
-            good_label  = f" — {good}" if good is not None else ""
 
             # Colour palette: EU in red, others from qualitative palettes
             other_colors = plc.qualitative.D3 + plc.qualitative.Plotly
@@ -785,14 +921,15 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                     region_colors[r] = other_colors[palette_idx % len(other_colors)]
                     palette_idx += 1
 
-            all_markets = [m for m in ["steel", "indirect"] if m in mfa.trade_set.markets]
-            markets = [m for m in all_markets if good is None or self._market_has_good_dim(mfa, m)]
+            all_markets = [m for m in ["indirect", "steel"] if m in mfa.trade_set.markets]
+            markets = all_markets
 
             for market_name in markets:
+                mkt_good = "Transport" if market_name == "indirect" and self._market_has_good_dim(mfa, market_name) else None
                 trade = mfa.trade_set.markets[market_name]
                 sel = {run_letter: baseline_label}
-                if good is not None and self._market_has_good_dim(mfa, market_name):
-                    sel["g"] = good
+                if mkt_good is not None:
+                    sel["g"] = mkt_good
                 imp = trade.imports[sel].sum_to(["t", "r"]).values / 1e6
                 exp = trade.exports[sel].sum_to(["t", "r"]).values / 1e6
                 # shape: (n_t, n_r)
@@ -807,7 +944,7 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
 
                 fig = make_subplots(
                     rows=1, cols=2,
-                    subplot_titles=[f"{market_name} imports", f"{market_name} exports"],
+                    subplot_titles=[f"{_market_title(market_name)} imports", f"{_market_title(market_name)} exports"],
                 )
                 legend_shown = set()
 
@@ -825,15 +962,18 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                         ), row=1, col=col)
                         legend_shown.add(r)
 
-                fig.update_xaxes(title_text="Year", range=[1950, max(times)])
+                if last_hist_year is not None:
+                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray")
+                fig.update_xaxes(title_text="Year", range=[2000,max(times)])
                 fig.update_yaxes(title_text="[Mt]")
                 fig.update_layout(
-                    title_text=f"Global {market_name} trade by region — Baseline{good_label}",
+                    title_text=f"Global {_market_title(market_name, mkt_good)} trade by region — Baseline",
                     hovermode="x unified",
                 )
-                self._show_and_save_plotly(fig, f"global_trade_stacked_{market_name}{good_suffix}")
+                fname_suffix = "_transport" if mkt_good else ""
+                self._show_and_save_plotly(fig, f"global_trade_stacked_{market_name}{fname_suffix}")
 
-        def visualize_trade_mechanism(self, mfa, run_labels, run_letter, first_future_year=None, good=None):
+        def visualize_trade_mechanism(self, mfa, run_labels, run_letter, last_hist_year=None):
             """Trade mechanism per region: one subplot per region — imports/demand and exports/supply ratios over
             the full period (all years in the t dimension).
             """
@@ -846,8 +986,6 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             times = list(mfa.dims["t"].items)
             all_regions = list(mfa.dims["r"].items)
             n_regions = len(all_regions)
-            good_suffix = f"_{good.lower()}" if good is not None else ""
-            good_label  = f" — {good}" if good is not None else ""
 
             _ratio_colors = {
                 "Imports / Demand": "#2ca02c",
@@ -856,13 +994,13 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
 
             ncols = 3
             nrows = (n_regions + ncols - 1) // ncols
-            all_markets = [m for m in ["indirect", "steel"] if m in mfa.trade_set.markets]
-            markets = [m for m in all_markets if good is None or self._market_has_good_dim(mfa, m)]
+            markets = [m for m in ["indirect", "steel"] if m in mfa.trade_set.markets]
 
             for market_name in markets:
+                mkt_good = "Transport" if market_name == "indirect" and self._market_has_good_dim(mfa, market_name) else None
                 sel_base = {run_letter: baseline_label}
-                if good is not None and self._market_has_good_dim(mfa, market_name):
-                    sel_base["g"] = good
+                if mkt_good is not None:
+                    sel_base["g"] = mkt_good
 
                 # --- arrays over all t, shape (n_t, n_r) ---
                 if market_name == "indirect" and "in_use" in mfa.stocks:
@@ -899,15 +1037,118 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
                             mode="lines",
                         ), row=row, col=col)
 
-                fig.add_vline(x=2022, line_dash="dot", line_color="lightgray")
-                fig.update_xaxes(title_text="Year", range=[1950, max(times)])
+                if last_hist_year is not None:
+                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray")
+                fig.update_xaxes(title_text="Year", range=[2000,max(times)])
                 fig.update_yaxes(title_text="Ratio")
                 fig.update_layout(
-                    title_text=f"{market_name} trade ratios by region — Baseline{good_label}",
+                    title_text=f"{_market_title(market_name, mkt_good)} trade ratios by region — Baseline",
                     hovermode="x unified",
                     height=300 * nrows,
                 )
-                self._show_and_save_plotly(fig, f"trade_ratios_{market_name}_by_region{good_suffix}")
+                fname_suffix = "_transport" if mkt_good else ""
+                self._show_and_save_plotly(fig, f"trade_ratios_{market_name}_by_region{fname_suffix}")
+
+        def visualize_demands(self, mfa, run_labels, run_letter, region="EUR", last_hist_year=None):
+            """Two-panel demand comparison.
+
+            Left: in-use stock inflow for Transport goods (steel demand embodied in transport).
+            Right: total intermediate steel demand (ip_market => fabrication flow).
+            Strategy = color. Ambition = filled band. Baseline drawn on top.
+            """
+            scenario_map = _parse_run_labels(run_labels)
+            times = list(mfa.dims["t"].items)
+
+            panels = []
+            if "in_use" in mfa.stocks:
+                inflow = mfa.stocks["in_use"].inflow
+                if "g" in inflow.dims.letters:
+                    arr = inflow[{"r": region, "g": "Transport"}].sum_to(["t", run_letter]).values
+                else:
+                    arr = inflow[{"r": region}].sum_to(["t", run_letter]).values
+                panels.append((arr, _market_title("indirect", "Transport")))
+            if "ip_market => fabrication" in mfa.flows:
+                arr = mfa.flows["ip_market => fabrication"][{"r": region}].sum_to(["t", run_letter]).values
+                panels.append((arr, _market_title("steel")))
+            if not panels:
+                return
+
+            fig = make_subplots(rows=1, cols=len(panels), subplot_titles=[p[1] for p in panels])
+            legend_shown = set()
+
+            for col, (vals, _) in enumerate(panels, start=1):
+                for strategy in _STRATEGY_ORDER:
+                    ambition_dict = scenario_map.get(strategy, {})
+                    if not ambition_dict:
+                        continue
+                    color       = _STRATEGY_COLORS[strategy]
+                    fill_solid  = _STRATEGY_FILL_SOLID[strategy]
+                    fill_dashed = _STRATEGY_FILL_DASHED[strategy]
+                    display     = _STRATEGY_DISPLAY[strategy]
+                    show_leg    = col == 1 and strategy not in legend_shown
+
+                    c_def  = ambition_dict.get("Conservative", {}).get("default")
+                    ha_def = ambition_dict.get("Highly Ambitious", {}).get("default")
+                    c_fs   = _fs_index(ambition_dict.get("Conservative", {}))
+                    ha_fs  = _fs_index(ambition_dict.get("Highly Ambitious", {}))
+
+                    if c_def is not None and ha_def is not None:
+                        y_lo = np.minimum(vals[:, c_def], vals[:, ha_def]) / 1e6
+                        y_hi = np.maximum(vals[:, c_def], vals[:, ha_def]) / 1e6
+                        fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
+                            line=dict(color=color, width=0), mode="lines", hoverinfo="skip",
+                        ), row=1, col=col)
+                        fig.add_trace(go.Scatter(x=times, y=y_hi,
+                            name=display, showlegend=show_leg,
+                            fill="tonexty", fillcolor=fill_solid,
+                            line=dict(color=color, width=1.5), mode="lines",
+                        ), row=1, col=col)
+                        if col == 1:
+                            legend_shown.add(strategy)
+                    elif c_def is not None:
+                        fig.add_trace(go.Scatter(x=times, y=vals[:, c_def] / 1e6,
+                            name=f"{display} (Conservative)", showlegend=show_leg,
+                            line=dict(color=color, width=1.5), mode="lines",
+                        ), row=1, col=col)
+                        if col == 1:
+                            legend_shown.add(strategy)
+                    elif ha_def is not None:
+                        fig.add_trace(go.Scatter(x=times, y=vals[:, ha_def] / 1e6,
+                            name=f"{display} (Highly Ambitious)", showlegend=show_leg,
+                            line=dict(color=color, width=2.5), mode="lines",
+                        ), row=1, col=col)
+                        if col == 1:
+                            legend_shown.add(strategy)
+
+                    if c_fs is not None and ha_fs is not None:
+                        y_lo = np.minimum(vals[:, c_fs], vals[:, ha_fs]) / 1e6
+                        y_hi = np.maximum(vals[:, c_fs], vals[:, ha_fs]) / 1e6
+                        fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
+                            line=dict(color=color, width=0), mode="lines", hoverinfo="skip",
+                        ), row=1, col=col)
+                        fig.add_trace(go.Scatter(x=times, y=y_hi,
+                            name=f"{display} (fixed supply)", showlegend=(col == 1),
+                            fill="tonexty", fillcolor=fill_dashed,
+                            line=dict(color=color, width=1.5, dash="dash"), mode="lines",
+                        ), row=1, col=col)
+
+                # Baseline on top
+                bl = scenario_map.get("Baseline", {}).get("Baseline", {})
+                bl_def = bl.get("default")
+                if bl_def is not None:
+                    fig.add_trace(go.Scatter(x=times, y=vals[:, bl_def] / 1e6,
+                        name="Baseline", showlegend=(col == 1 and "Baseline" not in legend_shown),
+                        line=dict(color=_STRATEGY_COLORS["Baseline"], width=2), mode="lines",
+                    ), row=1, col=col)
+                    if col == 1:
+                        legend_shown.add("Baseline")
+                if last_hist_year is not None:
+                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+
+            fig.update_xaxes(title_text="Year", range=[2000,max(times)])
+            fig.update_yaxes(title_text="[Mt]")
+            fig.update_layout(title_text=f"Steel demands — {region}", hovermode="x unified")
+            self._show_and_save_plotly(fig, "steel_demands")
 
     return ComparisonVisualizer
 
@@ -1018,7 +1259,7 @@ def main():
     vis = VisualizerCls(cfg=base_vis.cfg, display_names=base_vis.display_names)
 
     # Force show; skip saving (filenames would collide)
-    vis.cfg = vis.cfg.model_copy(update={"do_show_figs": True, "do_save_figs": False})
+    vis.cfg = vis.cfg.model_copy(update={"do_show_figs": True, "do_save_figs": True})
 
     print("Plotting comparison figures…")
     vis.visualize(model=fake_model)
