@@ -382,7 +382,10 @@ def make_comparison_visualizer(model_name: str, run_dim_name: str):
             times = list(mfa.dims["t"].items)
             all_markets = [m for m in ["indirect", "steel", "primary", "final"] if m in mfa.trade_set.markets]
             markets = all_markets
-            subplot_titles = [_market_title(m) for m in markets if m != "indirect"] + ([_market_title("indirect", "Transport")] if "indirect" in markets and self._market_has_good_dim(mfa, "indirect") else [])
+            subplot_titles = [
+                _market_title(m, "Transport") if (m == "indirect" and self._market_has_good_dim(mfa, m)) else _market_title(m)
+                for m in markets
+            ]
             fig = make_subplots(rows=1, cols=len(markets), subplot_titles=subplot_titles)
             legend_shown = set()
 
