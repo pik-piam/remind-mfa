@@ -12,7 +12,7 @@ from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDispla
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.common_definition import get_definition
+from remind_mfa.common.common_definition import get_definition, RemindMFADefinition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
@@ -165,13 +165,18 @@ class CommonModel:
             display_names=display_names,
         )
 
-    def make_mfa(self, historic: bool) -> CommonMFASystem:
-        if historic:
-            definition = self.definition_historic
-            mfasystem_class = self.HistoricMFASystemCls
-        else:
-            definition = self.definition_future
-            mfasystem_class = self.FutureMFASystemCls
+    def make_mfa(
+        self,
+        historic: bool = True,
+        definition: Optional[RemindMFADefinition] = None,
+        mfasystem_class: Optional[type[CommonMFASystem]] = None,
+    ) -> CommonMFASystem:
+        """Build an MFA system. `definition` and `mfasystem_class` default to the
+        historic/future ones selected by `historic` when not given explicitly."""
+        if definition is None:
+            definition = self.definition_historic if historic else self.definition_future
+        if mfasystem_class is None:
+            mfasystem_class = self.HistoricMFASystemCls if historic else self.FutureMFASystemCls
 
         processes = fd.make_processes(definition.processes)
         flows = fd.make_empty_flows(

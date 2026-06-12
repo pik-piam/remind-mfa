@@ -5,6 +5,7 @@ import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.cement.cement_definition import get_cement_definition
+from remind_mfa.cement.cement_mfa_system_bottom_up import StockDrivenBottomUpCementMFASystem
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDimensionFiles, CementDisplayNames
@@ -13,7 +14,6 @@ from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
-from remind_mfa.common.data_blending import CriticallyDampedBlender
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 
 
@@ -26,6 +26,7 @@ class CementModel(CommonModel):
     DisplayNamesCls = CementDisplayNames
     HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
+    BottomUpMFASystemCls = StockDrivenBottomUpCementMFASystem
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
@@ -47,6 +48,13 @@ class CementModel(CommonModel):
 
         if self.cfg.model_switches.parameter_reconciliation.do_reconcile:
             return self.run_with_reconciliation()
+    
+    def make_bottom_up_mfa(self):
+        """Construct the future bottom-up MFA."""
+        return self.make_mfa(
+            definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
+            mfasystem_class=self.BottomUpMFASystemCls,
+        )
 
     def run_with_reconciliation(self):
         """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
@@ -74,21 +82,20 @@ class CementModel(CommonModel):
         zero_trade = self._create_zero_trade(self.td_hist_mfa.trade_set)
 
         # compute non-reconiled bottom-up mfa
-        self.bu_stock = self.get_bottom_up_stock(
-            stock_ref=self.td_mfa.stocks["in_use"].stock
-        )  # concrete stock
-        self.bu_mfa = self.make_mfa(historic=False)
-        self.bu_mfa.compute(self.bu_stock, zero_trade, stock_is_cement=False)
+        # TODO add scale to properly calculate pre-reconciliation BU MFA
+        # Idea: scale the td stock to match bu stock (in relevant categories) to get vintage
+        # self.bu_mfa = self.make_bottom_up_mfa()
+        # self.bu_mfa.compute(self.td_mfa.inflow, zero_trade, scale=True)
 
         # reconcile parameters
         self.parameters = self.historic_parameters
         self.reconcile_parameters()
 
-        # compute reconciled historic mfa
+        # compute reconciled historic top-down mfa
         self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
         self.td_hist_mfa_reconciled.compute()
 
-        # save reconciled historic mfa for reconciled stock extrapolation
+        # save reconciled top-down historic mfa for reconciled stock extrapolation
         self.historic_mfa = self.td_hist_mfa_reconciled
 
         # apply scenarios to parameters for future mfa (as in common model)
@@ -107,20 +114,13 @@ class CementModel(CommonModel):
         )
 
         # compute reconciled future bottom-up mfa
-        self.bu_stock_reconciled = self.get_bottom_up_stock(
-            stock_ref=self.td_mfa_reconciled.stocks["in_use"].stock
-        )  # concrete stock
-        self.bu_mfa_reconciled = self.make_mfa(historic=False)
-        self.bu_mfa_reconciled.compute(self.bu_stock_reconciled, zero_trade, stock_is_cement=False)
-
-        # compute combined mfa, using bu where possible and td as fallback
-        self.combined_mfa = self.compute_combined_mfa(
-            td_stock=self.td_mfa_reconciled.stocks["in_use"].stock,
-            bu_stock=self.bu_mfa_reconciled.stocks["in_use"].stock,
-            historical_trade=self.td_hist_mfa.trade_set,
+        self.bu_mfa_reconciled = self.make_bottom_up_mfa()
+        self.bu_mfa_reconciled.compute(
+            self.td_mfa_reconciled.stocks["in_use"].stock, self.td_hist_mfa_reconciled.trade_set
         )
+
         if self.cfg.model_switches.parameter_reconciliation.do_combine_mfas:
-            self.future_mfa = self.combined_mfa
+            self.future_mfa = self.bu_mfa_reconciled
 
     def reconcile_parameters(
         self,
@@ -160,59 +160,3 @@ class CementModel(CommonModel):
                 trade_ref[market].exports, fill_value=0
             )
         return zero_trade
-
-    def get_bottom_up_stock(self, stock_ref: fd.FlodymArray):
-        """Calculate bottom-up product stock (product mass, no k constituent dimension).
-        Unavailible years (pre-1990) and stock dimensions, e.g. mortar or civ/ind are filled with zeros.
-        """
-        stock_ref = stock_ref.sum_over("k")  # work at product-mass level
-        stock = fd.FlodymArray.full_like(stock_ref, fill_value=0)
-
-        bu_concrete_stock = CementParameterReconciliation.calc_bottom_up_stock(
-            self.parameters, stock_type_letter=self.end_use_good_letter
-        )
-        stock[self.concrete_mask] = bu_concrete_stock
-        return stock
-
-    @property
-    def concrete_mask(self):
-        return {"m": "concrete"}
-
-    @property
-    def bottom_up_mask(self):
-        reduced_dim_mask = {
-            **self.concrete_mask,
-            "s": self.parameter_reconciliation._reduced_stock_type,
-        }
-        return reduced_dim_mask
-
-    def compute_combined_mfa(self, td_stock, bu_stock, historical_trade):
-        # blend at product-mass level (k is a derived quantity, not an independent trajectory)
-        td_stock = td_stock.sum_over("k")
-        bu_stock = bu_stock.sum_over("k")
-
-        reduced_bu_stock = bu_stock[self.bottom_up_mask]
-        reduced_td_stock = td_stock[self.bottom_up_mask][{"t": self.dims["h"]}]
-
-        # blend smoothly between historic td and future bu
-        blender = CriticallyDampedBlender(
-            time=self.dims["t"].items,
-            historical=reduced_td_stock.values,
-            prediction=reduced_bu_stock.values,
-            # lifetime independent blend,
-        )
-        blended_stock = fd.FlodymArray.full_like(
-            other=reduced_bu_stock,
-            fill_value=blender.blend(),
-        )
-
-        # prepare combined stock
-        combined_stock = td_stock.copy()
-        combined_stock[self.bottom_up_mask] = blended_stock
-
-        # compute combined mfa
-
-        self.combined_mfa = self.make_mfa(historic=False)
-        self.combined_mfa.compute(combined_stock, historical_trade, stock_is_cement=False)
-
-        return self.combined_mfa
