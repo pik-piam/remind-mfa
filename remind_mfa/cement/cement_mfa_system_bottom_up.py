@@ -62,7 +62,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
         # prepare combined stock: place bu blended stock anywhere available, the rest remains td stock
         combined_stock = td_stock_expanded.copy()
-        combined_stock[self.reduced_dim_mask][{"m": "concrete"}] = blended_stock
+        combined_stock[{**self.reduced_dim_mask, "m": "concrete"}] = blended_stock
 
         # compute combined mfa
         super().compute(combined_stock, historic_trade, stock_is_cement=False)
