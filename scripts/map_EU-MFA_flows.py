@@ -28,6 +28,50 @@ parser.add_argument('scenario', choices=SCENARIOS, nargs='?', default=None,
 args = parser.parse_args()
 
 
+def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
+    """Load and aggregate baseline plastics data into (Time, Region, Material, Good, value)."""
+    BASELINE_DIR = Path("data/plastics/input/transience/baseline")
+    eu_subregions = ["Germany", "West", "South", "North", "East"]
+
+    if flow == "demand":
+        input_file = BASELINE_DIR / "plastics_market__end_use_stock.csv"
+    elif flow == "stock_outflow":
+        input_file = BASELINE_DIR / "end_use_stock__waste_collection.csv"
+    elif flow == "collected_eol":
+        input_file = BASELINE_DIR / "waste_collection__waste_sorting.csv"
+    elif flow == "sorted_eol":
+        input_file = BASELINE_DIR / "waste_sorting__sorted_waste_market.csv"
+    elif flow == "recycled_eol":
+        input_file = BASELINE_DIR / "recycling__recyclate_sysenv.csv"
+
+    df = pd.read_csv(input_file, sep=",")
+    df = df.rename(columns={"time": "Time", "region": "Region"})
+    df = df[df.element == "All"].copy()
+    df = df[df.Region.isin(eu_subregions)].copy()
+    if flow == "sorted_eol":
+        df = df[df.waste_category == "Mechanical recycling"].copy()
+    if flow == "recycled_eol":
+        df = df[df.secondary_raw_material == "Granulate"].copy()
+    df["Region"] = "EU27+3"
+    df["value"] = df["value"] * 1000
+
+    polymer_map = mapping[mapping.original_dimension == "polymers"][["original_element", "target_element"]]
+    df = df.merge(polymer_map, left_on="polymer", right_on="original_element", how="left").rename(
+        columns={"target_element": "Material"}
+    ).drop(columns="original_element")
+
+    sector_map = mapping[mapping.original_dimension == "end_use_sectors_MainSectors"][
+        ["original_element", "target_element"]
+    ]
+    df = df.merge(sector_map, left_on="sector", right_on="original_element", how="left").rename(
+        columns={"target_element": "Good"}
+    ).drop(columns="original_element")
+
+    df = df.groupby(["Time", "Region", "Material", "Good"], as_index=False)["value"].sum()
+    df.loc[df["value"] < 0.1, "value"] = 0.0
+    return df
+
+
 def run_combination(material: str, flow: str, scenario: str):
     OUTPUT_DIR = Path("../remind_mfa_data/transience") / scenario
     REF_DIR = Path("../remind_mfa_data/transience/reference")
@@ -148,6 +192,16 @@ def run_combination(material: str, flow: str, scenario: str):
         # for collected_eol and stock_outflow, the value for PVC in packaging is at around 1e-30 in 2031 (because PVC in packaging is stopped in 2030 and the small amount is a result of the lifetime model)
         # this causes issues for parameter calculation in the MFA, so set values that are <100kg to zero
         df_EU_MFA.loc[df_EU_MFA["value"] < 0.1, "value"] = 0.0
+
+        # non-baseline scenarios only have PET×Packaging data; supplement with baseline flows for all other combinations
+        if scenario != "baseline":
+            df_baseline = _load_baseline_plastics(flow, mapping)
+            nonbaseline_combos = df_EU_MFA[["Material", "Good"]].drop_duplicates()
+            df_baseline_others = df_baseline.merge(
+                nonbaseline_combos, on=["Material", "Good"], how="left", indicator=True
+            )
+            df_baseline_others = df_baseline_others[df_baseline_others["_merge"] == "left_only"].drop(columns="_merge")
+            df_EU_MFA = pd.concat([df_EU_MFA, df_baseline_others], ignore_index=True)
 
         # --- load reference (Historic Time, Region, Good, value) ---
         ref = pd.read_csv(
