@@ -183,7 +183,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             extrapolator = FixedSupplyTradeExtrapolator(
                 baseline_future_trade = baseline_trade["primary"],
                 future_trade = self.trade_set["primary"],
-                baseline_dom_demand = baseline_flows["fabrication => good_market"] - baseline_flows["reclmech => fabrication"],
+                baseline_dom_demand = baseline_flows["primary_market => fabrication"],
                 future_dom_demand = flw["primary_market => fabrication"],
                 fixed_supply_region = "EU27+3",
                 import_adjustment_share = alpha,

@@ -2,8 +2,8 @@ model: 'plastics'
 
 transience: 
   transience_run: True
-  baseline_pickle_path: 
-  transience_scenario: 'CE-PET_fd_plastics_S0' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
+  baseline_pickle_path: 'model_plastics_SSP2_transience_CE-PET_fd_plastics_S0_default_2c0a4149_2026-06-15--12-16-16.pickle'
+  transience_scenario: 'CE-PET_fd_plastics_S1' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
   trade_scenario: 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
 input:

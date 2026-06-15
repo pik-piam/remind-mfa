@@ -120,7 +120,7 @@ class PlasticsVisualizer(CommonVisualizer):
                 linecolor_dim="EU-MFA_Material",)
             self.visualize_transience_eol_parameters(
                 model, 
-                parameter_REMIND_MFA=model.future_mfa.flows["reclmech => fabrication"].sum_to(("t", "r", "m"))[{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
+                parameter_REMIND_MFA=model.future_mfa.flows["reclmech => primary_market"].sum_to(("t", "r", "m"))[{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
                 parameter_EU_MFA=model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[{"r": "EU27+3"}],
                 linecolor_dim="EU-MFA_Material",)
             # these flows are not totally equal because REMIND-MFA includes trade while for EU-MFA recycling rate we currently assume that no waste is traded (TODO get sorted_waste_market__recycling flow to be sure that this is correct)
