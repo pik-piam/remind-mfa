@@ -24,10 +24,13 @@ Each run is identified by a *group* and a *trade* variant:
   Each strategy has two *ambitions* (Conservative, Highly Ambitious) drawn as a
   filled band, plus a separate "Baseline" run drawn as a grey reference line.
   Trade variant (default vs ``fix_supply``) is encoded as solid vs dashed.
-* **plastics** — group = scenario ``S0`` (baseline), ``S1``, ``S2``. There are
-  **no ambitions**, so each group is a single line. ``S0`` is the baseline used
-  as the reference for the Δ-net-imports plot; it is shown as an ordinary line
-  (no separate grey "Baseline" line).
+* **plastics** — group = circularity scenario ``S1``, ``S2``, plus a separate
+  ``Baseline`` run (formerly ``S0``). There are **no ambitions**, so each
+  scenario is a single line. The Baseline is drawn as a grey reference line on
+  top (as for steel) and is the reference for the Δ-net-imports plot.
+
+Every figure draws a dashed vertical line at the last historical year and uses
+``x_start_year`` / ``x_end_year`` (from the config) as the time-axis range.
 
 Usage
 -----
@@ -119,6 +122,7 @@ class ModelConfig:
     name: str
     region: str
     x_start_year: int               # left edge for most time-axis plots
+    x_end_year: int                 # right edge for all time-axis plots
     delta_start_year: int           # left edge for the Δ-net-imports plot
 
     # Scenario groups (steel strategies / plastics scenarios) and their styling.
@@ -179,6 +183,7 @@ STEEL_CONFIG = ModelConfig(
     name="steel",
     region="EUR",
     x_start_year=2000,
+    x_end_year=2050,
     delta_start_year=2026,
     group_order=list(_STEEL_GROUPS),
     display=_STEEL_DISPLAY,
@@ -224,24 +229,27 @@ STEEL_CONFIG = ModelConfig(
 )
 
 # ── plastics config ──────────────────────────────────────────────────────────
-# S0 = baseline scenario, S1 / S2 = circularity strategies. No ambitions.
+# Baseline (formerly "S0") = baseline scenario, S1 / S2 = circularity strategies.
+# No ambitions. The Baseline is drawn as a grey line on top (as for steel).
 # We focus on PET in packaging (final-goods market) and PET in the primary market.
 
-_PL_GROUPS = {"S0": _BLUE, "S1": _ORANGE, "S2": _GREEN}
+_PL_GROUPS = {"S1": _BLUE, "S2": _ORANGE}              # circularity scenarios (coloured lines)
+_PL_ALL = {**_PL_GROUPS, "Baseline": _GREY}           # incl. the grey baseline
 
 PLASTICS_CONFIG = ModelConfig(
     name="plastics",
     region="EU27+3",
-    x_start_year=2018,
+    x_start_year=2000,
+    x_end_year=2049,
     delta_start_year=2018,
     group_order=list(_PL_GROUPS),
-    display={g: g for g in _PL_GROUPS},
-    color=dict(_PL_GROUPS),
-    fill_solid={g: _fill(c, 0.20) for g, c in _PL_GROUPS.items()},
-    fill_dashed={g: _fill(c, 0.08) for g, c in _PL_GROUPS.items()},
+    display={g: g for g in _PL_ALL},
+    color=dict(_PL_ALL),
+    fill_solid={g: _fill(c, 0.20) for g, c in _PL_ALL.items()},
+    fill_dashed={g: _fill(c, 0.08) for g, c in _PL_ALL.items()},
     use_ambition_bands=False,
-    baseline_group="S0",
-    show_baseline_line=False,
+    baseline_group="Baseline",
+    show_baseline_line=True,
     color_baseline=_GREY,
     market_display={
         "primary": "Primary",
@@ -392,8 +400,8 @@ def make_short_label(stem: str, model: str) -> str:
                     "default": ""}[trade]
 
     if model == "plastics":
-        # S0 = baseline; fall back to S0 if no explicit scenario token is present.
-        group = next((s for s in ("S2", "S1", "S0") if s in stem), "S0")
+        # S1 / S2 = circularity scenarios; everything else (incl. S0) is the Baseline.
+        group = next((s for s in ("S2", "S1") if s in stem), "Baseline")
         return f"{group}{trade_suffix}"
 
     strategy = next((s for s in _STRATEGY_TOKENS if s in stem), "Unknown")
@@ -470,7 +478,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             mfa = model.future_mfa
             run_letter = mfa.dims[RUN].letter
             run_labels = list(mfa.dims[RUN].items)
-            last_hist_year = max(model.historic_mfa.dims["h"].items)
+            # last historical year — marked with a dashed vertical line in every figure
+            self._last_hist_year = model.historic_mfa.dims["h"].items[-1]
 
             # 1. raw per-market trade overlay (one coloured line per run)
             self.visualize_trade(
@@ -485,13 +494,13 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             self._visualize_flows(mfa)
 
             # 3. scenario-comparison figures
-            self.visualize_delta_net_imports(mfa, run_labels, run_letter, last_hist_year)
-            self.visualize_import_dependency(mfa, run_labels, run_letter, last_hist_year)
-            self.visualize_gross_trade(mfa, run_labels, run_letter, last_hist_year)
-            self.visualize_net_imports(mfa, run_labels, run_letter, last_hist_year)
-            self.visualize_global_trade_stacked(mfa, run_labels, run_letter, last_hist_year)
-            self.visualize_trade_mechanism(mfa, run_labels, run_letter, last_hist_year)
-            self.visualize_demands(mfa, run_labels, run_letter, last_hist_year)
+            self.visualize_delta_net_imports(mfa, run_labels, run_letter)
+            self.visualize_import_dependency(mfa, run_labels, run_letter)
+            self.visualize_gross_trade(mfa, run_labels, run_letter)
+            self.visualize_net_imports(mfa, run_labels, run_letter)
+            self.visualize_global_trade_stacked(mfa, run_labels, run_letter)
+            self.visualize_trade_mechanism(mfa, run_labels, run_letter)
+            self.visualize_demands(mfa, run_labels, run_letter)
 
         # ── small array helpers ────────────────────────────────────────────
         @staticmethod
@@ -526,7 +535,20 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             sel = {k: v for k, v in sel.items() if v is not None}
             return arr[sel].sum_to(["t", run_letter]).values
 
+        # last historical year; set in ``visualize`` before any figure is drawn
+        _last_hist_year = None
+
         # ── generic plotly primitives ──────────────────────────────────────
+        def _add_hist_line(self, fig, row=None, col=None):
+            """Dashed vertical marker at the last historical year."""
+            if self._last_hist_year is None:
+                return
+            if row is None:
+                fig.add_vline(x=self._last_hist_year, line_dash="dash", line_color="lightgray")
+            else:
+                fig.add_vline(x=self._last_hist_year, line_dash="dash",
+                              line_color="lightgray", row=row, col=col)
+
         def _add_band(self, fig, col, times, y_lo, y_hi, color, fillcolor,
                       name, showlegend, dash=False):
             fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
@@ -660,7 +682,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                     fig=fig, color_map=colors,
                 )
                 fig = ap_exports.plot()
-                fig.update_xaxes(range=[cfg.x_start_year, max(mfa.dims["t"].items)])
+                fig.update_xaxes(range=[cfg.x_start_year, cfg.x_end_year])
+                self._add_hist_line(fig)
                 self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
         # ── individual flow overlays ────────────────────────────────────────
@@ -688,11 +711,12 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 linecolor_dim=linecolor_dim, x_label="Year", y_label=f"{name} [t]",
                 title=name, line_label=name if linecolor_dim is None else None,
             )
-            fig.update_xaxes(range=[cfg.x_start_year, max(mfa.dims["t"].items)])
+            fig.update_xaxes(range=[cfg.x_start_year, cfg.x_end_year])
+            self._add_hist_line(fig)
             self.plot_and_save_figure(ap_flow, f"{name}.png", do_plot=False)
 
         # ── Δ net imports vs baseline ───────────────────────────────────────
-        def visualize_delta_net_imports(self, mfa, run_labels, run_letter, last_hist_year=None):
+        def visualize_delta_net_imports(self, mfa, run_labels, run_letter):
             """Net imports relative to the baseline group (S0 / Baseline)."""
             scenario_map = parse_run_labels(run_labels)
             bl = _baseline_index(scenario_map, cfg)
@@ -712,10 +736,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                                           draw_baseline_line=False,
                                           skip_group=cfg.baseline_group)
                 fig.add_hline(y=0, line_dash="dot", line_color="gray", row=1, col=col)
-                if last_hist_year is not None:
-                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+                self._add_hist_line(fig, row=1, col=col)
 
-            fig.update_xaxes(title_text="Year", range=[cfg.delta_start_year, max(times)])
+            fig.update_xaxes(title_text="Year", range=[cfg.delta_start_year, cfg.x_end_year])
             fig.update_yaxes(title_text="Δ Net Imports [Mt]")
             fig.update_layout(
                 title_text=f"Δ Net Imports vs {cfg.display[cfg.baseline_group]} — {cfg.region}",
@@ -723,7 +746,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             self._show_and_save_plotly(fig, "delta_net_imports")
 
         # ── absolute net imports ────────────────────────────────────────────
-        def visualize_net_imports(self, mfa, run_labels, run_letter, last_hist_year=None):
+        def visualize_net_imports(self, mfa, run_labels, run_letter):
             scenario_map = parse_run_labels(run_labels)
             times = list(mfa.dims["t"].items)
             markets = self._present_markets(mfa, cfg.markets)
@@ -736,16 +759,15 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 self._draw_scenario_panel(fig, col, times, vals, scenario_map,
                                           scale=1e6, legend_shown=legend_shown,
                                           draw_baseline_line=True)
-                if last_hist_year is not None:
-                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+                self._add_hist_line(fig, row=1, col=col)
 
-            fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, max(times)])
+            fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
             fig.update_yaxes(title_text="Net Imports [Mt]")
             fig.update_layout(title_text=f"Net Imports — {cfg.region}", hovermode="x unified")
             self._show_and_save_plotly(fig, "net_imports")
 
         # ── import dependency ratios ────────────────────────────────────────
-        def visualize_import_dependency(self, mfa, run_labels, run_letter, last_hist_year=None):
+        def visualize_import_dependency(self, mfa, run_labels, run_letter):
             """Net imports divided by demand, per dependency panel."""
             scenario_map = parse_run_labels(run_labels)
             times = list(mfa.dims["t"].items)
@@ -772,10 +794,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 self._draw_scenario_panel(fig, col, times, dep, scenario_map,
                                           scale=1, legend_shown=legend_shown,
                                           draw_baseline_line=True)
-                if last_hist_year is not None:
-                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+                self._add_hist_line(fig, row=1, col=col)
 
-            fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, max(times)])
+            fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
             fig.update_yaxes(title_text="Dependency ratio")
             fig.update_layout(
                 title_text=f"Import Dependency (Net imports / Demand) — {cfg.region}",
@@ -783,7 +804,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             self._show_and_save_plotly(fig, "import_dependency")
 
         # ── demands ──────────────────────────────────────────────────────────
-        def visualize_demands(self, mfa, run_labels, run_letter, last_hist_year=None):
+        def visualize_demands(self, mfa, run_labels, run_letter):
             scenario_map = parse_run_labels(run_labels)
             times = list(mfa.dims["t"].items)
 
@@ -803,10 +824,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 self._draw_scenario_panel(fig, col, times, vals, scenario_map,
                                           scale=1e6, legend_shown=legend_shown,
                                           draw_baseline_line=True)
-                if last_hist_year is not None:
-                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
+                self._add_hist_line(fig, row=1, col=col)
 
-            fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, max(times)])
+            fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
             fig.update_yaxes(title_text="[Mt]")
             fig.update_layout(title_text=f"{cfg.demand_title} — {cfg.region}", hovermode="x unified")
             self._show_and_save_plotly(fig, "demands")
@@ -884,7 +904,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             if col == 1:
                 legend_shown.add("Baseline")
 
-        def visualize_gross_trade(self, mfa, run_labels, run_letter, last_hist_year=None):
+        def visualize_gross_trade(self, mfa, run_labels, run_letter):
             """Gross imports (+) and exports (−) for the EU region.
             """
             scenario_map = parse_run_labels(run_labels)
@@ -894,21 +914,23 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             for spec in self._present_markets(mfa, cfg.markets):
                 imp, exp = self._gross_matrices(mfa, spec, run_letter)
                 combined.append((market_title(cfg.market_display, spec.name, spec.good, spec.material), imp, exp))
-                fig = make_subplots(rows=1, cols=len(combined), subplot_titles=[c[0] for c in combined])
-                legend_shown = set()
-                for col, (_, imp, exp) in enumerate(combined, start=1):
-                    fig.add_hline(y=0, line_dash="dot", line_color="lightgray", row=1, col=col)
-                    self._draw_gross_groups(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
-                    self._draw_gross_baseline(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
-                    if last_hist_year is not None:
-                        fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray", row=1, col=col)
-                fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, max(times)])
-                fig.update_yaxes(title_text="Imports [+] / Exports [−] [Mt]")
-                fig.update_layout(title_text=f"Gross trade — {cfg.region}", hovermode="x unified")
-                self._show_and_save_plotly(fig, "gross_trade_eu")
+            if not combined:
+                return
+
+            fig = make_subplots(rows=1, cols=len(combined), subplot_titles=[c[0] for c in combined])
+            legend_shown = set()
+            for col, (_, imp, exp) in enumerate(combined, start=1):
+                fig.add_hline(y=0, line_dash="dot", line_color="lightgray", row=1, col=col)
+                self._draw_gross_groups(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
+                self._draw_gross_baseline(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
+                self._add_hist_line(fig, row=1, col=col)
+            fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
+            fig.update_yaxes(title_text="Imports [+] / Exports [−] [Mt]")
+            fig.update_layout(title_text=f"Gross trade — {cfg.region}", hovermode="x unified")
+            self._show_and_save_plotly(fig, "gross_trade_eu")
 
         # ── stacked gross trade by region (baseline only) ───────────────────
-        def visualize_global_trade_stacked(self, mfa, run_labels, run_letter, last_hist_year=None):
+        def visualize_global_trade_stacked(self, mfa, run_labels, run_letter):
             """Gross imports/exports stacked by region, for the baseline run only.
 
             EU region highlighted in red and placed on top of the stack.
@@ -958,9 +980,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                             showlegend=(col == 1 and r not in legend_shown),
                         ), row=1, col=col)
                         legend_shown.add(r)
-                if last_hist_year is not None:
-                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray")
-                fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, max(times)])
+                self._add_hist_line(fig)
+                fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
                 fig.update_yaxes(title_text="[Mt]")
                 fig.update_layout(
                     title_text=f"Global {title} trade by region — {cfg.display[cfg.baseline_group]}",
@@ -968,7 +989,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 self._show_and_save_plotly(fig, f"global_trade_stacked_{spec.name}{self._suffix_fname(spec)}")
 
         # ── trade mechanism by region (baseline only) ───────────────────────
-        def visualize_trade_mechanism(self, mfa, run_labels, run_letter, last_hist_year=None):
+        def visualize_trade_mechanism(self, mfa, run_labels, run_letter):
             """Imports/Demand and Exports/Supply ratios per region (baseline run)."""
             scenario_map = parse_run_labels(run_labels)
             bl = _baseline_index(scenario_map, cfg)
@@ -1010,9 +1031,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                             x=times, y=ratios, name=label, showlegend=(r_i == 0),
                             line=dict(color=ratio_colors[label], width=2), mode="lines",
                         ), row=row, col=col)
-                if last_hist_year is not None:
-                    fig.add_vline(x=last_hist_year, line_dash="dash", line_color="lightgray")
-                fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, max(times)])
+                self._add_hist_line(fig)
+                fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
                 fig.update_yaxes(title_text="Ratio")
                 title = market_title(cfg.market_display, spec.name, spec.good, spec.material)
                 fig.update_layout(
