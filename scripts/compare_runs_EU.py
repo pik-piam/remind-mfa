@@ -240,7 +240,7 @@ PLASTICS_CONFIG = ModelConfig(
     name="plastics",
     region="EU27+3",
     x_start_year=2000,
-    x_end_year=2049,
+    x_end_year=2050,
     delta_start_year=2018,
     group_order=list(_PL_GROUPS),
     display={g: g for g in _PL_ALL},
@@ -268,14 +268,14 @@ PLASTICS_CONFIG = ModelConfig(
         DemandPanel("Final goods — PET × Packaging", "stock_inflow", good="Packaging", material="PET"),
         DemandPanel("Primary — PET", "flow:primary_market => fabrication", material="PET"),
     ],
-    demand_title="PET Packaging demands",
+    demand_title="PET demands",
     region_panels=[
         DependencyPanel(MarketSpec("final", good="Packaging", material="PET"), "stock_inflow"),
         DependencyPanel(MarketSpec("primary", material="PET"), "flow:primary_market => fabrication"),
     ],
     flow_plots=[
-        FlowPlot("stock_inflow", "Stock inflow — PET Packaging", good="Packaging", material="PET"),
-        FlowPlot("flow:fabrication => good_market", "Good supply — PET Packaging", good="Packaging", material="PET"),
+        FlowPlot("stock_inflow", "Stock inflow — PET", material="PET", subplot_dim="Good"),
+        FlowPlot("flow:fabrication => good_market", "Good supply — PET", material="PET", subplot_dim="Good"),
         FlowPlot("flow:primary_market => fabrication", "PET demand", material="PET"),
     ],
     csv_flows=[
@@ -665,7 +665,12 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
                 n_colors = mfa.dims[linecolor_dim].len if linecolor_dim else 1
                 base = plc.qualitative.Dark24
-                colors = (base * (2 * n_colors // len(base) + 2))[:2 * n_colors]
+                # Imports are drawn first (lines 0..n_colors-1), exports second
+                # (lines n_colors..2*n_colors-1, see PlotlyArrayPlotter.add_line).
+                # Duplicate the per-run palette so each export reuses its import's
+                # colour, distinguished only by the dashed line style.
+                per_run = (base * (n_colors // len(base) + 1))[:n_colors]
+                colors = per_run + per_run
 
                 ap_imports = self.plotter_class(
                     array=imports, intra_line_dim="Time", subplot_dim=subplot_dim,
