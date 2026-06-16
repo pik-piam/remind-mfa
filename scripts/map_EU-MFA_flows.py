@@ -20,10 +20,12 @@ SCENARIOS = {
               'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel']
 }
 
+ALL_SCENARIOS = [s for scenarios in SCENARIOS.values() for s in scenarios]
+
 parser = argparse.ArgumentParser()
 parser.add_argument('material', choices=MATERIALS, nargs='?', default=None,
                     help='Material to process (default: all materials)')
-parser.add_argument('scenario', choices=SCENARIOS, nargs='?', default=None,
+parser.add_argument('scenario', choices=ALL_SCENARIOS, nargs='?', default=None,
                     help='Scenario to process (default: all scenarios)')
 args = parser.parse_args()
 
@@ -134,8 +136,16 @@ def run_combination(material: str, flow: str, scenario: str):
             if flow == "recycled_eol": # currently, only mechanical recycling to granulate is considered
                 df1 = df1[df1.secondary_raw_material == "Granulate"].copy()
         else:
-            # non-baseline scenarios have quarterly timesteps; aggregate to annual
-            df1["Time"] = df1["Time"].astype(float).astype(int)
+            # Non-baseline scenarios have quarterly timesteps (Y.0, Y.25, Y.5, Y.75).
+            # The final year (2050) has fewer quarters than full years, so summing would
+            # under-count it. Scale each year's values by full_quarters / quarters_present
+            # to annualize, then collapse to integer years.
+            year = df1["Time"].astype(float).astype(int)
+            quarters_per_year = df1.groupby(year)["Time"].transform("nunique")
+            full_quarters = quarters_per_year.max()
+            df1["value"] = df1["value"] * full_quarters / quarters_per_year
+            df1["Time"] = year
+            scenario_last_year = int(year.max())  # used later to cap the output
         df1["Region"] = "EU27+3"
     elif material == "steel":
         df1 = df1[df1.Region == "EU27+1"].copy()
@@ -271,6 +281,11 @@ def run_combination(material: str, flow: str, scenario: str):
         )
         df_backcasted = full_grid.merge(df_EU_MFA, on=["Time"] + group_dims, how="left")
         df_backcasted["value"] = df_backcasted["value"].fillna(0.0)
+
+    # non-baseline plastics: keep only years covered by the scenario itself;
+    # baseline-supplemented goods (to 2060) and reference years must not extend past it.
+    if material == "plastics" and scenario != "baseline":
+        df_backcasted = df_backcasted[df_backcasted["Time"] <= scenario_last_year].copy()
 
     # --- save ---
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
