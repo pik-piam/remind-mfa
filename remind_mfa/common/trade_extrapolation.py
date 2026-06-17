@@ -331,6 +331,8 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
     re-balanced after the EUR adjustment.
     """
 
+    historic_trade: Trade
+    """Historic trade data, used to keep historic trade in historic years."""
     baseline_future_trade: Trade
     """Trade computed by the regular TradeExtrapolator using baseline (REMIND-MFA) demand."""
     future_trade: Trade
@@ -401,6 +403,9 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
         # The EUR slice has zero share in both share arrays, so only non-EUR is affected.
         self.future_trade.exports[...] += eu_import_origin_shares * alpha * delta_r
         self.future_trade.imports[...] -= eu_export_destination_shares * (1.0 - alpha) * delta_r
+
+        self.future_trade.exports[{"t": self.historic_trade.exports.dims["h"]}] = self.historic_trade.exports
+        self.future_trade.imports[{"t": self.historic_trade.imports.dims["h"]}] = self.historic_trade.imports
 
         logging.info(
             f"FixedSupplyTradeExtrapolator: supply of '{r}' fixed to baseline. "

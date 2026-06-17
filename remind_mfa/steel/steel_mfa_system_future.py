@@ -150,6 +150,7 @@ class SteelMFASystem(CommonMFASystem):
                 raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
             alpha = 0.0 if self.cfg.transience.trade_scenario == "fix_supply_alpha0" else 1.0
             extrapolator = FixedSupplyTradeExtrapolator(
+                historic_trade = historic_trade["steel"],
                 baseline_future_trade = baseline_trade["steel"],
                 future_trade = self.trade_set["steel"],
                 baseline_dom_demand = baseline_flows["ip_market => fabrication"],
