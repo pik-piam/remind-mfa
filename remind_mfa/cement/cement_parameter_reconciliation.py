@@ -55,13 +55,10 @@ class CementParameterReconciliation:
         - Each parameter receives one correction factor per element of its dimensions
           except time (``t``/``h``): corrections are constant across all time steps.
         - Split parameters are re-normalized to sum to 1 after each correction. Full splits
-          (every dim item is covered in the reconciliation: function/structure) are scaled proportionally.
-          Partial splits (only a subset of dim items covered: concrete for the material split,
-          Res/Com for the stock-type split) keep their reconciled values and let the unused
-          complement (mortar; Civ/Ind) absorb ``1 - sum(reconciled)``. Since normalization
-          can change the parameters beyond the computed correction,
-          ``total_correction_factors`` is recomputed from the actual output/input parameter
-          ratio, keeping it exact.
+          (every dim item is covered in the reconciliation: function/structure) are scaled
+          proportionally. Partial splits (only a subset of dim items covered: concrete for the
+          material split, Res/Com for the stock-type split) keep their reconciled values and
+          let the unused complement (mortar; Civ/Ind) absorb ``1 - sum(reconciled)``.
     """
 
     _normalization_dims: dict[str, tuple[str, ...]] = {
@@ -189,9 +186,7 @@ class CementParameterReconciliation:
         """Iteratively correct parameters to reconcile top-down and bottom-up stocks.
 
         Each iteration linearises around the current working parameters, computes a
-        constrained least-squares log-correction (see class docstring), and applies them. The total correction factors
-        relative to the original input parameters are tracked in
-        `total_correction_factors`.
+        constrained least-squares log-correction (see class docstring), and applies them.
 
         Args:
             max_iter: Maximum number of correction iterations.
@@ -203,7 +198,6 @@ class CementParameterReconciliation:
             The corrected parameters in their original dimensions.
         """
         self.output_prms = deepcopy(self.input_prms)
-        self.total_correction_factors: dict[str, fd.FlodymArray] = {}
 
         for i in range(max_iter):
             td = self.calc_top_down_stock(self.prms)
@@ -558,33 +552,12 @@ class CementParameterReconciliation:
         return self.reshape_np_to_fd(d, self.prms_adj_dims[prm_name])
 
     def apply_corrections(self, corrections: dict[str, fd.FlodymArray]):
-        """Apply correction factors to the output parameters (in their original
-        dimensions), re-normalize split parameters, and update the accumulated correction
-        factors from the actually applied change."""
+        """Apply correction factors to the output parameters (in their original dimensions)
+        and re-normalize split parameters."""
         for prm_name, c in corrections.items():
             c_full = self.cast_correction_to_original_prm_dim(c)
             self.output_prms[prm_name][...] = self.output_prms[prm_name] * c_full
             self.normalize_output_parameter(prm_name)
-            # normalization changes the parameter beyond c, so track the actual ratio
-            self.total_correction_factors[prm_name] = self.applied_correction_factor(prm_name)
-
-    def applied_correction_factor(self, prm_name: str) -> fd.FlodymArray:
-        """Actually applied total correction factor output/input, reduced to the
-        adjustment dims. Elements with zero input keep factor 1. Corrections are constant
-        over time, so any remaining time dimension is sliced at the reconciliation year."""
-        output = self.output_prms[prm_name]
-        original = self.input_prms[prm_name]
-        values = np.divide(
-            output.values,
-            original.values,
-            out=np.ones_like(output.values),
-            where=original.values != 0,
-        )
-        factor = self.reduce_prm(prm_name, fd.FlodymArray(dims=output.dims, values=values))
-        for letter in self._no_correction_dim_letters:
-            if letter in factor.dims.letters:
-                factor = factor[{letter: self._year_of_reconciliation}]
-        return factor.cast_to(self.prms_adj_dims[prm_name])
 
     def get_variances(self, prm_name: str) -> np.ndarray:
         """Flattened variances σ_p² of the log-corrections, approximated by the squared
