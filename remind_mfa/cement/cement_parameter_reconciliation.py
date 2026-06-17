@@ -68,18 +68,17 @@ class CementParameterReconciliation:
         "stock_type_split": ("Stock Type",),
     }
 
-    # Partial splits: only these items feed the reconciliation output; the remaining items of
-    # the split dimension form the complement, which absorbs 1 - sum(reconciled) at export.
-    # Splits absent here are "full" (every item feeds the output) and are normalized
-    # proportionally instead.
+    # Partial splits: only these dim items are part of the reconciliation.
     _reconciled_split_items: dict[str, tuple[str, ...]] = {
         "product_material_split": ("concrete",),
-        "stock_type_split": ("Res", "Com"),  # == self._reduced_stock_type.items
+        "stock_type_split": ("Res", "Com"),
     }
 
     # reduced stock type (residential / commercial) where top-down data is available
     _reduced_stock_type: fd.Dimension = fd.Dimension(
-        name="Reduced Stock Type", letter="u", items=["Res", "Com"]
+        name="Reduced Stock Type",
+        letter="u",
+        items=list(_reconciled_split_items["stock_type_split"]),
     )
 
     def __init__(
@@ -270,9 +269,8 @@ class CementParameterReconciliation:
         # 2.1 Use only reconciliation year
         product_stock = product_stock[{"h": self._year_of_reconciliation}]
 
-        # 2.2 Use only material (m) concrete [no mortar]
-        concrete_mask = {"m": "concrete"}
-        concrete_stock = product_stock[concrete_mask]
+        # 2.2 Use only the reconciled material (concrete) [no mortar]
+        concrete_stock = product_stock[{"m": self._reconciled_split_items["product_material_split"][0]}]
 
         return concrete_stock
 
