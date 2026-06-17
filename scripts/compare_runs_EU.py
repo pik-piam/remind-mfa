@@ -32,12 +32,21 @@ Each run is identified by a *group* and a *trade* variant:
 Every figure draws a dashed vertical line at the last historical year and uses
 ``x_start_year`` / ``x_end_year`` (from the config) as the time-axis range.
 
+Custom runs
+-----------
+In addition to the scenario runs above, arbitrary extra pickles can be overlaid
+with ``--custom``. These are *not* parsed into the scenario group/ambition/trade
+structure; they are simply drawn as plain solid lines labelled by their pickle
+stem (in a distinct colour palette), on top of the scenario figures.
+
 Usage
 -----
     python scripts/compare_runs_EU.py --model steel  [run_stem ...]
     python scripts/compare_runs_EU.py --model plastics [run_stem ...]
+    python scripts/compare_runs_EU.py --model plastics S1 S2 --custom my_run other_run
 
-With no run stems given, an interactive checkbox picker is shown.
+With no run stems given, an interactive checkbox picker is shown (and, after the
+scenario runs are chosen, a second picker for optional custom runs).
 """
 
 import pickle
@@ -68,9 +77,12 @@ RUN_DIM_NAME   = "Run"
 
 def _parse_args():
     p = argparse.ArgumentParser(description="Compare multiple model runs visually.")
-    p.add_argument("runs", nargs="*", help="Run stems (no .pickle extension)")
+    p.add_argument("runs", nargs="*", help="Scenario run stems (no .pickle extension)")
     p.add_argument("--model", default="steel", choices=list(DIRECTORIES),
                    help="Which model type to compare (default: steel)")
+    p.add_argument("--custom", nargs="*", default=None,
+                   help="Extra run stems/paths drawn as plain lines labelled by file name. "
+                        "Not folded into the scenario structure.")
     return p.parse_args()
 
 
@@ -160,6 +172,10 @@ _ORANGE = "#ff7f0e"
 _GREEN  = "#2ca02c"
 _RED    = "#d62728"
 _PURPLE = "#9467bd"
+
+# Distinct palette for custom (non-scenario) runs, kept clear of the scenario
+# colours above so custom overlays stand out.
+_CUSTOM_COLORS = ["#17becf", "#bcbd22", "#e377c2", "#8c564b", "#393b79", "#000000"]
 
 
 def _fill(hex_color: str, alpha: float) -> str:
@@ -309,6 +325,48 @@ def pick_files(directory: pathlib.Path, runs: Optional[list[str]]) -> list[pathl
     if not chosen:
         raise ValueError("No files selected.")
     return [directory / name for name in chosen]
+
+
+def _resolve_path(run: str, directory: pathlib.Path) -> pathlib.Path:
+    """Turn a stem or path into a concrete pickle path under ``directory``."""
+    p = pathlib.Path(run)
+    if not p.suffix:
+        p = p.with_suffix(".pickle")
+    if not p.is_absolute():
+        p = directory / p
+    return p
+
+
+def pick_custom_files(directory: pathlib.Path, custom_args: Optional[list[str]],
+                      exclude: list[pathlib.Path]) -> list[pathlib.Path]:
+    """Resolve custom run paths.
+
+    * ``custom_args`` given (``--custom a b``) → resolve those stems/paths.
+    * ``custom_args is None`` (flag omitted) and we are interactive (no scenario
+      stems on the CLI) → offer a second checkbox of the remaining pickles.
+    * otherwise → no custom runs.
+    """
+    if custom_args:
+        return [_resolve_path(r, directory) for r in custom_args]
+    if custom_args is not None:
+        return []  # --custom passed with no values
+    # interactive fallback: only when the scenario picker was interactive
+    available = sorted(directory.glob("model_*.pickle"))
+    excluded = {p.resolve() for p in exclude}
+    remaining = [f for f in available if f.resolve() not in excluded]
+    if not remaining:
+        return []
+    chosen = questionary.checkbox(
+        "Select optional custom runs (plain lines, labelled by file name):",
+        choices=[f.name for f in remaining],
+    ).ask()
+    return [directory / name for name in (chosen or [])]
+
+
+def custom_label(stem: str, model: str) -> str:
+    """Short label for a custom run: the pickle stem minus ``model_<model>_``."""
+    parts = [p for p in stem.split("_") if p not in ("model", model)]
+    return "_".join(parts) or stem
 
 
 def load_models(paths: list[pathlib.Path]):
@@ -538,6 +596,45 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         # last historical year; set in ``visualize`` before any figure is drawn
         _last_hist_year = None
 
+        # Custom (non-scenario) runs: list of (run_index, label), set in ``main``.
+        # These are drawn as plain solid lines and excluded from the scenario map.
+        _custom_runs: list = []
+        _custom_indices: set = set()
+
+        def _scenario_map(self, run_labels: list[str]) -> dict:
+            """``parse_run_labels`` with any custom-run indices removed, so custom
+            runs are never folded into a scenario group/ambition/trade."""
+            smap = parse_run_labels(run_labels)
+            if not self._custom_indices:
+                return smap
+            cleaned: dict = {}
+            for group, ambitions in smap.items():
+                new_ambitions = {}
+                for ambition, trades in ambitions.items():
+                    kept = {t: i for t, i in trades.items() if i not in self._custom_indices}
+                    if kept:
+                        new_ambitions[ambition] = kept
+                if new_ambitions:
+                    cleaned[group] = new_ambitions
+            return cleaned
+
+        def _draw_custom_lines(self, fig, col, times, signed_vals, scale, legend_shown):
+            """Overlay each custom run as a plain solid line.
+
+            ``signed_vals`` is a list of ``(sign, matrix)`` (one entry for most
+            figures; ``[(1, imp), (-1, exp)]`` for gross trade). Each matrix is
+            shape (n_t, n_run); the run column is selected by the custom index.
+            """
+            for ci, (idx, label) in enumerate(self._custom_runs):
+                color = _CUSTOM_COLORS[ci % len(_CUSTOM_COLORS)]
+                show = col == 1 and label not in legend_shown
+                for sign, mat in signed_vals:
+                    self._add_line(fig, col, times, sign * mat[:, idx] / scale,
+                                   color, label, show, width=2)
+                    show = False
+                if col == 1:
+                    legend_shown.add(label)
+
         # ── generic plotly primitives ──────────────────────────────────────
         def _add_hist_line(self, fig, row=None, col=None):
             """Dashed vertical marker at the last historical year."""
@@ -641,6 +738,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                                    width=2)
                     legend_shown.add("Baseline")
 
+            self._draw_custom_lines(fig, col, times, [(1, mat)], scale, legend_shown)
+
         # ── raw trade overlay ───────────────────────────────────────────────
         def visualize_trade(self, mfa, region=None, linecolor_dims=None,
                             subplot_dims=None, good_filters=None, material_filters=None):
@@ -723,7 +822,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         # ── Δ net imports vs baseline ───────────────────────────────────────
         def visualize_delta_net_imports(self, mfa, run_labels, run_letter):
             """Net imports relative to the baseline group (S0 / Baseline)."""
-            scenario_map = parse_run_labels(run_labels)
+            scenario_map = self._scenario_map(run_labels)
             bl = _baseline_index(scenario_map, cfg)
             if bl is None:
                 return
@@ -752,7 +851,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
         # ── absolute net imports ────────────────────────────────────────────
         def visualize_net_imports(self, mfa, run_labels, run_letter):
-            scenario_map = parse_run_labels(run_labels)
+            scenario_map = self._scenario_map(run_labels)
             times = list(mfa.dims["t"].items)
             markets = self._present_markets(mfa, cfg.markets)
             titles = [market_title(cfg.market_display, m.name, m.good, m.material) for m in markets]
@@ -774,7 +873,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         # ── import dependency ratios ────────────────────────────────────────
         def visualize_import_dependency(self, mfa, run_labels, run_letter):
             """Net imports divided by demand, per dependency panel."""
-            scenario_map = parse_run_labels(run_labels)
+            scenario_map = self._scenario_map(run_labels)
             times = list(mfa.dims["t"].items)
             eps = 1.0
 
@@ -810,7 +909,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
         # ── demands ──────────────────────────────────────────────────────────
         def visualize_demands(self, mfa, run_labels, run_letter):
-            scenario_map = parse_run_labels(run_labels)
+            scenario_map = self._scenario_map(run_labels)
             times = list(mfa.dims["t"].items)
 
             panels = []
@@ -912,7 +1011,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         def visualize_gross_trade(self, mfa, run_labels, run_letter):
             """Gross imports (+) and exports (−) for the EU region.
             """
-            scenario_map = parse_run_labels(run_labels)
+            scenario_map = self._scenario_map(run_labels)
             times = list(mfa.dims["t"].items)
 
             combined = []
@@ -928,6 +1027,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 fig.add_hline(y=0, line_dash="dot", line_color="lightgray", row=1, col=col)
                 self._draw_gross_groups(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
                 self._draw_gross_baseline(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
+                self._draw_custom_lines(fig, col, times, [(1, imp), (-1, exp)], 1e6, legend_shown)
                 self._add_hist_line(fig, row=1, col=col)
             fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
             fig.update_yaxes(title_text="Imports [+] / Exports [−] [Mt]")
@@ -940,7 +1040,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
             EU region highlighted in red and placed on top of the stack.
             """
-            scenario_map = parse_run_labels(run_labels)
+            scenario_map = self._scenario_map(run_labels)
             bl = _baseline_index(scenario_map, cfg)
             if bl is None:
                 return
@@ -996,7 +1096,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         # ── trade mechanism by region (baseline only) ───────────────────────
         def visualize_trade_mechanism(self, mfa, run_labels, run_letter):
             """Imports/Demand and Exports/Supply ratios per region (baseline run)."""
-            scenario_map = parse_run_labels(run_labels)
+            scenario_map = self._scenario_map(run_labels)
             bl = _baseline_index(scenario_map, cfg)
             if bl is None:
                 return
@@ -1123,12 +1223,22 @@ def main():
     cfg = MODEL_CONFIGS[args.model]
     directory = pathlib.Path(DIRECTORIES[args.model])
 
-    paths = pick_files(directory, args.runs or None)
-    labels = [make_short_label(p.stem, args.model) for p in paths]
+    scenario_paths = pick_files(directory, args.runs or None)
+    scenario_labels = [make_short_label(p.stem, args.model) for p in scenario_paths]
 
-    print(f"Loading {len(paths)} runs:")
-    for label, path in zip(labels, paths):
-        print(f"  {label}: {path}")
+    custom_paths = pick_custom_files(directory, args.custom, exclude=scenario_paths)
+    custom_labels = [custom_label(p.stem, args.model) for p in custom_paths]
+
+    # Scenario runs first, then custom runs; custom indices are the trailing ones.
+    paths = scenario_paths + custom_paths
+    labels = scenario_labels + custom_labels
+    n_scenario = len(scenario_paths)
+    custom_runs = [(n_scenario + i, lab) for i, lab in enumerate(custom_labels)]
+
+    print(f"Loading {len(paths)} runs ({n_scenario} scenario, {len(custom_paths)} custom):")
+    for i, (label, path) in enumerate(zip(labels, paths)):
+        tag = "custom" if i >= n_scenario else "scenario"
+        print(f"  [{tag}] {label}: {path}")
     models = load_models(paths)
 
     print("Exporting trade CSVs…")
@@ -1148,6 +1258,8 @@ def main():
     base_vis = base_model.visualizer
     vis = VisualizerCls(cfg=base_vis.cfg, display_names=base_vis.display_names)
     vis.cfg = vis.cfg.model_copy(update={"do_show_figs": True, "do_save_figs": True})
+    vis._custom_runs = custom_runs
+    vis._custom_indices = {idx for idx, _ in custom_runs}
 
     print("Plotting comparison figures…")
     vis.visualize(model=fake_model)
