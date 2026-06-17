@@ -54,10 +54,14 @@ class CementParameterReconciliation:
           bottom-up data overlap.
         - Each parameter receives one correction factor per element of its dimensions
           except time (``t``/``h``): corrections are constant across all time steps.
-        - Split parameters are re-normalized to sum to 1 after each correction. Since this
-          changes the parameters beyond the computed correction,
-          ``total_correction_factors`` is recomputed from the actual output/input
-          parameter ratio, keeping it exact.
+        - Split parameters are re-normalized to sum to 1 after each correction. Full splits
+          (every dim item is covered in the reconciliation: function/structure) are scaled proportionally.
+          Partial splits (only a subset of dim items covered: concrete for the material split,
+          Res/Com for the stock-type split) keep their reconciled values and let the unused
+          complement (mortar; Civ/Ind) absorb ``1 - sum(reconciled)``. Since normalization
+          can change the parameters beyond the computed correction,
+          ``total_correction_factors`` is recomputed from the actual output/input parameter
+          ratio, keeping it exact.
     """
 
     _normalization_dims: dict[str, tuple[str, ...]] = {
@@ -65,6 +69,15 @@ class CementParameterReconciliation:
         "function_buildings_split": ("Function",),
         "product_material_split": ("Product Material",),
         "stock_type_split": ("Stock Type",),
+    }
+
+    # Partial splits: only these items feed the reconciliation output; the remaining items of
+    # the split dimension form the complement, which absorbs 1 - sum(reconciled) at export.
+    # Splits absent here are "full" (every item feeds the output) and are normalized
+    # proportionally instead.
+    _reconciled_split_items: dict[str, tuple[str, ...]] = {
+        "product_material_split": ("concrete",),
+        "stock_type_split": ("Res", "Com"),  # == self._reduced_stock_type.items
     }
 
     # reduced stock type (residential / commercial) where top-down data is available
@@ -274,10 +287,11 @@ class CementParameterReconciliation:
         """Bottom-up stock calculation for reconciliation."""
 
         # 1. Compute concrete stock through bottom-up calculation
+        # use get_shares_over here to yield zero sensitivities for scaled shares
         concrete_stk = (
             prm["floorspace"]
-            * prm["function_buildings_split"]
-            * prm["structure_buildings_split"]
+            * prm["function_buildings_split"].get_shares_over(("f",))
+            * prm["structure_buildings_split"].get_shares_over(("b",))
             * prm["concrete_building_mi"]
         )
 
@@ -538,9 +552,7 @@ class CementParameterReconciliation:
             corrections[prm_name] = d.apply(np.exp)
         return corrections
 
-    def calc_log_correction(
-        self, prm_name: str, S: np.ndarray, lmda: np.ndarray
-    ) -> fd.FlodymArray:
+    def calc_log_correction(self, prm_name: str, S: np.ndarray, lmda: np.ndarray) -> fd.FlodymArray:
         """Log-correction d_p = -diag(σ_p²) S_pᵀ λ for a single parameter (see class docstring)."""
         d = -self.get_variances(prm_name) * (S.T @ lmda)
         return self.reshape_np_to_fd(d, self.prms_adj_dims[prm_name])
@@ -653,18 +665,75 @@ class CementParameterReconciliation:
         return new_correction
 
     def normalize_output_parameter(self, prm_name: str):
-        """
-        Normalize share or split parameters to sum up to 1 along their relevant dimensions.
+        """Renormalize a split parameter so it sums to 1 along its split dimension.
+
+        Full splits (every dim item part of the reconciliation) are scaled proportionally.
+        Partial splits (only `_reconciled_split_items` part of the reconciliation) keep their reconciled
+        values and let the unused complement items absorb the residual `1 - sum(reconciled)`,
+        preserving the complement's internal ratio (see `_apply_complement_normalization`).
+
+        This is needed even when the model self-normalizes a split (via `get_shares_over`):
+        the optimizer multiplies each share by a correction factor, and multiplying shares by
+        different factors does not keep their sum at 1 (e.g. [0.7, 0.3] scaled by [1.1, 0.9]
+        gives [0.77, 0.27], summing to 1.04). So the stored split must be renormalized.
         """
         if prm_name not in self._normalization_dims:
             return
 
         prm = self.output_prms[prm_name]
-        prm_sum = prm.sum_over(self._normalization_dims[prm_name])
+        letter = prm.dims[self._normalization_dims[prm_name][0]].letter
+
+        if prm_name in self._reconciled_split_items:
+            self._apply_complement_normalization(prm_name, prm, letter)
+            return
+
+        # full split: proportional normalization
+        prm_sum = prm.sum_over(letter)
         # avoid division by zero: zero values can occur due to `self._reduced_stock_type`
-        if "s" in prm_sum.dims.letters:
-            prm_sum.values[prm_sum.values == 0] = 1
+        prm_sum.values[prm_sum.values == 0] = 1
         prm[...] = prm / prm_sum
+
+    def _apply_complement_normalization(self, prm_name: str, prm: fd.FlodymArray, letter: str):
+        """Renormalize a partial split in place so it sums to 1 along its split dimension,
+        without disturbing the reconciled correction.
+
+        Only some items of a partial split feed the reconciliation (the "reconciled" items,
+        e.g. concrete, or Res/Com); the others are the unused "complement" (e.g. mortar, or
+        Civ/Ind). The reconciled items keep exactly the values the optimizer produced, and the
+        complement is rescaled to take up whatever is left of the budget,
+        `1 - sum(reconciled)`, keeping the complement's internal ratio fixed (so e.g.
+        mortar = 1 - concrete, and Civ:Ind stays as in the input data).
+
+        If the reconciled items already use up the whole budget (`sum(reconciled) >= 1`),
+        there is no room for a positive complement; those regions fall back to plain
+        proportional scaling of all items so none is driven to zero.
+        """
+        recon_items = self._reconciled_split_items[prm_name]
+
+        # 0/1 indicator over the split dimension: which items are reconciled
+        is_recon = fd.FlodymArray(
+            dims=prm.dims.get_subset(letter),
+            values=np.array([it in recon_items for it in prm.dims[letter].items], dtype=float),
+        )
+
+        # split the parameter into its reconciled part (complement positions zeroed) and its
+        # complement part (reconciled positions zeroed)
+        reconciled = prm * is_recon
+        complement = prm - reconciled
+
+        # normalize only the complement
+        target = 1.0 - reconciled.sum_over(letter)
+        coupled = reconciled + complement * (target / complement.sum_over(letter))
+
+        # fall back to proportional scaling where the budget is already full
+        overflow = target.apply(lambda x: (x <= 0.0).astype(float))  # 1 where sum(recon) >= 1
+        if overflow.values.any():
+            logging.warning(
+                f"Reconciled shares of {prm_name} sum to >= 1 in some regions; "
+                "falling back to proportional scaling there."
+            )
+        prm[...] = overflow * prm.get_shares_over(letter) + (1.0 - overflow) * coupled
+
 
 class DependencyTracker(dict):
     """Dictionary that tracks accessed keys."""
