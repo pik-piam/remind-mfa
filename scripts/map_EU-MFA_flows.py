@@ -7,11 +7,20 @@ import argparse
 
 MATERIALS = ['plastics', 'steel']
 FLOWS_BY_MATERIAL = {
-    'plastics': ['demand', 'stock_outflow', 'collected_eol', 'sorted_eol', 'recycled_eol'],
+    'plastics': ['demand', 'stock_outflow', 'collected_eol', 'sorted_eol', 'recycled_eol', 'traded_recyclate'],
     'steel': ['demand', 'collected_eol', 'lost_eol', 'scrap'],
 }
+# Some flows don't exist for every scenario. traded_recyclate is only produced
+# by the CE-PET scenarios (S0/S1/S2), not by the plastics baseline, so it is
+# skipped there.
+SCENARIO_EXCLUDED_FLOWS = {
+    'baseline': ['traded_recyclate'],
+}
+# Flows with no baseline counterpart: non-baseline scenarios are not supplemented
+# with baseline data for the non-PET / non-Packaging combinations.
+FLOWS_WITHOUT_BASELINE = {'traded_recyclate'}
 SCENARIOS = {
-    'plastics': ['baseline', 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'], 
+    'plastics': ['baseline', 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'],
     'steel': ['Baseline_Steel_01_06_2026', 
               'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 
               'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 
@@ -101,6 +110,9 @@ def run_combination(material: str, flow: str, scenario: str):
             else:
                 INPUT_FILE  = DATA_DIR / "recycling__recyclate_market.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_recycled_eol_EU-MFA.cs4r"
+        elif flow == "traded_recyclate":
+            INPUT_FILE = DATA_DIR / "polymer_market__recyclate_sysenv.csv"
+            OUTPUT_FILE = OUTPUT_DIR / "pl_traded_recyclate_EU-MFA.cs4r"
         DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
     elif material == 'steel':
         DATA_DIR = Path("data/steel/input/transience") / scenario
@@ -201,10 +213,12 @@ def run_combination(material: str, flow: str, scenario: str):
 
         # for collected_eol and stock_outflow, the value for PVC in packaging is at around 1e-30 in 2031 (because PVC in packaging is stopped in 2030 and the small amount is a result of the lifetime model)
         # this causes issues for parameter calculation in the MFA, so set values that are <100kg to zero
-        df_EU_MFA.loc[df_EU_MFA["value"] < 0.1, "value"] = 0.0
+        if flow != "traded_recyclate":  
+            df_EU_MFA.loc[df_EU_MFA["value"] < 0.1, "value"] = 0.0
 
         # non-baseline scenarios only have PET×Packaging data; supplement with baseline flows for all other combinations
-        if scenario != "baseline":
+        # (traded_recyclate has no baseline counterpart, so there is nothing to supplement)
+        if scenario != "baseline" and flow not in FLOWS_WITHOUT_BASELINE:
             df_baseline = _load_baseline_plastics(flow, mapping)
             nonbaseline_combos = df_EU_MFA[["Material", "Good"]].drop_duplicates()
             df_baseline_others = df_baseline.merge(
@@ -324,5 +338,10 @@ if __name__ == "__main__":
     for material in materials:
         scenarios = [args.scenario] if args.scenario else SCENARIOS[material]
         for scenario in scenarios:
+            excluded = SCENARIO_EXCLUDED_FLOWS.get(scenario, [])
             for flow in FLOWS_BY_MATERIAL[material]:
+                if flow in excluded:
+                    print(f"Skipping {material} / {flow} / {scenario}: "
+                          f"flow not available for this scenario")
+                    continue
                 run_combination(material, flow, scenario)
