@@ -165,9 +165,8 @@ class CementModel(CommonModel):
 
     def get_bottom_up_stock(self, stock_ref: fd.FlodymArray):
         """Calculate bottom-up product stock (product mass, no k constituent dimension).
-        Unavailible stock dimensions, e.g. mortar or civ/ind are filled with zeros.
-        Data available until 1990. To fill pre-1990 data,
-        the stock is backcasted by using growth rate of top-down stock."""
+        Unavailible years (pre-1990) and stock dimensions, e.g. mortar or civ/ind are filled with zeros.
+        """
         stock_ref = stock_ref.sum_over("k")  # work at product-mass level
         stock = fd.FlodymArray.full_like(stock_ref, fill_value=0)
 

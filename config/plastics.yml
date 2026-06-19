@@ -18,7 +18,7 @@ model_switches:
     waste_his_imports: LinearToTargetExtrapolation
     waste_his_exports: LinearToTargetExtrapolation
     collection_rate: LinearToTargetExtrapolation
-    incineration_rate: LinearToTargetExtrapolation
+    landfill_rate: LinearToTargetExtrapolation
     mechanical_recycling_rate: LinearToTargetExtrapolation
     chemical_recycling_rate: LinearToTargetExtrapolation
     bio_production_rate: LinearToTargetExtrapolation
@@ -36,6 +36,9 @@ visualization:
     over_gdp: True
     accumulate_gdp: False
     per_capita: True
+  gdp:
+    do_visualize: False
+    per_capita: False
   consumption:
     do_visualize: True
     per_capita: True
@@ -60,6 +63,8 @@ visualization:
         #- "intermediate_market"
         #- "good_market"
       exclude_flows: [ ]
+  sector_splits:
+    do_visualize: True
   flows:
     do_visualize: False
 

@@ -627,8 +627,8 @@ class AnalyzeParameterReconciliation:
         Args:
             f: Model function that takes parameters and returns a FlodymArray.
             max_permutations: Maximum number of permutations to evaluate. If n! exceeds
-                this, random sampling is used. Default is 1000 (covers up to n=6 exactly,
-                n=7 would be 5040 permutations).
+                this, random sampling is used. Default is 100 (covers up to n=4 exactly,
+                 n=5 would be 120 permutations).
             random_seed: Optional seed for reproducibility when using Monte Carlo sampling.
 
         Returns:
@@ -664,11 +664,7 @@ class AnalyzeParameterReconciliation:
         dims = f_dims.prepend(param_dim)
         shapley_sums = fd.FlodymArray(dims=dims)
 
-        i = 0
         for permutation in permutation_iterator:
-            i += 1
-            if i >= num_samples:
-                break
             # Initialize the current parameters at original values
             p = {name: self.original_prms[name].copy() for name in relevant_prm_names}
             # Initialize the current state of f

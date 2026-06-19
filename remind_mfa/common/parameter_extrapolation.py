@@ -148,7 +148,7 @@ class ZeroExtrapolation(ParameterExtrapolation):
     def fill_values(
         self,
         prepared_param: fd.Parameter,
-        new_param: fd.FlodymArray,
+        new_param: fd.Parameter,
     ) -> fd.Parameter:
 
         add_assumption_doc(
@@ -181,7 +181,7 @@ class LinearToTargetExtrapolation(ScenarioExtrapolation):
     def fill_values(
         self,
         prepared_param: fd.Parameter,
-        new_param: fd.FlodymArray,
+        new_param: fd.Parameter,
     ) -> fd.Parameter:
 
         add_assumption_doc(
@@ -216,7 +216,7 @@ class SmoothScalingExtrapolation(ScenarioExtrapolation):
     def fill_values(
         self,
         prepared_param: fd.Parameter,
-        new_param: fd.FlodymArray,
+        new_param: fd.Parameter,
     ) -> fd.Parameter:
 
         add_assumption_doc(
