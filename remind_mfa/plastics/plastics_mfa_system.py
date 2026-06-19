@@ -1,6 +1,7 @@
 import flodym as fd
 import numpy as np
 import logging
+from copy import deepcopy
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.trade import TradeSet
@@ -180,9 +181,18 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             if self.cfg.transience.baseline_pickle_path is None:
                 raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
             alpha = 0.0 if self.cfg.transience.trade_scenario == "fix_supply_alpha0" else 1.0
+            # default extrapolation with the new (scenario) demand, used where demand
+            # exceeds baseline and fixing supply is not defensible
+            default_trade = deepcopy(self.trade_set["primary"])
+            TradeExtrapolator(
+                historic_trade=historic_trade["primary_his"],
+                future_trade=default_trade,
+                future_dom_demand=flw["primary_market => fabrication"],
+            ).run()
             extrapolator = FixedSupplyTradeExtrapolator(
                 historic_trade = historic_trade["primary_his"],
                 baseline_future_trade = baseline_trade["primary"],
+                default_future_trade = default_trade,
                 future_trade = self.trade_set["primary"],
                 baseline_dom_demand = baseline_flows["primary_market => fabrication"],
                 future_dom_demand = flw["primary_market => fabrication"],

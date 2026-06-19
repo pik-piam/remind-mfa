@@ -335,6 +335,10 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
     """Historic trade data, used to keep historic trade in historic years."""
     baseline_future_trade: Trade
     """Trade computed by the regular TradeExtrapolator using baseline (REMIND-MFA) demand."""
+    default_future_trade: Trade
+    """Trade computed by the regular TradeExtrapolator using the new (scenario) demand.
+    Used wherever the fixed-supply region's demand exceeds the baseline, since fixing
+    supply there is not defensible (the region would import demand it could produce)."""
     future_trade: Trade
     """Future trade object to write results into."""
     baseline_dom_demand: fd.FlodymArray
@@ -355,6 +359,8 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
             raise ValueError("baseline_dom_demand must have a time dimension 't'.")
         if self.baseline_dom_demand.dims != self.future_dom_demand.dims:
             raise ValueError("baseline_dom_demand and future_dom_demand must have the same dims.")
+        if self.default_future_trade.imports.dims != self.future_trade.imports.dims:
+            raise ValueError("default_future_trade and future_trade must have the same dims.")
         if self.fixed_supply_region not in self.future_trade.imports.dims["r"].items:
             raise ValueError(
                 f"fixed_supply_region '{self.fixed_supply_region}' not found in region dimension."
@@ -362,7 +368,17 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
         return self
 
     def run(self):
-        """Compute future trade with fixed supply for the target region."""
+        """Compute future trade with fixed supply for the target region.
+
+        Where the fixed-supply region's demand drops below baseline (delta <= 0), the
+        region keeps its baseline supply and absorbs the demand change via trade.
+        Where demand rises above baseline (delta > 0), fixing supply would force the
+        region to import demand it could simply produce, which is hard to justify; there
+        we fall back to the default extrapolation (supply grows with demand). At delta = 0
+        both candidates equal the baseline trade, so a hard switch introduces no kink.
+        Both candidate trades are globally balanced and the switch weight depends only on
+        the fixed-region delta (constant over r), so the blended result stays balanced.
+        """
         alpha = self.import_adjustment_share
         r = self.fixed_supply_region
 
@@ -403,6 +419,28 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
         # The EUR slice has zero share in both share arrays, so only non-EUR is affected.
         self.future_trade.exports[...] += eu_import_origin_shares * alpha * delta_r
         self.future_trade.imports[...] -= eu_export_destination_shares * (1.0 - alpha) * delta_r
+
+        # Step 3: where the fixed-supply region's demand exceeds baseline (delta > 0),
+        # use the default extrapolation instead of the fixed-supply construction.
+        # use_default is 1 where delta_r > 0 and 0 otherwise; it depends only on the
+        # fixed-region delta (broadcast over r), so blending two globally-balanced trades
+        # keeps the global balance intact.
+        # The demand may carry dimensions the trade lacks (e.g. element 'e'); sum the delta
+        # down to the net mass delta over the shared dims *before* taking the sign.
+        common_letters = delta_r.dims.intersect_with(self.future_trade.imports.dims).letters
+        delta_r_cast = delta_r.sum_to(common_letters).cast_to(self.future_trade.imports.dims)
+        use_default = fd.FlodymArray(
+            dims=self.future_trade.imports.dims,
+            values=(delta_r_cast.values > 0.0).astype(float),
+        )
+        self.future_trade.imports[...] = (
+            (1.0 - use_default) * self.future_trade.imports
+            + use_default * self.default_future_trade.imports
+        )
+        self.future_trade.exports[...] = (
+            (1.0 - use_default) * self.future_trade.exports
+            + use_default * self.default_future_trade.exports
+        )
 
         self.future_trade.exports[{"t": self.historic_trade.exports.dims["h"]}] = self.historic_trade.exports
         self.future_trade.imports[{"t": self.historic_trade.imports.dims["h"]}] = self.historic_trade.imports
