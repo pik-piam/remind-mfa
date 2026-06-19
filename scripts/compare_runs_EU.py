@@ -58,6 +58,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 import flodym as fd
 import questionary
 import plotly.colors as plc
@@ -129,6 +130,25 @@ class FlowPlot:
 
 
 @dataclass(frozen=True)
+class TradeOverlay:
+    """An external cs4r time series overlaid on one market's trade figure.
+
+    Used to compare an auxiliary flow (e.g. traded recyclate, produced by
+    ``map_EU-MFA_flows.py``) against that market's imports/exports. One dotted
+    line is drawn per scenario in ``scenarios``.
+    """
+    market: str                      # trade market figure to draw on (e.g. "primary")
+    label: str                       # legend prefix (e.g. "Traded recyclate")
+    filename: str                    # cs4r file name within each scenario dir
+    base_dir: str                    # dir holding the per-scenario subdirs
+    scenarios: dict                  # {legend suffix: scenario subdir}
+    region: Optional[str] = None
+    material: Optional[str] = None
+    good: Optional[str] = None
+    sign: float = -1.0                # multiply values (use -1 to align with exports)
+
+
+@dataclass(frozen=True)
 class ModelConfig:
     """Everything that differs between steel and plastics for these figures."""
     name: str
@@ -163,6 +183,9 @@ class ModelConfig:
     # Filters for the raw per-market trade overlay figure.
     trade_good_filters: dict[str, str] = field(default_factory=dict)
     trade_material_filters: dict[str, str] = field(default_factory=dict)
+
+    # External cs4r series overlaid on specific market trade figures.
+    trade_overlays: list = field(default_factory=list)
 
 
 # Shared colour palette (Plotly default qualitative colours).
@@ -302,6 +325,22 @@ PLASTICS_CONFIG = ModelConfig(
     ],
     trade_good_filters={"final": "Packaging"},
     trade_material_filters={"final": "PET", "primary": "PET", "waste": "PET"},
+    trade_overlays=[
+        TradeOverlay(
+            market="primary",
+            label="Traded recyclate",
+            filename="pl_traded_recyclate_EU-MFA.cs4r",
+            base_dir="../remind_mfa_data/transience",
+            scenarios={
+                "S0": "CE-PET_fd_plastics_S0",
+                "S1": "CE-PET_fd_plastics_S1",
+                "S2": "CE-PET_fd_plastics_S2",
+            },
+            region="EU27+3",
+            material="PET",
+            good="Packaging",
+        ),
+    ],
 )
 
 MODEL_CONFIGS = {"steel": STEEL_CONFIG, "plastics": PLASTICS_CONFIG}
@@ -367,6 +406,36 @@ def custom_label(stem: str, model: str) -> str:
     """Short label for a custom run: the pickle stem minus ``model_<model>_``."""
     parts = [p for p in stem.split("_") if p not in ("model", model)]
     return "_".join(parts) or stem
+
+
+def load_cs4r_series(path: pathlib.Path, region=None, material=None, good=None,
+                     sign: float = 1.0):
+    """Read a cs4r flow file and return ``(years, values)`` summed over Time.
+
+    cs4r layout: comment lines start with ``*``; the data is comma-separated with
+    no header. The value is always the last column; the leading columns are
+    ``Time, Region, [Material], [Good]`` (column count varies by flow).
+    """
+    raw = pd.read_csv(path, comment="*", header=None)
+    ncol = raw.shape[1]
+    if ncol == 5:
+        raw.columns = ["Time", "Region", "Material", "Good", "value"]
+    elif ncol == 4:
+        raw.columns = ["Time", "Region", "Good", "value"]
+    elif ncol == 3:
+        raw.columns = ["Time", "Region", "value"]
+    else:
+        raise ValueError(f"Unexpected cs4r column count {ncol} in {path}")
+
+    if region is not None and "Region" in raw:
+        raw = raw[raw["Region"] == region]
+    if material is not None and "Material" in raw:
+        raw = raw[raw["Material"] == material]
+    if good is not None and "Good" in raw:
+        raw = raw[raw["Good"] == good]
+
+    series = raw.groupby("Time")["value"].sum().sort_index()
+    return series.index.to_numpy(), sign * series.to_numpy()
 
 
 def load_models(paths: list[pathlib.Path]):
@@ -788,7 +857,31 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 fig = ap_exports.plot()
                 fig.update_xaxes(range=[cfg.x_start_year, cfg.x_end_year])
                 self._add_hist_line(fig)
+                self._draw_trade_overlays(fig, name)
                 self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
+
+        # ── external cs4r overlays on a trade figure ────────────────────────
+        def _draw_trade_overlays(self, fig, market_name):
+            """Overlay external cs4r series (e.g. traded recyclate) for the given
+            market, one dotted line per scenario in the overlay spec."""
+            for ov in cfg.trade_overlays:
+                if ov.market != market_name:
+                    continue
+                base = pathlib.Path(ov.base_dir)
+                for ci, (suffix, subdir) in enumerate(ov.scenarios.items()):
+                    path = base / subdir / ov.filename
+                    if not path.exists():
+                        print(f"  overlay file missing, skipping: {path}")
+                        continue
+                    years, vals = load_cs4r_series(
+                        path, region=ov.region, material=ov.material,
+                        good=ov.good, sign=ov.sign)
+                    color = _CUSTOM_COLORS[ci % len(_CUSTOM_COLORS)]
+                    fig.add_trace(go.Scatter(
+                        x=years, y=vals, mode="lines",
+                        name=f"{ov.label} {suffix}",
+                        line=dict(color=color, width=2, dash="dot"),
+                    ))
 
         # ── individual flow overlays ────────────────────────────────────────
         def _visualize_flows(self, mfa):
