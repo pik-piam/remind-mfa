@@ -184,9 +184,9 @@ class CriticallyDampedBlender:
             Y'' + 2kY' + k²Y = k²P(t) + 2kP'(t)
 
         where Y is the blended trajectory, P the extrapolation target, and
-        k = 4.74 / approaching_time. The ODE is solved using a semi-implicit Euler
-        method with an anticipatory D-term to prevent overshoot. A quadratic nudge
-        applied after each step guarantees convergence to P over the long run.
+        k = 4.74 / approaching_time the damping parameter. The ODE is solved using a
+        semi-implicit Euler method with an anticipatory D-term to prevent overshoot.
+        A quadratic nudge applied after each step guarantees convergence to P over the long run.
 
         Args:
             approaching_time (float): Characteristic timescale in years. Sets the damping
