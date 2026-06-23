@@ -241,7 +241,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool, bottom_up: bool = Fals
         RemindMFAParameterDefinition(name="waste_size_max", dim_letters=("w", "p"),
                                      description="Maximum particle size represented for each waste type and class."),
         # bottom-up parameters
-        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "s"),
+        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "S", "s"),
                                      description="Historic and projected total buildings floorspace per region and stock type."),
         RemindMFAParameterDefinition(name="function_buildings_split", dim_letters=("r", "s", "f"),
                                      description="Split of building stock types into different functions per region."),

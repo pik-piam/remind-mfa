@@ -43,7 +43,7 @@ class CommonModel:
         self.read_data()
         self.check_parameters()
         self.read_scenario_parameters()
-        self.select_gdp_pop_scen()
+        self.select_driver_scen()
         self.modify_parameters()
         self.init_export_and_visualization()
 
@@ -118,12 +118,14 @@ class CommonModel:
         if all_good:
             logging.info("Success - No NaN or negative values found in parameters.")
 
-    def select_gdp_pop_scen(self):
-        """Select GDP and population scenario parameters based on scenario name"""
-        scen_name = self.scenario_parameters["gdp_pop_scen"]
-        for prm_name in ["gdppc", "population"]:
-            slice = self.parameters[prm_name][{"S": scen_name}]
-            self.parameters[prm_name] = fd.Parameter(dims=self.dims["t", "r"])
+    def select_driver_scen(self):
+        """Slice every parameter carrying a driver scenario (`S`) dimension to the selected scenario."""
+        scen_name = self.scenario_parameters["driver_scen"]
+        for prm_name, prm in list(self.parameters.items()):
+            if "S" not in prm.dims.letters:
+                continue
+            slice = prm[{"S": scen_name}]
+            self.parameters[prm_name] = fd.Parameter(dims=prm.dims.drop("S"))
             self.parameters[prm_name][...] = slice
 
     def read_scenario_parameters(self):
