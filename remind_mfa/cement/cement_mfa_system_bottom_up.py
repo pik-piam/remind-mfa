@@ -8,19 +8,22 @@ from remind_mfa.common.data_blending import CriticallyDampedBlender
 
 class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
-    def compute(self, td_stock: fd.FlodymArray, historic_trade: TradeSet,  scale: bool = False):
+    def compute(self, td_in_use: fd.Stock, historic_trade: TradeSet,  scale: bool = False):
         """
         Perform all computations for the MFA system.
-        The split and MI parameters for the bottom-up MFA should ultimately set the inflow,
-        but currently set the stock of the bottom-up MFA.
+        The building split and MI parameters for the bottom-up MFA should ultimately set the inflow,
+        but the data only describes the splits/mi of the current stock of the bottom-up MFA.
         Here, we assume a constant split/MI in the historical period, which will rebuild
-        the recently observed stock. Thereafter, the split/MI can be adjusted through scenarios.
+        the recently observed stock. Thereafter (in future), scenario-adjusted split/MI 
+        are applied to the inflow, and the stock is computed from there.
         Implementation idea:
         1. Compute the floorspace inflow (both historical and future) from the floorspace stock.
-        2. Apply the split/MI to the floorspace inflow to get the bottom-up concrete inflow.
-        3. Take the bottom-up concrete stock and apply the MI weighted split to get bu dims.
-        4. Blend td into bu stock where bu is available, use td everywhere else.
-        5. Compute the complete MFA with the blended stock and historic trade.
+        2. Apply the split/MI to the floorspace inflow.
+        3. Calculate the inflow-driven DSM to get the bottom-up concrete inflow.
+        4. Apply the MI weighted split and MI to the td inflow.
+        5. Calculate the inflow-driven DSM to get the top-down concrete inflow (including splits).
+        6. Blend td into bu stock where bu is available, use td everywhere else.
+        7. Compute the complete MFA with the blended stock and historic trade.
         """
         if scale:
             raise NotImplementedError("Scaling not implemented for bottom-up system.")
@@ -39,7 +42,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         )
         stk["floorspace"].compute()
 
-        # Add bu dimensions to the inflow + calculate bottom_up stock (inflow-driven)
+        # Add bu dimensions to the inflow + calculate bu stock (inflow-driven)
         stk["bu_in_use"].inflow[...] = (
             stk["floorspace"].inflow
             * prm["function_buildings_split"]
@@ -53,7 +56,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         stk["bu_in_use"].compute()
 
         # ------------- Compute TD stock -------------
-        # BU shares are given with respect to floorspace 
+        # BU shares are given with respect to floorspace
         # => needs to be weighted by MI for use in mass stock
         mi_weighted_split = (
             prm["function_buildings_split"]
@@ -61,10 +64,16 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             * prm["concrete_building_mi"]
             ).get_shares_over(("f", "b"))
 
-        # Resolve the top-down in-use stock into building dimensions (f, b) by applying the split.
-        # No dynamic stock model is needed here: because lifetimes do not depend on f or b
-        # Also, remove "k" dimension which is added again in super().compute()
-        td_stock_expanded = (td_stock * mi_weighted_split).sum_over("k")
+        # Resolve the top-down in-use stock into building dimensions (f, b).
+        # Add bu dimensions to the td infwlow and recalculate the td stock (inflow-driven)
+        # Equivalent to floorspace approach. Necessary to translate inflow splits into stock splits.
+        stk["td_in_use"].inflow[...] = td_in_use.inflow.sum_over("k") * mi_weighted_split
+        stk["td_in_use"].lifetime_model.set_prms(
+            mean=prm["lifetime_mean"],
+            std=prm["lifetime_std"],
+        )
+        stk["td_in_use"].compute()
+        td_stock_expanded = stk["td_in_use"].stock
 
         # ------------- Blend BU and TD stocks -------------
         # Preparation: remove (parts of the) dimensions that are not present in bu

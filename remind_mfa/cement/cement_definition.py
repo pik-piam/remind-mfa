@@ -165,6 +165,13 @@ def get_cement_definition(cfg: CementCfg, historic: bool, bottom_up: bool = Fals
                         subclass=fd.InflowDrivenDSM,
                         lifetime_model_class=cfg.model_switches.lifetime_model,
                     ),
+                    fd.StockDefinition(
+                        name="td_in_use",
+                        process=None,  # no associated process
+                        dim_letters=full_flow_letters,
+                        subclass=fd.InflowDrivenDSM,
+                        lifetime_model_class=cfg.model_switches.lifetime_model,
+                    ),
                 ]
             )
 
