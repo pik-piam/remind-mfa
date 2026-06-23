@@ -11,6 +11,16 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
     def compute(self, td_stock: fd.FlodymArray, historic_trade: TradeSet,  scale: bool = False):
         """
         Perform all computations for the MFA system.
+        The split and MI parameters for the bottom-up MFA should ultimately set the inflow,
+        but currently set the stock of the bottom-up MFA.
+        Here, we assume a constant split/MI in the historical period, which will rebuild
+        the recently observed stock. Thereafter, the split/MI can be adjusted through scenarios.
+        Implementation idea:
+        1. Compute the floorspace inflow (both historical and future) from the floorspace stock.
+        2. Apply the split/MI to the floorspace inflow to get the bottom-up concrete inflow.
+        3. Take the bottom-up concrete stock and apply the MI weighted split to get bu dims.
+        4. Blend td into bu stock where bu is available, use td everywhere else.
+        5. Compute the complete MFA with the blended stock and historic trade.
         """
         if scale:
             raise NotImplementedError("Scaling not implemented for bottom-up system.")
@@ -18,7 +28,34 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         prm = self.parameters
         stk = self.stocks
 
-        flow_split = (
+        # ------------- Compute BU stock -------------
+        # Calculate floorspace inflow from stock change + lifetime (stock-driven)
+        stock = prm["floorspace"]
+        stock[{'t': [y for y in stock.dims['t'].items if y < 2000]}] = 0
+        stk["floorspace"].stock = stock
+        stk["floorspace"].lifetime_model.set_prms(
+            mean=prm["lifetime_mean"],
+            std=prm["lifetime_std"],
+        )
+        stk["floorspace"].compute()
+
+        # Add bu dimensions to the inflow + calculate bottom_up stock (inflow-driven)
+        stk["bu_in_use"].inflow[...] = (
+            stk["floorspace"].inflow
+            * prm["function_buildings_split"]
+            * prm["structure_buildings_split"]
+            * prm["concrete_building_mi"]
+        )
+        stk["bu_in_use"].lifetime_model.set_prms(
+            mean=prm["lifetime_mean"],
+            std=prm["lifetime_std"],
+        )
+        stk["bu_in_use"].compute()
+
+        # ------------- Compute TD stock -------------
+        # BU shares are given with respect to floorspace 
+        # => needs to be weighted by MI for use in mass stock
+        mi_weighted_split = (
             prm["function_buildings_split"]
             * prm["structure_buildings_split"]
             * prm["concrete_building_mi"]
@@ -26,26 +63,18 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
         # Resolve the top-down in-use stock into building dimensions (f, b) by applying the split.
         # No dynamic stock model is needed here: because lifetimes do not depend on f or b
-        td_stock_expanded = (td_stock * flow_split).sum_over("k")
+        # Also, remove "k" dimension which is added again in super().compute()
+        td_stock_expanded = (td_stock * mi_weighted_split).sum_over("k")
 
-        # Calculate floorspace stock:
-        stk["floorspace"].stock = prm["floorspace"]
-        stk["floorspace"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"],
-            std=prm["lifetime_std"],
-        )
-        stk["floorspace"].compute()
-
-        # Calculate bottom_up inflow
-        stk["bu_in_use"].inflow[...] = stk["floorspace"].inflow * flow_split * prm["concrete_building_mi"]
-        stk["bu_in_use"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"],
-            std=prm["lifetime_std"],
-        )
-        stk["bu_in_use"].compute()
-
+        # ------------- Blend BU and TD stocks -------------
+        # Preparation: remove (parts of the) dimensions that are not present in bu
         reduced_bu_stock = stk["bu_in_use"].stock[self.reduced_dim_mask]
-        reduced_td_stock = td_stock_expanded[self.reduced_dim_mask][{"m": "concrete"}][{"t": self.dims["h"]}]
+        #reduced_td_stock = td_stock_expanded[self.reduced_dim_mask][{"m": "concrete"}][{"t": self.dims["h"]}]
+        reduced_td_stock = td_stock_expanded[{
+            **self.reduced_dim_mask,
+            "m": "concrete",
+            "t": self.dims["h"],
+        }]
 
         # Combine MFAs
         # blend smoothly between historic td and future bu
