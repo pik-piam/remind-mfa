@@ -16,11 +16,11 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         Here, we assume a constant split/MI in the historical period, which will rebuild
         the recently observed stock. Thereafter (in future), scenario-adjusted split/MI 
         are applied to the inflow, and the stock is computed from there.
-        Implementation idea:
+        Implementation approach:
         1. Compute the floorspace inflow (both historical and future) from the floorspace stock.
         2. Apply the split/MI to the floorspace inflow.
         3. Calculate the inflow-driven DSM to get the bottom-up concrete inflow.
-        4. Apply the MI weighted split and MI to the td inflow.
+        4. Apply the MI weighted split and MI to the td inflow (from `td_in_use` stock).
         5. Calculate the inflow-driven DSM to get the top-down concrete inflow (including splits).
         6. Blend td into bu stock where bu is available, use td everywhere else.
         7. Compute the complete MFA with the blended stock and historic trade.
@@ -33,8 +33,8 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
         # ------------- Compute BU stock -------------
         # Calculate floorspace inflow from stock change + lifetime (stock-driven)
-        stock = prm["floorspace"]
-        stock[{'t': [y for y in stock.dims['t'].items if y < 2000]}] = 0
+        stock = prm["floorspace"] # TODO remove once mrmfa is fixed
+        stock[{'t': [y for y in stock.dims['t'].items if y < 2000]}] = 0 # TODO remove once mrmfa is fixed
         stk["floorspace"].stock = stock
         stk["floorspace"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
@@ -67,7 +67,10 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         # Resolve the top-down in-use stock into building dimensions (f, b).
         # Add bu dimensions to the td infwlow and recalculate the td stock (inflow-driven)
         # Equivalent to floorspace approach. Necessary to translate inflow splits into stock splits.
-        stk["td_in_use"].inflow[...] = td_in_use.inflow.sum_over("k") * mi_weighted_split
+        # Building splits are only applied to concrete, mortar gets N/A label
+        td_inflow = td_in_use.inflow.sum_over("k")
+        stk["td_in_use"].inflow[{"m": "concrete"}] = td_inflow[{"m": "concrete"}] * mi_weighted_split
+        stk["td_in_use"].inflow[{"m": "mortar", "f": "nan", "b": "nan"}] = td_inflow[{"m": "mortar"}]
         stk["td_in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
             std=prm["lifetime_std"],
