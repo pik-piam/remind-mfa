@@ -221,7 +221,7 @@ def get_cement_definition(cfg: CementCfg, historic: bool) -> RemindMFADefinition
                                      description="Split of building stock types into different functions per region."),
         RemindMFAParameterDefinition(name="structure_buildings_split", dim_letters=("r", "f", "b"),
                                      description="Split of building functions into different structure types per region."),
-        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "s"),
+        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "S", "s"),
                                      description="Historic and projected total buildings floorspace per region and stock type."),
         RemindMFAParameterDefinition(name="hibernating_stock_share", dim_letters=("r",),
                                      description="Share of building stock that is hibernating (built but unused and not demolished)."),
