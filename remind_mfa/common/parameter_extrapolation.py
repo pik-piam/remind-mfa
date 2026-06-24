@@ -471,6 +471,11 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
 class ConstrainedSplitExtrapolation_Function(ConstrainedSplitExtrapolation):
     pass
 
+class ConstrainedSplitExtrapolation_Function_poly_mix(ConstrainedSplitExtrapolation):
+    pass
+
+class ConstrainedSplitExtrapolation_Structure_poly_mix(ConstrainedSplitExtrapolation):
+    pass
 
 class ConstrainedSplitExtrapolation_Structure(ConstrainedSplitExtrapolation):
     pass

@@ -20,8 +20,8 @@ model_switches:
     clinker_ratio: 'ConstantExtrapolation'
     lifetime_mean: 'ConstantExtrapolation'
     lifetime_std: 'ConstantExtrapolation'
-    function_buildings_split: 'ConstrainedSplitExtrapolation_Function'
-    structure_buildings_split: 'ConstrainedSplitExtrapolation_Structure'
+    function_buildings_split: 'ConstrainedSplitExtrapolation_Function_poly_mix'
+    structure_buildings_split: 'ConstrainedSplitExtrapolation_Structure_poly_mix'
 
 visualization:
   do_visualize: True
