@@ -1,5 +1,9 @@
-scenario,parent
-SSP2,
-SSP1,SSP2
-SSP1_lowEU,SSP1
-SSP2_cement_reconciliation,SSP2
+scenario,parent,
+base_top-down,
+base_bottom-up,base_top-down,
+SSP1,base_bottom-up,
+SSP2,base_bottom-up,
+SSP3,base_bottom-up,
+SSP4,base_bottom-up,
+SSP5,base_bottom-up,
+SSP1_lowEU,SSP1,

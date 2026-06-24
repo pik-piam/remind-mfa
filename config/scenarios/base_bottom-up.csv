@@ -1,0 +1,13 @@
+parameter,models,value,index:Region,index:Stock Type,index:Function,index:Structure,description
+function_buildings_split_target,cement,0.4,IND,Res,RS,,New single-family homes make up 40% of residential floor area
+function_buildings_split_target,cement,0.4,LAM,Res,RS,,New single-family homes make up 40% of residential floor area
+function_buildings_split_target,cement,0.4,OAS,Res,RS,,New single-family homes make up 40% of residential floor area
+function_buildings_split_target,cement,0.4,SSA,Res,RS,,New single-family homes make up 40% of residential floor area
+function_buildings_split_target_year,cement,2060,IND,Res,RS,,
+function_buildings_split_target_year,cement,2060,LAM,Res,RS,,
+function_buildings_split_target_year,cement,2060,OAS,Res,RS,,
+function_buildings_split_target_year,cement,2060,SSA,Res,RS,,
+function_buildings_split_receiver,cement,1.0,,Res,RM,,Multi-family homes absorb the share lost
+structure_buildings_split_target,cement,0.3,SSA,,,M,Masonry share in SSA decreases to 30%
+structure_buildings_split_target_year,cement,2060,SSA,,,M,
+structure_buildings_split_receiver,cement,1.0,SSA,,,C,Concrete absorbs the share lost by Masonry

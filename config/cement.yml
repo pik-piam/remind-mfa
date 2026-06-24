@@ -3,12 +3,12 @@ model: 'cement'
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.5.0'
+  input_data_revision: 'rev1.6.0_smoothed_floorspace'
   region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
 
 model_switches:
-  scenario: 'SSP2_cement_reconciliation'
+  scenario: 'SSP2'
   carbonation: False
   parameter_reconciliation:
     do_reconcile: True
