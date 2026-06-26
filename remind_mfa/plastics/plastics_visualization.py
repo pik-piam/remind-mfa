@@ -202,13 +202,18 @@ class PlasticsVisualizer(CommonVisualizer):
         recycle_color = "#86BCB6"
         emission_color = "#E15759"
         trade_color = "#D37295"
-        # differentiate materials with a color gradient
-        material_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(len(mfa.dims["Material"].items))]
+        # Packaging gets its own color; all other goods share one "Other" color
+        packaging_color = "#6574BD"
+        other_color = "#BAB0AC"
+        good_colors = [
+            packaging_color if good == "Packaging" else other_color
+            for good in mfa.dims["Good"].items
+        ]
 
         # Initialize default flow color mapping
         flow_color_dict = {"default": use_color}
         flow_color_dict.update(
-            {fn: ("Material", material_colors) for fn, f in mfa.flows.items() if "Material" in f.dims}
+            {fn: ("Good", good_colors) for fn, f in mfa.flows.items() if "Good" in f.dims}
         )
 
         # # Assign colors to 'use' flows
@@ -286,8 +291,8 @@ class PlasticsVisualizer(CommonVisualizer):
             # (emission_color, "Losses"),
             # (trade_color, "Trade"),
         ]
-        for material, color in zip(mfa.dims["Material"].items, material_colors):
-            legend_entries.append([color, material])
+        legend_entries.append([packaging_color, "Packaging"])
+        legend_entries.append([other_color, "Other"])
         for color, label in legend_entries:
             fig.add_trace(
                 go.Scatter(
