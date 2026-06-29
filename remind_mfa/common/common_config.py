@@ -122,6 +122,16 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Plotting engine to use for visualizations."""
     plotly_renderer: str = "browser"
     """Plotly renderer to use for visualizations."""
+    fig_width: int = 1000
+    """Logical width (px) of saved figures. Keep close to the final display size: readability
+    in a report depends on the font size relative to this width, not on the pixel resolution."""
+    fig_height: int = 600
+    """Logical height (px) of saved figures."""
+    fig_scale: int = 3
+    """Resolution multiplier for saved figures (sharpness only; does not affect text readability)."""
+    font_size: int = 18
+    """Base font size (px) applied to saved figures. Larger fonts relative to fig_width make text
+    readable once the image is scaled down to fit a Word/report page."""
 
     use_stock: StockVisualizationCfg
     """Visualization configuration for use stock."""
