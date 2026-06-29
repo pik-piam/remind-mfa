@@ -2,14 +2,14 @@ model: 'plastics'
 
 transience: 
   transience_run: True
-  baseline_pickle_path: 'model_plastics_SSP2_transience_CE-PET_fd_plastics_S0_default_2c0a4149_2026-06-15--12-16-16.pickle'
-  transience_scenario: 'CE-PET_fd_plastics_S1' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
+  baseline_pickle_path: 'model_plastics_SSP2_transience_CE-PET_fd_plastics_S0_default_2c0a4149_2026-06-29--09-13-07.pickle'
+  transience_scenario: 'CE-PET_fd_plastics_S0' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
   trade_scenario: 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.4.0'
+  input_data_revision: '1.5.0fix_plWastePolymerSplit'
   region_mapping: '2c0a4149' # EU27+3 TRANSIENCE region mapping
   scenarios_path: 'config/scenarios'
 
@@ -58,10 +58,9 @@ visualization:
     do_visualize: True
     plotter_args:
       slice_dict:
-        t: 2050
+        t: 2019
         r: 'EU27+3'
-        #m: 'Fibres'
-        e: 'C'
+        m: 'PET'
       exclude_processes:
         - "sysenv"
         - "atmosphere"
@@ -71,15 +70,21 @@ visualization:
         - "feedccu"
         - "HVC_input"
         - "C4_input"
+        - "other_reactants"
         - "emission"
         - "uncontrolled"
+        - "incineration"
+        - "losses"
+        - "reclchem"
+        - "mismanaged"
+        - "landfill"
         #- "waste_market"
         #- "primary_market"
         #- "intermediate_market"
         #- "good_market"
       exclude_flows: [ ]
   sector_splits:
-    do_visualize: True
+    do_visualize: False
   flows:
     do_visualize: False
 
