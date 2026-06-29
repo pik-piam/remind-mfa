@@ -83,6 +83,34 @@ def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
+    """Load the already-processed baseline output flow to use as the backcasting
+    reference for non-baseline scenarios.
+
+    Unlike the raw baseline input, the baseline output covers the full historic
+    period (1950-2060), so it provides a complete trajectory for extending the
+    shorter non-baseline scenario series into the past.
+    """
+    BASELINE_OUT_DIR = Path("../remind_mfa_data/transience/baseline")
+    flow_to_file = {
+        "demand":        "pl_stock_inflow_EU-MFA.cs4r",
+        "stock_outflow": "pl_stock_outflow_EU-MFA.cs4r",
+        "collected_eol": "pl_collected_eol_EU-MFA.cs4r",
+        "sorted_eol":    "pl_sorted_eol_EU-MFA.cs4r",
+        "recycled_eol":  "pl_recycled_eol_EU-MFA.cs4r",
+    }
+    path = BASELINE_OUT_DIR / flow_to_file[flow]
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Baseline output {path} not found. The 'baseline' scenario must be processed "
+            f"before non-baseline scenarios, since it is used as the backcasting reference."
+        )
+    return pd.read_csv(
+        path, comment="*", header=None,
+        names=["Time", "Region", "Material", "Good", "value"],
+    )
+
+
 def run_combination(material: str, flow: str, scenario: str):
     OUTPUT_DIR = Path("../remind_mfa_data/transience") / scenario
     REF_DIR = Path("../remind_mfa_data/transience/reference")
@@ -275,14 +303,25 @@ def run_combination(material: str, flow: str, scenario: str):
         )
 
     # --- backcast: extend df_EU_MFA into historic years using ref ---
-    if material == "steel" or flow == "demand":
+    if material == "plastics" and scenario != "baseline" and flow not in FLOWS_WITHOUT_BASELINE:
+        # Non-baseline scenarios only cover the scenario period (e.g. 2018-2050) and would
+        # otherwise drop abruptly to zero before their start year. Use the already-processed
+        # baseline flow (full 1950-2060 coverage) as the reference so every flow follows the
+        # baseline trajectory into the past, scaled to match the scenario in the overlap years.
+        baseline_ref = _load_baseline_output_plastics(flow)
+        df_backcasted = backcast_by_reference(
+            x=df_EU_MFA,
+            ref=baseline_ref,
+            max_n=5,
+        )
+    elif material == "steel" or flow == "demand":
         df_backcasted = backcast_by_reference(
             x=df_EU_MFA,
             ref=ref,
             max_n=5,
         )
     else:
-        # for plastics non-demand flows, we don't backcast by reference because eol flows start in different years for EU-MFA and this distorts the eol parameter calculation
+        # for plastics baseline non-demand flows, we don't backcast by reference because eol flows start in different years for EU-MFA and this distorts the eol parameter calculation
         # we instead assume zero before the first value in df_EU_MFA
         # get all dimension columns except Time and value
         group_dims = [c for c in df_EU_MFA.columns if c not in ("Time", "value")]
