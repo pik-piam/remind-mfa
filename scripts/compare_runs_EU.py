@@ -275,6 +275,10 @@ STEEL_CONFIG = ModelConfig(
 _PL_GROUPS = {"S1": _BLUE, "S2": _ORANGE}              # circularity scenarios (coloured lines)
 _PL_ALL = {**_PL_GROUPS, "Baseline": _GREY}           # incl. the grey baseline
 
+# Reader-facing scenario names. Internal identifiers (S0/S1/S2/Baseline) are kept
+# throughout for data lookup; only the legend/title text is renamed here.
+_PL_DISPLAY = {"Baseline": "baseline (R1)", "S0": "baseline (R1)", "S1": "R2", "S2": "R3"}
+
 PLASTICS_CONFIG = ModelConfig(
     name="plastics",
     region="EU27+3",
@@ -282,7 +286,7 @@ PLASTICS_CONFIG = ModelConfig(
     x_end_year=2050,
     delta_start_year=2018,
     group_order=list(_PL_GROUPS),
-    display={g: g for g in _PL_ALL},
+    display=dict(_PL_DISPLAY),
     color=dict(_PL_ALL),
     fill_solid={g: _fill(c, 0.20) for g, c in _PL_ALL.items()},
     fill_dashed={g: _fill(c, 0.08) for g, c in _PL_ALL.items()},
@@ -811,8 +815,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             if draw_baseline_line and cfg.show_baseline_line:
                 bl = _baseline_index(scenario_map, cfg)
                 if bl is not None:
+                    baseline_name = cfg.display.get(cfg.baseline_group, cfg.baseline_group)
                     self._add_line(fig, col, times, mat[:, bl] / scale, cfg.color_baseline,
-                                   "Baseline", col == 1 and "Baseline" not in legend_shown,
+                                   baseline_name, col == 1 and "Baseline" not in legend_shown,
                                    width=2)
                     legend_shown.add("Baseline")
 
@@ -888,7 +893,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                     color = _CUSTOM_COLORS[ci % len(_CUSTOM_COLORS)]
                     fig.add_trace(go.Scatter(
                         x=years, y=vals, mode="lines",
-                        name=f"{ov.label} {suffix}",
+                        name=f"{ov.label} {cfg.display.get(suffix, suffix)}",
                         line=dict(color=color, width=2, dash="dot"),
                     ))
 
@@ -1111,9 +1116,10 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             if bl is None:
                 return
             show_bl = col == 1 and "Baseline" not in legend_shown
+            baseline_name = cfg.display.get(cfg.baseline_group, cfg.baseline_group)
             for sign, vals in signed_vals:
                 self._add_line(fig, col, times, sign * vals[:, bl] / 1e6,
-                               cfg.color_baseline, "Baseline", show_bl, width=2)
+                               cfg.color_baseline, baseline_name, show_bl, width=2)
                 show_bl = False
             if col == 1:
                 legend_shown.add("Baseline")
@@ -1456,6 +1462,18 @@ def main():
     vis.cfg = vis.cfg.model_copy(update={"do_show_figs": True, "do_save_figs": True})
     vis._custom_runs = custom_runs
     vis._custom_indices = {idx for idx, _ in custom_runs}
+
+    # The scenario-comparison figures rename scenarios via ``cfg.display``. The raw
+    # per-run figures (trade overlay + individual flows) label lines by the Run-dim
+    # item instead, so register the same reader-facing names in ``display_names``.
+    if args.model == "plastics":
+        overrides = {}
+        for lab in scenario_labels:
+            for group in ("S2", "S1", "Baseline"):
+                if lab.startswith(group):
+                    overrides[lab] = cfg.display.get(group, group) + lab[len(group):]
+                    break
+        vis.display_names.dct.update(overrides)
 
     print("Plotting comparison figures…")
     vis.visualize(model=fake_model)
