@@ -1,15 +1,18 @@
 import logging
-import yaml
 import sys
 
-from remind_mfa.common.helpers import ModelNames
-from remind_mfa.common.common_model import CommonModel
+import yaml
+from dotenv import load_dotenv
+
 from remind_mfa.cement.cement_model import CementModel
+from remind_mfa.common.common_model import CommonModel
+from remind_mfa.common.helpers import ModelNames
 from remind_mfa.plastics.plastics_model import PlasticsModel
 from remind_mfa.steel.steel_model import SteelModel
 
 
 def run_remind_mfa(cfg_file: str):
+    load_dotenv()
     configure_logger()
     model_config = read_model_config(cfg_file)
     model = init_model(cfg=model_config)
