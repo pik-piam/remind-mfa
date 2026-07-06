@@ -198,10 +198,11 @@ class CommonDataReader(fd.CompoundDataReader):
             )
         # Special case for Region dimensions
         if "Region" in dimension_files:
-            regionmapping_path = os.path.join(material_parameter_path, "regionmapping.csv")
+            regionmapping_filename = f"regionmapping{self.region_mapping.capitalize()}.csv"
+            regionmapping_path = os.path.join(material_parameter_path, regionmapping_filename)
             if not os.path.exists(regionmapping_path):
                 raise FileNotFoundError(
-                    f"No regionmapping.csv found in shared input_data folder {material_parameter_path}"
+                    f"No '{regionmapping_filename}' found in shared input_data folder {material_parameter_path}"
                 )
             dimension_files["Region"] = regionmapping_path
 
