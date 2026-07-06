@@ -1,9 +1,11 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.steel.steel_config import SteelCfg
-from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import (
+    RemindMFADefinition,
+    RemindMFAParameterDefinition,
+)
 from remind_mfa.common.trade import TradeDefinition
+from remind_mfa.steel.steel_config import SteelCfg
 
 
 def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
@@ -182,7 +184,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Lower GDP per capita threshold for sector_split_high",
         ),
         RemindMFAParameterDefinition(
-            name="scrap_in_bof_rate", dim_letters=(),
+            name="scrap_in_BOF_rate", dim_letters=(),
             description="Share of scrap-based steel from BF-BOF production"
         ),
         RemindMFAParameterDefinition(

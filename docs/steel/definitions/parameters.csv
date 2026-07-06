@@ -11,7 +11,7 @@ g,sector_split_medium,Final good category shares in consumption for medium gdp p
 g,sector_split_high,Final good category shares in consumption for high gdp per capita
 ,secsplit_gdppc_low,Upper GDP per capita threshold for sector_split_low
 ,secsplit_gdppc_high,Lower GDP per capita threshold for sector_split_high
-,scrap_in_bof_rate,Share of scrap-based steel from BF-BOF production
+,scrap_in_BOF_rate,Share of scrap-based steel from BF-BOF production
 ,forming_loss_rate,"Loss rate in forming process. Contrary to (1-forming_yield), this material is completely lost and not recycled as home scrap"
 ,fabrication_losses,"Loss rate during fabrication of final goods. Contrary to (1-fabrication_yield), this material is completely lost and not recycled as new scrap"
 ,production_loss_rate,Loss rate of raw steel production in BF-BOF and (DRI-)EAF processes
