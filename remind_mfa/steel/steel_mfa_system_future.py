@@ -1,9 +1,9 @@
 import flodym as fd
 
+from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
-from remind_mfa.common.price_driven_trade import PriceDrivenTrade
-from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.steel.steel_config import SteelCfg
 
 
@@ -152,9 +152,9 @@ class SteelMFASystem(CommonMFASystem):
         aux["scrap_share_production"][...] = aux["scrap_in_production"] / aux["production_inflow"].maximum(1e-6)
         aux["eaf_share_production"][...] = (
             aux["scrap_share_production"]
-            - prm["scrap_in_bof_rate"].cast_to(aux["scrap_share_production"].dims)
+            - prm["scrap_in_BOF_rate"].cast_to(aux["scrap_share_production"].dims)
         )
-        aux["eaf_share_production"][...] = aux["eaf_share_production"] / (1 - prm["scrap_in_bof_rate"])
+        aux["eaf_share_production"][...] = aux["eaf_share_production"] / (1 - prm["scrap_in_BOF_rate"])
         aux["eaf_share_production"][...] = aux["eaf_share_production"].minimum(1).maximum(0)
         flw["scrap_market => eaf_production"][...] = aux["production_inflow"] * aux["eaf_share_production"]
         flw["scrap_market => bof_production"][...] = aux["scrap_in_production"] - flw["scrap_market => eaf_production"]
