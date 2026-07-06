@@ -49,13 +49,13 @@ class CommonDataReader(fd.CompoundDataReader):
 
     @staticmethod
     def resolve_madrat_output_path(configured_path: str | None) -> str:
-        def check_path(path: str | None) -> TypeIs[str]: 
+        def check_path(path: str | None) -> TypeIs[str]:
             if not path:
                 return False
             if not Path(path).exists():
                 raise ValueError(f"Specified MADRAT output path '{path}' does not exist.")
             return True
-        
+
         if check_path(configured_path):
             return configured_path
         env_path = os.environ.get("MADRAT_OUTPUTFOLDER")
@@ -173,7 +173,9 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def validate_parameter_files(self, parameter_files: dict[str, str]):
         """Validate that all expected parameter files for the selected model exist."""
-        missing = [(name, path) for name, path in parameter_files.items() if not os.path.exists(path)]
+        missing = [
+            (name, path) for name, path in parameter_files.items() if not os.path.exists(path)
+        ]
         if missing:
             raise FileNotFoundError(
                 f"Missing parameter files in shared input_data folder '{self.shared_parameter_path}' for model "
