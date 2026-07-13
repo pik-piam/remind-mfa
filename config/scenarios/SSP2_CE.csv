@@ -1,0 +1,3 @@
+parameter,models,value,extra:year,index:Region,description
+stock_factor,cement,0.9,,,
+lifetime_factor,cement,1.2,,,

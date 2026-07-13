@@ -1,2 +1,4 @@
 parameter,models,value,extra:year,index:Region,description
 driver_scen,all,SSP2,,,
+stock_factor,cement,1.0,,,
+lifetime_factor,cement,1.0,,,
