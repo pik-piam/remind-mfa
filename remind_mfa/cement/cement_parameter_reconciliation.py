@@ -270,7 +270,9 @@ class CementParameterReconciliation:
         product_stock = product_stock[{"h": self._year_of_reconciliation}]
 
         # 2.2 Use only the reconciled material (concrete) [no mortar]
-        concrete_stock = product_stock[{"m": self._reconciled_split_items["product_material_split"][0]}]
+        concrete_stock = product_stock[
+            {"m": self._reconciled_split_items["product_material_split"][0]}
+        ]
 
         return concrete_stock
 

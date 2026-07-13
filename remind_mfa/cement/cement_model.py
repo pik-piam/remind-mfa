@@ -48,7 +48,7 @@ class CementModel(CommonModel):
 
         if self.cfg.model_switches.parameter_reconciliation.do_reconcile:
             return self.run_with_reconciliation()
-    
+
     def make_bottom_up_mfa(self):
         """Construct the future bottom-up MFA."""
         return self.make_mfa(

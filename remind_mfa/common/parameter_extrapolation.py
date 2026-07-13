@@ -426,7 +426,9 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
         recv_scale = has_recv * recv_budget / recv_hist_sum.cast_to(remaining.dims).maximum(1e-9)
 
         # Proportional mode: all unspecified entries scale to fill remaining (scale = remaining / unspec_hist_sum)
-        prop_scale = (1 - has_recv) * remaining / unspec_hist_sum.cast_to(remaining.dims).maximum(1e-9)
+        prop_scale = (
+            (1 - has_recv) * remaining / unspec_hist_sum.cast_to(remaining.dims).maximum(1e-9)
+        )
 
         # Combined unspecified scale: 1 in receiver mode, prop_scale in proportional mode
         unspec_scale = has_recv + prop_scale
@@ -471,11 +473,14 @@ class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
 class ConstrainedSplitExtrapolation_Function(ConstrainedSplitExtrapolation):
     pass
 
+
 class ConstrainedSplitExtrapolation_Function_poly_mix(ConstrainedSplitExtrapolation):
     pass
 
+
 class ConstrainedSplitExtrapolation_Structure_poly_mix(ConstrainedSplitExtrapolation):
     pass
+
 
 class ConstrainedSplitExtrapolation_Structure(ConstrainedSplitExtrapolation):
     pass

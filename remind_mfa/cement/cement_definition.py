@@ -6,10 +6,14 @@ from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
 
 
-def get_cement_definition(cfg: CementCfg, historic: bool, bottom_up: bool = False) -> RemindMFADefinition:
-    
+def get_cement_definition(
+    cfg: CementCfg, historic: bool, bottom_up: bool = False
+) -> RemindMFADefinition:
+
     if historic and bottom_up:
-        raise ValueError("Historical Bottom-up not implemented. Please set historic=False or bottom_up=False.")
+        raise ValueError(
+            "Historical Bottom-up not implemented. Please set historic=False or bottom_up=False."
+        )
 
     # 1) Dimensions
     dimensions = [
@@ -174,7 +178,6 @@ def get_cement_definition(cfg: CementCfg, historic: bool, bottom_up: bool = Fals
                     ),
                 ]
             )
-
 
     # fmt: off
     # 5) Parameters
