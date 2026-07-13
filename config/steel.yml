@@ -67,5 +67,3 @@ export:
   docs:
     do_export: False
     path: 'docs/steel'
-  parameter_plots:
-    do_export: False

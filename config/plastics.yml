@@ -82,5 +82,3 @@ export:
   docs:
     do_export: True
     path: 'docs/plastics'
-  parameter_plots:
-    do_export: False
