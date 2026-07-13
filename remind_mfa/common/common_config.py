@@ -67,6 +67,7 @@ class BaseExportCfg(RemindMFABaseModel):
     path: str = None
     """Path to export folder for this entity"""
 
+
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
@@ -78,6 +79,7 @@ class ExportCfg(BaseExportCfg):
     """Configuration of export to documentation files."""
     iamc: BaseExportCfg
     """Configuration of export of results in IAMC format."""
+
 
 class BaseVisualizationCfg(RemindMFABaseModel):
     do_visualize: bool = True
