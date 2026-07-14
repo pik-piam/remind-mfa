@@ -1,0 +1,27 @@
+﻿original_dimension;original_element;target_dimension;target_element;factor
+polymers;PE-LD, -LLD;plastic_materials;LDPE;1
+polymers;PE-HD, -MD;plastic_materials;HDPE;1
+polymers;PP;plastic_materials;PP;1
+polymers;PS;plastic_materials;PS;1
+polymers;PS-E;plastic_materials;PS;1
+polymers;PVC;plastic_materials;PVC;1
+polymers;PET;plastic_materials;PET;1
+polymers;ABS, SAN;plastic_materials;ABS_ASA_SAN;1
+polymers;PMMA;plastic_materials;Others;1
+polymers;PA (PA6, PA66);plastic_materials;Others;1
+polymers;PC;plastic_materials;Others;1
+polymers;Other Thermoplastics;plastic_materials;Others;1
+polymers;PUR;plastic_materials;PUR;1
+polymers;Other Plastics;plastic_materials;Others;1
+plastic_materials;BioPlastics;polymers;-;0
+plastic_materials;Fibres;polymers;-;0
+plastic_materials;Elastomers (tyres);polymers;-;0
+end_use_sectors_MainSectors;Building and Construction;plastic_goods_in_use;Buildings & Construction;1
+end_use_sectors_MainSectors;Automotive;plastic_goods_in_use;Transportation;1
+end_use_sectors_MainSectors;Electrical and Electronics;plastic_goods_in_use;Electrical/Electronics;1
+end_use_sectors_MainSectors;Agriculture;plastic_goods_in_use;Others;1
+end_use_sectors_MainSectors;Household, Leisure, Sports;plastic_goods_in_use;Household & Leisure & Sports;1
+end_use_sectors_MainSectors;Others;plastic_goods_in_use;Others;1
+end_use_sectors_MainSectors;Household packaging;plastic_goods_in_use;Packaging;1
+end_use_sectors_MainSectors;Commercial & industrial packaging;plastic_goods_in_use;Packaging;1
+plastic_goods_in_use;Textile sector;end_use_sectors_MainSectors;-;1

@@ -1,0 +1,28 @@
+﻿original_dimension;original_element;target_dimension;target_element;factor
+region;EU27+1;region;EUR;1
+products;Light Sections;steel_intermediate_products;Light_Sections;1
+products;Heavy Sections;steel_intermediate_products;Heavy_Sections;1
+products;Rail;steel_intermediate_products;Rail;1
+products;Rebar;steel_intermediate_products;Rebar;1
+products;Wire Rod;steel_intermediate_products;Wire_Rod;1
+products;Hot Rolled Bar;steel_intermediate_products;Hot_Rolled_Bar;1
+products;Plate;steel_intermediate_products;Plate;1
+products;Hot Rolled Coil;steel_intermediate_products;HRC;1
+products;Hot Rolled Coil Galvanized;steel_intermediate_products;HRC_Galv;1
+products;Hot Rolled Narrow Strip;steel_intermediate_products;HR_Narrow_Strip;1
+products;Cold Rolled Coil;steel_intermediate_products;CRC;1
+products;Cold Rolled Coil Galvanized;steel_intermediate_products;CRC_Galv;1
+products;Cold Rolled Coil Organic Coated;steel_intermediate_products;CRC_Coated;1
+products;Cold Rolled Coil Tinned;steel_intermediate_products;CRC_Tinned;1
+products;Electrical Sheet;steel_intermediate_products;Electrical_Sheet;1
+products;Welded Tube;steel_intermediate_products;Welded_Tube;1
+products;Seamless Tube;steel_intermediate_products;Seamless_Tube;1
+products;Cast Iron;steel_intermediate_products;Cast_Iron;1
+products;Cast Steel;steel_intermediate_products;Cast_Steel;1
+end_use_sectors;Construction;steel_goods_in_use;Construction;1
+end_use_sectors;Automotive;steel_goods_in_use;Transport;1
+end_use_sectors;Other Transport;steel_goods_in_use;Transport;1
+end_use_sectors;Mechanical Engineering;steel_goods_in_use;Machinery;1
+end_use_sectors;Miscellaneous;steel_goods_in_use;Products;1
+end_use_sectors;Metalware;steel_goods_in_use;Products;1
+end_use_sectors;Domestic appliances;steel_goods_in_use;Products;1
