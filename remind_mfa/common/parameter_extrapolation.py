@@ -1,258 +1,355 @@
 import numpy as np
 import flodym as fd
-from abc import ABC, abstractmethod
-from typing import Dict, TYPE_CHECKING
+from typing import Dict, Optional, TYPE_CHECKING
 from numbers import Number
 
 if TYPE_CHECKING:
-    from remind_mfa.common.common_config import CommonCfg
+    from remind_mfa.common.common_config import CommonCfg, ParameterExtrapolationSpec
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.data_blending import blend
 
 
-class ParameterExtrapolation(ABC):
-    """Base class for parameter transformations including extrapolation and scenario application.
+class ParameterExtrapolation:
+    """Extrapolate a parameter into the future, blending to pre-defined scenarios.
 
-    Handles three cases:
-    1. Parameters with 'h' dimension → extend to 't' dimension
-    2. Parameters with 't' dimension → modify future values
-    3. Parameters with no time dimension → add time dimension and apply transformation to future values
+    Handles three input cases:
 
-    Important: fill_values() always receives a prepared parameter with 't' dimension.
-    Historic values are automatically preserved by the transform() method.
+    1. Parameters with 'h' dimension: extended to 't', future filled with the last
+       historic value (constant continuation) as baseline
+    2. Parameters with 't' dimension: existing future values serve as baseline
+    3. Parameters with no time dimension: 't' dimension is added, values constant in time
+
+    On top of the baseline, scenario parameters modify individual entries (see
+    ``ParameterExtrapolationSpec`` for the naming convention). The two modes differ in
+    their anchor:
+
+    - **Absolute** (``{name}_target`` + ``_target_year``): the entry blends from the
+      *last historic value* to the absolute target by the target year. The anchor is
+      always the last historic value, independent of the baseline shape — so for a
+      't' parameter this ignores any pre-existing future trajectory.
+    - **Relative** (``{name}_factor`` + ``_factor_year``): the entry keeps its *baseline*
+      and is multiplied by a factor blending from 1 to the given value by the factor year.
+      The anchor is the baseline itself — so for a 't' parameter it scales the pre-existing
+      future trajectory, and for an 'h'/static one it scales the (constant) last historic value.
+
+    All other entries keep the baseline. Historic values are always preserved.
     """
 
-    @abstractmethod
-    def fill_values(
+    def __init__(
         self,
-        prepared_param: fd.Parameter,
-        new_param: fd.Parameter,
-    ) -> fd.Parameter:
-        """Sets values of new_param based on transformation method.
-
-        Args:
-            prepared_param: Parameter with 't' dimension (converted from 'h' if necessary)
-            new_param: New parameter with 't' dimension to fill
-
-        Returns:
-            Parameter with filled values
-
-        Note:
-            Historic values will be overwritten with original data after this method returns.
-            Focus on computing the desired future values.
-        """
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def description(self) -> str:
-        """Return a description of the transformation."""
-        raise NotImplementedError
-
-    def transform(
-        self,
-        parameter: fd.Parameter,
+        spec: "ParameterExtrapolationSpec",
+        scenario_parameters: Dict[str, fd.Parameter | Number],
         historic_time: fd.Dimension,
         extended_time: fd.Dimension,
-    ) -> fd.Parameter:
-        """Transform parameter to extended time dimension, applying the transformation method.
-
-        Handles all three cases: h→t extrapolation, t→t modification, and static→t expansion.
-        Historic values are always preserved from the original parameter.
-        """
+    ):
+        self.spec = spec
+        self.scenario_parameters = scenario_parameters or {}
         self.historic_time = historic_time
         self.extended_time = extended_time
 
-        # Prepare parameter: convert h→t or add t dimension if needed
-        prepared_param = self._prepare_parameter(parameter)
+    def extrapolate(self, parameter: fd.Parameter, name: str) -> fd.Parameter:
+        """Return the extrapolated parameter with full 't' dimension."""
+        prepared = self._prepare_parameter(parameter, name)
+        last_hist = prepared[{"t": self._last_historic_time}]
 
-        # Initialize new parameter with extended time dimension
-        new_param = fd.Parameter(dims=prepared_param.dims, name=prepared_param.name)
+        target = self.scenario_parameters.get(f"{name}_target")
+        target_year = self.scenario_parameters.get(f"{name}_target_year")
+        factor = self.scenario_parameters.get(f"{name}_factor")
+        factor_year = self.scenario_parameters.get(f"{name}_factor_year")
 
-        # Fill values using the specific transformation method
-        new_param = self.fill_values(prepared_param, new_param)
+        # allow different extrapolation modes within the same parameter
+        is_abs = self._specified_mask(target_year, last_hist.dims)
+        is_rel = self._specified_mask(factor_year, last_hist.dims)
+        self._check_scenario_definition(
+            name, target, target_year, factor, factor_year, is_abs, is_rel
+        )
+        unspec = (1 - is_abs) * (1 - is_rel)
 
-        # Preserve original historic values
-        new_param[{"t": self.historic_time}] = prepared_param[{"t": self.historic_time}]
+        # keep the baseline where no scenario is specified; targeted entries start at zero
+        new_values = prepared * unspec
 
+        # absolute extrapolation: blend from the last historic value to the target
+        if target_year is not None:
+            new_values = new_values + is_abs * self._absolute_values(
+                last_hist, target, target_year, prepared.dims
+            )
+        # relative extrapolation: scale the baseline by a factor blending from 1
+        if factor_year is not None:
+            new_values = new_values + is_rel * prepared * self._relative_factors(
+                factor, factor_year, prepared.dims
+            )
+
+        # renormalize over the split dimension if supplied
+        if self.spec.constrained_split_dim is not None:
+            # note: 1 - unspec equals the combined is_abs/is_rel mask, but is safe against
+            # flodym's sum-reducing addition when the two masks have different dimensions
+            new_values = self._renormalize_split(new_values, prepared, 1 - unspec, name)
+
+        add_assumption_doc(
+            type="model switch",
+            name=f"Extrapolation of {name}",
+            description=self._description(
+                name, is_abs, is_rel, unspec, target, target_year, factor, factor_year
+            ),
+        )
+
+        # preserve historical values
+        new_param = new_values.to_Parameter(name=name)
+        new_param[{"t": self.historic_time}] = prepared[{"t": self.historic_time}]
         return new_param
 
-    def _prepare_parameter(
-        self,
-        parameter: fd.Parameter,
-    ) -> fd.Parameter:
-        """Prepare parameter to have 't' dimension.
+    def _prepare_parameter(self, parameter: fd.Parameter, name: str) -> fd.Parameter:
+        """Return the baseline parameter with 't' dimension.
 
-        - h→t: Expand historic parameter to full time dimension
-        - static→t: Add time dimension
-        - t→t: Return as-is
+        - h -> t: historic values kept, future filled with the last historic value
+        - static -> t: values constant in time
+        - t -> t: returned as-is
         """
         if "t" in parameter.dims.letters:
+            # no changes needed
             return parameter
 
         if "h" in parameter.dims.letters:
-            # Convert h to t: expand historic data to extended time
+            # replace h with t, fill future with last historic value
             new_dims = parameter.dims.replace("h", self.extended_time)
-            new_param = fd.Parameter(dims=new_dims, name=parameter.name)
+            new_param = fd.Parameter(dims=new_dims, name=name)
+            new_param[...] = parameter[{"h": self._last_historic_time}].cast_to(new_dims)
             new_param[{"t": self.historic_time}] = parameter
             return new_param
 
-        # Static parameter: add time dimension
+        # static parameter: add time dimension, but keep values constant in time
         new_dims = parameter.dims.prepend(self.extended_time)
-        new_param = parameter.cast_to(new_dims)
-        return new_param
+        return parameter.cast_to(new_dims)
 
     @property
     def _last_historic_time(self) -> Number:
-        """Get the last historic year from the historic time dimension."""
         return self.historic_time.items[-1]
 
-    def _get_last_historic_value(self, prepared_param: fd.Parameter) -> fd.FlodymArray:
-        """Get the value at the last historic year from a prepared (t-dimension) parameter."""
-        return prepared_param[{"t": self._last_historic_time}]
+    def _specified_mask(
+        self, year: Optional[fd.FlodymArray], dims: fd.DimensionSet
+    ) -> fd.FlodymArray:
+        """1.0 where a target/factor year is set (> 0), 0.0 elsewhere."""
+        if year is None:
+            return fd.Parameter(dims=dims)
+        return year.apply(lambda x: (x > 0).astype(float))
 
+    def _check_scenario_definition(
+        self, name, target, target_year, factor, factor_year, is_abs, is_rel
+    ):
+        if (target is None) != (target_year is None):
+            missing = f"{name}_target" if target is None else f"{name}_target_year"
+            raise ValueError(
+                f"'{missing}' is missing — target and target_year must be set together."
+            )
+        if (factor is None) != (factor_year is None):
+            missing = f"{name}_factor" if factor is None else f"{name}_factor_year"
+            raise ValueError(
+                f"'{missing}' is missing — factor and factor_year must be set together."
+            )
+        if np.any((is_abs * is_rel).values > 0):
+            raise ValueError(
+                f"Scenario sets both '{name}_target' and '{name}_factor' for the same entries. "
+                "Only one of absolute target and relative factor may be given per entry."
+            )
 
-class ConstantExtrapolation(ParameterExtrapolation):
-    """Keep parameter constant at last observed value.
-
-    Special case of BlendExtrapolation where start and end values are the same.
-    """
-
-    def fill_values(
+    def _absolute_values(
         self,
-        prepared_param: fd.Parameter,
-        new_param: fd.Parameter,
-    ) -> fd.Parameter:
-
-        add_assumption_doc(
-            type="model switch",
-            name=f"Keep {prepared_param.name} constant",
-            description=self.description,
-        )
-
-        # get last historic value
-        last_value = self._get_last_historic_value(prepared_param)
-
-        # set values to last historic value
-        new_param[...] = last_value.cast_to(new_param.dims)
-
-        return new_param
-
-    @property
-    def description(self) -> str:
-        return "Parameter is kept constant into the future at last observed value."
-
-
-class ZeroExtrapolation(ParameterExtrapolation):
-    """Set parameter to zero in future."""
-
-    def fill_values(
-        self,
-        prepared_param: fd.Parameter,
-        new_param: fd.Parameter,
-    ) -> fd.Parameter:
-
-        add_assumption_doc(
-            type="model switch",
-            name=f"Set {prepared_param.name} to zero",
-            description=self.description,
-        )
-
-        new_param[...] = 0
-
-        return new_param
-
-    @property
-    def description(self) -> str:
-        return "Parameter is set to zero in the future."
-
-
-class ScenarioExtrapolation(ParameterExtrapolation):
-    """Base class for extrapolation methods that require scenario parameters in their constructor."""
-
-    pass
-
-
-class LinearToTargetExtrapolation(ScenarioExtrapolation):
-    """Linearly interpolate to a future target value according to scenario settings."""
-
-    def __init__(self, scenario_parameters: Dict[str, Number]):
-        self.scenario_parameters = scenario_parameters
-
-    def fill_values(
-        self,
-        prepared_param: fd.Parameter,
-        new_param: fd.Parameter,
-    ) -> fd.Parameter:
-
-        add_assumption_doc(
-            type="model switch",
-            name=f"Linear interpolation of {prepared_param.name} to target value by target year.",
-            description=self.description,
-        )
-
-        new_param[...] = blend(
-            target_dims=new_param.dims,
-            y_lower=self._get_last_historic_value(prepared_param),
-            y_upper=self.scenario_parameters[prepared_param.name],
+        last_hist: fd.FlodymArray,
+        target: fd.FlodymArray,
+        target_year: fd.FlodymArray,
+        target_dims: fd.DimensionSet,
+    ) -> fd.FlodymArray:
+        """Blend from the last historic value to the absolute target by the target year."""
+        return blend(
+            target_dims=target_dims,
+            y_lower=last_hist,
+            y_upper=target,
             x="t",
             x_lower=self._last_historic_time,
-            x_upper=self.scenario_parameters[prepared_param.name + "_year"],
-            type="linear",
+            x_upper=target_year,
+            type=self.spec.blend,
         )
 
-        return new_param
-
-    @property
-    def description(self) -> str:
-        return "Parameter is linearly interpolated to a future target value by a target year according to scenario settings."
-
-
-class SmoothScalingExtrapolation(ScenarioExtrapolation):
-    """Future values are scaled by a factor that changes linearly to a target factor."""
-
-    def __init__(self, scenario_parameters: Dict[str, Number]):
-        self.scenario_parameters = scenario_parameters
-
-    def fill_values(
+    def _relative_factors(
         self,
-        prepared_param: fd.Parameter,
-        new_param: fd.Parameter,
-    ) -> fd.Parameter:
-
-        add_assumption_doc(
-            type="model switch",
-            name=f"Scaling of {prepared_param.name} by factor that increases linearly to target value by target year.",
-            description=self.description,
-        )
-
-        scaling_factors = blend(
-            target_dims=new_param.dims,
+        factor: fd.FlodymArray,
+        factor_year: fd.FlodymArray,
+        target_dims: fd.DimensionSet,
+    ) -> fd.FlodymArray:
+        """Scaling factors blending from 1 to the scenario factor by the factor year."""
+        return blend(
+            target_dims=target_dims,
             y_lower=1.0,
-            y_upper=self.scenario_parameters[prepared_param.name],
+            y_upper=factor,
             x="t",
             x_lower=self._last_historic_time,
-            x_upper=self.scenario_parameters[prepared_param.name + "_year"],
-            type="quintic",
+            x_upper=factor_year,
+            type=self.spec.blend,
         )
 
-        new_param[...] = prepared_param * scaling_factors
+    def _renormalize_split(
+        self,
+        values: fd.FlodymArray,
+        prepared: fd.FlodymArray,
+        is_targeted: fd.FlodymArray,
+        name: str,
+    ) -> fd.FlodymArray:
+        """Preserve the sum=1 constraint over the split dimension.
 
-        return new_param
+        Targeted entries keep their blended values. The remaining budget is distributed
+        in one of two modes, determined per context slice (each combination of non-split,
+        non-time index values):
 
-    @property
-    def description(self) -> str:
-        return "Parameter values are scaled by a factor that changes linearly to a target factor by a target year according to scenario settings."
+        - **Proportional** (no receiver specified): unspecified entries scale
+          proportionally to their baseline shares so that the sum stays 1.
+        - **Receiver** (at most one receiver entry flagged via ``{name}_receiver``):
+          unspecified entries keep their baseline; the single receiver absorbs whatever
+          share is left so the sum stays 1.
+        """
+        split_letter = prepared.dims[self.spec.constrained_split_dim].letter
+
+        # Classify entries into three groups: targeted, receiver, and unspecified
+        receiver = self.scenario_parameters.get(f"{name}_receiver")
+        is_receiver = self._specified_mask(receiver, prepared.dims.drop("t"))
+        is_unspecified = (1 - is_targeted) * (1 - is_receiver)
+
+        # How much share remains after targeted entries have claimed their blended values
+        targeted_sum = (values * is_targeted).sum_over(split_letter)
+        remaining_share = 1.0 - targeted_sum
+
+        # Unspecified entries keep their baseline in receiver mode, so their share is already claimed
+        unspecified_baseline_sum = (prepared * is_unspecified).sum_over(split_letter)
+
+        # 1 where a receiver exists in this slice, 0 elsewhere (at most one receiver per slice).
+        # Cast to the slice dims: flodym addition reduces to the common dims by summing,
+        # so combining arrays of unequal dims without casting corrupts the result.
+        is_receiver_mode = is_receiver.sum_over(split_letter).cast_to(remaining_share.dims)
+
+        # Proportional mode: by how much do unspecified entries scale to fill remaining_share?
+        proportional_scale = remaining_share / unspecified_baseline_sum.maximum(1e-9)
+        # Receiver mode: unspecified stay at baseline (scale=1); else scale proportionally
+        unspecified_scale = is_receiver_mode + (1 - is_receiver_mode) * proportional_scale
+
+        # Assemble: each group fills its budget exactly, so the sum over the split dim stays 1
+        new_values = (
+            values * is_targeted  # targeted entries keep their blended values
+            + (remaining_share - unspecified_baseline_sum)
+            * is_receiver  # receiver absorbs the freed share
+            + unspecified_scale * prepared * is_unspecified  # baseline or proportionally scaled
+        )
+
+        self._assert_sums_to_one(new_values, prepared, split_letter, name)
+
+        return new_values
+
+    def _assert_sums_to_one(
+        self,
+        values: fd.FlodymArray,
+        prepared: fd.FlodymArray,
+        split_letter: str,
+        name: str,
+    ):
+        """Check that values sum to 1 over the split dimension wherever the baseline does."""
+        sums = values.sum_over(split_letter)
+        baseline_sums = prepared.sum_over(split_letter)
+        applicable = baseline_sums.apply(lambda x: x > 1e-9)
+        deviation = ((sums - 1.0) * applicable).values
+        if not np.allclose(deviation, 0.0, atol=1e-6):
+            raise ValueError(
+                f"'{name}' does not sum to 1 over '{self.spec.constrained_split_dim}' after "
+                f"extrapolation. Max deviation on applicable slices: {np.abs(deviation).max():.2e}"
+            )
+
+    def _description(
+        self,
+        name: str,
+        is_abs: fd.FlodymArray,
+        is_rel: fd.FlodymArray,
+        unspec: fd.FlodymArray,
+        target: Optional[fd.FlodymArray],
+        target_year: Optional[fd.FlodymArray],
+        factor: Optional[fd.FlodymArray],
+        factor_year: Optional[fd.FlodymArray],
+    ) -> str:
+        """Describe the extrapolation actually applied to this parameter's entries.
+
+        Reports only the modes that occur, with the scope (named dimension items where
+        few, otherwise a count) and the actual target/factor values and years.
+        """
+        parts = [f"Parameter '{name}' is extended into the future using blend '{self.spec.blend}'."]
+
+        abs_scope = self._mask_scope(is_abs)
+        if abs_scope is not None and target is not None and target_year is not None:
+            tv = self._value_range(target, is_abs, self._fmt_value)
+            ty = self._value_range(target_year, is_abs, self._fmt_year)
+            parts.append(
+                f" Absolute targets ('{name}_target') are set for {abs_scope}, blending from "
+                f"the last historic value to {tv} by {ty}."
+            )
+
+        rel_scope = self._mask_scope(is_rel)
+        if rel_scope is not None and factor is not None and factor_year is not None:
+            fv = self._value_range(factor, is_rel, self._fmt_value)
+            fy = self._value_range(factor_year, is_rel, self._fmt_year)
+            parts.append(
+                f" Relative factors ('{name}_factor') are applied to {rel_scope}, scaling the "
+                f"baseline by {fv} by {fy}."
+            )
+
+        const_scope = self._mask_scope(unspec)
+        if const_scope == "all entries":
+            parts.append(" All entries keep their baseline (constant continuation).")
+        elif const_scope is not None:
+            parts.append(" The remaining entries keep their baseline.")
+
+        if self.spec.constrained_split_dim is not None:
+            parts.append(
+                f" The sum=1 constraint over the '{self.spec.constrained_split_dim}' dimension "
+                "is preserved: receiver entries absorb the freed share; the rest scale "
+                "proportionally or stay constant."
+            )
+        return "".join(parts)
+
+    @staticmethod
+    def _fmt_value(x: Number) -> str:
+        x = float(x)
+        return str(int(x)) if x == int(x) else f"{x:g}"
+
+    @staticmethod
+    def _fmt_year(x: Number) -> str:
+        return str(int(round(float(x))))
+
+    def _mask_scope(self, mask: fd.FlodymArray) -> Optional[str]:
+        """Human-readable scope of a boolean mask: named items if few, else a count.
+
+        Returns None when no entry is selected.
+        """
+        selected = mask.values.astype(bool)
+        n = int(selected.sum())
+        total = int(selected.size)
+        if n == 0:
+            return None
+        if n == total:
+            return "all entries"
+        letters = mask.dims.letters
+        if len(letters) == 1:
+            items = [i for i, m in zip(mask.dims[letters[0]].items, selected) if m]
+            if len(items) <= 6:
+                return ", ".join(map(str, items))
+            return f"{', '.join(map(str, items[:6]))} and {len(items) - 6} more"
+        return f"{n} of {total} entries"
+
+    @staticmethod
+    def _value_range(values: fd.FlodymArray, mask: fd.FlodymArray, fmt) -> str:
+        """Formatted single value if uniform across the mask, else a 'lo–hi' range."""
+        selected = values.values[mask.values.astype(bool)]
+        lo, hi = fmt(selected.min()), fmt(selected.max())
+        return lo if lo == hi else f"{lo}–{hi}"
 
 
 class ParameterExtrapolationManager:
-    """Manager for applying parameter transformations (extrapolation and scenario application).
-
-    Handles transformation of parameters from:
-    - Historic ('h') to extended time ('t')
-    - Already-future ('t') parameters with scenario modifications
-    - Static (no time dim) parameters with scenario application
-    """
+    """Applies the configured extrapolation to all parameters listed in the YAML config
+    under ``model_switches.parameter_extrapolation``."""
 
     def __init__(
         self,
@@ -260,7 +357,7 @@ class ParameterExtrapolationManager:
         historic_time: fd.Dimension,
         extended_time: fd.Dimension,
     ):
-        self.parameter_extrapolation_classes = cfg.model_switches.parameter_extrapolation_classes
+        self.specs = cfg.model_switches.parameter_extrapolation or {}
         self.historic_time = historic_time
         self.extended_time = extended_time
 
@@ -274,213 +371,33 @@ class ParameterExtrapolationManager:
         parameters: Dict[str, fd.Parameter],
         scenario_parameters: Dict[str, fd.Parameter | Number] = None,
     ) -> Dict[str, fd.Parameter]:
-        """Apply transformation to parameters.
+        """Extrapolate all configured parameters and return the updated dictionary.
 
-        Only parameters listed in parameter_extrapolation in config model switches are adjusted.
+        Only parameters listed under ``parameter_extrapolation`` in the config model
+        switches are adjusted; all others are returned unchanged.
 
         Args:
-            parameters: Dictionary of parameters to potentially transform
-            scenario_parameters: Dictionary of scenario-specific values (required for some transformations)
+            parameters: Dictionary of parameters to potentially extrapolate
+            scenario_parameters: Dictionary of scenario-specific target/factor values.
+            Parameters with no scenario entries extend constantly.
 
         Returns:
-            Dictionary of parameters with transformations applied where configured
+            Dictionary of parameters with extrapolations applied where configured
         """
         modified_parameters = parameters.copy()
 
-        if self.parameter_extrapolation_classes is None:
-            return modified_parameters
-
-        for param_name, cls in self.parameter_extrapolation_classes.items():
+        for param_name, spec in self.specs.items():
             if param_name not in modified_parameters:
                 raise ValueError(f"Parameter '{param_name}' not found in parameters.")
 
-            extrapolation_instance = self._create_extrapolation_instance(cls, scenario_parameters)
-
-            modified_parameters[param_name] = extrapolation_instance.transform(
-                modified_parameters[param_name], self.historic_time, self.extended_time
+            extrapolation = ParameterExtrapolation(
+                spec=spec,
+                scenario_parameters=scenario_parameters,
+                historic_time=self.historic_time,
+                extended_time=self.extended_time,
+            )
+            modified_parameters[param_name] = extrapolation.extrapolate(
+                modified_parameters[param_name], param_name
             )
 
         return modified_parameters
-
-    def _create_extrapolation_instance(
-        self,
-        cls: type,
-        scenario_parameters: Dict[str, Number],
-    ) -> ParameterExtrapolation:
-        """Create an instance of the extrapolation class with appropriate constructor arguments.
-
-        ScenarioExtrapolation subclasses receive scenario_parameters; others are instantiated with no arguments.
-        """
-        if issubclass(cls, ScenarioExtrapolation):
-            if scenario_parameters is None:
-                raise ValueError(f"scenario_parameters required for {cls.__name__}")
-            return cls(scenario_parameters)
-        else:
-            return cls()
-
-
-class ConstrainedSplitExtrapolation(ScenarioExtrapolation):
-    """Extrapolate a split parameter (values sum to 1 over a dimension) while preserving the constraint.
-
-    Targeted entries blend from their last historic value to a scenario target by a target year.
-    The remaining budget is distributed in one of two modes, determined per context slice
-    (each combination of non-split, non-time index values):
-
-    - **Proportional** (no receiver specified): unspecified entries scale proportionally to their
-      historic relative shares so that the sum stays 1.
-    - **Receiver** (receiver entries flagged): unspecified entries keep their historic values;
-      receiver entries are scaled to fill whatever share is left so the sum stays 1.
-
-    Scenario parameters required (same dims as the main parameter, 0 where not applicable):
-      - ``{param_name}_target``       – target value per entry (ignored where target_year == 0)
-      - ``{param_name}_target_year``  – year to reach the target (0 = entry has no target)
-      - ``{param_name}_receiver``     – non-zero flags an entry as a receiver (optional)
-
-    Subclass naming convention — encode the split dimension name and optionally a blend type
-    from ``data_blending.blending_factor`` as underscored suffixes::
-
-        ConstrainedSplitExtrapolation_Function            # dim=Function, blend=linear (default)
-        ConstrainedSplitExtrapolation_Function_hermite    # dim=Function, blend=hermite
-        ConstrainedSplitExtrapolation_Function_poly_mix   # dim=Function, blend=poly_mix
-
-    ``maxsplit=2`` is used when parsing the class name, so blend type names containing
-    underscores (e.g. ``poly_mix``, ``clamped_sigmoid3``) are handled correctly.
-    """
-
-    split_dim_name: str = None
-    blend_type: str = "linear"
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        parts = cls.__name__.split("_", 2)
-        # parts: [ClassName, DimName, blend_type] — maxsplit=2 keeps blend types like "poly_mix" intact
-        if len(parts) > 1:
-            cls.split_dim_name = parts[1]
-        if len(parts) > 2:
-            cls.blend_type = parts[2]
-
-    def __init__(self, scenario_parameters: Dict[str, fd.Parameter]):
-        self.scenario_parameters = scenario_parameters
-
-    def fill_values(
-        self,
-        prepared_param: fd.Parameter,
-        new_param: fd.Parameter,
-    ) -> fd.Parameter:
-
-        if self.split_dim_name is None:
-            raise ValueError(
-                "Use a named subclass (e.g. ConstrainedSplitExtrapolation_Function), not the base class directly."
-            )
-
-        add_assumption_doc(
-            type="model switch",
-            name=f"Constrained split extrapolation of {prepared_param.name} over '{self.split_dim_name}' dimension.",
-            description=self.description,
-        )
-
-        split_letter = prepared_param.dims[self.split_dim_name].letter
-        param_name = prepared_param.name
-        last_hist = self._get_last_historic_value(prepared_param)
-        last_year = self._last_historic_time
-
-        target = self.scenario_parameters[f"{param_name}_target"]
-        target_year = self.scenario_parameters[f"{param_name}_target_year"]
-        receiver = self.scenario_parameters.get(f"{param_name}_receiver")
-
-        # Masks: target_year == 0 (flodym default) signals "no target specified"
-        is_targeted = target_year.apply(lambda x: (x > 0).astype(float))
-        is_receiver = (
-            receiver.apply(lambda x: (x > 0).astype(float))
-            if receiver is not None
-            else fd.Parameter.full_like(last_hist, 0.0)
-        )
-        unspec = (1 - is_targeted) * (1 - is_receiver)
-
-        # For non-targeted entries, safe fallbacks keep progress = 0, so they interpolate to last_hist
-        safe_target = is_targeted * target + (1 - is_targeted) * last_hist
-        safe_year = is_targeted * target_year + (1 - is_targeted) * (last_year + 1.0)
-
-        # Interpolation from last_hist to safe_target
-        interp_vals = blend(
-            target_dims=new_param.dims,
-            y_lower=last_hist,
-            y_upper=safe_target,
-            x="t",
-            x_lower=last_year,
-            x_upper=safe_year,
-            type=self.blend_type,
-        )
-
-        # Budget accounting
-        targeted_sum = (interp_vals * is_targeted).sum_over(split_letter)
-        remaining = 1.0 - targeted_sum
-        unspec_hist_sum = (last_hist * unspec).sum_over(split_letter)
-        recv_hist_sum = (last_hist * is_receiver).sum_over(split_letter)
-
-        # Determine mode per slice: receiver mode where any receiver exists, else proportional
-        has_recv = recv_hist_sum.apply(lambda x: (x > 1e-9).astype(float)).cast_to(remaining.dims)
-
-        # Receiver mode: receivers absorb (remaining - unspec_hist_sum); unspecified stay at historic (scale = 1)
-        recv_budget = remaining - unspec_hist_sum.cast_to(remaining.dims)
-        recv_scale = has_recv * recv_budget / recv_hist_sum.cast_to(remaining.dims).maximum(1e-9)
-
-        # Proportional mode: all unspecified entries scale to fill remaining (scale = remaining / unspec_hist_sum)
-        prop_scale = (
-            (1 - has_recv) * remaining / unspec_hist_sum.cast_to(remaining.dims).maximum(1e-9)
-        )
-
-        # Combined unspecified scale: 1 in receiver mode, prop_scale in proportional mode
-        unspec_scale = has_recv + prop_scale
-
-        # Assemble: each group fills its budget exactly, so the sum over the split dim stays 1
-        new_param[...] = (
-            interp_vals * is_targeted  # targeted entries interpolate to target
-            + recv_scale * last_hist * is_receiver  # receivers absorb the delta
-            + unspec_scale * last_hist * unspec  # unspecified: constant or proportional
-        )
-
-        self._assert_sums_to_one(new_param, last_hist, split_letter, param_name)
-
-        return new_param
-
-    def _assert_sums_to_one(
-        self,
-        param: fd.Parameter,
-        last_hist: fd.FlodymArray,
-        split_letter: str,
-        param_name: str,
-    ):
-        """Assert that param sums to 1 over split_letter for all historically non-zero slices."""
-        sums = param.sum_over((split_letter,))
-        hist_sums = last_hist.sum_over((split_letter,))
-        applicable = hist_sums.apply(lambda x: x > 1e-9).cast_to(sums.dims)
-        deviation = (sums - 1.0) * applicable
-        assert np.allclose(deviation.values, 0.0, atol=1e-6), (
-            f"'{param_name}' does not sum to 1 over '{self.split_dim_name}' after extrapolation. "
-            f"Max deviation on applicable slices: {np.abs(deviation.values).max():.2e}"
-        )
-
-    @property
-    def description(self) -> str:
-        return (
-            f"Split parameter extrapolated over '{self.split_dim_name}' dimension with sum=1 constraint "
-            f"using '{self.blend_type}' blending. Specified entries interpolate to their targets; "
-            "receiver entries absorb the delta; remaining entries either scale proportionally or stay constant."
-        )
-
-
-class ConstrainedSplitExtrapolation_Function(ConstrainedSplitExtrapolation):
-    pass
-
-
-class ConstrainedSplitExtrapolation_Function_poly_mix(ConstrainedSplitExtrapolation):
-    pass
-
-
-class ConstrainedSplitExtrapolation_Structure_poly_mix(ConstrainedSplitExtrapolation):
-    pass
-
-
-class ConstrainedSplitExtrapolation_Structure(ConstrainedSplitExtrapolation):
-    pass

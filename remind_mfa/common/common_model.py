@@ -55,15 +55,9 @@ class CommonModel:
 
         historic_trade = self.historic_mfa.trade_set
 
-        # apply scenarios to parameters for future mfa
-        # 1. snapshot parameters before extrapolation
+        # snapshot parameters before extrapolation, then extend them into the future
         self.historic_parameters = copy.deepcopy(self.parameters)
-        # 2. extend historic parameters into future
-        self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["h"], self.dims["t"]
-        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
-        # 3. adjust future parameters based on scenario
-        self.apply_scenario_adjustments_to_parameters()
+        self.extrapolate_parameters()
 
         stock_projection = self.get_long_term_stock()
 
@@ -143,14 +137,11 @@ class CommonModel:
         """Manual changes to parameters"""
         pass
 
-    def apply_scenario_adjustments_to_parameters(self):
-        """Apply scenario adjustments to parameters"""
-        # lifetime:
-        for prm_name in ["lifetime_mean", "lifetime_std"]:
-            self.apply_scenario_factor(
-                array=self.parameters[prm_name],
-                scen_prm_name="lifetime_factor",
-            )
+    def extrapolate_parameters(self):
+        """Extend parameters into the future, applying scenario targets and factors."""
+        self.parameters = ParameterExtrapolationManager(
+            self.cfg, self.dims["h"], self.dims["t"]
+        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
 
     def transfer_historic_parameters(self):
         """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""

@@ -2,11 +2,11 @@ from typing import Optional
 
 import flodym as fd
 import pandas as pd
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
-from remind_mfa.common.parameter_extrapolation import ParameterExtrapolation
 from remind_mfa.common.helpers import RemindMFABaseModel, ModelNames, RegressOverModes
+from remind_mfa.common.data_blending import BLEND_TYPES
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -24,6 +24,36 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
+class ParameterExtrapolationSpec(RemindMFABaseModel):
+    """Configuration of how one parameter is extrapolated into the future.
+
+    Set per parameter in the YAML config under ``model_switches.parameter_extrapolation``.
+    Target values, factors, and years are given in the scenario CSV files as scenario
+    parameters named after the extrapolated parameter ``p``:
+
+    - ``p_target`` / ``p_target_year``: absolute target value reached by the target year
+    - ``p_factor`` / ``p_factor_year``: relative factor scaling the baseline by the factor year
+    - ``p_receiver``: for constrained splits, entries absorbing the share freed by targets
+
+    Entries with neither a target nor a factor stay at their baseline (constant continuation
+    of the last historic value, or the existing future trajectory).
+    """
+
+    blend: str = "linear"
+    """Name of the blending function shaping the transition from the last historic value
+    to the scenario target (see ``data_blending.BLEND_TYPES``)."""
+    constrained_split_dim: Optional[str] = None
+    """If set, the parameter is treated as a split (values sum to 1 over this dimension,
+    given by name) and the constraint is preserved during extrapolation."""
+
+    @field_validator("blend")
+    @classmethod
+    def validate_blend(cls, value):
+        if value not in BLEND_TYPES:
+            raise ValueError(f"Unknown blend type '{value}'. Must be one of {BLEND_TYPES}")
+        return value
+
+
 class ModelSwitches(RemindMFABaseModel):
 
     scenario: str
@@ -38,8 +68,17 @@ class ModelSwitches(RemindMFABaseModel):
     """Variable to use as a predictor for stock extrapolation."""
     do_stock_extrapolation_with_time_factor: bool = False
     """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
-    parameter_extrapolation: Optional[dict[str, str]] = None
-    """Mapping of parameter names to extrapolation class names."""
+    parameter_extrapolation: Optional[dict[str, ParameterExtrapolationSpec]] = None
+    """Mapping of parameter names to their extrapolation specification. An empty value
+    (null) uses the default specification."""
+
+    @field_validator("parameter_extrapolation", mode="before")
+    @classmethod
+    def default_extrapolation_specs(cls, value):
+        """Allow empty YAML values (null) as shorthand for the default specification."""
+        if value is None:
+            return None
+        return {name: ({} if spec is None else spec) for name, spec in value.items()}
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
@@ -49,16 +88,6 @@ class ModelSwitches(RemindMFABaseModel):
     def stock_extrapolation_class(self) -> type[Extrapolation]:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
-
-    @property
-    def parameter_extrapolation_classes(self) -> Optional[dict[str, type[ParameterExtrapolation]]]:
-        """Resolve parameter_extrapolation class name strings to the corresponding subclasses."""
-        if self.parameter_extrapolation is None:
-            return None
-        return {
-            param_name: choose_subclass_by_name(cls_name, ParameterExtrapolation)
-            for param_name, cls_name in self.parameter_extrapolation.items()
-        }
 
 
 class BaseExportCfg(RemindMFABaseModel):

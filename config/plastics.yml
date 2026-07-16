@@ -15,16 +15,18 @@ model_switches:
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
   parameter_extrapolation:
-    waste_his_imports: LinearToTargetExtrapolation
-    waste_his_exports: LinearToTargetExtrapolation
-    collection_rate: LinearToTargetExtrapolation
-    landfill_rate: LinearToTargetExtrapolation
-    mechanical_recycling_rate: LinearToTargetExtrapolation
-    chemical_recycling_rate: LinearToTargetExtrapolation
-    bio_production_rate: LinearToTargetExtrapolation
-    daccu_production_rate: LinearToTargetExtrapolation
-    emission_capture_rate: ConstantExtrapolation
-    material_shares_use_inflow: ConstantExtrapolation
+    waste_his_imports:
+    waste_his_exports:
+    collection_rate:
+    landfill_rate:
+    mechanical_recycling_rate:
+    chemical_recycling_rate:
+    bio_production_rate:
+    daccu_production_rate:
+    emission_capture_rate:
+    material_shares_use_inflow:
+    lifetime_mean: {blend: poly_mix}
+    lifetime_std: {blend: poly_mix}
 
 visualization:
   do_visualize: True

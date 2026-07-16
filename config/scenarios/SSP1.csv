@@ -1,4 +1,5 @@
 parameter,models,value,extra:year,index:Region,description
 driver_scen,all,SSP1,,,
 stock_factor,all,0.9,,,
-lifetime_factor,all,1.2,,,
+lifetime_mean_factor,all,1.2,,,
+lifetime_std_factor,all,1.2,,,

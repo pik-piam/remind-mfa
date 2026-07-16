@@ -7,7 +7,6 @@ from typing import List, Dict, Optional, Any
 
 from remind_mfa.common.common_definition import PlainDataPointDefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
-from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
 
@@ -150,6 +149,11 @@ class ScenarioDataPoint(RemindMFABaseModel):
             self.apply_single(parameters, f"{self.parameter}_{extra_name}", extra_val)
 
     def apply_single(self, parameters: dict, param_name: str, val: float):
+        if param_name not in parameters:
+            raise ValueError(
+                f"Scenario data point refers to undefined scenario parameter '{param_name}'. "
+                "Scenario parameters must be declared in the scenario parameter definitions."
+            )
         parameter = parameters[param_name]
         if isinstance(parameter, fd.Parameter):
             if self.index:

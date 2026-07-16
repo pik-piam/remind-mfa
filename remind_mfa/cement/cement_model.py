@@ -14,7 +14,6 @@ from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
-from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 
 
 class CementModel(CommonModel):
@@ -99,12 +98,7 @@ class CementModel(CommonModel):
         self.historic_mfa = self.td_hist_mfa_reconciled
 
         # apply scenarios to parameters for future mfa (as in common model)
-        # 1. extend historic parameters into future
-        self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["h"], self.dims["t"]
-        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
-        # 2. adjust future parameters based on scenario
-        self.apply_scenario_adjustments_to_parameters()
+        self.extrapolate_parameters()
 
         # compute reconciled future top-down mfa
         self.td_stock_reconciled = self.get_long_term_stock()  # cement stock

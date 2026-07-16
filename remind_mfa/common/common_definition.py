@@ -54,11 +54,19 @@ scenario_parameters = [
         dim_letters=("r",),
     ),
     RemindMFAParameterDefinition(
-        name="lifetime_factor",
+        name="lifetime_mean_factor",
         dim_letters=("r",),
     ),
     RemindMFAParameterDefinition(
-        name="lifetime_factor_year",
+        name="lifetime_mean_factor_year",
+        dim_letters=("r",),
+    ),
+    RemindMFAParameterDefinition(
+        name="lifetime_std_factor",
+        dim_letters=("r",),
+    ),
+    RemindMFAParameterDefinition(
+        name="lifetime_std_factor_year",
         dim_letters=("r",),
     ),
 ]
