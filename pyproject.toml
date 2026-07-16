@@ -37,6 +37,7 @@ dependencies = [
     "ixmp4==0.11.1",
     "tabulate>=0.9.0",
     "questionary>=2.0.1",
+    "dotenv>=0.9.9",
 ]
 
 [project.optional-dependencies]
