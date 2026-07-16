@@ -1,25 +1,15 @@
 import logging
-import yaml
-import sys
+from typing import Annotated, Literal
 
-from remind_mfa.common.helpers import ModelNames
-from remind_mfa.common.common_model import CommonModel
-from remind_mfa.cement.cement_model import CementModel
-from remind_mfa.plastics.plastics_model import PlasticsModel
-from remind_mfa.steel.steel_model import SteelModel
+import typer
+
+from remind_mfa.common.config_loader import get_config_paths, load_config
+from remind_mfa.common.helpers import ModelNames, init_model
+
+app = typer.Typer()
 
 
-def run_remind_mfa(cfg_file: str):
-    configure_logger()
-    model_config = read_model_config(cfg_file)
-    model = init_model(cfg=model_config)
-    logging.info(f"{type(model).__name__} instance created.")
-    model.run()
-    logging.info("Model computations completed.")
-    model.export()
-    logging.info("Export completed.")
-    model.visualize()
-    logging.info("Visualization completed.")
+type ModelSelection = Literal["all"] | ModelNames
 
 
 def configure_logger():
@@ -31,30 +21,65 @@ def configure_logger():
     )
 
 
-def read_model_config(filename):
-    with open(filename, "r") as stream:
-        data = yaml.safe_load(stream)
-    return {k: v for k, v in data.items()}
+def run_remind_mfa(config_names: list[str], selection: ModelSelection) -> None:
+    configure_logger()
+    selected_models = (
+        list(ModelNames) if selection == "all" else [selection]
+    )
+
+    for model in selected_models:
+        model_config = load_config(config_names, model)
+        model = init_model(cfg=model_config)
+        logging.info(f"{type(model).__name__} instance created.")
+        model.run()
+        logging.info("Model computations completed.")
+        model.export()
+        logging.info("Export completed.")
+        model.visualize()
+        logging.info("Visualization completed.")
 
 
-def init_model(cfg: dict) -> CommonModel:
-    """Choose MFA subclass and return an initialized instance."""
+def prompt_for_model() -> ModelSelection:
+    choices = ", ".join(model.value for model in ModelNames) + ", all"
+    while True:
+        value = typer.prompt(f"Model ({choices})").strip().lower()
+        if value == "all":
+            return "all"
+        try:
+            return ModelNames(value)
+        except ValueError:
+            typer.echo(f"Invalid model {value!r}. Choose one of: {choices}.", err=True)
 
-    if "model" not in cfg:
-        raise ValueError("'model' must be given.")
-    model_name = ModelNames(cfg["model"])
+def prompt_for_config_names() -> list[str]:
+    choices = ", ".join(path.stem for path in get_config_paths())
+    entered_names = typer.prompt(f"Configs (comma-separated, available: {choices})", default="default")
+    return [name.strip() for name in entered_names.split(",") if name.strip()]
 
-    models = {
-        ModelNames.PLASTICS: PlasticsModel,
-        ModelNames.STEEL: SteelModel,
-        ModelNames.CEMENT: CementModel,
-    }
-    return models[model_name](cfg=cfg)
+@app.command()
+def main(
+    config_names: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--config",
+            help="Configuration name under config/. Repeat to stack configurations.",
+        ),
+    ] = None,
+    model: Annotated[
+        Literal["all", "plastics", "steel", "cement"] | None,
+        typer.Option("--model", help="Model to run, or all."),
+    ] = None,
+) -> None:
+    """Run REMIND-MFA with one or more layered configurations."""
+
+    if not config_names:
+        config_names = prompt_for_config_names()
+    if model is None:
+        model_selection = prompt_for_model()
+    else:
+        model_selection = ModelNames(model) if model != "all" else "all"
+
+    run_remind_mfa(config_names, model_selection)
 
 
 if __name__ == "__main__":
-    try:
-        cfg_file = sys.argv[1]
-    except IndexError:
-        raise ValueError("Please provide a configuration file as an argument.")
-    run_remind_mfa(cfg_file)
+    app()

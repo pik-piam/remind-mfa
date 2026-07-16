@@ -1,7 +1,7 @@
 # %%
+from remind_mfa.common.helpers import ModelNames
 from run_remind_mfa import run_remind_mfa
 
-cfg_file = "config/plastics.yml"
-run_remind_mfa(cfg_file)
+run_remind_mfa(["default"], ModelNames.PLASTICS)
 
 # %%
