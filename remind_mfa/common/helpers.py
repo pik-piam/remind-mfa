@@ -12,6 +12,7 @@ class ModelNames(str, Enum):
     STEEL = "steel"
     CEMENT = "cement"
 
+
 def get_model_classes():
     from remind_mfa.cement.cement_model import CementModel
     from remind_mfa.plastics.plastics_model import PlasticsModel
@@ -22,6 +23,7 @@ def get_model_classes():
         ModelNames.STEEL: SteelModel,
         ModelNames.CEMENT: CementModel,
     }
+
 
 def init_model(cfg: dict) -> CommonModel:
     """Choose an MFA subclass and return an initialized instance."""

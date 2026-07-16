@@ -28,9 +28,7 @@ def test_model_overrides_all_base_layers(tmp_path):
         '[base.model_switches]\nscenario = "base-second"\n', encoding="utf-8"
     )
 
-    config = load_config(
-        ["default", "first", "second"], ModelNames.STEEL, config_dir=tmp_path
-    )
+    config = load_config(["default", "first", "second"], ModelNames.STEEL, config_dir=tmp_path)
 
     assert config["model_switches"]["scenario"] == "model-first"
 
@@ -54,9 +52,7 @@ sankey.plotter_args.slice_dict.t = 2040
         encoding="utf-8",
     )
 
-    config = load_config(
-        ["default", "first", "second"], ModelNames.STEEL, config_dir=tmp_path
-    )
+    config = load_config(["default", "first", "second"], ModelNames.STEEL, config_dir=tmp_path)
     plotter_args = config["visualization"]["sankey"]["plotter_args"]
 
     assert plotter_args["exclude_processes"] == ["second"]

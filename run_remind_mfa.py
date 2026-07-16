@@ -23,9 +23,7 @@ def configure_logger():
 
 def run_remind_mfa(config_names: list[str], selection: ModelSelection) -> None:
     configure_logger()
-    selected_models = (
-        list(ModelNames) if selection == "all" else [selection]
-    )
+    selected_models = list(ModelNames) if selection == "all" else [selection]
 
     for model in selected_models:
         model_config = load_config(config_names, model)
@@ -50,10 +48,14 @@ def prompt_for_model() -> ModelSelection:
         except ValueError:
             typer.echo(f"Invalid model {value!r}. Choose one of: {choices}.", err=True)
 
+
 def prompt_for_config_names() -> list[str]:
     choices = ", ".join(path.stem for path in get_config_paths())
-    entered_names = typer.prompt(f"Configs (comma-separated, available: {choices})", default="default")
+    entered_names = typer.prompt(
+        f"Configs (comma-separated, available: {choices})", default="default"
+    )
     return [name.strip() for name in entered_names.split(",") if name.strip()]
+
 
 @app.command()
 def main(

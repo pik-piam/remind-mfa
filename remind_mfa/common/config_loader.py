@@ -12,6 +12,7 @@ def get_config_paths(config_dir: Path = CONFIG_DIR) -> list[Path]:
     """Return a list of all TOML configuration files in the given directory."""
     return sorted(config_dir.glob("*.toml"))
 
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively merge mappings, with `override` taking precedence over `base`."""
 
@@ -23,6 +24,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
             result[key] = deepcopy(value)
     return result
 
+
 def _validate_config(config: dict, path: Path) -> None:
     """Validate the basic structure of a configuration dictionary."""
     unknown_sections = set(config) - CONFIG_SECTIONS
@@ -32,6 +34,7 @@ def _validate_config(config: dict, path: Path) -> None:
     for root, value in config.items():
         if not isinstance(value, dict):
             raise ValueError(f"Top-level configuration key {root!r} in {path} must be a table.")
+
 
 def _load_config_file(name: str, config_dir: Path = CONFIG_DIR) -> dict:
     path = config_dir / f"{name}.toml"
