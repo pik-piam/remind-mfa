@@ -1,120 +1,47 @@
-import pyam
-import flodym as fd
-
-from remind_mfa.common.common_export import CommonDataExporter
+from remind_mfa.common.common_export import CommonDataExporter, IamcVariable
 
 
 class CementDataExporter(CommonDataExporter):
-    def write_iamc(self, mfa: fd.MFASystem):
 
-        model = "REMIND 3.0"
-        scenario = "SSP2_NPi"
-        constants = {"model": model, "scenario": scenario}
-
-        reported_dims = ("t", "r", "s")
-
-        # cement production
-        cement_prod_by_stock_type = (
-            mfa.flows["prod_cement => market_cement"] + mfa.flows["prod_cement => sysenv"]
-        )
-        prod_df = self.to_iamc_df(cement_prod_by_stock_type)
-        prod_df["variable"] = "Production|Non-Metallic Minerals|Cement"
-        cement_prod_idf = pyam.IamDataFrame(
-            prod_df,
-            unit="t/yr",
-            **constants,
-        )
-        cement_prod_idf.aggregate(
-            variable="Production|Non-Metallic Minerals|Cement",
-            append=True,
-        )
-
-        # clinker production
-        clinker_prod_by_stock_type = (
-            mfa.flows["prod_clinker => market_clinker"] + mfa.flows["prod_clinker => sysenv"]
-        )
-        clinker_prod_df = self.to_iamc_df(clinker_prod_by_stock_type)
-        clinker_prod_df["variable"] = "Production|Non-Metallic Minerals|Cement Clinker"
-        clinker_prod_idf = pyam.IamDataFrame(
-            clinker_prod_df,
-            unit="t/yr",
-            **constants,
-        )
-        clinker_prod_idf.aggregate(
-            variable="Production|Non-Metallic Minerals|Cement Clinker",
-            append=True,
-        )
-
-        # cement demand
-        cement_demand_by_stock_type = mfa.flows["market_cement => prod_product"].sum_to(
-            reported_dims
-        )
-        demand_df = self.to_iamc_df(cement_demand_by_stock_type)
-        demand_df["variable"] = (
-            "Material Demand|Non-Metallic Minerals|Cement|" + demand_df["Stock Type"]
-        )
-        demand_df = demand_df.drop(columns=["Stock Type"])
-        demand_idf = pyam.IamDataFrame(
-            demand_df,
-            unit="t/yr",
-            **constants,
-        )
-        demand_idf.aggregate(
-            variable="Material Demand|Non-Metallic Minerals|Cement",
-            append=True,
-        )
-
-        # cement stocks
-        cement_stock_by_stock_type = (
-            mfa.stocks["in_use"].stock[{"k": "cement"}].sum_to(reported_dims)
-        )
-        stock_df = self.to_iamc_df(cement_stock_by_stock_type)
-        stock_df["variable"] = (
-            "Material Stock|Non-Metallic Minerals|Cement|" + stock_df["Stock Type"]
-        )
-        stock_df = stock_df.drop(columns=["Stock Type"])
-        stock_idf = pyam.IamDataFrame(
-            stock_df,
-            unit="t",
-            **constants,
-        )
-        stock_idf.aggregate(
-            variable="Material Stock|Non-Metallic Minerals|Cement",
-            append=True,
-        )
-
-        # cement eol
-        cement_scrap_by_stock_type = (
-            mfa.stocks["in_use"].outflow[{"k": "cement"}].sum_to(reported_dims)
-        )
-        scrap_df = self.to_iamc_df(cement_scrap_by_stock_type)
-        scrap_df["variable"] = "Scrap|Non-Metallic Minerals|Cement|" + scrap_df["Stock Type"]
-        scrap_df = scrap_df.drop(columns=["Stock Type"])
-        scrap_idf = pyam.IamDataFrame(
-            scrap_df,
-            unit="t/yr",
-            **constants,
-        )
-        scrap_idf.aggregate(
-            variable="Scrap|Non-Metallic Minerals|Cement",
-            append=True,
-        )
-
-        idf = pyam.concat(
-            [
-                cement_prod_idf,
-                clinker_prod_idf,
-                demand_idf,
-                stock_idf,
-                scrap_idf,
-            ]
-        )
-        idf.aggregate_region(
-            variable=idf.variable,
-            region="World",
-            append=True,
-        )
-        idf.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
-        idf.convert_unit(current="t", to="Mt", inplace=True)
-
-        idf.to_excel(self.export_path("iamc", f"output_iamc.xlsx"))
+    def iamc_variables(self) -> list[IamcVariable]:
+        return [
+            IamcVariable(
+                variable="Production|Non-Metallic Minerals|Cement",
+                getter=lambda mfa: (
+                    mfa.flows["prod_cement => market_cement"] + mfa.flows["prod_cement => sysenv"]
+                ).sum_to(("t", "r")),
+                unit="t/yr",
+            ),
+            IamcVariable(
+                variable="Production|Non-Metallic Minerals|Cement Clinker",
+                getter=lambda mfa: (
+                    mfa.flows["prod_clinker => market_clinker"]
+                    + mfa.flows["prod_clinker => sysenv"]
+                ).sum_to(("t", "r")),
+                unit="t/yr",
+            ),
+            IamcVariable(
+                variable="Material Demand|Non-Metallic Minerals|Cement",
+                getter=lambda mfa: mfa.flows["market_cement => prod_product"].sum_to(
+                    ("t", "r", "s")
+                ),
+                unit="t/yr",
+                per="Stock Type",
+            ),
+            IamcVariable(
+                variable="Material Stock|Non-Metallic Minerals|Cement",
+                getter=lambda mfa: mfa.stocks["in_use"]
+                .stock[{"k": "cement"}]
+                .sum_to(("t", "r", "s")),
+                unit="t",
+                per="Stock Type",
+            ),
+            IamcVariable(
+                variable="Scrap|Non-Metallic Minerals|Cement",
+                getter=lambda mfa: (
+                    mfa.stocks["in_use"].outflow[{"k": "cement"}].sum_to(("t", "r", "s"))
+                ),
+                unit="t/yr",
+                per="Stock Type",
+            ),
+        ]

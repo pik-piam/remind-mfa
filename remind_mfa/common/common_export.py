@@ -1,9 +1,11 @@
 import os
 from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any, Callable, Optional, TYPE_CHECKING
 import flodym as fd
 import flodym.export as fde
 import pickle
+import pyam
 
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.helpers import RemindMFABaseModel
@@ -15,6 +17,19 @@ if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
     from remind_mfa.common.common_config import CommonCfg
     from remind_mfa.common.common_mfa_system import CommonMFASystem
+
+
+class IamcVariable(RemindMFABaseModel):
+    """Declarative specification of a single IAMC output variable."""
+
+    variable: str
+    """IAMC variable path, e.g. "Production|Iron and Steel|Steel"."""
+    getter: Callable[..., fd.FlodymArray]
+    """Given the future MFA system, returns the array to report, reduced to (t, r) or (t, r, <per-dim>)."""
+    unit: str
+    """Base unit of the array, e.g. "t/yr" or "t"."""
+    per: Optional[str] = None
+    """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
 
 
 class CommonDataExporter(RemindMFABaseModel):
@@ -46,7 +61,7 @@ class CommonDataExporter(RemindMFABaseModel):
             self.assumptions_to_markdown()
             self.cfg_to_markdown(cfg=model.cfg)
         if self.cfg.iamc.do_export:
-            self.write_iamc(mfa=mfa)
+            self.write_iamc(model=model)
 
     def export_custom(self, model: "CommonModel"):
         pass
@@ -61,8 +76,61 @@ class CommonDataExporter(RemindMFABaseModel):
         with open(export_path, "wb") as f:
             pickle.dump(model, f)
 
-    def write_iamc(self, mfa: "CommonMFASystem"):
-        raise NotImplementedError("Subclasses must implement write_iamc method")
+    @property
+    def model_name(self) -> str:
+        """Model identifier for the IAMC "model" column, including the REMIND-MFA version."""
+        try:
+            return f"REMIND-MFA {version('remind-mfa')}"
+        except PackageNotFoundError:
+            return "REMIND-MFA"
+
+    def iamc_variables(self) -> list[IamcVariable]:
+        """Material-specific IAMC variable specifications. Override in subclasses."""
+        return []
+
+    def iamc_aggregates(self) -> list[str]:
+        """Extra parent variables to aggregate, beyond the automatic per-split parents.
+
+        Variables declared with a ``per`` dimension are summed back to their parent
+        automatically. Use this only for parents whose children are separate specs rather
+        than a ``per`` split (e.g. summing "…|Primary" and "…|Secondary" into their parent).
+        Override in subclasses.
+        """
+        return []
+
+    def write_iamc(self, model: "CommonModel"):
+        specs = self.iamc_variables()
+        if not specs:
+            return
+
+        mfa = model.future_mfa
+        constants = {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
+
+        idf = pyam.concat([self._build_idf(mfa, spec, constants) for spec in specs])
+
+        # A `per` variable is split into children on export, so sum it back to its parent.
+        # `iamc_aggregates` adds any further parents (e.g. summing sibling variables).
+        per_parents = [spec.variable for spec in specs if spec.per is not None]
+        for parent in dict.fromkeys(per_parents + self.iamc_aggregates()):
+            idf.aggregate(variable=parent, append=True)
+
+        idf.aggregate_region(variable=idf.variable, region="World", append=True)
+
+        idf.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
+        idf.convert_unit(current="t", to="Mt", inplace=True)
+
+        idf.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
+
+    def _build_idf(
+        self, mfa: "CommonMFASystem", spec: IamcVariable, constants: dict
+    ) -> pyam.IamDataFrame:
+        df = self.to_iamc_df(spec.getter(mfa))
+        if spec.per is not None:
+            df["variable"] = spec.variable + "|" + df[spec.per]
+            df = df.drop(columns=[spec.per])
+        else:
+            df["variable"] = spec.variable
+        return pyam.IamDataFrame(df, unit=spec.unit, **constants)
 
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
