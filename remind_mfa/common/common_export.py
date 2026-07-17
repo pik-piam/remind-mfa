@@ -163,7 +163,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         idf.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
         idf.convert_unit(current="t", to="Mt", inplace=True)
-        idf.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor = 1000, inplace=True)
+        idf.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor=1000, inplace=True)
 
         idf.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 

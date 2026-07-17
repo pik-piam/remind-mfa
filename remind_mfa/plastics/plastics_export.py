@@ -72,8 +72,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable="Material Demand|Chemicals|Plastics|Per Capita",
                 getter=lambda mfa: (
-                    mfa.stocks["in_use"].inflow
-                    / mfa.parameters["population"]
+                    mfa.stocks["in_use"].inflow / mfa.parameters["population"]
                 ).sum_to(("t", "r")),
                 unit="t/cap/yr",
                 region_weight="Population",
