@@ -16,7 +16,6 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_use_data_by_region_and_year(mfa=model.future_mfa)
             self.export_recycling_data_by_region_and_year(mfa=model.future_mfa)
             self.export_stock_extrapolation(model=model)
-            self.export_stock(mfa=model.historic_mfa)
 
     def export_stock_extrapolation(self, model: "PlasticsModel"):
         model.stock_handler.pure_parameters.to_df().to_csv(
@@ -25,15 +24,6 @@ class PlasticsDataExporter(CommonDataExporter):
         model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
             self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
         )
-
-    def export_stock(self, mfa: fd.MFASystem):
-        inflow = mfa.stocks["in_use_historic"].inflow.sum_to(("g", "h")).to_df()
-        inflow["variable"] = "inflow"
-        outflow = mfa.stocks["in_use_historic"].outflow.sum_to(("g", "h")).to_df()
-        outflow["variable"] = "outflow"
-        stock = mfa.stocks["in_use_historic"].stock.sum_to(("g", "h")).to_df()
-        stock["variable"] = "stock"
-        pd.concat([inflow, outflow, stock]).to_csv(self.export_path("csv", "stock.csv"))
 
     def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem):
         eol_data = (
