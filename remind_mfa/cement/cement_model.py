@@ -86,9 +86,7 @@ class CementModel(CommonModel):
         # TODO add scale to properly calculate pre-reconciliation BU MFA
         # Idea: scale the td stock to match bu stock (in relevant categories) to get vintage
         self.bu_mfa = self.make_bottom_up_mfa()
-        self.bu_mfa.compute(
-            self.td_mfa.stocks["in_use"], zero_trade
-        )
+        self.bu_mfa.compute(self.td_mfa.stocks["in_use"], zero_trade)
 
         # reconcile parameters
         self.parameters = self.historic_parameters

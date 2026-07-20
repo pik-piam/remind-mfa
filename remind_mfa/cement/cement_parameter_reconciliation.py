@@ -617,9 +617,7 @@ class CementParameterReconciliation:
             return correction_factor
 
         # build new correction factor
-        new_dims = correction_factor.dims.replace(
-            REDUCED_STOCK_TYPE.letter, self.input_dims["s"]
-        )
+        new_dims = correction_factor.dims.replace(REDUCED_STOCK_TYPE.letter, self.input_dims["s"])
         new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
         new_correction[{"s": REDUCED_STOCK_TYPE}] = correction_factor
         return new_correction
