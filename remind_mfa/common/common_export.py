@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -128,10 +129,12 @@ class CommonDataExporter(RemindMFABaseModel):
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
+        self._warn_if_iamc_includes_historic(model)
+
         mfa = model.future_mfa
         constants = {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
 
-        iamc_dataframe, split_parent_components, region_weights = self._build_iamc_dataframe(
+        iamc_dataframe, split_parent_components, region_weights = self._build_all_iamc_df(
             mfa, iamc_vars, constants
         )
 
@@ -141,10 +144,26 @@ class CommonDataExporter(RemindMFABaseModel):
 
         iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 
-    def _build_iamc_dataframe(
+    def _warn_if_iamc_includes_historic(self, model: "CommonModel"):
+        """Warn if the configured IAMC export range covers historic years.
+
+        Historic years derive partly from proprietary input data (e.g. WorldSteel), so
+        including them in a shared output risks leaking that data. The last historic year is
+        taken per-material from the model's historic time dimension.
+        """
+        last_historic_year = model.dims["h"].items[-1]
+        historic = [y for y in self.cfg.iamc.time_items if y <= last_historic_year]
+        if historic:
+            logging.warning(
+                f"IAMC export range includes historic years ({historic[0]}-{last_historic_year}), "
+                "which may derive from proprietary input data (e.g. WorldSteel). "
+                "Verify you are permitted to share these years before distributing the output."
+            )
+
+    def _build_all_iamc_df(
         self, mfa: "CommonMFASystem", iamc_vars: list, constants: dict
     ) -> tuple[pyam.IamDataFrame, dict[str, list[str]], dict[str, str]]:
-        """Build one IamDataFrame per variable spec and concatenate them.
+        """Build one IamDataFrame per iamc variable and concatenate them.
 
         Also collects two side-tables consumed by the later aggregation steps:
 
@@ -295,10 +314,8 @@ class CommonDataExporter(RemindMFABaseModel):
 
         return os.path.join(*path_tuple)
 
-    @staticmethod
-    def to_iamc_df(array: fd.FlodymArray):
-        time_items = list(range(1950, 2101))  # TODO: more flexible
-        time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
+    def to_iamc_df(self, array: fd.FlodymArray):
+        time_out = fd.Dimension(name="Time Out", letter="O", items=self.cfg.iamc.time_items)
         df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
         df = df.rename(columns={"Region": "region"})
         return df

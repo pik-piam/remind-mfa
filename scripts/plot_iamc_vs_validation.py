@@ -1,12 +1,15 @@
 """Plot a material model's IAMC outputs against the curated validation data.
 
-For every variable that appears in both the model IAMC output and the validation ``.mif`` file,
-one PNG is produced: region panels (subplots), one colour per model, one linestyle per scenario.
+For every variable that appears in both the model IAMC output and the validation.mif file,
+one PNG is produced: region panels (subplots), one colour per source (column "model" of the validation.mif),
+one linestyle per scenario.
 
 Usage::
 
     uv run python scripts/plot_iamc_vs_validation.py                      # plastics, defaults
     uv run python scripts/plot_iamc_vs_validation.py --regions EUR,World  # subset of regions
+
+NOTE: This script is un-reviewed vibe-coding.
 """
 
 import argparse
