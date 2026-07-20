@@ -4,7 +4,7 @@ from typing import Dict, Optional, TYPE_CHECKING
 from numbers import Number
 
 if TYPE_CHECKING:
-    from remind_mfa.common.common_config import CommonCfg, ParameterExtrapolationSpec
+    from remind_mfa.common.common_config import CommonCfg, ExtrapolationConfig
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.data_blending import blend
 
@@ -37,12 +37,12 @@ class ParameterExtrapolation:
 
     def __init__(
         self,
-        spec: "ParameterExtrapolationSpec",
+        cfg: "ExtrapolationConfig",
         scenario_parameters: Dict[str, fd.Parameter | Number],
         historic_time: fd.Dimension,
         extended_time: fd.Dimension,
     ):
-        self.spec = spec
+        self.cfg = cfg
         self.scenario_parameters = scenario_parameters or {}
         self.historic_time = historic_time
         self.extended_time = extended_time
@@ -80,7 +80,7 @@ class ParameterExtrapolation:
             )
 
         # renormalize over the split dimension if supplied
-        if self.spec.constrained_split_dim is not None:
+        if self.cfg.constrained_split_dim is not None:
             # note: 1 - unspec equals the combined is_abs/is_rel mask, but is safe against
             # flodym's sum-reducing addition when the two masks have different dimensions
             new_values = self._renormalize_split(new_values, prepared, 1 - unspec, name)
@@ -167,7 +167,7 @@ class ParameterExtrapolation:
             x="t",
             x_lower=self._last_historic_time,
             x_upper=target_year,
-            type=self.spec.blend,
+            type=self.cfg.blend,
         )
 
     def _relative_factors(
@@ -184,7 +184,7 @@ class ParameterExtrapolation:
             x="t",
             x_lower=self._last_historic_time,
             x_upper=factor_year,
-            type=self.spec.blend,
+            type=self.cfg.blend,
         )
 
     def _renormalize_split(
@@ -206,7 +206,7 @@ class ParameterExtrapolation:
           unspecified entries keep their baseline; the single receiver absorbs whatever
           share is left so the sum stays 1.
         """
-        split_letter = prepared.dims[self.spec.constrained_split_dim].letter
+        split_letter = prepared.dims[self.cfg.constrained_split_dim].letter
 
         # Classify entries into three groups: targeted, receiver, and unspecified
         receiver = self.scenario_parameters.get(f"{name}_receiver")
@@ -256,7 +256,7 @@ class ParameterExtrapolation:
         deviation = ((sums - 1.0) * applicable).values
         if not np.allclose(deviation, 0.0, atol=1e-6):
             raise ValueError(
-                f"'{name}' does not sum to 1 over '{self.spec.constrained_split_dim}' after "
+                f"'{name}' does not sum to 1 over '{self.cfg.constrained_split_dim}' after "
                 f"extrapolation. Max deviation on applicable slices: {np.abs(deviation).max():.2e}"
             )
 
@@ -276,7 +276,7 @@ class ParameterExtrapolation:
         Reports only the modes that occur, with the scope (named dimension items where
         few, otherwise a count) and the actual target/factor values and years.
         """
-        parts = [f"Parameter '{name}' is extended into the future using blend '{self.spec.blend}'."]
+        parts = [f"Parameter '{name}' is extended into the future using blend '{self.cfg.blend}'."]
 
         abs_scope = self._mask_scope(is_abs)
         if abs_scope is not None and target is not None and target_year is not None:
@@ -302,9 +302,9 @@ class ParameterExtrapolation:
         elif const_scope is not None:
             parts.append(" The remaining entries keep their baseline.")
 
-        if self.spec.constrained_split_dim is not None:
+        if self.cfg.constrained_split_dim is not None:
             parts.append(
-                f" The sum=1 constraint over the '{self.spec.constrained_split_dim}' dimension "
+                f" The sum=1 constraint over the '{self.cfg.constrained_split_dim}' dimension "
                 "is preserved: receiver entries absorb the freed share; the rest scale "
                 "proportionally or stay constant."
             )
@@ -357,7 +357,7 @@ class ParameterExtrapolationManager:
         historic_time: fd.Dimension,
         extended_time: fd.Dimension,
     ):
-        self.specs = cfg.model_switches.parameter_extrapolation or {}
+        self.extrapolation_cfg = cfg.model_switches.parameter_extrapolation or {}
         self.historic_time = historic_time
         self.extended_time = extended_time
 
@@ -386,12 +386,12 @@ class ParameterExtrapolationManager:
         """
         modified_parameters = parameters.copy()
 
-        for param_name, spec in self.specs.items():
+        for param_name, cfg in self.extrapolation_cfg.items():
             if param_name not in modified_parameters:
                 raise ValueError(f"Parameter '{param_name}' not found in parameters.")
 
             extrapolation = ParameterExtrapolation(
-                spec=spec,
+                cfg=cfg,
                 scenario_parameters=scenario_parameters,
                 historic_time=self.historic_time,
                 extended_time=self.extended_time,

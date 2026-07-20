@@ -24,7 +24,7 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
-class ParameterExtrapolationSpec(RemindMFABaseModel):
+class ExtrapolationConfig(RemindMFABaseModel):
     """Configuration of how one parameter is extrapolated into the future.
 
     Set per parameter in the YAML config under ``model_switches.parameter_extrapolation``.
@@ -68,17 +68,17 @@ class ModelSwitches(RemindMFABaseModel):
     """Variable to use as a predictor for stock extrapolation."""
     do_stock_extrapolation_with_time_factor: bool = False
     """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
-    parameter_extrapolation: Optional[dict[str, ParameterExtrapolationSpec]] = None
+    parameter_extrapolation: Optional[dict[str, ExtrapolationConfig]] = None
     """Mapping of parameter names to their extrapolation specification. An empty value
     (null) uses the default specification."""
 
     @field_validator("parameter_extrapolation", mode="before")
     @classmethod
-    def default_extrapolation_specs(cls, value):
-        """Allow empty YAML values (null) as shorthand for the default specification."""
+    def default_extrapolation_configs(cls, value):
+        """Allow empty YAML values (null) as shorthand for the default configuration."""
         if value is None:
             return None
-        return {name: ({} if spec is None else spec) for name, spec in value.items()}
+        return {name: ({} if cfg is None else cfg) for name, cfg in value.items()}
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
