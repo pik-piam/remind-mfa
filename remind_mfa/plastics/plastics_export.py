@@ -47,31 +47,31 @@ class PlasticsDataExporter(CommonDataExporter):
         return [
             # production
             IamcVariable(
-                variable="Production|Chemicals|Plastics|Primary",
-                getter=lambda mfa: (
+                variable_name="Production|Chemicals|Plastics|Primary",
+                calculation_function=lambda mfa: (
                     mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
                     - mfa.flows["reclchem => HVC_input"]
                 ),
                 unit="t/yr",
             ),
             IamcVariable(
-                variable="Production|Chemicals|Plastics|Secondary",
-                getter=lambda mfa: (
+                variable_name="Production|Chemicals|Plastics|Secondary",
+                calculation_function=lambda mfa: (
                     mfa.flows["reclmech => primary_market"] + mfa.flows["reclchem => HVC_input"]
                 ).sum_to(("t", "r")),
                 unit="t/yr",
             ),
             # demand by good
             IamcVariable(
-                variable="Material Demand|Chemicals|Plastics",
-                getter=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(("t", "r", "g")),
+                variable_name="Material Demand|Chemicals|Plastics",
+                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(("t", "r", "g")),
                 unit="t/yr",
-                per="Good",
+                split_name="Good",
             ),
             # demand per capita
             IamcVariable(
-                variable="Material Demand|Chemicals|Plastics|Per Capita",
-                getter=lambda mfa: (
+                variable_name="Material Demand|Chemicals|Plastics|Per Capita",
+                calculation_function=lambda mfa: (
                     mfa.stocks["in_use"].inflow / mfa.parameters["population"]
                 ).sum_to(("t", "r")),
                 unit="t/cap/yr",
@@ -79,26 +79,26 @@ class PlasticsDataExporter(CommonDataExporter):
             ),
             # trade
             IamcVariable(
-                variable="Import|Industry|Chemicals|Plastics|Primary Forms",
-                getter=lambda mfa: mfa.flows["imports => primary_market"].sum_to(("t", "r")),
+                variable_name="Import|Industry|Chemicals|Plastics|Primary Forms",
+                calculation_function=lambda mfa: mfa.flows["imports => primary_market"].sum_to(("t", "r")),
                 unit="t/yr",
             ),
             IamcVariable(
-                variable="Export|Industry|Chemicals|Plastics|Primary Forms",
-                getter=lambda mfa: mfa.flows["primary_market => exports"].sum_to(("t", "r")),
+                variable_name="Export|Industry|Chemicals|Plastics|Primary Forms",
+                calculation_function=lambda mfa: mfa.flows["primary_market => exports"].sum_to(("t", "r")),
                 unit="t/yr",
             ),
             IamcVariable(
-                variable="Import|Industry|Chemicals|Plastics|Goods",
-                getter=lambda mfa: mfa.flows["imports => good_market"].sum_to(("t", "r", "g")),
+                variable_name="Import|Industry|Chemicals|Plastics|Goods",
+                calculation_function=lambda mfa: mfa.flows["imports => good_market"].sum_to(("t", "r", "g")),
                 unit="t/yr",
-                per="Good",
+                split_name="Good",
             ),
             IamcVariable(
-                variable="Export|Industry|Chemicals|Plastics|Goods",
-                getter=lambda mfa: mfa.flows["good_market => exports"].sum_to(("t", "r", "g")),
+                variable_name="Export|Industry|Chemicals|Plastics|Goods",
+                calculation_function=lambda mfa: mfa.flows["good_market => exports"].sum_to(("t", "r", "g")),
                 unit="t/yr",
-                per="Good",
+                split_name="Good",
             ),
         ]
 

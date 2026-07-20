@@ -12,23 +12,23 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 from remind_mfa.common.common_mappings import CommonDisplayNames
+from remind_mfa.common.common_config import CommonCfg
+from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
-    from remind_mfa.common.common_config import CommonCfg
-    from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 
 class IamcVariable(RemindMFABaseModel):
     """Declarative specification of a single IAMC output variable."""
 
-    variable: str
+    variable_name: str
     """IAMC variable path, e.g. "Production|Iron and Steel|Steel"."""
-    getter: Callable[..., fd.FlodymArray]
+    calculation_function: Callable[[CommonMFASystem], fd.FlodymArray]
     """Given the future MFA system, returns the array to report, reduced to (t, r) or (t, r, <per-dim>)."""
     unit: str
     """Base unit of the array, e.g. "t/yr" or "t"."""
-    per: Optional[str] = None
+    split_name: Optional[str] = None
     """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
     region_weight: Optional[str] = None
     """Variable to weight by when aggregating to "World" (e.g. "Population" for per-capita
@@ -95,10 +95,15 @@ class CommonDataExporter(RemindMFABaseModel):
         """
         return [
             IamcVariable(
-                variable="Population",
-                getter=lambda mfa: mfa.parameters["population"].sum_to(("t", "r")),
+                variable_name="Population",
+                calculation_function=lambda mfa: mfa.parameters["population"].sum_to(("t", "r")),
                 unit="cap",
             ),
+            IamcVariable(
+                variable_name="GDP|PPP",
+                calculation_function=lambda mfa: (mfa.parameters["gdppc"] * mfa.parameters["population"]/1e9).sum_to(("t", "r")),
+                unit="billion USD_2005/yr",
+            )
         ]
 
     def iamc_variables(self) -> list[IamcVariable]:
@@ -116,15 +121,15 @@ class CommonDataExporter(RemindMFABaseModel):
         return []
 
     def write_iamc(self, model: "CommonModel"):
-        specs = self.iamc_variables()
-        if not specs:
+        iamc_vars = self.iamc_variables()
+        if not iamc_vars:
             return
-        specs = self.common_iamc_variables() + specs
+        iamc_vars = self.common_iamc_variables() + iamc_vars
 
         mfa = model.future_mfa
         constants = {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
 
-        idfs = []
+        iamc_dataframes = []
         # Map each `per` parent to the exact child variables produced by its split, so the
         # parent is summed from those children only. Relying on pyam's default (all direct
         # children of the parent path) would wrongly pull in sibling variables that happen to
@@ -133,52 +138,52 @@ class CommonDataExporter(RemindMFABaseModel):
         # Variables aggregated to "World" as a weighted mean instead of a plain sum
         # (e.g. per-capita variables weighted by Population). Maps variable -> weight variable.
         region_weights: dict[str, str] = {}
-        for spec in specs:
-            idf, variables = self._build_idf(mfa, spec, constants)
-            idfs.append(idf)
-            if spec.per is not None:
-                per_parent_components.setdefault(spec.variable, []).extend(variables)
-            if spec.region_weight is not None:
-                region_weights.update({v: spec.region_weight for v in variables})
+        for iamc_var in iamc_vars:
+            iamc_df, variables = self._build_iamc_df(mfa, iamc_var, constants)
+            iamc_dataframes.append(iamc_df)
+            if iamc_var.split_name is not None:
+                per_parent_components.setdefault(iamc_var.variable_name, []).extend(variables)
+            if iamc_var.region_weight is not None:
+                region_weights.update({v: iamc_var.region_weight for v in variables})
 
-        idf = pyam.concat(idfs)
+        iamc_dataframe = pyam.concat(iamc_dataframes)
 
         # A `per` variable is split into children on export, so sum it back to its parent.
         for parent, components in per_parent_components.items():
-            idf.aggregate(variable=parent, components=components, append=True)
+            iamc_dataframe.aggregate(variable=parent, components=components, append=True)
         # `iamc_aggregates` adds any further parents whose children are separate specs
         # (e.g. summing sibling "…|Primary" and "…|Secondary" variables).
         for parent in self.iamc_aggregates():
             if parent in per_parent_components:
                 continue
-            idf.aggregate(variable=parent, append=True)
+            iamc_dataframe.aggregate(variable=parent, append=True)
 
         # Sum most variables across regions to "World", but aggregate per-capita (and other
-        # weighted) variables as a weight-weighted mean so, e.g., World per-capita demand is
+        # weighted) variables as a weighted mean so, e.g., World per-capita demand is
         # World total demand / World population rather than the sum of regional per-capita values.
-        plain_vars = [v for v in idf.variable if v not in region_weights]
-        idf.aggregate_region(variable=plain_vars, region="World", append=True)
+        plain_vars = [v for v in iamc_dataframe.variable if v not in region_weights]
+        iamc_dataframe.aggregate_region(variable=plain_vars, region="World", append=True)
         for variable, weight in region_weights.items():
-            idf.aggregate_region(variable=variable, region="World", weight=weight, append=True)
+            iamc_dataframe.aggregate_region(variable=variable, region="World", weight=weight, append=True)
 
-        idf.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
-        idf.convert_unit(current="t", to="Mt", inplace=True)
-        idf.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor=1000, inplace=True)
+        iamc_dataframe.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
+        iamc_dataframe.convert_unit(current="t", to="Mt", inplace=True)
+        iamc_dataframe.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor=1000, inplace=True)
 
-        idf.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
+        iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 
-    def _build_idf(
-        self, mfa: "CommonMFASystem", spec: IamcVariable, constants: dict
+    def _build_iamc_df(
+        self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
     ) -> tuple[pyam.IamDataFrame, list[str]]:
-        """Build the IamDataFrame for a spec and return it with the variable names it produced."""
-        df = self.to_iamc_df(spec.getter(mfa))
-        if spec.per is not None:
-            df["variable"] = spec.variable + "|" + df[spec.per]
-            df = df.drop(columns=[spec.per])
-        else:
-            df["variable"] = spec.variable
+        """Build the IamDataFrame for a iamc variable and return it with the variable names it produced."""
+        df = self.to_iamc_df(iamc_var.calculation_function(mfa))
+        df["variable"] = iamc_var.variable_name
+        if iamc_var.split_name is not None:
+            df["variable"] += "|" + df[iamc_var.split_name]
+            df = df.drop(columns=[iamc_var.split_name])
+            
         variables = list(dict.fromkeys(df["variable"]))
-        return pyam.IamDataFrame(df, unit=spec.unit, **constants), variables
+        return pyam.IamDataFrame(df, unit=iamc_var.unit, **constants), variables
 
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
