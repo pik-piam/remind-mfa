@@ -101,9 +101,11 @@ class CommonDataExporter(RemindMFABaseModel):
             ),
             IamcVariable(
                 variable_name="GDP|PPP",
-                calculation_function=lambda mfa: (mfa.parameters["gdppc"] * mfa.parameters["population"]/1e9).sum_to(("t", "r")),
+                calculation_function=lambda mfa: (
+                    mfa.parameters["gdppc"] * mfa.parameters["population"] / 1e9
+                ).sum_to(("t", "r")),
                 unit="billion USD_2005/yr",
-            )
+            ),
         ]
 
     def iamc_variables(self) -> list[IamcVariable]:
@@ -164,7 +166,9 @@ class CommonDataExporter(RemindMFABaseModel):
         plain_vars = [v for v in iamc_dataframe.variable if v not in region_weights]
         iamc_dataframe.aggregate_region(variable=plain_vars, region="World", append=True)
         for variable, weight in region_weights.items():
-            iamc_dataframe.aggregate_region(variable=variable, region="World", weight=weight, append=True)
+            iamc_dataframe.aggregate_region(
+                variable=variable, region="World", weight=weight, append=True
+            )
 
         iamc_dataframe.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
         iamc_dataframe.convert_unit(current="t", to="Mt", inplace=True)
@@ -181,7 +185,7 @@ class CommonDataExporter(RemindMFABaseModel):
         if iamc_var.split_name is not None:
             df["variable"] += "|" + df[iamc_var.split_name]
             df = df.drop(columns=[iamc_var.split_name])
-            
+
         variables = list(dict.fromkeys(df["variable"]))
         return pyam.IamDataFrame(df, unit=iamc_var.unit, **constants), variables
 
