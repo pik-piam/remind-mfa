@@ -111,8 +111,8 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def iamc_variables(self) -> list[IamcVariable]:
         """Material-specific IAMC variable specifications. Override in subclasses.
-        When adding IAMC variables, follow the nomenclature of the CIRCOMOD or the 
-        PRISMA project (templates can be found in the Cloud under data/iamc_nomenclature), 
+        When adding IAMC variables, follow the nomenclature of the CIRCOMOD or the
+        PRISMA project (templates can be found in the Cloud under data/iamc_nomenclature),
         if possible. Document the source (i.e. which template you took each variable from)."""
         return []
 
