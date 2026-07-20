@@ -129,48 +129,83 @@ class CommonDataExporter(RemindMFABaseModel):
         mfa = model.future_mfa
         constants = {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
 
+        iamc_dataframe, split_parent_components, region_weights = self._build_iamc_dataframe(
+            mfa, iamc_vars, constants
+        )
+
+        self._aggregate_iamc_variables(iamc_dataframe, split_parent_components)
+        self._aggregate_iamc_regions(iamc_dataframe, region_weights)
+        self._convert_iamc_units(iamc_dataframe)
+
+        iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
+
+    def _build_iamc_dataframe(
+        self, mfa: "CommonMFASystem", iamc_vars: list, constants: dict
+    ) -> tuple[pyam.IamDataFrame, dict[str, list[str]], dict[str, str]]:
+        """Build one IamDataFrame per variable spec and concatenate them.
+
+        Also collects two side-tables consumed by the later aggregation steps:
+
+        - ``split_parent_components`` maps each ``split_name`` parent variable to the exact child
+        variables produced by its split, so the parent is summed from those children
+        only. Relying on pyam's default (all direct children of the parent path) would
+        wrongly pull in sibling variables under the same path, e.g. "…|Plastics|Per Capita".
+        - ``region_weights`` lists variables aggregated to "World" as a weighted mean
+        instead of a plain sum (e.g. per-capita variables weighted by Population),
+        mapping variable -> weight variable.
+        """
         iamc_dataframes = []
-        # Map each `per` parent to the exact child variables produced by its split, so the
-        # parent is summed from those children only. Relying on pyam's default (all direct
-        # children of the parent path) would wrongly pull in sibling variables that happen to
-        # live under the same path, e.g. "…|Plastics|Per Capita".
-        per_parent_components: dict[str, list[str]] = {}
-        # Variables aggregated to "World" as a weighted mean instead of a plain sum
-        # (e.g. per-capita variables weighted by Population). Maps variable -> weight variable.
+        split_parent_components: dict[str, list[str]] = {}
         region_weights: dict[str, str] = {}
         for iamc_var in iamc_vars:
             iamc_df, variables = self._build_iamc_df(mfa, iamc_var, constants)
             iamc_dataframes.append(iamc_df)
             if iamc_var.split_name is not None:
-                per_parent_components.setdefault(iamc_var.variable_name, []).extend(variables)
+                split_parent_components.setdefault(iamc_var.variable_name, []).extend(variables)
             if iamc_var.region_weight is not None:
                 region_weights.update({v: iamc_var.region_weight for v in variables})
+        return pyam.concat(iamc_dataframes), split_parent_components, region_weights
 
-        iamc_dataframe = pyam.concat(iamc_dataframes)
+    def _aggregate_iamc_variables(
+        self, iamc_dataframe: pyam.IamDataFrame, split_parent_components: dict[str, list[str]]
+    ):
+        """Sum child variables into their parents (variable-axis aggregation).
 
-        # A `per` variable is split into children on export, so sum it back to its parent.
-        for parent, components in per_parent_components.items():
+        Parents come from two sources:
+        - ``split_name`` variables were split into children on export, so each is summed back
+          to its parent from exactly the children it produced.
+        - ``iamc_aggregates`` adds further parents whose children are separate iamc variables
+          (e.g. summing sibling "…|Primary" and "…|Secondary" variables).
+        """
+        for parent, components in split_parent_components.items():
             iamc_dataframe.aggregate(variable=parent, components=components, append=True)
-        # `iamc_aggregates` adds any further parents whose children are separate specs
-        # (e.g. summing sibling "…|Primary" and "…|Secondary" variables).
         for parent in self.iamc_aggregates():
-            if parent in per_parent_components:
+            if parent in split_parent_components:
                 continue
             iamc_dataframe.aggregate(variable=parent, append=True)
 
-        # Sum most variables across regions to "World", but aggregate per-capita (and other
-        # weighted) variables as a weighted mean so, e.g., World per-capita demand is
-        # World total demand / World population rather than the sum of regional per-capita values.
+    def _aggregate_iamc_regions(
+        self, iamc_dataframe: pyam.IamDataFrame, region_weights: dict[str, str]
+    ):
+        """Aggregate regional values to "World".
+
+        Most variables are summed across regions. Per-capita (and other weighted)
+        variables are aggregated as a weighted mean instead, so e.g. World per-capita
+        demand is World total demand / World population rather than the sum of the
+        regional per-capita values.
+        """
         plain_vars = [v for v in iamc_dataframe.variable if v not in region_weights]
         iamc_dataframe.aggregate_region(variable=plain_vars, region="World", append=True)
         for variable, weight in region_weights.items():
-            iamc_dataframe.aggregate_region(variable=variable, region="World", weight=weight, append=True)
+            iamc_dataframe.aggregate_region(
+                variable=variable, region="World", weight=weight, append=True
+            )
 
+    def _convert_iamc_units(self, iamc_dataframe: pyam.IamDataFrame):
+        """Convert the model's base units to the reporting units used in IAMC output."""
         iamc_dataframe.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
         iamc_dataframe.convert_unit(current="t", to="Mt", inplace=True)
         iamc_dataframe.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor=1000, inplace=True)
-
-        iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 
     def _build_iamc_df(
         self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
