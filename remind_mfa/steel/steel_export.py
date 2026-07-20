@@ -7,7 +7,9 @@ class SteelDataExporter(CommonDataExporter):
         return [
             IamcVariable(
                 variable_name="Production|Iron and Steel|Steel",
-                calculation_function=lambda mfa: mfa.flows["forming => ip_market"].sum_to(("t", "r")),
+                calculation_function=lambda mfa: mfa.flows["forming => ip_market"].sum_to(
+                    ("t", "r")
+                ),
                 unit="t/yr",
             ),
             IamcVariable(
@@ -26,7 +28,9 @@ class SteelDataExporter(CommonDataExporter):
             ),
             IamcVariable(
                 variable_name="Scrap|Iron and Steel|Steel",
-                calculation_function=lambda mfa: mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g")),
+                calculation_function=lambda mfa: mfa.stocks["in_use"].outflow.sum_to(
+                    ("t", "r", "g")
+                ),
                 unit="t/yr",
                 split_name="Good",
             ),

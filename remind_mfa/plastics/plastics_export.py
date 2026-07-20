@@ -64,7 +64,9 @@ class PlasticsDataExporter(CommonDataExporter):
             # demand by good
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics",
-                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(("t", "r", "g")),
+                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
+                    ("t", "r", "g")
+                ),
                 unit="t/yr",
                 split_name="Good",
             ),
@@ -80,23 +82,31 @@ class PlasticsDataExporter(CommonDataExporter):
             # trade
             IamcVariable(
                 variable_name="Import|Industry|Chemicals|Plastics|Primary Forms",
-                calculation_function=lambda mfa: mfa.flows["imports => primary_market"].sum_to(("t", "r")),
+                calculation_function=lambda mfa: mfa.flows["imports => primary_market"].sum_to(
+                    ("t", "r")
+                ),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Primary Forms",
-                calculation_function=lambda mfa: mfa.flows["primary_market => exports"].sum_to(("t", "r")),
+                calculation_function=lambda mfa: mfa.flows["primary_market => exports"].sum_to(
+                    ("t", "r")
+                ),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Import|Industry|Chemicals|Plastics|Goods",
-                calculation_function=lambda mfa: mfa.flows["imports => good_market"].sum_to(("t", "r", "g")),
+                calculation_function=lambda mfa: mfa.flows["imports => good_market"].sum_to(
+                    ("t", "r", "g")
+                ),
                 unit="t/yr",
                 split_name="Good",
             ),
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Goods",
-                calculation_function=lambda mfa: mfa.flows["good_market => exports"].sum_to(("t", "r", "g")),
+                calculation_function=lambda mfa: mfa.flows["good_market => exports"].sum_to(
+                    ("t", "r", "g")
+                ),
                 unit="t/yr",
                 split_name="Good",
             ),
