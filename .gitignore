@@ -4,7 +4,6 @@ config/
 *.pyo
 .idea
 .vscode
-uv.lock
 remind_mfa.egg-info
 site/
 .github/copilot-instructions.md
