@@ -142,10 +142,7 @@ class CommonDataReader(fd.CompoundDataReader):
 
     @staticmethod
     def build_target_tgz_pattern(input_data_revision: str, region_mapping: str) -> str:
-        return (
-            f"rev{glob.escape(input_data_revision)}_"
-            f"{glob.escape(region_mapping)}_*_mfa.tgz"
-        )
+        return f"rev{glob.escape(input_data_revision)}_" f"{glob.escape(region_mapping)}_*_mfa.tgz"
 
     def get_target_tgz_path(self) -> str:
         search_pattern = self.build_target_tgz_pattern(

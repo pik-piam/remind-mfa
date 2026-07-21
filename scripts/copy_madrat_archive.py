@@ -95,7 +95,7 @@ def main():
     args = parse_args()
     input_cfg = read_input_cfg(args.config)
     destination_dir = resolve_destination_path(input_cfg)
-    pattern =  CommonDataReader.build_target_tgz_pattern(
+    pattern = CommonDataReader.build_target_tgz_pattern(
         input_cfg.input_data_revision, input_cfg.region_mapping
     )
     remote_archive_path = find_remote_archive(args.remote_host, args.remote_dir, pattern)
