@@ -1,6 +1,6 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.common_definition import ExtrapolationDefinition, RemindMFADefinition
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -262,23 +262,15 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
 # fmt: off
 scenario_parameters = [
-    RemindMFAParameterDefinition(name="waste_his_imports_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="waste_his_imports_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="waste_his_exports_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="waste_his_exports_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="collection_rate_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="collection_rate_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="landfill_rate_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="landfill_rate_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="mechanical_recycling_rate_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="mechanical_recycling_rate_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="chemical_recycling_rate_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="chemical_recycling_rate_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="bio_production_rate_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="bio_production_rate_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="daccu_production_rate_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="daccu_production_rate_target_year", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="emission_capture_rate_target", dim_letters=("r",),),
-    RemindMFAParameterDefinition(name="emission_capture_rate_target_year", dim_letters=("r",),),
+    ExtrapolationDefinition(name="waste_his_imports", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="waste_his_exports", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="chemical_recycling_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="bio_production_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="emission_capture_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="material_shares_use_inflow"),
 ]
 # fmt: on

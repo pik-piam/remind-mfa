@@ -1,6 +1,7 @@
 import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
+from remind_mfa.common.common_definition import ExtrapolationDefinition
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -286,13 +287,24 @@ def get_cement_definition(
     )
 
 
-# fmt: off
 scenario_parameters = [
-    RemindMFAParameterDefinition(name="function_buildings_split_target",      dim_letters=("r", "s", "f")),
-    RemindMFAParameterDefinition(name="function_buildings_split_target_year", dim_letters=("r", "s", "f")),
-    RemindMFAParameterDefinition(name="function_buildings_split_receiver",    dim_letters=("r", "s", "f")),
-    RemindMFAParameterDefinition(name="structure_buildings_split_target",      dim_letters=("r", "f", "b")),
-    RemindMFAParameterDefinition(name="structure_buildings_split_target_year", dim_letters=("r", "f", "b")),
-    RemindMFAParameterDefinition(name="structure_buildings_split_receiver",    dim_letters=("r", "f", "b")),
+    ExtrapolationDefinition(
+        name="clinker_ratio",
+        dim_letters=("r",),
+        type="target",
+    ),
+    ExtrapolationDefinition(
+        name="function_buildings_split",
+        dim_letters=("r", "s", "f"),
+        type="target",
+        blending_function="poly_mix",
+        split_dimension_letter="f",
+    ),
+    ExtrapolationDefinition(
+        name="structure_buildings_split",
+        dim_letters=("r", "f", "b"),
+        type="target",
+        blending_function="poly_mix",
+        split_dimension_letter="b",
+    ),
 ]
-# fmt: on

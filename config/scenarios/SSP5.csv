@@ -1,5 +1,5 @@
 parameter,models,value,extra:year,index:Region,description
 driver_scen,all,SSP5,,,
 stock_factor,cement,1.2,,,
-lifetime_mean_factor,cement,1.0,,,
-lifetime_std_factor,cement,1.0,,,
+lifetime_mean,cement,1.0,,,
+lifetime_std,cement,1.0,,,

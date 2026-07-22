@@ -17,12 +17,6 @@ model_switches:
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: False
-  parameter_extrapolation:
-    clinker_ratio:
-    lifetime_mean: {blend: poly_mix}
-    lifetime_std: {blend: poly_mix}
-    function_buildings_split: {blend: poly_mix, constrained_split_dim: Function}
-    structure_buildings_split: {blend: poly_mix, constrained_split_dim: Structure}
 
 visualization:
   do_visualize: True

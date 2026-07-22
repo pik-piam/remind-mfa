@@ -2,12 +2,44 @@ import os
 import ast
 import csv
 import flodym as fd
-from pydantic import field_validator
-from typing import List, Dict, Optional, Any
+from pydantic import Field, field_validator
+from typing import Any, Dict, List, Optional
 
-from remind_mfa.common.common_definition import PlainDataPointDefinition
-from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import (
+    ExtrapolationDefinition,
+    PlainDataPointDefinition,
+    RemindMFAParameterDefinition,
+)
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
+
+
+class ExtrapolationScenarioParameter(RemindMFABaseModel):
+    """Scenario values and metadata for one parameter extrapolation."""
+
+    definition: ExtrapolationDefinition
+    value: fd.Parameter
+    extras: Dict[str, fd.Parameter] = Field(default_factory=dict)
+
+    def set_value(self, value: float, index: Dict[str, Any]):
+        self._set(self.value, value, index)
+
+    def set_extra(self, name: str, value: float, index: Dict[str, Any]):
+        if name not in self.extras:
+            self.extras[name] = fd.Parameter(
+                name=f"{self.definition.name}_{name}", dims=self.value.dims
+            )
+        self._set(self.extras[name], value, index)
+
+    def set_extras(self, extras: Dict[str, Any], index: Dict[str, Any]):
+        for name, value in extras.items():
+            self.set_extra(name, value, index)
+
+    @staticmethod
+    def _set(parameter: fd.Parameter, value: float, index: Dict[str, Any]):
+        if index:
+            parameter[index] = value
+        else:
+            parameter[...] = value
 
 
 class ScenarioReader(RemindMFABaseModel):
@@ -15,7 +47,9 @@ class ScenarioReader(RemindMFABaseModel):
     base_path: str
     model: ModelNames
     dims: fd.DimensionSet
-    parameter_definitions: List[RemindMFAParameterDefinition | PlainDataPointDefinition]
+    parameter_definitions: List[
+        ExtrapolationDefinition | RemindMFAParameterDefinition | PlainDataPointDefinition
+    ]
     _scenarios: List["Scenario"] = []
     _parameters: dict = {}
 
@@ -29,7 +63,13 @@ class ScenarioReader(RemindMFABaseModel):
     def init_parameters(self):
         for param_def in self.parameter_definitions:
             name = param_def.name
-            if isinstance(param_def, RemindMFAParameterDefinition):
+            if isinstance(param_def, ExtrapolationDefinition):
+                dims = self.dims[param_def.dim_letters]
+                self._parameters[name] = ExtrapolationScenarioParameter(
+                    definition=param_def,
+                    value=fd.Parameter(name=name, dims=dims),
+                )
+            elif isinstance(param_def, RemindMFAParameterDefinition):
                 dims = self.dims[param_def.dim_letters]
                 self._parameters[name] = fd.Parameter(name=name, dims=dims)
             elif isinstance(param_def, PlainDataPointDefinition):
@@ -144,6 +184,12 @@ class ScenarioDataPoint(RemindMFABaseModel):
         return value
 
     def apply(self, parameters: dict):
+        parameter = parameters.get(self.parameter)
+        if isinstance(parameter, ExtrapolationScenarioParameter):
+            parameter.set_value(self.value, self.index)
+            parameter.set_extras(self.extra, self.index)
+            return
+
         self.apply_single(parameters, self.parameter, self.value)
         for extra_name, extra_val in self.extra.items():
             self.apply_single(parameters, f"{self.parameter}_{extra_name}", extra_val)

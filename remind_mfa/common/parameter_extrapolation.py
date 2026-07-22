@@ -1,12 +1,11 @@
 import numpy as np
 import flodym as fd
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import Dict, Optional
 from numbers import Number
 
-if TYPE_CHECKING:
-    from remind_mfa.common.common_config import CommonCfg, ExtrapolationConfig
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.data_blending import blend
+from remind_mfa.common.scenarios import ExtrapolationScenarioParameter
 
 
 class ParameterExtrapolation:
@@ -19,15 +18,14 @@ class ParameterExtrapolation:
     2. Parameters with 't' dimension: existing future values serve as baseline
     3. Parameters with no time dimension: 't' dimension is added, values constant in time
 
-    On top of the baseline, scenario parameters modify individual entries (see
-    ``ParameterExtrapolationSpec`` for the naming convention). The two modes differ in
-    their anchor:
+        On top of the baseline, scenario instructions modify individual
+        entries. Its type determines the anchor:
 
-    - **Absolute** (``{name}_target`` + ``_target_year``): the entry blends from the
+        - **Target** (``type="target"``): the entry blends from the
       *last historic value* to the absolute target by the target year. The anchor is
       always the last historic value, independent of the baseline shape — so for a
       't' parameter this ignores any pre-existing future trajectory.
-    - **Relative** (``{name}_factor`` + ``_factor_year``): the entry keeps its *baseline*
+        - **Factor** (``type="factor"``): the entry keeps its *baseline*
       and is multiplied by a factor blending from 1 to the given value by the factor year.
       The anchor is the baseline itself — so for a 't' parameter it scales the pre-existing
       future trajectory, and for an 'h'/static one it scales the (constant) last historic value.
@@ -37,13 +35,12 @@ class ParameterExtrapolation:
 
     def __init__(
         self,
-        cfg: "ExtrapolationConfig",
-        scenario_parameters: Dict[str, fd.Parameter | Number],
+        scenario_parameter: ExtrapolationScenarioParameter,
         historic_time: fd.Dimension,
         extended_time: fd.Dimension,
     ):
-        self.cfg = cfg
-        self.scenario_parameters = scenario_parameters or {}
+        self.scenario_parameter = scenario_parameter
+        self.definition = scenario_parameter.definition
         self.historic_time = historic_time
         self.extended_time = extended_time
 
@@ -52,49 +49,43 @@ class ParameterExtrapolation:
         prepared = self._prepare_parameter(parameter, name)
         last_hist = prepared[{"t": self._last_historic_time}]
 
-        target = self.scenario_parameters.get(f"{name}_target")
-        target_year = self.scenario_parameters.get(f"{name}_target_year")
-        factor = self.scenario_parameters.get(f"{name}_factor")
-        factor_year = self.scenario_parameters.get(f"{name}_factor_year")
-
-        # allow different extrapolation modes within the same parameter
-        is_abs = self._specified_mask(target_year, last_hist.dims)
-        is_rel = self._specified_mask(factor_year, last_hist.dims)
-        self._check_scenario_definition(
-            name, target, target_year, factor, factor_year, is_abs, is_rel
-        )
-        unspec = (1 - is_abs) * (1 - is_rel)
+        endpoint = self.scenario_parameter.value
+        endpoint_year = self.scenario_parameter.extras.get("year")
+        is_specified = self._specified_mask(endpoint_year, last_hist.dims)
+        unspec = 1 - is_specified
 
         # keep the baseline where no scenario is specified; targeted entries start at zero
         new_values = prepared * unspec
 
-        # absolute extrapolation: blend from the last historic value to the target
-        if target_year is not None:
-            new_values = new_values + is_abs * self._absolute_values(
-                last_hist, target, target_year, prepared.dims
-            )
-        # relative extrapolation: scale the baseline by a factor blending from 1
-        if factor_year is not None:
-            new_values = new_values + is_rel * prepared * self._relative_factors(
-                factor, factor_year, prepared.dims
-            )
+        if endpoint_year is not None:
+            if self.definition.type is None:
+                raise ValueError(f"'{name}' has scenario data but no extrapolation type.")
+            if self.definition.type == "target":
+                new_values = new_values + is_specified * self._absolute_values(
+                    last_hist, endpoint, endpoint_year, prepared.dims
+                )
+            else:
+                new_values = new_values + is_specified * prepared * self._relative_factors(
+                    endpoint, endpoint_year, prepared.dims
+                )
 
-        # renormalize over the split dimension if supplied
-        if self.cfg.constrained_split_dim is not None:
-            # note: 1 - unspec equals the combined is_abs/is_rel mask, but is safe against
-            # flodym's sum-reducing addition when the two masks have different dimensions
-            new_values = self._renormalize_split(new_values, prepared, 1 - unspec, name)
+        if self.definition.split_dimension_letter is not None:
+            new_values = self._renormalize_split(
+                new_values,
+                prepared,
+                is_specified,
+                self.scenario_parameter.extras.get("receiver"),
+                name,
+            )
 
         add_assumption_doc(
             type="model switch",
             name=f"Extrapolation of {name}",
-            description=self._description(
-                name, is_abs, is_rel, unspec, target, target_year, factor, factor_year
-            ),
+            description=self._description(name, is_specified, unspec, endpoint, endpoint_year),
         )
 
         # preserve historical values
-        new_param = new_values.to_Parameter(name=name)
+        new_param = fd.Parameter(values=new_values.values, dims=prepared.dims, name=name)
         new_param[{"t": self.historic_time}] = prepared[{"t": self.historic_time}]
         return new_param
 
@@ -133,25 +124,6 @@ class ParameterExtrapolation:
             return fd.Parameter(dims=dims)
         return year.apply(lambda x: (x > 0).astype(float))
 
-    def _check_scenario_definition(
-        self, name, target, target_year, factor, factor_year, is_abs, is_rel
-    ):
-        if (target is None) != (target_year is None):
-            missing = f"{name}_target" if target is None else f"{name}_target_year"
-            raise ValueError(
-                f"'{missing}' is missing — target and target_year must be set together."
-            )
-        if (factor is None) != (factor_year is None):
-            missing = f"{name}_factor" if factor is None else f"{name}_factor_year"
-            raise ValueError(
-                f"'{missing}' is missing — factor and factor_year must be set together."
-            )
-        if np.any((is_abs * is_rel).values > 0):
-            raise ValueError(
-                f"Scenario sets both '{name}_target' and '{name}_factor' for the same entries. "
-                "Only one of absolute target and relative factor may be given per entry."
-            )
-
     def _absolute_values(
         self,
         last_hist: fd.FlodymArray,
@@ -167,7 +139,7 @@ class ParameterExtrapolation:
             x="t",
             x_lower=self._last_historic_time,
             x_upper=target_year,
-            type=self.cfg.blend,
+            type=self.definition.blending_function,
         )
 
     def _relative_factors(
@@ -184,7 +156,7 @@ class ParameterExtrapolation:
             x="t",
             x_lower=self._last_historic_time,
             x_upper=factor_year,
-            type=self.cfg.blend,
+            type=self.definition.blending_function,
         )
 
     def _renormalize_split(
@@ -192,6 +164,7 @@ class ParameterExtrapolation:
         values: fd.FlodymArray,
         prepared: fd.FlodymArray,
         is_targeted: fd.FlodymArray,
+        receiver: Optional[fd.FlodymArray],
         name: str,
     ) -> fd.FlodymArray:
         """Preserve the sum=1 constraint over the split dimension.
@@ -202,14 +175,13 @@ class ParameterExtrapolation:
 
         - **Proportional** (no receiver specified): unspecified entries scale
           proportionally to their baseline shares so that the sum stays 1.
-        - **Receiver** (at most one receiver entry flagged via ``{name}_receiver``):
+        - **Receiver** (at most one receiver entry flagged via ``extra:receiver``):
           unspecified entries keep their baseline; the single receiver absorbs whatever
           share is left so the sum stays 1.
         """
-        split_letter = prepared.dims[self.cfg.constrained_split_dim].letter
+        split_letter = self.definition.split_dimension_letter
 
         # Classify entries into three groups: targeted, receiver, and unspecified
-        receiver = self.scenario_parameters.get(f"{name}_receiver")
         is_receiver = self._specified_mask(receiver, prepared.dims.drop("t"))
         is_unspecified = (1 - is_targeted) * (1 - is_receiver)
 
@@ -256,45 +228,42 @@ class ParameterExtrapolation:
         deviation = ((sums - 1.0) * applicable).values
         if not np.allclose(deviation, 0.0, atol=1e-6):
             raise ValueError(
-                f"'{name}' does not sum to 1 over '{self.cfg.constrained_split_dim}' after "
+                f"'{name}' does not sum to 1 over '{self.definition.split_dimension_letter}' after "
                 f"extrapolation. Max deviation on applicable slices: {np.abs(deviation).max():.2e}"
             )
 
     def _description(
         self,
         name: str,
-        is_abs: fd.FlodymArray,
-        is_rel: fd.FlodymArray,
+        is_specified: fd.FlodymArray,
         unspec: fd.FlodymArray,
-        target: Optional[fd.FlodymArray],
-        target_year: Optional[fd.FlodymArray],
-        factor: Optional[fd.FlodymArray],
-        factor_year: Optional[fd.FlodymArray],
+        endpoint: fd.FlodymArray,
+        endpoint_year: Optional[fd.FlodymArray],
     ) -> str:
         """Describe the extrapolation actually applied to this parameter's entries.
 
         Reports only the modes that occur, with the scope (named dimension items where
         few, otherwise a count) and the actual target/factor values and years.
         """
-        parts = [f"Parameter '{name}' is extended into the future using blend '{self.cfg.blend}'."]
+        parts = [
+            f"Parameter '{name}' is extended into the future using blend "
+            f"'{self.definition.blending_function}'."
+        ]
 
-        abs_scope = self._mask_scope(is_abs)
-        if abs_scope is not None and target is not None and target_year is not None:
-            tv = self._value_range(target, is_abs, self._fmt_value)
-            ty = self._value_range(target_year, is_abs, self._fmt_year)
-            parts.append(
-                f" Absolute targets ('{name}_target') are set for {abs_scope}, blending from "
-                f"the last historic value to {tv} by {ty}."
-            )
-
-        rel_scope = self._mask_scope(is_rel)
-        if rel_scope is not None and factor is not None and factor_year is not None:
-            fv = self._value_range(factor, is_rel, self._fmt_value)
-            fy = self._value_range(factor_year, is_rel, self._fmt_year)
-            parts.append(
-                f" Relative factors ('{name}_factor') are applied to {rel_scope}, scaling the "
-                f"baseline by {fv} by {fy}."
-            )
+        scope = self._mask_scope(is_specified)
+        if scope is not None and endpoint_year is not None:
+            endpoint_value = self._value_range(endpoint, is_specified, self._fmt_value)
+            year = self._value_range(endpoint_year, is_specified, self._fmt_year)
+            if self.definition.type == "target":
+                parts.append(
+                    f" Absolute targets are set for {scope}, blending from the last historic "
+                    f"value to {endpoint_value} by {year}."
+                )
+            else:
+                parts.append(
+                    f" Relative factors are applied to {scope}, scaling the baseline by "
+                    f"{endpoint_value} by {year}."
+                )
 
         const_scope = self._mask_scope(unspec)
         if const_scope == "all entries":
@@ -302,9 +271,9 @@ class ParameterExtrapolation:
         elif const_scope is not None:
             parts.append(" The remaining entries keep their baseline.")
 
-        if self.cfg.constrained_split_dim is not None:
+        if self.definition.split_dimension_letter is not None:
             parts.append(
-                f" The sum=1 constraint over the '{self.cfg.constrained_split_dim}' dimension "
+                f" The sum=1 constraint over the '{self.definition.split_dimension_letter}' dimension "
                 "is preserved: receiver entries absorb the freed share; the rest scale "
                 "proportionally or stay constant."
             )
@@ -348,16 +317,13 @@ class ParameterExtrapolation:
 
 
 class ParameterExtrapolationManager:
-    """Applies the configured extrapolation to all parameters listed in the YAML config
-    under ``model_switches.parameter_extrapolation``."""
+    """Applies extrapolation instructions defined by structured scenario parameters."""
 
     def __init__(
         self,
-        cfg: "CommonCfg",
         historic_time: fd.Dimension,
         extended_time: fd.Dimension,
     ):
-        self.extrapolation_cfg = cfg.model_switches.parameter_extrapolation or {}
         self.historic_time = historic_time
         self.extended_time = extended_time
 
@@ -369,35 +335,39 @@ class ParameterExtrapolationManager:
     def apply_prm_extrapolation(
         self,
         parameters: Dict[str, fd.Parameter],
-        scenario_parameters: Dict[str, fd.Parameter | Number] = None,
+        scenario_parameters: Optional[Dict[str, object]] = None,
     ) -> Dict[str, fd.Parameter]:
-        """Extrapolate all configured parameters and return the updated dictionary.
+        """Extrapolate parameters described by structured scenario instructions.
 
-        Only parameters listed under ``parameter_extrapolation`` in the config model
-        switches are adjusted; all others are returned unchanged.
+        Only ``ExtrapolationScenarioParameter`` entries are adjusted; all other scenario
+        values and model parameters are returned unchanged.
 
         Args:
             parameters: Dictionary of parameters to potentially extrapolate
-            scenario_parameters: Dictionary of scenario-specific target/factor values.
-            Parameters with no scenario entries extend constantly.
+            scenario_parameters: Scenario values, including structured extrapolation inputs.
 
         Returns:
             Dictionary of parameters with extrapolations applied where configured
         """
         modified_parameters = parameters.copy()
 
-        for param_name, cfg in self.extrapolation_cfg.items():
+        for scenario_parameter in (scenario_parameters or {}).values():
+            if not isinstance(scenario_parameter, ExtrapolationScenarioParameter):
+                continue
+
+            param_name = scenario_parameter.definition.name
             if param_name not in modified_parameters:
-                raise ValueError(f"Parameter '{param_name}' not found in parameters.")
+                if not scenario_parameter.definition.create_new:
+                    raise ValueError(f"Parameter '{param_name}' not found in parameters.")
+                parameter = scenario_parameter.value
+            else:
+                parameter = modified_parameters[param_name]
 
             extrapolation = ParameterExtrapolation(
-                cfg=cfg,
-                scenario_parameters=scenario_parameters,
+                scenario_parameter=scenario_parameter,
                 historic_time=self.historic_time,
                 extended_time=self.extended_time,
             )
-            modified_parameters[param_name] = extrapolation.extrapolate(
-                modified_parameters[param_name], param_name
-            )
+            modified_parameters[param_name] = extrapolation.extrapolate(parameter, param_name)
 
         return modified_parameters

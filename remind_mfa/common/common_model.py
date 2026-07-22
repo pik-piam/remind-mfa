@@ -140,7 +140,7 @@ class CommonModel:
     def extrapolate_parameters(self):
         """Extend parameters into the future, applying scenario targets and factors."""
         self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["h"], self.dims["t"]
+            self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
 
     def transfer_historic_parameters(self):

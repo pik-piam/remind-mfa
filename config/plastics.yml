@@ -14,19 +14,6 @@ model_switches:
   do_stock_extrapolation_with_time_factor: True
   lifetime_model_name: 'LogNormalLifetime'
   do_stock_extrapolation_by_category: True
-  parameter_extrapolation:
-    waste_his_imports:
-    waste_his_exports:
-    collection_rate:
-    landfill_rate:
-    mechanical_recycling_rate:
-    chemical_recycling_rate:
-    bio_production_rate:
-    daccu_production_rate:
-    emission_capture_rate:
-    material_shares_use_inflow:
-    lifetime_mean: {blend: poly_mix}
-    lifetime_std: {blend: poly_mix}
 
 visualization:
   do_visualize: True
