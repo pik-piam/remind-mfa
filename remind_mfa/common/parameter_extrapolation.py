@@ -358,8 +358,13 @@ class ParameterExtrapolationManager:
             param_name = scenario_parameter.definition.name
             if param_name not in modified_parameters:
                 if not scenario_parameter.definition.create_new:
-                    raise ValueError(f"Parameter '{param_name}' not found in parameters.")
-                parameter = scenario_parameter.value
+                    raise ValueError(f"Parameter '{param_name}' not found in parameters. Use create_new=True to create it.")
+                if scenario_parameter.definition.type is None:
+                    raise ValueError(
+                        f"'{param_name}' must define an extrapolation type when create_new=True."
+                    )
+                parameter = fd.Parameter(name=param_name, dims=scenario_parameter.value.dims)
+                parameter[...] = 1.0 if scenario_parameter.definition.type == "factor" else 0.0
             else:
                 parameter = modified_parameters[param_name]
 

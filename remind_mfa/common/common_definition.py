@@ -79,13 +79,11 @@ scenario_parameters = [
         name="saturation_level",
         description="Saturation level for material use per capita (unit depends on the material, e.g. t/capita)",
     ),
-    RemindMFAParameterDefinition(
+    ExtrapolationDefinition(
         name="stock_factor",
         dim_letters=("r",),
-    ),
-    RemindMFAParameterDefinition(
-        name="stock_factor_year",
-        dim_letters=("r",),
+        create_new=True,
+        type="factor",
     ),
     ExtrapolationDefinition(
         name="lifetime_mean",
