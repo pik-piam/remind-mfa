@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 import flodym as fd
 
 from remind_mfa.common.data_blending import BLEND_TYPES
@@ -40,6 +40,12 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 
 
 class ExtrapolationDefinition(RemindMFAParameterDefinition):
+    """Declares a parameter whose values are extrapolated from historic to full time.
+
+    Scenario CSV rows supply the endpoint in the `value` column, either as a number
+    or as the name of a model parameter whose values serve as the endpoint at the
+    row's coordinates (blending toward another parameter).
+    """
 
     # from parent class
     # name: str
@@ -53,7 +59,11 @@ class ExtrapolationDefinition(RemindMFAParameterDefinition):
     blending_function: str = "linear"
     """Blending function to use for extrapolation. Must be one of the functions defined in `remind_mfa.common.data_blending.BLEND_TYPES`."""
     split_dimension_letter: Optional[str] = None
-    """Only required if extrapolating a split. Ensures that along the given dimension the values sum  up to 1."""
+    """Only required if extrapolating a split. Ensures that along the given dimension the values sum up to 1."""
+    split_receiver_item: Optional[str] = None
+    """Item of the split dimension that absorbs the residual share when other items are
+    targeted. Requires split_dimension_letter. Without it, unspecified items scale
+    proportionally."""
 
     @field_validator("blending_function")
     @classmethod
@@ -62,12 +72,23 @@ class ExtrapolationDefinition(RemindMFAParameterDefinition):
             raise ValueError(f"Unknown blending function '{value}'. Must be one of {BLEND_TYPES}")
         return value
 
-    # TODO later: potential checks
-    # - is split dimension only one letter, is it one of the dim_letters?
-    # - check if blend function exists
-
-
-# extras: year, residual_item
+    @model_validator(mode="after")
+    def validate_split_settings(self):
+        if self.split_receiver_item is not None and self.split_dimension_letter is None:
+            raise ValueError(f"'{self.name}': split_receiver_item requires split_dimension_letter.")
+        if self.split_dimension_letter is None:
+            return self
+        if not self.dim_letters:
+            raise ValueError(
+                f"'{self.name}': split_dimension_letter is set but dim_letters is empty. "
+                "Add split dimension to dim_letters."
+            )
+        if self.split_dimension_letter not in self.dim_letters:
+            raise ValueError(
+                f"'{self.name}': split_dimension_letter '{self.split_dimension_letter}' "
+                f"is not in dim_letters {self.dim_letters}."
+            )
+        return self
 
 
 scenario_parameters = [

@@ -57,6 +57,7 @@ class CommonModel:
         # snapshot parameters before extrapolation, then extend them into the future
         self.historic_parameters = copy.deepcopy(self.parameters)
         self.extrapolate_parameters()
+        self.check_parameters()
 
         stock_projection = self.get_long_term_stock()
 

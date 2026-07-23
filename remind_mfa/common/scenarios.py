@@ -1,8 +1,9 @@
 import os
 import ast
 import csv
+import numpy as np
 import flodym as fd
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from typing import Any, Dict, List, Optional
 
 from remind_mfa.common.common_definition import (
@@ -14,16 +15,47 @@ from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
 
 class ExtrapolationScenarioParameter(RemindMFABaseModel):
-    """Scenario values and metadata for one parameter extrapolation."""
+    """Scenario values and metadata for one parameter extrapolation.
+
+    The value array has dtype object: entries are either numbers or strings naming a
+    model parameter that supplies the endpoint at the entry's coordinates. No
+    arithmetic may operate on it; the extrapolator resolves it to floats first.
+    """
 
     definition: ExtrapolationDefinition
     value: fd.Parameter
+    is_set: Optional[fd.Parameter] = None
+    """0/1 mask marking coordinates where a scenario row has set a value; distinguishes
+    an explicit 0 from an untouched entry."""
     extras: Dict[str, fd.Parameter] = Field(default_factory=dict)
 
-    def set_value(self, value: float, index: Dict[str, Any]):
+    @model_validator(mode="after")
+    def init_is_set(self):
+        if self.is_set is None:
+            self.is_set = fd.Parameter(name=f"{self.definition.name}_is_set", dims=self.value.dims)
+        return self
+
+    @model_validator(mode="after")
+    def check_split_receiver_item(self):
+        if self.definition.split_receiver_item is None:
+            return self
+        split_dim = self.value.dims[self.definition.split_dimension_letter]
+        if self.definition.split_receiver_item not in split_dim.items:
+            raise ValueError(
+                f"Unknown split_receiver_item '{self.definition.split_receiver_item}' for "
+                f"'{self.definition.name}': not an item of dimension '{split_dim.name}'."
+            )
+        return self
+
+    def set_value(self, value: float | str, index: Dict[str, Any]):
+        if value is None:
+            raise ValueError(f"Scenario row for '{self.definition.name}' has an empty value.")
+        self._check_index(index)
         self._set(self.value, value, index)
+        self._set(self.is_set, 1.0, index)
 
     def set_extra(self, name: str, value: float, index: Dict[str, Any]):
+        self._check_index(index)
         if name not in self.extras:
             self.extras[name] = fd.Parameter(
                 name=f"{self.definition.name}_{name}", dims=self.value.dims
@@ -35,11 +67,32 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
             self.set_extra(name, value, index)
 
     @staticmethod
-    def _set(parameter: fd.Parameter, value: float, index: Dict[str, Any]):
+    def _set(parameter: fd.Parameter, value: float | str, index: Dict[str, Any]):
         if index:
             parameter[index] = value
         else:
             parameter[...] = value
+
+    def _check_index(self, index: Dict[str, Any]):
+        """Check that index keys are valid dimension names and index values are valid items."""
+        valid_names = set(self.value.dims.names)
+        invalid = [name for name in index if name not in valid_names]
+        if invalid:
+            raise ValueError(
+                f"Scenario row for '{self.definition.name}' indexes dimension(s) {invalid}, "
+                f"which are not among its scenario dimensions {sorted(valid_names)}."
+            )
+        for dim_name, item in index.items():
+            dim = self.value.dims[dim_name]
+            if item not in dim.items:
+                raise ValueError(
+                    f"Scenario row for '{self.definition.name}': '{item}' is not a valid "
+                    f"item of dimension '{dim_name}'. Valid items: {dim.items}."
+                )
+
+    def referenced_parameters(self) -> list:
+        """Sorted unique names of model parameters referenced as endpoints in the scenario values."""
+        return sorted({v for v in self.value.values.flat if isinstance(v, str)})
 
 
 class ScenarioReader(RemindMFABaseModel):
@@ -65,9 +118,11 @@ class ScenarioReader(RemindMFABaseModel):
             name = param_def.name
             if isinstance(param_def, ExtrapolationDefinition):
                 dims = self.dims[param_def.dim_letters]
+                # object dtype: entries hold numbers or names of endpoint parameters
+                values = np.zeros(dims.shape, dtype=object)
                 self._parameters[name] = ExtrapolationScenarioParameter(
                     definition=param_def,
-                    value=fd.Parameter(name=name, dims=dims),
+                    value=fd.Parameter(name=name, dims=dims, values=values),
                 )
             elif isinstance(param_def, RemindMFAParameterDefinition):
                 dims = self.dims[param_def.dim_letters]
@@ -120,7 +175,7 @@ class ScenarioReader(RemindMFABaseModel):
         extra = {
             col[len(extra_prefix) :]: parsed[col]
             for col in parsed
-            if col.startswith(extra_prefix) and parsed[col] is not None
+            if col.startswith(extra_prefix) and row[col].strip() != ""
         }
         return ScenarioDataPoint(
             parameter=parsed["parameter"],

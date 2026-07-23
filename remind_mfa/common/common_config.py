@@ -38,7 +38,7 @@ class ModelSwitches(RemindMFABaseModel):
     """Variable to use as a predictor for stock extrapolation."""
     do_stock_extrapolation_with_time_factor: bool = False
     """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
-    
+
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
         return choose_subclass_by_name(self.lifetime_model_name, fd.LifetimeModel)

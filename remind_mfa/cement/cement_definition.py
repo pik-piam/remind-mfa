@@ -299,6 +299,7 @@ scenario_parameters = [
         type="target",
         blending_function="poly_mix",
         split_dimension_letter="f",
+        split_receiver_item="RM",
     ),
     ExtrapolationDefinition(
         name="structure_buildings_split",
@@ -306,5 +307,6 @@ scenario_parameters = [
         type="target",
         blending_function="poly_mix",
         split_dimension_letter="b",
+        split_receiver_item="C",
     ),
 ]
