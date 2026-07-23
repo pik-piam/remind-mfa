@@ -47,9 +47,6 @@ class ExtrapolationDefinition(RemindMFAParameterDefinition):
     row's coordinates (blending toward another parameter).
     """
 
-    # from parent class
-    # name: str
-    # description: Optional[str] = None
     dim_letters: tuple[str, ...] = ()
     """Dimensions for scenario data. Leave empty to extend an existing parameter without scenario data."""
     create_new: bool = False
