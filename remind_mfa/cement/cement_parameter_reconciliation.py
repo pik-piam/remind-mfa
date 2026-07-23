@@ -9,6 +9,10 @@ from copy import deepcopy
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
+from remind_mfa.cement.cement_mfa_system_bottom_up import (
+    StockDrivenBottomUpCementMFASystem,
+    REDUCED_STOCK_TYPE,
+)
 
 
 class CementParameterReconciliation:
@@ -71,15 +75,8 @@ class CementParameterReconciliation:
     # Partial splits: only these dim items are part of the reconciliation.
     _reconciled_split_items: dict[str, tuple[str, ...]] = {
         "product_material_split": ("concrete",),
-        "stock_type_split": ("Res", "Com"),
+        "stock_type_split": tuple(REDUCED_STOCK_TYPE.items),
     }
-
-    # reduced stock type (residential / commercial) where top-down data is available
-    _reduced_stock_type: fd.Dimension = fd.Dimension(
-        name="Reduced Stock Type",
-        letter="u",
-        items=list(_reconciled_split_items["stock_type_split"]),
-    )
 
     def __init__(
         self,
@@ -116,7 +113,7 @@ class CementParameterReconciliation:
     def prepare_dims(self):
         dims = self.ref_mfa.dims
         self.input_dims = deepcopy(dims)
-        self.dims = dims.replace("s", self._reduced_stock_type)
+        self.dims = dims.replace("s", REDUCED_STOCK_TYPE)
 
     def prepare_prms(self, source_prms: dict[str, fd.Parameter]):
         """Build the reduced working parameters `prms` from `source_prms`, and the
@@ -135,7 +132,7 @@ class CementParameterReconciliation:
         used during reconciliation."""
         # reduce stock type dimension
         if "s" in prm.dims.letters:
-            prm = prm[{"s": self._reduced_stock_type}]
+            prm = prm[{"s": REDUCED_STOCK_TYPE}]
         # remove time dimension
         if prm_name in ["floorspace"]:
             prm = prm[{"t": self._year_of_reconciliation}]
@@ -145,7 +142,7 @@ class CementParameterReconciliation:
         self.flws: dict[str, fd.Flow] = {}
         for key, val in self.ref_mfa.flows.items():
             if "s" in val.dims.letters:
-                val = val[{"s": self._reduced_stock_type}]  # slicing returns a new array
+                val = val[{"s": REDUCED_STOCK_TYPE}]  # slicing returns a new array
             else:
                 val = deepcopy(val)  # protect ref_mfa flows from in-place modification
             self.flws[key] = val
@@ -155,9 +152,9 @@ class CementParameterReconciliation:
         for key, val in self.ref_mfa.stocks.items():
             val = deepcopy(val)
             if "s" in val.dims.letters:
-                val.inflow = val.inflow[{"s": self._reduced_stock_type}]
-                val.outflow = val.outflow[{"s": self._reduced_stock_type}]
-                val.stock = val.stock[{"s": self._reduced_stock_type}]
+                val.inflow = val.inflow[{"s": REDUCED_STOCK_TYPE}]
+                val.outflow = val.outflow[{"s": REDUCED_STOCK_TYPE}]
+                val.stock = val.stock[{"s": REDUCED_STOCK_TYPE}]
                 val.dims = val.inflow.dims
                 if hasattr(val, "lifetime_model"):
                     val.lifetime_model.dims = val.inflow.dims
@@ -279,14 +276,9 @@ class CementParameterReconciliation:
     @staticmethod
     def calc_bottom_up_stock(prm: dict[str, fd.FlodymArray], stock_type_letter: str = "u"):
         """Bottom-up stock calculation for reconciliation."""
-
-        # 1. Compute concrete stock through bottom-up calculation
-        # use get_shares_over here to yield zero sensitivities for scaled shares
-        concrete_stk = (
-            prm["floorspace"]
-            * prm["function_buildings_split"].get_shares_over(("f",))
-            * prm["structure_buildings_split"].get_shares_over(("b",))
-            * prm["concrete_building_mi"]
+        # 1. Compute concrete stock bottom-up
+        concrete_stk = StockDrivenBottomUpCementMFASystem.compute_bottom_up_concrete_stock(
+            prm["floorspace"], prm
         )
 
         # 2. Reduce dimensions to match top-down stock dimensions
@@ -301,12 +293,7 @@ class CementParameterReconciliation:
         ]
 
         # 2.2 Remove building structure
-        reduced_cement_stock = reduced_cement_stock.sum_over("b")
-
-        # 3. Scale up building stock to account for hibernating (unused) stock
-        reduced_cement_stock = reduced_cement_stock / (1.0 - prm["hibernating_stock_share"])
-
-        return reduced_cement_stock
+        return reduced_cement_stock.sum_over("b")
 
     def compute_sensitivities(
         self, td: fd.FlodymArray, bu: fd.FlodymArray
@@ -626,15 +613,13 @@ class CementParameterReconciliation:
     def cast_correction_to_original_prm_dim(
         self, correction_factor: fd.FlodymArray
     ) -> fd.FlodymArray:
-        if self._reduced_stock_type.letter not in correction_factor.dims.letters:
+        if REDUCED_STOCK_TYPE.letter not in correction_factor.dims.letters:
             return correction_factor
 
         # build new correction factor
-        new_dims = correction_factor.dims.replace(
-            self._reduced_stock_type.letter, self.input_dims["s"]
-        )
+        new_dims = correction_factor.dims.replace(REDUCED_STOCK_TYPE.letter, self.input_dims["s"])
         new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
-        new_correction[{"s": self._reduced_stock_type}] = correction_factor
+        new_correction[{"s": REDUCED_STOCK_TYPE}] = correction_factor
         return new_correction
 
     def normalize_output_parameter(self, prm_name: str):
@@ -662,7 +647,7 @@ class CementParameterReconciliation:
 
         # full split: proportional normalization
         prm_sum = prm.sum_over(letter)
-        # avoid division by zero: zero values can occur due to `self._reduced_stock_type`
+        # avoid division by zero: zero values can occur due to `REDUCED_STOCK_TYPE`
         prm_sum.values[prm_sum.values == 0] = 1
         prm[...] = prm / prm_sum
 

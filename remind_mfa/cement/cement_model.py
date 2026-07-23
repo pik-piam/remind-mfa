@@ -81,10 +81,11 @@ class CementModel(CommonModel):
         zero_trade = self._create_zero_trade(self.td_hist_mfa.trade_set)
 
         # compute non-reconiled bottom-up mfa
+        # TODO: currently, the bottom_up mfa is still blended with top-down, which is not ideal.
         # TODO add scale to properly calculate pre-reconciliation BU MFA
         # Idea: scale the td stock to match bu stock (in relevant categories) to get vintage
-        # self.bu_mfa = self.make_bottom_up_mfa()
-        # self.bu_mfa.compute(self.td_mfa.inflow, zero_trade, scale=True)
+        self.bu_mfa = self.make_bottom_up_mfa()
+        self.bu_mfa.compute(self.td_mfa.stocks["in_use"], zero_trade)
 
         # reconcile parameters
         self.parameters = self.historic_parameters

@@ -1,9 +1,10 @@
 import flodym as fd
 
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
-from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.data_blending import CriticallyDampedBlender
+
+REDUCED_STOCK_TYPE = fd.Dimension(name="Reduced Stock Type", letter="u", items=["Res", "Com"])
 
 
 class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
@@ -45,11 +46,8 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         stk["floorspace"].compute()
 
         # Add bu dimensions to the inflow + calculate bu stock (inflow-driven)
-        stk["bu_in_use"].inflow[...] = (
-            stk["floorspace"].inflow
-            * prm["function_buildings_split"]
-            * prm["structure_buildings_split"]
-            * prm["concrete_building_mi"]
+        stk["bu_in_use"].inflow[...] = self.compute_bottom_up_concrete_stock(
+            stk["floorspace"].inflow, prm
         )
         stk["bu_in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
@@ -116,8 +114,24 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         # compute combined mfa
         super().compute(combined_stock, historic_trade, stock_is_cement=False)
 
+    @staticmethod
+    def compute_bottom_up_concrete_stock(
+        floorspace: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
+    ) -> fd.FlodymArray:
+        """Concrete in-use stock from a floorspace quantity, resolved by
+        building function (f) and structure (b).
+        """
+        function_split = prm["function_buildings_split"]
+        structure_split = prm["structure_buildings_split"]
+        function_split = function_split.get_shares_over(("f",))
+        structure_split = structure_split.get_shares_over(("b",))
+        concrete = floorspace * function_split * structure_split * prm["concrete_building_mi"]
+        # scale up building stock to account for hibernating (unused) stock
+        total_concrete_stock = concrete / (1.0 - prm["hibernating_stock_share"])
+        return total_concrete_stock
+
     @property
     def reduced_dim_mask(self):
         return {
-            "s": CementParameterReconciliation._reduced_stock_type,
+            "s": REDUCED_STOCK_TYPE,
         }
