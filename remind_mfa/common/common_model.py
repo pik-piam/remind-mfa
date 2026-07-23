@@ -284,8 +284,6 @@ class CommonModel:
         )  # to be used in visualization of extrapolation functions
         long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
 
-        long_term_stock[...] *= self.parameters["stock_factor"]
-
         return long_term_stock
 
     def lifetime_limit(self):
