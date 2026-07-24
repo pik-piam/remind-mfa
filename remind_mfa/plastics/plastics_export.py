@@ -22,14 +22,14 @@ class PlasticsDataExporter(CommonDataExporter):
         )
 
     def get_remind_input_variables(self) -> list[RemindInputVariable]:
-        def plastics_production(mfa: fd.MFASystem) -> fd.FlodymArray:
-            """Plastics output after polymerization losses and before trade"""
-            return mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
+        def hvc_input(mfa: fd.MFASystem) -> fd.FlodymArray:
+            """HVC input into plastics production"""
+            return mfa.flows["HVC_input => polymerization"].sum_to(("t", "r"))
 
         return [
             RemindInputVariable(
-                name="plastics_production",
-                calculation_function=plastics_production,
+                name="HVC_input",
+                calculation_function=hvc_input,
                 unit="t/yr",
             ),
             RemindInputVariable(
