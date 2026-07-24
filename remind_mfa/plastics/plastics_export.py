@@ -21,11 +21,8 @@ class PlasticsDataExporter(CommonDataExporter):
 
         def p37_plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
             """Plastic waste available for recycling."""
-            return (
-                (
-                    mfa.flows["collected => reclmech"]
-                    + mfa.flows["collected => reclchem"]
-                ).sum_to(("t", "r", "m"))
+            return (mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]).sum_to(
+                ("t", "r", "m")
             )
 
         return [

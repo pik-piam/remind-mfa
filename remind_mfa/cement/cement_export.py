@@ -23,7 +23,6 @@ class CementDataExporter(CommonDataExporter):
             )
         ]
 
-
     def iamc_variables(self) -> list[IamcVariable]:
         return [
             IamcVariable(

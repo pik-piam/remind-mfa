@@ -261,9 +261,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def get_remind_input_variables(self) -> list[RemindInputVariable]:
         """Return the variables to export as REMIND input. Override in subclasses."""
-        raise NotImplementedError(
-            "Subclasses must implement get_remind_input_variables method"
-        )
+        raise NotImplementedError("Subclasses must implement get_remind_input_variables method")
 
     def write_remind_input(self, model: "CommonModel"):
         """Write material flows needed as inputs to REMIND."""
@@ -273,7 +271,11 @@ class CommonDataExporter(RemindMFABaseModel):
         export_dir.mkdir(parents=True, exist_ok=True)
 
         for variable in self.get_remind_input_variables():
-            df = variable.calculation_function(model.future_mfa).to_df().rename(columns={"value": variable.name})
+            df = (
+                variable.calculation_function(model.future_mfa)
+                .to_df()
+                .rename(columns={"value": variable.name})
+            )
             df.to_csv(self.export_path("remind_input", f"{variable.name}.csv"))
 
     def definition_to_markdown(self, definition: RemindMFADefinition):
