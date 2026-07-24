@@ -2,6 +2,7 @@ import logging
 from typing import Annotated, Literal
 
 import typer
+from dotenv import load_dotenv
 
 from remind_mfa.common.config_loader import get_config_paths, load_config
 from remind_mfa.common.helpers import ModelNames, init_model
@@ -72,6 +73,7 @@ def main(
     ] = None,
 ) -> None:
     """Run REMIND-MFA with one or more layered configurations."""
+    load_dotenv()
 
     if not config_names:
         config_names = prompt_for_config_names()

@@ -7,22 +7,33 @@ REMIND-MFA has global coverage. Per default, it runs in 21 world regions. Howeve
 
 ## Installation
 
-REMIND-MFA dependencies are managed with [pip](https://pypi.org/project/pip/).
+REMIND-MFA dependencies are managed with [uv](https://docs.astral.sh/uv/).
 
 To install, clone the repository and run
 
 ```
-python -m pip install -r pyproject.toml
+uv sync
 ```
 
 from the repository's main directory.
+This installs the project together with some development dependencies.
+For a minimal installation, you can run `uv sync --no-dev` instead.
+
+For development, it may be convenient to check out the `flodym` repository in the same parent directory as `remind-mfa` and uncomment the `tool.uv.sources` section in `pyproject.toml` to point to the local `flodym` repository.
+This will install `flodym` in editable mode, allowing you to use and test local changes to `flodym`.
+
+If you prefer `pip`, you can still use it as a fallback:
+
+```
+python -m pip install .
+```
 
 ## Run
 
 To run a model, run
 
 ```shell
-python run_remind_mfa.py --config default --material steel
+uv run run_remind_mfa.py --config default --material steel
 ```
 
 from the main directory. Configuration names resolve to TOML files below `config`, so
