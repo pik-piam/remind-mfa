@@ -53,7 +53,9 @@ class CommonDataReader(fd.CompoundDataReader):
             if not path:
                 return False
             if not Path(path).exists():
-                raise ValueError(f"Specified MADRAT output path '{path}' does not exist.")
+                import logging
+                logging.warning(f"Specified MADRAT output path '{path}' does not exist. Creating it.")
+                Path(path).mkdir(parents=True, exist_ok=True)
             return True
 
         if check_path(configured_path):
