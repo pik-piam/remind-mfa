@@ -1,3 +1,5 @@
+"""Copy the selected rev<revision>_<region>_*_mfa.tgz archive from a remote machine into the configured madrat_output_path via scp."""
+
 import argparse
 import shlex
 import subprocess
