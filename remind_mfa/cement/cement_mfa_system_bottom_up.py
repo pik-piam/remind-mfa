@@ -29,33 +29,46 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         if scale:
             raise NotImplementedError("Scaling not implemented for bottom-up system.")
 
+        self.compute_floorspace_stock()
+        self.compute_bottom_up_stock()
+        self.compute_top_down_stock(td_in_use)
+        combined_stock = self.blend_stocks()
+        super().compute(combined_stock, historic_trade, stock_is_cement=False)
+
+    def compute_floorspace_stock(self):
+        """Calculate the floorspace inflow from stock change + lifetime (stock-driven)."""
         prm = self.parameters
         stk = self.stocks
 
-        # ------------- Compute BU stock -------------
-        # Calculate floorspace inflow from stock change + lifetime (stock-driven)
         stock = prm["floorspace"]  # TODO remove once mrmfa is fixed
         stock[{"t": [y for y in stock.dims["t"].items if y < 2000]}] = (
             0  # TODO remove once mrmfa is fixed
         )
         stk["floorspace"].stock = stock
-        stk["floorspace"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"],
-            std=prm["lifetime_std"],
-        )
+        self._set_lifetime("floorspace")
         stk["floorspace"].compute()
 
-        # Add bu dimensions to the inflow + calculate bu stock (inflow-driven)
-        stk["bu_in_use"].inflow[...] = self.compute_bottom_up_concrete_stock(
-            stk["floorspace"].inflow, prm
+    def compute_bottom_up_stock(self):
+        """Add bu dimensions to the floorspace inflow and calculate the bu concrete stock
+        (inflow-driven), assuming a constant split/MI over time.
+        """
+        stk = self.stocks
+
+        stk["bu_in_use"].inflow[...] = self.concrete_from_floorspace(
+            stk["floorspace"].inflow, self.parameters
         )
-        stk["bu_in_use"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"],
-            std=prm["lifetime_std"],
-        )
+        self._set_lifetime("bu_in_use")
         stk["bu_in_use"].compute()
 
-        # ------------- Compute TD stock -------------
+    def compute_top_down_stock(self, td_in_use: fd.Stock):
+        """Resolve the top-down in-use stock into building dimensions (f, b):
+        Add bu dimensions to the td inflow and recalculate the td stock (inflow-driven).
+        Equivalent to floorspace approach. Necessary to translate inflow splits into stock splits.
+        Building splits are only applied to concrete, mortar gets N/A label.
+        """
+        prm = self.parameters
+        stk = self.stocks
+
         # BU shares are given with respect to floorspace
         # => needs to be weighted by MI for use in mass stock
         mi_weighted_split = (
@@ -64,10 +77,6 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             * prm["concrete_building_mi"]
         ).get_shares_over(("f", "b"))
 
-        # Resolve the top-down in-use stock into building dimensions (f, b).
-        # Add bu dimensions to the td infwlow and recalculate the td stock (inflow-driven)
-        # Equivalent to floorspace approach. Necessary to translate inflow splits into stock splits.
-        # Building splits are only applied to concrete, mortar gets N/A label
         td_inflow = td_in_use.inflow.sum_over("k")
         stk["td_in_use"].inflow[{"m": "concrete"}] = (
             td_inflow[{"m": "concrete"}] * mi_weighted_split
@@ -75,17 +84,19 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         stk["td_in_use"].inflow[{"m": "mortar", "f": "nan", "b": "nan"}] = td_inflow[
             {"m": "mortar"}
         ]
-        stk["td_in_use"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"],
-            std=prm["lifetime_std"],
-        )
+        self._set_lifetime("td_in_use")
         stk["td_in_use"].compute()
+
+    def blend_stocks(self) -> fd.FlodymArray:
+        """Combine the bu and td stocks into one:
+        Blend smoothly between historic td and future bu stock where bu is available;
+        the rest remains td stock.
+        """
+        stk = self.stocks
         td_stock_expanded = stk["td_in_use"].stock
 
-        # ------------- Blend BU and TD stocks -------------
         # Preparation: remove (parts of the) dimensions that are not present in bu
         reduced_bu_stock = stk["bu_in_use"].stock[self.reduced_dim_mask]
-        # reduced_td_stock = td_stock_expanded[self.reduced_dim_mask][{"m": "concrete"}][{"t": self.dims["h"]}]
         reduced_td_stock = td_stock_expanded[
             {
                 **self.reduced_dim_mask,
@@ -94,41 +105,41 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             }
         ]
 
-        # Combine MFAs
-        # blend smoothly between historic td and future bu
         blender = CriticallyDampedBlender(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
             prediction=reduced_bu_stock.values,
-            # lifetime independent blend,
         )
         blended_stock = fd.FlodymArray.full_like(
             other=reduced_bu_stock,
             fill_value=blender.blend(),
         )
 
-        # prepare combined stock: place bu blended stock anywhere available, the rest remains td stock
         combined_stock = td_stock_expanded.copy()
         combined_stock[{**self.reduced_dim_mask, "m": "concrete"}] = blended_stock
+        return combined_stock
 
-        # compute combined mfa
-        super().compute(combined_stock, historic_trade, stock_is_cement=False)
+    def _set_lifetime(self, stock_name: str):
+        self.stocks[stock_name].lifetime_model.set_prms(
+            mean=self.parameters["lifetime_mean"],
+            std=self.parameters["lifetime_std"],
+        )
 
     @staticmethod
-    def compute_bottom_up_concrete_stock(
+    def concrete_from_floorspace(
         floorspace: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
     ) -> fd.FlodymArray:
-        """Concrete in-use stock from a floorspace quantity, resolved by
+        """Concrete quantity (stock or inflow) from a floorspace quantity, resolved by
         building function (f) and structure (b).
+        The splits always sum to 1; `get_shares_over` re-asserts this to signal to the
+        reconciliation optimizer that changing the sum has no effect.
         """
-        function_split = prm["function_buildings_split"]
-        structure_split = prm["structure_buildings_split"]
-        function_split = function_split.get_shares_over(("f",))
-        structure_split = structure_split.get_shares_over(("b",))
+        function_split = prm["function_buildings_split"].get_shares_over(("f",))
+        structure_split = prm["structure_buildings_split"].get_shares_over(("b",))
         concrete = floorspace * function_split * structure_split * prm["concrete_building_mi"]
         # scale up building stock to account for hibernating (unused) stock
-        total_concrete_stock = concrete / (1.0 - prm["hibernating_stock_share"])
-        return total_concrete_stock
+        total_concrete = concrete / (1.0 - prm["hibernating_stock_share"])
+        return total_concrete
 
     @property
     def reduced_dim_mask(self):
