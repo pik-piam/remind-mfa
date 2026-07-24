@@ -15,7 +15,7 @@ class SteelDataExporter(CommonDataExporter):
             return mfa.flows["forming => ip_market"].sum_to(("t", "r"))
 
         def steel_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
-            """Total scrap available after trade and before the model diverts any surplus to excess scrap."""
+            """Total scrap available after collection and before the model diverts any surplus to excess scrap."""
             return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g"))
 
         return [
