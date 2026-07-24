@@ -16,10 +16,10 @@ class PlasticsDataExporter(CommonDataExporter):
 
     @staticmethod
     def _plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
-            """Plastic waste available for recycling."""
-            return (mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]).sum_to(
-                ("t", "r", "m")
-            )
+        """Plastic waste available for recycling."""
+        return (mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]).sum_to(
+            ("t", "r", "m")
+        )
 
     def get_remind_input_variables(self) -> list[RemindInputVariable]:
         def plastics_production(mfa: fd.MFASystem) -> fd.FlodymArray:

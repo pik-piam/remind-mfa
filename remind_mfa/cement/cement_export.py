@@ -12,11 +12,10 @@ class CementDataExporter(CommonDataExporter):
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Cement output after production losses and before trade"""
         return (
-            mfa.flows["prod_cement => market_cement"]
-            + mfa.flows["prod_cement => sysenv"]
+            mfa.flows["prod_cement => market_cement"] + mfa.flows["prod_cement => sysenv"]
         ).sum_to(("t", "r"))
 
-    def get_remind_input_variables(self) -> list[RemindInputVariable]:       
+    def get_remind_input_variables(self) -> list[RemindInputVariable]:
         return [
             RemindInputVariable(
                 name="cement_production",
@@ -25,10 +24,8 @@ class CementDataExporter(CommonDataExporter):
             ),
             RemindInputVariable(
                 name="cement_clinker_ratio",
-                calculation_function=lambda mfa: (
-                   mfa.parameters["clinker_ratio"]
-                ),
-            )
+                calculation_function=lambda mfa: (mfa.parameters["clinker_ratio"]),
+            ),
         ]
 
     def iamc_variables(self) -> list[IamcVariable]:
