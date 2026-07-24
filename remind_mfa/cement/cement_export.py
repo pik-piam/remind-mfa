@@ -1,7 +1,28 @@
-from remind_mfa.common.common_export import CommonDataExporter, IamcVariable
+import flodym as fd
+
+from remind_mfa.common.common_export import (
+    CommonDataExporter,
+    IamcVariable,
+    RemindInputVariable,
+)
 
 
 class CementDataExporter(CommonDataExporter):
+
+    def get_remind_input_variables(self) -> list[RemindInputVariable]:
+        def cement_raw_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+            """Cement output after production losses and before trade"""
+            # TODO: also include prod_cement => sysenv?
+            return mfa.flows["prod_cement => market_cement"].sum_to(("t", "r"))
+
+        return [
+            RemindInputVariable(
+                name="cement_raw_production",
+                calculation_function=cement_raw_production,
+                unit="t/yr",
+            )
+        ]
+
 
     def iamc_variables(self) -> list[IamcVariable]:
         return [

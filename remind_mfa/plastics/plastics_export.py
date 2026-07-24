@@ -1,14 +1,45 @@
-import flodym as fd
-import pandas as pd
 from typing import TYPE_CHECKING
 
-from remind_mfa.common.common_export import CommonDataExporter, IamcVariable
+import flodym as fd
+
+from remind_mfa.common.common_export import (
+    CommonDataExporter,
+    IamcVariable,
+    RemindInputVariable,
+)
 
 if TYPE_CHECKING:
     from remind_mfa.plastics.plastics_model import PlasticsModel
 
 
 class PlasticsDataExporter(CommonDataExporter):
+
+    def get_remind_input_variables(self) -> list[RemindInputVariable]:
+        def plastics_raw_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+            """Plastics output after polymerization losses and before trade"""
+            return mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
+
+        def p37_plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
+            """Plastic waste available for recycling."""
+            return (
+                (
+                    mfa.flows["collected => reclmech"]
+                    + mfa.flows["collected => reclchem"]
+                ).sum_to(("t", "r", "m"))
+            )
+
+        return [
+            RemindInputVariable(
+                name="plastics_raw_production",
+                calculation_function=plastics_raw_production,
+                unit="Mt/yr",
+            ),
+            RemindInputVariable(
+                name="p37_plasticWaste",
+                calculation_function=p37_plastic_waste,
+                unit="MtC/yr",
+            ),
+        ]
 
     def export_custom(self, model: "PlasticsModel"):
         if self.cfg.csv.do_export:

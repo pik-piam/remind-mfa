@@ -5,8 +5,8 @@ import pandas as pd
 from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
+from remind_mfa.common.helpers import ModelNames, RegressOverModes, RemindMFABaseModel
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolation
-from remind_mfa.common.helpers import RemindMFABaseModel, ModelNames, RegressOverModes
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -99,6 +99,8 @@ class IamcExportCfg(BaseExportCfg):
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
+    remind_input: BaseExportCfg
+    """Configuration of export of material flows for use as REMIND inputs."""
     pickle: BaseExportCfg
     """Configuration of export to pickle files."""
     assumptions: BaseExportCfg

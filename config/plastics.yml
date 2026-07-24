@@ -75,6 +75,8 @@ export:
     do_export: True
   csv:
     do_export: True
+  remind_input:
+    do_export: True
   iamc:
     do_export: True
   assumptions:

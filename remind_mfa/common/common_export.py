@@ -1,20 +1,22 @@
 import logging
 import os
+import pickle
+import shutil
 from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
 import flodym as fd
 import flodym.export as fde
-import pickle
 import pyam
 
+from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
+from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.common.helpers import RemindMFABaseModel
-from remind_mfa.common.common_config import ExportCfg
-from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 from remind_mfa.common.common_mappings import CommonDisplayNames
-from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.helpers import RemindMFABaseModel
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -34,6 +36,17 @@ class IamcVariable(RemindMFABaseModel):
     region_weight: Optional[str] = None
     """Variable to weight by when aggregating to "World" (e.g. "Population" for per-capita
     variables). None = plain sum across regions."""
+
+
+class RemindInputVariable(RemindMFABaseModel):
+    """Declarative specification of a single variable that will serve as input to REMIND."""
+
+    name: str
+    """Name to use in the REMIND input layer."""
+    calculation_function: Callable[[CommonMFASystem], fd.FlodymArray]
+    """Given the future MFA system, returns the array to report, reduced to (t, r) or (t, r, <per-dim>)."""
+    unit: str
+    """Base unit of the array, e.g. "t/yr" or "t"."""
 
 
 class CommonDataExporter(RemindMFABaseModel):
@@ -56,6 +69,8 @@ class CommonDataExporter(RemindMFABaseModel):
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
+        if self.cfg.remind_input.do_export:
+            self.write_remind_input(model=model)
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
@@ -244,6 +259,23 @@ class CommonDataExporter(RemindMFABaseModel):
         variables = list(dict.fromkeys(df["variable"]))
         return pyam.IamDataFrame(df, unit=iamc_var.unit, **constants), variables
 
+    def get_remind_input_variables(self) -> list[RemindInputVariable]:
+        """Return the variables to export as REMIND input. Override in subclasses."""
+        raise NotImplementedError(
+            "Subclasses must implement get_remind_input_variables method"
+        )
+
+    def write_remind_input(self, model: "CommonModel"):
+        """Write material flows needed as inputs to REMIND."""
+        export_dir = Path(self.export_path("remind_input"))
+        if export_dir.exists() and export_dir.is_dir():
+            shutil.rmtree(export_dir)
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        for variable in self.get_remind_input_variables():
+            df = variable.calculation_function(model.future_mfa).to_df().rename(columns={"value": variable.name})
+            df.to_csv(self.export_path("remind_input", f"{variable.name}.csv"))
+
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
         if not self.cfg.docs.do_export:
@@ -298,7 +330,7 @@ class CommonDataExporter(RemindMFABaseModel):
         schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
         schema_df.to_markdown(self.export_path("docs", "config_schema.md"), index=False)
 
-    def export_path(self, dataset: str, filename: str = None):
+    def export_path(self, dataset: str, filename: str | None = None) -> str:
         if not hasattr(self.cfg, dataset):
             raise ValueError(f"Dataset {dataset} not found in config")
         cfg_path = getattr(self.cfg, dataset).path
