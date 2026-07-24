@@ -8,25 +8,27 @@ from remind_mfa.common.common_export import (
 
 
 class SteelDataExporter(CommonDataExporter):
+    @staticmethod
+    def _steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Raw steel output after production and forming losses, before trade."""
+        return mfa.flows["forming => ip_market"].sum_to(("t", "r"))
+
+    @staticmethod
+    def _steel_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Total scrap available after collection and before the model diverts any surplus to excess scrap."""
+        return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g"))
 
     def get_remind_input_variables(self) -> list[RemindInputVariable]:
-        def steel_raw_production(mfa: fd.MFASystem) -> fd.FlodymArray:
-            """Raw steel output after production and forming losses, before trade."""
-            return mfa.flows["forming => ip_market"].sum_to(("t", "r"))
-
-        def steel_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
-            """Total scrap available after collection and before the model diverts any surplus to excess scrap."""
-            return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g"))
 
         return [
             RemindInputVariable(
-                name="steel_raw_production",
-                calculation_function=steel_raw_production,
+                name="steel_production",
+                calculation_function=SteelDataExporter._steel_production,
                 unit="t/yr",
             ),
             RemindInputVariable(
                 name="steel_scrap",
-                calculation_function=steel_scrap,
+                calculation_function=SteelDataExporter._steel_scrap,
                 unit="t/yr",
             ),
         ]
@@ -35,9 +37,7 @@ class SteelDataExporter(CommonDataExporter):
         return [
             IamcVariable(
                 variable_name="Production|Iron and Steel|Steel",  # PRISMA nomenclature
-                calculation_function=lambda mfa: mfa.flows["forming => ip_market"].sum_to(
-                    ("t", "r")
-                ),
+                calculation_function=SteelDataExporter._steel_production,
                 unit="t/yr",
             ),
             IamcVariable(
@@ -56,9 +56,7 @@ class SteelDataExporter(CommonDataExporter):
             ),
             IamcVariable(
                 variable_name="Scrap|Iron and Steel|Steel",  # PRISMA nomenclature
-                calculation_function=lambda mfa: mfa.stocks["in_use"].outflow.sum_to(
-                    ("t", "r", "g")
-                ),
+                calculation_function=SteelDataExporter._steel_scrap,
                 unit="t/yr",
                 split_name="Good",
             ),

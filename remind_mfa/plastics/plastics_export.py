@@ -14,27 +14,28 @@ if TYPE_CHECKING:
 
 class PlasticsDataExporter(CommonDataExporter):
 
-    def get_remind_input_variables(self) -> list[RemindInputVariable]:
-        def plastics_raw_production(mfa: fd.MFASystem) -> fd.FlodymArray:
-            """Plastics output after polymerization losses and before trade"""
-            return mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
-
-        def p37_plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
+    @staticmethod
+    def _plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
             """Plastic waste available for recycling."""
             return (mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]).sum_to(
                 ("t", "r", "m")
             )
 
+    def get_remind_input_variables(self) -> list[RemindInputVariable]:
+        def plastics_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+            """Plastics output after polymerization losses and before trade"""
+            return mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
+
         return [
             RemindInputVariable(
-                name="plastics_raw_production",
-                calculation_function=plastics_raw_production,
-                unit="Mt/yr",
+                name="plastics_production",
+                calculation_function=plastics_production,
+                unit="t/yr",
             ),
             RemindInputVariable(
                 name="p37_plasticWaste",
-                calculation_function=p37_plastic_waste,
-                unit="MtC/yr",
+                calculation_function=PlasticsDataExporter._plastic_waste,
+                unit="t/yr",
             ),
         ]
 
@@ -67,8 +68,7 @@ class PlasticsDataExporter(CommonDataExporter):
         df.to_csv(self.export_path("csv", "use_by_region_year.csv"), index=True)
 
     def export_recycling_data_by_region_and_year(self, mfa: fd.MFASystem):
-        recl_data = mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]
-        df = recl_data.sum_to(("t", "r", "m")).to_df(index=True)
+        df = PlasticsDataExporter._plastic_waste(mfa).to_df(index=True)
         df.to_csv(self.export_path("csv", "recycling_by_region_year.csv"), index=True)
 
     def iamc_variables(self) -> list[IamcVariable]:

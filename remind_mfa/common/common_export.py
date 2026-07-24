@@ -45,8 +45,8 @@ class RemindInputVariable(RemindMFABaseModel):
     """Name to use in the REMIND input layer."""
     calculation_function: Callable[[CommonMFASystem], fd.FlodymArray]
     """Given the future MFA system, returns the array to report, reduced to (t, r) or (t, r, <per-dim>)."""
-    unit: str
-    """Base unit of the array, e.g. "t/yr" or "t"."""
+    unit: Optional[str] = None
+    """Base unit of the calculated data, e.g. "t/yr" or "t"."""
 
 
 class CommonDataExporter(RemindMFABaseModel):

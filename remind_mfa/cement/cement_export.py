@@ -8,18 +8,26 @@ from remind_mfa.common.common_export import (
 
 
 class CementDataExporter(CommonDataExporter):
+    @staticmethod
+    def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Cement output after production losses and before trade"""
+        return (
+            mfa.flows["prod_cement => market_cement"]
+            + mfa.flows["prod_cement => sysenv"]
+        ).sum_to(("t", "r"))
 
-    def get_remind_input_variables(self) -> list[RemindInputVariable]:
-        def cement_raw_production(mfa: fd.MFASystem) -> fd.FlodymArray:
-            """Cement output after production losses and before trade"""
-            # TODO: also include prod_cement => sysenv?
-            return mfa.flows["prod_cement => market_cement"].sum_to(("t", "r"))
-
+    def get_remind_input_variables(self) -> list[RemindInputVariable]:       
         return [
             RemindInputVariable(
-                name="cement_raw_production",
-                calculation_function=cement_raw_production,
+                name="cement_production",
+                calculation_function=CementDataExporter._cement_production,
                 unit="t/yr",
+            ),
+            RemindInputVariable(
+                name="cement_clinker_ratio",
+                calculation_function=lambda mfa: (
+                   mfa.parameters["clinker_ratio"]
+                ),
             )
         ]
 
@@ -27,9 +35,7 @@ class CementDataExporter(CommonDataExporter):
         return [
             IamcVariable(
                 variable_name="Production|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
-                calculation_function=lambda mfa: (
-                    mfa.flows["prod_cement => market_cement"] + mfa.flows["prod_cement => sysenv"]
-                ).sum_to(("t", "r")),
+                calculation_function=CementDataExporter._cement_production,
                 unit="t/yr",
             ),
             IamcVariable(
