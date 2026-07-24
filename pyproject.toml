@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.11.26,<0.12"]
+build-backend = "uv_build"
 
 [project]
 name = "remind-mfa"
 version = "0.2.0"
 authors = [
-    {name = "Jakob Dürrwächter"},
-    {name = "Bennet Weiss"},
-    {name = "Leonie Schweiger"},
-    {name = "Sally Dacie"},
-    {name = "Merlin Hosak"},
+    { name = "Jakob Dürrwächter" },
+    { name = "Bennet Weiss" },
+    { name = "Leonie Schweiger" },
+    { name = "Sally Dacie" },
+    { name = "Merlin Hosak" },
 ]
 
 requires-python = ">= 3.10"
@@ -30,29 +30,33 @@ dependencies = [
     # Kaleido version: https://github.com/plotly/Kaleido/issues/134#issuecomment-1215791893
     # "kaleido==0.1.0.post1",
     "flodym>=0.8.0",
-    "black>=25.1.0",
-    "ipykernel>=6.29.5",
-    "nbformat>=5.10.4",
     "pyam-iamc==3.0.0",
     "ixmp4==0.11.1",
     "tabulate>=0.9.0",
-    "questionary>=2.0.1",
     "dotenv>=0.9.9",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 docs = [
     "mkdocs>=1.6.1",
     "mkdocs-bibtex>=4.4.0",
     "mkdocs-include-markdown-plugin>=7.2.0",
     "pypandoc-binary>=1.16.2",
 ]
+dev = [
+    "black>=25.1.0",
+    "ipykernel>=6.29.5",
+    "nbformat>=5.10.4",
+    "questionary>=2.0.1",
+    { include-group = "docs" },
+]
 
-[tool.setuptools]
-packages = ["remind_mfa"]
+#[tool.uv.sources]
+#flodym = { path = "../flodym", editable = true }
 
-[tool.uv.sources]
-flodym = { path = "../flodym", editable = true }
+[tool.uv.build-backend]
+module-name = "remind_mfa"
+module-root = ""
 
 [tool.black]
 line-length = 100
