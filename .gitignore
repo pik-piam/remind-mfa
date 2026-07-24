@@ -7,3 +7,4 @@ config/
 remind_mfa.egg-info
 site/
 .github/copilot-instructions.md
+.env
