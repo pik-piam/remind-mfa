@@ -75,7 +75,7 @@ export:
     do_export: True
   csv:
     do_export: False
-  remind_input:
+  mrindustry:
     do_export: True
   iamc:
     do_export: False

@@ -15,7 +15,7 @@ class CementDataExporter(CommonDataExporter):
             mfa.flows["prod_cement => market_cement"] + mfa.flows["prod_cement => sysenv"]
         ).sum_to(("t", "r"))
 
-    def get_remind_input_variables(self) -> list[RemindInputVariable]:
+    def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         return [
             RemindInputVariable(
                 name="cement_production",

@@ -99,7 +99,7 @@ class IamcExportCfg(BaseExportCfg):
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
-    remind_input: BaseExportCfg
+    mrindustry: BaseExportCfg
     """Configuration of export of material flows for use as REMIND inputs."""
     pickle: BaseExportCfg
     """Configuration of export to pickle files."""

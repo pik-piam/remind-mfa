@@ -18,7 +18,7 @@ class SteelDataExporter(CommonDataExporter):
         """Total scrap available after collection and before the model diverts any surplus to excess scrap."""
         return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g"))
 
-    def get_remind_input_variables(self) -> list[RemindInputVariable]:
+    def get_mrindustry_variables(self) -> list[RemindInputVariable]:
 
         return [
             RemindInputVariable(
