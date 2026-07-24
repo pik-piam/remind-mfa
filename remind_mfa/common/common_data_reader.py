@@ -53,7 +53,12 @@ class CommonDataReader(fd.CompoundDataReader):
             if not path:
                 return False
             if not Path(path).exists():
-                raise ValueError(f"Specified MADRAT output path '{path}' does not exist.")
+                import logging
+
+                logging.warning(
+                    f"Specified MADRAT output path '{path}' does not exist. Creating it."
+                )
+                Path(path).mkdir(parents=True, exist_ok=True)
             return True
 
         if check_path(configured_path):
@@ -140,10 +145,13 @@ class CommonDataReader(fd.CompoundDataReader):
         current_regions = self.read_text_file(regions_path)
         return current_rev != self.input_data_revision or current_regions != self.region_mapping
 
+    @staticmethod
+    def build_target_tgz_pattern(input_data_revision: str, region_mapping: str) -> str:
+        return f"rev{glob.escape(input_data_revision)}_" f"{glob.escape(region_mapping)}_*_mfa.tgz"
+
     def get_target_tgz_path(self) -> str:
-        search_pattern = (
-            f"rev{glob.escape(self.input_data_revision)}_"
-            f"{glob.escape(self.region_mapping)}_*_mfa.tgz"
+        search_pattern = self.build_target_tgz_pattern(
+            self.input_data_revision, self.region_mapping
         )
         matches = sorted(glob.glob(os.path.join(self.madrat_output_path, search_pattern)))
         if not matches:
