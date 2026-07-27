@@ -10,11 +10,42 @@ def blend(
     target_dims: fd.DimensionSet,
     y_lower: fd.FlodymArray,
     y_upper: fd.FlodymArray,
-    x: Union[fd.FlodymArray, str],  # str: dimension letter
+    x: Union[fd.FlodymArray, str],
     x_lower: Union[fd.FlodymArray, int, float],
     x_upper: Union[fd.FlodymArray, int, float],
     type: str = "poly_mix",
 ) -> fd.FlodymArray:
+    """
+    Blend between two arrays (y_lower, y_upper) along a dimension or variable x, using a specified blending function.
+
+    This function interpolates (or blends) between y_lower and y_upper based on the normalized position of x between x_lower and x_upper,
+    using a chosen blending curve (e.g., linear, sigmoid, hermite, quintic, etc.).
+
+    Args:
+        target_dims (fd.DimensionSet):
+            The target dimensions for the output array. All input arrays and scalars are broadcast/cast to these dimensions.
+        y_lower (fd.FlodymArray):
+            The value (array) to use when x == x_lower (i.e., at the lower bound).
+        y_upper (fd.FlodymArray):
+            The value (array) to use when x == x_upper (i.e., at the upper bound).
+        x (Union[fd.FlodymArray, str]):
+            The variable to blend along. Can be a FlodymArray (values for each point) or a string (dimension name/letter) to use the corresponding dimension values from target_dims.
+        x_lower (Union[fd.FlodymArray, int, float]):
+            The lower bound for x (can be scalar or array). Where x == x_lower, the result is y_lower.
+        x_upper (Union[fd.FlodymArray, int, float]):
+            The upper bound for x (can be scalar or array). Where x == x_upper, the result is y_upper.
+        type (str, optional):
+            The blending function to use. Options include: 'linear', 'sigmoid3', 'sigmoid4', 'hermite', 'quintic', 'poly_mix', etc.
+            Default is 'poly_mix'.
+
+    Returns:
+        fd.FlodymArray: The blended/interpolated array, with dimensions target_dims.
+
+    Example:
+        blend(target_dims, y_lower, y_upper, x="t", x_lower=2020, x_upper=2050, type="hermite")
+        # Blends y_lower to y_upper as the 't' dimension goes from 2020 to 2050 using a Hermite curve.
+
+    """
     if isinstance(x, str):
         x = fd.FlodymArray(dims=target_dims[(x,)], values=np.array(target_dims[x].items))
     x = x.cast_to(target_dims)
@@ -129,7 +160,7 @@ class CriticallyDampedBlender:
         ), "Time and prediction must have the same length."
         assert (
             self.historical.shape[1:] == self.prediction.shape[1:]
-        ), "Historical and prediction must have the same spatial shape."
+        ), "Historical and prediction must have the same shape, except along the time dimension."
         assert (
             self.historical.shape[0] <= self.prediction.shape[0]
         ), "Historical data cannot be longer than prediction."
@@ -140,7 +171,10 @@ class CriticallyDampedBlender:
                 self.lifetime.shape == self.prediction.shape[1:]
             ), "Lifetime must match spatial shape of prediction."
 
-    def blend(self) -> np.ndarray:
+    def blend(
+        self,
+        approaching_time: float = 50,
+    ) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
         approach (PD-controller logic) to ensure a smooth transition.
@@ -149,28 +183,22 @@ class CriticallyDampedBlender:
 
             Y'' + 2kY' + k²Y = k²P(t) + 2kP'(t)
 
-        where Y is the blended trajectory, P the extrapolation target, and k the damping
-        parameter derived from ``approaching_time``. The ODE is solved using a semi-implicit
-        Euler method. To prevent overshooting and eliminate steady-state tracking errors,
-        the system combines an anticipatory D-term with a long-term quintic alpha-blend.
-        Internal state (velocity) is re-synchronized at each step after blending.
+        where Y is the blended trajectory, P the extrapolation target, and
+        k = 4.74 / approaching_time the damping parameter. The ODE is solved using a
+        semi-implicit Euler method with an anticipatory D-term to prevent overshoot.
+        A quadratic nudge applied after each step guarantees convergence to P over the long run.
+
+        Args:
+            approaching_time (float): Characteristic timescale in years. Sets the damping
+                parameter ``k = 4.74 / approaching_time`` (95% step-response convergence
+                within ``approaching_time`` years) and the nudge timescale
+                ``10 * approaching_time``. Defaults to 50.
 
         Returns:
             np.ndarray: Stock array with exact historical values preserved up to the last
             historical index and a smooth blended trajectory thereafter.
         """
         last_history_idx = len(self.historical) - 1
-
-        approaching_time = 50
-        add_assumption_doc(
-            type="integer number",
-            name="years for blending to regression",
-            value=approaching_time,
-            description=(
-                "Number of years for the blending from historical to regressed in-use stocks. "
-                "Governs the damping parameter k."
-            ),
-        )
 
         # 1. Isolate the time window and prediction values we need to integrate over
         t_future = self.time[last_history_idx:]
@@ -182,7 +210,13 @@ class CriticallyDampedBlender:
             self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
         )
         # 3. Integrate to find the blended future path Y(t)
-        y_future = self._integrate_transition(y0, v0, t_future, p_future, approaching_time)
+        y_future = self._integrate_transition(
+            y0,
+            v0,
+            t_future,
+            p_future,
+            approaching_time,
+        )
 
         # 4. Construct the final contiguous array
         blended_stock = self.prediction.copy()
@@ -202,19 +236,14 @@ class CriticallyDampedBlender:
         approaching_time: float,
     ) -> np.ndarray:
         """
-        Integrate a trajectory from an initial state (y0, v0) that smoothly tracks a target prediction p_array
-        using a critically damped PD-controller, with a long-term quintic blend for exact convergence.
+        Integrate a trajectory from an initial state (y0, v0) that smoothly tracks a target
+        prediction p_array using a critically damped PD-controller.
 
-        The controller drives Y toward P via a dynamic critically damped spring-damper system :
-            Y'' + 2k·Y' + k²Y = k²P(t) + 2k·P'(t)
-        integrated with a semi-implicit Euler method.
-
-        To avoid overshoot during saturation phases, P'(t) is estimated using a look-ahead index
-        that decreases from 5 to 1 over the first half of ``approaching_time``, then stays at 1.
-        On top of the controller, a quintic blend progressively replaces Y with P over the full
-        time window, guaranteeing an exact match with P at ``t0 + 10 * approaching_time``.
-        In a static system (no P' term) without blending, the system converges to 95% of the
-        prediction after ``approaching_time`` years.
+        The controller drives Y toward P via:
+            Y'' + 2k·Y' + k²Y = k²P(t) + 2k·P'(t),   k = 4.74 / approaching_time
+        integrated with a semi-implicit Euler method. P'(t) is estimated with a look-ahead
+        to prevent overshoot during saturation phases. A quadratic nudge applied after each
+        step guarantees convergence to P over the long run.
 
         Args:
             y0 (np.ndarray): Initial position at the transition point. Shape ``(spatial...)``.
@@ -222,37 +251,27 @@ class CriticallyDampedBlender:
             t_array (np.ndarray): 1D array of time values starting at the transition point.
             p_array (np.ndarray): Target prediction array with time as the first axis,
                 shape ``(len(t_array), spatial...)``. Must be uniformly spaced in time.
-            approaching_time (float): Characteristic timescale in years. Governs the damping
-                parameter ``k = 4.74 / approaching_time`` and the look-ahead ramp length.
+            approaching_time (float): Characteristic timescale in years. Sets the damping
+                parameter ``k = 4.74 / approaching_time`` and the nudge timescale
+                ``10 * approaching_time``.
 
         Returns:
             np.ndarray: Integrated trajectory array of shape ``(len(t_array), spatial...)``.
         """
         n_steps = len(t_array)
         dt = t_array[1] - t_array[0]
+
+        # --- Precompute k and nudge schedule ---
+        # 4.74 is the solution to (1+x)*exp(-x) = 0.05: the critically damped step response
+        # k = 4.74 / approaching_time means 95% convergence within approaching_time years.
         k = 4.74 / approaching_time
+        # Nudge alpha grows quadratically from 0 to 1 over nudge_timescale
+        nudge_timescale = 10 * approaching_time
+        dt_elapsed = t_array - t_array[0]
+        nudge_arr = np.minimum(1.0, (dt_elapsed / nudge_timescale) ** 2)
 
         # --- Precompute look-ahead predictor velocity for each timestep ---
-        # Using P'(t + n_fwd*dt) [fwd = forward] instead of P'(t) anticipates
-        # future behavior of P (e.g. saturation), preventing the controller from
-        # overshooting. n_fwd decreases linearly from n_fwd_max to 1 over the first
-        # n_ramp_steps, then remains 1 for the rest of the integration.
-        n_fwd_max = 5
-        n_ramp_steps = max(1, int((approaching_time / 2) / dt))
-        n_fwd = np.maximum(
-            1, np.round(n_fwd_max * np.maximum(0.0, 1 - np.arange(n_steps) / n_ramp_steps))
-        ).astype(int)
-        # now, use n_fwd to construct index for p velocity
-        lookahead_idx = np.minimum(np.arange(n_steps) + n_fwd - 1, n_steps - 2)
-        vp_array = (p_array[lookahead_idx + 1] - p_array[lookahead_idx]) / dt
-
-        # --- Precompute quintic blend weights ---
-        # Alpha blends from 0 to 1 within 10x approaching_time using quintic function.
-        t0 = t_array[0]
-        t_full_match = t0 + 10 * approaching_time
-        alpha_arr = blending_factor(
-            np.clip((t_array - t0) / (t_full_match - t0), 0.0, 1.0), "quintic"
-        )  # (n_steps,)
+        vp_array = self._lookahead_velocity(p_array, dt, n_steps, approaching_time)
 
         # --- Initialize state ---
         y = np.zeros_like(p_array, dtype=float)
@@ -267,15 +286,49 @@ class CriticallyDampedBlender:
             # 2. Update velocity and position
             v_curr = v_curr + dv_dt * dt
             y_curr = y_curr + v_curr * dt
-
-            # Quintic blend toward prediction
-            y_curr = (1 - alpha_arr[i]) * y_curr + alpha_arr[i] * p_array[i]
-            v_curr = (y_curr - y[i - 1]) / dt  # re-sync velocity after blend
-
+            # 3. Nudge y toward p by the current alpha
+            y_curr = (1 - nudge_arr[i]) * y_curr + nudge_arr[i] * p_array[i]
+            # 4. Re-sync velocity to the nudge-corrected position so the D-term stays consistent
+            v_curr = (y_curr - y[i - 1]) / dt
             # Store results
             y[i], v[i] = y_curr, v_curr
 
         return y
+
+    def _lookahead_velocity(
+        self,
+        p_array: np.ndarray,
+        dt: float,
+        n_steps: int,
+        approaching_time: float,
+    ) -> np.ndarray:
+        """
+        Estimate P'(t + n_fwd(t)*dt) for each timestep — the slope of the prediction
+        looked up n_fwd steps ahead. This anticipates future changes in P (e.g. saturation),
+        allowing the D-term of the controller to begin reacting before P actually flattens,
+        preventing overshoot.
+
+        n_fwd ramps continuously from n_fwd_max down to 0 over the first half of
+        approaching_time, then stays at 0 (plain local slope). The continuous ramp avoids
+        the discrete jumps that arise from integer look-ahead steps.
+        """
+        n_fwd_max = 5
+        n_ramp_steps = max(1, int((approaching_time / 2) / dt))
+
+        # Continuous look-ahead amount for each step: 5 → 0 over n_ramp_steps, then 0
+        n_fwd_cont = n_fwd_max * np.maximum(0.0, 1.0 - np.arange(n_steps) / n_ramp_steps)
+
+        # Slope of p at every step (central differences; second-order one-sided at boundaries)
+        vp_raw = np.gradient(p_array, dt, axis=0)
+
+        # For each step i, look n_fwd_cont[i] steps forward in the slope array
+        look_pos = np.clip(np.arange(n_steps, dtype=float) + n_fwd_cont, 0, n_steps - 1)
+
+        # Fractional interpolation between the two bracketing integer positions
+        lo = look_pos.astype(int)
+        hi = np.minimum(lo + 1, n_steps - 1)
+        w = (look_pos - lo).reshape((-1,) + (1,) * (p_array.ndim - 1))
+        return (1 - w) * vp_raw[lo] + w * vp_raw[hi]
 
     def _lifetime_dependent_n(
         self,

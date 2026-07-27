@@ -22,56 +22,19 @@ class SteelVisualizer(CommonVisualizer):
         if self.cfg.production.do_visualize:
             self.visualize_production(mfa=model.future_mfa, regional=True)
             self.visualize_production(mfa=model.future_mfa, regional=False)
-        if self.cfg.consumption.do_visualize:
-            self.visualize_consumption(model.future_mfa)
-        if self.cfg.gdppc.do_visualize:
-            self.visualize_gdppc(
-                model.future_mfa, change=False, per_capita=self.cfg.gdppc["per_capita"]
-            )
         if self.cfg.scrap_demand_supply.do_visualize:
             self.visualize_scrap_demand_supply(model.future_mfa, regional=True)
             self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
-        if self.cfg.sector_splits.do_visualize:
-            self.visualize_sector_splits(model.future_mfa, regional=True)
-            self.visualize_sector_splits(model.future_mfa, regional=False)
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        consumption = mfa.stocks["in_use"].inflow
-        good_dim = consumption.dims.index("g")
-        consumption = consumption.apply(np.cumsum, kwargs={"axis": good_dim})
-        ap = self.plotter_class(
-            array=consumption,
-            intra_line_dim="Time",
-            subplot_dim="Region",
+        self.visualize_fdarr_stacked(
+            mfa=mfa,
+            flow=mfa.stocks["in_use"].inflow,
+            name="Consumption",
             linecolor_dim="Good",
-            chart_type="area",
-            display_names=self.display_names.dct,
-            title="Consumption",
+            regional=True,
         )
-        fig = ap.plot()
-        self.plot_and_save_figure(ap, "consumption.png", do_plot=False)
-
-    def visualize_gdppc(self, mfa: fd.MFASystem, change=False, per_capita=False):
-        gdppc = mfa.parameters["gdppc"]
-        if not per_capita:
-            gdppc = gdppc * mfa.parameters["population"]
-        if change:
-            gdppc = gdppc.apply(np.diff, kwargs={"axis": 0, "prepend": 0})
-            gdppc[1900] = gdppc[1901]
-        ap = self.plotter_class(
-            array=gdppc,
-            intra_line_dim="Time",
-            linecolor_dim="Region",
-            display_names=self.display_names.dct,
-            title=f"GDP{' per capita' if per_capita else ''}{' growth rate' if change else ''}",
-        )
-        fig = ap.plot()
-        if change:
-            self.plot_and_save_figure(ap, "gdppc_change.png", do_plot=False)
-        else:
-            fig.update_yaxes(type="log")
-            self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         good_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]
@@ -181,24 +144,8 @@ class SteelVisualizer(CommonVisualizer):
         self.plot_and_save_figure(plotter, f"production_{name_str}.png", do_plot=False)
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
-        flw = mfa.flows
-        production = flw["bof_production => forming"] + flw["eaf_production => forming"]
-
-        subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
-
-        # visualize regional production
-        ap_production = self.plotter_class(
-            array=summing_func(production),
-            intra_line_dim="Time",
-            **subplot_dim,
-            line_label="Production",
-            display_names=self.display_names.dct,
-            xlabel="Year",
-            ylabel="Production [t]",
-            title=f"Steel Production {name_str}",
-        )
-
-        self.plot_and_save_figure(ap_production, f"production_{name_str}.png")
+        production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
+        self.visualize_fdarr(mfa=mfa, flow=production, name="Steel production", regional=regional)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
@@ -298,94 +245,3 @@ class SteelVisualizer(CommonVisualizer):
         #     )
 
         self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}.png")
-
-    def visualize_sector_splits(self, mfa: fd.MFASystem, regional: bool = True):
-
-        subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
-
-        flw = mfa.flows
-
-        fabrication = summing_func(flw["good_market => use"])
-        sector_splits = fabrication.get_shares_over("g")
-        sector_splits = sector_splits.cumsum(dim_letter="g")
-
-        ap_sector_splits = self.plotter_class(
-            array=sector_splits,
-            intra_line_dim="Time",
-            **subplot_dim,
-            linecolor_dim="Good",
-            xlabel="Year",
-            ylabel="Sector Splits [%]",
-            display_names=self.display_names.dct,
-            title=f"Product demand sector splits ({name_str})",
-            chart_type="area",
-        )
-
-        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
-
-    def visualize_extrapolation(self, model: "SteelModel"):
-        mfa = model.future_mfa
-        per_capita = True  # TODO see where this shold go
-        subplot_dim = "Region"
-        stock = mfa.stocks["in_use"].stock
-        population = mfa.parameters["population"]
-        x_array = None
-
-        pc_str = "pC" if per_capita else ""
-        x_label = "Year"
-        y_label = f"Stock{pc_str} [t]"
-        title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
-        if self.cfg.use_stock["over_gdp"]:
-            title = title + f" over GDP{pc_str}"
-            x_label = f"GDP/PPP{pc_str} [2005 USD]"
-            x_array = mfa.parameters["gdppc"]
-            if not per_capita:
-                x_array = x_array * population
-
-        if subplot_dim is None:
-            dimlist = ["t"]
-        else:
-            subplot_dimletter = next(
-                dimlist.letter for dimlist in mfa.dims.dim_list if dimlist.name == subplot_dim
-            )
-            dimlist = ["t", subplot_dimletter]
-
-        other_dimletters = tuple(letter for letter in stock.dims.letters if letter not in dimlist)
-        stock = stock.sum_over(other_dimletters)
-
-        if per_capita:
-            stock = stock / population
-
-        fig, ap_final_stock = self.plot_history_and_future(
-            mfa=mfa,
-            data_to_plot=stock,
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            x_label=x_label,
-            y_label=y_label,
-            title=title,
-            line_label="Historic + Modelled Future",
-        )
-
-        pure_stock = model.stock_handler.fitted_regression.sum_over(other_dimletters)
-
-        # extrapolation
-        color = ["red"]
-        ap_pure_prediction = self.plotter_class(
-            array=pure_stock,
-            intra_line_dim="Time",
-            subplot_dim=subplot_dim,
-            x_array=x_array,
-            title=title,
-            fig=fig,
-            # color_map=color,
-            line_type="dot",
-            line_label="Pure Extrapolation",
-        )
-        fig = ap_pure_prediction.plot()
-
-        self.plot_and_save_figure(
-            ap_pure_prediction,
-            f"stocks_extrapolation.png",
-            do_plot=False,
-        )

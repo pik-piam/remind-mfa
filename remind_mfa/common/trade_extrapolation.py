@@ -129,7 +129,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.id_hist = {"t": self.historic_first.dims["h"]}
         first_scaling = self.scale_first()
         stopover_trade = self.scale_stopover(first_scaling)
-        self.scale_second(first_scaling, stopover_trade)
+        self.scale_second(stopover_trade)
         self.balance()
 
     def scale_first(self) -> fd.FlodymArray:
@@ -164,16 +164,15 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.historic_second_0[...] -= stopover_trade_0
         return stopover_trade_0 * first_scaling
 
-    def scale_second(self, first_scaling: fd.FlodymArray, stopover_trade: fd.FlodymArray):
+    def scale_second(self, stopover_trade: fd.FlodymArray):
         """Scale "second" trade flow (exports in demand-driven mode)
         Scaled with the other domestic quantity than the first
         (exports with dom_supply, imports with dom_demand).
         But this depends on the second trade itself, via the mass balance, which results in
-        a 2x2 equation system. We solve it with a fixed-point iteration.
-        We start off by scaling it with the first scaler, calculate the second from the mass
-        balance, and then re-calculate the scaler for the second trade flow, and so on.
+        a 2x2 equation system. We solve it with a fixed-point iteration starting from
+        historic_second_0.
         """
-        self.future_second[...] = self.historic_second_0 * first_scaling
+        self.future_second[...] = self.historic_second_0
         self.future_second[self.id_hist] = self.historic_second
         for _ in range(3):
             self.scaler_second = (

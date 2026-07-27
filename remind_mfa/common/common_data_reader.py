@@ -1,13 +1,16 @@
-import os
 import glob
+import os
 import tarfile
-import pandas as pd
+from pathlib import Path
+
 import flodym as fd
+import pandas as pd
+from typing_extensions import TypeIs
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDimensionFiles
-from remind_mfa.common.helpers import prefix_from_module, module_from_prefix
+from remind_mfa.common.helpers import module_from_prefix, prefix_from_module
 
 
 class CommonDataReader(fd.CompoundDataReader):
@@ -46,10 +49,22 @@ class CommonDataReader(fd.CompoundDataReader):
 
     @staticmethod
     def resolve_madrat_output_path(configured_path: str | None) -> str:
-        if configured_path is not None:
+        def check_path(path: str | None) -> TypeIs[str]:
+            if not path:
+                return False
+            if not Path(path).exists():
+                import logging
+
+                logging.warning(
+                    f"Specified MADRAT output path '{path}' does not exist. Creating it."
+                )
+                Path(path).mkdir(parents=True, exist_ok=True)
+            return True
+
+        if check_path(configured_path):
             return configured_path
         env_path = os.environ.get("MADRAT_OUTPUTFOLDER")
-        if env_path is None:
+        if not check_path(env_path):
             raise ValueError(
                 "No madrat output path configured. Set input.madrat_output_path or "
                 "environment variable MADRAT_OUTPUTFOLDER."
@@ -130,10 +145,13 @@ class CommonDataReader(fd.CompoundDataReader):
         current_regions = self.read_text_file(regions_path)
         return current_rev != self.input_data_revision or current_regions != self.region_mapping
 
+    @staticmethod
+    def build_target_tgz_pattern(input_data_revision: str, region_mapping: str) -> str:
+        return f"rev{glob.escape(input_data_revision)}_" f"{glob.escape(region_mapping)}_*_mfa.tgz"
+
     def get_target_tgz_path(self) -> str:
-        search_pattern = (
-            f"rev{glob.escape(self.input_data_revision)}_"
-            f"{glob.escape(self.region_mapping)}_*_mfa.tgz"
+        search_pattern = self.build_target_tgz_pattern(
+            self.input_data_revision, self.region_mapping
         )
         matches = sorted(glob.glob(os.path.join(self.madrat_output_path, search_pattern)))
         if not matches:
@@ -163,11 +181,13 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def validate_parameter_files(self, parameter_files: dict[str, str]):
         """Validate that all expected parameter files for the selected model exist."""
-        missing = [name for name, path in parameter_files.items() if not os.path.exists(path)]
+        missing = [
+            (name, path) for name, path in parameter_files.items() if not os.path.exists(path)
+        ]
         if missing:
             raise FileNotFoundError(
-                "Missing parameter files in shared input_data folder for model "
-                f"'{self.model_class}': {missing}"
+                f"Missing parameter files in shared input_data folder '{self.shared_parameter_path}' for model "
+                f"'{self.model_class}': { [f'{name} -> {os.path.basename(path)}' for name, path in missing]}"
             )
 
         for filepath in parameter_files.values():
@@ -190,7 +210,7 @@ class CommonDataReader(fd.CompoundDataReader):
     def get_dimension_dict(self, material_parameter_path: str) -> dict[str, str]:
         material_dimension_path = self.get_material_dimension_path(self.model_class)
 
-        dimension_files = {}
+        dimension_files: dict[str, str] = {}
         for dimension in self.definition.dimensions:
             dimension_filename = self.dimension_file_mapping[dimension.name]
             dimension_files[dimension.name] = os.path.join(
@@ -207,9 +227,9 @@ class CommonDataReader(fd.CompoundDataReader):
 
         return dimension_files
 
-    def get_parameter_dict(self, material_parameter_path) -> dict[str, str]:
+    def get_parameter_dict(self, material_parameter_path: str) -> dict[str, str]:
         material_prefix = prefix_from_module(self.model_class)
-        parameter_files = {}
+        parameter_files: dict[str, str] = {}
         for parameter in self.definition.parameters:
             material_specific_file = os.path.join(
                 material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"

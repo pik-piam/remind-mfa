@@ -1,9 +1,8 @@
 import flodym as fd
 import pandas as pd
-import pyam
 from typing import TYPE_CHECKING
 
-from remind_mfa.common.common_export import CommonDataExporter
+from remind_mfa.common.common_export import CommonDataExporter, IamcVariable
 
 if TYPE_CHECKING:
     from remind_mfa.plastics.plastics_model import PlasticsModel
@@ -17,7 +16,6 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_use_data_by_region_and_year(mfa=model.future_mfa)
             self.export_recycling_data_by_region_and_year(mfa=model.future_mfa)
             self.export_stock_extrapolation(model=model)
-            self.export_stock(mfa=model.historic_mfa)
 
     def export_stock_extrapolation(self, model: "PlasticsModel"):
         model.stock_handler.pure_parameters.to_df().to_csv(
@@ -26,15 +24,6 @@ class PlasticsDataExporter(CommonDataExporter):
         model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
             self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
         )
-
-    def export_stock(self, mfa: fd.MFASystem):
-        inflow = mfa.stocks["in_use_historic"].inflow.sum_to(("g", "h")).to_df()
-        inflow["variable"] = "inflow"
-        outflow = mfa.stocks["in_use_historic"].outflow.sum_to(("g", "h")).to_df()
-        outflow["variable"] = "outflow"
-        stock = mfa.stocks["in_use_historic"].stock.sum_to(("g", "h")).to_df()
-        stock["variable"] = "stock"
-        pd.concat([inflow, outflow, stock]).to_csv(self.export_path("csv", "stock.csv"))
 
     def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem):
         eol_data = (
@@ -54,119 +43,77 @@ class PlasticsDataExporter(CommonDataExporter):
         df = recl_data.sum_to(("t", "r", "m")).to_df(index=True)
         df.to_csv(self.export_path("csv", "recycling_by_region_year.csv"), index=True)
 
-    def write_iamc(self, mfa: fd.MFASystem):
+    def iamc_variables(self) -> list[IamcVariable]:
+        return [
+            # production
+            IamcVariable(
+                variable_name="Production|Chemicals|Plastics|Primary",  # PRISMA nomenclature
+                calculation_function=lambda mfa: (
+                    mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
+                    - mfa.flows["reclchem => HVC_input"]
+                ),
+                unit="t/yr",
+            ),
+            IamcVariable(
+                variable_name="Production|Chemicals|Plastics|Secondary",  # PRISMA nomenclature
+                calculation_function=lambda mfa: (
+                    mfa.flows["reclmech => primary_market"] + mfa.flows["reclchem => HVC_input"]
+                ).sum_to(("t", "r")),
+                unit="t/yr",
+            ),
+            # demand by good
+            IamcVariable(
+                variable_name="Material Demand|Chemicals|Plastics",  # PRISMA nomenclature
+                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
+                    ("t", "r", "g")
+                ),
+                unit="t/yr",
+                split_name="Good",
+            ),
+            # demand per capita
+            IamcVariable(
+                variable_name="Material Demand|Chemicals|Plastics|Per Capita",
+                calculation_function=lambda mfa: (
+                    mfa.stocks["in_use"].inflow / mfa.parameters["population"]
+                ).sum_to(("t", "r")),
+                unit="t/cap/yr",
+                region_weight="Population",
+            ),
+            # trade
+            IamcVariable(
+                variable_name="Import|Industry|Chemicals|Plastics|Primary Forms",  # CIRCOMOD nomenclature (further differentiated by stage)
+                calculation_function=lambda mfa: mfa.flows["imports => primary_market"].sum_to(
+                    ("t", "r")
+                ),
+                unit="t/yr",
+            ),
+            IamcVariable(
+                variable_name="Export|Industry|Chemicals|Plastics|Primary Forms",  # CIRCOMOD nomenclature (further differentiated by stage)
+                calculation_function=lambda mfa: mfa.flows["primary_market => exports"].sum_to(
+                    ("t", "r")
+                ),
+                unit="t/yr",
+            ),
+            IamcVariable(
+                variable_name="Import|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
+                calculation_function=lambda mfa: mfa.flows["imports => good_market"].sum_to(
+                    ("t", "r", "g")
+                ),
+                unit="t/yr",
+                split_name="Good",
+            ),
+            IamcVariable(
+                variable_name="Export|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
+                calculation_function=lambda mfa: mfa.flows["good_market => exports"].sum_to(
+                    ("t", "r", "g")
+                ),
+                unit="t/yr",
+                split_name="Good",
+            ),
+        ]
 
-        model = "REMIND 3.0"
-        scenario = "SSP2_NPi"
-        constants = {"model": model, "scenario": scenario}
-
-        # production
-        ## primary production
-        prod_virgin = (
-            mfa.flows["virginfoss => virgin"]
-            + mfa.flows["virginbio => virgin"]
-            + mfa.flows["virgindaccu => virgin"]
-            + mfa.flows["virginccu => virgin"]
-        )
-        prod_virgin_df = self.to_iamc_df(prod_virgin.sum_to(("t", "r")))
-        prod_virgin_idf = pyam.IamDataFrame(
-            prod_virgin_df,
-            variable="Production|Chemicals|Plastics|Primary",
-            unit="Mt/yr",
-            **constants,
-        )
-        ## secondary production
-        prod_recl = mfa.flows["reclmech => fabrication"] + mfa.flows["reclchem => virgin"]
-        prod_recl_df = self.to_iamc_df(prod_recl.sum_to(("t", "r")))
-        prod_recl_idf = pyam.IamDataFrame(
-            prod_recl_df,
-            variable="Production|Chemicals|Plastics|Secondary",
-            unit="Mt/yr",
-            **constants,
-        )
-        ## total production
-        prod_idf = pyam.concat(
-            [
-                prod_virgin_idf,
-                prod_recl_idf,
-            ]
-        )
-        prod_idf.aggregate(
-            variable="Production|Chemicals|Plastics",
-            append=True,
-        )
-
-        # demand
-        ## demand by good
-        plastic_demand_by_good = mfa.stocks["in_use"].inflow.sum_to(("t", "r", "g"))
-        demand_df = self.to_iamc_df(plastic_demand_by_good)
-        demand_df["variable"] = "Material Demand|Chemicals|Plastics|" + demand_df["Good"]
-        demand_df = demand_df.drop(columns=["Good"])
-        demand_idf = pyam.IamDataFrame(
-            demand_df,
-            unit="Mt/yr",
-            **constants,
-        )
-        demand_idf.aggregate(
-            variable="Material Demand|Chemicals|Plastics",
-            append=True,
-        )
-        ## demand by origin (primary/secondary) and good
-        recycled = prod_recl / (prod_virgin + prod_recl)
-        ### primary
-        plastic_demand_virgin = mfa.stocks["in_use"].inflow * (1 - recycled)
-        demand_virgin_df = self.to_iamc_df(plastic_demand_virgin.sum_to(("t", "r", "g")))
-        demand_virgin_df["variable"] = (
-            "Material Demand|Chemicals|Plastics|Primary|" + demand_virgin_df["Good"]
-        )
-        demand_virgin_df = demand_virgin_df.drop(columns=["Good"])
-        demand_virgin_idf = pyam.IamDataFrame(
-            demand_virgin_df,
-            unit="Mt/yr",
-            **constants,
-        )
-        demand_virgin_idf.aggregate(
-            variable="Material Demand|Chemicals|Plastics|Primary",
-            append=True,
-        )
-        ### secondary
-        plastic_demand_recl = mfa.stocks["in_use"].inflow * recycled
-        demand_recl_df = self.to_iamc_df(plastic_demand_recl.sum_to(("t", "r", "g")))
-        demand_recl_df["variable"] = (
-            "Material Demand|Chemicals|Plastics|Secondary|" + demand_recl_df["Good"]
-        )
-        demand_recl_df = demand_recl_df.drop(columns=["Good"])
-        demand_recl_idf = pyam.IamDataFrame(
-            demand_recl_df,
-            unit="Mt/yr",
-            **constants,
-        )
-        demand_recl_idf.aggregate(
-            variable="Material Demand|Chemicals|Plastics|Secondary",
-            append=True,
-        )
-        demand_origin_idf = pyam.concat(
-            [
-                demand_virgin_idf,
-                demand_recl_idf,
-            ]
-        )
-        # demand_origin_idf.aggregate(
-        #     variable="Material Demand|Chemicals|Plastics",
-        #     append=True,
-        # )
-
-        idf = pyam.concat(
-            [
-                prod_idf,
-                demand_idf,
-                demand_origin_idf,
-            ]
-        )
-        idf.aggregate_region(
-            variable=idf.variable,
-            region="World",
-            append=True,
-        )
-
-        idf.to_excel(self.export_path("iamc", f"output_iamc.xlsx"))
+    def iamc_aggregates(self) -> list[str]:
+        # Primary + Secondary are separate specs (no `per`), so their parent must be
+        # aggregated explicitly. "Material Demand|Chemicals|Plastics" is handled
+        # automatically via its `per="Good"` split.
+        return ["Production|Chemicals|Plastics"]
