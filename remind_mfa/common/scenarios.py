@@ -14,6 +14,13 @@ from remind_mfa.common.common_definition import (
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
 
+# Declares the numpy dtype of each `extra:` column on an extrapolation parameter.
+# Strings need a fixed-width dtype: plain `str` would allocate single characters only.
+EXTRA_DTYPES = {"year": float, "type": "<U32"}
+
+VALID_TYPES = ("factor", "target")
+
+
 class ExtrapolationScenarioParameter(RemindMFABaseModel):
     """Scenario values and metadata for one parameter extrapolation.
 
@@ -54,13 +61,19 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
         self._set(self.value, value, index)
         self._set(self.is_set, 1.0, index)
 
-    def set_extra(self, name: str, value: float, index: Dict[str, Any]):
+    def set_extra(self, name: str, value: float | str, index: Dict[str, Any]):
         self._check_index(index)
         if name not in self.extras:
-            self.extras[name] = fd.Parameter(
-                name=f"{self.definition.name}_{name}", dims=self.value.dims
-            )
+            self.extras[name] = self._new_extra(name)
         self._set(self.extras[name], value, index)
+
+    def _new_extra(self, name: str) -> fd.Parameter:
+        """Allocate the array backing an extra, with the dtype declared in EXTRA_DTYPES."""
+        dtype = EXTRA_DTYPES.get(name, float)
+        values = np.zeros(self.value.dims.shape, dtype=dtype)
+        return fd.Parameter(
+            name=f"{self.definition.name}_{name}", dims=self.value.dims, values=values
+        )
 
     def set_extras(self, extras: Dict[str, Any], index: Dict[str, Any]):
         for name, value in extras.items():
@@ -93,6 +106,35 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
     def referenced_parameters(self) -> list:
         """Sorted unique names of model parameters referenced as endpoints in the scenario values."""
         return sorted({v for v in self.value.values.flat if isinstance(v, str)})
+
+    def resolve_type(self) -> str:
+        """Single extrapolation type of the parameter, declared via 'extra:type'.
+
+        Rows without 'extra:type' use the type declared by the other rows, so one
+        declaration (e.g. in the base scenario) suffices. Mixed types are not
+        supported: raises unless exactly one valid type is declared.
+        """
+        name = self.definition.name
+        type_extra = self.extras.get("type")
+        declared = type_extra.values[self.is_set.values > 0] if type_extra is not None else []
+        types = {str(t) for t in declared if t}
+        if not types:
+            raise ValueError(
+                f"'{name}' has no extrapolation type. Declare it with an 'extra:type' "
+                f"column in the scenario CSV; valid types: {VALID_TYPES}."
+            )
+        if len(types) > 1:
+            raise ValueError(
+                f"'{name}' declares mixed extrapolation types {sorted(types)}; "
+                "only one type per parameter is supported."
+            )
+        (ext_type,) = types
+        if ext_type not in VALID_TYPES:
+            raise ValueError(
+                f"'{name}' declares an invalid extrapolation type '{ext_type}'. "
+                f"Valid types: {VALID_TYPES}."
+            )
+        return ext_type
 
 
 class ScenarioReader(RemindMFABaseModel):

@@ -22,11 +22,11 @@ class ParameterExtrapolation:
         On top of the baseline, scenario instructions modify individual
         entries. Its type determines the anchor:
 
-        - **Target** (``type="target"``): the entry blends from the
+        - **Target** (``extra:type="target"``): the entry blends from the
       *last historic value* to the absolute target by the target year. The anchor is
       always the last historic value, independent of the baseline shape — so for a
       't' parameter this ignores any pre-existing future trajectory.
-        - **Factor** (``type="factor"``): the entry keeps its *baseline*
+        - **Factor** (``extra:type="factor"``): the entry keeps its *baseline*
       and is multiplied by a factor blending from 1 to the given value by the factor year.
       The anchor is the baseline itself — so for a 't' parameter it scales the pre-existing
       future trajectory, and for an 'h'/static one it scales the (constant) last historic value.
@@ -64,16 +64,21 @@ class ParameterExtrapolation:
         new_values = prepared * unspec
 
         endpoint = self._resolve_endpoint(prepared, endpoint_year, name)
+        ext_type = None
         if endpoint_year is not None:
-            if self.definition.type is None:
-                raise ValueError(f"'{name}' has scenario data but no extrapolation type.")
-            if self.definition.type == "target":
+            ext_type = self.scenario_parameter.resolve_type()
+            if ext_type == "target":
                 new_values = new_values + is_specified * self._absolute_values(
                     last_hist, endpoint, endpoint_year, prepared.dims
                 )
-            else:
+            elif ext_type == "factor":
                 new_values = new_values + is_specified * prepared * self._relative_factors(
                     endpoint, endpoint_year, prepared.dims
+                )
+            else:
+                # safety check that should never be reached - resolve_type() fails first.
+                raise ValueError(
+                    f"Extrapolation type of '{name}' must be 'target' or 'factor', not '{ext_type}'."
                 )
 
         if self.definition.split_dimension_letter is not None:
@@ -82,7 +87,7 @@ class ParameterExtrapolation:
         add_assumption_doc(
             type="model switch",
             name=f"Extrapolation of {name}",
-            description=self._description(name, is_specified, endpoint_year),
+            description=self._description(name, is_specified, endpoint_year, ext_type),
         )
 
         # preserve historical values
@@ -344,6 +349,7 @@ class ParameterExtrapolation:
         name: str,
         is_specified: fd.FlodymArray,
         endpoint_year: Optional[fd.FlodymArray],
+        ext_type: Optional[str],
     ) -> str:
         """Short summary of the applied extrapolation; details are in the scenario config."""
         has_scenario = endpoint_year is not None and is_specified.values.any()
@@ -353,7 +359,7 @@ class ParameterExtrapolation:
                 "all entries keep their baseline."
             )
 
-        if self.definition.type == "target":
+        if ext_type == "target":
             mode = "blending to absolute scenario targets"
         else:
             mode = "scaling the baseline by scenario factors"
@@ -437,12 +443,8 @@ class ParameterExtrapolationManager:
                     raise ValueError(
                         f"Parameter '{param_name}' not found in parameters. Use create_new=True to create it."
                     )
-                if scenario_parameter.definition.type is None:
-                    raise ValueError(
-                        f"'{param_name}' must define an extrapolation type when create_new=True."
-                    )
                 parameter = fd.Parameter(name=param_name, dims=scenario_parameter.value.dims)
-                parameter[...] = 1.0 if scenario_parameter.definition.type == "factor" else 0.0
+                parameter[...] = 1.0 if scenario_parameter.resolve_type() == "factor" else 0.0
             else:
                 parameter = modified_parameters[param_name]
 

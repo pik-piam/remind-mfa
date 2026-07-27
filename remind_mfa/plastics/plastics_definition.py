@@ -262,15 +262,15 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
 # fmt: off
 scenario_parameters = [
-    ExtrapolationDefinition(name="waste_his_imports", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="waste_his_exports", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="chemical_recycling_rate", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="bio_production_rate", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",), type="target"),
-    ExtrapolationDefinition(name="emission_capture_rate", dim_letters=("r",), type="target"),
+    ExtrapolationDefinition(name="waste_his_imports", dim_letters=("r",)),
+    ExtrapolationDefinition(name="waste_his_exports", dim_letters=("r",)),
+    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="chemical_recycling_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="bio_production_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="emission_capture_rate", dim_letters=("r",)),
     ExtrapolationDefinition(name="material_shares_use_inflow"),
 ]
 # fmt: on

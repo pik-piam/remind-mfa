@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 from pydantic import field_validator, model_validator
 import flodym as fd
@@ -51,8 +51,6 @@ class ExtrapolationDefinition(RemindMFAParameterDefinition):
     """Dimensions for scenario data. Leave empty to extend an existing parameter without scenario data."""
     create_new: bool = False
     """Whether to create the extrapolated parameter instead of reading it from input data."""
-    type: Optional[Literal["factor", "target"]] = None
-    """Whether scenario values are relative factors or absolute targets."""
     blending_function: str = "linear"
     """Blending function to use for extrapolation. Must be one of the functions defined in `remind_mfa.common.data_blending.BLEND_TYPES`."""
     split_dimension_letter: Optional[str] = None
@@ -101,18 +99,15 @@ scenario_parameters = [
         name="stock_factor",
         dim_letters=("r",),
         create_new=True,
-        type="factor",
     ),
     ExtrapolationDefinition(
         name="lifetime_mean",
         dim_letters=("r",),
-        type="factor",
         blending_function="poly_mix",
     ),
     ExtrapolationDefinition(
         name="lifetime_std",
         dim_letters=("r",),
-        type="factor",
         blending_function="poly_mix",
     ),
 ]

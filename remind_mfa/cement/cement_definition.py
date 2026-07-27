@@ -291,12 +291,10 @@ scenario_parameters = [
     ExtrapolationDefinition(
         name="clinker_ratio",
         dim_letters=("r",),
-        type="target",
     ),
     ExtrapolationDefinition(
         name="function_buildings_split",
         dim_letters=("r", "s", "f"),
-        type="target",
         blending_function="poly_mix",
         split_dimension_letter="f",
         split_receiver_item="RM",
@@ -304,7 +302,6 @@ scenario_parameters = [
     ExtrapolationDefinition(
         name="structure_buildings_split",
         dim_letters=("r", "f", "b"),
-        type="target",
         blending_function="poly_mix",
         split_dimension_letter="b",
         split_receiver_item="C",
