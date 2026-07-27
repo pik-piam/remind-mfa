@@ -277,7 +277,7 @@ class CementParameterReconciliation:
     def calc_bottom_up_stock(prm: dict[str, fd.FlodymArray], stock_type_letter: str = "u"):
         """Bottom-up stock calculation for reconciliation."""
         # 1. Compute concrete stock bottom-up
-        concrete_stk = StockDrivenBottomUpCementMFASystem.compute_bottom_up_concrete_stock(
+        concrete_stk = StockDrivenBottomUpCementMFASystem.concrete_from_floorspace(
             prm["floorspace"], prm
         )
 
