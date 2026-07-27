@@ -53,10 +53,7 @@ def _(Path, load_dotenv, mo, os):
 def _(Path, archive_picker, io, mo, pd, tarfile):
     archive_path = Path(archive_picker.value)
 
-
-    def read_cs4r_from_archive(
-        archive: Path, filename: str, columns: list[str]
-    ) -> pd.DataFrame:
+    def read_cs4r_from_archive(archive: Path, filename: str, columns: list[str]) -> pd.DataFrame:
         with tarfile.open(archive, "r:gz") as tar:
             filename = f"./{filename}" if not filename.startswith("./") else filename
             try:
@@ -69,7 +66,6 @@ def _(Path, archive_picker, io, mo, pd, tarfile):
                 )
             text = io.TextIOWrapper(stream, encoding="utf-8")
             return pd.read_csv(text, comment="*", header=None, names=columns)
-
 
     remind_fedemand_industry = read_cs4r_from_archive(
         archive_path,
@@ -135,9 +131,7 @@ def _(mfa_steel, remind_fedemand_industry):
 
 @app.cell
 def _(mo, remind_fedemand_industry, remind_regions):
-    remind_scenarios = sorted(
-        set(remind_fedemand_industry.reset_index()["Scenario"].unique())
-    )
+    remind_scenarios = sorted(set(remind_fedemand_industry.reset_index()["Scenario"].unique()))
     scenario_picker = mo.ui.dropdown(
         options=remind_scenarios,
         value="SSP2" if "SSP2" in remind_scenarios else remind_scenarios[0],
@@ -169,9 +163,9 @@ def _(
     remind_steel["ue_steel_total"] = (
         remind_steel["ue_steel_primary"] + remind_steel["ue_steel_secondary"]
     )
-    remind_steel["steel_secondary_share_calc"] = remind_steel[
-        "ue_steel_secondary"
-    ] / remind_steel["ue_steel_total"].where(remind_steel["ue_steel_total"] != 0)
+    remind_steel["steel_secondary_share_calc"] = remind_steel["ue_steel_secondary"] / remind_steel[
+        "ue_steel_total"
+    ].where(remind_steel["ue_steel_total"] != 0)
 
     mfa_region_export = mfa_steel.query("Region == @region").drop(columns="Region")
     comparison = (
