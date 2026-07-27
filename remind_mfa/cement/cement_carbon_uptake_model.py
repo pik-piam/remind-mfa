@@ -20,6 +20,8 @@ class CementCarbonUptakeModel(BaseModel):
         return self
 
     def compute_carbon_flow(self):
+        self.build_subsystem()
+
         flw = self.flows
         stk = self.stocks
         prm = self.parameters
@@ -46,6 +48,83 @@ class CementCarbonUptakeModel(BaseModel):
 
         stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
         stk["atmosphere"].compute()
+
+    def build_subsystem(self):
+        """Create the carbonation subsystem on the MFA and reroute the in-use outflow through it.
+
+        The base cement definition is carbonation-free (only ``in_use``, with ``use => sysenv``).
+        This method injects the processes, stocks, and flows the carbonation model needs, so the
+        memory-heavy ``eol`` cohort arrays (and the ``atmosphere``/``carbonated_co2`` stocks) are
+        allocated only when carbonation is active. flodym's ``MFASystem`` stores these as plain
+        mutable dicts, and mass-balance/flow checks iterate the current contents, so the injected
+        entries are picked up automatically.
+        """
+        mfa = self.mfa
+        in_use_letters = mfa.stocks["in_use"].dims.letters
+
+        # processes (ids continue after the ones already defined)
+        next_id = max(process.id for process in mfa.processes.values()) + 1
+        for name in ("eol", "atmosphere", "carbonation"):
+            mfa.processes[name] = fd.Process(name=name, id=next_id)
+            next_id += 1
+
+        # stocks
+        stock_definitions = [
+            fd.StockDefinition(
+                name="eol",
+                process="eol",
+                dim_letters=in_use_letters,
+                subclass=fd.InflowDrivenDSM,
+                lifetime_model_class=fd.FixedLifetime,
+            ),
+            fd.StockDefinition(
+                name="atmosphere",
+                process="atmosphere",
+                dim_letters=("t", "r"),
+                subclass=fd.SimpleFlowDrivenStock,
+            ),
+            fd.StockDefinition(
+                name="carbonated_co2",
+                process="carbonation",
+                dim_letters=("t", "r", "c"),
+                subclass=fd.InflowDrivenDSM,
+                lifetime_model_class=fd.FixedLifetime,
+            ),
+        ]
+        mfa.stocks.update(
+            fd.make_empty_stocks(
+                stock_definitions=stock_definitions, processes=mfa.processes, dims=mfa.dims
+            )
+        )
+
+        # flows
+        flow_definitions = [
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=in_use_letters),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=in_use_letters),
+            fd.FlowDefinition(
+                from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r")
+            ),
+            fd.FlowDefinition(
+                from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "c")
+            ),
+        ]
+        mfa.flows.update(
+            fd.make_empty_flows(
+                processes=mfa.processes, flow_definitions=flow_definitions, dims=mfa.dims
+            )
+        )
+
+        # reroute the in-use outflow: use => sysenv (baseline sink) becomes use => eol => sysenv
+        del mfa.flows["use => sysenv"]
+        mfa.flows["use => eol"][...] = mfa.stocks["in_use"].outflow
+        mfa.stocks["eol"].inflow[...] = mfa.flows["use => eol"]
+        mfa.stocks["eol"].lifetime_model.set_prms(mean=np.inf)
+        mfa.stocks["eol"].compute()
+        mfa.flows["eol => sysenv"][...] = mfa.stocks["eol"].outflow
+
+        # refresh cached references so the rest of the model sees the injected entries
+        self.flows = mfa.flows
+        self.stocks = mfa.stocks
 
     def calc_carbonation(self) -> fd.FlodymArray:
         # get parameters for calculation

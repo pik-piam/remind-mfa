@@ -54,9 +54,6 @@ def get_cement_definition(
             "market_cement",
             "prod_product",
             "use",
-            "eol",
-            "atmosphere",
-            "carbonation",
             "imports",
             "exports",
         ]
@@ -100,15 +97,12 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=full_flow_letters + ("k",)),
-            # use and end-of-life
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=full_flow_letters + ("k",)),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=full_flow_letters + ("k",)),
+            # use phase: the in-use outflow leaves the system boundary. When the carbonation model
+            # is active it reroutes this outflow through the eol stock (which it injects at runtime).
+            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=full_flow_letters + ("k",)),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
-            # atmosphere
-            fd.FlowDefinition(from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "c")),
         ]
 
     # fmt: on
@@ -133,26 +127,8 @@ def get_cement_definition(
                 subclass=fd.StockDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
-            fd.StockDefinition(
-                name="eol",
-                process="eol",
-                dim_letters=full_flow_letters + ("k",),
-                subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=fd.FixedLifetime,
-            ),
-            fd.StockDefinition(
-                name="atmosphere",
-                process="atmosphere",
-                dim_letters=("t", "r"),
-                subclass=fd.SimpleFlowDrivenStock,
-            ),
-            fd.StockDefinition(
-                name="carbonated_co2",
-                process="carbonation",
-                dim_letters=("t", "r", "c"),
-                subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=fd.FixedLifetime,
-            ),
+            # The eol, atmosphere and carbonated_co2 stocks are injected at runtime by
+            # CementCarbonUptakeModel when carbonation is active (see cement_carbon_uptake_model.py).
         ]
         if bottom_up:
             stocks.extend(
