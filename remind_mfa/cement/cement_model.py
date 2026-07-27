@@ -48,7 +48,7 @@ class CementModel(CommonModel):
         if self.cfg.model_switches.parameter_reconciliation.do_reconcile:
             return self.run_with_reconciliation()
 
-    def make_bottom_up_mfa(self):
+    def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
         """Construct the future bottom-up MFA."""
         return self.make_mfa(
             definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
@@ -77,15 +77,15 @@ class CementModel(CommonModel):
         self.td_hist_mfa = self.historic_mfa
         self.td_mfa = self.future_mfa
 
-        # assume trade as zero for BU MFA's, so those are only representative for demands
-        zero_trade = self._create_zero_trade(self.td_hist_mfa.trade_set)
+        # TODO zero trade was a cheat to use top-down mfa system for bottom-up - not done currently
+        # zero_trade = self._create_zero_trade(self.td_hist_mfa.trade_set)
 
-        # compute non-reconiled bottom-up mfa
-        # TODO: currently, the bottom_up mfa is still blended with top-down, which is not ideal.
-        # TODO add scale to properly calculate pre-reconciliation BU MFA
-        # Idea: scale the td stock to match bu stock (in relevant categories) to get vintage
-        self.bu_mfa = self.make_bottom_up_mfa()
-        self.bu_mfa.compute(self.td_mfa.stocks["in_use"], zero_trade)
+        # TODO: once we can initialize stock vintage in flodym, we can provide them to bu stock.
+        # Then, we can set up a whole the bottom-up MFA system - and compare bu vs td demands.
+        # For now, we simply compute non-reconiled bottom-up stock for analysis.
+        bu_mfa = self.make_bottom_up_mfa()
+        bu_mfa.compute_floorspace_stock()
+        self.bu_stock = bu_mfa.compute_bottom_up_stock()
 
         # reconcile parameters
         self.parameters = self.historic_parameters
@@ -114,8 +114,8 @@ class CementModel(CommonModel):
             self.td_mfa_reconciled.stocks["in_use"], self.td_hist_mfa_reconciled.trade_set
         )
 
-        if self.cfg.model_switches.parameter_reconciliation.do_combine_mfas:
-            self.future_mfa = self.bu_mfa_reconciled
+        # overwrite future_mfa with update
+        self.future_mfa = self.bu_mfa_reconciled
 
     def reconcile_parameters(
         self,

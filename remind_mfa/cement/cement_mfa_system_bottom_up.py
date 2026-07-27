@@ -9,7 +9,7 @@ REDUCED_STOCK_TYPE = fd.Dimension(name="Reduced Stock Type", letter="u", items=[
 
 class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
-    def compute(self, td_in_use: fd.Stock, historic_trade: TradeSet, scale: bool = False):
+    def compute(self, td_in_use: fd.Stock, historic_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         The building split and MI parameters for the bottom-up MFA should ultimately set the inflow,
@@ -26,8 +26,6 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         6. Blend td into bu stock where bu is available, use td everywhere else.
         7. Compute the complete MFA with the blended stock and historic trade.
         """
-        if scale:
-            raise NotImplementedError("Scaling not implemented for bottom-up system.")
 
         self.compute_floorspace_stock()
         self.compute_bottom_up_stock()
