@@ -1,8 +1,0 @@
-parameter,models,value,extra:year,extra:type,index:Region,index:Stock Type,index:Function,index:Structure,description
-function_buildings_split,cement,0.4,2060,target,IND,Res,RS,,New single-family homes make up 40% of residential floor area
-function_buildings_split,cement,0.4,2060,target,LAM,Res,RS,,New single-family homes make up 40% of residential floor area
-function_buildings_split,cement,0.4,2060,target,OAS,Res,RS,,New single-family homes make up 40% of residential floor area
-function_buildings_split,cement,0.4,2060,target,SSA,Res,RS,,New single-family homes make up 40% of residential floor area
-structure_buildings_split,cement,0.3,2060,target,SSA,,RS,M,Masonry share in SSA decreases to 30%
-structure_buildings_split,cement,0.3,2060,target,SSA,,RM,M,Masonry share in SSA decreases to 30%
-structure_buildings_split,cement,0.3,2060,target,SSA,,Com,M,Masonry share in SSA decreases to 30%
