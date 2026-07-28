@@ -94,13 +94,15 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # cement production
         flw["prod_cement => market_cement"][...] = (
-            flw["market_cement => prod_product"] + flw["market_cement => sysenv"] + trd["cement"].net_exports
+            flw["market_cement => prod_product"]
+            + flw["market_cement => sysenv"]
+            + trd["cement"].net_exports
         )
         flw["market_clinker => prod_cement"][...] = (
             flw["prod_cement => market_cement"] * prm["clinker_ratio"]
         )
-        flw["sysenv => prod_cement"][...] = (
-            flw["prod_cement => market_cement"] * (1 - prm["clinker_ratio"])
+        flw["sysenv => prod_cement"][...] = flw["prod_cement => market_cement"] * (
+            1 - prm["clinker_ratio"]
         )
 
         # clinker trade
