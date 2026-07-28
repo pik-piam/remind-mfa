@@ -56,6 +56,33 @@ class BaseExportCfg(RemindMFABaseModel):
     """Path to export folder for this entity"""
 
 
+class IamcExportCfg(BaseExportCfg):
+    t: str = "1950:2100"
+    """Inclusive "start:stop" year range to export in IAMC format (e.g. "1950:2100")."""
+
+    @property
+    def time_items(self) -> list[int]:
+        start, stop = self._parse_range()
+        return list(range(start, stop + 1))  # inclusive of stop
+
+    def _parse_range(self) -> tuple[int, int]:
+        parts = str(self.t).split(":")
+        if len(parts) != 2:
+            raise ValueError(f"iamc.t must be a 'start:stop' year range, got {self.t!r}")
+        try:
+            start, stop = int(parts[0]), int(parts[1])
+        except ValueError:
+            raise ValueError(f"iamc.t must be a 'start:stop' year range, got {self.t!r}")
+        if start > stop:
+            raise ValueError(f"iamc.t start must not be after stop, got {self.t!r}")
+        return start, stop
+
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        self._parse_range()
+        return self
+
+
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
@@ -65,7 +92,7 @@ class ExportCfg(BaseExportCfg):
     """Configuration of export of assumptions to a txt file."""
     docs: BaseExportCfg
     """Configuration of export to documentation files."""
-    iamc: BaseExportCfg
+    iamc: IamcExportCfg
     """Configuration of export of results in IAMC format."""
 
 

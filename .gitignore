@@ -4,9 +4,10 @@ config/
 *.pyo
 .idea
 .vscode
-uv.lock
 remind_mfa.egg-info
 site/
 .github/copilot-instructions.md
 .claude/
 CLAUDE.md
+madrat_output/
+.env
