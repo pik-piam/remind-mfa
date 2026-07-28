@@ -85,7 +85,8 @@ class CementModel(CommonModel):
         # For now, we simply compute non-reconiled bottom-up stock for analysis.
         bu_mfa = self.make_bottom_up_mfa()
         bu_mfa.compute_floorspace_stock()
-        self.bu_stock = bu_mfa.compute_bottom_up_stock()
+        bu_mfa.compute_bottom_up_stock()
+        self.bu_stock = bu_mfa.stocks["bu_in_use"].stock
 
         # reconcile parameters
         self.parameters = self.historic_parameters
