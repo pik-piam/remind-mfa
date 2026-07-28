@@ -69,7 +69,9 @@ class ExtrapolationDefinition(RemindMFAParameterDefinition):
     @model_validator(mode="after")
     def validate_split_settings(self):
         if self.split_balancing_item is not None and self.split_dimension_letter is None:
-            raise ValueError(f"'{self.name}': split_balancing_item requires split_dimension_letter.")
+            raise ValueError(
+                f"'{self.name}': split_balancing_item requires split_dimension_letter."
+            )
         if self.split_dimension_letter is None:
             return self
         if not self.dim_letters:
