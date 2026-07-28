@@ -76,6 +76,11 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["prod_product => use"][...] = stk["in_use"].inflow
         flw["market_cement => prod_product"][...] = flw["prod_product => use"][{"k": "cement"}]
         flw["sysenv => prod_product"][...] = flw["prod_product => use"][{"k": "non-cement"}]
+        flw["market_cement => sysenv"][...] = (
+            flw["market_cement => prod_product"]
+            * prm["cement_losses"]
+            / (1 - prm["cement_losses"])  # construction losses are relative to total production
+        )
 
         # cement trade
         extrapolator = TradeExtrapolator(
@@ -89,19 +94,14 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # cement production
         flw["prod_cement => market_cement"][...] = (
-            flw["market_cement => prod_product"] + trd["cement"].net_exports
-        )
-        flw["prod_cement => sysenv"][...] = (
-            flw["prod_cement => market_cement"]
-            * prm["cement_losses"]
-            / (1 - prm["cement_losses"])  # losses are relative to total production
+            flw["market_cement => prod_product"] + flw["market_cement => sysenv"] + trd["cement"].net_exports
         )
         flw["market_clinker => prod_cement"][...] = (
-            flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
-        ) * prm["clinker_ratio"]
+            flw["prod_cement => market_cement"] * prm["clinker_ratio"]
+        )
         flw["sysenv => prod_cement"][...] = (
-            flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
-        ) * (1 - prm["clinker_ratio"])
+            flw["prod_cement => market_cement"] * (1 - prm["clinker_ratio"])
+        )
 
         # clinker trade
         extrapolator = TradeExtrapolator(
