@@ -18,6 +18,7 @@ The `ScenarioReader` resolves the inheritance chain, reads all relevant CSV file
 
     config/scenarios/
     ├── inheritance.csv
+    ├── BASE.csv
     ├── SSP2.csv
     ├── SSP1.csv
     └── ...
@@ -36,21 +37,22 @@ Defines the parent–child relationships between scenarios.
 **Example:**
 
     scenario,parent
-    SSP2,
-    SSP1,SSP2
-    SSP5,SSP2
+    BASE,
+    SSP1,BASE
+    SSP2,BASE
+    SSP1_CE,SSP1
 
-- `SSP2` has no parent — it is a root/baseline scenario.
-- `SSP1` inherits from `SSP2`: all `SSP2` data points are applied first, then `SSP1` overrides on top.
-- `SSP5` also inherits from `SSP2`.
+- `BASE` has no parent — it is the root/baseline scenario holding the model and scenario defaults. It sets no `driver_scen`, so it is not run directly.
+- `SSP1` inherits from `BASE`: all `BASE` data points are applied first, then `SSP1` overrides on top (including its own `driver_scen`).
+- `SSP1_CE` inherits from `SSP1`, which in turn inherits from `BASE`, giving a three-level chain.
 
 ### How Inheritance Works
 
 When a scenario is loaded (e.g. `SSP1`), the reader walks up the inheritance chain:
 
-1. Find `SSP1` → parent is `SSP2`.
-2. Find `SSP2` → no parent (root).
-3. Apply in order: first `SSP2.csv`, then `SSP1.csv`.
+1. Find `SSP1` → parent is `BASE`.
+2. Find `BASE` → no parent (root).
+3. Apply in order: first `BASE.csv`, then `SSP1.csv`.
 
 This means the child scenario only needs to specify parameters that **differ** from its parent. Any parameter not overridden retains the parent's value. Chains can be arbitrarily deep.
 
