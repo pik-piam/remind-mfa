@@ -297,13 +297,13 @@ scenario_parameters = [
         dim_letters=("r", "s", "f"),
         blending_function="poly_mix",
         split_dimension_letter="f",
-        split_receiver_item="RM",
+        split_balancing_item="RM",
     ),
     ExtrapolationDefinition(
         name="structure_buildings_split",
         dim_letters=("r", "f", "b"),
         blending_function="poly_mix",
         split_dimension_letter="b",
-        split_receiver_item="C",
+        split_balancing_item="C",
     ),
 ]

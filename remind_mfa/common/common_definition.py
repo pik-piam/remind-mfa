@@ -55,10 +55,9 @@ class ExtrapolationDefinition(RemindMFAParameterDefinition):
     """Blending function to use for extrapolation. Must be one of the functions defined in `remind_mfa.common.data_blending.BLEND_TYPES`."""
     split_dimension_letter: Optional[str] = None
     """Only required if extrapolating a split. Ensures that along the given dimension the values sum up to 1."""
-    split_receiver_item: Optional[str] = None
-    """Item of the split dimension that absorbs the residual share when other items are
-    targeted. Requires split_dimension_letter. Without it, unspecified items scale
-    proportionally."""
+    split_balancing_item: Optional[str] = None
+    """Item of the split dimension that absorbs or provides the residual share when other items are
+    targeted. Requires split_dimension_letter. Without it, unspecified items scale proportionally."""
 
     @field_validator("blending_function")
     @classmethod
@@ -69,8 +68,8 @@ class ExtrapolationDefinition(RemindMFAParameterDefinition):
 
     @model_validator(mode="after")
     def validate_split_settings(self):
-        if self.split_receiver_item is not None and self.split_dimension_letter is None:
-            raise ValueError(f"'{self.name}': split_receiver_item requires split_dimension_letter.")
+        if self.split_balancing_item is not None and self.split_dimension_letter is None:
+            raise ValueError(f"'{self.name}': split_balancing_item requires split_dimension_letter.")
         if self.split_dimension_letter is None:
             return self
         if not self.dim_letters:

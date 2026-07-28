@@ -248,9 +248,9 @@ class ParameterExtrapolation:
         in one of two modes, determined per context slice (each combination of non-split,
         non-time index values):
 
-        - **Proportional** (no ``split_receiver_item`` in the definition): unspecified
+        - **Proportional** (no ``split_balancing_item`` in the definition): unspecified
           entries scale proportionally to their baseline shares so that the sum stays 1.
-        - **Receiver** (definition declares ``split_receiver_item``): in slices with a
+        - **Receiver** (definition declares ``split_balancing_item``): in slices with a
           targeted entry, unspecified entries keep their baseline; the receiver item
           absorbs whatever share is left so the sum stays 1.
 
@@ -292,13 +292,13 @@ class ParameterExtrapolation:
     ) -> fd.FlodymArray:
         """Mark the receiver item where it should absorb the freed share.
 
-        Zero everywhere unless the definition declares a ``split_receiver_item``. Where
+        Zero everywhere unless the definition declares a ``split_balancing_item``. Where
         it does, the mask is 1 on that item, but only in slices that (a) have a target
         freeing up share, and (b) do not target the receiver item itself — if the
         receiver is targeted, its target wins and the remaining items scale
         proportionally instead.
         """
-        receiver_item = self.definition.split_receiver_item
+        receiver_item = self.definition.split_balancing_item
         if receiver_item is None:
             return fd.Parameter(dims=prepared.dims.drop("t"))
 
@@ -341,7 +341,7 @@ class ParameterExtrapolation:
             raise ValueError(
                 f"'{name}' has negative shares after split renormalization "
                 f"(minimum {min_value:.2e}). Check target values, target coordinates, "
-                "and the split_receiver_item of the definition."
+                "and the split_balancing_item of the definition."
             )
 
     def _description(
@@ -376,7 +376,7 @@ class ParameterExtrapolation:
             sentences.append("Entries without scenario data keep their baseline.")
 
         if self.definition.split_dimension_letter is not None:
-            receiver = self.definition.split_receiver_item
+            receiver = self.definition.split_balancing_item
             how = (
                 f"'{receiver}' absorbs the freed share"
                 if receiver is not None

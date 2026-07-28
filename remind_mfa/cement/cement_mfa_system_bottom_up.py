@@ -103,6 +103,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             }
         ]
 
+        # Lifetime independent blend
         blender = CriticallyDampedBlender(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,

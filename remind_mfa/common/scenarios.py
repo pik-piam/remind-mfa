@@ -43,13 +43,13 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
         return self
 
     @model_validator(mode="after")
-    def check_split_receiver_item(self):
-        if self.definition.split_receiver_item is None:
+    def check_split_balancing_item(self):
+        if self.definition.split_balancing_item is None:
             return self
         split_dim = self.value.dims[self.definition.split_dimension_letter]
-        if self.definition.split_receiver_item not in split_dim.items:
+        if self.definition.split_balancing_item not in split_dim.items:
             raise ValueError(
-                f"Unknown split_receiver_item '{self.definition.split_receiver_item}' for "
+                f"Unknown split_balancing_item '{self.definition.split_balancing_item}' for "
                 f"'{self.definition.name}': not an item of dimension '{split_dim.name}'."
             )
         return self
