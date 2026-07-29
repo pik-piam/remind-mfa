@@ -79,7 +79,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["market_cement => sysenv"][...] = (
             flw["market_cement => prod_product"]
             * prm["cement_losses"]
-            / (1 - prm["cement_losses"])  # construction losses are relative to total use
+            / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
         # cement trade
