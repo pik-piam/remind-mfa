@@ -6,9 +6,9 @@ PATH_PLASTICS = pathlib.Path("data/plastics/output/export/pickle")
 PATH_STEEL = pathlib.Path("data/steel/output/export/pickle")
 
 # Default runs use SSP2 unless explicitly noted otherwise.
-RUN_CEMENT = "model_cement_SSP2_h12_2026-04-29--13-20-04"
-RUN_PLASTICS = "model_plastics_SSP2_h12_2026-05-04--12-30-42"
-RUN_STEEL = "model_steel_SSP1_LD_h12_2026-04-29--13-37-27"
+RUN_CEMENT = "model_cement_SSP2_h12_2026-07-28--10-06-30"
+RUN_PLASTICS = "model_plastics_SSP2_h12_2026-07-28--10-05-35"
+RUN_STEEL = "model_steel_SSP2_h12_2026-07-28--10-04-53"
 RUN_STEEL_SSP1 = "model_steel_SSP1_h12_2026-04-01--14-31-04"
 RUN_STEEL_SSP1_LD = "model_steel_SSP1_LD_h12_2026-04-01--14-31-31"
 
@@ -22,16 +22,44 @@ REGION_DISPLAY_NAMES = {
     "EUR": "EU 28",
     "IND": "India",
     "JPN": "Japan",
-    # "LAM": "Latin America and<br>the Caribbean",
     "LAM": "Latin America",
-    # "MEA": "Middle East,<br>North Africa,<br>Central Asia",
     "MEA": "Mdl. East & N. Africa",
     "NEU": "Non-EU28 Europe",
     "OAS": "Other Asia",
-    # "REF": "Countries from the<br>Reforming Economies of<br>the Former Soviet Union",
     "REF": "Former Soviet Union",
     "SSA": "Sub-Saharan Africa",
     "USA": "USA",
+}
+
+AGG_REGIONS = {
+    "CAZ": "OECD",
+    "CHA": "China",
+    "EUR": "OECD",
+    "IND": "S & SE Asia",
+    "JPN": "OECD",
+    "LAM": "Rest of the World",
+    "MEA": "Rest of the World",
+    "NEU": "OECD",
+    "OAS": "S & SE Asia",
+    "REF": "Rest of the World",
+    "SSA": "Sub-Saharan Africa",
+    "USA": "OECD",
+}
+
+AGG_REGION_ORDER = [
+    "Sub-Saharan Africa",
+    "S & SE Asia",
+    "Rest of the World",
+    "China",
+    "OECD",
+]
+
+AGG_COLOR_PALETTE = {
+    "Sub-Saharan Africa": "#D6C73D",
+    "S & SE Asia": "#56BB58",
+    "Rest of the World": "#288F8A",
+    "China": "#2F4E94",
+    "OECD": "#6B2F2B",
 }
 
 COLOR_PALETTE_1 = [
