@@ -40,7 +40,7 @@ class CementVisualizer(CommonVisualizer):
         self.visualize_fdarr(mfa=mfa, flow=production, name="Clinker production", regional=regional)
 
     def visualize_prod_cement(self, mfa: fd.MFASystem, regional: bool = False):
-        production = mfa.flows["prod_cement => market_cement"] + mfa.flows["prod_cement => sysenv"]
+        production = mfa.flows["prod_cement => market_cement"]
         self.visualize_fdarr(mfa=mfa, flow=production, name="Cement production", regional=regional)
 
     def visualize_prod_product(self, mfa: fd.MFASystem, regional: bool = False):
