@@ -32,7 +32,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         self.trade_set["waste"].exports[...] = (
             self.parameters[f"waste_his_exports"] * self.parameters["carbon_content_materials"]
         )
-        self.trade_set.balance(to="minimum")
+        self.trade_set.balance(to="maximum")
 
     def compute_stock(self, stock_projection: fd.FlodymArray):
         self.stocks["in_use_dsm"].stock[...] = stock_projection

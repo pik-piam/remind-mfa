@@ -48,7 +48,7 @@ class PlasticsModel(CommonModel):
                 1
                 - self.parameters["incineration_rate"]
                 - self.parameters["mechanical_recycling_rate"]
-                - self.parameters["chemical_recycling_rate"]
+                - self.parameters["chemical_recycling_rate"].cast_to(self.dims["h", "r"])
             ).values,
         )
 
@@ -60,7 +60,7 @@ class PlasticsModel(CommonModel):
         self.parameters["final_his_exports"][...] *= 1e6
         self.parameters["waste_his_imports"][...] *= 1e6
         self.parameters["waste_his_exports"][...] *= 1e6
-        self.parameters["consumption"][...] *= 1e6
+        self.parameters["production"][...] *= 1e6
 
     def get_sector_split_limit(self):
         """Sector splits differ between regions, which may be due to different consumption preference patterns which we would like to keep, but
@@ -75,6 +75,13 @@ class PlasticsModel(CommonModel):
                 self.dims["h"].items[-1]
             ].values,
         )
+        # get global good split of stock inflow from historic MFA
+        self.parameters["global_sector_split"] = fd.Parameter(
+            dims=self.dims["g",],
+            values=self.historic_mfa.parameters["global_good_shares_use_inflow"][
+                self.dims["h"].items[-1]
+                ].values
+        )
         # get historic gdp per capita for blending
         hist_gdp = self.parameters["gdppc"][self.dims["h"].items[-1]]
 
@@ -88,7 +95,7 @@ class PlasticsModel(CommonModel):
             type="quintic",
         )
         sector_split_limit = (
-            self.parameters["sector_split"].cast_to(self.dims["r", "g"]) ** (1 - alpha)
+            self.parameters["global_sector_split"].cast_to(self.dims["r", "g"]) ** (1 - alpha)
             * self.parameters["historic_sector_split"] ** alpha
         ).get_shares_over("g")
         self.parameters["sector_split_limit"] = fd.Parameter(
