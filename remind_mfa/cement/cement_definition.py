@@ -91,10 +91,11 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="market_clinker", to_process="prod_cement", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="prod_cement", to_process="market_cement", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r")),
             # cement trade
             fd.FlowDefinition(from_process="market_cement", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("t", "r")),
+            # cement losses during construction
+            fd.FlowDefinition(from_process="market_cement", to_process="sysenv", dim_letters=("t", "r")),
             # product production
             fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=full_flow_letters),
@@ -209,7 +210,7 @@ def get_cement_definition(
         RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r", "S"),
                                      description="Historic and projected GDP per capita for each region and model year."),
         RemindMFAParameterDefinition(name="cement_losses", dim_letters=(),
-                                     description="Share of cement lost during cement production."),
+                                     description="Share of cement lost during construction."),
         RemindMFAParameterDefinition(name="clinker_losses", dim_letters=(),
                                      description="Share of clinker lost during clinker production."),
         RemindMFAParameterDefinition(name="cement_ratio", dim_letters=("r", "m",),
