@@ -173,7 +173,7 @@ A CSV row for an extrapolated parameter provides the endpoint of a blend: the pa
 
 | Extra        | Description |
 |--------------|-------------|
-| `extra:year` | The year by which the endpoint is reached. A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
+| `extra:year` | The year by which the endpoint is reached. Must lie after the last historic year (earlier years raise an error). A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
 | `extra:type` | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `extra:year`. Target means that the parameter blends from the last historic value to the scenario value. |
 
 Only one type per parameter is supported: declaring it on a single row (e.g. in the base scenario) is enough and also covers inherited rows, while mixed declarations raise an error. A row with `extra:year` but no type declared anywhere for that parameter raises an error as well.
