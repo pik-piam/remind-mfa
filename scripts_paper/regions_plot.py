@@ -93,7 +93,8 @@ def build_figure(df: pd.DataFrame, aggregate_regions: bool = False) -> go.Figure
         id_to_label = {region_to_id[region]: region for region in region_order}
     else:
         id_to_label = {
-            region_to_id[region]: REGION_DISPLAY_NAMES.get(region, region) for region in region_order
+            region_to_id[region]: REGION_DISPLAY_NAMES.get(region, region)
+            for region in region_order
         }
 
     if aggregate_regions:
