@@ -2,11 +2,10 @@ from typing import Optional
 
 import flodym as fd
 import pandas as pd
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.helpers import RemindMFABaseModel, ModelNames, RegressOverModes
-from remind_mfa.common.data_blending import BLEND_TYPES
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
