@@ -9,8 +9,8 @@ PATH_STEEL = pathlib.Path("data/steel/output/export/pickle")
 RUN_CEMENT = "model_cement_SSP2_h12_2026-07-28--10-06-30"
 RUN_PLASTICS = "model_plastics_SSP2_h12_2026-07-28--10-05-35"
 RUN_STEEL = "model_steel_SSP2_h12_2026-07-28--10-04-53"
-RUN_STEEL_SSP1 = "model_steel_SSP1_h12_2026-04-01--14-31-04"
-RUN_STEEL_SSP1_LD = "model_steel_SSP1_LD_h12_2026-04-01--14-31-31"
+RUN_STEEL_SSP1 = "model_steel_SSP1_h12_2026-07-30--10-05-55"
+RUN_STEEL_SSP1_LD = "model_steel_SSP1_LD_h12_2026-07-30--10-06-32"
 
 LAST_HISTORICAL_YEAR_CEMENT = 2023
 LAST_HISTORICAL_YEAR_PLASTICS = 2019
@@ -54,13 +54,15 @@ AGG_REGION_ORDER = [
     "OECD",
 ]
 
-AGG_COLOR_PALETTE = {
-    "Sub-Saharan Africa": "#D6C73D",
-    "S & SE Asia": "#56BB58",
-    "Rest of the World": "#288F8A",
-    "China": "#2F4E94",
-    "OECD": "#6B2F2B",
-}
+VIRIDIS_MOD_5 = [
+    "#D6C73D",
+    "#56BB58",
+    "#288F8A",
+    "#2F4E94",
+    "#6B2F2B",
+]
+
+AGG_COLOR_PALETTE = dict(zip(AGG_REGION_ORDER, VIRIDIS_MOD_5))
 
 COLOR_PALETTE_1 = [
     "#6929c4",  # Purple
