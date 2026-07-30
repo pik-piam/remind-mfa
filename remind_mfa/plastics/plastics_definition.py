@@ -245,13 +245,13 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 
     if historic:
         trades = [
-            TradeDefinition(name="primary_his", dim_letters=("h", "r", "p")),
-            TradeDefinition(name="final_his", dim_letters=("h", "r", "p")),
+            TradeDefinition(name="primary_his", dim_letters=("h", "r", "p", "m")),
+            TradeDefinition(name="final_his", dim_letters=("h", "r", "p", "m", "g")),
         ]
     else:
         trades = [
-            TradeDefinition(name="primary", dim_letters=("t", "r", "m")),
-            TradeDefinition(name="final", dim_letters=("t", "r", "m", "g")),
+            TradeDefinition(name="primary", dim_letters=("t", "r", "p", "m")),
+            TradeDefinition(name="final", dim_letters=("t", "r", "p", "m", "g")),
             TradeDefinition(name="waste", dim_letters=("t", "e", "r", "m")),
         ]
 

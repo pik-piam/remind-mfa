@@ -29,6 +29,10 @@ class PlasticsVisualizer(CommonVisualizer):
             self.compare_demand(mfa=model.future_mfa)
             self.visualize_material_splits(mfa=model.future_mfa)
 
+        if self.cfg.production.do_visualize:
+            self.visualize_production(mfa=model.future_mfa, regional=True)
+            self.visualize_production(mfa=model.future_mfa, regional=False)
+
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model, subplot_dim="Good", linecolor_dim="Region")
             self.visualize_extrapolation(model=model, subplot_dim="Region", linecolor_dim="Good")
@@ -113,6 +117,10 @@ class PlasticsVisualizer(CommonVisualizer):
             per_capita=per_capita,
             regional=True,
         )
+
+    def visualize_production(self, mfa: fd.MFASystem, regional=True):
+        production = mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+        self.visualize_fdarr(mfa=mfa, flow=production, name="Plastics production", regional=regional)
 
     def compare_demand(self, mfa: fd.MFASystem):
         df = pd.read_csv("data/plastics/input/validation.csv", sep=";")

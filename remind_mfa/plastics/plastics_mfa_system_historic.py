@@ -1,3 +1,5 @@
+import logging
+import sys
 import flodym as fd
 
 from remind_mfa.plastics.plastics_config import PlasticsCfg
@@ -26,25 +28,61 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         flw["sysenv => polymerization"][...] = prm["production"]
         flw["polymerization => primary_market"][...] = flw["sysenv => polymerization"]
+
+        # primary exports cannot exceed domestic production, else fabrication inflow goes negative
+        self.scale_trade_exports_to_supply("primary_his", flw["polymerization => primary_market"])
+
         flw["primary_market => fabrication"][...] = (
             flw["polymerization => primary_market"] + trd["primary_his"].net_imports
         )
         flw["fabrication => good_market"][...] = flw["primary_market => fabrication"]
 
-        # # exports of final goods cannot exceed plastics fabrication
-        # trd["final_his"].exports[...] = trd["final_his"].exports.minimum(
-        #     flw["sysenv => fabrication"]
-        # )
-        # trd["final_his"].balance(to="minimum")
+        # final-goods exports cannot exceed fabrication output, else use inflow goes negative
+        self.scale_trade_exports_to_supply("final_his", flw["fabrication => good_market"])
 
         flw["good_market => use"][...] = (
             flw["fabrication => good_market"] + trd["final_his"].net_imports
         ) * prm["sector_polymer_split"]
-        
+
         flw["primary_market => sysenv"][...] = trd["primary_his"].exports
         flw["sysenv => primary_market"][...] = trd["primary_his"].imports
         flw["good_market => sysenv"][...] = trd["final_his"].exports
         flw["sysenv => good_market"][...] = trd["final_his"].imports
+
+    def scale_trade_exports_to_supply(self, trade_name: str, supply: fd.FlodymArray):
+        """Cap a historic trade's exports at the available domestic supply so downstream
+        flows cannot go negative when historic export data exceeds domestic production,
+        then re-balance globally. 
+        Warns with the region/polymer coordinates where exports had to be reduced.
+        """
+        trd = self.trade_set
+        exports = trd[trade_name].exports
+        exports_total = trd[trade_name].exports.sum_to(supply.dims.letters)
+        export_factor = exports_total.minimum(supply) / exports_total.maximum(sys.float_info.epsilon)
+        capped = exports * export_factor
+        excess = exports - capped  # > 0 where exports exceeded supply
+        if (excess.values > 0.0).any():
+            coords = excess.items_where(lambda x: x > 0.0)  # rows over excess.dims
+            h_idx = excess.dims.letters.index("h")
+            r_idx = excess.dims.letters.index("r")
+            p_idx = excess.dims.letters.index("p")
+            # collapse other dims -> plastic types and years affected per region
+            by_region = {}
+            for row in coords:
+                types, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
+                types.add(str(row[p_idx]))
+                years.add(int(row[h_idx]))
+            detail = "\n".join(
+                f"    {region}: {', '.join(sorted(types))}; "
+                f"{', '.join(str(y) for y in sorted(years))}"
+                for region, (types, years) in sorted(by_region.items())
+            )
+            logging.warning(
+                f"'{trade_name}': historic exports exceed available domestic supply; "
+                f"scaled down {len(coords)} entries:\n{detail}"
+            )
+        trd[trade_name].exports[...] = capped
+        trd[trade_name].balance(to="minimum")
 
     def compute_historic_stock(self):
         self.stocks["in_use_historic"].inflow[...] = self.flows["good_market => use"]

@@ -39,6 +39,24 @@ class PlasticsModel(CommonModel):
             dims=self.dims["t", "r", "g"],
             values=self.parameters["lifetime_std"].cast_to(self.dims["t", "r", "g"]).values,
         )
+        # cast rates that are globally historically zero to the region dimension to allow for future extrapolation
+        # differentiated by region
+        self.parameters["chemical_recycling_rate"] = fd.Parameter(
+            dims=self.dims["r",],
+            values=self.parameters["chemical_recycling_rate"].cast_to(self.dims["r",]).values,
+        )
+        self.parameters["bio_production_rate"] = fd.Parameter(
+            dims=self.dims["r",],
+            values=self.parameters["bio_production_rate"].cast_to(self.dims["r",]).values,
+        )
+        self.parameters["daccu_production_rate"] = fd.Parameter(
+            dims=self.dims["r",],
+            values=self.parameters["daccu_production_rate"].cast_to(self.dims["r",]).values,
+        )
+        self.parameters["emission_capture_rate"] = fd.Parameter(
+            dims=self.dims["r",],
+            values=self.parameters["emission_capture_rate"].cast_to(self.dims["r",]).values,
+        )
 
         # calculate landfill rate from historic eol rates (1 - sum of other eol rates)
         self.parameters["landfill_rate"] = fd.Parameter(

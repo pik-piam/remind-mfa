@@ -1,9 +1,10 @@
 import flodym as fd
 import numpy as np
 import logging
+import sys
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 
@@ -91,7 +92,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
-        flw["collected => reclmech"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension
+        #flw["collected => reclmech"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension
         flw["reclmech => primary_market"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => primary_market"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
@@ -114,6 +115,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow
+        # imports of final-goods plastics cannot exceed plastics demand in fabrication
+        self.scale_historic_imports_to_demand(historic_trade["final_his"], flw["good_market => use"])
 
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["final_his"],
@@ -132,8 +135,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # imports of primary plastics cannot exceed primary plastics demand in fabrication
         flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
-        historic_trade["primary_his"].imports[...] = historic_trade["primary_his"].imports.minimum(flw["primary_market => fabrication"][{"t": self.dims["h"]}])
-        historic_trade["primary_his"].balance(to="minimum")
+        self.scale_historic_imports_to_demand(historic_trade["primary_his"], flw["primary_market => fabrication"])
 
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["primary_his"],
@@ -204,6 +206,41 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # fmt: on
 
+    def scale_historic_imports_to_demand(self, historic_trade: Trade, demand: fd.FlodymArray):
+        """Cap a historic trade's imports at the domestic demand so upstream
+        flows cannot go negative when historic import data exceeds domestic demand,
+        then re-balance globally.
+        Warns with the region/polymer coordinates where imports had to be reduced.
+        """
+        imports = historic_trade.imports
+        imports_total = historic_trade.imports.sum_over("p")
+        demand = demand[{"t": self.dims["h"]}]
+        import_factor = imports_total.minimum(demand) / imports_total.maximum(sys.float_info.epsilon)
+        capped = imports * import_factor
+        excess = imports - capped  # > 0 where imports exceeded demand
+        if (excess.values > 0.0).any():
+            coords = excess.items_where(lambda x: x > 0.0)  # rows over excess.dims
+            h_idx = excess.dims.letters.index("h")
+            r_idx = excess.dims.letters.index("r")
+            m_idx = excess.dims.letters.index("m")
+            # collapse other dims -> plastic types and years affected per region
+            by_region = {}
+            for row in coords:
+                materials, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
+                materials.add(str(row[m_idx]))
+                years.add(int(row[h_idx]))
+            detail = "\n".join(
+                f"    {region}: {', '.join(sorted(materials))}; "
+                f"{', '.join(str(y) for y in sorted(years))}"
+                for region, (materials, years) in sorted(by_region.items())
+            )
+            logging.warning(
+                f"Historic imports exceed domestic demand {demand.name}; "
+                f"scaled down {len(coords)} entries:\n{detail}"
+            )
+        historic_trade.imports[...] = capped
+        historic_trade.balance(to="minimum")
+
     def _adjust_primary_trade_for_secondary_excess(self, flw, trd):
         """
         Iteratively adjust primary plastics trade so that no region has more
@@ -230,17 +267,35 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             if not np.any(excess.values > 1e-6):
                 break
             if iteration == 0:
-                message = "There is more secondary plastics available than used! Items:"
-                for index in secondary_excess.items_where(lambda x: x > 0):
-                    message += "\n  " + ", ".join(index)
-                logging.warning(
-                    message + "\n Iteratively adjusting primary trade to absorb secondary excess."
+                coords = secondary_excess.items_where(lambda x: x > 0.0)  # rows over excess.dims
+                h_idx = secondary_excess.dims.letters.index("t")
+                r_idx = secondary_excess.dims.letters.index("r")
+                m_idx = secondary_excess.dims.letters.index("m")
+                # collapse other dims -> plastic types and years affected per region
+                by_region = {}
+                for row in coords:
+                    materials, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
+                    materials.add(str(row[m_idx]))
+                    years.add(int(row[h_idx]))
+                detail = "\n".join(
+                    f"    {region}: {', '.join(sorted(materials))}; "
+                    f"{', '.join(str(y) for y in sorted(years))}"
+                    for region, (materials, years) in sorted(by_region.items())
                 )
+                logging.warning(
+                    f"There is more secondary plastics available than used! Items: "
+                    f"\n{detail}"
+                )
+            eps = sys.float_info.epsilon
             total_trade = trd["primary"].imports + trd["primary"].exports
-            import_share = trd["primary"].imports / total_trade.maximum(np.finfo(float).eps)
+            import_share = trd["primary"].imports / total_trade.maximum(eps)
             import_reduction = (excess * import_share).minimum(trd["primary"].imports)
             trd["primary"].imports[...] = trd["primary"].imports - import_reduction
-            trd["primary"].exports[...] = trd["primary"].exports + (excess - import_reduction)
+            # The trade arrays carry the coarse type dimension "p" (Fibre/Rubber/Plastics) on top of
+            # the material dimension "m", while the flows (and therefore the excess) don't. 
+            export_increase_m = excess - import_reduction.sum_over("p")
+            export_p_share = trd["primary"].exports / trd["primary"].exports.sum_over("p").maximum(eps)
+            trd["primary"].exports[...] = trd["primary"].exports + export_increase_m * export_p_share
             # balance() restores global trade balance but partially dilutes the regional fix → hence the loop.
             trd["primary"].balance()
         else:

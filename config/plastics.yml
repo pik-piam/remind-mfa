@@ -32,7 +32,7 @@ visualization:
     do_visualize: True
     per_capita: True
   production:
-    do_visualize: False
+    do_visualize: True
   trade:
     do_visualize: True
   extrapolation:
