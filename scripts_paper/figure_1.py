@@ -184,7 +184,9 @@ for i, config in enumerate(RUN_CONFIGS):
         suffixes=("_production", "_population"),
     )
     production_pc[value_col_flow] = (
-        production_pc[f"{value_col_flow}_production"] / production_pc[f"{value_col_pop}_population"] * 1e6
+        production_pc[f"{value_col_flow}_production"]
+        / production_pc[f"{value_col_pop}_population"]
+        * 1e6
     )
     production_pc = production_pc[[time_col_flow, region_col_flow, value_col_flow]]
 
@@ -207,9 +209,11 @@ for i, config in enumerate(RUN_CONFIGS):
         right_on=time_col_pop,
         suffixes=("_production", "_population"),
     )
-    global_production[value_col_flow] = global_production[f"{value_col_flow}_production"] / global_production[
-        f"{value_col_pop}_population"
-    ] * 1e6
+    global_production[value_col_flow] = (
+        global_production[f"{value_col_flow}_production"]
+        / global_production[f"{value_col_pop}_population"]
+        * 1e6
+    )
 
     flow_total = flow.groupby(time_col_flow, as_index=False)[value_col_flow].sum()
     flow_gt = flow.copy()
@@ -399,14 +403,16 @@ for i, config in enumerate(RUN_CONFIGS):
 
     for metric_row in range(1, 4):
         fig.add_vline(
-                x=config.last_historical_year,
-                line_dash="dash",
-                line_color="black",
-                line_width=LINE_WIDTH_VLINE,
-                row=metric_row,
-                col=col,
-            )
-        fig.update_xaxes(title_text="Year", title_standoff=4, range=[1950, 2100], row=metric_row, col=col)
+            x=config.last_historical_year,
+            line_dash="dash",
+            line_color="black",
+            line_width=LINE_WIDTH_VLINE,
+            row=metric_row,
+            col=col,
+        )
+        fig.update_xaxes(
+            title_text="Year", title_standoff=4, range=[1950, 2100], row=metric_row, col=col
+        )
 
     fig.update_yaxes(title_text="", row=1, col=col)
     fig.update_yaxes(title_text="", row=2, col=col)
@@ -449,7 +455,7 @@ for row, label in enumerate(left_y_labels, start=1):
 
 
 fig.update_layout(
-    height=300 * len(RUN_CONFIGS)+100,
+    height=300 * len(RUN_CONFIGS) + 100,
     width=900,
     template="plotly_white",
     legend={

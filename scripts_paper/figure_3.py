@@ -13,6 +13,7 @@ from constants import (
     AGG_COLOR_PALETTE,
 )
 import os
+
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 DIRECTORY = PATH_STEEL
@@ -73,7 +74,9 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
 
     data_imports = _aggregate_region_timeseries(data_imports, time_col, region_col, value_col)
     data_exports = _aggregate_region_timeseries(data_exports, time_col, region_col, value_col)
-    data_fabrication = _aggregate_region_timeseries(data_fabrication, time_col, region_col, value_col)
+    data_fabrication = _aggregate_region_timeseries(
+        data_fabrication, time_col, region_col, value_col
+    )
     data_forming = _aggregate_region_timeseries(data_forming, time_col, region_col, value_col)
 
     # Relative trade shares: imports/fabrication and exports/forming (both region-time matched).
@@ -82,9 +85,9 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
         on=[time_col, region_col],
         suffixes=("_imports", "_fabrication"),
     )
-    imports_share[value_col] = imports_share[f"{value_col}_imports"] / imports_share[
-        f"{value_col}_fabrication"
-    ]
+    imports_share[value_col] = (
+        imports_share[f"{value_col}_imports"] / imports_share[f"{value_col}_fabrication"]
+    )
     imports_share.loc[imports_share[f"{value_col}_fabrication"] == 0, value_col] = None
     imports_share = imports_share[[time_col, region_col, value_col]]
 
@@ -93,9 +96,9 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
         on=[time_col, region_col],
         suffixes=("_exports", "_forming"),
     )
-    exports_share[value_col] = exports_share[f"{value_col}_exports"] / exports_share[
-        f"{value_col}_forming"
-    ]
+    exports_share[value_col] = (
+        exports_share[f"{value_col}_exports"] / exports_share[f"{value_col}_forming"]
+    )
     exports_share.loc[exports_share[f"{value_col}_forming"] == 0, value_col] = None
     exports_share = exports_share[[time_col, region_col, value_col]]
 
@@ -205,7 +208,9 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
             )
 
     fig.update_yaxes(title_text="Exports [Mt]", title_standoff=4, row=1, col=1)
-    fig.update_yaxes(title_text="Imports [Mt]", title_standoff=4, autorange="reversed", row=2, col=1)
+    fig.update_yaxes(
+        title_text="Imports [Mt]", title_standoff=4, autorange="reversed", row=2, col=1
+    )
     fig.update_yaxes(title_text="Export share [-]", title_standoff=4, row=1, col=2)
     fig.update_yaxes(
         title_text="Import share [-]",
@@ -232,7 +237,7 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
         height=500,
         legend={"y": 0.5, "yanchor": "middle"},
         margin={"t": 50, "b": 50, "l": 50, "r": 50},
-        )
+    )
     return fig
 
 
@@ -242,7 +247,9 @@ with pickle_path.open("rb") as file_handle:
 
 data_imports = (mfa.trade_set[TRADE_NAME].imports.sum_to(("t", "r")) / 1e6).to_df().reset_index()
 data_exports = (mfa.trade_set[TRADE_NAME].exports.sum_to(("t", "r")) / 1e6).to_df().reset_index()
-data_fabrication = (mfa.flows["ip_market => fabrication"].sum_to(("t", "r")) / 1e6).to_df().reset_index()
+data_fabrication = (
+    (mfa.flows["ip_market => fabrication"].sum_to(("t", "r")) / 1e6).to_df().reset_index()
+)
 data_forming = (mfa.flows["forming => ip_market"].sum_to(("t", "r")) / 1e6).to_df().reset_index()
 fig = _build_figure(data_imports, data_exports, data_fabrication, data_forming)
 output_path = pathlib.Path(__file__).with_name("figure_3.png")

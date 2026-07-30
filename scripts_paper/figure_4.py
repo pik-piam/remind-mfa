@@ -15,6 +15,7 @@ from constants import (
     VIRIDIS_MOD_5,
 )
 import os
+
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 DIRECTORY = PATH_STEEL
@@ -43,7 +44,9 @@ def _aggregate_region_timeseries(df, time_col: str, region_col: str, value_col: 
     aggregated[region_col] = aggregated[region_col].map(_map_region)
 
     group_cols = [time_col, region_col]
-    preserve_cols = [col for col in aggregated.columns if col not in {time_col, region_col, value_col}]
+    preserve_cols = [
+        col for col in aggregated.columns if col not in {time_col, region_col, value_col}
+    ]
     if preserve_cols:
         group_cols.extend(preserve_cols)
 
@@ -71,9 +74,13 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
     region_col = _get_column_name(data, "Region")
     value_col = _get_column_name(data, "value")
 
-    scenario_candidates = [col for col in data.columns if col not in {time_col, region_col, value_col}]
+    scenario_candidates = [
+        col for col in data.columns if col not in {time_col, region_col, value_col}
+    ]
     if len(scenario_candidates) != 1:
-        raise KeyError(f"Expected exactly one scenario dimension column, found {scenario_candidates}")
+        raise KeyError(
+            f"Expected exactly one scenario dimension column, found {scenario_candidates}"
+        )
     run_col = scenario_candidates[0]
 
     data[region_col] = data[region_col].astype(str)
@@ -214,7 +221,11 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
         col=1,
     )
 
-    fig.for_each_xaxis(lambda axis: axis.update(title_text="Year", title_standoff=4, range=X_RANGE, tickmode="array", tickvals=X_TICKS))
+    fig.for_each_xaxis(
+        lambda axis: axis.update(
+            title_text="Year", title_standoff=4, range=X_RANGE, tickmode="array", tickvals=X_TICKS
+        )
+    )
     fig.for_each_yaxis(lambda axis: axis.update(title_text="", showgrid=True))
     fig.update_layout(
         template="plotly_white",
