@@ -1,4 +1,9 @@
-scenario,parent
-SSP2,
-SSP1,SSP2
-SSP1_lowEU,SSP1
+scenario,parent,
+BASE,
+SSP1,BASE,
+SSP2,BASE,
+SSP3,BASE,
+SSP4,BASE,
+SSP5,BASE,
+SSP1_CE,SSP1,
+SSP2_CE,SSP2,
