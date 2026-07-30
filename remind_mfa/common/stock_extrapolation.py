@@ -204,6 +204,9 @@ class StockExtrapolation(RemindMFABaseModel):
             # remove prepended additional data
             pure_regression = pure_regression[self.dims_out["t"].len :, ...]
 
+        # Keep the raw regression output for postprocessing and visualization.
+        self.pure_regression = fd.StockArray(dims=self.dims_out, values=pure_regression)
+
         self.export_pure_parameters()
 
     def get_pure_regression_single_predictor(self):

@@ -1,4 +1,5 @@
 scenario,parent
 SSP2,
 SSP1,SSP2
+SSP1_LD,SSP1
 SSP1_lowEU,SSP1
