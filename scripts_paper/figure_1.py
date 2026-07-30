@@ -21,7 +21,9 @@ from constants import (
     AGG_COLOR_PALETTE,
 )
 import os
+
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+
 
 @dataclass(frozen=True)
 class RunConfig:
@@ -170,9 +172,9 @@ for i, config in enumerate(RUN_CONFIGS):
         right_on=[time_col_pop, region_col_pop],
         suffixes=("_stock", "_population"),
     )
-    stock_pc[value_col_stock] = stock_pc[f"{value_col_stock}_stock"] / stock_pc[
-        f"{value_col_pop}_population"
-    ]
+    stock_pc[value_col_stock] = (
+        stock_pc[f"{value_col_stock}_stock"] / stock_pc[f"{value_col_pop}_population"]
+    )
     stock_pc = stock_pc[[time_col_stock, region_col_stock, value_col_stock]]
 
     production_pc = flow.merge(
@@ -194,9 +196,9 @@ for i, config in enumerate(RUN_CONFIGS):
         right_on=time_col_pop,
         suffixes=("_stock", "_population"),
     )
-    global_avg[value_col_stock] = global_avg[f"{value_col_stock}_stock"] / global_avg[
-        f"{value_col_pop}_population"
-    ]
+    global_avg[value_col_stock] = (
+        global_avg[f"{value_col_stock}_stock"] / global_avg[f"{value_col_pop}_population"]
+    )
 
     global_production = flow.groupby(time_col_flow, as_index=False)[value_col_flow].sum()
     global_production = global_production.merge(
