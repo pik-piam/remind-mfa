@@ -7,9 +7,9 @@ class CementDataExporter(CommonDataExporter):
         return [
             IamcVariable(
                 variable_name="Production|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
-                calculation_function=lambda mfa: (
-                    mfa.flows["prod_cement => market_cement"] + mfa.flows["prod_cement => sysenv"]
-                ).sum_to(("t", "r")),
+                calculation_function=lambda mfa: (mfa.flows["prod_cement => market_cement"]).sum_to(
+                    ("t", "r")
+                ),
                 unit="t/yr",
             ),
             IamcVariable(

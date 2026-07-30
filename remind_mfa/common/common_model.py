@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Optional
 import flodym as fd
@@ -11,11 +12,10 @@ from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDispla
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.common_definition import get_definition
+from remind_mfa.common.common_definition import get_definition, RemindMFADefinition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
-from remind_mfa.common.data_blending import blend
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 from remind_mfa.common.helpers import RegressOverModes
 
@@ -42,7 +42,7 @@ class CommonModel:
         self.read_data()
         self.check_parameters()
         self.read_scenario_parameters()
-        self.select_gdp_pop_scen()
+        self.select_driver_scen()
         self.modify_parameters()
         self.init_export_and_visualization()
 
@@ -54,13 +54,10 @@ class CommonModel:
 
         historic_trade = self.historic_mfa.trade_set
 
-        # apply scenarios to parameters for future mfa
-        # 1. extend historic parameters into future
-        self.parameters = ParameterExtrapolationManager(
-            self.cfg, self.dims["h"], self.dims["t"]
-        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
-        # 2. adjust future parameters based on scenario
-        self.apply_scenario_adjustments_to_parameters()
+        # snapshot parameters before extrapolation, then extend them into the future
+        self.historic_parameters = copy.deepcopy(self.parameters)
+        self.extrapolate_parameters()
+        self.check_parameters()
 
         stock_projection = self.get_long_term_stock()
 
@@ -115,12 +112,14 @@ class CommonModel:
         if all_good:
             logging.info("Success - No NaN or negative values found in parameters.")
 
-    def select_gdp_pop_scen(self):
-        """Select GDP and population scenario parameters based on scenario name"""
-        scen_name = self.scenario_parameters["gdp_pop_scen"]
-        for prm_name in ["gdppc", "population"]:
-            slice = self.parameters[prm_name][{"S": scen_name}]
-            self.parameters[prm_name] = fd.Parameter(dims=self.dims["t", "r"])
+    def select_driver_scen(self):
+        """Slice every parameter carrying a driver scenario (`S`) dimension to the selected scenario."""
+        scen_name = self.scenario_parameters["driver_scen"]
+        for prm_name, prm in list(self.parameters.items()):
+            if "S" not in prm.dims.letters:
+                continue
+            slice = prm[{"S": scen_name}]
+            self.parameters[prm_name] = fd.Parameter(dims=prm.dims.drop("S"))
             self.parameters[prm_name][...] = slice
 
     def read_scenario_parameters(self):
@@ -138,14 +137,11 @@ class CommonModel:
         """Manual changes to parameters"""
         pass
 
-    def apply_scenario_adjustments_to_parameters(self):
-        """Apply scenario adjustments to parameters"""
-        # lifetime:
-        for prm_name in ["lifetime_mean", "lifetime_std"]:
-            self.apply_scenario_factor(
-                array=self.parameters[prm_name],
-                scen_prm_name="lifetime_factor",
-            )
+    def extrapolate_parameters(self):
+        """Extend parameters into the future, applying scenario targets and factors."""
+        self.parameters = ParameterExtrapolationManager(
+            self.dims["h"], self.dims["t"]
+        ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
 
     def transfer_historic_parameters(self):
         """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""
@@ -162,13 +158,18 @@ class CommonModel:
             display_names=display_names,
         )
 
-    def make_mfa(self, historic: bool) -> CommonMFASystem:
-        if historic:
-            definition = self.definition_historic
-            mfasystem_class = self.HistoricMFASystemCls
-        else:
-            definition = self.definition_future
-            mfasystem_class = self.FutureMFASystemCls
+    def make_mfa(
+        self,
+        historic: bool = True,
+        definition: Optional[RemindMFADefinition] = None,
+        mfasystem_class: Optional[type[CommonMFASystem]] = None,
+    ) -> CommonMFASystem:
+        """Build an MFA system. `definition` and `mfasystem_class` default to the
+        historic/future ones selected by `historic` when not given explicitly."""
+        if definition is None:
+            definition = self.definition_historic if historic else self.definition_future
+        if mfasystem_class is None:
+            mfasystem_class = self.HistoricMFASystemCls if historic else self.FutureMFASystemCls
 
         processes = fd.make_processes(definition.processes)
         flows = fd.make_empty_flows(
@@ -283,30 +284,7 @@ class CommonModel:
         )  # to be used in visualization of extrapolation functions
         long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
 
-        self.apply_scenario_factor(array=long_term_stock, scen_prm_name="stock_factor")
-
         return long_term_stock
-
-    def apply_scenario_factor(self, array: fd.FlodymArray, scen_prm_name: str) -> fd.FlodymArray:
-        target_dims = array.dims.union_with(self.dims["t"])
-        if isinstance(self.scenario_parameters[scen_prm_name], fd.FlodymArray):
-            if any(
-                l not in array.dims.letters
-                for l in self.scenario_parameters[scen_prm_name].dims.letters
-            ):
-                raise ValueError(
-                    f"Dimensions of scenario parameter {scen_prm_name} must also be present in the base parameter."
-                )
-
-        factor = blend(
-            target_dims=target_dims,
-            y_lower=1,
-            y_upper=self.scenario_parameters[scen_prm_name],
-            x="t",
-            x_lower=self.dims["h"].items[-1],
-            x_upper=self.scenario_parameters[f"{scen_prm_name}_year"],
-        )
-        array[...] *= factor
 
     def lifetime_limit(self):
         """Effective lifetime when saturation level is reached.
