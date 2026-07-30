@@ -21,10 +21,10 @@
 | t, r, g      | Good Market           | Use phase             |
 | t, r, g      | Use phase             | Obsolete stocks       |
 | t, r, g      | Use phase             | End of life products  |
-| t, r, g      | End of life products  | Recycling             |
-| t, r, g      | End of life products  | Exports               |
-| t, r, g      | Imports               | End of life products  |
-| t, r, g      | Recycling             | Scrap market          |
+| t, r         | End of life products  | Recycling             |
+| t, r         | End of life products  | Exports               |
+| t, r         | Imports               | End of life products  |
+| t, r         | Recycling             | Scrap market          |
 | t, r         | Scrap market          | Excess scrap          |
 | t, r         | Exports               | System environment    |
 | t, r         | System environment    | Imports               |
