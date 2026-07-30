@@ -57,7 +57,7 @@ AGG_REGION_ORDER = [
 VIRIDIS_MOD_5 = [
     "#D6C73D",
     "#56BB58",
-    "#288F8A",
+    "#28858B",
     "#2F4E94",
     "#6B2F2B",
 ]

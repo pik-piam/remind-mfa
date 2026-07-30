@@ -10,16 +10,22 @@ import pathlib
 
 import pandas as pd
 import plotly.graph_objects as go
+import os
 
-from constants import REGION_DISPLAY_NAMES
+from constants import AGG_COLOR_PALETTE
+from constants import AGG_REGION_ORDER
+from constants import AGG_REGIONS
 from constants import COLORS_REMIND
+from constants import REGION_DISPLAY_NAMES
 
-# from constants import COLOR_PALETTE
-
+os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 CSV_PATH = pathlib.Path(__file__).with_name("regionmapping.csv")
-OUTPUT_HTML = pathlib.Path(__file__).with_name("regions_plot.html")
-OUTPUT_PNG = pathlib.Path(__file__).with_name("regions_plot.png")
+PLOT_AGGREGATED_REGIONS = True
+
+_OUTPUT_SUFFIX = "_agg" if PLOT_AGGREGATED_REGIONS else ""
+OUTPUT_HTML = pathlib.Path(__file__).with_name(f"regions_plot{_OUTPUT_SUFFIX}.html")
+OUTPUT_PNG = pathlib.Path(__file__).with_name(f"regions_plot{_OUTPUT_SUFFIX}.png")
 
 
 def load_region_mapping(csv_path: pathlib.Path) -> pd.DataFrame:
@@ -43,11 +49,14 @@ def load_region_mapping(csv_path: pathlib.Path) -> pd.DataFrame:
     return df
 
 
-def get_region_order(regions: pd.Series) -> list[str]:
+def get_region_order(regions: pd.Series, aggregate_regions: bool) -> list[str]:
     """Return a stable region order matching the project defaults."""
 
     region_set = set(regions.dropna().unique())
-    ordered = [region for region in REGION_DISPLAY_NAMES if region in region_set]
+    if aggregate_regions:
+        ordered = [region for region in AGG_REGION_ORDER if region in region_set]
+    else:
+        ordered = [region for region in REGION_DISPLAY_NAMES if region in region_set]
     remaining = sorted(region_set.difference(ordered))
     return ordered + remaining
 
@@ -71,24 +80,35 @@ def build_discrete_colorscale(colors: list[str]) -> list[list[float | str]]:
     return colorscale
 
 
-def build_figure(df: pd.DataFrame) -> go.Figure:
+def build_figure(df: pd.DataFrame, aggregate_regions: bool = False) -> go.Figure:
     """Build the choropleth figure for the region mapping."""
 
-    region_order = get_region_order(df["region"])
-    region_to_id = {region: idx for idx, region in enumerate(region_order)}
-    id_to_label = {
-        region_to_id[region]: REGION_DISPLAY_NAMES.get(region, region) for region in region_order
-    }
+    plot_df = df.copy()
+    if aggregate_regions:
+        plot_df["region"] = plot_df["region"].map(lambda value: AGG_REGIONS.get(value, value))
 
-    # palette = [COLOR_PALETTE[i % len(COLOR_PALETTE)] for i in range(len(region_order))]
-    palette = [COLORS_REMIND[region] for region in region_order]
+    region_order = get_region_order(plot_df["region"], aggregate_regions=aggregate_regions)
+    region_to_id = {region: idx for idx, region in enumerate(region_order)}
+    if aggregate_regions:
+        id_to_label = {region_to_id[region]: region for region in region_order}
+    else:
+        id_to_label = {
+            region_to_id[region]: REGION_DISPLAY_NAMES.get(region, region) for region in region_order
+        }
+
+    if aggregate_regions:
+        palette = [AGG_COLOR_PALETTE[region] for region in region_order]
+    else:
+        palette = [COLORS_REMIND[region] for region in region_order]
     colorscale = build_discrete_colorscale(palette)
 
-    plot_df = df.copy()
     plot_df["region_id"] = plot_df["region"].map(region_to_id)
-    plot_df["region_label"] = plot_df["region"].map(
-        lambda value: REGION_DISPLAY_NAMES.get(value, value)
-    )
+    if aggregate_regions:
+        plot_df["region_label"] = plot_df["region"]
+    else:
+        plot_df["region_label"] = plot_df["region"].map(
+            lambda value: REGION_DISPLAY_NAMES.get(value, value)
+        )
 
     fig = go.Figure(
         go.Choropleth(
@@ -138,13 +158,9 @@ def main() -> None:
     """Render the map and save HTML and PNG outputs."""
 
     df = load_region_mapping(CSV_PATH)
-    fig = build_figure(df)
+    fig = build_figure(df, aggregate_regions=PLOT_AGGREGATED_REGIONS)
+    fig.write_image(OUTPUT_PNG, width=600, height=300, scale=2)
     fig.show()
-
-    try:
-        fig.write_image(OUTPUT_PNG, width=600, height=300, scale=2)
-    except Exception as exc:  # pragma: no cover - optional export dependency
-        print(f"Could not write PNG image: {exc}")
 
 
 if __name__ == "__main__":

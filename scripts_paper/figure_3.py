@@ -207,13 +207,13 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
                 col=col,
             )
 
-    fig.update_yaxes(title_text="Exports [Mt]", title_standoff=4, row=1, col=1)
+    fig.update_yaxes(title_text="Exports (Mt)", title_standoff=4, row=1, col=1)
     fig.update_yaxes(
-        title_text="Imports [Mt]", title_standoff=4, autorange="reversed", row=2, col=1
+        title_text="Imports (Mt)", title_standoff=4, autorange="reversed", row=2, col=1
     )
-    fig.update_yaxes(title_text="Export share [-]", title_standoff=4, row=1, col=2)
+    fig.update_yaxes(title_text="Export share", title_standoff=4, row=1, col=2)
     fig.update_yaxes(
-        title_text="Import share [-]",
+        title_text="Import share",
         title_standoff=4,
         autorange="reversed",
         row=2,

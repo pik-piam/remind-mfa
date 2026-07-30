@@ -315,7 +315,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     #     line={"dash": "dash", "color": "black"},
     # )
     fig.update_xaxes(
-        title_text="GDP per capita [USD 2017]",
+        title_text="GDP per capita (USD 2017)",
         title_standoff=4,
         type="log",
         range=[math.log10(1000), math.log10(120000)],
@@ -324,14 +324,14 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     )
     fig.update_xaxes(title_text="Year", title_standoff=4, range=[x_lower, 2100], row=2, col=1)
     fig.update_yaxes(
-        title_text="In-use stock per capita [t]",
+        title_text="In-use stock per capita (t)",
         title_standoff=4,
         range=[y_lower, y_upper],
         row=1,
         col=1,
     )
     fig.update_yaxes(
-        title_text="In-use stock per capita [t]",
+        title_text="In-use stock per capita (t)",
         title_standoff=4,
         range=[y_lower, y_upper],
         row=2,

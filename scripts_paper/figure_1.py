@@ -433,9 +433,9 @@ for col, config in enumerate(RUN_CONFIGS, start=1):
     )
 
 left_y_labels = [
-    "<b>In-use stock per capita [t]</b>",
-    "<b>Production per capita [t]</b>",
-    "<b>Production [Gt]</b>",
+    "<b>In-use stock per capita (t)</b>",
+    "<b>Production per capita (t)</b>",
+    "<b>Production (Gt)</b>",
 ]
 for row, label in enumerate(left_y_labels, start=1):
     row_domain = fig.get_subplot(row, 1).yaxis.domain
