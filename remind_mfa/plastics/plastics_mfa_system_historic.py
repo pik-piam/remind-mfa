@@ -1,6 +1,7 @@
 import logging
 import sys
 import flodym as fd
+import numpy as np
 
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -77,9 +78,16 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
                 f"{', '.join(str(y) for y in sorted(years))}"
                 for region, (types, years) in sorted(by_region.items())
             )
+            supply_agg = supply.sum_to(("h", "r"))
+            excess_agg = excess.sum_to(("h", "r"))
+            export_agg = exports.sum_to(("h", "r"))
+            export_factor_max = np.max((excess_agg / export_agg).values)
+            excess_share_max = np.max((excess_agg / supply_agg).values)
             logging.warning(
                 f"'{trade_name}': historic exports exceed available domestic supply; "
                 f"scaled down {len(coords)} entries:\n{detail}"
+                f"\nMaximum downscaling factor of total exports within a year and region: {export_factor_max:.2f}"
+                f"\nMaximum share of excess of total supply within a year: {excess_share_max:.2f}"
             )
         trd[trade_name].exports[...] = capped
         trd[trade_name].balance(to="minimum")

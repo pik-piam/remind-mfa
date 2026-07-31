@@ -234,9 +234,16 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 f"{', '.join(str(y) for y in sorted(years))}"
                 for region, (materials, years) in sorted(by_region.items())
             )
+            demand_agg = demand.sum_to(("h", "r"))
+            excess_agg = excess.sum_to(("h", "r"))
+            import_agg = imports.sum_to(("h", "r"))
+            import_factor_max = np.max((excess_agg / import_agg).values)
+            excess_share_max = np.max((excess_agg / demand_agg).values)
             logging.warning(
                 f"Historic imports exceed domestic demand {demand.name}; "
                 f"scaled down {len(coords)} entries:\n{detail}"
+                f"\nMaximum downscaling factor of total imports within a year and region: {import_factor_max:.2f}"
+                f"\nMaximum share of excess of total demand within a year: {excess_share_max:.2f}"
             )
         historic_trade.imports[...] = capped
         historic_trade.balance(to="minimum")
