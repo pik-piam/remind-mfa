@@ -260,9 +260,10 @@ STEEL_CONFIG = ModelConfig(
         FlowPlot("flow:ip_market => fabrication", "Steel demand", subplot_dim=None),
     ],
     csv_flows=[
-        ("inflow", "stock_inflow"),
-        ("supply_by_good", "flow:fabrication => good_market"),
-        ("steel_demand", "flow:ip_market => fabrication"),
+        ("stock_inflow", "stock_inflow"),
+        ("fabrication__good_market", "flow:fabrication => good_market"),
+        ("ip_market__fabrication", "flow:ip_market => fabrication"),
+        ("forming__ip_market", "flow:forming => ip_market"),
     ],
     trade_good_filters={"indirect": "Transport"},
 )
@@ -322,10 +323,14 @@ PLASTICS_CONFIG = ModelConfig(
         FlowPlot("flow:primary_market => fabrication", "PET demand", material="PET"),
     ],
     csv_flows=[
-        ("demand", "flow:good_market => use"),
+        ("stock_inflow", "flow:good_market => use"),
         ("stock_outflow", "flow:use => eol"),
         ("collected_eol", "flow:eol => collected"),
         ("recycled_mech", "flow:collected => reclmech"),
+        ("fabrication__good_market", "flow:fabrication => good_market"),
+        ("primary_market__fabrication", "flow:primary_market => fabrication"),
+        ("polymerization__primary_market", "flow:polymerization => primary_market"),
+        ("reclmech__primary_market", "flow:reclmech => primary_market")
     ],
     trade_good_filters={"final": "Packaging"},
     trade_material_filters={"final": "PET", "primary": "PET", "waste": "PET"},
