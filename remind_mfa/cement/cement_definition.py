@@ -281,6 +281,10 @@ scenario_parameters = [
         dim_letters=("r",),
     ),
     ExtrapolationDefinition(
+        name="hibernating_stock_share",
+        dim_letters=("r",),
+    ),
+    ExtrapolationDefinition(
         name="dwelling_split",
         dim_letters=("r", "d"),
         blending_function="poly_mix",
