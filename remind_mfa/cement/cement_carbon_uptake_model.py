@@ -94,7 +94,7 @@ class CementCarbonUptakeModel(BaseModel):
         )
 
         prm = self.parameters
-        cwaste_prod = self.flows["prod_cement => sysenv"]
+        cwaste_prod = self.flows["market_cement => sysenv"]
 
         # calculate uptake in one year
         annual_carbonation_fraction = 0.2

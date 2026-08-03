@@ -3,7 +3,7 @@ model: 'cement'
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.6.0'
+  input_data_revision: '1.6.1'
   region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
 
@@ -16,10 +16,7 @@ model_switches:
   stock_extrapolation_class_name: 'LogisticExtrapolation'
   regress_over: loggdppc
   lifetime_model_name: 'LogNormalLifetime'
-  parameter_extrapolation:
-    clinker_ratio: 'ConstantExtrapolation'
-    lifetime_mean: 'ConstantExtrapolation'
-    lifetime_std: 'ConstantExtrapolation'
+  do_stock_extrapolation_by_category: False
 
 visualization:
   do_visualize: True
@@ -72,7 +69,7 @@ export:
   do_export: True
   path: 'data/cement/output/export'
   pickle:
-    do_export: True
+    do_export: False
   csv:
     do_export: False
   mrindustry:

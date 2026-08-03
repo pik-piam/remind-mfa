@@ -57,6 +57,8 @@ class StockExtrapolation(RemindMFABaseModel):
         self.get_pure_regression_single_predictor()
         self.fit()
         self.transform_two_predictor_regression()
+        # apply stock scenario: scale the extrapolated trajectory before smoothing
+        self.fitted_regression[...] = self.fitted_regression * self.parameters["stock_factor"]
         self.smooth_transition()
         # transform back to total stocks
         self.stocks[...] = self.stocks_pc * self.pop
