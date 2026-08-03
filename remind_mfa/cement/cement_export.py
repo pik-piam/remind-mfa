@@ -10,7 +10,7 @@ from remind_mfa.common.common_export import (
 class CementDataExporter(CommonDataExporter):
     @staticmethod
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
-        """Cement output before trade and construction losses"""  
+        """Cement output before trade and construction losses"""
         return mfa.flows["prod_cement => market_cement"].sum_to(("t", "r"))
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
