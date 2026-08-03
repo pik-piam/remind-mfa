@@ -76,7 +76,6 @@ class CementParameterReconciliation:
         "product_material_split": ("Product Material",),
         "good_split": ("Good",),
     }
-       
 
     def __init__(
         self,
@@ -549,16 +548,7 @@ class CementParameterReconciliation:
         return {
             # BU parameters
             # TODO MI std could be calculated from source in mrmfa (maybe other parameters, too)
-            "concrete_building_mi": fd.FlodymArray.from_dims_superset(
-                dims_superset=self.dims,
-                dim_letters=("r",),
-                values=np.array(
-                    [
-                        0.2 if self.prms["industrialized_regions"][{"r": region}].values else 0.5
-                        for region in self.dims["r"].items
-                    ]
-                ),
-            ),
+            "concrete_building_mi": 0.2 + 0.3 * self.prms["development_weight"],
             "dwelling_split": 0.2,
             "structure_split": 0.2,
             "floorspace": 0.4,

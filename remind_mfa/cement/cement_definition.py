@@ -2,10 +2,12 @@ import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.common_definition import ExtrapolationDefinition
+from remind_mfa.common.common_definition import PlainDataPointDefinition
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
 
+# fmt: off
 
 def get_cement_definition(
     cfg: CementCfg, historic: bool, bottom_up: bool = False
@@ -15,6 +17,7 @@ def get_cement_definition(
         raise ValueError(
             "Historical Bottom-up not implemented. Please set historic=False or bottom_up=False."
         )
+    
 
     # 1) Dimensions
     dimensions = [
@@ -32,10 +35,10 @@ def get_cement_definition(
         fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
         # service demand
         fd.DimensionDefinition(name="Structure", dim_letter="s", dtype=str),
-        fd.DimensionDefinition(name="Common Good", dim_letter="u", dtype=str), # Res/Com
-        fd.DimensionDefinition(name="Bottom-up Good", dim_letter="b", dtype=str), # RS/RM/Com
-        fd.DimensionDefinition(name="Dwelling Type", dim_letter="d", dtype=str), # RS/RM
-        fd.DimensionDefinition(name="Extended Good", dim_letter="e", dtype=str), # RS/RM/Com/Ind/Civ
+        fd.DimensionDefinition(name="Common Good", dim_letter="u", dtype=str),  # Res/Com
+        fd.DimensionDefinition(name="Bottom-up Good", dim_letter="b", dtype=str),  # RS/RM/Com
+        fd.DimensionDefinition(name="Dwelling Type", dim_letter="d", dtype=str),  # RS/RM
+        fd.DimensionDefinition(name="Extended Good", dim_letter="e", dtype=str),  # RS/RM/Com/Ind/Civ
     ]
 
     # 2) Processes
@@ -61,7 +64,6 @@ def get_cement_definition(
             "exports",
         ]
 
-    # fmt: off
     # 3) Flows
     if historic:
         flows = [
@@ -111,7 +113,6 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
         ]
 
-    # fmt: on
     # 4) Stocks
     if historic:
         stocks = [
@@ -163,7 +164,6 @@ def get_cement_definition(
                 ]
             )
 
-    # fmt: off
     # 5) Parameters
     parameters = [
         # historic + future parameters: if time-dependent (h), they will have to be projected to (t)
@@ -199,8 +199,6 @@ def get_cement_definition(
                                      description="Share of product mass that is cement for each product material."),
         RemindMFAParameterDefinition(name="product_material_split", dim_letters=("r", "m"),
                                      description="Share of product output allocated to each material by region."),
-        RemindMFAParameterDefinition(name="industrialized_regions", dim_letters=("r",),
-                                     description="List of regions considered industrialized for stock extrapolation."),
         # carbonation parameters
         RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=(),
                                      description="Mass fraction of CaO contained in clinker."),
@@ -246,7 +244,6 @@ def get_cement_definition(
         RemindMFAParameterDefinition(name="hibernating_stock_share", dim_letters=("r",),
                                      description="Share of building stock that is hibernating (built but unused and not demolished)."),
     ]
-    # fmt: on
 
     # 6) Trades
     if historic:
@@ -271,6 +268,14 @@ def get_cement_definition(
 
 
 scenario_parameters = [
+    PlainDataPointDefinition(
+        name="development_gdppc_low",
+        description="GDP per capita (PPP) below which splits fully converge to their global means.",
+    ),
+    PlainDataPointDefinition(
+        name="development_gdppc_high",
+        description="GDP per capita (PPP) above which regions keep their own splits. ",
+    ),
     ExtrapolationDefinition(
         name="clinker_ratio",
         dim_letters=("r",),
@@ -290,3 +295,5 @@ scenario_parameters = [
         split_balancing_item="C",
     ),
 ]
+
+# fmt: on

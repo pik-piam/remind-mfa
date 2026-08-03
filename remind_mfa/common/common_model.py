@@ -44,6 +44,7 @@ class CommonModel:
         self.read_scenario_parameters()
         self.select_driver_scen()
         self.modify_parameters()
+        self.derive_parameters()
         self.init_export_and_visualization()
 
     def run(self):
@@ -134,7 +135,15 @@ class CommonModel:
         self.scenario_parameters = scenario_reader.get_parameters()
 
     def modify_parameters(self):
-        """Manual changes to parameters"""
+        """Manual changes to parameters. Called once at initialization."""
+        pass
+
+    def derive_parameters(self):
+        """Derive parameters from other parameters. Called once at initialization, after
+        `modify_parameters`. Must be re-called after any step that changes parameters
+        (e.g. cement re-calls it after reconciliation), so derived values stay consistent
+        with the current parameter set. Unlike `modify_parameters`, implementations must
+        be idempotent: recompute outputs from inputs, never modify inputs in place."""
         pass
 
     def extrapolate_parameters(self):
