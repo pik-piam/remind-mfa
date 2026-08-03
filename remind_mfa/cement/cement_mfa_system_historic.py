@@ -45,7 +45,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         flw["market_cement => use"][...] = (
             (flw["prod_cement => market_cement"] + trd["cement"].net_imports)
             * (1 - prm["cement_losses"])
-            * prm["stock_type_split"]
+            * prm["good_split"]
         )
 
         stk["in_use"].inflow[...] = flw["market_cement => use"]

@@ -11,7 +11,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
     StockDrivenBottomUpCementMFASystem,
-    REDUCED_STOCK_TYPE,
+    aggregate_bu_to_common,
 )
 
 
@@ -54,29 +54,29 @@ class CementParameterReconciliation:
         anchored objective would then re-request every iteration.
 
     Dimension handling:
-        - The stock type dimension ``s`` is reduced to ``u`` (Res/Com), where top-down and
-          bottom-up data overlap.
+        - The good dimension ``g`` is reduced to the common good ``u`` (Res/Com). The bottom-up
+          side is computed at the bottom-up good resolution ``b`` (RS/RM/Com) and aggregated
+          to ``u`` (Res = RS + RM). In ``u``, top-down and bottom-up information overlap.
         - Each parameter receives one correction factor per element of its dimensions
           except time (``t``/``h``): corrections are constant across all time steps.
         - Split parameters are re-normalized to sum to 1 after each correction. Full splits
-          (every dim item is covered in the reconciliation: function/structure) are scaled
+          (every dim item is covered in the reconciliation: dwelling/structure) are scaled
           proportionally. Partial splits (only a subset of dim items covered: concrete for the
-          material split, Res/Com for the stock-type split) keep their reconciled values and
+          material split, Res/Com for the good split) keep their reconciled values and
           let the unused complement (mortar; Civ/Ind) absorb ``1 - sum(reconciled)``.
+          Note: dwelling_split and structure_split are accessed exclusively via
+          ``get_shares_over`` in the model, so their absolute scale does not affect any
+          computation. They are re-normalized here anyway to keep the raw parameter values
+          consistent (summing to 1) for inspection and export.
     """
 
     _normalization_dims: dict[str, tuple[str, ...]] = {
-        "structure_buildings_split": ("Structure",),
-        "function_buildings_split": ("Function",),
+        "structure_split": ("Structure",),
+        "dwelling_split": ("Dwelling Type",),
         "product_material_split": ("Product Material",),
-        "stock_type_split": ("Stock Type",),
+        "good_split": ("Good",),
     }
-
-    # Partial splits: only these dim items are part of the reconciliation.
-    _reconciled_split_items: dict[str, tuple[str, ...]] = {
-        "product_material_split": ("concrete",),
-        "stock_type_split": tuple(REDUCED_STOCK_TYPE.items),
-    }
+       
 
     def __init__(
         self,
@@ -97,6 +97,12 @@ class CementParameterReconciliation:
         self.ref_mfa = ref_mfa
         self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
 
+        self.reduced_good = ref_mfa.dims["u"]
+        self._reconciled_split_items = {
+            "product_material_split": ("concrete",),
+            "good_split": tuple(self.reduced_good.items),
+        }
+
         # parameters will get one correction factor across all time steps.
         self._no_correction_dim_letters = ("t", "h")  # instead of df/dx, now calculating df/dd
 
@@ -113,7 +119,7 @@ class CementParameterReconciliation:
     def prepare_dims(self):
         dims = self.ref_mfa.dims
         self.input_dims = deepcopy(dims)
-        self.dims = dims.replace("s", REDUCED_STOCK_TYPE)
+        self.dims = deepcopy(dims)
 
     def prepare_prms(self, source_prms: dict[str, fd.Parameter]):
         """Build the reduced working parameters `prms` from `source_prms`, and the
@@ -130,9 +136,9 @@ class CementParameterReconciliation:
     def reduce_prm(self, prm_name: str, prm: fd.FlodymArray) -> fd.FlodymArray:
         """Reduce a parameter (or an array with the parameter's dims) to the dimensions
         used during reconciliation."""
-        # reduce stock type dimension
-        if "s" in prm.dims.letters:
-            prm = prm[{"s": REDUCED_STOCK_TYPE}]
+        # reduce good dimension to the common good (Res/Com)
+        if "g" in prm.dims.letters:
+            prm = prm[{"g": self.reduced_good}]
         # remove time dimension
         if prm_name in ["floorspace"]:
             prm = prm[{"t": self._year_of_reconciliation}]
@@ -141,8 +147,8 @@ class CementParameterReconciliation:
     def prepare_flws(self):
         self.flws: dict[str, fd.Flow] = {}
         for key, val in self.ref_mfa.flows.items():
-            if "s" in val.dims.letters:
-                val = val[{"s": REDUCED_STOCK_TYPE}]  # slicing returns a new array
+            if "g" in val.dims.letters:
+                val = val[{"g": self.reduced_good}]  # slicing returns a new array
             else:
                 val = deepcopy(val)  # protect ref_mfa flows from in-place modification
             self.flws[key] = val
@@ -151,10 +157,10 @@ class CementParameterReconciliation:
         self.stks: dict[str, fd.Stock] = {}
         for key, val in self.ref_mfa.stocks.items():
             val = deepcopy(val)
-            if "s" in val.dims.letters:
-                val.inflow = val.inflow[{"s": REDUCED_STOCK_TYPE}]
-                val.outflow = val.outflow[{"s": REDUCED_STOCK_TYPE}]
-                val.stock = val.stock[{"s": REDUCED_STOCK_TYPE}]
+            if "g" in val.dims.letters:
+                val.inflow = val.inflow[{"g": self.reduced_good}]
+                val.outflow = val.outflow[{"g": self.reduced_good}]
+                val.stock = val.stock[{"g": self.reduced_good}]
                 val.dims = val.inflow.dims
                 if hasattr(val, "lifetime_model"):
                     val.lifetime_model.dims = val.inflow.dims
@@ -273,8 +279,7 @@ class CementParameterReconciliation:
 
         return concrete_stock
 
-    @staticmethod
-    def calc_bottom_up_stock(prm: dict[str, fd.FlodymArray], stock_type_letter: str = "u"):
+    def calc_bottom_up_stock(self, prm: dict[str, fd.FlodymArray]):
         """Bottom-up stock calculation for reconciliation."""
         # 1. Compute concrete stock bottom-up
         concrete_stk = StockDrivenBottomUpCementMFASystem.concrete_from_floorspace(
@@ -282,18 +287,7 @@ class CementParameterReconciliation:
         )
 
         # 2. Reduce dimensions to match top-down stock dimensions
-        # 2.1 Remove building function
-        reduced_cement_stock = fd.FlodymArray(dims=concrete_stk.dims.drop("f"))
-        reduced_cement_stock[{stock_type_letter: "Res"}] = (
-            concrete_stk[{"f": "RS", stock_type_letter: "Res"}]
-            + concrete_stk[{"f": "RM", stock_type_letter: "Res"}]
-        )
-        reduced_cement_stock[{stock_type_letter: "Com"}] = concrete_stk[
-            {"f": "Com", stock_type_letter: "Com"}
-        ]
-
-        # 2.2 Remove building structure
-        return reduced_cement_stock.sum_over("b")
+        return aggregate_bu_to_common(concrete_stk.sum_over("s"), self.reduced_good)
 
     def compute_sensitivities(
         self, td: fd.FlodymArray, bu: fd.FlodymArray
@@ -475,7 +469,7 @@ class CementParameterReconciliation:
 
         Args:
             J: FlodymArray with dims = union(output_dims, param_dims)
-            output_dims: Dimensions of the model output (e.g., region, stock_type)
+            output_dims: Dimensions of the model output (e.g., region, common good)
             param_dims: Dimensions of the parameter being varied
 
         Returns:
@@ -542,7 +536,7 @@ class CementParameterReconciliation:
         """Apply correction factors to the output parameters (in their original dimensions)
         and re-normalize split parameters."""
         for prm_name, c in corrections.items():
-            c_full = self.cast_correction_to_original_prm_dim(c)
+            c_full = self.cast_correction_to_original_prm_dim(prm_name, c)
             self.output_prms[prm_name][...] = self.output_prms[prm_name] * c_full
             self.normalize_output_parameter(prm_name)
 
@@ -565,8 +559,8 @@ class CementParameterReconciliation:
                     ]
                 ),
             ),
-            "function_buildings_split": 0.2,
-            "structure_buildings_split": 0.2,
+            "dwelling_split": 0.2,
+            "structure_split": 0.2,
             "floorspace": 0.4,
             "hibernating_stock_share": 0.5,
             # TD parameters
@@ -574,7 +568,7 @@ class CementParameterReconciliation:
             "cement_production": 0.0,
             "cement_ratio": 0.1,
             "product_material_split": 0.4,
-            "stock_type_split": 0.5,
+            "good_split": 0.5,
             "lifetime_mean": 0.4,
             "lifetime_std": 0.0,
         }
@@ -611,15 +605,19 @@ class CementParameterReconciliation:
         return fd.FlodymArray(dims=target_dims, values=reshaped_values)
 
     def cast_correction_to_original_prm_dim(
-        self, correction_factor: fd.FlodymArray
+        self, prm_name: str, correction_factor: fd.FlodymArray
     ) -> fd.FlodymArray:
-        if REDUCED_STOCK_TYPE.letter not in correction_factor.dims.letters:
+        """Expand a common-good (u) correction back to the parameter's good dimension
+        (g), filling the goods outside the reconciliation (Ind/Civ) with 1.0 (no correction).
+        Parameters natively resolved at u (e.g. floorspace) need no cast."""
+        original_letters = self.output_prms[prm_name].dims.letters
+        if "u" not in correction_factor.dims.letters or "g" not in original_letters:
             return correction_factor
 
         # build new correction factor
-        new_dims = correction_factor.dims.replace(REDUCED_STOCK_TYPE.letter, self.input_dims["s"])
+        new_dims = correction_factor.dims.replace(self.reduced_good.letter, self.input_dims["g"])
         new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
-        new_correction[{"s": REDUCED_STOCK_TYPE}] = correction_factor
+        new_correction[{"g": self.reduced_good}] = correction_factor
         return new_correction
 
     def normalize_output_parameter(self, prm_name: str):
@@ -647,8 +645,6 @@ class CementParameterReconciliation:
 
         # full split: proportional normalization
         prm_sum = prm.sum_over(letter)
-        # avoid division by zero: zero values can occur due to `REDUCED_STOCK_TYPE`
-        prm_sum.values[prm_sum.values == 0] = 1
         prm[...] = prm / prm_sum
 
     def _apply_complement_normalization(self, prm_name: str, prm: fd.FlodymArray, letter: str):

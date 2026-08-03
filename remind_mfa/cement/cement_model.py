@@ -5,7 +5,10 @@ import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.cement.cement_definition import get_cement_definition
-from remind_mfa.cement.cement_mfa_system_bottom_up import StockDrivenBottomUpCementMFASystem
+from remind_mfa.cement.cement_mfa_system_bottom_up import (
+    StockDrivenBottomUpCementMFASystem,
+    extend_good_intensive,
+)
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDimensionFiles, CementDisplayNames
@@ -30,12 +33,12 @@ class CementModel(CommonModel):
     get_definition = staticmethod(get_cement_definition)
 
     # TODO: unify, then delete
-    end_use_good_letter: str = "s"
+    end_use_good_letter: str = "g"
     historic_stock_name: str = "in_use"
 
     def modify_parameters(self):
         # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]
+        self.parameters["sector_split_limit"] = self.parameters["good_split"]
 
         # construct lifetime std from mean and relative std
         lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
@@ -49,11 +52,20 @@ class CementModel(CommonModel):
             return self.run_with_reconciliation()
 
     def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
-        """Construct the future bottom-up MFA."""
-        return self.make_mfa(
+        """Construct the future bottom-up MFA.
+
+        Lifetime parameter is broadcasted to extended-good dimension for bottom-up MFA.
+        """
+        bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,
         )
+        bu_mfa.parameters = {
+            **bu_mfa.parameters,
+            "lifetime_mean": extend_good_intensive(self.parameters["lifetime_mean"], self.dims["e"]),
+            "lifetime_std": extend_good_intensive(self.parameters["lifetime_std"], self.dims["e"]),
+        }
+        return bu_mfa
 
     def run_with_reconciliation(self):
         """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
