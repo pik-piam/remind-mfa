@@ -13,16 +13,18 @@ class ModelNames(str, Enum):
     CEMENT = "cement"
 
 
-def get_model_classes():
-    from remind_mfa.cement.cement_model import CementModel
-    from remind_mfa.plastics.plastics_model import PlasticsModel
-    from remind_mfa.steel.steel_model import SteelModel
+def get_model_class(name: ModelNames) -> type[CommonModel]:
 
-    return {
-        ModelNames.PLASTICS: PlasticsModel,
-        ModelNames.STEEL: SteelModel,
-        ModelNames.CEMENT: CementModel,
-    }
+    match name:
+        case ModelNames.PLASTICS:
+            from remind_mfa.plastics.plastics_model import PlasticsModel
+            return PlasticsModel
+        case ModelNames.STEEL:
+            from remind_mfa.steel.steel_model import SteelModel
+            return SteelModel
+        case ModelNames.CEMENT:
+            from remind_mfa.cement.cement_model import CementModel
+            return CementModel
 
 
 def init_model(cfg: dict) -> CommonModel:
@@ -31,7 +33,7 @@ def init_model(cfg: dict) -> CommonModel:
     if "model" not in cfg:
         raise ValueError("'model' must be given.")
     model = ModelNames(cfg["model"])
-    return get_model_classes()[model](cfg=cfg)
+    return get_model_class(model)(cfg=cfg)
 
 
 def prefix_from_module(module: str) -> str:

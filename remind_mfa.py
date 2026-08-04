@@ -22,11 +22,8 @@ def configure_logger():
     )
 
 
-def run_remind_mfa(config_names: list[str], selection: ModelSelection) -> None:
-    configure_logger()
-    selected_models = list(ModelNames) if selection == "all" else [selection]
-
-    for model in selected_models:
+def run_remind_mfa(config_names: list[str], models: list[ModelNames]) -> None:
+    for model in models:
         model_config = load_config(config_names, model)
         model = init_model(cfg=model_config)
         logging.info(f"{type(model).__name__} instance created.")
@@ -81,8 +78,10 @@ def main(
         model_selection = prompt_for_model()
     else:
         model_selection = ModelNames(model) if model != "all" else "all"
-
-    run_remind_mfa(config_names, model_selection)
+    models_to_run = list(ModelNames) if model_selection == "all" else [model_selection]
+    
+    configure_logger()
+    run_remind_mfa(config_names, models_to_run)
 
 
 if __name__ == "__main__":

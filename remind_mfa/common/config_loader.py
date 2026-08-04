@@ -1,8 +1,9 @@
+import logging
 import tomllib
 from copy import deepcopy
 from pathlib import Path
 
-from remind_mfa.common.helpers import ModelNames, get_model_classes
+from remind_mfa.common.helpers import ModelNames, get_model_class
 
 CONFIG_DIR = Path.cwd() / "config"
 CONFIG_SECTIONS = {"base", *(model.value for model in ModelNames)}
@@ -37,9 +38,16 @@ def _validate_config(config: dict, path: Path) -> None:
 
 
 def _load_config_file(name: str, config_dir: Path = CONFIG_DIR) -> dict:
-    path = config_dir / f"{name}.toml"
+    """Load a TOML configuration file by name, validate it, and return the resulting dictionary.
+    
+    The name can be given either as a path to a file or as a stem (without the .toml extension) of a file in the config_dir.
+    """
+    path = Path(name)
     if not path.is_file():
-        raise FileNotFoundError(f"Configuration {name!r} not found in {config_dir}.")
+        path = config_dir / f"{name}.toml"
+        if not path.is_file():
+            raise FileNotFoundError(f"Configuration {name!r} not found in {config_dir}.")
+    logging.info(f"Loading configuration from {path}.")
 
     with path.open("rb") as stream:
         data = tomllib.load(stream)
@@ -66,5 +74,5 @@ def load_config(
     # Merge the model-specific configuration into the base configuration
     config = _deep_merge(base_config, model_config)
     config["model"] = model.value
-    get_model_classes()[model].ConfigCls.model_validate(config)
+    get_model_class(model).ConfigCls.model_validate(config)
     return config

@@ -30,7 +30,7 @@
         consumption.do_visualize = false
         consumption.per_capita = false
         sankey.do_visualize = false
-        sankey.plotter_args.slice_dict.t = 2050
+        sankey.plotter_args.slice_dict = { "t" = 2050 }
         sankey.plotter_args.exclude_processes = ["sysenv"]
         sankey.plotter_args.exclude_flows = []
         extrapolation.do_visualize = true
@@ -56,7 +56,7 @@
         consumption.per_capita = true
         trade.do_visualize = true
         sankey.do_visualize = true
-        sankey.plotter_args.slice_dict.e = "C"
+        sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
         sector_splits.do_visualize = true
         flows.do_visualize = false
 
