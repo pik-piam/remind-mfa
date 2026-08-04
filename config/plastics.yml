@@ -3,7 +3,7 @@ model: 'plastics'
 input:
   force_extract_tgz: False
   input_data_path: '../remind_mfa_data'
-  input_data_revision: '1.6.1PlasticsEurope'
+  input_data_revision: '1.7.0PlasticsEurope'
   region_mapping: 'h12'
   scenarios_path: 'config/scenarios'
 
@@ -30,7 +30,7 @@ visualization:
     per_capita: False
   consumption:
     do_visualize: True
-    per_capita: True
+    per_capita: False
   production:
     do_visualize: True
   trade:

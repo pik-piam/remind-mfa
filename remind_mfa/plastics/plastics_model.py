@@ -70,16 +70,6 @@ class PlasticsModel(CommonModel):
             ).values,
         )
 
-        # Conversion Mt -> t
-        # TODO: move to mrmfa
-        self.parameters["primary_his_imports"][...] *= 1e6
-        self.parameters["primary_his_exports"][...] *= 1e6
-        self.parameters["final_his_imports"][...] *= 1e6
-        self.parameters["final_his_exports"][...] *= 1e6
-        self.parameters["waste_his_imports"][...] *= 1e6
-        self.parameters["waste_his_exports"][...] *= 1e6
-        self.parameters["production"][...] *= 1e6
-
     def get_sector_split_limit(self):
         """Sector splits differ between regions, which may be due to different consumption preference patterns which we would like to keep, but
         also due to different economic conditions. For low-gdp regions, we cannot assume that the current split will be maintained in the future.
