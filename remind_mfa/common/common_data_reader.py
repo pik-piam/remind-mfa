@@ -1,11 +1,9 @@
 import glob
 import os
 import tarfile
-from pathlib import Path
 
 import flodym as fd
 import pandas as pd
-from typing_extensions import TypeIs
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
@@ -28,7 +26,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.input_data_path = cfg.input.input_data_path
         self.input_data_revision = cfg.input.input_data_revision
         self.region_mapping = cfg.input.region_mapping
-        self.madrat_output_path = self.resolve_madrat_output_path(cfg.input.madrat_output_path)
+        self._configured_madrat_output_path = cfg.input.madrat_output_path
         self.force_extract = cfg.input.force_extract_tgz
         self.definition = definition
         self.allow_missing_values = allow_missing_values
@@ -49,27 +47,22 @@ class CommonDataReader(fd.CompoundDataReader):
 
     @staticmethod
     def resolve_madrat_output_path(configured_path: str | None) -> str:
-        def check_path(path: str | None) -> TypeIs[str]:
-            if not path:
-                return False
-            if not Path(path).exists():
-                import logging
-
-                logging.warning(
-                    f"Specified MADRAT output path '{path}' does not exist. Creating it."
-                )
-                Path(path).mkdir(parents=True, exist_ok=True)
-            return True
-
-        if check_path(configured_path):
-            return configured_path
-        env_path = os.environ.get("MADRAT_OUTPUTFOLDER")
-        if not check_path(env_path):
+        """Select the madrat output path (configured value, else the MADRAT_OUTPUTFOLDER env var).
+        """
+        path = configured_path or os.environ.get("MADRAT_OUTPUTFOLDER")
+        if not path:
             raise ValueError(
                 "No madrat output path configured. Set input.madrat_output_path or "
                 "environment variable MADRAT_OUTPUTFOLDER."
             )
-        return env_path
+        if not os.path.isdir(path):
+            raise FileNotFoundError(
+                f"MADRAT output path '{path}' does not exist. It is required to extract the "
+                "input-data archive for the configured revision/region mapping. Set "
+                "input.madrat_output_path or the MADRAT_OUTPUTFOLDER environment variable to an "
+                "existing directory containing the rev*_mfa.tgz archive."
+            )
+        return path
 
     def get_material_dimension_path(self, material: str) -> str:
         return os.path.join(self.input_data_path, "dimensions", material)
@@ -170,6 +163,10 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def extract_tar_file(self, material_parameter_path: str):
         """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
+        # Resolve the madrat output only when an archive must be extracted.
+        self.madrat_output_path = self.resolve_madrat_output_path(
+            self._configured_madrat_output_path
+        )
         tgz_path = self.get_target_tgz_path()
 
         with tarfile.open(tgz_path, "r:gz") as tar:
