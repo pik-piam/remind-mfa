@@ -13,7 +13,6 @@ from remind_mfa.common.common_definition import (
 )
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
-
 # Declares the numpy dtype of each `extra:` column on an extrapolation parameter.
 # Strings need a fixed-width dtype: plain `str` would allocate single characters only.
 EXTRA_DTYPES = {"year": float, "type": "<U32"}
