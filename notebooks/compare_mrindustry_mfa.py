@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.14"
+__generated_with = "0.23.15"
 app = marimo.App(width="medium")
 
 
@@ -38,7 +38,9 @@ def _(Path, load_dotenv, mo, os):
 
     remind_archives = sorted(madrat_output_dir.glob("*_remind.tgz"))
     if not remind_archives:
-        raise FileNotFoundError(f"No *_remind.tgz archives found in {madrat_output_dir}.")
+        raise FileNotFoundError(
+            f"No *_remind.tgz archives found in {madrat_output_dir}."
+        )
 
     archive_picker = mo.ui.dropdown(
         options={archive.name: archive for archive in remind_archives},
@@ -53,7 +55,9 @@ def _(Path, load_dotenv, mo, os):
 def _(Path, archive_picker, io, mo, pd, tarfile):
     archive_path = Path(archive_picker.value)
 
-    def read_cs4r_from_archive(archive: Path, filename: str, columns: list[str]) -> pd.DataFrame:
+    def read_cs4r_from_archive(
+        archive: Path, filename: str, columns: list[str]
+    ) -> pd.DataFrame:
         with tarfile.open(archive, "r:gz") as tar:
             filename = f"./{filename}" if not filename.startswith("./") else filename
             try:
@@ -103,16 +107,23 @@ def _(archive_path, mo, read_cs4r_from_archive):
 @app.cell
 def _(pd, repo_root):
     mfa_dir = repo_root / "data/steel/output/export/mrindustry"
-    mfa_steel_production = pd.read_csv(mfa_dir / "steel_production.csv")
+    mfa_steel_production = pd.read_csv(mfa_dir / "steel_production_total.csv")
+    mfa_steel_production_secondary = pd.read_csv(
+        mfa_dir / "steel_production_secondary.csv"
+    )
     mfa_steel_scrap = pd.read_csv(mfa_dir / "steel_scrap.csv")
 
     mfa_steel = (
         mfa_steel_scrap.groupby(["Time", "Region"], as_index=False)["steel_scrap"]
         .sum()
         .merge(mfa_steel_production, on=["Time", "Region"], how="outer")
+        .merge(mfa_steel_production_secondary, on=["Time", "Region"], how="outer")
         .fillna(0)
     )
-    mfa_steel["steel_production"] = mfa_steel["steel_production"] / 1e9
+    mfa_steel["steel_production_total"] = mfa_steel["steel_production_total"] / 1e9
+    mfa_steel["steel_production_secondary"] = (
+        mfa_steel["steel_production_secondary"] / 1e9
+    )
     mfa_steel["steel_scrap"] = mfa_steel["steel_scrap"] / 1e9
     return (mfa_steel,)
 
@@ -131,7 +142,9 @@ def _(mfa_steel, remind_fedemand_industry):
 
 @app.cell
 def _(mo, remind_fedemand_industry, remind_regions):
-    remind_scenarios = sorted(set(remind_fedemand_industry.reset_index()["Scenario"].unique()))
+    remind_scenarios = sorted(
+        set(remind_fedemand_industry.reset_index()["Scenario"].unique())
+    )
     scenario_picker = mo.ui.dropdown(
         options=remind_scenarios,
         value="SSP2" if "SSP2" in remind_scenarios else remind_scenarios[0],
@@ -163,13 +176,15 @@ def _(
     remind_steel["ue_steel_total"] = (
         remind_steel["ue_steel_primary"] + remind_steel["ue_steel_secondary"]
     )
-    remind_steel["steel_secondary_share_calc"] = remind_steel["ue_steel_secondary"] / remind_steel[
-        "ue_steel_total"
-    ].where(remind_steel["ue_steel_total"] != 0)
+    remind_steel["steel_secondary_share_calc"] = remind_steel[
+        "ue_steel_secondary"
+    ] / remind_steel["ue_steel_total"].where(remind_steel["ue_steel_total"] != 0)
 
     mfa_region_export = mfa_steel.query("Region == @region").drop(columns="Region")
     comparison = (
-        remind_steel.merge(mfa_region_export, on="Time", how="outer").sort_values("Time")
+        remind_steel.merge(mfa_region_export, on="Time", how="outer").sort_values(
+            "Time"
+        )
     )[
         [
             "Time",
@@ -178,16 +193,18 @@ def _(
             "steel_secondary_share_calc",
             "steel_secondary_share",
             "steel_scrap",
-            "steel_production",
+            "steel_production_total",
+            "steel_production_secondary",
         ]
     ].rename(
         columns={
-            "ue_steel_total": "remind_steel_production",
-            "ue_steel_secondary": "remind_steel_secondary",
+            "ue_steel_total": "remind_steel_production_total",
+            "ue_steel_secondary": "remind_steel_production_secondary",
             "steel_secondary_share_calc": "remind_secondary_share_calc",
             "steel_secondary_share": "remind_secondary_share",
             "steel_scrap": "mfa_steel_scrap",
-            "steel_production": "mfa_steel_production",
+            "steel_production_total": "mfa_steel_production_total",
+            "steel_production_secondary": "mfa_steel_production_secondary",
         }
     )
     comparison
@@ -201,10 +218,25 @@ def _(comparison, px, region, scenario):
         comparison,
         x="Time",
         y=[
-            "mfa_steel_production",
-            "remind_steel_production",
+            "mfa_steel_production_total",
+            "remind_steel_production_total",
         ],
         title=f"Steel production for {scenario} ({region})",
+        markers=True,
+    )
+    return
+
+
+@app.cell
+def _(comparison, px, region, scenario):
+    px.line(
+        comparison,
+        x="Time",
+        y=[
+            "mfa_steel_production_secondary",
+            "remind_steel_production_secondary",
+        ],
+        title=f"Secondary steel production for {scenario} ({region})",
         markers=True,
     )
     return
