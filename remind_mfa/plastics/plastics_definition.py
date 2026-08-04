@@ -70,7 +70,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="primary_market", to_process="sysenv", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="sysenv", to_process="primary_market", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h", "r", "p")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "m", "g")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "p", "m", "g")),
             fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
