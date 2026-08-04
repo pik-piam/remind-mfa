@@ -45,7 +45,8 @@ docs = [
 ]
 dev = [
     "black>=25.1.0",
-    "ipykernel>=6.29.5",
+    "graphviz>=0.21",
+    "marimo>=0.23.14",
     "nbformat>=5.10.4",
     "questionary>=2.0.1",
     { include-group = "docs" },
