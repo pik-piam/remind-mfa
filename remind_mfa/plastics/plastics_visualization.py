@@ -117,8 +117,12 @@ class PlasticsVisualizer(CommonVisualizer):
         )
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
-        production = mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
-        self.visualize_fdarr(mfa=mfa, flow=production, name="Plastics production", regional=regional)
+        production = (
+            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+        )
+        self.visualize_fdarr(
+            mfa=mfa, flow=production, name="Plastics production", regional=regional
+        )
 
     def compare_demand(self, mfa: fd.MFASystem):
         df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
