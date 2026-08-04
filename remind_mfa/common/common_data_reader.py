@@ -47,8 +47,7 @@ class CommonDataReader(fd.CompoundDataReader):
 
     @staticmethod
     def resolve_madrat_output_path(configured_path: str | None) -> str:
-        """Select the madrat output path (configured value, else the MADRAT_OUTPUTFOLDER env var).
-        """
+        """Select the madrat output path (configured value, else the MADRAT_OUTPUTFOLDER env var)."""
         path = configured_path or os.environ.get("MADRAT_OUTPUTFOLDER")
         if not path:
             raise ValueError(
