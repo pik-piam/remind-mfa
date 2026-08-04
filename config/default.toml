@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "../remind_mfa_data"
-        input_data_revision = "1.6.0"
+        input_data_revision = "1.6.1"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -41,6 +41,7 @@
         pickle.do_export = true
         csv.do_export = false
         iamc.do_export = false
+        mrindustry.do_export = true
         assumptions.do_export = false
         docs.do_export = false
 
@@ -48,16 +49,6 @@
     [plastics.model_switches]
         do_stock_extrapolation_by_category = true
         do_stock_extrapolation_with_time_factor = true
-        parameter_extrapolation.waste_his_imports = "LinearToTargetExtrapolation"
-        parameter_extrapolation.waste_his_exports = "LinearToTargetExtrapolation"
-        parameter_extrapolation.collection_rate = "LinearToTargetExtrapolation"
-        parameter_extrapolation.landfill_rate = "LinearToTargetExtrapolation"
-        parameter_extrapolation.mechanical_recycling_rate = "LinearToTargetExtrapolation"
-        parameter_extrapolation.chemical_recycling_rate = "LinearToTargetExtrapolation"
-        parameter_extrapolation.bio_production_rate = "LinearToTargetExtrapolation"
-        parameter_extrapolation.daccu_production_rate = "LinearToTargetExtrapolation"
-        parameter_extrapolation.emission_capture_rate = "ConstantExtrapolation"
-        parameter_extrapolation.material_shares_use_inflow = "ConstantExtrapolation"
 
     [plastics.visualization]
         figures_path = "data/plastics/output/figures"
@@ -96,9 +87,7 @@
         carbonation = false
         parameter_reconciliation.do_reconcile = false
         parameter_reconciliation.do_combine_mfas = true
-        parameter_extrapolation.clinker_ratio = "ConstantExtrapolation"
-        parameter_extrapolation.lifetime_mean = "ConstantExtrapolation"
-        parameter_extrapolation.lifetime_std = "ConstantExtrapolation"
+        do_stock_extrapolation_by_category = false
 
     [cement.visualization]
         figures_path = "data/cement/output/figures"
@@ -118,3 +107,4 @@
     [cement.export]
         path = "data/cement/output/export"
         docs.path = "docs/cement"
+        pickle.do_export = false

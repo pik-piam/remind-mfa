@@ -39,14 +39,14 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         For reconciliation, returns in use stock."""
 
         # production
-        flw["prod_cement => market_cement"][...] = prm["cement_production"] * (
-            1 - prm["cement_losses"]
-        )
+        flw["prod_cement => market_cement"][...] = prm["cement_production"]
 
         # use
         flw["market_cement => use"][...] = (
-            flw["prod_cement => market_cement"] + trd["cement"].net_imports
-        ) * prm["stock_type_split"]
+            (flw["prod_cement => market_cement"] + trd["cement"].net_imports)
+            * (1 - prm["cement_losses"])
+            * prm["stock_type_split"]
+        )
 
         stk["in_use"].inflow[...] = flw["market_cement => use"]
         stk["in_use"].lifetime_model.set_prms(
@@ -62,9 +62,11 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         """Compute other flows for sanity checks like mass balance or negative flows."""
 
         # production
-        flw["prod_cement => sysenv"][...] = prm["cement_production"] * prm["cement_losses"]
-        flw["sysenv => prod_cement"][...] = (
-            flw["prod_cement => market_cement"] + flw["prod_cement => sysenv"]
+        flw["sysenv => prod_cement"][...] = flw["prod_cement => market_cement"]
+
+        # cement losses during construction
+        flw["market_cement => sysenv"][...] = (
+            flw["market_cement => use"] * prm["cement_losses"] / (1 - prm["cement_losses"])
         )
 
         # trade
