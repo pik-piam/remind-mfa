@@ -18,7 +18,7 @@ def _():
     for historic in [True, False]:
         graphs.append(mo.md(f"# MFA {'Historic' if historic else 'Future'}"))
         for model_name in ["steel", "cement", "plastics"]:
-            model_config = read_model_config(f"config/{model_name}.yml")
+            model_config = read_model_config(f"../config/{model_name}.yml")
             model = init_model(cfg=model_config)
             mfa = model.make_mfa(historic=historic)
             dot = GraphvizProcessGraphPlotter(mfa=mfa, rankdir="LR").plot()
