@@ -67,12 +67,12 @@ def get_cement_definition(
         flows = [
             fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="prod_cement", to_process="market_cement", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("h", "r")),  # cement losses
             fd.FlowDefinition(from_process="market_cement", to_process="exports", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="market_cement", to_process="use", dim_letters=("h", "r", "s")),
+            fd.FlowDefinition(from_process="market_cement", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "s")),
         ]
     else:

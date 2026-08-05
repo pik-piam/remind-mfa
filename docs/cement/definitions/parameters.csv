@@ -1,20 +1,19 @@
 Dimensions,Name,Description
 "r, s",stock_type_split,Split of cement production into different stock types.
 "h, r",cement_production,Historic cement production volume for each region and year.
-"h, r",cement_trade,Historic net cement trade flows per region and year.
 "h, r",clinker_ratio,Historic clinker-to-cement ratio for each region.
-"h, r, s",use_lifetime_mean,Mean lifetime of historic cement stocks by region and stock type.
-,use_lifetime_rel_std,Relative standard deviation of lifetime of cement in buildings and infrastructure.
-"t, r",population,Historic and projected population for each region and model year.
-"t, r",gdppc,Historic and projected GDP per capita for each region and model year.
-,cement_losses,Share of cement lost during cement production.
+"h, r, s",lifetime_mean,Mean lifetime of historic cement stocks by region and stock type.
+,lifetime_rel_std,Relative standard deviation of lifetime of cement in buildings and infrastructure.
+"h, r",clinker_imports,Historic clinker imports for each region and year.
+"h, r",clinker_exports,Historic clinker exports for each region and year.
+"h, r",cement_imports,Historic cement imports for each region and year.
+"h, r",cement_exports,Historic cement exports for each region and year.
+"t, r, S",population,Historic and projected population for each region and model year.
+"t, r, S",gdppc,Historic and projected GDP per capita for each region and model year.
+,cement_losses,Share of cement lost during construction.
 ,clinker_losses,Share of clinker lost during clinker production.
-m,product_density,Material density associated with each product.
-"r, a",product_application_split,Share of product output allocated to each application by region.
+"r, m",cement_ratio,Share of product mass that is cement for each product material.
 "r, m",product_material_split,Share of product output allocated to each material by region.
-"m, a",product_material_application_transform,Transformation matrix linking product materials to applications.
-a,product_cement_content,Cement content per cubic meter of product application.
-r,stock_saturation_level,Saturation level of in-use cement stock in each region.
 r,industrialized_regions,List of regions considered industrialized for stock extrapolation.
 ,clinker_cao_ratio,Mass fraction of CaO contained in clinker.
 m,cao_carbonation_share,Share of CaO that is available for carbonation per material.
@@ -27,7 +26,13 @@ m,cao_carbonation_share,Share of CaO that is available for carbonation per mater
 ,carbonation_rate_co2,Carbonation rate modifier factoring in increased atmospheric CO2 concentrations.
 ,carbonation_rate_additives,Carbonation rate modifier factoring in cement additives.
 a,product_thickness,Average thickness assumed for each product application.
+"r, m, a",material_application_split,"Share of each product material distributed across product applications, by region."
 "r, w",waste_type_split,Share of end-of-life cement flows by waste type and region.
 "r, w, p",waste_size_share,Share of waste distributed across size classes per region and type.
 "w, p",waste_size_min,Minimum particle size represented for each waste type and class.
 "w, p",waste_size_max,Maximum particle size represented for each waste type and class.
+"t, r, S, s",floorspace,Historic and projected total buildings floorspace per region and stock type.
+"r, s, f",function_buildings_split,Split of building stock types into different functions per region.
+"r, f, b",structure_buildings_split,Split of building functions into different structure types per region.
+"r, f, b",concrete_building_mi,Material intensity of concrete (t/m2) differentiated by building function and structure.
+r,hibernating_stock_share,Share of building stock that is hibernating (built but unused and not demolished).

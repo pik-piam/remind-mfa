@@ -142,7 +142,7 @@ This reads in whole arrays of data, which are converted into a flodym array and 
 2. `create_new`. This defaults to `False`, but it can be useful to initiate a new parameter here directly, which you can then use anywhere in your MFA. This is currently used to create `parameters["stock_factor"]`, which scales the stock after stock extrapolation. Since there is no historic data, the parameter is initialized with 1 (type `factor`) or 0 (type `target`) before extrapolation.
 Then, the extrapolation is applied on this baseline, using the ...
 3. `blending_function`. It determines the shape of the transition from the old parameter to the scenario endpoint, defaulting to a linear transition. All available functions are listed in `remind_mfa/common/data_blending.py`.
-4. `split_dimension_letter` and `split_receiver_item` may be niche applications. With the first, you can provide a dimension letter along which a split is supposed to sum up to one. Then, the extrapolation renormalizes. E.g., if you increase your share of reinforced concrete buildings, it will proportionally decrease your share of other building structures, i.e., wood, steel and masonry. If you want the whole shift to reinforced concrete to happen through another coordinate, you can provide a receiver item. For instance, you could specify `M` (masonry) here, and all the growth in reinforced concrete buildings will be accompanied by a corresponding drop in masonry buildings.
+4. `split_dimension_letter` and `split_balancing_item` may be niche applications. With the first, you can provide a dimension letter along which a split is supposed to sum up to one. Then, the extrapolation renormalizes. E.g., if you increase your share of reinforced concrete buildings, it will proportionally decrease your share of other building structures, i.e., wood, steel and masonry. If you want the whole shift to reinforced concrete to happen through another coordinate, you can provide a balancing item. For instance, you could specify `M` (masonry) here, and all the growth in reinforced concrete buildings will be accompanied by a corresponding drop in masonry buildings.
 
 If you just want a constant extrapolation (hold the last historic value constant), you can simply omit all entries except for `name`, see e.g. `ExtrapolationDefinition(name="material_shares_use_inflow")`.
 
@@ -173,7 +173,7 @@ A CSV row for an extrapolated parameter provides the endpoint of a blend: the pa
 
 | Extra        | Description |
 |--------------|-------------|
-| `extra:year` | The year by which the endpoint is reached. A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
+| `extra:year` | The year by which the endpoint is reached. Must lie after the last historic year (earlier years raise an error). A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
 | `extra:type` | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `extra:year`. Target means that the parameter blends from the last historic value to the scenario value. |
 
 Only one type per parameter is supported: declaring it on a single row (e.g. in the base scenario) is enough and also covers inherited rows, while mixed declarations raise an error. A row with `extra:year` but no type declared anywhere for that parameter raises an error as well.

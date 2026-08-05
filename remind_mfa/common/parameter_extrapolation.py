@@ -57,6 +57,7 @@ class ParameterExtrapolation:
 
         endpoint_year = self.scenario_parameter.extras.get("year")
         self._warn_values_without_year(endpoint_year, name)
+        self._check_years_after_history(endpoint_year, name)
         is_specified = self._specified_mask(endpoint_year, last_hist.dims)
         unspec = 1 - is_specified
 
@@ -136,18 +137,42 @@ class ParameterExtrapolation:
         Such values have no effect: without a year, the entry keeps its baseline.
         """
         is_set = self.scenario_parameter.is_set
-        year = endpoint_year.values if endpoint_year is not None else 0
-        has_value_no_year = (is_set.values > 0) & (year <= 0)
-        if not has_value_no_year.any():
+        no_effect = is_set * (1 - self._specified_mask(endpoint_year, is_set.dims))
+        slices = no_effect.items_where(lambda x: x > 0.5)
+        if slices.size == 0:
             return
-        mask = fd.FlodymArray(dims=is_set.dims, values=has_value_no_year.astype(float))
-        slices = list(map(tuple, mask.items_where(lambda x: x > 0.5)))
-        coordinates = ", ".join(map(str, slices[:10])) + (" ..." if len(slices) > 10 else "")
         logging.warning(
             f"'{name}' has values set at {len(slices)} coordinate(s) without "
-            f"'extra:year'; they will have no effect: {coordinates}. "
+            f"'extra:year'; they will have no effect: {self._format_coordinates(slices)}. "
             "Set 'extra:year' or remove the value."
         )
+
+    def _check_years_after_history(self, endpoint_year: Optional[fd.FlodymArray], name: str):
+        """Raise if an 'extra:year' entry lies at or before the last historic year.
+
+        The blend anchors at the last historic year; an endpoint year at it would
+        divide by zero (yielding NaNs), an earlier one would silently reverse the
+        blend so the entry keeps its baseline.
+        """
+        if endpoint_year is None:
+            return
+        invalid = endpoint_year.items_where(lambda y: (y > 0) & (y <= self._last_historic_time))
+        if invalid.size == 0:
+            return
+        raise ValueError(
+            f"'{name}' has 'extra:year' entries at or before the last historic year "
+            f"at {len(invalid)} coordinate(s): {self._format_coordinates(invalid)}. "
+            f"Endpoint years must lie after the historic period, which ends in "
+            f"{self._last_historic_time}."
+        )
+
+    @staticmethod
+    def _format_coordinates(slices: np.ndarray, max_slices: int = 10) -> str:
+        """Render coordinate item tuples (rows of `items_where`) as '(EUR, cement), ...'."""
+        coordinates = ", ".join("(" + ", ".join(s) + ")" for s in slices[:max_slices])
+        if len(slices) > max_slices:
+            coordinates += f" and {len(slices) - max_slices} more"
+        return coordinates
 
     def _resolve_endpoint(
         self,
