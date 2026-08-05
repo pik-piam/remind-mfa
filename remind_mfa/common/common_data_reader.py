@@ -1,6 +1,7 @@
 import glob
 import os
 import tarfile
+from functools import cached_property
 
 import flodym as fd
 import pandas as pd
@@ -45,21 +46,14 @@ class CommonDataReader(fd.CompoundDataReader):
     def regions_filename(self) -> str:
         return "regions.txt"
 
-    @staticmethod
-    def resolve_madrat_output_path(configured_path: str | None) -> str:
+    @cached_property
+    def madrat_output_path(self) -> str:
         """Select the madrat output path (configured value, else the MADRAT_OUTPUTFOLDER env var)."""
-        path = configured_path or os.environ.get("MADRAT_OUTPUTFOLDER")
+        path = self._configured_madrat_output_path or os.environ.get("MADRAT_OUTPUTFOLDER")
         if not path:
             raise ValueError(
                 "No madrat output path configured. Set input.madrat_output_path or "
                 "environment variable MADRAT_OUTPUTFOLDER."
-            )
-        if not os.path.isdir(path):
-            raise FileNotFoundError(
-                f"MADRAT output path '{path}' does not exist. It is required to extract the "
-                "input-data archive for the configured revision/region mapping. Set "
-                "input.madrat_output_path or the MADRAT_OUTPUTFOLDER environment variable to an "
-                "existing directory containing the rev*_mfa.tgz archive."
             )
         return path
 
@@ -162,10 +156,14 @@ class CommonDataReader(fd.CompoundDataReader):
 
     def extract_tar_file(self, material_parameter_path: str):
         """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
-        # Resolve the madrat output only when an archive must be extracted.
-        self.madrat_output_path = self.resolve_madrat_output_path(
-            self._configured_madrat_output_path
-        )
+        if not os.path.isdir(self.madrat_output_path):
+            raise FileNotFoundError(
+                f"MADRAT output path '{self.madrat_output_path}' does not exist. It is required to extract the "
+                "input-data archive for the configured revision/region mapping. Set "
+                "input.madrat_output_path or the MADRAT_OUTPUTFOLDER environment variable to an "
+                "existing directory containing the rev*_mfa.tgz archive."
+            )
+
         tgz_path = self.get_target_tgz_path()
 
         with tarfile.open(tgz_path, "r:gz") as tar:
