@@ -18,12 +18,15 @@ def get_model_class(name: ModelNames) -> type[CommonModel]:
     match name:
         case ModelNames.PLASTICS:
             from remind_mfa.plastics.plastics_model import PlasticsModel
+
             return PlasticsModel
         case ModelNames.STEEL:
             from remind_mfa.steel.steel_model import SteelModel
+
             return SteelModel
         case ModelNames.CEMENT:
             from remind_mfa.cement.cement_model import CementModel
+
             return CementModel
 
 

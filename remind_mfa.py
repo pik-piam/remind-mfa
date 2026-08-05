@@ -79,7 +79,7 @@ def main(
     else:
         model_selection = ModelNames(model) if model != "all" else "all"
     models_to_run = list(ModelNames) if model_selection == "all" else [model_selection]
-    
+
     configure_logger()
     run_remind_mfa(config_names, models_to_run)
 
