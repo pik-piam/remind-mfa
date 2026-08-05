@@ -47,9 +47,7 @@ def read_input_cfg(config_path: str) -> InputCfg:
 
 
 def resolve_destination_path(input_cfg: InputCfg) -> Path:
-    destination_path = Path(
-        CommonDataReader.resolve_madrat_output_path(input_cfg.madrat_output_path)
-    ).expanduser()
+    destination_path = Path(input_cfg.resolved_madrat_output_path).expanduser()
     destination_path.mkdir(parents=True, exist_ok=True)
     return destination_path
 

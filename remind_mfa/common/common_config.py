@@ -1,3 +1,6 @@
+import os
+from functools import cached_property
+
 import flodym as fd
 import pandas as pd
 from pydantic import model_validator
@@ -167,6 +170,16 @@ class InputCfg(RemindMFABaseModel):
     """Target input-data revision, corresponding to rev<revision> in tgz names."""
     region_mapping: str
     """Target region mapping, corresponding to <region> in tgz names."""
+
+    @cached_property
+    def resolved_madrat_output_path(self) -> str:
+        path = self.madrat_output_path or os.environ.get("MADRAT_OUTPUTFOLDER")
+        if not path:
+            raise ValueError(
+                "No madrat output path configured. Set input.madrat_output_path or "
+                "environment variable MADRAT_OUTPUTFOLDER."
+            )
+        return path
 
     @staticmethod
     def _normalize_revision(revision: str) -> str:
