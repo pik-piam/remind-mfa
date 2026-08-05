@@ -2,6 +2,7 @@ import glob
 import os
 import tarfile
 from functools import cached_property
+from pathlib import Path
 
 import flodym as fd
 import pandas as pd
@@ -13,6 +14,10 @@ from remind_mfa.common.helpers import module_from_prefix, prefix_from_module
 
 
 class CommonDataReader(fd.CompoundDataReader):
+
+    # Documentation-source files bundled in the tgz that belong in this repo's docs/
+    # folder rather than in the input-data folder.
+    DOC_SOURCE_FILES = {"mrmfa_sources.bib", "mrmfa_sources.csv"}
 
     def __init__(
         self,
@@ -155,7 +160,12 @@ class CommonDataReader(fd.CompoundDataReader):
         return matches[0]
 
     def extract_tar_file(self, material_parameter_path: str):
-        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
+        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata.
+
+        Documentation-source files (see ``DOC_SOURCE_FILES``) are routed into this repo's
+        ``docs/`` folder instead of the input-data folder, so they stay in sync with the
+        selected input-data revision.
+        """
         if not os.path.isdir(self.madrat_output_path):
             raise FileNotFoundError(
                 f"MADRAT output path '{self.madrat_output_path}' does not exist. It is required to extract the "
@@ -166,8 +176,17 @@ class CommonDataReader(fd.CompoundDataReader):
 
         tgz_path = self.get_target_tgz_path()
 
+        docs_path = Path(__file__).resolve().parents[2] / "docs"
+        os.makedirs(docs_path, exist_ok=True)
+
         with tarfile.open(tgz_path, "r:gz") as tar:
-            tar.extractall(path=material_parameter_path)
+            for member in tar.getmembers():
+                if os.path.basename(member.name) in self.DOC_SOURCE_FILES:
+                    # flatten so the file lands directly as docs/<basename>
+                    member.name = os.path.basename(member.name)
+                    tar.extract(member, path=docs_path)
+                else:
+                    tar.extract(member, path=material_parameter_path)
 
         rev, regions = self.parse_archive_name(os.path.basename(tgz_path))
         self.write_text_file(os.path.join(material_parameter_path, self.rev_filename), rev)
