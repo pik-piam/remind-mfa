@@ -39,7 +39,7 @@ def _validate_config(config: dict, path: Path) -> None:
 
 def _load_config_file(name: str, config_dir: Path = CONFIG_DIR) -> dict:
     """Load a TOML configuration file by name, validate it, and return the resulting dictionary.
-    
+
     The name can be given either as a path to a file or as a stem (without the .toml extension) of a file in the config_dir.
     """
     path = Path(name)
