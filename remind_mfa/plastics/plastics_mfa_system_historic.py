@@ -62,8 +62,9 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         export_factor = exports_total.minimum(supply) / exports_total.maximum(sys.float_info.epsilon)
         capped = exports * export_factor
         excess = exports - capped  # > 0 where exports exceeded supply
-        if (excess.values > 0.0).any():
-            coords = excess.items_where(lambda x: x > 0.0)  # rows over excess.dims
+        tolerance = 100 * self._absolute_float_precision
+        if (excess.values > tolerance).any():
+            coords = excess.items_where(lambda x: x > tolerance)  # rows over excess.dims
             h_idx = excess.dims.letters.index("h")
             r_idx = excess.dims.letters.index("r")
             p_idx = excess.dims.letters.index("p")

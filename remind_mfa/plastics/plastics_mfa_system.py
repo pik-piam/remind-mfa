@@ -217,8 +217,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         import_factor = imports_total.minimum(demand) / imports_total.maximum(sys.float_info.epsilon)
         capped = imports * import_factor
         excess = imports - capped  # > 0 where imports exceeded demand
-        if (excess.values > 0.0).any():
-            coords = excess.items_where(lambda x: x > 0.0)  # rows over excess.dims
+        tolerance = 100 * self._absolute_float_precision
+        if (excess.values > tolerance).any():
+            coords = excess.items_where(lambda x: x > tolerance)  # rows over excess.dims
             h_idx = excess.dims.letters.index("h")
             r_idx = excess.dims.letters.index("r")
             m_idx = excess.dims.letters.index("m")
