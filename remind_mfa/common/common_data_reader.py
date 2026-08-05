@@ -132,7 +132,9 @@ class CommonDataReader(fd.CompoundDataReader):
         search_pattern = self.build_target_tgz_pattern(
             self.input_data_revision, self.region_mapping
         )
-        matches = sorted(glob.glob(os.path.join(self._input_cfg.resolved_madrat_output_path, search_pattern)))
+        matches = sorted(
+            glob.glob(os.path.join(self._input_cfg.resolved_madrat_output_path, search_pattern))
+        )
         if not matches:
             raise FileNotFoundError(
                 "No matching tgz archive found in "
