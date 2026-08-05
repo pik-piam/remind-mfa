@@ -88,7 +88,7 @@ class PlasticsModel(CommonModel):
             dims=self.dims["g",],
             values=self.historic_mfa.parameters["global_good_shares_use_inflow"][
                 self.dims["h"].items[-1]
-                ].values
+            ].values,
         )
         # get historic gdp per capita for blending
         hist_gdp = self.parameters["gdppc"][self.dims["h"].items[-1]]

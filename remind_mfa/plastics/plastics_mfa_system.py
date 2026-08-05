@@ -223,11 +223,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             imports_total = historic_trade.imports.sum_over("p")
             exports_total = historic_trade.exports.sum_over("p")
             # net imports (imports - exports) may not exceed domestic demand
-            net_import_excess = (imports_total - exports_total - demand).maximum(0)  # (h, r, m[, g])
+            net_import_excess = (imports_total - exports_total - demand).maximum(
+                0
+            )  # (h, r, m[, g])
             if not (net_import_excess.values > tolerance).any():
                 break
             if iteration == 0:
-                coords = net_import_excess.items_where(lambda x: x > tolerance)  # rows over its dims
+                coords = net_import_excess.items_where(
+                    lambda x: x > tolerance
+                )  # rows over its dims
                 h_idx = net_import_excess.dims.letters.index("h")
                 r_idx = net_import_excess.dims.letters.index("r")
                 m_idx = net_import_excess.dims.letters.index("m")
@@ -254,8 +258,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                     f"to cap them at domestic demand."
                 )
             # reduce imports to min(imports, demand + exports); factor in [0, 1]
-            import_factor = (
-                (imports_total - net_import_excess) / imports_total.maximum(sys.float_info.epsilon)
+            import_factor = (imports_total - net_import_excess) / imports_total.maximum(
+                sys.float_info.epsilon
             )
             historic_trade.imports[...] = imports * import_factor
             historic_trade.balance(to="minimum")
@@ -315,10 +319,14 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             import_reduction = (excess * import_share).minimum(trd["primary"].imports)
             trd["primary"].imports[...] = trd["primary"].imports - import_reduction
             # The trade arrays carry the coarse type dimension "p" (Fibre/Rubber/Plastics) on top of
-            # the material dimension "m", while the flows (and therefore the excess) don't. 
+            # the material dimension "m", while the flows (and therefore the excess) don't.
             export_increase_m = excess - import_reduction.sum_over("p")
-            export_p_share = trd["primary"].exports / trd["primary"].exports.sum_over("p").maximum(eps)
-            trd["primary"].exports[...] = trd["primary"].exports + export_increase_m * export_p_share
+            export_p_share = trd["primary"].exports / trd["primary"].exports.sum_over("p").maximum(
+                eps
+            )
+            trd["primary"].exports[...] = (
+                trd["primary"].exports + export_increase_m * export_p_share
+            )
             # balance() restores global trade balance but partially dilutes the regional fix → hence the loop.
             trd["primary"].balance()
         else:

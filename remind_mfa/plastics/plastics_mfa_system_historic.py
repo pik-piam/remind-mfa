@@ -99,15 +99,13 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
                     f"to cap them at domestic supply."
                 )
             # reduce exports to min(exports, supply + imports); factor in [0, 1]
-            export_factor = (
-                (exports_total - net_export_excess) / exports_total.maximum(sys.float_info.epsilon)
+            export_factor = (exports_total - net_export_excess) / exports_total.maximum(
+                sys.float_info.epsilon
             )
             trd[trade_name].exports[...] = exports * export_factor
             trd[trade_name].balance(to="minimum")
         else:
-            logging.warning(
-                f"'{trade_name}': net-export cap did not converge after 50 iterations."
-            )
+            logging.warning(f"'{trade_name}': net-export cap did not converge after 50 iterations.")
 
     def compute_historic_stock(self):
         self.stocks["in_use_historic"].inflow[...] = self.flows["good_market => use"]
@@ -123,7 +121,10 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         # get material split from historic stock inflow
         self.parameters["material_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "r", "m", "g"],
-            values=(self.flows["good_market => use"].maximum(0)).sum_over(("p",)).get_shares_over(("m",)).values,
+            values=(self.flows["good_market => use"].maximum(0))
+            .sum_over(("p",))
+            .get_shares_over(("m",))
+            .values,
         )
         # get good split from historic stock inflow
         self.parameters["good_shares_use_inflow"] = fd.Parameter(
