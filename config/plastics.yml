@@ -54,6 +54,8 @@ visualization:
       exclude_flows: [ ]
   sector_splits:
     do_visualize: True
+  material_splits:
+    do_visualize: True
   flows:
     do_visualize: False
 
