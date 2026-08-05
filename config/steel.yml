@@ -4,7 +4,7 @@ input:
   force_extract_tgz: False
   scenarios_path: 'config/scenarios'
   input_data_path: '../remind_mfa_data/'
-  input_data_revision: '1.6.0'
+  input_data_revision: '1.6.1'
   region_mapping: 'h12'
 
 model_switches:
@@ -60,6 +60,8 @@ export:
     do_export: True
   csv:
     do_export: False
+  mrindustry:
+    do_export: True
   iamc:
     do_export: False
   assumptions:

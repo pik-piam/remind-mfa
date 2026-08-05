@@ -1,12 +1,9 @@
-from typing import Optional
-
 import flodym as fd
 import pandas as pd
 from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
-from remind_mfa.common.parameter_extrapolation import ParameterExtrapolation
-from remind_mfa.common.helpers import RemindMFABaseModel, ModelNames, RegressOverModes
+from remind_mfa.common.helpers import ModelNames, RegressOverModes, RemindMFABaseModel
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -38,8 +35,6 @@ class ModelSwitches(RemindMFABaseModel):
     """Variable to use as a predictor for stock extrapolation."""
     do_stock_extrapolation_with_time_factor: bool = False
     """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
-    parameter_extrapolation: Optional[dict[str, str]] = None
-    """Mapping of parameter names to extrapolation subclass names for parameter extrapolation from historical values into the future."""
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
@@ -49,17 +44,6 @@ class ModelSwitches(RemindMFABaseModel):
     def stock_extrapolation_class(self) -> type[Extrapolation]:
         """Check if the given extrapolation class is a valid subclass of OneDimensionalExtrapolation and return it."""
         return choose_subclass_by_name(self.stock_extrapolation_class_name, Extrapolation)
-
-    @property
-    def parameter_extrapolation_classes(self) -> Optional[dict[str, type[ParameterExtrapolation]]]:
-        """Check if the given parameter extrapolation classes are valid subclasses of ParameterExtrapolation and return them."""
-        if self.parameter_extrapolation is None:
-            return None
-
-        classes = {}
-        for param_name, class_name in self.parameter_extrapolation.items():
-            classes[param_name] = choose_subclass_by_name(class_name, ParameterExtrapolation)
-        return classes
 
 
 class BaseExportCfg(RemindMFABaseModel):
@@ -99,6 +83,8 @@ class IamcExportCfg(BaseExportCfg):
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
+    mrindustry: BaseExportCfg
+    """Configuration of export of material flows for use as REMIND inputs."""
     pickle: BaseExportCfg
     """Configuration of export to pickle files."""
     assumptions: BaseExportCfg
@@ -169,7 +155,7 @@ class VisualizationCfg(BaseVisualizationCfg):
 
 
 class InputCfg(RemindMFABaseModel):
-    madrat_output_path: Optional[str] = None
+    madrat_output_path: str | None = None
     """Where to find the madrat output archives to extract input data from. If None, MADRAT_OUTPUT_FOLDER is used."""
     force_extract_tgz: bool
     """Whether to force re-extraction of input data from tgz files. If False, extraction is only performed if pre-extracted data is not up-to date."""
