@@ -1,6 +1,6 @@
 import flodym as fd
 import pandas as pd
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.helpers import ModelNames, RegressOverModes, RemindMFABaseModel

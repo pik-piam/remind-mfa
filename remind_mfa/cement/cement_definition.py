@@ -91,7 +91,6 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="market_clinker", to_process="prod_cement", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="prod_cement", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="prod_cement", to_process="market_cement", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="prod_cement", to_process="sysenv", dim_letters=("t", "r")),
             # cement trade
             fd.FlowDefinition(from_process="market_cement", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("t", "r")),
