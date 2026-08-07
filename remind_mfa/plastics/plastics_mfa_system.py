@@ -1,9 +1,10 @@
 import flodym as fd
 import numpy as np
 import logging
+import sys
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 
@@ -21,7 +22,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         self.compute_flows(historic_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
-        self.check_flows(raise_error=False, verbose=True)
+        self.check_flows(raise_error=False)
 
     def compute_waste_trade(self):
         # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historic MFA system
@@ -32,7 +33,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         self.trade_set["waste"].exports[...] = (
             self.parameters[f"waste_his_exports"] * self.parameters["carbon_content_materials"]
         )
-        self.trade_set.balance(to="minimum")
+        self.trade_set.balance(to="maximum")
 
     def compute_stock(self, stock_projection: fd.FlodymArray):
         self.stocks["in_use_dsm"].stock[...] = stock_projection
@@ -91,7 +92,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
-        flw["collected => reclmech"]["Elastomers (tyres)"] = 0 # FIXME hot fix to avoid negative flows in virgin production; will be fixed once recycling rate has a material dimension
         flw["reclmech => primary_market"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => primary_market"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
@@ -114,6 +114,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow
+        # imports of final-goods plastics cannot exceed plastics demand in fabrication
+        self.scale_historic_imports_to_demand(historic_trade["final_his"], flw["good_market => use"])
 
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["final_his"],
@@ -132,8 +134,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # imports of primary plastics cannot exceed primary plastics demand in fabrication
         flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
-        historic_trade["primary_his"].imports[...] = historic_trade["primary_his"].imports.minimum(flw["primary_market => fabrication"][{"t": self.dims["h"]}])
-        historic_trade["primary_his"].balance(to="minimum")
+        self.scale_historic_imports_to_demand(historic_trade["primary_his"], flw["primary_market => fabrication"])
 
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["primary_his"],
@@ -163,7 +164,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["C4_input => polymerization"][...] = aux["total_polymerization_feed"].sum_to(("t", "r", "m")) * prm["C4_input_ratio"]
         aux["net_other_polymerization_input"] = aux["total_polymerization_feed"] - flw["HVC_input => polymerization"] - flw["C4_input => polymerization"] # this is all input to polymerization that is not total HVC or C4 input - can be positive because of other reactants or negative because of upstream losses (e.g. for production of styrene from ethylene and benzene)
         flw["other_reactants => polymerization"][...] = aux["net_other_polymerization_input"].maximum(0) # the positive part is counted as other reactants input
-        aux["upstream_losses"][...] = - aux["net_other_polymerization_input"].minimum(0) # the negative part is counted as upstream losses, i.e.
+        aux["upstream_losses"][...] = - aux["net_other_polymerization_input"].minimum(0) # the negative part is counted as upstream losses
         flw["polymerization => losses"][...] = aux["total_polymerization_feed"] - flw["polymerization => primary_market"] + aux["upstream_losses"]
         flw["losses => sysenv"][...] = flw["polymerization => losses"]
         aux["HVC_c_content"][...] = flw["HVC_input => polymerization"] / flw["HVC_input => polymerization"].sum_to(("t", "r"))
@@ -204,6 +205,69 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # fmt: on
 
+    def scale_historic_imports_to_demand(self, historic_trade: Trade, demand: fd.FlodymArray):
+        """Cap a historic trade's *net* imports at the domestic demand so upstream flows
+        cannot go negative when historic net imports exceed domestic demand, then re-balance
+        globally. Gross imports may still exceed demand where they are covered by exports
+        (stop-over / re-export trade), since the downstream balance = demand - imports +
+        exports only requires imports - exports <= demand.
+
+        ``balance`` re-inflates the opposite (export) side and thereby partially reintroduces
+        the violation, so the cap and balance are iterated to convergence.
+        Warns with the region/material coordinates where net imports had to be reduced.
+        """
+        demand = demand[{"t": self.dims["h"]}]
+        tolerance = 100 * self._absolute_float_precision
+        for iteration in range(50):
+            imports = historic_trade.imports
+            imports_total = historic_trade.imports.sum_over("p")
+            exports_total = historic_trade.exports.sum_over("p")
+            # net imports (imports - exports) may not exceed domestic demand
+            net_import_excess = (imports_total - exports_total - demand).maximum(
+                0
+            )  # (h, r, m[, g])
+            if not (net_import_excess.values > tolerance).any():
+                break
+            if iteration == 0:
+                coords = net_import_excess.items_where(
+                    lambda x: x > tolerance
+                )  # rows over its dims
+                h_idx = net_import_excess.dims.letters.index("h")
+                r_idx = net_import_excess.dims.letters.index("r")
+                m_idx = net_import_excess.dims.letters.index("m")
+                # materials and years affected per region
+                by_region = {}
+                for row in coords:
+                    materials, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
+                    materials.add(str(row[m_idx]))
+                    years.add(int(row[h_idx]))
+                detail = "\n".join(
+                    f"    {region}: {', '.join(sorted(materials))}; "
+                    f"{', '.join(str(y) for y in sorted(years))}"
+                    for region, (materials, years) in sorted(by_region.items())
+                )
+                eps = sys.float_info.epsilon
+                net_imports = (imports_total - exports_total).maximum(0)
+                excess_agg = net_import_excess.sum_to(("h", "r"))
+                net_import_agg = net_imports.sum_to(("h", "r"))
+                max_reduction = np.max((excess_agg / net_import_agg.maximum(eps)).values)
+                logging.warning(
+                    f"Historic net imports exceed domestic demand {demand.name}; "
+                    f"scaled down {len(coords)} entries:\n{detail}"
+                    f"\nNet imports reduced by up to {max_reduction:.0%} in a single region and year "
+                    f"to cap them at domestic demand."
+                )
+            # reduce imports to min(imports, demand + exports); factor in [0, 1]
+            import_factor = (imports_total - net_import_excess) / imports_total.maximum(
+                sys.float_info.epsilon
+            )
+            historic_trade.imports[...] = imports * import_factor
+            historic_trade.balance(to="minimum")
+        else:
+            logging.warning(
+                f"Net-import cap on {demand.name} did not converge after 50 iterations."
+            )
+
     def _adjust_primary_trade_for_secondary_excess(self, flw, trd):
         """
         Iteratively adjust primary plastics trade so that no region has more
@@ -230,17 +294,39 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             if not np.any(excess.values > 1e-6):
                 break
             if iteration == 0:
-                message = "There is more secondary plastics available than used! Items:"
-                for index in secondary_excess.items_where(lambda x: x > 0):
-                    message += "\n  " + ", ".join(index)
-                logging.warning(
-                    message + "\n Iteratively adjusting primary trade to absorb secondary excess."
+                coords = secondary_excess.items_where(lambda x: x > 1e-6)  # rows over excess.dims
+                h_idx = secondary_excess.dims.letters.index("t")
+                r_idx = secondary_excess.dims.letters.index("r")
+                m_idx = secondary_excess.dims.letters.index("m")
+                # materials and years affected per region
+                by_region = {}
+                for row in coords:
+                    materials, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
+                    materials.add(str(row[m_idx]))
+                    years.add(int(row[h_idx]))
+                detail = "\n".join(
+                    f"    {region}: {', '.join(sorted(materials))}; "
+                    f"{', '.join(str(y) for y in sorted(years))}"
+                    for region, (materials, years) in sorted(by_region.items())
                 )
+                logging.warning(
+                    f"There is more secondary plastics available than used; "
+                    f"{len(coords)} entries:\n{detail}"
+                )
+            eps = sys.float_info.epsilon
             total_trade = trd["primary"].imports + trd["primary"].exports
-            import_share = trd["primary"].imports / total_trade.maximum(np.finfo(float).eps)
+            import_share = trd["primary"].imports / total_trade.maximum(eps)
             import_reduction = (excess * import_share).minimum(trd["primary"].imports)
             trd["primary"].imports[...] = trd["primary"].imports - import_reduction
-            trd["primary"].exports[...] = trd["primary"].exports + (excess - import_reduction)
+            # The trade arrays carry the coarse type dimension "p" (Fibre/Rubber/Plastics) on top of
+            # the material dimension "m", while the flows (and therefore the excess) don't.
+            export_increase_m = excess - import_reduction.sum_over("p")
+            export_p_share = trd["primary"].exports / trd["primary"].exports.sum_over("p").maximum(
+                eps
+            )
+            trd["primary"].exports[...] = (
+                trd["primary"].exports + export_increase_m * export_p_share
+            )
             # balance() restores global trade balance but partially dilutes the regional fix → hence the loop.
             trd["primary"].balance()
         else:
