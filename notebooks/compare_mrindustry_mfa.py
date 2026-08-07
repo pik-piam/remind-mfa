@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.15"
+__generated_with = "0.23.16"
 app = marimo.App(width="medium")
 
 
@@ -53,7 +53,10 @@ def _(Path, load_dotenv, mo, os):
 def _(Path, archive_picker, io, mo, pd, tarfile):
     archive_path = Path(archive_picker.value)
 
-    def read_cs4r_from_archive(archive: Path, filename: str, columns: list[str]) -> pd.DataFrame:
+
+    def read_cs4r_from_archive(
+        archive: Path, filename: str, columns: list[str]
+    ) -> pd.DataFrame:
         with tarfile.open(archive, "r:gz") as tar:
             filename = f"./{filename}" if not filename.startswith("./") else filename
             try:
@@ -66,6 +69,7 @@ def _(Path, archive_picker, io, mo, pd, tarfile):
                 )
             text = io.TextIOWrapper(stream, encoding="utf-8")
             return pd.read_csv(text, comment="*", header=None, names=columns)
+
 
     remind_fedemand_industry = read_cs4r_from_archive(
         archive_path,
@@ -123,7 +127,9 @@ def _(archive_path, mo, read_cs4r_from_archive):
 def _(pd, repo_root):
     mfa_steel_dir = repo_root / "data/steel/output/export/mrindustry"
     mfa_steel_production = pd.read_csv(mfa_steel_dir / "steel_production_total.csv")
-    mfa_steel_production_secondary = pd.read_csv(mfa_steel_dir / "steel_production_secondary.csv")
+    mfa_steel_production_secondary = pd.read_csv(
+        mfa_steel_dir / "steel_production_secondary.csv"
+    )
     mfa_steel_scrap = pd.read_csv(mfa_steel_dir / "steel_scrap.csv")
 
     mfa_steel = (
@@ -173,7 +179,9 @@ def _(mfa_cement, mfa_steel, remind_fedemand_industry):
 
 @app.cell
 def _(mo, remind_fedemand_industry, remind_regions):
-    remind_scenarios = sorted(set(remind_fedemand_industry.reset_index()["Scenario"].unique()))
+    remind_scenarios = sorted(
+        set(remind_fedemand_industry.reset_index()["Scenario"].unique())
+    )
     scenario_picker = mo.ui.dropdown(
         options=remind_scenarios,
         value="SSP2" if "SSP2" in remind_scenarios else remind_scenarios[0],
@@ -196,16 +204,25 @@ def _(region_picker, scenario_picker):
 
 
 @app.cell
-def _(mfa_steel, pd, remind_fedemand_industry, remind_secondary_share):
+def _(
+    mfa_steel,
+    pd,
+    region,
+    remind_fedemand_industry,
+    remind_secondary_share,
+    scenario,
+):
+    region
+    scenario  # Explicit reference so that marimo knows that these variables are used in the query below and can trigger a re-run when they change.
     remind_steel = pd.concat([remind_fedemand_industry, remind_secondary_share]).query(
         "Scenario == @scenario and Region == @region"
     )
     remind_steel["ue_steel_total"] = (
         remind_steel["ue_steel_primary"] + remind_steel["ue_steel_secondary"]
     )
-    remind_steel["steel_secondary_share_calc"] = remind_steel["ue_steel_secondary"] / remind_steel[
-        "ue_steel_total"
-    ].where(remind_steel["ue_steel_total"] != 0)
+    remind_steel["steel_secondary_share_calc"] = remind_steel[
+        "ue_steel_secondary"
+    ] / remind_steel["ue_steel_total"].where(remind_steel["ue_steel_total"] != 0)
 
     mfa_steel_region = mfa_steel.query("Region == @region").drop(columns="Region")
     comparison_steel = (
@@ -301,7 +318,15 @@ def _(comparison_steel, px, region, scenario):
 
 
 @app.cell
-def _(mfa_cement, remind_clinker_ratio, remind_fedemand_industry):
+def _(
+    mfa_cement,
+    region,
+    remind_clinker_ratio,
+    remind_fedemand_industry,
+    scenario,
+):
+    region
+    scenario  # Explicit reference so that marimo knows that these variables are used in the query below and can trigger a re-run when they change.
     remind_cement = (
         remind_fedemand_industry.reset_index()
         .query("Scenario == @scenario and Region == @region")[["Time", "ue_cement"]]
@@ -324,9 +349,9 @@ def _(mfa_cement, remind_clinker_ratio, remind_fedemand_industry):
             }
         )
     )
-    cement_comparison = remind_cement.merge(mfa_cement_region, on="Time", how="outer").sort_values(
-        "Time"
-    )
+    cement_comparison = remind_cement.merge(
+        mfa_cement_region, on="Time", how="outer"
+    ).sort_values("Time")
     cement_comparison
     return (cement_comparison,)
 
