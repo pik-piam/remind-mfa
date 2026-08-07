@@ -25,10 +25,10 @@
         use_stock.accumulate_gdp = false
         gdp.do_visualize = false
         gdp.per_capita = false
-        production.do_visualize = false
+        production.do_visualize = true
         trade.do_visualize = false
-        consumption.do_visualize = false
-        consumption.per_capita = false
+        consumption.do_visualize = true
+        consumption.per_capita = true
         sankey.do_visualize = false
         sankey.plotter_args.slice_dict = { "t" = 2050 }
         sankey.plotter_args.exclude_processes = ["sysenv"]
@@ -52,22 +52,12 @@
 
     [plastics.visualization]
         figures_path = "data/plastics/output/figures"
-        consumption.do_visualize = true
-        consumption.per_capita = true
-        trade.do_visualize = true
-        sankey.do_visualize = true
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
-        sector_splits.do_visualize = true
         material_splits.do_visualize = true
         flows.do_visualize = false
 
     [plastics.export]
-        do_export = false
         path = "data/plastics/output/export"
-        csv.do_export = true
-        iamc.do_export = true
-        assumptions.do_export = true
-        docs.do_export = true
         docs.path = "docs/plastics"
 
 [steel]
@@ -76,7 +66,6 @@
 
     [steel.visualization]
         figures_path = "data/steel/output/figures"
-        production.do_visualize = true
         scrap_demand_supply.do_visualize = false
 
     [steel.export]
@@ -92,8 +81,6 @@
 
     [cement.visualization]
         figures_path = "data/cement/output/figures"
-        trade.do_visualize = true
-        consumption.do_visualize = true
         eol_stock.do_visualize = false
         eol_stock.over_gdp = false
         eol_stock.per_capita = false
@@ -103,9 +90,8 @@
         sankey.plotter_args.split_flows_by = "Stock Type"
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
-        carbonation.do_visualize = true
+        carbonation.do_visualize = false
 
     [cement.export]
         path = "data/cement/output/export"
         docs.path = "docs/cement"
-        pickle.do_export = false
