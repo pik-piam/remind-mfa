@@ -5,7 +5,6 @@ from pathlib import Path
 
 import flodym as fd
 import pandas as pd
-from typing_extensions import TypeIs
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
@@ -27,12 +26,12 @@ class CommonDataReader(fd.CompoundDataReader):
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):
+        self._input_cfg = cfg.input
         self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
         self.input_data_path = cfg.input.input_data_path
         self.input_data_revision = cfg.input.input_data_revision
         self.region_mapping = cfg.input.region_mapping
-        self.madrat_output_path = self.resolve_madrat_output_path(cfg.input.madrat_output_path)
         self.force_extract = cfg.input.force_extract_tgz
         self.definition = definition
         self.allow_missing_values = allow_missing_values
@@ -50,30 +49,6 @@ class CommonDataReader(fd.CompoundDataReader):
     @property
     def regions_filename(self) -> str:
         return "regions.txt"
-
-    @staticmethod
-    def resolve_madrat_output_path(configured_path: str | None) -> str:
-        def check_path(path: str | None) -> TypeIs[str]:
-            if not path:
-                return False
-            if not Path(path).exists():
-                import logging
-
-                logging.warning(
-                    f"Specified MADRAT output path '{path}' does not exist. Creating it."
-                )
-                Path(path).mkdir(parents=True, exist_ok=True)
-            return True
-
-        if check_path(configured_path):
-            return configured_path
-        env_path = os.environ.get("MADRAT_OUTPUTFOLDER")
-        if not check_path(env_path):
-            raise ValueError(
-                "No madrat output path configured. Set input.madrat_output_path or "
-                "environment variable MADRAT_OUTPUTFOLDER."
-            )
-        return env_path
 
     def get_material_dimension_path(self, material: str) -> str:
         return os.path.join(self.input_data_path, "dimensions", material)
@@ -157,11 +132,13 @@ class CommonDataReader(fd.CompoundDataReader):
         search_pattern = self.build_target_tgz_pattern(
             self.input_data_revision, self.region_mapping
         )
-        matches = sorted(glob.glob(os.path.join(self.madrat_output_path, search_pattern)))
+        matches = sorted(
+            glob.glob(os.path.join(self._input_cfg.resolved_madrat_output_path, search_pattern))
+        )
         if not matches:
             raise FileNotFoundError(
                 "No matching tgz archive found in "
-                f"{self.madrat_output_path} for revision={self.input_data_revision}, "
+                f"{self._input_cfg.resolved_madrat_output_path} for revision={self.input_data_revision}, "
                 f"region_mapping={self.region_mapping}."
             )
         if len(matches) > 1:
@@ -179,6 +156,14 @@ class CommonDataReader(fd.CompoundDataReader):
         ``docs/`` folder instead of the input-data folder, so they stay in sync with the
         selected input-data revision.
         """
+        if not os.path.isdir(self._input_cfg.resolved_madrat_output_path):
+            raise FileNotFoundError(
+                f"MADRAT output path '{self._input_cfg.resolved_madrat_output_path}' does not exist. It is required to extract the "
+                "input-data archive for the configured revision/region mapping. Set "
+                "input.madrat_output_path or the MADRAT_OUTPUTFOLDER environment variable to an "
+                "existing directory containing the rev*_mfa.tgz archive."
+            )
+
         tgz_path = self.get_target_tgz_path()
 
         docs_path = Path(__file__).resolve().parents[2] / "docs"
