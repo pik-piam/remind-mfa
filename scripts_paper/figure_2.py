@@ -7,6 +7,7 @@ from remind_mfa.common.common_config import (
     ConsumptionVisualizationCfg,
     SankeyVisualizationCfg,
     StockVisualizationCfg,
+    GDPVisualizationCfg,
     VisualizationCfg,
 )
 from remind_mfa.plastics.plastics_mappings import PlasticsDisplayNames
@@ -24,11 +25,30 @@ def make_visualization_cfg() -> VisualizationCfg:
         plotting_engine="plotly",
         plotly_renderer="browser",
         use_stock=StockVisualizationCfg(do_visualize=False),
+        sector_splits=StockVisualizationCfg(do_visualize=False),
+        gdp=GDPVisualizationCfg(do_visualize=False),
         production=BaseVisualizationCfg(do_visualize=False),
         trade=BaseVisualizationCfg(do_visualize=False),
         consumption=ConsumptionVisualizationCfg(do_visualize=False),
-        sankey=SankeyVisualizationCfg(do_visualize=True, plotter_args={}),
         extrapolation=BaseVisualizationCfg(do_visualize=False),
+        sankey=SankeyVisualizationCfg(
+            do_visualize=True,
+            plotter_args={
+                "slice_dict": {
+                    "t": 2050,
+                    "e": "C",
+                },
+                "exclude_processes": [
+                    "sysenv",
+                    "imports",
+                    "exports",
+                    # "waste_market",
+                    # "primary_market",
+                    # "good_market",
+                ],
+                "exclude_flows": [],
+            },
+        ),
     )
 
 

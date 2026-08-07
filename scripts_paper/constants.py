@@ -7,7 +7,7 @@ PATH_STEEL = pathlib.Path("data/steel/output/export/pickle")
 
 # Default runs use SSP2 unless explicitly noted otherwise.
 RUN_CEMENT = "model_cement_SSP2_h12_2026-07-28--10-06-30"
-RUN_PLASTICS = "model_plastics_SSP2_h12_2026-07-28--10-05-35"
+RUN_PLASTICS = "model_plastics_SSP2_h12_2026-07-30--17-31-38"
 RUN_STEEL = "model_steel_SSP2_h12_2026-07-28--10-04-53"
 RUN_STEEL_SSP1 = "model_steel_SSP1_h12_2026-07-30--10-05-55"
 RUN_STEEL_SSP1_LD = "model_steel_SSP1_LD_h12_2026-07-30--10-06-32"
