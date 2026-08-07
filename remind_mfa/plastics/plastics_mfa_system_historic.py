@@ -31,26 +31,24 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         flw["polymerization => primary_market"][...] = flw["sysenv => polymerization"]
 
         # primary exports cannot exceed domestic production, else fabrication inflow goes negative
-        self.scale_trade_exports_to_supply("primary_his", flw["polymerization => primary_market"])
+        self.cap_net_exports_to_supply("primary_his", flw["polymerization => primary_market"])
 
         flw["primary_market => fabrication"][...] = (
             flw["polymerization => primary_market"] + trd["primary_his"].net_imports
         )
         flw["fabrication => good_market"][...] = flw["primary_market => fabrication"]
 
-        # final-goods exports cannot exceed fabrication output, else use inflow goes negative
-        self.scale_trade_exports_to_supply("final_his", flw["fabrication => good_market"])
+        # final-goods net exports cannot exceed fabrication output, else use inflow goes negative
+        self.cap_net_exports_to_supply("final_his", flw["fabrication => good_market"])
 
-        flw["good_market => use"][...] = (
-            flw["fabrication => good_market"] + trd["final_his"].net_imports
-        ) * prm["sector_polymer_split"]
+        flw["good_market => use"][...] = self.get_use_inflow_by_trade_adjusted_sector_polymer_split(flw["fabrication => good_market"])
 
         flw["primary_market => sysenv"][...] = trd["primary_his"].exports
         flw["sysenv => primary_market"][...] = trd["primary_his"].imports
         flw["good_market => sysenv"][...] = trd["final_his"].exports
         flw["sysenv => good_market"][...] = trd["final_his"].imports
 
-    def scale_trade_exports_to_supply(self, trade_name: str, supply: fd.FlodymArray):
+    def cap_net_exports_to_supply(self, trade_name: str, supply: fd.FlodymArray):
         """Cap a historic trade's *net* exports at the available domestic supply so downstream
         flows cannot go negative when historic net exports exceed domestic production, then
         re-balance globally. Gross exports may still exceed supply where they are covered by
@@ -106,6 +104,31 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
             trd[trade_name].balance(to="minimum")
         else:
             logging.warning(f"'{trade_name}': net-export cap did not converge after 50 iterations.")
+
+    def get_use_inflow_by_trade_adjusted_sector_polymer_split(
+        self, fabrication_to_good_market_total: fd.FlodymArray
+    ) -> fd.FlodymArray:
+        """Distribute the good_market => use flow among the good & material categories
+        Where possible, this is done by the sector polymer split parameter.
+        However, the final trade may be larger then the flow for a single good & material category.
+        The other good & material categories' inflow to the in-use stock must be reduced by these excess imports
+        """
+        # fmt: off
+        total_use_inflow = fabrication_to_good_market_total + self.trade_set["final_his"].net_imports
+        use_inflow_target = total_use_inflow * self.parameters["sector_polymer_split"]
+        min_imports = self.trade_set["final_his"].net_imports.maximum(0)
+        # imports exceeding the target values determined by the sector split for each good and material
+        imports_excess_total = (min_imports - use_inflow_target).maximum(0).sum_over(("g", "m"))
+        # remainder of the target values not covered by imports, which should be covered by domestic fabrication
+        fabrication_domestic_excess = (use_inflow_target - min_imports).maximum(0)
+        # total of this remainder
+        fabrication_domestic_excess_total = fabrication_domestic_excess.sum_over(("g", "m"))
+        # scale down such that the sum of the domestic fabrication is reduced by the sum of the excess imports
+        # i.e. domestic fabrication for those good & material categories where the target consumption exceeds imports
+        # is reduced by the factor that imports exceed the target consumption for the other good & material categories
+        fabrication_domestic = fabrication_domestic_excess * (fabrication_domestic_excess_total - imports_excess_total) / fabrication_domestic_excess_total.maximum(sys.float_info.epsilon)
+        # fmt: on
+        return min_imports + fabrication_domestic
 
     def compute_historic_stock(self):
         self.stocks["in_use_historic"].inflow[...] = self.flows["good_market => use"]
