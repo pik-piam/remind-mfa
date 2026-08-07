@@ -58,6 +58,7 @@
         sankey.do_visualize = true
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
         sector_splits.do_visualize = true
+        material_splits.do_visualize = true
         flows.do_visualize = false
 
     [plastics.export]
