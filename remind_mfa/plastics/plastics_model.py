@@ -70,50 +70,15 @@ class PlasticsModel(CommonModel):
             ).values,
         )
 
-    def get_sector_split_limit(self):
-        """Sector splits differ between regions, which may be due to different consumption preference patterns which we would like to keep, but
-        also due to different economic conditions. For low-gdp regions, we cannot assume that the current split will be maintained in the future.
-        Therefore, we use the historic split for highest gdp region, but blend to the global split if historic gdp is low in regions
-        """
-
-        # get regional good split of stock inflow from historic MFA
-        self.parameters["historic_sector_split"] = fd.Parameter(
-            dims=self.dims["r", "g"],
-            values=self.historic_mfa.parameters["good_shares_use_inflow"][
-                self.dims["h"].items[-1]
-            ].values,
-        )
-        # get global good split of stock inflow from historic MFA
-        self.parameters["global_sector_split"] = fd.Parameter(
-            dims=self.dims["g",],
-            values=self.historic_mfa.parameters["global_good_shares_use_inflow"][
-                self.dims["h"].items[-1]
-            ].values,
-        )
-        # get historic gdp per capita for blending
-        hist_gdp = self.parameters["gdppc"][self.dims["h"].items[-1]]
-
-        alpha = blend(
-            target_dims=self.dims["r",],
-            y_lower=0,
-            y_upper=1,
-            x=hist_gdp,
-            x_lower=np.min(hist_gdp.values),
-            x_upper=np.max(hist_gdp.values),
-            type="quintic",
-        )
-        sector_split_limit = (
-            self.parameters["global_sector_split"].cast_to(self.dims["r", "g"]) ** (1 - alpha)
-            * self.parameters["historic_sector_split"] ** alpha
-        ).get_shares_over("g")
-        self.parameters["sector_split_limit"] = fd.Parameter(
-            dims=self.dims["r", "g"],
-            values=sector_split_limit.values,
-        )
-
     def transfer_historic_parameters(self):
         # get material split of stock inflow from historic MFA to be extrapolated by ParameterExtrapolation for use in future MFA
         self.parameters["material_shares_use_inflow"] = self.historic_mfa.parameters[
             "material_shares_use_inflow"
         ]
-        self.get_sector_split_limit()
+        # get global good split of stock inflow from historic MFA to be used as sector split limit in the stock extrapolation
+        self.parameters["sector_split_limit"] = fd.Parameter(
+            dims=self.dims["g",],
+            values=self.historic_mfa.parameters["global_good_shares_use_inflow"][
+                self.dims["h"].items[-1]
+            ].values,
+        )
