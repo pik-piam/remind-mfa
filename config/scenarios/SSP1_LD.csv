@@ -1,3 +1,0 @@
-parameter,models,value,extra:year,index:Region,description
-stock_factor,all,0.9,,,
-lifetime_factor,all,1.2,,,

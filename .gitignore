@@ -1,5 +1,4 @@
 data/
-config/
 *.pyc
 *.pyo
 .idea
@@ -7,5 +6,7 @@ config/
 remind_mfa.egg-info
 site/
 .github/copilot-instructions.md
+.claude/
+CLAUDE.md
 madrat_output/
 .env

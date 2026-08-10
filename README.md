@@ -32,13 +32,21 @@ python -m pip install .
 
 To run a model, run
 
-```
-uv run run_remind_mfa.py [path to config]
+```shell
+uv run run_remind_mfa.py --config default --material steel
 ```
 
-from the main directory, where `[path to config]` is the path to a configuration file, such as `config/steel.yml`.
+from the main directory. Configuration names resolve to TOML files below `config`, so
+`default` selects `config/default.toml`. Repeat `--config` to stack configurations in
+order, with later files overriding earlier files:
 
-You can change parameters for the run in these configuration files located in the `config` folder.
+```shell
+python run_remind_mfa.py --config default --config local --material all
+```
+See the
+[configuration documentation](docs/config.md) for the file layout and merge rules.
+
+You can also simply run `python run_remind_mfa.py` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
 
@@ -55,6 +63,11 @@ git clone https://gitlab.pik-potsdam.de/simson_data/remind_mfa_data.git
 uv run scripts/copy_madrat_archive.py config/steel.yml <hpc> /p/projects/rd3mod/inputdata/output_1.27
 ```
 where `<hpc>` is the ssh address/alias of the PIK cluster.
+
+
+## Questions / Problems
+
+In case of questions / problems please open an issue at [pik-piam/industry_issues](https://github.com/pik-piam/industry_issues/issues).
 
 ## Acknowledgements
 
