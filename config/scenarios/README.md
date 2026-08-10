@@ -203,10 +203,10 @@ Extrapolated parameters are the exception: after extrapolation has been run, the
 
 ## Selecting a Scenario at Runtime
 
-The scenario name is set in the model configuration (YAML), e.g.:
+The scenario name is set in the configuration file, e.g.:
 
-    model_switches:
-      scenario: SSP1
+    [base.model_switches]
+    scenario = "SSP1"
 
 This tells the `ScenarioReader` to load `SSP1.csv` (and its ancestors via `inheritance.csv`).
 
@@ -217,5 +217,5 @@ This tells the `ScenarioReader` to load `SSP1.csv` (and its ancestors via `inher
 1. **Add parameter definitions** in your model's `custom_scn_prm_def` list.
 2. **Create a CSV file** named `<scenario>.csv` with rows specifying `parameter`, `value`, and optional `models`/`index:`/`extra:` columns.
 3. **Register inheritance** in `inheritance.csv` if your scenario should inherit from another.
-4. **Set the scenario name** in your YAML config.
+4. **Set the scenario name** in your TOML config.
 5. **Access parameters** via `self.scenario_parameters[<name>]` in your model code.

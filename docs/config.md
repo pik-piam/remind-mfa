@@ -1,7 +1,29 @@
 # Configuration
 
 ## General configuration
-There is one general configuration file per material model (plastics, steel, cement) where users can adjust the settings for each run of the respective model, such as which plots to create, or choosing between different modelling parameters. The following table lists the settings that can be adjusted with their type, default values and description:
+
+Model runs are configured by TOML files in the `config` folder. A configuration has a
+complete shared `[base]` table and optional top-level `[plastics]`, `[steel]`, and
+`[cement]` tables that override the base for that material.
+
+Run one material with the default configuration using:
+
+```shell
+python run_remind_mfa.py --config default --material steel
+```
+
+Repeat `--config` to apply partial overlay files:
+
+```shell
+python run_remind_mfa.py --config default --config local --material all
+```
+
+In this case, all `base` sections are recursively merged in command-line order, as are all sections
+for the selected material. The resulting material configuration is then applied over
+the resulting base configuration. Consequently, material-specific values always win
+over base values, even if a base value came from a later file.
+
+The following table lists the available settings with their types, default values, and descriptions:
 
 {% include-markdown "plastics/config_schema.md" %}
 
