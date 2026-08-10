@@ -92,6 +92,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
+        flw["collected => reclmech"][{"m": "Rubbers"}] = 0.0 # TODO remove once recycling rates are resolved by material
         flw["reclmech => primary_market"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
         aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => primary_market"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
@@ -114,8 +115,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow
-        # imports of final-goods plastics cannot exceed plastics demand in fabrication
-        self.scale_historic_imports_to_demand(historic_trade["final_his"], flw["good_market => use"])
 
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["final_his"],
