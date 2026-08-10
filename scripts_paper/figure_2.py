@@ -42,6 +42,8 @@ def make_visualization_cfg() -> VisualizationCfg:
                     "sysenv",
                     "imports",
                     "exports",
+                    "C4_input",
+                    "other_reactants",
                     # "waste_market",
                     # "primary_market",
                     # "good_market",
