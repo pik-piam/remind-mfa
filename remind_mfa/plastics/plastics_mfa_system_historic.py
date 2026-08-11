@@ -58,8 +58,8 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         re-balance globally. Gross exports may still exceed supply where they are covered by
         imports (stop-over / re-export trade), since fabrication inflow = supply + imports -
         exports only requires exports - imports <= supply.
-        Net exports are calculated per dimension (type/material/good) and then summed up, 
-        because positive net imports (imports > exports) of one good cannot be balanced by 
+        Net exports are calculated per dimension (type/material/good) and then summed up,
+        because positive net imports (imports > exports) of one good cannot be balanced by
         re-exporting a different good, so that net amount is not stop-over trade and must be consumed.
 
         ``balance`` re-inflates the opposite (import) side and thereby partially reintroduces
@@ -93,7 +93,9 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
                     for region, (types, years) in sorted(by_region.items())
                 )
                 max_reduction = np.max(
-                    (net_export_excess.sum_to(("h", "r"))/ net_exports_total.sum_to(("h", "r")).maximum(eps)
+                    (
+                        net_export_excess.sum_to(("h", "r"))
+                        / net_exports_total.sum_to(("h", "r")).maximum(eps)
                     ).values
                 )
                 logging.warning(
