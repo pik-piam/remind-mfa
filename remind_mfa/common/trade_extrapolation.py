@@ -128,13 +128,13 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         self.id_hist = {"t": self.historic_first.dims["h"]}
         self.remove_stopover()
-        first_scaling = self.scale_first()
-        stopover_trade = self.add_stopover(first_scaling)
+        self.scale_first()
+        stopover_trade = self.add_stopover()
         self.scale_second(stopover_trade)
         self.balance()
 
-    def scale_first(self) -> fd.FlodymArray:
-        # 1) scale "first" trade flow (imports in demand-driven mode)
+    def scale_first(self):
+        # scale "first" trade flow (imports in demand-driven mode)
         self.future_first[...] = self.scaling(
             trd_0=self.historic_first_0,
             dom_0=self.scaler_first_0,
@@ -142,7 +142,6 @@ class TradeExtrapolator(RemindMFABaseModel):
         )
         # make sure historical years equal historical data
         self.future_first[self.id_hist] = self.historic_first
-        return self.future_first / self.historic_first_0.maximum(1)
 
     def remove_stopover(self):
         """Split off "stopover" (re-export) trade before scaling.
@@ -167,11 +166,18 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.historic_first_0[...] -= self.stopover_0
         self.historic_second_0[...] -= self.stopover_0
 
-    def add_stopover(self, first_scaling: fd.FlodymArray) -> fd.FlodymArray:
-        """Scale the stopover trade by the first flow's growth and add it back to the (already
-        scaled) future first flow. Returns the scaled stopover so :meth:`scale_second` adds it to
-        the second flow as well, keeping the re-export balanced across both flows."""
-        stopover_trade = self.stopover_0 * first_scaling
+    def add_stopover(self) -> fd.FlodymArray:
+        """Scale the stopover (re-export) trade and add it to the (already scaled) future first
+        flow. Returns the scaled stopover so :meth:`scale_second` adds it to the second flow as
+        well, keeping the re-export balanced across both flows.
+
+        Stopover is pass-through trade, decoupled from the transit region's own domestic driver,
+        so - unlike :meth:`scale_first` - it is scaled by *global* scaler growth (region-
+        independent, per good). 
+        """
+        global_scaler = self.scaler_first.sum_over("r")
+        global_scaler_0 = self.scaler_first_0.sum_over("r").maximum(self._eps)
+        stopover_trade = self.stopover_0 * (global_scaler / global_scaler_0)
         self.future_first[...] += stopover_trade
         self.future_first[self.id_hist] = self.historic_first
         return stopover_trade
