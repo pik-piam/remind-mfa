@@ -135,7 +135,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # negative; reassign that excess to the other materials of the same polymer type (headroom),
         # keeping the trade's material split
         flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
-        self.redistribute_primary_import_excess_within_type(
+        self._redistribute_primary_import_excess_within_type(
             historic_trade["primary_his"], flw["primary_market => fabrication"]
         )
 
@@ -208,7 +208,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # fmt: on
 
-    def redistribute_primary_import_excess_within_type(
+    def _redistribute_primary_import_excess_within_type(
         self, historic_trade: Trade, demand: fd.FlodymArray
     ):
         """Keep the historic primary trade's material split, but move the *excess* net imports of any

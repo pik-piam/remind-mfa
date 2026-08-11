@@ -1,7 +1,4 @@
-import logging
-import sys
 import flodym as fd
-import numpy as np
 
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -31,7 +28,9 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         flw["polymerization => primary_market"][...] = flw["sysenv => polymerization"]
 
         # primary net exports are capped to not exceed domestic production, else fabrication inflow goes negative
-        self.cap_net_exports_to_supply("primary_his", flw["polymerization => primary_market"])
+        self.cap_historical_net_exports_to_supply(
+            "primary_his", flw["polymerization => primary_market"]
+        )
 
         flw["primary_market => fabrication"][...] = (
             flw["polymerization => primary_market"] + trd["primary_his"].net_imports
@@ -40,103 +39,17 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         # final net exports (per good and material) are capped to not exceed fabrication supply
         # stop-over trade is allowed, but positive net imports of one good cannot be balanced by re-exporting a different good
-        self.cap_net_exports_to_supply("final_his", flw["fabrication => good_market"])
+        self.cap_historical_net_exports_to_supply("final_his", flw["fabrication => good_market"])
 
         # distribute the good_market => use flow among the good & material categories
-        flw["good_market => use"][...] = self.get_use_inflow_by_trade_adjusted_sector_polymer_split(
-            flw["fabrication => good_market"]
+        flw["good_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
+            "final_his", flw["fabrication => good_market"], prm["sector_polymer_split"], ("g", "m")
         )
 
         flw["primary_market => sysenv"][...] = trd["primary_his"].exports
         flw["sysenv => primary_market"][...] = trd["primary_his"].imports
         flw["good_market => sysenv"][...] = trd["final_his"].exports
         flw["sysenv => good_market"][...] = trd["final_his"].imports
-
-    def cap_net_exports_to_supply(self, trade_name: str, supply: fd.FlodymArray):
-        """Cap a historic trade's *net* exports at the available domestic supply so downstream
-        flows cannot go negative when historic net exports exceed domestic production, then
-        re-balance globally. Gross exports may still exceed supply where they are covered by
-        imports (stop-over / re-export trade), since fabrication inflow = supply + imports -
-        exports only requires exports - imports <= supply.
-        Net exports are calculated per dimension (type/material/good) and then summed up,
-        because positive net imports (imports > exports) of one good cannot be balanced by
-        re-exporting a different good, so that net amount is not stop-over trade and must be consumed.
-
-        ``balance`` re-inflates the opposite (import) side and thereby partially reintroduces
-        the violation, so the cap and balance are iterated to convergence.
-        Warns with the region/polymer coordinates where net exports had to be reduced.
-        """
-        trade = self.trade_set[trade_name]
-        eps = sys.float_info.epsilon
-        tolerance = 100 * self._absolute_float_precision
-        for iteration in range(50):
-            net_exports = (trade.exports - trade.imports).maximum(0)  # (h, r, p, m, g)
-            net_exports_total = net_exports.sum_to(supply.dims.letters)  # (h, r, p)
-            # sum of positive per-good net exports may not exceed domestic supply
-            net_export_excess = (net_exports_total - supply.maximum(0)).maximum(0)  # (h, r, p)
-            if not (net_export_excess.values > tolerance).any():
-                break
-            if iteration == 0:
-                coords = net_export_excess.items_where(lambda x: x > tolerance)  # rows (h, r, p)
-                h_idx = net_export_excess.dims.letters.index("h")
-                r_idx = net_export_excess.dims.letters.index("r")
-                p_idx = net_export_excess.dims.letters.index("p")
-                # plastic types and years affected per region
-                by_region = {}
-                for row in coords:
-                    types, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
-                    types.add(str(row[p_idx]))
-                    years.add(int(row[h_idx]))
-                detail = "\n".join(
-                    f"    {region}: {', '.join(sorted(types))}; "
-                    f"{', '.join(str(y) for y in sorted(years))}"
-                    for region, (types, years) in sorted(by_region.items())
-                )
-                max_reduction = np.max(
-                    (
-                        net_export_excess.sum_to(("h", "r"))
-                        / net_exports_total.sum_to(("h", "r")).maximum(eps)
-                    ).values
-                )
-                logging.warning(
-                    f"'{trade_name}': historic net exports exceed available domestic supply; "
-                    f"scaled down {len(coords)} entries:\n{detail}"
-                    f"\nNet exports reduced by up to {max_reduction:.0%} in a single region and year "
-                    f"to cap them at domestic supply."
-                )
-            # reduce exports of net-export goods to bring positive net exports down to supply,
-            # keeping their imports (same-good stop-over) untouched; factor in [0, 1]
-            export_factor = (net_exports_total - net_export_excess) / net_exports_total.maximum(eps)
-            trade.exports[...] = trade.exports - net_exports * (1 - export_factor)
-            trade.balance(to="minimum")
-        else:
-            logging.warning(
-                f"'{trade_name}': positive-net-export cap did not converge after 50 iterations."
-            )
-
-    def get_use_inflow_by_trade_adjusted_sector_polymer_split(
-        self, fabrication_to_good_market_total: fd.FlodymArray
-    ) -> fd.FlodymArray:
-        """Distribute the good_market => use flow among the good & material categories
-        Where possible, this is done by the sector polymer split parameter.
-        However, the final trade may be larger then the flow for a single good & material category.
-        The other good & material categories' inflow to the in-use stock must be reduced by these excess imports
-        """
-        # fmt: off
-        total_use_inflow = fabrication_to_good_market_total + self.trade_set["final_his"].net_imports
-        use_inflow_target = total_use_inflow * self.parameters["sector_polymer_split"]
-        min_imports = self.trade_set["final_his"].net_imports.maximum(0)
-        # imports exceeding the target values determined by the sector split for each good and material
-        imports_excess_total = (min_imports - use_inflow_target).maximum(0).sum_over(("g", "m"))
-        # remainder of the target values not covered by imports, which should be covered by domestic fabrication
-        fabrication_domestic_excess = (use_inflow_target - min_imports).maximum(0)
-        fabrication_domestic_excess_total = fabrication_domestic_excess.sum_over(("g", "m"))
-        # scale down such that the sum of the domestic fabrication is reduced by the sum of the excess imports
-        # i.e. domestic fabrication for those good & material categories where the target consumption exceeds imports
-        # is reduced by the factor that imports exceed the target consumption for the other good & material categories
-        fabrication_domestic = fabrication_domestic_excess * (fabrication_domestic_excess_total - imports_excess_total) / fabrication_domestic_excess_total.maximum(sys.float_info.epsilon)
-        # fmt: on
-        return min_imports + fabrication_domestic
 
     def compute_historic_stock(self):
         self.stocks["in_use_historic"].inflow[...] = self.flows["good_market => use"]
