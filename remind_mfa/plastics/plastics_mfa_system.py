@@ -218,7 +218,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         The primary trade is (h, r, p, m) and block-diagonal (each material belongs to one type p);
         demand is (t, e, r, m). Excess is reassigned proportional to headroom (demand - net imports)
         within the type, on the imports side only (exports untouched), so total imports and total
-        exports per type are preserved. Where a type's total excess exceeds its total headroom, 
+        exports per type are preserved. Where a type's total excess exceeds its total headroom,
         the unassignable remainder is dropped by capping net imports at demand (mass reduced, warned).
         """
         eps = sys.float_info.epsilon
