@@ -173,7 +173,7 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         Stopover is pass-through trade, decoupled from the transit region's own domestic driver,
         so - unlike :meth:`scale_first` - it is scaled by *global* scaler growth (region-
-        independent, per good). 
+        independent, per good).
         """
         global_scaler = self.scaler_first.sum_over("r")
         global_scaler_0 = self.scaler_first_0.sum_over("r").maximum(self._eps)
