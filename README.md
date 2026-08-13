@@ -7,31 +7,67 @@ REMIND-MFA has global coverage. Per default, it runs in 21 world regions. Howeve
 
 ## Installation
 
-REMIND-MFA dependencies are managed with [pip](https://pypi.org/project/pip/).
+REMIND-MFA dependencies are managed with [uv](https://docs.astral.sh/uv/).
 
 To install, clone the repository and run
 
 ```
-python -m pip install -r pyproject.toml
+uv sync
 ```
 
 from the repository's main directory.
+This installs the project together with some development dependencies.
+For a minimal installation, you can run `uv sync --no-dev` instead.
+
+For development, it may be convenient to check out the `flodym` repository in the same parent directory as `remind-mfa` and uncomment the `tool.uv.sources` section in `pyproject.toml` to point to the local `flodym` repository.
+This will install `flodym` in editable mode, allowing you to use and test local changes to `flodym`.
+
+If you prefer `pip`, you can still use it as a fallback:
+
+```
+python -m pip install .
+```
 
 ## Run
 
 To run a model, run
 
-```
-python run_remind_mfa.py [path to config]
+```shell
+uv run run_remind_mfa.py --config default --material steel
 ```
 
-from the main directory, where `[path to config]` is the path to a configuration file, such as `config/steel.yml`.
+from the main directory. Configuration names resolve to TOML files below `config`, so
+`default` selects `config/default.toml`. Repeat `--config` to stack configurations in
+order, with later files overriding earlier files:
 
-You can change parameters for the run in these configuration files located in the `config` folder.
+```shell
+python run_remind_mfa.py --config default --config local --material all
+```
+See the
+[configuration documentation](docs/config.md) for the file layout and merge rules.
+
+You can also simply run `python run_remind_mfa.py` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
 
 The data required to run the models is planned to be made accessible in the near future.
+
+If you have access to the PIK cluster, you can obtain the data as follows:
+- Clone the data repository into the same parent directory as `remind-mfa`:
+```bash
+git clone https://gitlab.pik-potsdam.de/simson_data/remind_mfa_data.git
+```
+- Set the environment variable `MADRAT_OUTPUTFOLDER` to a folder where the madrat output data should be stored (it can be a relative path), e.g., `export MADRAT_OUTPUTFOLDER=madrat_output`. Alternatively, you can set the environment variable in a `.env` file in the main directory of the repository.
+- If you're not running remind-mfa on the cluster, then copy the madrat output data to the local madrat folder by running
+```bash
+uv run scripts/copy_madrat_archive.py config/steel.yml <hpc> /p/projects/rd3mod/inputdata/output_1.27
+```
+where `<hpc>` is the ssh address/alias of the PIK cluster.
+
+
+## Questions / Problems
+
+In case of questions / problems please open an issue at [pik-piam/industry_issues](https://github.com/pik-piam/industry_issues/issues).
 
 ## Acknowledgements
 

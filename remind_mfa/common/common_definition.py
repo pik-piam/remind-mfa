@@ -1,6 +1,9 @@
 from typing import List, Optional
+
+from pydantic import field_validator, model_validator
 import flodym as fd
 
+from remind_mfa.common.data_blending import BLEND_TYPES
 from remind_mfa.common.helpers import (
     RemindMFABaseModel,
 )
@@ -40,28 +43,76 @@ class PlainDataPointDefinition(RemindMFABaseModel):
     """Description of the parameter."""
 
 
+class ExtrapolationDefinition(RemindMFAParameterDefinition):
+    """Declares a parameter whose values are extrapolated from historic to full time.
+
+    Scenario CSV rows supply the endpoint in the `value` column, either as a number
+    or as the name of a model parameter whose values serve as the endpoint at the
+    row's coordinates (blending toward another parameter).
+    """
+
+    dim_letters: tuple[str, ...] = ()
+    """Dimensions for scenario data. Leave empty to extend an existing parameter without scenario data."""
+    create_new: bool = False
+    """Whether to create the extrapolated parameter instead of reading it from input data."""
+    blending_function: str = "linear"
+    """Blending function to use for extrapolation. Must be one of the functions defined in `remind_mfa.common.data_blending.BLEND_TYPES`."""
+    split_dimension_letter: Optional[str] = None
+    """Only required if extrapolating a split. Ensures that along the given dimension the values sum up to 1."""
+    split_balancing_item: Optional[str] = None
+    """Item of the split dimension that absorbs or provides the residual share when other items are
+    targeted. Requires split_dimension_letter. Without it, unspecified items scale proportionally."""
+
+    @field_validator("blending_function")
+    @classmethod
+    def validate_blending_function(cls, value):
+        if value not in BLEND_TYPES:
+            raise ValueError(f"Unknown blending function '{value}'. Must be one of {BLEND_TYPES}")
+        return value
+
+    @model_validator(mode="after")
+    def validate_split_settings(self):
+        if self.split_balancing_item is not None and self.split_dimension_letter is None:
+            raise ValueError(
+                f"'{self.name}': split_balancing_item requires split_dimension_letter."
+            )
+        if self.split_dimension_letter is None:
+            return self
+        if not self.dim_letters:
+            raise ValueError(
+                f"'{self.name}': split_dimension_letter is set but dim_letters is empty. "
+                "Add split dimension to dim_letters."
+            )
+        if self.split_dimension_letter not in self.dim_letters:
+            raise ValueError(
+                f"'{self.name}': split_dimension_letter '{self.split_dimension_letter}' "
+                f"is not in dim_letters {self.dim_letters}."
+            )
+        return self
+
+
 scenario_parameters = [
     PlainDataPointDefinition(
-        name="gdp_pop_scen", description="Name of the (SSP) scenario to use for GDP and population"
+        name="driver_scen",
+        description="Name of the (SSP) scenario to use for all driver parameters with an `S` dimension",
     ),
     PlainDataPointDefinition(
         name="saturation_level",
         description="Saturation level for material use per capita (unit depends on the material, e.g. t/capita)",
     ),
-    RemindMFAParameterDefinition(
+    ExtrapolationDefinition(
         name="stock_factor",
         dim_letters=("r",),
+        create_new=True,
     ),
-    RemindMFAParameterDefinition(
-        name="stock_factor_year",
+    ExtrapolationDefinition(
+        name="lifetime_mean",
         dim_letters=("r",),
+        blending_function="poly_mix",
     ),
-    RemindMFAParameterDefinition(
-        name="lifetime_factor",
+    ExtrapolationDefinition(
+        name="lifetime_std",
         dim_letters=("r",),
-    ),
-    RemindMFAParameterDefinition(
-        name="lifetime_factor_year",
-        dim_letters=("r",),
+        blending_function="poly_mix",
     ),
 ]
