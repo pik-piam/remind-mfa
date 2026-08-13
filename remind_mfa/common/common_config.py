@@ -207,7 +207,7 @@ class InputCfg(RemindMFABaseModel):
 class TransienceCfg(RemindMFABaseModel):
     transience_run: bool = False
     """Whether model run is a run with input data from other MIC3 models in the TRANSIENCE project."""
-    baseline_pickle_path: Optional[str] = None
+    baseline_pickle_path: str | None = None
     """Name of the run to use as baseline for transience trade extrapolations."""
     transience_scenario: str = "baseline"
     """Name of the scenario to use. Must be one of 'baseline', 'ME', 'RU'."""

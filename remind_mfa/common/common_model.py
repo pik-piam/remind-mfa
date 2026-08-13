@@ -301,8 +301,6 @@ class CommonModel:
         self.sector_specific_sat_level = sector_specific_sat_level # store for later use in visualization
         long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level * self.time_factor
 
-        self.apply_scenario_factor(array=long_term_stock, scen_prm_name="stock_factor")
-
         return long_term_stock
 
     def lifetime_limit(self):

@@ -44,7 +44,7 @@
         pickle.do_export = true
         csv.do_export = false
         iamc.do_export = false
-        mrindustry.do_export = true
+        mrindustry.do_export = false
         assumptions.do_export = false
         docs.do_export = false
 
@@ -78,9 +78,9 @@
         do_stock_extrapolation_by_category = true
 
     [steel.transience]
-        baseline_pickle_path: 'model_steel_SSP2_transience_Baseline_Steel_01_06_2026_default_h12_2026-06-04--13-58-49.pickle'
-        transience_scenario: 'Baseline_Steel_01_06_2026' # 'Baseline_Steel_01_06_2026', 'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel'
-        trade_scenario: 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
+        baseline_pickle_path = 'model_steel_SSP2_transience_Baseline_Steel_01_06_2026_default_h12_2026-06-04--13-58-49.pickle'
+        transience_scenario = 'Baseline_Steel_01_06_2026' # 'Baseline_Steel_01_06_2026', 'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel'
+        trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
     [steel.visualization]
         figures_path = "data/steel/output/transience/figures"
