@@ -33,6 +33,10 @@ class IamcVariable(RemindMFABaseModel):
     """Base unit of the array, e.g. "t/yr" or "t"."""
     split_name: Optional[str] = None
     """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
+    aggregate_parent: bool = True
+    """When this variable is split (``split_name`` set), whether its children are summed back
+    into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent
+    total is already produced by another split, to avoid double-counting the parent."""
     region_weight: Optional[str] = None
     """Variable to weight by when aggregating to "World" (e.g. "Population" for per-capita
     variables). None = plain sum across regions."""
@@ -199,7 +203,7 @@ class CommonDataExporter(RemindMFABaseModel):
         for iamc_var in iamc_vars:
             iamc_df, variables = self._build_iamc_df(mfa, iamc_var, constants)
             iamc_dataframes.append(iamc_df)
-            if iamc_var.split_name is not None:
+            if iamc_var.split_name is not None and iamc_var.aggregate_parent:
                 split_parent_components.setdefault(iamc_var.variable_name, []).extend(variables)
             if iamc_var.region_weight is not None:
                 region_weights.update({v: iamc_var.region_weight for v in variables})
