@@ -116,19 +116,19 @@ class PlasticsVisualizer(CommonVisualizer):
         if model.cfg.transience.transience_run:
             self.visualize_transience_eol_parameters(
                 model, 
-                parameter_REMIND_MFA=model.parameters["collection_rate"][{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}],
-                parameter_EU_MFA=model.parameters["collection_rate_EU-MFA"],
+                parameter_REMIND_MFA=model.parameters["collection_rate"][{"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}].sum_over(("p")),
+                parameter_EU_MFA=model.parameters["collection_rate_EU-MFA"].sum_over(("p")),
                 subplot_dim="EU-MFA_Good",
                 linecolor_dim="EU-MFA_Material",)
             self.visualize_transience_eol_parameters(
                 model, 
-                parameter_REMIND_MFA=model.parameters["mechanical_recycling_rate"][{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
-                parameter_EU_MFA=model.parameters["mechanical_recycling_rate_EU-MFA"],
+                parameter_REMIND_MFA=model.parameters["mechanical_recycling_rate"][{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}].sum_over(("p")),
+                parameter_EU_MFA=model.parameters["mechanical_recycling_rate_EU-MFA"].sum_over(("p")),
                 linecolor_dim="EU-MFA_Material",)
             self.visualize_transience_eol_parameters(
                 model, 
-                parameter_REMIND_MFA=model.parameters["mechanical_recycling_yield"][{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
-                parameter_EU_MFA=model.parameters["mechanical_recycling_yield_EU-MFA"],
+                parameter_REMIND_MFA=model.parameters["mechanical_recycling_yield"][{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}].sum_over(("p")),
+                parameter_EU_MFA=model.parameters["mechanical_recycling_yield_EU-MFA"].sum_over(("p")),
                 linecolor_dim="EU-MFA_Material",)
             self.visualize_transience_eol_parameters(
                 model, 
