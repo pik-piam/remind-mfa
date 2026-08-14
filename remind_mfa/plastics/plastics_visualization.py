@@ -24,6 +24,14 @@ class PlasticsVisualizer(CommonVisualizer):
                 linecolor_dim="Good",
                 regional=False,
             )
+            self.visualize_fdarr_stacked(
+                mfa=model.future_mfa,
+                flow=model.future_mfa.stocks["in_use"].stock,
+                name="Stock",
+                linecolor_dim="Good",
+                regional=True,
+                per_capita=True,
+            )
 
         if self.cfg.material_splits.do_visualize:
             self.visualize_material_splits(mfa=model.future_mfa)
