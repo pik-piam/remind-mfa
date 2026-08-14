@@ -107,7 +107,7 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
         )
     return pd.read_csv(
         path, comment="*", header=None,
-        names=["Time", "Region", "Material", "Good", "value"],
+        names=["Time", "Region", "Type", "Material", "Good", "value"],
     )
 
 
@@ -237,7 +237,7 @@ def run_combination(material: str, flow: str, scenario: str):
             df3.groupby(["Time", "Region", "Material", "Good"], as_index=False)["value"]
             .sum()
         )
-        dimensions = "(EU-MFA_Time,Region,EU-MFA_Material,EU-MFA_Good,value)"
+        dimensions = "(EU-MFA_Time,Region,Type,EU-MFA_Material,EU-MFA_Good,value)"
 
         # for collected_eol and stock_outflow, the value for PVC in packaging is at around 1e-30 in 2031 (because PVC in packaging is stopped in 2030 and the small amount is a result of the lifetime model)
         # this causes issues for parameter calculation in the MFA, so set values that are <100kg to zero
@@ -255,12 +255,14 @@ def run_combination(material: str, flow: str, scenario: str):
             df_baseline_others = df_baseline_others[df_baseline_others["_merge"] == "left_only"].drop(columns="_merge")
             df_EU_MFA = pd.concat([df_EU_MFA, df_baseline_others], ignore_index=True)
 
-        # --- load reference (Historic Time, Region, Good, value) ---
+        # --- load reference (Historic Time, Region, Type, value) ---
         ref = pd.read_csv(
-            REF_DIR / "pl_consumption.cs4r",
+            REF_DIR / "pl_production.cs4r",
             comment="*", header=None,
-            names=["Time", "Region", "Good", "value"],
+            names=["Time", "Region", "Type", "value"],
         )
+        # EU-MFA plastics flows are all Type="Plastics", so filter the reference to match
+        ref = ref[ref.Type == "Plastics"].copy()
         
     elif material == "steel":
         if flow == "scrap":
@@ -295,7 +297,7 @@ def run_combination(material: str, flow: str, scenario: str):
             )
             dimensions = "(EU-MFA_Time,Region,EU-MFA_Good,value)"
 
-        # --- load reference (Historic Time, Region, Good, value) ---
+        # --- load reference (Historic Time, Region, value) ---
         ref = pd.read_csv(
             REF_DIR / "st_production.cs4r",
             comment="*", header=None,
@@ -339,6 +341,13 @@ def run_combination(material: str, flow: str, scenario: str):
     # baseline-supplemented goods (to 2060) and reference years must not extend past it.
     if material == "plastics" and scenario != "baseline":
         df_backcasted = df_backcasted[df_backcasted["Time"] <= scenario_last_year].copy()
+
+    # plastics flows carry a constant Type dimension ("Plastics") so they align with the
+    # model's Type ("p") dimension; placed after Region to match the (Time, Region, Type,
+    # Material, Good, value) column order used elsewhere in the plastics input data.
+    if material == "plastics":
+        df_backcasted["Type"] = "Plastics"
+        df_backcasted = df_backcasted[["Time", "Region", "Type", "Material", "Good", "value"]]
 
     # --- save ---
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
