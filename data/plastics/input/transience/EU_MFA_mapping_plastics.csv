@@ -6,22 +6,24 @@ polymers;PS;plastic_materials;PS;1
 polymers;PS-E;plastic_materials;PS;1
 polymers;PVC;plastic_materials;PVC;1
 polymers;PET;plastic_materials;PET;1
-polymers;ABS, SAN;plastic_materials;ABS_ASA_SAN;1
-polymers;PMMA;plastic_materials;Others;1
-polymers;PA (PA6, PA66);plastic_materials;Others;1
-polymers;PC;plastic_materials;Others;1
-polymers;Other Thermoplastics;plastic_materials;Others;1
+polymers;ABS, SAN;plastic_materials;Other thermoplastics;1
+polymers;PMMA;plastic_materials;Other thermoplastics;1
+polymers;PA (PA6, PA66);plastic_materials;Other thermoplastics;1
+polymers;PC;plastic_materials;Other thermoplastics;1
+polymers;Other Thermoplastics;plastic_materials;Other thermoplastics;1
 polymers;PUR;plastic_materials;PUR;1
-polymers;Other Plastics;plastic_materials;Others;1
-plastic_materials;BioPlastics;polymers;-;0
-plastic_materials;Fibres;polymers;-;0
-plastic_materials;Elastomers (tyres);polymers;-;0
+polymers;Other Plastics;plastic_materials;Other thermosets;1
+plastic_materials;PET fibre;polymers;-;0
+plastic_materials;Polyamide fibre;polymers;-;0
+plastic_materials;Other fibre;polymers;-;0
+plastic_materials;Rubbers;polymers;-;0
 end_use_sectors_MainSectors;Building and Construction;plastic_goods_in_use;Buildings & Construction;1
 end_use_sectors_MainSectors;Automotive;plastic_goods_in_use;Transportation;1
 end_use_sectors_MainSectors;Electrical and Electronics;plastic_goods_in_use;Electrical/Electronics;1
 end_use_sectors_MainSectors;Agriculture;plastic_goods_in_use;Others;1
-end_use_sectors_MainSectors;Household, Leisure, Sports;plastic_goods_in_use;Household & Leisure & Sports;1
+end_use_sectors_MainSectors;Household, Leisure, Sports;plastic_goods_in_use;Consumer & Institutional;1
 end_use_sectors_MainSectors;Others;plastic_goods_in_use;Others;1
 end_use_sectors_MainSectors;Household packaging;plastic_goods_in_use;Packaging;1
 end_use_sectors_MainSectors;Commercial & industrial packaging;plastic_goods_in_use;Packaging;1
-plastic_goods_in_use;Textile sector;end_use_sectors_MainSectors;-;1
+plastic_goods_in_use;Textile sector;end_use_sectors_MainSectors;-;0
+plastic_goods_in_use;Industrial Machinery;end_use_sectors_MainSectors;Others;1

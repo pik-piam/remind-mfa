@@ -50,7 +50,6 @@
 
 [plastics]
     [plastics.input]
-        input_data_revision = '1.5.0fix_plWastePolymerSplit'
         region_mapping = '2c0a4149' # EU27+3 TRANSIENCE region mapping
 
     [plastics.model_switches]
