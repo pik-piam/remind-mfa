@@ -162,4 +162,4 @@ class PlasticsModel(CommonModel):
             existing = self.parameters["mechanical_recycling_yield"][{"r": "EU27+3", "m": self.dims["n"], "t": self.dims["u"]}].values
             eu_mfa_mech_yield = np.where(nan_mask, existing, eu_mfa_mech_yield)
         self.parameters["mechanical_recycling_yield"][{"r": "EU27+3", "m": self.dims["n"], "t": self.dims["u"]}] = fd.Parameter(
-            dims=self.dims["u", "n"], values=eu_mfa_mech_yield
+            dims=self.dims["u", "n"], values=eu_mfa_mech_yield)
