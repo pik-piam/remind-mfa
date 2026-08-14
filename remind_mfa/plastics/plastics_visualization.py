@@ -131,7 +131,11 @@ class PlasticsVisualizer(CommonVisualizer):
             mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
         )
         self.visualize_fdarr_stacked(
-            mfa=mfa, flow=production, name="Plastics production", regional=regional, linecolor_dim="Material",
+            mfa=mfa,
+            flow=production,
+            name="Plastics production",
+            regional=regional,
+            linecolor_dim="Material",
         )
 
     def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
@@ -156,7 +160,8 @@ class PlasticsVisualizer(CommonVisualizer):
         if per_capita:
             population = mfa.parameters["population"]
             series_specs = [
-                (array / population, f"{label} (per capita)", color) for array, label, color in series_specs
+                (array / population, f"{label} (per capita)", color)
+                for array, label, color in series_specs
             ]
 
         series_colors = [color for _, _, color in series_specs]
@@ -168,9 +173,11 @@ class PlasticsVisualizer(CommonVisualizer):
                 intra_line_dim="Time",
                 subplot_dim="Region",
                 fig=fig,
-                title="Plastics production, net imports, and consumption by region"
-                if idx == 0
-                else None,
+                title=(
+                    "Plastics production, net imports, and consumption by region"
+                    if idx == 0
+                    else None
+                ),
                 xlabel="Year",
                 ylabel="Flow [t]",
                 line_label=label,
@@ -178,7 +185,11 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             fig = ap.plot()
 
-        self.plot_and_save_figure(ap, f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}.png", do_plot=False)
+        self.plot_and_save_figure(
+            ap,
+            f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}.png",
+            do_plot=False,
+        )
 
     def compare_demand(self, mfa: fd.MFASystem):
         df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
@@ -192,7 +203,7 @@ class PlasticsVisualizer(CommonVisualizer):
         fig = px.line(df, x="year", y="value", color="source", markers=True)
 
         ap = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r", "p","m", "e", "g")),
+            array=mfa.stocks["in_use"].inflow.sum_over(("r", "p", "m", "e", "g")),
             intra_line_dim="Time",
             title="Demand [t]",
             line_label="REMIND-MFA",
@@ -330,9 +341,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
-        material_shares = mfa.parameters["material_shares_use_inflow"][
-            {"t": 2024}
-        ].sum_over(("p",))
+        material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}].sum_over(("p",))
         material_shares = material_shares.cumsum(dim_letter="m")
 
         ap_sector_splits = self.plotter_class(
