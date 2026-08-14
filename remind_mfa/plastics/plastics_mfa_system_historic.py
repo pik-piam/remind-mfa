@@ -1,4 +1,5 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -63,11 +64,17 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.flows["use => sysenv"][...] += self.stocks["in_use_historic"].outflow
 
         # get material split from historic stock inflow
+        material_shares = (self.flows["good_market => use"].maximum(0)).get_shares_over(("m", "p"))
+        # A (region, good) with zero tracked (Plastics-type) inflow gives an undefined 0/0
+        # share -> NaN. This happens where a good's consumption is entirely Fibre/Rubber,
+        # which are excluded from material tracking (e.g. SSA's Textile sector is ~100%
+        # fibre). Set those shares to 0: there is genuinely no Plastics-type material to
+        # split, and the future in-use inflow derived from it is ~0 anyway. Leaving NaN
+        # propagates into stk["in_use"].inflow and crashes the trade extrapolator.
+        material_shares.values[np.isnan(material_shares.values)] = 0.0
         self.parameters["material_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "r", "p", "m", "g"],
-            values=(self.flows["good_market => use"].maximum(0))
-            .get_shares_over(("m","p"))
-            .values,
+            values=material_shares.values,
         )
         # get global good split from historic stock inflow
         self.parameters["global_good_shares_use_inflow"] = fd.Parameter(
