@@ -127,13 +127,14 @@ class TradeExtrapolator(RemindMFABaseModel):
         """The actual trade calculations"""
 
         self.id_hist = {"t": self.historic_first.dims["h"]}
-        first_scaling = self.scale_first()
-        stopover_trade = self.scale_stopover(first_scaling)
+        self.remove_stopover()
+        self.scale_first()
+        stopover_trade = self.add_stopover()
         self.scale_second(stopover_trade)
         self.balance()
 
-    def scale_first(self) -> fd.FlodymArray:
-        # 1) scale "first" trade flow (imports in demand-driven mode)
+    def scale_first(self):
+        # scale "first" trade flow (imports in demand-driven mode)
         self.future_first[...] = self.scaling(
             trd_0=self.historic_first_0,
             dom_0=self.scaler_first_0,
@@ -141,28 +142,45 @@ class TradeExtrapolator(RemindMFABaseModel):
         )
         # make sure historical years equal historical data
         self.future_first[self.id_hist] = self.historic_first
-        return self.future_first / self.historic_first_0.maximum(1)
 
-    def scale_stopover(self, first_scaling: fd.FlodymArray) -> fd.FlodymArray:
-        """Sometimes trade exceeds domestic supply and demand.
-        For example, a country could have zero production (i.e. all supply through imports),
-        but still have some exports, because we bundle together trade across several stages
-        along the fabrication process. So it imports semi-finished products and exports
-        finished products. In this case, it makes no sense to scale exports with domestic supply,
-        as it might grow from zero to a finite value, which is an infinite relative
-        growth. So we scale by the (hopefully non-zero) value which is given to the trade
-        extrapolation (dom_demand in backwards mode).
-        We call this trade which (due to a lack of domestic supply/demand) must be im- and
-        directly exported again, "stopover_trade".
-        There are two equal ways to calculate this stopover_trade:
+    def remove_stopover(self):
+        """Split off "stopover" (re-export) trade before scaling.
+
+        Sometimes trade exceeds domestic supply and demand. For example, a country could have
+        zero production (i.e. all supply through imports), but still have some exports, because
+        we bundle together trade across several stages along the fabrication process. So it
+        imports semi-finished products and exports finished products. In this case, it makes no
+        sense to scale that pass-through trade with domestic supply/demand, as it might grow from
+        zero to a finite value, which is an infinite relative growth.
+        There are two equal ways to calculate this stopover_trade (equal by the mass balance):
         max(0, exports-dom_supply) or max(0, imports-dom_demand).
-        (Their equality results from the mass balance)
-        Since we treat this stopover_trade differently, we subtract it from the rest for
-        future calculations, and add the separately scaled stopover_trade at the end again.
+
+        The stopover is both imported and directly re-exported again, so it is subtracted from
+        **both** the import and export bases here; the separately scaled stopover is added back to
+        **both** future flows (see :meth:`add_stopover` and :meth:`scale_second`). Removing it from
+        only one side would leave the other flow's local ratio and the global trade share inflated,
+        making it over-grow relative to its domestic driver (which drives domestic supply/demand
+        negative for heavy importers/re-exporters).
         """
-        stopover_trade_0 = (self.historic_second_0 - self.scaler_second_0).maximum(0)
-        self.historic_second_0[...] -= stopover_trade_0
-        return stopover_trade_0 * first_scaling
+        self.stopover_0 = (self.historic_second_0 - self.scaler_second_0).maximum(0)
+        self.historic_first_0[...] -= self.stopover_0
+        self.historic_second_0[...] -= self.stopover_0
+
+    def add_stopover(self) -> fd.FlodymArray:
+        """Scale the stopover (re-export) trade and add it to the (already scaled) future first
+        flow. Returns the scaled stopover so :meth:`scale_second` adds it to the second flow as
+        well, keeping the re-export balanced across both flows.
+
+        Stopover is pass-through trade, decoupled from the transit region's own domestic driver,
+        so - unlike :meth:`scale_first` - it is scaled by *global* scaler growth (region-
+        independent, per good).
+        """
+        global_scaler = self.scaler_first.sum_over("r")
+        global_scaler_0 = self.scaler_first_0.sum_over("r").maximum(self._eps)
+        stopover_trade = self.stopover_0 * (global_scaler / global_scaler_0)
+        self.future_first[...] += stopover_trade
+        self.future_first[self.id_hist] = self.historic_first
+        return stopover_trade
 
     def scale_second(self, stopover_trade: fd.FlodymArray):
         """Scale "second" trade flow (exports in demand-driven mode)
@@ -204,7 +222,10 @@ class TradeExtrapolator(RemindMFABaseModel):
             total_excess = excess_trade.sum_over("r")
             if np.max(total_excess.values) < 0.1:
                 break
-            self.future_first[...] -= excess_trade
+            # Clamp to >= 0: without this, a large excess can drive regional imports negative,
+            # after which balance() divides by a near-zero/negative global total and the result
+            # diverges (or leaves global trade unbalanced).
+            self.future_first[...] = (self.future_first - excess_trade).maximum(0)
             self.future_trade.balance(to="minimum")
 
         np.testing.assert_array_almost_equal(
