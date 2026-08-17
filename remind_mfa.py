@@ -4,7 +4,8 @@ from typing import Annotated, Literal
 import typer
 from dotenv import load_dotenv
 
-from remind_mfa.common.config_loader import get_config_paths, load_config
+from remind_mfa.cli.helper import prompt_for_config_names
+from remind_mfa.common.config_loader import load_config
 from remind_mfa.common.helpers import ModelNames, init_model
 
 app = typer.Typer()
@@ -45,14 +46,6 @@ def prompt_for_model() -> ModelSelection:
             return ModelNames(value)
         except ValueError:
             typer.echo(f"Invalid model {value!r}. Choose one of: {choices}.", err=True)
-
-
-def prompt_for_config_names() -> list[str]:
-    choices = ", ".join(path.stem for path in get_config_paths())
-    entered_names = typer.prompt(
-        f"Configs (comma-separated, available: {choices})", default="default"
-    )
-    return [name.strip() for name in entered_names.split(",") if name.strip()]
 
 
 @app.command()

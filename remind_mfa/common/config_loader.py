@@ -58,7 +58,7 @@ def _load_config_file(name: str, config_dir: Path = CONFIG_DIR) -> dict:
 
 def load_config(
     config_names: list[str],
-    model: ModelNames,
+    model: ModelNames | None = None,
     config_dir: Path = CONFIG_DIR,
 ) -> dict:
     """Load and merge the specified configuration, and return the resulting, validated model configuration."""
@@ -69,10 +69,12 @@ def load_config(
     model_config: dict = {}
     for layer in layers:
         base_config = _deep_merge(base_config, layer.get("base", {}))
-        model_config = _deep_merge(model_config, layer.get(model.value, {}))
+        if model is not None:
+            model_config = _deep_merge(model_config, layer.get(model.value, {}))
 
     # Merge the model-specific configuration into the base configuration
     config = _deep_merge(base_config, model_config)
-    config["model"] = model.value
-    get_model_class(model).ConfigCls.model_validate(config)
+    if model is not None:
+        config["model"] = model.value
+        get_model_class(model).ConfigCls.model_validate(config)
     return config
