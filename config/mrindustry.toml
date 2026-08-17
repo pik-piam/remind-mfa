@@ -1,0 +1,6 @@
+[base]
+    [base.input]
+        region_mapping = "eu21"
+
+    [base.visualization]
+        do_visualize = false
