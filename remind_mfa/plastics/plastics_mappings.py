@@ -7,6 +7,7 @@ class PlasticsDimensionFiles(CommonDimensionFiles):
         "Material": "materials",
         "Good": "goods_in_use",
         "Scenario": "scenarios",
+        "Type": "type",
     }
 
 
