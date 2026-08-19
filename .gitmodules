@@ -1,0 +1,6 @@
+[submodule "remind_mfa_data"]
+	path = remind_mfa_data
+	url = https://gitlab.pik-potsdam.de/simson_data/remind_mfa_data.git
+[submodule "apptainer/mrmfa"]
+	path = apptainer/mrmfa
+	url = https://github.com/pik-piam/mrmfa.git

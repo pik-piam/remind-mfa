@@ -45,7 +45,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--validation",
-        default=str(REPO_ROOT.parent / "remind_mfa_data" / "validation" / "validation.mif"),
+        default=str(REPO_ROOT / "remind_mfa_data" / "validation" / "validation.mif"),
         help="Validation .mif file.",
     )
     parser.add_argument(

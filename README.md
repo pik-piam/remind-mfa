@@ -53,9 +53,10 @@ Currently, all implemented models require data which is not part of the reposito
 The data required to run the models is planned to be made accessible in the near future.
 
 If you have access to the PIK cluster, you can obtain the data as follows:
-- Clone the data repository into the same parent directory as `remind-mfa`:
+- Init the data repository:
 ```bash
-git clone https://gitlab.pik-potsdam.de/simson_data/remind_mfa_data.git
+git submodule init
+git submodule update
 ```
 - Set the environment variable `MADRAT_OUTPUTFOLDER` to a folder where the madrat output data should be stored (it can be a relative path), e.g., `export MADRAT_OUTPUTFOLDER=madrat_output`. Alternatively, you can set the environment variable in a `.env` file in the main directory of the repository.
 - If you're not running remind-mfa on the cluster, then copy the madrat output data to the local madrat folder by running
