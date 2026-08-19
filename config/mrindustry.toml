@@ -1,0 +1,11 @@
+[base]
+    [base.input]
+        region_mapping = "eu21"
+
+    [base.visualization]
+        do_visualize = false
+
+    [base.export]
+        do_export = true
+        mrindustry.do_export = true
+        pickle.do_export = true

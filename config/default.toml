@@ -41,7 +41,7 @@
         pickle.do_export = true
         csv.do_export = false
         iamc.do_export = false
-        mrindustry.do_export = true
+        mrindustry.do_export = false
         assumptions.do_export = false
         docs.do_export = false
 
