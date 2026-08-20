@@ -1,7 +1,7 @@
-\documentclass[a4paper,9pt]{article}
-
-\usepackage[T1]{fontenc}
+\documentclass[a4paper]{article}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{anyfontsize}
 \usepackage[margin=1in]{geometry}
 \usepackage{array}
 \usepackage{booktabs}
@@ -16,6 +16,7 @@
 \setlength{\LTpre}{0.75em}
 \setlength{\LTpost}{0.75em}
 \renewcommand{\arraystretch}{1.08}
+\fontsize{9}{11}\selectfont
 
 \newcommand{\InputGeneratedTable}[1]{%
 	\IfFileExists{#1}{\input{#1}}{%
@@ -50,8 +51,8 @@
 \InputGeneratedTable{generated/plastics_trades.tex}
 
 \clearpage
-\subsection{Parameters}
 \begin{landscape}
+\subsection{Parameters}
 \InputGeneratedTable{generated/plastics_parameters.tex}
 \end{landscape}
 \clearpage
@@ -73,8 +74,8 @@
 \InputGeneratedTable{generated/steel_trades.tex}
 
 \clearpage
-\subsection{Parameters}
 \begin{landscape}
+\subsection{Parameters}
 \InputGeneratedTable{generated/steel_parameters.tex}
 \end{landscape}
 \clearpage
@@ -96,8 +97,8 @@
 \InputGeneratedTable{generated/cement_trades.tex}
 
 \clearpage
-\subsection{Parameters}
 \begin{landscape}
+\subsection{Parameters}
 \InputGeneratedTable{generated/cement_parameters.tex}
 \end{landscape}
 \clearpage
