@@ -4,7 +4,6 @@ import re
 import unicodedata
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent
 SOURCE_ROOT = ROOT.parent
 OUTPUT_ROOT = ROOT / "generated"
@@ -89,7 +88,9 @@ def format_cell(text: str) -> str:
 
 
 def parse_markdown_table(path: Path) -> tuple[list[str], list[list[str]]]:
-    lines = [line.rstrip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = [
+        line.rstrip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
     rows = [line for line in lines if line.lstrip().startswith("|")]
     if len(rows) < 2:
         raise ValueError(f"No markdown table found in {path}")
@@ -108,7 +109,9 @@ def column_spec(subsection: str, column_count: int) -> str:
     if len(widths) != column_count:
         short = max(0.10, 0.92 / max(column_count, 1))
         widths = [short] * column_count
-    return "".join(rf">{{\raggedright\arraybackslash}}p{{{width:.2f}\linewidth}}" for width in widths)
+    return "".join(
+        rf">{{\raggedright\arraybackslash}}p{{{width:.2f}\linewidth}}" for width in widths
+    )
 
 
 def render_table(
@@ -150,7 +153,9 @@ def render_table(
 
 def main() -> None:
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    BIB_TARGET.write_text(sanitize_bib_text(BIB_SOURCE.read_text(encoding="utf-8")), encoding="utf-8")
+    BIB_TARGET.write_text(
+        sanitize_bib_text(BIB_SOURCE.read_text(encoding="utf-8")), encoding="utf-8"
+    )
     for section in SECTIONS:
         for subsection in SUBSECTIONS:
             source = SOURCE_ROOT / section / "definitions" / f"{subsection}.md"
