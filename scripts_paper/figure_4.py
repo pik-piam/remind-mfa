@@ -12,7 +12,7 @@ from constants import (
     RUN_STEEL_SSP1_LD,
     AGG_REGIONS,
     AGG_REGION_ORDER,
-    VIRIDIS_MOD_5,
+    CMAP_5,
 )
 import os
 
@@ -21,10 +21,10 @@ os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome
 DIRECTORY = PATH_STEEL
 FLOW_NAME = "forming => ip_market"
 RUNS = [RUN_STEEL, RUN_STEEL_SSP1, RUN_STEEL_SSP1_LD]
-LABELS = ["SSP2", "SSP1", "SSP1_LD"]
+LABELS = ["SSP2", "SSP1-drivers", "SSP1-CE"]
 X_RANGE = [2000, 2100]
 X_TICKS = [2000, 2050, 2100]
-SCENARIO_COLORS = VIRIDIS_MOD_5[::-2]
+SCENARIO_COLORS = CMAP_5[::-2]
 RUN_COLOR_MAP = {label: SCENARIO_COLORS[i] for i, label in enumerate(LABELS)}
 
 

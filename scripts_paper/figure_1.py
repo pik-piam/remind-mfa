@@ -37,26 +37,26 @@ class RunConfig:
 
 RUN_CONFIGS = [
     RunConfig(
-        directory=PATH_CEMENT,
-        label="a) Cement",
-        run_name=RUN_CEMENT,
-        flow_name="prod_cement => market_cement",
-        last_historical_year=LAST_HISTORICAL_YEAR_CEMENT,
-        stock_index="cement",
-    ),
-    RunConfig(
         directory=PATH_PLASTICS,
-        label="b) Plastics",
+        label="a) Plastics",
         run_name=RUN_PLASTICS,
         flow_name="polymerization => primary_market",
         last_historical_year=LAST_HISTORICAL_YEAR_PLASTICS,
     ),
     RunConfig(
         directory=PATH_STEEL,
-        label="c) Steel",
+        label="b) Steel",
         run_name=RUN_STEEL,
         flow_name="forming => ip_market",
         last_historical_year=LAST_HISTORICAL_YEAR_STEEL,
+    ),
+    RunConfig(
+        directory=PATH_CEMENT,
+        label="c) Cement",
+        run_name=RUN_CEMENT,
+        flow_name="prod_cement => market_cement",
+        last_historical_year=LAST_HISTORICAL_YEAR_CEMENT,
+        stock_index="cement",
     ),
 ]
 

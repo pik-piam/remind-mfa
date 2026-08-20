@@ -238,7 +238,7 @@ class PlasticsVisualizer(CommonVisualizer):
         self.cfg.sankey.plotter_args.update(
             {
                 "flow_color_dict": flow_color_dict,
-                "node_color_dict": {"default": "#BBBBBB", "use": "#777777"},
+                "node_color_dict": {"default": "#CCCCCC", "use": "#999999"},
             }
         )
 
@@ -252,7 +252,7 @@ class PlasticsVisualizer(CommonVisualizer):
         nodes = plotter._get_nodes_dict()
         nodes.update({
             "pad": 15,
-            "thickness": 12,
+            "thickness": 20,
         })
         fig = go.Figure(
             go.Sankey(
@@ -261,8 +261,8 @@ class PlasticsVisualizer(CommonVisualizer):
                 node=nodes,
                 orientation="v",
                 textfont={
-                    "size": 9,
-                    "weight": 600,
+                    "size": 12,
+                    # "weight": 600,
                     "shadow": "0px 0px 0px rgba(0,0,0,0)",
                 },
             )
@@ -291,7 +291,11 @@ class PlasticsVisualizer(CommonVisualizer):
 
         # Final layout adjustments and display
         fig.update_layout(
-            font_size=10, font_weight = 600, showlegend=True, plot_bgcolor="rgba(0,0,0,0)", font_color="black"
+            font_size=12,
+            # font_weight = 600,
+            showlegend=True,
+            plot_bgcolor="rgba(0,0,0,0)",
+            # font_color="black",
         )
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)

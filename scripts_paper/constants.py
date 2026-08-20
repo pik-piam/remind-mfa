@@ -61,8 +61,27 @@ VIRIDIS_MOD_5 = [
     "#2F4E94",
     "#6B2F2B",
 ]
+OKABE_ITO_5 = [
+    "#0072B2",  # blue
+    "#009E73",  # bluish green
+    "#F0E442",  # yellow
+    "#E69F00",  # orange
+    "#CC79A7",  # reddish purple
+]
+# ONLY FOR REFERENCE
+OKABE_ITO_8 = [
+    "#E69F00",  # orange
+    "#56B4E9",  # sky blue
+    "#009E73",  # bluish green
+    "#F0E442",  # yellow
+    "#0072B2",  # blue
+    "#CC79A7",  # reddish purple
+    "#000000",  # black
+]
+# CMAP_5 = OKABE_ITO_5
+CMAP_5 = VIRIDIS_MOD_5
 
-AGG_COLOR_PALETTE = dict(zip(AGG_REGION_ORDER, VIRIDIS_MOD_5))
+AGG_COLOR_PALETTE = dict(zip(AGG_REGION_ORDER, CMAP_5))
 
 COLOR_PALETTE_1 = [
     "#6929c4",  # Purple
