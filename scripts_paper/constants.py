@@ -1,6 +1,5 @@
 import pathlib
 
-
 PATH_CEMENT = pathlib.Path("data/cement/output/export/pickle")
 PATH_PLASTICS = pathlib.Path("data/plastics/output/export/pickle")
 PATH_STEEL = pathlib.Path("data/steel/output/export/pickle")

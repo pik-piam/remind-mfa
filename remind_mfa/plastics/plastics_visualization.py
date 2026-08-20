@@ -172,7 +172,7 @@ class PlasticsVisualizer(CommonVisualizer):
         recycle_color = "#86BCB6"
         emission_color = "#E15759"
         trade_color = "#D37295"
-        atmosphere_color ="#84A3F8"
+        atmosphere_color = "#84A3F8"
 
         # Initialize default flow color mapping
         flow_color_dict = {"default": production_color}
@@ -210,7 +210,8 @@ class PlasticsVisualizer(CommonVisualizer):
             {
                 fn: atmosphere_color
                 for fn, f in mfa.flows.items()
-                if f.from_process.name == "atmosphere" or f.to_process.name in ("atmosphere", "emission")
+                if f.from_process.name == "atmosphere"
+                or f.to_process.name in ("atmosphere", "emission")
             }
         )
 
@@ -219,8 +220,7 @@ class PlasticsVisualizer(CommonVisualizer):
             {
                 fn: emission_color
                 for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("mismanaged", "uncontrolled", "emission", "losses")
+                if f.to_process.name in ("mismanaged", "uncontrolled", "emission", "losses")
             }
         )
 
@@ -250,10 +250,12 @@ class PlasticsVisualizer(CommonVisualizer):
         )
         links = plotter._get_links_dict()
         nodes = plotter._get_nodes_dict()
-        nodes.update({
-            "pad": 15,
-            "thickness": 20,
-        })
+        nodes.update(
+            {
+                "pad": 15,
+                "thickness": 20,
+            }
+        )
         fig = go.Figure(
             go.Sankey(
                 arrangement="snap",
