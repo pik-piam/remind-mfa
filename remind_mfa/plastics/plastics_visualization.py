@@ -175,11 +175,12 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_sankey(self, mfa: fd.MFASystem):
         # Define colors for each stage
         production_color = "#EDC948"
-        use_color = "#9EC3D5"
+        use_color = "#D4965B"
         eol_color = "#499894"
         recycle_color = "#86BCB6"
         emission_color = "#E15759"
         trade_color = "#D37295"
+        atmosphere_color = "#84A3F8"
 
         # Initialize default flow color mapping
         flow_color_dict = {"default": production_color}
@@ -202,16 +203,6 @@ class PlasticsVisualizer(CommonVisualizer):
             }
         )
 
-        # Assign colors to emission flows
-        flow_color_dict.update(
-            {
-                fn: emission_color
-                for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("atmosphere", "mismanaged", "uncontrolled", "emission", "losses")
-            }
-        )
-
         # Assign colors to recycling flows
         flow_color_dict.update(
             {
@@ -219,6 +210,25 @@ class PlasticsVisualizer(CommonVisualizer):
                 for fn, f in mfa.flows.items()
                 if f.from_process.name in ("reclmech", "reclchem")
                 or f.to_process.name in ("reclmech", "reclchem")
+            }
+        )
+
+        # Assign colors to atmosphere flows
+        flow_color_dict.update(
+            {
+                fn: atmosphere_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "atmosphere"
+                or f.to_process.name in ("atmosphere", "emission")
+            }
+        )
+
+        # Assign colors to emission flows
+        flow_color_dict.update(
+            {
+                fn: emission_color
+                for fn, f in mfa.flows.items()
+                if f.to_process.name in ("mismanaged", "uncontrolled", "emission", "losses")
             }
         )
 
@@ -235,21 +245,38 @@ class PlasticsVisualizer(CommonVisualizer):
         # Update Sankey layout configuration
         self.cfg.sankey.plotter_args.update(
             {
-                "valueformat": ".2s",  # scientific notation, two significant digits
-                "node_pad": 15,  # padding between nodes
-                "node_thickness": 20,  # node thickness
-                "arrangement": "snap",  # reduce crossings by snapping nodes
                 "flow_color_dict": flow_color_dict,
-                "node_color_dict": {"default": "gray", "use": "black"},
+                "node_color_dict": {"default": "#CCCCCC", "use": "#999999"},
             }
         )
 
         # Prepare display names and generate the Sankey diagram
-        display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
+        # display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
+        display_names_fmt = self.display_names.dct
         plotter = fde.PlotlySankeyPlotter(
             mfa=mfa, display_names=display_names_fmt, **self.cfg.sankey.plotter_args
         )
-        fig = plotter.plot()
+        links = plotter._get_links_dict()
+        nodes = plotter._get_nodes_dict()
+        nodes.update(
+            {
+                "pad": 15,
+                "thickness": 20,
+            }
+        )
+        fig = go.Figure(
+            go.Sankey(
+                arrangement="snap",
+                link=links,
+                node=nodes,
+                orientation="v",
+                textfont={
+                    "size": 12,
+                    # "weight": 600,
+                    "shadow": "0px 0px 0px rgba(0,0,0,0)",
+                },
+            )
+        )
 
         # Add legend entries
         legend_entries = [
@@ -258,7 +285,8 @@ class PlasticsVisualizer(CommonVisualizer):
             (eol_color, "End-of-Life"),
             (recycle_color, "Recycling"),
             (emission_color, "Losses"),
-            (trade_color, "Trade"),
+            # (trade_color, "Trade"),
+            (atmosphere_color, "Atmosphere"),
         ]
         for color, label in legend_entries:
             fig.add_trace(
@@ -273,7 +301,11 @@ class PlasticsVisualizer(CommonVisualizer):
 
         # Final layout adjustments and display
         fig.update_layout(
-            font_size=18, showlegend=True, plot_bgcolor="rgba(0,0,0,0)", font_color="black"
+            font_size=12,
+            # font_weight = 600,
+            showlegend=True,
+            plot_bgcolor="rgba(0,0,0,0)",
+            # font_color="black",
         )
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
