@@ -1,4 +1,5 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -16,7 +17,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.trade_set.balance(to="maximum")
         self.compute_flows()
         self.compute_historic_stock()
-        self.check_mass_balance()
+        self.check_mass_balance(raise_error=True)
         self.check_flows(raise_error=False)
 
     def compute_flows(self):
@@ -70,6 +71,10 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
             .get_shares_over(("m",))
             .values,
         )
+
+        with np.errstate(divide="ignore"):
+            self.parameters["material_shares_use_inflow"][...] = self.parameters["material_shares_use_inflow"].get_shares_over(("m",))
+        self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
         # get global good split from historic stock inflow
         self.parameters["global_good_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "g"],
