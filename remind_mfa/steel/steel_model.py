@@ -135,7 +135,7 @@ class SteelModel(CommonModel):
         self.parameters["sector_split"] = fd.Parameter(dims=target_dims, name="sector_split")
         sector_split_1 = fd.Parameter(dims=target_dims)
         sector_split_2 = fd.Parameter(dims=target_dims)
-        log_gdppc = self.parameters["gdppc"].apply(np.log)
+        log_gdppc = self.parameters["gdppc"].maximum(self.parameters["secsplit_gdppc_low"]).apply(np.log)
         log_gdppc_low = self.parameters["secsplit_gdppc_low"].apply(np.log)
         log_gdppc_high = self.parameters["secsplit_gdppc_high"].apply(np.log)
         add_assumption_doc(

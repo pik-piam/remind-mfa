@@ -2,9 +2,13 @@ import flodym as fd
 import numpy as np
 from scipy.optimize import minimize
 from pydantic import model_validator
+from logging import warning
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_extrapolations import Extrapolation
 
+
+class OptimizationError(Exception):
+    pass
 
 class StockFitter(RemindMFABaseModel):
     historic_stocks_pc: fd.FlodymArray
@@ -12,6 +16,7 @@ class StockFitter(RemindMFABaseModel):
     dims_out: fd.DimensionSet
     penalty_weights: dict
     predictor: np.ndarray
+    current_population: fd.FlodymArray
     _n_hist: int = None
 
     @model_validator(mode="after")
@@ -57,13 +62,20 @@ class StockFitter(RemindMFABaseModel):
             shape=(hdims["r"].len, hdims[self.goods_dim_letter].len, self.extrapolation.n_prms)
         )
         self._n_hist = hdims["h"].len
+        ids_failed = []
         for ig in range(hdims[self.goods_dim_letter].len):
             for ir in range(hdims["r"].len):
-                prms[ir, ig, :] = self.fit_single(
-                    historic=self.historic_stocks_pc.values[:, ir, ig],
-                    predictor=self.predictor[:, ir, ig],
-                    prms_0=self.extrapolation.fit_prms[ig, :],
-                )
+                try:
+                    prms[ir, ig, :] = self.fit_single(
+                            historic=self.historic_stocks_pc.values[:, ir, ig],
+                            predictor=self.predictor[:, ir, ig],
+                            prms_0=self.extrapolation.fit_prms[ig, :],
+                        )
+                except OptimizationError:
+                    prms[ir, ig, :] = self.extrapolation.fit_prms[ig, :]
+                    ids_failed.append((ir, ig))
+        if ids_failed:
+            self.warn_failed_optimization(ids_failed)
         values_out = self.extrapolation.func(
             self.predictor[np.newaxis, ...], np.moveaxis(prms[np.newaxis, ...], -1, 0)
         )
@@ -98,17 +110,29 @@ class StockFitter(RemindMFABaseModel):
             penalties.append(self.penalty(historic, predictor, x0, prms_0))
         min_penalty_idx = np.argmin(penalties)
         x0[1] = prms_0[1] + offsets[min_penalty_idx]
-
-        result = minimize(
-            fun=lambda prms: self.penalty(historic, predictor, prms, prms_0),
-            jac=lambda prms: self.jacobian(historic, predictor, prms, prms_0),
-            x0=x0,
-            tol=0.001,
-        )
+        with np.errstate(over="ignore"):  # ignore overflow warnings during optimization
+            result = minimize(
+                fun=lambda prms: self.penalty(historic, predictor, prms, prms_0),
+                jac=lambda prms: self.jacobian(historic, predictor, prms, prms_0),
+                x0=x0,
+                tol=0.001,
+            )
         if result.success:
             return result.x
         else:
-            raise RuntimeError(f"Optimization failed: {result.message}")
+            raise OptimizationError(f"Optimization failed: {result.message}")
+
+    def warn_failed_optimization(self, ids_failed):
+        failed_regions = set(ir for ir, ig in ids_failed)
+        n_failed_regions = len(failed_regions)
+        current_year  = self.historic_stocks_pc.dims["h"].items[-1]
+        current_stocks_pc = self.historic_stocks_pc[{"h": current_year}]
+        current_stocks = (current_stocks_pc * self.current_population).values
+        failed_stocks = current_stocks[ids_failed]
+        share_failed_stocks = failed_stocks.sum() / current_stocks.sum()
+        warning(f"Optimization failed for {len(ids_failed)} good-region combinations in "
+                f"{n_failed_regions} regions, affecting {share_failed_stocks:.2%} of total "
+                "stocks. Using initial parameters for those.")
 
     def penalty(
         self, historic: np.ndarray, predictor: np.ndarray, prms: np.ndarray, prms_0: np.ndarray

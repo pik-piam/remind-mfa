@@ -138,11 +138,13 @@ class CommonMFASystem(fd.MFASystem):
             ).values
         )
         logging.warning(
-            f"'{trade_name}': historic net exports exceed available domestic supply; "
-            f"scaled down {len(coords)} entries:\n{detail}"
-            f"\nNet exports reduced by up to {max_reduction:.0%} in a single region and year "
-            f"to cap them at domestic supply."
+            f"'{trade_name}' trade: historic net exports exceed available domestic supply; "
+            f"scaled down {len(coords)} entries in {len(by_region)} regions. "
+            f"Net exports reduced by up to {max_reduction:.0%} in a single region and year "
+            f"to cap them at domestic supply. Enable logging.DEBUG to see the affected regions "
+            "and categories."
         )
+        logging.debug(f"'Affected regions and categories:\n{detail}")
 
     def get_historical_use_inflow_by_trade_adjusted_split(
         self,
