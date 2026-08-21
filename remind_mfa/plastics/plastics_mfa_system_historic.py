@@ -73,7 +73,9 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         )
 
         with np.errstate(divide="ignore"):
-            self.parameters["material_shares_use_inflow"][...] = self.parameters["material_shares_use_inflow"].get_shares_over(("m",))
+            self.parameters["material_shares_use_inflow"][...] = self.parameters[
+                "material_shares_use_inflow"
+            ].get_shares_over(("m",))
         self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
         # get global good split from historic stock inflow
         self.parameters["global_good_shares_use_inflow"] = fd.Parameter(

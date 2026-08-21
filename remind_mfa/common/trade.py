@@ -37,7 +37,6 @@ class Trade(RemindMFABaseModel):
 
     def balance(self, to: str = "hmean", frozen_items: np.ndarray = None):
 
-
         global_imports = self.imports.sum_over("r")
         global_exports = self.exports.sum_over("r")
 
@@ -47,19 +46,26 @@ class Trade(RemindMFABaseModel):
         scalable_imports = self.imports.copy()
         scalable_exports = self.exports.copy()
         if frozen_items is not None:
-            scalable_imports.values[frozen_items] = 0.
-            scalable_exports.values[frozen_items] = 0.
+            scalable_imports.values[frozen_items] = 0.0
+            scalable_exports.values[frozen_items] = 0.0
         global_unscalable_imports = (self.imports - scalable_imports).sum_over("r")
         global_unscalable_exports = (self.exports - scalable_exports).sum_over("r")
 
-
-        import_factor = (global_reference_trade - global_unscalable_imports) / (global_imports - global_unscalable_imports).maximum(sys.float_info.epsilon)
-        export_factor = (global_reference_trade - global_unscalable_exports) / (global_exports - global_unscalable_exports).maximum(sys.float_info.epsilon)
+        import_factor = (global_reference_trade - global_unscalable_imports) / (
+            global_imports - global_unscalable_imports
+        ).maximum(sys.float_info.epsilon)
+        export_factor = (global_reference_trade - global_unscalable_exports) / (
+            global_exports - global_unscalable_exports
+        ).maximum(sys.float_info.epsilon)
 
         new_imports = self.imports * import_factor
         new_exports = self.exports * export_factor
 
-        scalable_items = np.logical_not(frozen_items) if frozen_items is not None else np.ones_like(self.imports.values, dtype=bool)
+        scalable_items = (
+            np.logical_not(frozen_items)
+            if frozen_items is not None
+            else np.ones_like(self.imports.values, dtype=bool)
+        )
         self.imports.values[scalable_items] = new_imports.values[scalable_items]
         self.exports.values[scalable_items] = new_exports.values[scalable_items]
 

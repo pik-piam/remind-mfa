@@ -29,7 +29,9 @@ def configure_logger():
                 if i == 0:
                     parts.append(textwrap.fill(line, width=_WIDTH, subsequent_indent=_INDENT))
                 else:
-                    parts.append(textwrap.fill(_INDENT + line, width=_WIDTH, subsequent_indent=_INDENT))
+                    parts.append(
+                        textwrap.fill(_INDENT + line, width=_WIDTH, subsequent_indent=_INDENT)
+                    )
             return "\n".join(parts)
 
     handler = logging.StreamHandler()

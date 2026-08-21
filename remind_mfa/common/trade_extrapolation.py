@@ -229,7 +229,7 @@ class TradeExtrapolator(RemindMFABaseModel):
             # Clamp to non-negative to avoid divergence.
             # Negative values here should only be in the order of epsilon anyways.
             excess_trade = excess_trade.minimum(self.future_first)
-            self.future_first[...] = (self.future_first - excess_trade)
+            self.future_first[...] = self.future_first - excess_trade
             frozen = excess_trade.cast_values_to(self.future_first.dims) > 0
             self.future_trade.balance(to="minimum", frozen_items=frozen)
 

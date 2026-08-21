@@ -10,6 +10,7 @@ from remind_mfa.common.data_extrapolations import Extrapolation
 class OptimizationError(Exception):
     pass
 
+
 class StockFitter(RemindMFABaseModel):
     historic_stocks_pc: fd.FlodymArray
     extrapolation: Extrapolation
@@ -67,10 +68,10 @@ class StockFitter(RemindMFABaseModel):
             for ir in range(hdims["r"].len):
                 try:
                     prms[ir, ig, :] = self.fit_single(
-                            historic=self.historic_stocks_pc.values[:, ir, ig],
-                            predictor=self.predictor[:, ir, ig],
-                            prms_0=self.extrapolation.fit_prms[ig, :],
-                        )
+                        historic=self.historic_stocks_pc.values[:, ir, ig],
+                        predictor=self.predictor[:, ir, ig],
+                        prms_0=self.extrapolation.fit_prms[ig, :],
+                    )
                 except OptimizationError:
                     prms[ir, ig, :] = self.extrapolation.fit_prms[ig, :]
                     ids_failed.append((ir, ig))
@@ -125,14 +126,16 @@ class StockFitter(RemindMFABaseModel):
     def warn_failed_optimization(self, ids_failed):
         failed_regions = set(ir for ir, ig in ids_failed)
         n_failed_regions = len(failed_regions)
-        current_year  = self.historic_stocks_pc.dims["h"].items[-1]
+        current_year = self.historic_stocks_pc.dims["h"].items[-1]
         current_stocks_pc = self.historic_stocks_pc[{"h": current_year}]
         current_stocks = (current_stocks_pc * self.current_population).values
         failed_stocks = current_stocks[ids_failed]
         share_failed_stocks = failed_stocks.sum() / current_stocks.sum()
-        warning(f"Optimization failed for {len(ids_failed)} good-region combinations in "
-                f"{n_failed_regions} regions, affecting {share_failed_stocks:.2%} of total "
-                "stocks. Using initial parameters for those.")
+        warning(
+            f"Optimization failed for {len(ids_failed)} good-region combinations in "
+            f"{n_failed_regions} regions, affecting {share_failed_stocks:.2%} of total "
+            "stocks. Using initial parameters for those."
+        )
 
     def penalty(
         self, historic: np.ndarray, predictor: np.ndarray, prms: np.ndarray, prms_0: np.ndarray

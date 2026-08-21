@@ -14,6 +14,7 @@ _root_logger = logging.getLogger()
 _prev_level = _root_logger.level
 _root_logger.setLevel(logging.WARNING)
 import pyam  # noqa: E402
+
 _root_logger.setLevel(_prev_level)
 del _root_logger, _prev_level
 
