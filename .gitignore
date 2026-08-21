@@ -10,3 +10,6 @@ site/
 CLAUDE.md
 madrat_output/
 .env
+config/*.toml
+!config/default.toml
+!config/mrindustry.toml

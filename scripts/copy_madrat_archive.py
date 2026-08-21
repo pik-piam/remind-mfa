@@ -3,23 +3,26 @@
 import shlex
 import subprocess
 from pathlib import Path
+from typing import Annotated
 
 import typer
-import yaml
 from dotenv import load_dotenv
 
+from remind_mfa.cli.helper import prompt_for_config_names
 from remind_mfa.common.common_config import InputCfg
 from remind_mfa.common.common_data_reader import CommonDataReader
+from remind_mfa.common.config_loader import load_config
 
 app = typer.Typer(add_completion=False)
 
 
-def read_input_cfg(config_path: str) -> InputCfg:
-    with open(config_path, "r", encoding="utf-8") as handle:
-        config = yaml.safe_load(handle)
+def read_input_cfg(config_names: list[str]) -> InputCfg:
+    config = load_config(config_names)
 
-    if not isinstance(config, dict) or "input" not in config:
-        raise ValueError(f"Config file '{config_path}' does not contain an 'input' section.")
+    if "input" not in config:
+        raise ValueError(
+            f"Configuration {', '.join(config_names)} does not contain an 'input' section."
+        )
 
     return InputCfg.model_validate(config["input"])
 
@@ -70,20 +73,30 @@ def copy_archive(remote_host: str, remote_archive_path: str, destination_dir: Pa
 
 @app.command()
 def main(
-    config: str = typer.Argument(..., help="Path to a remind-mfa YAML config file."),
     remote_host: str = typer.Argument(
         ..., help="Remote SSH target, for example user@host or an SSH config host alias."
     ),
     remote_dir: str = typer.Argument(
         ..., help="Remote directory that contains the rev*_mfa.tgz archives."
     ),
+    config_names: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--config",
+            help="Configuration name under config/. Repeat to stack configurations.",
+        ),
+    ] = None,
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Print the selected source and destination without running scp."
     ),
 ) -> None:
     """Copy the selected rev<revision>_<region>_*_mfa.tgz archive via scp."""
     load_dotenv()
-    input_cfg = read_input_cfg(config)
+
+    if not config_names:
+        config_names = prompt_for_config_names()
+
+    input_cfg = read_input_cfg(config_names)
     destination_dir = resolve_destination_path(input_cfg)
     pattern = CommonDataReader.build_target_tgz_pattern(
         input_cfg.input_data_revision, input_cfg.region_mapping

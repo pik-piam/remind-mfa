@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "../remind_mfa_data"
-        input_data_revision = "1.6.1"
+        input_data_revision = "2.0.0"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -41,7 +41,7 @@
         pickle.do_export = true
         csv.do_export = false
         iamc.do_export = false
-        mrindustry.do_export = true
+        mrindustry.do_export = false
         assumptions.do_export = false
         docs.do_export = false
 
@@ -53,7 +53,7 @@
     [plastics.visualization]
         figures_path = "data/plastics/output/figures"
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
-        material_splits.do_visualize = true
+        material_splits.do_visualize = false
         flows.do_visualize = false
 
     [plastics.export]

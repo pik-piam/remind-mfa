@@ -60,9 +60,9 @@ git clone https://gitlab.pik-potsdam.de/simson_data/remind_mfa_data.git
 - Set the environment variable `MADRAT_OUTPUTFOLDER` to a folder where the madrat output data should be stored (it can be a relative path), e.g., `export MADRAT_OUTPUTFOLDER=madrat_output`. Alternatively, you can set the environment variable in a `.env` file in the main directory of the repository.
 - If you're not running remind-mfa on the cluster, then copy the madrat output data to the local madrat folder by running
 ```bash
-uv run scripts/copy_madrat_archive.py config/steel.yml <hpc> /p/projects/rd3mod/inputdata/output_1.27
+uv run scripts/copy_madrat_archive.py --config default --config  mrindustry <hpc> /p/projects/rd3mod/inputdata/output
 ```
-where `<hpc>` is the ssh address/alias of the PIK cluster.
+where `<hpc>` is the ssh address/alias of the PIK cluster, e.g., `<Your PIK user name>@hpc.pik-potsdam.de`.
 
 
 ## Questions / Problems

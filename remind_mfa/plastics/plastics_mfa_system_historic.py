@@ -13,6 +13,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         Perform all computations for the MFA system.
         """
         self.fill_trade()
+        self.trade_set.balance(to="maximum")
         self.compute_flows()
         self.compute_historic_stock()
         self.check_mass_balance()
@@ -23,20 +24,30 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         flw = self.flows
         trd = self.trade_set
 
-        flw["sysenv => fabrication"][...] = (
-            prm["consumption"] * self.parameters["material_shares_in_goods"]
+        flw["sysenv => polymerization"][...] = prm["production"]
+        flw["polymerization => primary_market"][...] = flw["sysenv => polymerization"]
+
+        # primary net exports are capped to not exceed domestic production, else fabrication inflow goes negative
+        self.cap_historical_net_exports_to_supply(
+            "primary_his", flw["polymerization => primary_market"]
         )
 
-        # exports of final goods cannot exceed plastics fabrication
-        trd["final_his"].exports[...] = trd["final_his"].exports.minimum(
-            flw["sysenv => fabrication"]
+        flw["primary_market => fabrication"][...] = (
+            flw["polymerization => primary_market"] + trd["primary_his"].net_imports
         )
-        trd["final_his"].balance(to="minimum")
+        flw["fabrication => good_market"][...] = flw["primary_market => fabrication"]
 
-        flw["fabrication => good_market"][...] = flw["sysenv => fabrication"]
-        flw["good_market => use"][...] = (
-            flw["fabrication => good_market"] - trd["final_his"].exports + trd["final_his"].imports
+        # final net exports (per good and material) are capped to not exceed fabrication supply
+        # stop-over trade is allowed, but positive net imports of one good cannot be balanced by re-exporting a different good
+        self.cap_historical_net_exports_to_supply("final_his", flw["fabrication => good_market"])
+
+        # distribute the good_market => use flow among the good & material categories
+        flw["good_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
+            "final_his", flw["fabrication => good_market"], prm["sector_polymer_split"], ("g", "m")
         )
+
+        flw["primary_market => sysenv"][...] = trd["primary_his"].exports
+        flw["sysenv => primary_market"][...] = trd["primary_his"].imports
         flw["good_market => sysenv"][...] = trd["final_his"].exports
         flw["sysenv => good_market"][...] = trd["final_his"].imports
 
@@ -54,13 +65,16 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         # get material split from historic stock inflow
         self.parameters["material_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "r", "m", "g"],
-            values=(self.flows["good_market => use"]).get_shares_over(("m",)).values,
+            values=(self.flows["good_market => use"].maximum(0))
+            .sum_over(("p",))
+            .get_shares_over(("m",))
+            .values,
         )
-        # get good split from historic stock inflow
-        self.parameters["good_shares_use_inflow"] = fd.Parameter(
-            dims=self.dims["h", "r", "g"],
-            values=(self.flows["good_market => use"])
-            .sum_over(("m",))
+        # get global good split from historic stock inflow
+        self.parameters["global_good_shares_use_inflow"] = fd.Parameter(
+            dims=self.dims["h", "g"],
+            values=(self.flows["good_market => use"].maximum(0))
+            .sum_over(("m", "r", "p"))
             .get_shares_over(("g",))
             .values,
         )
