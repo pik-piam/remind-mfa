@@ -216,17 +216,23 @@ class TradeExtrapolator(RemindMFABaseModel):
         which is why we repeat the process iteratively until the excess is sufficiently small.
         """
         self.future_trade.balance(to="hmean")
-        for i in range(10):
+        tolerance = self.scaler_first
+
+        max_value = self.scaler_first.values.max()
+        epsilon = np.finfo(self.scaler_first.values.dtype).eps
+        tolerance = epsilon * max_value * 100
+        for i in range(50):
             scaler_second = self.scaler_first - self.future_first + self.future_second
             excess_trade = -(scaler_second.minimum(0.0))
-            total_excess = excess_trade.sum_over("r")
-            if np.max(total_excess.values) < 0.1:
+            if excess_trade.values.max() < tolerance:
                 break
-            # Clamp to >= 0: without this, a large excess can drive regional imports negative,
-            # after which balance() divides by a near-zero/negative global total and the result
-            # diverges (or leaves global trade unbalanced).
-            self.future_first[...] = (self.future_first - excess_trade).maximum(0)
-            self.future_trade.balance(to="minimum")
+            # Clamp such that future_first stays non-negative to avoid divergence.
+            # Negative values here only occur if scaler_first or future_second are negative,
+            # e.g. due to previous tolerances,
+            excess_trade = excess_trade.minimum(self.future_first)
+            self.future_first[...] = self.future_first - excess_trade
+            frozen = excess_trade.cast_values_to(self.future_first.dims) > 0
+            self.future_trade.balance(to="minimum", frozen_items=frozen)
 
         np.testing.assert_array_almost_equal(
             self.future_first.sum_over(

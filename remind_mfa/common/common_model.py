@@ -47,9 +47,11 @@ class CommonModel:
         self.init_export_and_visualization()
 
     def run(self):
+        logging.info("Running historical MFA system...")
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
 
+        logging.info("Extrapolating parameters...")
         self.transfer_historic_parameters()
 
         historic_trade = self.historic_mfa.trade_set
@@ -59,8 +61,10 @@ class CommonModel:
         self.extrapolate_parameters()
         self.check_parameters()
 
+        logging.info("Extrapolating in-use stock...")
         stock_projection = self.get_long_term_stock()
 
+        logging.info("Running future MFA system...")
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(stock_projection, historic_trade)
 
