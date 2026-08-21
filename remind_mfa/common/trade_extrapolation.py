@@ -226,8 +226,9 @@ class TradeExtrapolator(RemindMFABaseModel):
             excess_trade = -(scaler_second.minimum(0.0))
             if excess_trade.values.max() < tolerance:
                 break
-            # Clamp to non-negative to avoid divergence.
-            # Negative values here should only be in the order of epsilon anyways.
+            # Clamp such that future_first stays non-negative to avoid divergence.
+            # Negative values here only occur if scaler_first or future_second are negative,
+            # e.g. due to previous tolerances,
             excess_trade = excess_trade.minimum(self.future_first)
             self.future_first[...] = self.future_first - excess_trade
             frozen = excess_trade.cast_values_to(self.future_first.dims) > 0
