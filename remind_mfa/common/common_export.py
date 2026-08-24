@@ -12,18 +12,11 @@ import flodym.export as fde
 
 _root_logger = logging.getLogger()
 _prev_level = _root_logger.level
-_prev_handlers = _root_logger.handlers[:]
 _root_logger.setLevel(logging.WARNING)
 import pyam  # noqa: E402
 
-if _root_logger.handlers != _prev_handlers:
-    for _handler in _root_logger.handlers[:]:
-        _root_logger.removeHandler(_handler)
-    for _handler in _prev_handlers:
-        _root_logger.addHandler(_handler)
-
 _root_logger.setLevel(_prev_level)
-del _root_logger, _prev_handlers, _prev_level
+del _root_logger, _prev_level
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
