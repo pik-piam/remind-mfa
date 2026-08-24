@@ -3,6 +3,7 @@ import numpy as np
 from scipy.optimize import minimize
 from pydantic import model_validator
 from logging import warning
+from tqdm import tqdm
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_extrapolations import Extrapolation
 
@@ -64,17 +65,25 @@ class StockFitter(RemindMFABaseModel):
         )
         self._n_hist = hdims["h"].len
         ids_failed = []
-        for ig in range(hdims[self.goods_dim_letter].len):
-            for ir in range(hdims["r"].len):
-                try:
-                    prms[ir, ig, :] = self.fit_single(
-                        historic=self.historic_stocks_pc.values[:, ir, ig],
-                        predictor=self.predictor[:, ir, ig],
-                        prms_0=self.extrapolation.fit_prms[ig, :],
-                    )
-                except OptimizationError:
-                    prms[ir, ig, :] = self.extrapolation.fit_prms[ig, :]
-                    ids_failed.append((ir, ig))
+        n_r = hdims["r"].len
+        n_g = hdims[self.goods_dim_letter].len
+        iterator = np.ndindex((n_r, n_g))
+        status_bar = tqdm(
+            iterator,
+            desc=" "*29 + "Regional adaptation:",
+            total=n_r * n_g,
+            ncols=132,
+        )
+        for ir, ig in status_bar:
+            try:
+                prms[ir, ig, :] = self.fit_single(
+                    historic=self.historic_stocks_pc.values[:, ir, ig],
+                    predictor=self.predictor[:, ir, ig],
+                    prms_0=self.extrapolation.fit_prms[ig, :],
+                )
+            except OptimizationError:
+                prms[ir, ig, :] = self.extrapolation.fit_prms[ig, :]
+                ids_failed.append((ir, ig))
         if ids_failed:
             self.warn_failed_optimization(ids_failed)
         values_out = self.extrapolation.func(
