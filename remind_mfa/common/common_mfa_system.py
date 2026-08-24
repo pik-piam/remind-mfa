@@ -91,8 +91,8 @@ class CommonMFASystem(fd.MFASystem):
             export_factor = (net_exports_total - net_export_excess) / net_exports_total.maximum(eps)
             trade.exports[...] = trade.exports - net_exports * (1 - export_factor)
 
-            frozen = net_export_excess.cast_values_to(trade.exports.dims) > 0
-            trade.balance(to="minimum", frozen_items=frozen)
+            scaled = net_export_excess.cast_values_to(trade.exports.dims) == 0
+            trade.balance(to="minimum", mask_scaled=scaled)
         else:
             logging.warning(
                 f"'{trade_name}': positive-net-export cap did not converge after 50 iterations."

@@ -1,6 +1,7 @@
 from pydantic import model_validator
 from remind_mfa.common.helpers import RemindMFABaseModel
 from typing import List
+from types import EllipsisType
 import numpy as np
 from scipy.stats import gmean, hmean
 import sys
@@ -35,39 +36,41 @@ class Trade(RemindMFABaseModel):
     def net_exports(self):
         return self.exports - self.imports
 
-    def balance(self, to: str = "hmean", frozen_items: np.ndarray = None):
+    def balance(self, to: str = "hmean", mask_scaled: EllipsisType | np.ndarray = Ellipsis):
+        """
+        Balances the trade data to ensure that the global imports and exports are consistent.
+        (Market clearing, i.e. global imports = global exports.)
+
+        Args:
+            to (str, optional): The method to use for calculating the reference trade from imports and exports. Defaults to "hmean".
+            mask_scaled (np.ndarray, optional): A boolean mask indicating which elements to scale. Ellipsis (default) means all elements are scaled.
+        """
 
         global_imports = self.imports.sum_over("r")
         global_exports = self.exports.sum_over("r")
 
-        global_reference_trade = self.get_reference_trade(global_imports, global_exports, to)
-        global_reference_trade.apply(np.nan_to_num, inplace=True)
+        reference_trade = self.get_reference_trade(global_imports, global_exports, to)
+        reference_trade.apply(np.nan_to_num, inplace=True)
 
-        scalable_imports = self.imports.copy()
-        scalable_exports = self.exports.copy()
-        if frozen_items is not None:
-            scalable_imports.values[frozen_items] = 0.0
-            scalable_exports.values[frozen_items] = 0.0
-        global_unscalable_imports = (self.imports - scalable_imports).sum_over("r")
-        global_unscalable_exports = (self.exports - scalable_exports).sum_over("r")
+        for flow in [self.imports, self.exports]:
+            global_actual = flow.sum_over("r")
+            global_target = reference_trade.copy()
 
-        import_factor = (global_reference_trade - global_unscalable_imports) / (
-            global_imports - global_unscalable_imports
-        ).maximum(sys.float_info.epsilon)
-        export_factor = (global_reference_trade - global_unscalable_exports) / (
-            global_exports - global_unscalable_exports
-        ).maximum(sys.float_info.epsilon)
+            if mask_scaled is not Ellipsis:
+                # subtract the value of some fixed items from both targets and actuals,
+                # then scale the remaining items to meet the target
 
-        new_imports = self.imports * import_factor
-        new_exports = self.exports * export_factor
+                fixed = flow.copy()
+                fixed.values[mask_scaled] = 0.0
+                global_fixed = fixed.sum_over("r")
 
-        scalable_items = (
-            np.logical_not(frozen_items)
-            if frozen_items is not None
-            else np.ones_like(self.imports.values, dtype=bool)
-        )
-        self.imports.values[scalable_items] = new_imports.values[scalable_items]
-        self.exports.values[scalable_items] = new_exports.values[scalable_items]
+                global_target = global_target - global_fixed
+                global_actual = global_actual - global_fixed
+
+            flow_factor = global_target / global_actual.maximum(sys.float_info.epsilon)
+
+            new_flow = flow * flow_factor
+            flow.values[mask_scaled] = new_flow.values[mask_scaled]
 
     @staticmethod
     def get_reference_trade(

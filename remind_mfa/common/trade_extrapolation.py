@@ -212,7 +212,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         Balancing might result in a situation where imports exceed total demand or exports
         exceed total supply, which would lead to a negative flow on one side of the trade
         market. If this is the case, we scale down the trade flow which is too big.
-        We then balance trades again, which might lead to the situation described above again,
+        We then balance trades again, which might lead to excess trade in further regions,
         which is why we repeat the process iteratively until the excess is sufficiently small.
         """
         self.future_trade.balance(to="hmean")
@@ -220,7 +220,7 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         max_value = self.scaler_first.values.max()
         epsilon = np.finfo(self.scaler_first.values.dtype).eps
-        tolerance = epsilon * max_value * 100
+        tolerance = epsilon * max_value * 10
         for i in range(50):
             scaler_second = self.scaler_first - self.future_first + self.future_second
             excess_trade = -(scaler_second.minimum(0.0))
@@ -231,17 +231,20 @@ class TradeExtrapolator(RemindMFABaseModel):
             # e.g. due to previous tolerances,
             excess_trade = excess_trade.minimum(self.future_first)
             self.future_first[...] = self.future_first - excess_trade
-            frozen = excess_trade.cast_values_to(self.future_first.dims) > 0
-            self.future_trade.balance(to="minimum", frozen_items=frozen)
 
-        np.testing.assert_array_almost_equal(
+            # only scale the items without excess trade,
+            # otherwise we would create new excess trade by scaling down the opposite flows
+            scaled = excess_trade.cast_values_to(self.future_first.dims) == 0
+            self.future_trade.balance(to="minimum", mask_scaled=scaled)
+
+        assert np.allclose(
             self.future_first.sum_over(
                 "r",
             ).values,
             self.future_second.sum_over(
                 "r",
             ).values,
-            decimal=0,
+            rtol=epsilon * 10,
         )
 
     def scaling(
