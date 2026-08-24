@@ -70,7 +70,7 @@ class StockFitter(RemindMFABaseModel):
         iterator = np.ndindex((n_r, n_g))
         status_bar = tqdm(
             iterator,
-            desc=" "*29 + "Regional adaptation:",
+            desc=" " * 29 + "Regional adaptation:",
             total=n_r * n_g,
             ncols=132,
         )
