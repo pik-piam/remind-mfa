@@ -314,6 +314,7 @@ class StockExtrapolation(RemindMFABaseModel):
             predictor=self.single_predictor,
             dims_out=self.dims_out,
             penalty_weights=penalty_weights,
+            current_population=self.pop[{"t": self.dims["h"].items[-1]}],
         )
         self.fitted_regression = stock_fitter.fit()
 
