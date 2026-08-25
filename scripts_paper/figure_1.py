@@ -1,6 +1,7 @@
 import pickle
 import flodym as fd
 import pathlib
+import csv
 from dataclasses import dataclass
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -15,7 +16,7 @@ from constants import (
     REGION_DISPLAY_NAMES,
     RUN_CEMENT,
     RUN_PLASTICS,
-    RUN_STEEL,
+    RUN_STEEL_ISO249,
     AGG_REGIONS,
     AGG_REGION_ORDER,
     AGG_COLOR_PALETTE,
@@ -46,7 +47,7 @@ RUN_CONFIGS = [
     RunConfig(
         directory=PATH_STEEL,
         label="b) Steel",
-        run_name=RUN_STEEL,
+        run_name=RUN_STEEL_ISO249,
         flow_name="forming => ip_market",
         last_historical_year=LAST_HISTORICAL_YEAR_STEEL,
     ),
@@ -68,13 +69,52 @@ def _get_column_name(df, target_name: str) -> str:
     raise KeyError(f"Could not find column '{target_name}' in dataframe columns {list(df.columns)}")
 
 
-def _map_region(region: str) -> str:
-    return AGG_REGIONS.get(str(region), str(region))
+def _load_country_to_h12_mapping(mapping_path: pathlib.Path) -> dict[str, str]:
+    country_to_h12: dict[str, str] = {}
+    with mapping_path.open("r", encoding="utf-8") as mapping_file:
+        reader = csv.reader(mapping_file, delimiter=";")
+        headers = next(reader, None)
+        if headers is None:
+            return country_to_h12
+
+        for row in reader:
+            if not row:
+                continue
+
+            # The mapping file currently stores rows like
+            # "idx;CountryName;ISO3;H12" while the header is inconsistent.
+            if len(row) >= 4:
+                country_code = row[2].strip().upper()
+                h12_region = row[3].strip()
+            elif len(row) >= 3:
+                country_code = row[1].strip().upper()
+                h12_region = row[2].strip()
+            else:
+                continue
+
+            if country_code and h12_region:
+                country_to_h12[country_code] = h12_region
+    return country_to_h12
 
 
-def _aggregate_region_timeseries(df, time_col: str, region_col: str, value_col: str):
+def _map_region(region: str, region_mappings: tuple[dict[str, str], ...]) -> str:
+    mapped_region = str(region).strip()
+    for mapping in region_mappings:
+        mapped_region = mapping.get(mapped_region, mapped_region)
+    return mapped_region
+
+
+def _aggregate_region_timeseries(
+    df,
+    time_col: str,
+    region_col: str,
+    value_col: str,
+    region_mappings: tuple[dict[str, str], ...],
+):
     aggregated = df.copy()
-    aggregated[region_col] = aggregated[region_col].map(_map_region)
+    aggregated[region_col] = aggregated[region_col].map(
+        lambda region: _map_region(region, region_mappings)
+    )
     return (
         aggregated.groupby([time_col, region_col], as_index=False)[value_col]
         .sum()
@@ -90,6 +130,9 @@ def _ordered_regions(present_regions, reverse: bool = False):
     if reverse:
         remainder = remainder[::-1]
     return configured + remainder
+
+
+COUNTRY_TO_H12 = _load_country_to_h12_mapping(pathlib.Path(__file__).with_name("regionmapping.csv"))
 
 
 fig = make_subplots(
@@ -137,6 +180,10 @@ def _get_region_symbol(region: str) -> str:
 
 for i, config in enumerate(RUN_CONFIGS):
     col = i + 1
+    region_mappings = (
+        (COUNTRY_TO_H12, AGG_REGIONS) if config.run_name == RUN_STEEL_ISO249 else (AGG_REGIONS,)
+    )
+
     pickle_path = config.directory / f"{config.run_name}.pickle"
     with pickle_path.open("rb") as file_handle:
         mfa = pickle.load(file_handle).future_mfa
@@ -145,7 +192,9 @@ for i, config in enumerate(RUN_CONFIGS):
     time_col_flow = _get_column_name(flow, "Time")
     region_col_flow = _get_column_name(flow, "Region")
     value_col_flow = _get_column_name(flow, "value")
-    flow = _aggregate_region_timeseries(flow, time_col_flow, region_col_flow, value_col_flow)
+    flow = _aggregate_region_timeseries(
+        flow, time_col_flow, region_col_flow, value_col_flow, region_mappings
+    )
 
     stock = mfa.stocks["in_use"].stock
     if config.stock_index is not None:
@@ -161,9 +210,11 @@ for i, config in enumerate(RUN_CONFIGS):
     region_col_pop = _get_column_name(population, "Region")
     value_col_pop = _get_column_name(population, "value")
 
-    stock = _aggregate_region_timeseries(stock, time_col_stock, region_col_stock, value_col_stock)
+    stock = _aggregate_region_timeseries(
+        stock, time_col_stock, region_col_stock, value_col_stock, region_mappings
+    )
     population = _aggregate_region_timeseries(
-        population, time_col_pop, region_col_pop, value_col_pop
+        population, time_col_pop, region_col_pop, value_col_pop, region_mappings
     )
 
     stock_pc = stock.merge(
