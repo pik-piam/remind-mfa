@@ -624,7 +624,7 @@ wheels = [
 
 [[package]]
 name = "flodym"
-version = "0.8.1"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deprecated" },
@@ -639,9 +639,9 @@ dependencies = [
     { name = "scipy" },
     { name = "tabulate" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b5/93/0f4682ab29f67cc3b2ea69059743b193a40c9ce9f9b39cb728378afc551f/flodym-0.8.1.tar.gz", hash = "sha256:941886957fe2c6e98a005eea77660863d2d095ae2a76846e0db5da5c0243377b", size = 63062, upload-time = "2026-04-27T15:58:47.289Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/38/dc0d2be7000571338f57cd8fb6707ee5dc0a5b6e2c10c0ba509983901fa0/flodym-1.0.0.tar.gz", hash = "sha256:112e4f91ce369569a0085dae1723cba366804bd4d5a2dc1008ea2b3994090de9", size = 52226, upload-time = "2026-08-26T08:55:30.848Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/ac/44d1e2cf35af13f85d4dface65f978c423c365e0185a4d26be10809f407b/flodym-0.8.1-py3-none-any.whl", hash = "sha256:62830d0e8cac163048157e5ab13c41cbc3feed1b950e17b08f3ab1b91f4304a2", size = 54838, upload-time = "2026-04-27T15:58:45.845Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/05/d69306a291ef59502cf1f412cedfa6603afb4f5b107d682d6add792b9bee/flodym-1.0.0-py3-none-any.whl", hash = "sha256:b7ba65b4d2da0accf67b82ec68c3a1972b9d253c0e9d85e14d70cdc1d784e205", size = 60723, upload-time = "2026-08-26T08:55:29.466Z" },
 ]
 
 [[package]]
@@ -2704,7 +2704,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "flodym", specifier = ">=0.8.0" },
+    { name = "flodym", specifier = ">=1.0.0" },
     { name = "ixmp4", specifier = ">=0.16.4" },
     { name = "matplotlib", specifier = ">=3.7.1,!=3.9.1" },
     { name = "numpy", specifier = ">=1.25.0" },
