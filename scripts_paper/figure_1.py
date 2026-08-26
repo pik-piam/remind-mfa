@@ -35,6 +35,7 @@ LEFT_Y_TITLE_XSHIFT = -30
 MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 LEGEND_FONT_SIZE = 13
 
+
 @dataclass(frozen=True)
 class RunConfig:
     directory: pathlib.Path
