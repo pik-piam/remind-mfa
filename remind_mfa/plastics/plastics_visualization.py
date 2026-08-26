@@ -341,6 +341,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
+        # material shares are extrapolated by keeping the last historic value constant in the future, so we visualize the last historic year
         material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}].sum_over(("p",))
         material_shares = material_shares.cumsum(dim_letter="m")
 
