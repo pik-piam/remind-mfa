@@ -2,6 +2,7 @@ import pickle
 import flodym as fd
 import pathlib
 from dataclasses import dataclass
+import colorsys
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from constants import (
@@ -24,6 +25,15 @@ import os
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
+
+LINE_WIDTH_SCALE = 1.5
+LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
+LINE_WIDTH_STACK = 0.5 * LINE_WIDTH_SCALE
+LINE_WIDTH_VLINE = 1.2 * LINE_WIDTH_SCALE
+LEFT_Y_TITLE_X = 0
+LEFT_Y_TITLE_XSHIFT = -30
+MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
+LEGEND_FONT_SIZE = 13
 
 @dataclass(frozen=True)
 class RunConfig:
@@ -99,26 +109,8 @@ fig = make_subplots(
     horizontal_spacing=0.08,
 )
 
-LINE_WIDTH_SCALE = 0.75
-LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
-LINE_WIDTH_STACK = 0.5 * LINE_WIDTH_SCALE
-LINE_WIDTH_VLINE = 2 * LINE_WIDTH_SCALE
-LEFT_Y_TITLE_X = 0
-LEFT_Y_TITLE_XSHIFT = -30
-
 seen_regions = set()
 region_colors = {}
-region_symbols = {}
-SYMBOL_CYCLE = [
-    "circle",
-    "square",
-    "diamond",
-    "triangle-up",
-    "cross",
-    "x",
-    "triangle-down",
-    "pentagon",
-]
 
 
 def _get_region_color(region: str) -> str:
@@ -129,10 +121,31 @@ def _get_region_color(region: str) -> str:
     return region_colors[region]
 
 
-def _get_region_symbol(region: str) -> str:
-    if region not in region_symbols:
-        region_symbols[region] = SYMBOL_CYCLE[len(region_symbols) % len(SYMBOL_CYCLE)]
-    return region_symbols[region]
+def _hex_to_rgb01(color: str):
+    color = color.lstrip("#")
+    return tuple(int(color[i : i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def _rgb01_to_hex(rgb):
+    return "#" + "".join(f"{round(channel * 255):02x}" for channel in rgb)
+
+
+def _cap_color_brightness(color: str, maximum_brightness: float) -> str:
+    if not color.startswith("#") or len(color) != 7:
+        return color
+
+    red, green, blue = _hex_to_rgb01(color)
+    hue, saturation, brightness = colorsys.rgb_to_hsv(red, green, blue)
+    capped_brightness = min(brightness, maximum_brightness)
+    if capped_brightness == brightness:
+        return color
+    capped_rgb = colorsys.hsv_to_rgb(hue, saturation, capped_brightness)
+    return _rgb01_to_hex(capped_rgb)
+
+
+def _legend_name(label: str, color: str) -> str:
+    legend_text_color = _cap_color_brightness(color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
+    return f'<span style="color:{legend_text_color}">{label}</span>'
 
 
 for i, config in enumerate(RUN_CONFIGS):
@@ -227,51 +240,15 @@ for i, config in enumerate(RUN_CONFIGS):
         legend_label = REGION_DISPLAY_NAMES.get(region_code, region_code)
         show_legend = region_code not in seen_regions
         region_color = _get_region_color(region_code)
-        region_symbol = _get_region_symbol(region_code)
 
-        # Trace 1: Continuous line on plot
         fig.add_trace(
             go.Scatter(
                 x=region_df[time_col_stock],
                 y=region_df[value_col_stock],
                 mode="lines",
-                name=legend_label,
-                legendgroup=region_code,
-                showlegend=False,
-                line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
-            ),
-            row=1,
-            col=col,
-        )
-
-        # Trace 2: Markers every 20th point on plot
-        marker_df = region_df.iloc[::20]
-        fig.add_trace(
-            go.Scatter(
-                x=marker_df[time_col_stock],
-                y=marker_df[value_col_stock],
-                mode="markers",
-                name=legend_label,
-                legendgroup=region_code,
-                showlegend=False,
-                marker={"color": region_color, "size": 9, "symbol": region_symbol},
-            ),
-            row=1,
-            col=col,
-        )
-
-        # Trace 3: Legend entry with markers on all points and dummy line outside range
-        legend_x = [1700, 1700]
-        legend_y = [0, 0.1]
-        fig.add_trace(
-            go.Scatter(
-                x=legend_x,
-                y=legend_y,
-                mode="lines+markers",
-                name=legend_label,
+                name=_legend_name(legend_label, region_color),
                 legendgroup=region_code,
                 showlegend=show_legend,
-                marker={"color": region_color, "size": 9, "symbol": region_symbol},
                 line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
             ),
             row=1,
@@ -286,7 +263,7 @@ for i, config in enumerate(RUN_CONFIGS):
             x=global_avg[time_col_stock],
             y=global_avg[value_col_stock],
             mode="lines",
-            name="World",
+            name=_legend_name("World", "black"),
             legendgroup="world",
             showlegend=(col == 1),
             line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
@@ -303,48 +280,15 @@ for i, config in enumerate(RUN_CONFIGS):
         legend_label = REGION_DISPLAY_NAMES.get(region_code, region_code)
         show_legend = region_code not in seen_regions
         region_color = _get_region_color(region_code)
-        region_symbol = _get_region_symbol(region_code)
 
         fig.add_trace(
             go.Scatter(
                 x=region_df[time_col_flow],
                 y=region_df[value_col_flow],
                 mode="lines",
-                name=legend_label,
-                legendgroup=region_code,
-                showlegend=False,
-                line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
-            ),
-            row=2,
-            col=col,
-        )
-
-        marker_df = region_df.iloc[::20]
-        fig.add_trace(
-            go.Scatter(
-                x=marker_df[time_col_flow],
-                y=marker_df[value_col_flow],
-                mode="markers",
-                name=legend_label,
-                legendgroup=region_code,
-                showlegend=False,
-                marker={"color": region_color, "size": 9, "symbol": region_symbol},
-            ),
-            row=2,
-            col=col,
-        )
-
-        legend_x = [1700, 1700]
-        legend_y = [0, 0.1]
-        fig.add_trace(
-            go.Scatter(
-                x=legend_x,
-                y=legend_y,
-                mode="lines+markers",
-                name=legend_label,
+                name=_legend_name(legend_label, region_color),
                 legendgroup=region_code,
                 showlegend=show_legend,
-                marker={"color": region_color, "size": 9, "symbol": region_symbol},
                 line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
             ),
             row=2,
@@ -357,7 +301,7 @@ for i, config in enumerate(RUN_CONFIGS):
             x=global_production[time_col_flow],
             y=global_production[value_col_flow],
             mode="lines",
-            name="World",
+            name=_legend_name("World", "black"),
             legendgroup="world",
             showlegend=False,
             line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
@@ -464,6 +408,7 @@ fig.update_layout(
         "xanchor": "center",
         "y": 1.08,
         "yanchor": "bottom",
+        "font": {"size": LEGEND_FONT_SIZE},
         "bordercolor": "black",
         "borderwidth": 1,
     },

@@ -12,7 +12,7 @@ RUN_STEEL_SSP1 = "model_steel_SSP1_h12_2026-07-30--10-05-55"
 RUN_STEEL_SSP1_LD = "model_steel_SSP1_LD_h12_2026-07-30--10-06-32"
 
 LAST_HISTORICAL_YEAR_CEMENT = 2023
-LAST_HISTORICAL_YEAR_PLASTICS = 2019
+LAST_HISTORICAL_YEAR_PLASTICS = 2024
 LAST_HISTORICAL_YEAR_STEEL = 2022
 
 REGION_DISPLAY_NAMES = {
@@ -54,17 +54,18 @@ AGG_REGION_ORDER = [
 ]
 
 VIRIDIS_MOD_5 = [
-    "#D6C73D",
-    "#56BB58",
-    "#28858B",
-    "#2F4E94",
+    "#EECF69",
+    "#99BB63",
+    "#2C9688",
+    "#415A9E",
     "#6B2F2B",
 ]
 OKABE_ITO_5 = [
     "#0072B2",  # blue
     "#009E73",  # bluish green
-    "#F0E442",  # yellow
+    "#D6C73D",
     "#E69F00",  # orange
+    # "#D55E00",  # vermillion
     "#CC79A7",  # reddish purple
 ]
 # ONLY FOR REFERENCE
@@ -75,6 +76,7 @@ OKABE_ITO_8 = [
     "#F0E442",  # yellow
     "#0072B2",  # blue
     "#CC79A7",  # reddish purple
+    "#D55E00",  # vermillion
     "#000000",  # black
 ]
 # CMAP_5 = OKABE_ITO_5
