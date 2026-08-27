@@ -1167,7 +1167,7 @@ def _(px, share_comparison, share_region_picker):
 def _(mo):
     mo.md(r"""
     - Difference between BIR reported and BIR consumption / Worldsteel production is due to the fact that BIR's reports slightly different data for the crude steel production denominator in the PDFs (although the source apparently is Worldsteel as well). For example, in 2013: Worldsteel reports 1,653 Mt, BIR reports 1,607 Mt. For a scrap consumption of 580 Mt, this results in a scrap share of 35.1% vs. 36.1%.
-    - Difference with Worldsteel consumption / production is due to the fact that the Worldsteel yearbook digitisation reports a lower scrap consumption than BIR (e.g. 2006: 459.3 Mt vs. 500 Mt).
+    - Difference with Worldsteel consumption / production is due to the fact that the Worldsteel yearbook reports a lower scrap consumption than BIR (e.g. 2006: 459.3 Mt vs. 500 Mt).
     - It's surprising to me that scrap + EAF share actually decreases over time
     """)
     return
@@ -1265,9 +1265,12 @@ def _(np, pd, regression_data):
         },
         index=regression_outputs,
     )
+    _design
     return (
         linear_regression_coefficients,
+        regression_inputs,
         regression_metrics,
+        regression_outputs,
         regression_predictions,
     )
 
@@ -1335,6 +1338,120 @@ def _(pd, px, regression_predictions):
         col="all",
     )
     _plot
+    return
+
+
+@app.cell
+def _(mo, pd, regression_data):
+    from scipy.optimize import nnls
+
+    _allowed_routes = {
+        "scrap": ["bof", "eaf"],
+        "pigiron": ["bof", "eaf"],
+        "dri": ["eaf"],
+    }
+    _requirements = pd.DataFrame(
+        0.0,
+        index=["scrap", "pigiron", "dri"],
+        columns=["bof", "eaf"],
+    )
+    for _input, _routes in _allowed_routes.items():
+        _coefficients, _ = nnls(
+            regression_data[_routes].to_numpy(),
+            regression_data[_input].to_numpy(),
+        )
+        _requirements.loc[_input, _routes] = _coefficients
+
+    input_requirements = (
+        _requirements.T.rename_axis("route")
+        .reset_index()
+        .assign(route=lambda data: data["route"].str.upper())
+    )
+    mo.vstack(
+        [
+            mo.md("""
+            ### Inputs needed per 1 Mt of crude steel
+
+            Estimated with a non-negative regression through the origin, with DRI
+            restricted to the EAF route. Values are Mt input per Mt crude steel.
+            """),
+            mo.ui.table(
+                input_requirements,
+                label="Estimated input required for 1 Mt crude steel production [Mt/Mt]",
+            ),
+        ]
+    )
+    return (nnls,)
+
+
+@app.cell
+def _(
+    mo,
+    nnls,
+    np,
+    pd,
+    regression_data,
+    regression_inputs,
+    regression_outputs,
+):
+    _X = regression_data[regression_inputs].to_numpy()
+    _Y = regression_data[regression_outputs].to_numpy()
+
+    # Estimate production: solve for A in the equation X * A = Y
+    result_lstsq = np.linalg.lstsq(_X, _Y, rcond=None)[0]
+    result_nnls = np.vstack([nnls(_X, _Y[:, j])[0] for j in range(_Y.shape[1])]).T
+
+    # Estimate production requirements for 1t of crude steel: solve for B in the equation Y * B = X
+    result_lstsq_inv = np.linalg.lstsq(_Y, _X, rcond=None)[0]
+    result_nnls_inv = np.vstack([nnls(_Y, _X[:, j])[0] for j in range(_X.shape[1])]).T
+
+    mo.vstack(
+        [
+            mo.md(
+                """
+            ### Comparison of linear regression and non-negative least squares
+            """
+            ),
+            pd.DataFrame(
+                result_lstsq,
+                index=regression_inputs,
+                columns=regression_outputs,
+            )
+            .reset_index(names="input")
+            .rename(columns={"index": "input"}),
+            pd.DataFrame(
+                result_nnls,
+                index=regression_inputs,
+                columns=regression_outputs,
+            )
+            .reset_index(names="input")
+            .rename(columns={"index": "input"}),
+            mo.md(
+                """
+            ### Comparison of linear regression and non-negative least squares (inverse)
+            """
+            ),
+            pd.DataFrame(
+                result_lstsq_inv,
+                index=regression_outputs,
+                columns=regression_inputs,
+            )
+            .reset_index(names="output")
+            .rename(columns={"index": "output"}),
+            pd.DataFrame(
+                result_nnls_inv,
+                index=regression_outputs,
+                columns=regression_inputs,
+            )
+            .reset_index(names="output")
+            .rename(columns={"index": "output"}),
+        ]
+    )
+    return
+
+
+@app.cell
+def _():
     return
 
 
