@@ -4,7 +4,6 @@ import pathlib
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from constants import (
-    COLOR_PALETTE,
     LAST_HISTORICAL_YEAR_STEEL,
     PATH_STEEL,
     RUN_STEEL,
@@ -26,6 +25,10 @@ X_RANGE = [2000, 2100]
 X_TICKS = [2000, 2050, 2100]
 SCENARIO_COLORS = CMAP_5[::-2]
 RUN_COLOR_MAP = {label: SCENARIO_COLORS[i] for i, label in enumerate(LABELS)}
+LINE_WIDTH_SCALE = 1.5
+LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
+LINE_WIDTH_VLINE = 1.2 * LINE_WIDTH_SCALE
+LEGEND_FONT_SIZE = 13
 
 
 def _get_column_name(df, target_name: str) -> str:
@@ -132,7 +135,7 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
                     legendgroup=str(run_label),
                     showlegend=legend,
                     legendrank=run_legend_rank.get(str(run_label), len(LABELS) + 100),
-                    line={"color": RUN_COLOR_MAP.get(str(run_label))},
+                    line={"color": RUN_COLOR_MAP.get(str(run_label)), "width": LINE_WIDTH_DEFAULT},
                 ),
                 row=panel_row,
                 col=panel_col,
@@ -164,6 +167,7 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
             x=LAST_HISTORICAL_YEAR_STEEL,
             line_dash="dash",
             line_color="black",
+            line_width=LINE_WIDTH_VLINE,
             row=row,
             col=col,
         )
@@ -172,6 +176,7 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
         x=LAST_HISTORICAL_YEAR_STEEL,
         line_dash="dash",
         line_color="black",
+        line_width=LINE_WIDTH_VLINE,
         row=1,
         col=1,
     )
@@ -239,7 +244,7 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
             "yanchor": "bottom",
             "orientation": "h",
             "traceorder": "normal",
-            "bgcolor": "white",
+            "font": {"size": LEGEND_FONT_SIZE},
             "bordercolor": "black",
             "borderwidth": 1,
         },

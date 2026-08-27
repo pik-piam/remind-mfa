@@ -3,16 +3,18 @@ import pathlib
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from constants import (
-    COLOR_PALETTE,
     LAST_HISTORICAL_YEAR_STEEL,
     PATH_STEEL,
     REGION_DISPLAY_NAMES,
     RUN_STEEL,
-    AGG_REGIONS,
-    AGG_REGION_ORDER,
-    AGG_COLOR_PALETTE,
 )
 import os
+import utils
+from utils import (
+    get_column_name as _get_column_name,
+    aggregate_region_timeseries as _aggregate_region_timeseries,
+    ordered_regions as _ordered_regions,
+)
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
@@ -21,50 +23,11 @@ TRADE_NAME = "steel"
 RUN = RUN_STEEL
 X_RANGE = [2000, 2100]
 X_TICKS = [2000, 2050, 2100]
-LINE_WIDTH_SCALE = 0.9
+LINE_WIDTH_SCALE = 1.5
 LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
 LINE_WIDTH_VLINE = 2 * LINE_WIDTH_SCALE
-SYMBOL_CYCLE = [
-    "circle",
-    "square",
-    "diamond",
-    "triangle-up",
-    "cross",
-    "x",
-    "triangle-down",
-    "pentagon",
-]
-
-
-def _get_column_name(df, target_name: str) -> str:
-    for column in df.columns:
-        if str(column).strip().lower() == target_name.lower():
-            return column
-    raise KeyError(f"Could not find column '{target_name}' in dataframe columns {list(df.columns)}")
-
-
-def _map_region(region: str) -> str:
-    return AGG_REGIONS.get(str(region), str(region))
-
-
-def _aggregate_region_timeseries(df, time_col: str, region_col: str, value_col: str):
-    aggregated = df.copy()
-    aggregated[region_col] = aggregated[region_col].map(_map_region)
-    return (
-        aggregated.groupby([time_col, region_col], as_index=False)[value_col]
-        .sum()
-        .sort_values([region_col, time_col])
-    )
-
-
-def _ordered_regions(present_regions, reverse: bool = False):
-    ordered_from_config = AGG_REGION_ORDER[::-1] if reverse else AGG_REGION_ORDER
-    present = [str(region) for region in present_regions]
-    configured = [region for region in ordered_from_config if region in present]
-    remainder = sorted(region for region in present if region not in set(AGG_REGION_ORDER))
-    if reverse:
-        remainder = remainder[::-1]
-    return configured + remainder
+MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
+LEGEND_FONT_SIZE = 13
 
 
 def _build_figure(data_imports, data_exports, data_fabrication, data_forming) -> go.Figure:
@@ -113,19 +76,12 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
     )
 
     region_colors = {}
-    region_symbols = {}
 
     def _get_region_color(region: str) -> str:
-        if region not in region_colors:
-            region_colors[region] = AGG_COLOR_PALETTE.get(
-                region, COLOR_PALETTE[len(region_colors) % len(COLOR_PALETTE)]
-            )
-        return region_colors[region]
+        return utils.get_region_color(region, region_colors)
 
-    def _get_region_symbol(region: str) -> str:
-        if region not in region_symbols:
-            region_symbols[region] = SYMBOL_CYCLE[len(region_symbols) % len(SYMBOL_CYCLE)]
-        return region_symbols[region]
+    def _legend_name(label: str, color: str) -> str:
+        return utils.legend_name(label, color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
 
     fig = make_subplots(
         rows=2,
@@ -135,6 +91,8 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
         horizontal_spacing=0.12,
     )
 
+    seen_regions: set = set()
+
     def _add_region_traces(df, row: int, col: int, include_legend: bool = False):
         for region_code in region_codes:
             region_df = df[df[region_col] == region_code].sort_values(time_col)
@@ -143,52 +101,23 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
 
             legend_label = REGION_DISPLAY_NAMES.get(region_code, region_code)
             region_color = _get_region_color(region_code)
-            region_symbol = _get_region_symbol(region_code)
+            show_legend = include_legend and region_code not in seen_regions
 
             fig.add_trace(
                 go.Scatter(
                     x=region_df[time_col],
                     y=region_df[value_col],
                     mode="lines",
-                    name=legend_label,
+                    name=_legend_name(legend_label, region_color),
                     legendgroup=region_code,
-                    showlegend=False,
+                    showlegend=show_legend,
                     line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
                 ),
                 row=row,
                 col=col,
             )
-
-            marker_df = region_df.iloc[::20]
-            fig.add_trace(
-                go.Scatter(
-                    x=marker_df[time_col],
-                    y=marker_df[value_col],
-                    mode="markers",
-                    name=legend_label,
-                    legendgroup=region_code,
-                    showlegend=False,
-                    marker={"color": region_color, "size": 9, "symbol": region_symbol},
-                ),
-                row=row,
-                col=col,
-            )
-
-            if include_legend:
-                fig.add_trace(
-                    go.Scatter(
-                        x=[1700, 1700],
-                        y=[0, 0.1],
-                        mode="lines+markers",
-                        name=legend_label,
-                        legendgroup=region_code,
-                        showlegend=True,
-                        marker={"color": region_color, "size": 9, "symbol": region_symbol},
-                        line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
-                    ),
-                    row=row,
-                    col=col,
-                )
+            if show_legend:
+                seen_regions.add(region_code)
 
     _add_region_traces(data_exports, row=1, col=1, include_legend=True)
     _add_region_traces(data_imports, row=2, col=1, include_legend=False)
@@ -235,7 +164,13 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
         template="plotly_white",
         width=750,
         height=500,
-        legend={"y": 0.5, "yanchor": "middle"},
+        legend={
+            "y": 0.5,
+            "yanchor": "middle",
+            "font": {"size": LEGEND_FONT_SIZE},
+            "bordercolor": "black",
+            "borderwidth": 1,
+        },
         margin={"t": 50, "b": 50, "l": 50, "r": 50},
     )
     return fig
