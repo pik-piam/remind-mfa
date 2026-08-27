@@ -62,32 +62,32 @@ This means the child scenario only needs to specify parameters that **differ** f
 
 Each scenario CSV file contains rows of parameter data points. The columns are:
 
-| Column           | Required | Description |
-|------------------|----------|-------------|
-| `parameter`      | ✅       | Name of the parameter to set. Must match a parameter definition (see below). |
-| `value`          | ✅       | The numeric value to assign. For extrapolated parameters, this can also be the name of another parameter (see [Parameter Extrapolation](#parameter-extrapolation)). |
-| `models`         | ❌       | Which material models this row applies to. Use `all` (default) or a comma-separated list of model names (e.g. `steel`, `plastics`, `cement`, `steel, plastics`). Rows not matching the current model are ignored. |
-| `index:<dim>`    | ❌       | Filter by dimension item. E.g. `index:Region` with value `EUR` sets the parameter only for that region. Multiple index columns can be combined. If no index columns are present, the entire parameter array is set to `value`. |
-| `extra:<suffix>` | ❌       | Set an additional related parameter named `<parameter>_<suffix>` to the given value in the same row. This requires a separate parameter definition for `<parameter>_<suffix>` to exist. Useful for parameters that come in groups (e.g. a parameter `recycling_rate` with `extra:uncertainty` will also set `recycling_rate_uncertainty`). Extrapolated parameters handle extras differently: extras like `extra:year` and `extra:type` are stored with the scenario parameter and control the extrapolation (see [Parameter Extrapolation](#parameter-extrapolation)). |
+| Column      | Required | Description |
+|-------------|----------|-------------|
+| `parameter` | ✅       | Name of the parameter to set. Must match a parameter definition (see below). |
+| `value`     | ✅       | The numeric value to assign. For extrapolated parameters, this can also be the name of another parameter (see [Parameter Extrapolation](#parameter-extrapolation)). |
+| `models`    | ❌       | Which material models this row applies to. Use `all` (default) or a comma-separated list of model names (e.g. `steel`, `plastics`, `cement`, `steel, plastics`). Rows not matching the current model are ignored. |
+| `index`     | ❌       | Filter by dimension items. Provide a dict like `{Region: EUR}`. Multiple dimensions can be combined: `{Region: EUR, Function: Res}`. If omitted, the entire parameter array is set to `value`. A dimension value can be a list — `{Region: [EUR, USA]}` — to apply the same row to all listed items without repetition. Multiple lists are expanded via cross-product. |
+| `extra`     | ❌       | Auxiliary values for this row. Provide a dict like `{uncertainty: 0.05}`. For plain parameters, each key sets an additional parameter named `<parameter>_<key>` (a definition for it must exist). For extrapolated parameters, the keys `year` and `type` control the extrapolation (see [Parameter Extrapolation](#parameter-extrapolation)). |
 
 **Example:**
 
-    parameter,models,index:Region,value,extra:uncertainty
-    recycling_rate,steel,EUR,0.9,0.05
-    recycling_rate,steel,USA,0.85,0.04
-    carbon_tax,all,,50,
-    growth_factor,plastics,,1.2,
+    parameter,models,value,extra,index,description
+    recycling_rate,steel,0.9,"{year: 2035}","{Region: EUR}",
+    recycling_rate,steel,0.85,"{year: 2045}","{Region: USA}",
+    recycling_rate,steel,0.7,"{year: 2045}","{Region: [CHN, IND, OAS]}",
+    growth_factor,all,1.2,,,
 
-- Row 1: For the `steel` model, set `recycling_rate` at `Region=EUR` to `0.9`, and `recycling_rate_uncertainty` at `Region=EUR` to `0.05`.
+- Row 1: For `steel`, set `recycling_rate[Region=EUR]` to `0.9` and `recycling_rate_uncertainty[Region=EUR]` to `0.05`.
 - Row 2: Same parameter, different region.
-- Row 3: For all models, set the entire `carbon_tax` parameter to `50`.
-- Row 4: Only for `plastics`, set `growth_factor` to `1.2`.
+- Row 3: For `steel`, set `recycling_rate` and `recycling_rate_uncertainty` for three regions with a single row (expanded internally to one data point per region).
+- Row 4: For all models, set the entire `growth_factor` parameter to `1.2`.
 
 ### Value Parsing
 
-- Numeric strings are parsed as `int` or `float`.
-- Strings that look like Python literals (lists, dicts) are parsed via `ast.literal_eval`.
-- Empty cells are treated as `None` and ignored for index/extra columns.
+- The `value` column: numeric strings are parsed as `int` or `float`; other strings are returned as-is (e.g. parameter names for extrapolation endpoints).
+- The `index` and `extra` columns contain dicts in the form `{key: value, key2: value2}`. Keys and bare-word string values do not need quotes; numeric values are parsed automatically. Lists are written as `[v1, v2, v3]`. Because dicts contain commas, the cell must be wrapped in double quotes in the CSV file (standard CSV quoting).
+- An empty `index` or `extra` cell is treated as no index / no extras.
 
 ---
 
@@ -159,7 +159,7 @@ In your model class (subclass of `CommonModel`), define `custom_scn_prm_def`:
             PlainDataPointDefinition(name="carbon_tax"),
         ]
 
-Note that if you use `extra:uncertainty` in a CSV row for the parameter `recycling_rate`, a definition for `recycling_rate_uncertainty` **must** exist in the parameter definitions. The `extra:` mechanism does not create definitions automatically — it only sets values on already-defined parameters.
+Note that if you use `{uncertainty: 0.05}` in the `extra` column for the parameter `recycling_rate`, a definition for `recycling_rate_uncertainty` **must** exist in the parameter definitions. The `extra` column does not create definitions automatically — it only sets values on already-defined parameters.
 
 These model-specific definitions are merged with `common_scn_prm_def` from `remind_mfa/common/common_definition.py` and passed to the `ScenarioReader`.
 
@@ -169,12 +169,14 @@ These model-specific definitions are merged with `common_scn_prm_def` from `remi
 
 The `ExtrapolationDefinition` in the model definition holds the modelling decisions (blending, split handling), while the scenario decisions are stored in the scenario CSVs. REMIND-MFA connects the two through the parameter name.
 
-A CSV row for an extrapolated parameter provides the endpoint of a blend: the parameter transitions from its historic values towards the endpoint given in the `value` column. Two `extra:` columns control how:
+A CSV row for an extrapolated parameter provides the endpoint of a blend: the parameter transitions from its historic values towards the endpoint given in the `value` column. The `extra` column controls how:
 
-| Extra        | Description |
-|--------------|-------------|
-| `extra:year` | The year by which the endpoint is reached. Must lie after the last historic year (earlier years raise an error). A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
-| `extra:type` | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `extra:year`. Target means that the parameter blends from the last historic value to the scenario value. |
+| Key in `extra` | Description |
+|----------------|-------------|
+| `year`         | The year by which the endpoint is reached. Must lie after the last historic year (earlier years raise an error). A value without `year` has no effect (the entry keeps its baseline) and triggers a warning. |
+| `type`         | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `year`. Target means that the parameter blends from the last historic value to the scenario value. |
+
+Example: `"{year: 2060, type: target}"` in the `extra` column.
 
 Only one type per parameter is supported: declaring it on a single row (e.g. in the base scenario) is enough and also covers inherited rows, while mixed declarations raise an error. A row with `extra:year` but no type declared anywhere for that parameter raises an error as well.
 

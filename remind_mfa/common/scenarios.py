@@ -1,6 +1,7 @@
 import os
 import ast
 import csv
+import itertools
 import numpy as np
 import flodym as fd
 from pydantic import Field, field_validator, model_validator
@@ -192,7 +193,9 @@ class ScenarioReader(RemindMFABaseModel):
         parent = self._read_parent_from_inheritance(name)
         with open(file_name, "r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(self._iter_active_csv_lines(f))
-            data_points = [self._parse_csv_row(row) for row in reader]
+            data_points = []
+            for row in reader:
+                data_points.extend(self._parse_csv_row(row))
         return Scenario(name=name, parent=parent, data=data_points)
 
     @staticmethod
@@ -204,27 +207,29 @@ class ScenarioReader(RemindMFABaseModel):
             yield line
 
     @staticmethod
-    def _parse_csv_row(row: dict) -> "ScenarioDataPoint":
-        parsed = {col: ScenarioReader._parse_csv_value(val) for col, val in row.items()}
-        index_prefix = "index:"
-        index = {
-            col[len(index_prefix) :]: parsed[col]
-            for col in parsed
-            if col.startswith(index_prefix) and parsed[col] is not None
-        }
-        extra_prefix = "extra:"
-        extra = {
-            col[len(extra_prefix) :]: parsed[col]
-            for col in parsed
-            if col.startswith(extra_prefix) and row[col].strip() != ""
-        }
-        return ScenarioDataPoint(
-            parameter=parsed["parameter"],
-            models=parsed["models"] if parsed["models"] is not None else "all",
-            value=parsed["value"],
-            index=index,
-            extra=extra,
-        )
+    def _parse_csv_row(row: dict) -> list:
+        value = ScenarioReader._parse_csv_value(row.get("value", ""))
+        models_raw = (row.get("models") or "").strip()
+        models = ScenarioReader._parse_csv_value(models_raw) if models_raw else None
+
+        index_raw = (row.get("index") or "").strip()
+        index_dict = ScenarioReader._parse_dict_column(index_raw) if index_raw else {}
+
+        extra_raw = (row.get("extra") or "").strip()
+        extra_dict = ScenarioReader._parse_dict_column(extra_raw) if extra_raw else {}
+
+        index_combinations = ScenarioReader._expand_index(index_dict)
+
+        return [
+            ScenarioDataPoint(
+                parameter=row["parameter"],
+                models=models if models is not None else "all",
+                value=value,
+                index=combo,
+                extra=extra_dict,
+            )
+            for combo in index_combinations
+        ]
 
     @staticmethod
     def _parse_csv_value(val: str):
@@ -235,6 +240,94 @@ class ScenarioReader(RemindMFABaseModel):
             return ast.literal_eval(val)
         except (ValueError, SyntaxError):
             return val
+
+    @staticmethod
+    def _parse_dict_column(s: str) -> dict:
+        """Parse a dict from an index or extra column.
+
+        Accepts ``{key: value, key2: [v1, v2]}`` with or without quotes around
+        bare identifiers and strings.  Numeric values are returned as numbers;
+        everything else is returned as a string.
+        """
+        s = s.strip()
+        if not s:
+            return {}
+        if not (s.startswith("{") and s.endswith("}")):
+            raise ValueError(
+                f"Expected a dict (starting with '{{' and ending with '}}'), got: {s!r}"
+            )
+        inner = s[1:-1].strip()
+        if not inner:
+            return {}
+        result = {}
+        for part in ScenarioReader._split_top_level(inner, ","):
+            colon_idx = part.index(":")
+            key = part[:colon_idx].strip().strip("\"'")
+            val_str = part[colon_idx + 1 :].strip()
+            result[key] = ScenarioReader._parse_dict_value(val_str)
+        return result
+
+    @staticmethod
+    def _parse_dict_value(s: str):
+        """Parse a single value that may be a number, quoted/bare string, or a list."""
+        s = s.strip()
+        if s.startswith("[") and s.endswith("]"):
+            inner = s[1:-1].strip()
+            if not inner:
+                return []
+            return [
+                ScenarioReader._parse_dict_value(v.strip())
+                for v in ScenarioReader._split_top_level(inner, ",")
+            ]
+        try:
+            return ast.literal_eval(s)
+        except (ValueError, SyntaxError):
+            pass
+        # Bare identifier (unquoted string)
+        return s.strip("\"'")
+
+    @staticmethod
+    def _split_top_level(s: str, sep: str) -> list:
+        """Split *s* by *sep* while ignoring the separator inside brackets or quotes."""
+        parts = []
+        depth = 0
+        in_str = None
+        current = []
+        for c in s:
+            if in_str:
+                current.append(c)
+                if c == in_str:
+                    in_str = None
+            elif c in ('"', "'"):
+                in_str = c
+                current.append(c)
+            elif c in "([{":
+                depth += 1
+                current.append(c)
+            elif c in ")]}":
+                depth -= 1
+                current.append(c)
+            elif c == sep and depth == 0:
+                parts.append("".join(current).strip())
+                current = []
+            else:
+                current.append(c)
+        if current:
+            parts.append("".join(current).strip())
+        return parts
+
+    @staticmethod
+    def _expand_index(index: dict) -> list:
+        """Expand list values in an index dict into all index combinations.
+
+        ``{Region: [IND, LAM], Function: RS}`` expands to
+        ``[{Region: IND, Function: RS}, {Region: LAM, Function: RS}]``.
+        """
+        if not index:
+            return [{}]
+        keys = list(index.keys())
+        values_lists = [v if isinstance(v, list) else [v] for v in index.values()]
+        return [dict(zip(keys, combo)) for combo in itertools.product(*values_lists)]
 
     def _read_parent_from_inheritance(self, name: str) -> Optional[str]:
         inheritance_file = os.path.join(self.base_path, "inheritance.csv")
