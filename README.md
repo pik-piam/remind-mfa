@@ -32,13 +32,21 @@ python -m pip install .
 
 To run a model, run
 
-```
-uv run run_remind_mfa.py [path to config]
+```shell
+uv run run_remind_mfa.py --config default --material steel
 ```
 
-from the main directory, where `[path to config]` is the path to a configuration file, such as `config/steel.yml`.
+from the main directory. Configuration names resolve to TOML files below `config`, so
+`default` selects `config/default.toml`. Repeat `--config` to stack configurations in
+order, with later files overriding earlier files:
 
-You can change parameters for the run in these configuration files located in the `config` folder.
+```shell
+python run_remind_mfa.py --config default --config local --material all
+```
+See the
+[configuration documentation](docs/config.md) for the file layout and merge rules.
+
+You can also simply run `python run_remind_mfa.py` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
 
@@ -52,9 +60,9 @@ git clone https://gitlab.pik-potsdam.de/simson_data/remind_mfa_data.git
 - Set the environment variable `MADRAT_OUTPUTFOLDER` to a folder where the madrat output data should be stored (it can be a relative path), e.g., `export MADRAT_OUTPUTFOLDER=madrat_output`. Alternatively, you can set the environment variable in a `.env` file in the main directory of the repository.
 - If you're not running remind-mfa on the cluster, then copy the madrat output data to the local madrat folder by running
 ```bash
-uv run scripts/copy_madrat_archive.py config/steel.yml <hpc> /p/projects/rd3mod/inputdata/output_1.27
+uv run scripts/copy_madrat_archive.py --config default --config  mrindustry <hpc> /p/projects/rd3mod/inputdata/output
 ```
-where `<hpc>` is the ssh address/alias of the PIK cluster.
+where `<hpc>` is the ssh address/alias of the PIK cluster, e.g., `<Your PIK user name>@hpc.pik-potsdam.de`.
 
 
 ## Questions / Problems
