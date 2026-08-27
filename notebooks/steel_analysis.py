@@ -1370,11 +1370,9 @@ def _(
 
     mo.vstack(
         [
-            mo.md(
-                """
+            mo.md("""
             ### Comparison of linear regression and non-negative least squares
-            """
-            ),
+            """),
             pd.DataFrame(
                 result_lstsq,
                 index=regression_inputs,
@@ -1389,11 +1387,9 @@ def _(
             )
             .reset_index(names="input")
             .rename(columns={"index": "input"}),
-            mo.md(
-                """
+            mo.md("""
             ### Comparison of linear regression and non-negative least squares (inverse)
-            """
-            ),
+            """),
             pd.DataFrame(
                 result_lstsq_inv,
                 index=regression_outputs,
