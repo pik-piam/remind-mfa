@@ -66,7 +66,7 @@ class CommonMFASystem(fd.MFASystem):
         """
         trade = self.trade_set[trade_name]
         eps = sys.float_info.epsilon
-        tolerance = 100 * self._absolute_float_precision
+        tolerance = 10 * self._absolute_float_precision
         # Compare net exports and supply on the dimensions they share. The trade may be more
         # granular than the supply (e.g. per-good indirect exports vs. total fabrication supply)
         # or coarser (e.g. aggregate scrap exports vs. per-good recovered scrap), so both are
@@ -90,7 +90,9 @@ class CommonMFASystem(fd.MFASystem):
             # keeping their imports (same-good stop-over) untouched; factor in [0, 1]
             export_factor = (net_exports_total - net_export_excess) / net_exports_total.maximum(eps)
             trade.exports[...] = trade.exports - net_exports * (1 - export_factor)
-            trade.balance(to="minimum")
+
+            scaled = net_export_excess.cast_values_to(trade.exports.dims) == 0
+            trade.balance(to="minimum", mask_scaled=scaled)
         else:
             logging.warning(
                 f"'{trade_name}': positive-net-export cap did not converge after 50 iterations."
@@ -138,11 +140,13 @@ class CommonMFASystem(fd.MFASystem):
             ).values
         )
         logging.warning(
-            f"'{trade_name}': historic net exports exceed available domestic supply; "
-            f"scaled down {len(coords)} entries:\n{detail}"
-            f"\nNet exports reduced by up to {max_reduction:.0%} in a single region and year "
-            f"to cap them at domestic supply."
+            f"'{trade_name}' trade: historic net exports exceed available domestic supply; "
+            f"scaled down {len(coords)} entries in {len(by_region)} regions. "
+            f"Net exports reduced by up to {max_reduction:.0%} in a single region and year "
+            f"to cap them at domestic supply. Enable logging.DEBUG to see the affected regions "
+            "and categories."
         )
+        logging.debug(f"'Affected regions and categories:\n{detail}")
 
     def get_historical_use_inflow_by_trade_adjusted_split(
         self,

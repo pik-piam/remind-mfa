@@ -137,6 +137,12 @@ class CommonVisualizer(RemindMFABaseModel):
         for dimletter in other_dimletters:
             stock = stock.sum_over(dimletter)
 
+        # Remove stocks below a threshold to avoid plots being dominated by very small regions with bad data.
+        # pop_threshold = 1e6
+        # current_pop = population[{"t": mfa.dims["h"].items[-1]}]
+        # current_pop = current_pop.cast_values_to(stock.dims)
+        # stock.values[current_pop < pop_threshold] = 0
+
         if per_capita:
             stock = stock / population
 
