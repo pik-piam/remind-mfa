@@ -170,7 +170,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         aux["upstream_losses"][...] = - aux["net_other_polymerization_input"].minimum(0) # the negative part is counted as upstream losses
         flw["polymerization => losses"][...] = aux["total_polymerization_feed"] - flw["polymerization => primary_market"] + aux["upstream_losses"]
         flw["losses => sysenv"][...] = flw["polymerization => losses"]
-        aux["HVC_c_content"][...] = flw["HVC_input => polymerization"] / flw["HVC_input => polymerization"].sum_to(("t", "r"))
+        # guard against 0/0 in region-years with no HVC input (e.g. countries that never
+        # polymerize at iso resolution): the numerator is also 0 there, so the share is 0.
+        aux["HVC_c_content"][...] = flw["HVC_input => polymerization"] / flw["HVC_input => polymerization"].sum_to(("t", "r")).maximum(sys.float_info.epsilon)
 
         # chemical recycling
         flw["reclchem => HVC_input"][...] = flw["collected => reclchem"].sum_to(("t", "r")) * aux["HVC_c_content"] * prm["chemical_recycling_yield"] # TODO: differentiate yield by element instead of using C content of HVC!
@@ -187,7 +189,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["emission => atmosphere"][...] = flw["incineration => emission"] + flw["reclchem => emission"] - flw["emission => captured"]
         flw["captured => feedccu"][...] = flw["emission => captured"]
         # non-C of CCU HVC production has to be calculated based on the same ratio as in overall HVC production
-        aux["HVC_ratio_nonc_to_c"][...] = aux["total_primary_HVC"]["Other Elements"] / aux["total_primary_HVC"]["C"]
+        aux["HVC_ratio_nonc_to_c"][...] = aux["total_primary_HVC"]["Other Elements"] / aux["total_primary_HVC"]["C"].maximum(sys.float_info.epsilon)
         flw["feedccu => HVC_input"]["C"] = flw["captured => feedccu"]["C"]
         flw["feedccu => HVC_input"]["Other Elements"] = flw["feedccu => HVC_input"]["C"] * aux["HVC_ratio_nonc_to_c"]
         flw["feedfoss => HVC_input"][...] = (
