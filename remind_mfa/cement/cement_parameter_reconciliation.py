@@ -54,15 +54,15 @@ class CementParameterReconciliation:
         anchored objective would then re-request every iteration.
 
     Dimension handling:
-        - The good dimension ``g`` is reduced to the common good ``u`` (Res/Com). The bottom-up
-          side is computed at the bottom-up good resolution ``b`` (RS/RM/Com) and aggregated
-          to ``u`` (Res = RS + RM). In ``u``, top-down and bottom-up information overlap.
+        - The end-use dimension ``u`` is reduced to the common end use ``c`` (Res/Com). The bottom-up
+          side is computed at the bottom-up end-use resolution ``b`` (RS/RM/Com) and aggregated
+          to ``c`` (Res = RS + RM). In ``c``, top-down and bottom-up information overlap.
         - Each parameter receives one correction factor per element of its dimensions
           except time (``t``/``h``): corrections are constant across all time steps.
         - Split parameters are re-normalized to sum to 1 after each correction. Full splits
           (every dim item is covered in the reconciliation: dwelling/structure) are scaled
           proportionally. Partial splits (only a subset of dim items covered: concrete for the
-          material split, Res/Com for the good split) keep their reconciled values and
+          material split, Res/Com for the end-use split) keep their reconciled values and
           let the unused complement (mortar; Civ/Ind) absorb ``1 - sum(reconciled)``.
           Note: dwelling_split and structure_split are accessed exclusively via
           ``get_shares_over`` in the model, so their absolute scale does not affect any
@@ -74,7 +74,7 @@ class CementParameterReconciliation:
         "structure_split": ("Structure",),
         "dwelling_split": ("Dwelling Type",),
         "product_material_split": ("Product Material",),
-        "good_split": ("Good",),
+        "end_use_split": ("End Use",),
     }
 
     def __init__(
@@ -96,10 +96,10 @@ class CementParameterReconciliation:
         self.ref_mfa = ref_mfa
         self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
 
-        self.reduced_good = ref_mfa.dims["u"]
+        self.reduced_end_use = ref_mfa.dims["c"]
         self._reconciled_split_items = {
             "product_material_split": ("concrete",),
-            "good_split": tuple(self.reduced_good.items),
+            "end_use_split": tuple(self.reduced_end_use.items),
         }
 
         # parameters will get one correction factor across all time steps.
@@ -135,9 +135,9 @@ class CementParameterReconciliation:
     def reduce_prm(self, prm_name: str, prm: fd.FlodymArray) -> fd.FlodymArray:
         """Reduce a parameter (or an array with the parameter's dims) to the dimensions
         used during reconciliation."""
-        # reduce good dimension to the common good (Res/Com)
-        if "g" in prm.dims.letters:
-            prm = prm[{"g": self.reduced_good}]
+        # reduce end-use dimension to the common end use (Res/Com)
+        if "u" in prm.dims.letters:
+            prm = prm[{"u": self.reduced_end_use}]
         # remove time dimension
         if prm_name in ["floorspace"]:
             prm = prm[{"t": self._year_of_reconciliation}]
@@ -146,8 +146,8 @@ class CementParameterReconciliation:
     def prepare_flws(self):
         self.flws: dict[str, fd.Flow] = {}
         for key, val in self.ref_mfa.flows.items():
-            if "g" in val.dims.letters:
-                val = val[{"g": self.reduced_good}]  # slicing returns a new array
+            if "u" in val.dims.letters:
+                val = val[{"u": self.reduced_end_use}]  # slicing returns a new array
             else:
                 val = deepcopy(val)  # protect ref_mfa flows from in-place modification
             self.flws[key] = val
@@ -156,10 +156,10 @@ class CementParameterReconciliation:
         self.stks: dict[str, fd.Stock] = {}
         for key, val in self.ref_mfa.stocks.items():
             val = deepcopy(val)
-            if "g" in val.dims.letters:
-                val.inflow = val.inflow[{"g": self.reduced_good}]
-                val.outflow = val.outflow[{"g": self.reduced_good}]
-                val.stock = val.stock[{"g": self.reduced_good}]
+            if "u" in val.dims.letters:
+                val.inflow = val.inflow[{"u": self.reduced_end_use}]
+                val.outflow = val.outflow[{"u": self.reduced_end_use}]
+                val.stock = val.stock[{"u": self.reduced_end_use}]
                 val.dims = val.inflow.dims
                 if hasattr(val, "lifetime_model"):
                     val.lifetime_model.dims = val.inflow.dims
@@ -286,7 +286,7 @@ class CementParameterReconciliation:
         )
 
         # 2. Reduce dimensions to match top-down stock dimensions
-        return aggregate_bu_to_common(concrete_stk.sum_over("s"), self.reduced_good)
+        return aggregate_bu_to_common(concrete_stk.sum_over("s"), self.reduced_end_use)
 
     def compute_sensitivities(
         self, td: fd.FlodymArray, bu: fd.FlodymArray
@@ -442,7 +442,7 @@ class CementParameterReconciliation:
         """
         Iterate over all element combinations of a DimensionSet, yielding dict slicers.
 
-        Yields dicts like {'r': 'USA', 'u': 'Res'} for each element in the Cartesian product.
+        Yields dicts like {'r': 'USA', 'c': 'Res'} for each element in the Cartesian product.
         Order matches numpy flatten (C-order): last dimension varies fastest.
         """
         items_per_dim = [d.items for d in dims]
@@ -468,7 +468,7 @@ class CementParameterReconciliation:
 
         Args:
             J: FlodymArray with dims = union(output_dims, param_dims)
-            output_dims: Dimensions of the model output (e.g., region, common good)
+            output_dims: Dimensions of the model output (e.g., region, common end use)
             param_dims: Dimensions of the parameter being varied
 
         Returns:
@@ -558,7 +558,7 @@ class CementParameterReconciliation:
             "cement_production": 0.0,
             "cement_ratio": 0.1,
             "product_material_split": 0.4,
-            "good_split": 0.5,
+            "end_use_split": 0.5,
             "lifetime_mean": 0.4,
             "lifetime_std": 0.0,
         }
@@ -597,17 +597,17 @@ class CementParameterReconciliation:
     def cast_correction_to_original_prm_dim(
         self, prm_name: str, correction_factor: fd.FlodymArray
     ) -> fd.FlodymArray:
-        """Expand a common-good (u) correction back to the parameter's good dimension
-        (g), filling the goods outside the reconciliation (Ind/Civ) with 1.0 (no correction).
-        Parameters natively resolved at u (e.g. floorspace) need no cast."""
+        """Expand a common-end-use (c) correction back to the parameter's end-use dimension
+        (u), filling the end uses outside the reconciliation (Ind/Civ) with 1.0 (no correction).
+        Parameters natively resolved at c (e.g. floorspace) need no cast."""
         original_letters = self.output_prms[prm_name].dims.letters
-        if "u" not in correction_factor.dims.letters or "g" not in original_letters:
+        if "c" not in correction_factor.dims.letters or "u" not in original_letters:
             return correction_factor
 
         # build new correction factor
-        new_dims = correction_factor.dims.replace(self.reduced_good.letter, self.input_dims["g"])
+        new_dims = correction_factor.dims.replace(self.reduced_end_use.letter, self.input_dims["u"])
         new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
-        new_correction[{"g": self.reduced_good}] = correction_factor
+        new_correction[{"u": self.reduced_end_use}] = correction_factor
         return new_correction
 
     def normalize_output_parameter(self, prm_name: str):

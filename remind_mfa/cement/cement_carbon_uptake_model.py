@@ -86,7 +86,7 @@ class CementCarbonUptakeModel(BaseModel):
             fd.StockDefinition(
                 name="carbonated_co2",
                 process="carbonation",
-                dim_letters=("t", "r", "c"),
+                dim_letters=("t", "r", "l"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),
@@ -105,7 +105,7 @@ class CementCarbonUptakeModel(BaseModel):
                 from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r")
             ),
             fd.FlowDefinition(
-                from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "c")
+                from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "l")
             ),
         ]
         mfa.flows.update(

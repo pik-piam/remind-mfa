@@ -24,7 +24,7 @@ def get_cement_definition(
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
-        fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="End Use", dim_letter="u", dtype=str),
         fd.DimensionDefinition(name="Product Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Material Constituent", dim_letter="k", dtype=str),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
@@ -32,13 +32,13 @@ def get_cement_definition(
         fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
         fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
         fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
-        fd.DimensionDefinition(name="Carbonation Location", dim_letter="c", dtype=str),
+        fd.DimensionDefinition(name="Carbonation Location", dim_letter="l", dtype=str),
         # service demand
         fd.DimensionDefinition(name="Structure", dim_letter="s", dtype=str),
-        fd.DimensionDefinition(name="Common Good", dim_letter="u", dtype=str),  # Res/Com
-        fd.DimensionDefinition(name="Bottom-up Good", dim_letter="b", dtype=str),  # RS/RM/Com
+        fd.DimensionDefinition(name="Common End Use", dim_letter="c", dtype=str),  # Res/Com
+        fd.DimensionDefinition(name="Bottom-up End Use", dim_letter="b", dtype=str),  # RS/RM/Com
         fd.DimensionDefinition(name="Dwelling Type", dim_letter="d", dtype=str),  # RS/RM
-        fd.DimensionDefinition(name="Extended Good", dim_letter="e", dtype=str),  # RS/RM/Com/Ind/Civ
+        fd.DimensionDefinition(name="Extended End Use", dim_letter="e", dtype=str),  # RS/RM/Com/Ind/Civ
     ]
 
     # 2) Processes
@@ -73,15 +73,15 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="market_cement", to_process="use", dim_letters=("h", "r", "g")),
+            fd.FlowDefinition(from_process="market_cement", to_process="use", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="market_cement", to_process="sysenv", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
+            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
         ]
     else:
-        # the combined (bottom-up) MFA runs at the extended good resolution and keeps
+        # the combined (bottom-up) MFA runs at the extended end-use resolution and keeps
         # the structure resolution through to the final flows and stocks
-        good_letter = "e" if bottom_up else "g"
-        full_flow_letters = ("t", "r", good_letter, "m")
+        end_use_letter = "e" if bottom_up else "u"
+        full_flow_letters = ("t", "r", end_use_letter, "m")
         if bottom_up:
             full_flow_letters += ("s",)
         flows = [
@@ -119,7 +119,7 @@ def get_cement_definition(
             fd.StockDefinition(
                 name="in_use",
                 process="use",
-                dim_letters=("h", "r", "g"),
+                dim_letters=("h", "r", "u"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
                 time_letter="h",
@@ -143,7 +143,7 @@ def get_cement_definition(
                     fd.StockDefinition(
                         name="floorspace",
                         process=None,  # no associated process
-                        dim_letters=("t", "r", "u"),
+                        dim_letters=("t", "r", "c"),
                         subclass=fd.StockDrivenDSM,
                         lifetime_model_class=cfg.model_switches.lifetime_model,
                     ),
@@ -167,14 +167,14 @@ def get_cement_definition(
     # 5) Parameters
     parameters = [
         # historic + future parameters: if time-dependent (h), they will have to be projected to (t)
-        RemindMFAParameterDefinition(name="good_split", dim_letters=("r", "g",),
-                                     description="Split of cement production into different goods."),
+        RemindMFAParameterDefinition(name="end_use_split", dim_letters=("r", "u",),
+                                     description="Split of cement production into different end uses."),
         RemindMFAParameterDefinition(name="cement_production", dim_letters=("h", "r"),
                                      description="Historic cement production volume for each region and year."),
         RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("h", "r"),
                                      description="Historic clinker-to-cement ratio for each region."),
-        RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("h", "r", "g"),
-                                     description="Mean lifetime of historic cement stocks by region and good."),
+        RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("h", "r", "u"),
+                                     description="Mean lifetime of historic cement stocks by region and end use."),
         RemindMFAParameterDefinition(name="lifetime_rel_std", dim_letters=(),
                                      description="Relative standard deviation of lifetime of cement in buildings and infrastructure."),
         # trade parameters
@@ -233,14 +233,14 @@ def get_cement_definition(
         RemindMFAParameterDefinition(name="waste_size_max", dim_letters=("w", "p"),
                                      description="Maximum particle size represented for each waste type and class."),
         # bottom-up parameters
-        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "S", "u"),
-                                     description="Historic and projected total buildings floorspace per region and common good (Res/Com)."),
+        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "S", "c"),
+                                     description="Historic and projected total buildings floorspace per region and common end use (Res/Com)."),
         RemindMFAParameterDefinition(name="dwelling_split", dim_letters=("r", "d"),
                                      description="Split of residential floor area into single- (RS) and multi-family (RM) homes."),
         RemindMFAParameterDefinition(name="structure_split", dim_letters=("r", "b", "s"),
-                                     description="Split of building goods into different structure types per region."),
+                                     description="Split of building end uses into different structure types per region."),
         RemindMFAParameterDefinition(name="concrete_building_mi", dim_letters=("r", "b", "s"),
-                                     description="Material intensity of concrete (t/m2) differentiated by building good and structure."),
+                                     description="Material intensity of concrete (t/m2) differentiated by building end use and structure."),
         RemindMFAParameterDefinition(name="hibernating_stock_share", dim_letters=("r",),
                                      description="Share of building stock that is hibernating (built but unused and not demolished)."),
     ]

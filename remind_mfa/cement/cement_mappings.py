@@ -3,11 +3,11 @@ from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDispla
 
 class CementDimensionFiles(CommonDimensionFiles):
     _own_mapping = {
-        "Good": "goods",
-        "Common Good": "common_goods",
-        "Bottom-up Good": "bottom_up_goods",
+        "End Use": "end_uses",
+        "Common End Use": "common_end_uses",
+        "Bottom-up End Use": "bottom_up_end_uses",
         "Dwelling Type": "dwelling_types",
-        "Extended Good": "extended_goods",
+        "Extended End Use": "extended_end_uses",
         "Product Material": "product_materials",
         "Product Application": "product_applications",
         "Material Constituent": "material_constituents",

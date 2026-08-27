@@ -9,7 +9,7 @@ from remind_mfa.cement.cement_definition import get_cement_definition
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
     StockDrivenBottomUpCementMFASystem,
     expand_common_to_bu,
-    extend_good_intensive,
+    extend_end_use_intensive,
 )
 from remind_mfa.common.data_blending import blend
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
@@ -36,7 +36,7 @@ class CementModel(CommonModel):
     get_definition = staticmethod(get_cement_definition)
 
     # TODO: unify, then delete
-    end_use_good_letter: str = "g"
+    end_use_good_letter: str = "u"
     historic_stock_name: str = "in_use"
 
     def modify_parameters(self):
@@ -69,7 +69,7 @@ class CementModel(CommonModel):
     def derive_parameters(self):
 
         # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["good_split"]
+        self.parameters["sector_split_limit"] = self.parameters["end_use_split"]
 
         # derive mean dwelling and structure splits from global weighted average
         prm = self.parameters
@@ -77,7 +77,7 @@ class CementModel(CommonModel):
         floorspace = prm["floorspace"][{"t": self.dims["h"].items[-1]}]
 
         # dwelling split target
-        res_floorspace = floorspace[{"u": "Res"}]
+        res_floorspace = floorspace[{"c": "Res"}]
         global_dwelling_split = (prm["dwelling_split"] * res_floorspace).sum_over(
             "r"
         ) / res_floorspace.sum_over("r")
@@ -107,7 +107,7 @@ class CementModel(CommonModel):
     def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
         """Construct the future bottom-up MFA.
 
-        Lifetime parameter is broadcasted to extended-good dimension for bottom-up MFA.
+        Lifetime parameter is broadcasted to extended-end-use dimension for bottom-up MFA.
         """
         bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
@@ -115,10 +115,12 @@ class CementModel(CommonModel):
         )
         bu_mfa.parameters = {
             **bu_mfa.parameters,
-            "lifetime_mean": extend_good_intensive(
+            "lifetime_mean": extend_end_use_intensive(
                 self.parameters["lifetime_mean"], self.dims["e"]
             ),
-            "lifetime_std": extend_good_intensive(self.parameters["lifetime_std"], self.dims["e"]),
+            "lifetime_std": extend_end_use_intensive(
+                self.parameters["lifetime_std"], self.dims["e"]
+            ),
         }
         return bu_mfa
 
