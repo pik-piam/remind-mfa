@@ -38,7 +38,7 @@ def _(Path, load_dotenv, mo, os):
 
     remind_archives = sorted(madrat_output_dir.glob("*_remind.tgz"))
     if not remind_archives:
-        raise FileNotFoundError(f"No *_remind.tgz archives found in {madrat_output_dir}. Run `uv run scripts/copy_madrat_archive.py remind-archive --config default <hpc>` to copy the archive from the HPC.")
+        raise FileNotFoundError(f"No *_remind.tgz archives found in {madrat_output_dir}. Run `uv run scripts/fetch_from_hpc.py remind-archive --config default <hpc>` to copy the archive from the HPC.")
 
     archive_picker = mo.ui.dropdown(
         options={archive.name: archive for archive in remind_archives},
