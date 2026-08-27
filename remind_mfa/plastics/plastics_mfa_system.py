@@ -172,9 +172,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         aux["headroom"][...] = (aux["dom_supply"] - flw["reclmech => aux_recyclate_trade"]).maximum(0)
         trd["aux_recyclate_trade"].exports[...] = aux["surplus"]
         # Seed imports with the virgin-production headroom as a distribution shape (shares summing
-        # to 1 per (t, e, m) slice). balance(to="maximum") then resolves scales these shares up 
-        # to the surplus total, so each region imports surplus * headroom_share. 
-        # While a slice's total surplus <= total headroom, every region's import stays <= its headroom, 
+        # to 1 per (t, e, m) slice). balance(to="maximum") then resolves scales these shares up
+        # to the surplus total, so each region imports surplus * headroom_share.
+        # While a slice's total surplus <= total headroom, every region's import stays <= its headroom,
         # keeping polymerization >= 0.
         trd["aux_recyclate_trade"].imports[...] = aux["headroom"] / aux["headroom"].sum_over("r").maximum(
             sys.float_info.epsilon
