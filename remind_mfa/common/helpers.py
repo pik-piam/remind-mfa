@@ -13,7 +13,7 @@ class ModelNames(str, Enum):
     CEMENT = "cement"
 
 
-def get_model_class(name: ModelNames) -> type[CommonModel]:
+def get_model_class(name: ModelNames) -> type['CommonModel']:
 
     match name:
         case ModelNames.PLASTICS:
@@ -30,7 +30,7 @@ def get_model_class(name: ModelNames) -> type[CommonModel]:
             return CementModel
 
 
-def init_model(cfg: dict) -> CommonModel:
+def init_model(cfg: dict) -> 'CommonModel':
     """Choose an MFA subclass and return an initialized instance."""
 
     if "model" not in cfg:
