@@ -65,6 +65,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
+            "dom_supply": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "surplus": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "headroom": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "net_other_polymerization_input": self.get_new_array(dim_letters=("t", "e", "r")),
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
@@ -93,8 +96,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
         flw["collected => reclmech"][{"m": ("Rubbers","PET fibre", "Polyamide fibre", "Other fibre")}] = 0.0 # TODO remove once recycling rates are resolved by material
-        flw["reclmech => primary_market"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
-        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => primary_market"]
+        flw["reclmech => aux_recyclate_trade"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => aux_recyclate_trade"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
@@ -145,8 +148,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             future_dom_demand=flw["primary_market => fabrication"],
         )
         extrapolator.run()
-        # net exports of plastics should be at least the secondary production from mechanical recycling minus domestic plastics demand.
-        self._adjust_primary_trade_for_secondary_excess(flw, trd)
 
         flw["primary_market => exports"][...] = (
             trd["primary"].exports * self.parameters["carbon_content_materials"]
@@ -155,11 +156,42 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             trd["primary"].imports * self.parameters["carbon_content_materials"]
         )
 
-        flw["polymerization => primary_market"][...] = (
+        # --- recyclate trade: redistribute mechanical-recycling surplus between regions ---
+        # dom_supply is the domestic primary supply implied by the primary trade solution, i.e.
+        # what virgin polymerization + recyclate must jointly cover. Where a region's recyclate
+        # exceeds it, the surplus is exported via the aux_recyclate_trade market and imported by
+        # regions that still make virgin plastic (headroom), instead of forcing local virgin
+        # production negative (which happens for net-importer/high-recycling countries, especially
+        # at fine spatial resolution).
+        aux["dom_supply"][...] = (
             flw["primary_market => fabrication"]
             - flw["imports => primary_market"]
             + flw["primary_market => exports"]
-            - flw["reclmech => primary_market"]
+        )
+        aux["surplus"][...] = (flw["reclmech => aux_recyclate_trade"] - aux["dom_supply"]).maximum(0)
+        aux["headroom"][...] = (aux["dom_supply"] - flw["reclmech => aux_recyclate_trade"]).maximum(0)
+        trd["aux_recyclate_trade"].exports[...] = aux["surplus"]
+        # Seed imports with the virgin-production headroom as a distribution shape (shares summing
+        # to 1 per (t, e, m) slice). balance(to="maximum") then resolves scales these shares up 
+        # to the surplus total, so each region imports surplus * headroom_share. 
+        # While a slice's total surplus <= total headroom, every region's import stays <= its headroom, 
+        # keeping polymerization >= 0.
+        trd["aux_recyclate_trade"].imports[...] = aux["headroom"] / aux["headroom"].sum_over("r").maximum(
+            sys.float_info.epsilon
+        )
+        trd["aux_recyclate_trade"].balance(
+            to="maximum", mask_scaled=(trd["aux_recyclate_trade"].exports.values == 0)
+        )
+        flw["imports => aux_recyclate_trade"][...] = trd["aux_recyclate_trade"].imports
+        flw["aux_recyclate_trade => exports"][...] = trd["aux_recyclate_trade"].exports
+        flw["aux_recyclate_trade => primary_market"][...] = (
+            flw["reclmech => aux_recyclate_trade"]
+            - flw["aux_recyclate_trade => exports"]
+            + flw["imports => aux_recyclate_trade"]
+        )
+
+        flw["polymerization => primary_market"][...] = (
+            aux["dom_supply"] - flw["aux_recyclate_trade => primary_market"]
         )
 
         aux["total_polymerization_feed"][...] = flw["polymerization => primary_market"] / prm["polymerization_yield"]
@@ -205,8 +237,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["atmosphere => feedbio"][...] = flw["feedbio => HVC_input"]
         flw["atmosphere => feeddaccu"][...] = flw["feeddaccu => HVC_input"]
         flw["sysenv => feedccu"][...] = flw["feedccu => HVC_input"] - flw["captured => feedccu"]
-        flw["sysenv => imports"][...] = flw["imports => good_market"] + flw["imports => primary_market"] + flw["imports => waste_market"]
-        flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"]
+        flw["sysenv => imports"][...] = flw["imports => good_market"] + flw["imports => primary_market"] + flw["imports => waste_market"] + flw["imports => aux_recyclate_trade"]
+        flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"] + flw["aux_recyclate_trade => exports"]
 
         # fmt: on
 
@@ -273,72 +305,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 f"Primary net imports exceed fabrication demand and could not be reassigned within "
                 f"the polymer type; capped {len(coords)} entries at demand:\n{detail}"
                 f"\nNet imports reduced by up to {max_reduction:.0%} in a single region and year."
-            )
-
-    def _adjust_primary_trade_for_secondary_excess(self, flw, trd):
-        """
-        Iteratively adjust primary plastics trade so that no region has more
-        secondary material available than its primary demand plus net exports.
-
-        Each iteration splits the per-region excess between an import reduction
-        and an export increase proportional to each region's share of total trade:
-            import share  = imports  / (imports + exports)
-            export share  = exports  / (imports + exports)
-
-        balance() is called after every adjustment to restore global trade
-        balance, which partially re-introduces a residual excess — hence the
-        loop.  Convergence is guaranteed because each iteration strictly
-        reduces the excess.
-        """
-        secondary_excess = self.get_new_array(dim_letters=("t", "r", "m"))
-        for iteration in range(20):
-            secondary_excess[...] = (
-                flw["reclmech => primary_market"]
-                - flw["primary_market => fabrication"]
-                - trd["primary"].net_exports
-            )
-            excess = secondary_excess.maximum(0)
-            if not np.any(excess.values > 1e-6):
-                break
-            if iteration == 0:
-                coords = secondary_excess.items_where(lambda x: x > 1e-6)  # rows over excess.dims
-                h_idx = secondary_excess.dims.letters.index("t")
-                r_idx = secondary_excess.dims.letters.index("r")
-                m_idx = secondary_excess.dims.letters.index("m")
-                # materials and years affected per region
-                by_region = {}
-                for row in coords:
-                    materials, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
-                    materials.add(str(row[m_idx]))
-                    years.add(int(row[h_idx]))
-                detail = "\n".join(
-                    f"    {region}: {', '.join(sorted(materials))}; "
-                    f"{', '.join(str(y) for y in sorted(years))}"
-                    for region, (materials, years) in sorted(by_region.items())
-                )
-                logging.warning(
-                    f"There is more secondary plastics available than used; "
-                    f"{len(coords)} entries:\n{detail}"
-                )
-            eps = sys.float_info.epsilon
-            total_trade = trd["primary"].imports + trd["primary"].exports
-            import_share = trd["primary"].imports / total_trade.maximum(eps)
-            import_reduction = (excess * import_share).minimum(trd["primary"].imports)
-            trd["primary"].imports[...] = trd["primary"].imports - import_reduction
-            # The trade arrays carry the coarse type dimension "p" (Fibre/Rubber/Plastics) on top of
-            # the material dimension "m", while the flows (and therefore the excess) don't.
-            export_increase_m = excess - import_reduction.sum_over("p")
-            export_p_share = trd["primary"].exports / trd["primary"].exports.sum_over("p").maximum(
-                eps
-            )
-            trd["primary"].exports[...] = (
-                trd["primary"].exports + export_increase_m * export_p_share
-            )
-            # balance() restores global trade balance but partially dilutes the regional fix → hence the loop.
-            trd["primary"].balance()
-        else:
-            logging.warning(
-                "Secondary excess in primary plastics trade did not converge after 20 iterations."
             )
 
     def compute_other_stocks(self):
