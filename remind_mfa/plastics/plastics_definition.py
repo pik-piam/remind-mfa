@@ -269,12 +269,12 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 scenario_parameters = [
     ExtrapolationDefinition(name="waste_his_imports", dim_letters=("r",)),
     ExtrapolationDefinition(name="waste_his_exports", dim_letters=("r",)),
-    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="chemical_recycling_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="bio_production_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",), blending_function="converge_quadratic"),
+    ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",), blending_function="converge_quadratic"),
+    ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",), blending_function="converge_quadratic"),
+    ExtrapolationDefinition(name="chemical_recycling_rate", dim_letters=("r",), blending_function="hermite"),
+    ExtrapolationDefinition(name="bio_production_rate", dim_letters=("r",), blending_function="hermite"),
+    ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",), blending_function="hermite"),
     ExtrapolationDefinition(name="emission_capture_rate", dim_letters=("r",)),
     ExtrapolationDefinition(name="material_shares_use_inflow"),
 ]
