@@ -1523,7 +1523,7 @@ def _(
             "predicted_naive": "Predicted EAF production [Mt]",
         },
     )
-    _add_identity_line(_eaf_plot, comparison_eaf_scrap_dri)
+    # _add_identity_line(_eaf_plot, comparison_eaf_scrap_dri)
 
     mo.vstack([_nnls_plot, _eaf_plot])
     return comparison_eaf_scrap_dri, comparison_nnls
@@ -1544,7 +1544,7 @@ def _(comparison_eaf_scrap_dri):
 @app.cell
 def _(comparison_eaf_scrap_dri, comparison_nnls, px):
     # Difference between the two methods: NNLS vs naive prediction from scrap + DRI
-    _comparison = (
+    comparison_nnls_vs_naive = (
         comparison_nnls.query("route == 'EAF'")[["region", "year", "predicted"]]
         .set_index(["region", "year"])
         .join(
@@ -1554,13 +1554,36 @@ def _(comparison_eaf_scrap_dri, comparison_nnls, px):
         .assign(diff_predicted=lambda df: df["predicted_naive"] - df["predicted"])
     )
     px.scatter(
-        _comparison.reset_index(),
+        comparison_nnls_vs_naive.reset_index(),
         x="actual",
         y="diff_predicted",
-        color=_comparison.reset_index()["region"],
+        color=comparison_nnls_vs_naive.reset_index()["region"],
         hover_data=["region", "year"],
         title="Regional EAF production: actual vs (naive prediction from scrap + DRI - NNLS prediction)",
     ).show()
+    return (comparison_nnls_vs_naive,)
+
+
+@app.cell
+def _(comparison_nnls_vs_naive, pd):
+    # Compare the two methods: NNLS vs naive prediction from scrap + DRI using R-squared
+    comparison_nnls_vs_naive_r2 = (
+        comparison_nnls_vs_naive.groupby("region")
+        .apply(
+            lambda df: pd.Series(
+                {
+                    "r_squared": 1
+                    - ((df["actual"] - df["predicted"]) ** 2).sum()
+                    / ((df["actual"] - df["actual"].mean()) ** 2).sum(),
+                    "r_squared_naive": 1
+                    - ((df["actual"] - df["predicted_naive"]) ** 2).sum()
+                    / ((df["actual"] - df["actual"].mean()) ** 2).sum(),
+                }
+            )
+        )
+        .reset_index()
+    )
+    comparison_nnls_vs_naive_r2
     return
 
 
