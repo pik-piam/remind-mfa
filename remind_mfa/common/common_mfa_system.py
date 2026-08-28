@@ -113,6 +113,8 @@ class CommonMFASystem(fd.MFASystem):
         (net imports > demand) is first reassigned to sibling sub-category items within the same
         parent category that have available headroom (demand > net imports). Any remaining excess
         that cannot be reassigned is capped at demand by reducing imports.
+        Assumes that ``demand`` and ``trade`` both carry the provided ``parent_category_dim``
+        and ``sub_category_dim``.
 
         If no parent/sub grouping dimensions are provided (flat/single-category trades, e.g. cement
         or steel), net imports exceeding demand are capped directly at demand.
@@ -121,33 +123,32 @@ class CommonMFASystem(fd.MFASystem):
         eps = sys.float_info.epsilon
         tolerance = 100 * self._absolute_float_precision
 
-        # Make sure demand is aligned to historic time 'h' if demand has 't' and trade has 'h'
-        if "t" in demand.dims and "h" in trade.imports.dims:
-            demand = demand[{"t": trade.imports.dims["h"]}]
-
-        # Drop any element or extra non-trade dims from demand
-        demand = demand.sum_to(demand.dims.letters).maximum(0)
-
         imp = trade.imports
-        exp = trade.exports
         net = trade.net_imports
 
+        # Make sure demand is aligned to historic time 'h' if demand has 't' and trade has 'h'
+        if "t" in demand.dims and "h" in imp.dims:
+            demand = demand[{"t": imp.dims["h"]}]
+
+        # Drop any element or extra non-trade dims from demand
+        common_dims = tuple(
+            letter for letter in demand.dims.letters if letter in imp.dims.letters
+        )
+        demand = demand.sum_to(common_dims).maximum(0)
+
         if parent_category_dim and sub_category_dim:
-            membership = (imp + exp).sum_to((parent_category_dim, sub_category_dim))
-            pm_mask = membership / membership.sum_over(parent_category_dim).maximum(eps)
-            demand_grouped = demand * pm_mask
+            excess = (net - demand).maximum(0)
+            if (excess.values > tolerance).any():
+                headroom = (demand - net).maximum(0)
+                excess_parent = excess.sum_over(sub_category_dim)
+                headroom_parent = headroom.sum_over(sub_category_dim)
 
-            excess = (net - demand_grouped).maximum(0)
-            headroom = (demand_grouped - net).maximum(0)
-            excess_parent = excess.sum_over(sub_category_dim)
-            headroom_parent = headroom.sum_over(sub_category_dim)
+                fill = headroom * (excess_parent / headroom_parent.maximum(eps)).minimum(1)
+                trade.imports[...] = imp - excess + fill
 
-            fill = headroom * (excess_parent / headroom_parent.maximum(eps)).minimum(1)
-            trade.imports[...] = imp - excess + fill
-
-            residual = (excess_parent - headroom_parent).maximum(0)
-            if (residual.values > tolerance).any():
-                self._warn_historical_net_import_cap(trade_name, residual, net, tolerance, eps)
+                residual = (excess_parent - headroom_parent).maximum(0)
+                if (residual.values > tolerance).any():
+                    self._warn_historical_net_import_cap(trade_name, residual, net, tolerance, eps)
         else:
             common_dims = tuple(
                 letter for letter in trade.imports.dims.letters if letter in demand.dims.letters
