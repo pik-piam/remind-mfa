@@ -147,9 +147,7 @@ class CommonMFASystem(fd.MFASystem):
 
             residual = (excess_parent - headroom_parent).maximum(0)
             if (residual.values > tolerance).any():
-                self._warn_historical_net_import_cap(
-                    trade_name, residual, net, tolerance, eps
-                )
+                self._warn_historical_net_import_cap(trade_name, residual, net, tolerance, eps)
         else:
             common_dims = tuple(
                 letter for letter in trade.imports.dims.letters if letter in demand.dims.letters
@@ -158,9 +156,7 @@ class CommonMFASystem(fd.MFASystem):
             net_total = net.sum_to(common_dims)
             excess = (net_total - demand_total).maximum(0)
             if (excess.values > tolerance).any():
-                self._warn_historical_net_import_cap(
-                    trade_name, excess, net_total, tolerance, eps
-                )
+                self._warn_historical_net_import_cap(trade_name, excess, net_total, tolerance, eps)
                 excess_expanded = excess.cast_to(trade.imports.dims)
                 trade.imports[...] = (imp - excess_expanded).maximum(0)
 

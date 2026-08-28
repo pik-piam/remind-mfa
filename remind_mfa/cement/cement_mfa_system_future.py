@@ -83,9 +83,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
 
         # cement trade
-        total_cement_demand = (
-            flw["market_cement => prod_product"] + flw["market_cement => sysenv"]
-        )
+        total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]
         self.cap_historical_net_imports_to_demand(
             trade=historic_trade["cement"],
             demand=total_cement_demand,
