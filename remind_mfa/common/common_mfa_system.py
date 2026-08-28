@@ -131,9 +131,7 @@ class CommonMFASystem(fd.MFASystem):
             demand = demand[{"t": imp.dims["h"]}]
 
         # Drop any element or extra non-trade dims from demand
-        common_dims = tuple(
-            letter for letter in demand.dims.letters if letter in imp.dims.letters
-        )
+        common_dims = tuple(letter for letter in demand.dims.letters if letter in imp.dims.letters)
         demand = demand.sum_to(common_dims).maximum(0)
 
         if parent_category_dim and sub_category_dim:
