@@ -11,6 +11,7 @@ import flodym as fd
 class Trade(RemindMFABaseModel):
     """A TradeModule handles the storing and calculation of trade data for a given MFASystem."""
 
+    name: str = ""
     imports: fd.FlodymArray
     exports: fd.FlodymArray
 
@@ -114,6 +115,7 @@ class TradeSet(RemindMFABaseModel):
         markets = {}
         for d in definitions:
             markets[d.name] = Trade(
+                name=d.name,
                 imports=fd.FlodymArray(dims=dims[d.dim_letters]),
                 exports=fd.FlodymArray(dims=dims[d.dim_letters]),
             )

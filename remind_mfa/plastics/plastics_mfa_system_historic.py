@@ -30,7 +30,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         # primary net exports are capped to not exceed domestic production, else fabrication inflow goes negative
         self.cap_historical_net_exports_to_supply(
-            "primary_his", flw["polymerization => primary_market"]
+            trd["primary_his"], flw["polymerization => primary_market"]
         )
 
         flw["primary_market => fabrication"][...] = (
@@ -40,7 +40,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         # final net exports (per good and material) are capped to not exceed fabrication supply
         # stop-over trade is allowed, but positive net imports of one good cannot be balanced by re-exporting a different good
-        self.cap_historical_net_exports_to_supply("final_his", flw["fabrication => good_market"])
+        self.cap_historical_net_exports_to_supply(trd["final_his"], flw["fabrication => good_market"])
 
         # distribute the good_market => use flow among the good & material categories
         flw["good_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(

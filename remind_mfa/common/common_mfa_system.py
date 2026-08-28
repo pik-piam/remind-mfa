@@ -4,7 +4,7 @@ import numpy as np
 import flodym as fd
 from typing import Optional
 
-from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.common_config import CommonCfg
 
 
@@ -48,7 +48,7 @@ class CommonMFASystem(fd.MFASystem):
             trade.imports[...] = self.parameters[f"{name}_imports"]
             trade.exports[...] = self.parameters[f"{name}_exports"]
 
-    def cap_historical_net_exports_to_supply(self, trade_name: str, supply: fd.FlodymArray):
+    def cap_historical_net_exports_to_supply(self, trade: Trade, supply: fd.FlodymArray):
         """Cap a historic trade's *net* exports at the available domestic supply so downstream
         flows cannot go negative when historic net exports exceed domestic production, then
         re-balance globally. Gross exports may still exceed supply where they are covered by
@@ -64,7 +64,7 @@ class CommonMFASystem(fd.MFASystem):
 
         Only called by the historic MFA systems.
         """
-        trade = self.trade_set[trade_name]
+        trade_name = trade.name or "trade"
         eps = sys.float_info.epsilon
         tolerance = 10 * self._absolute_float_precision
         # Compare net exports and supply on the dimensions they share. The trade may be more
@@ -97,6 +97,119 @@ class CommonMFASystem(fd.MFASystem):
             logging.warning(
                 f"'{trade_name}': positive-net-export cap did not converge after 50 iterations."
             )
+
+    def cap_historical_net_imports_to_demand(
+        self,
+        trade: Trade,
+        demand: fd.FlodymArray,
+        parent_category_dim: Optional[str] = None,
+        sub_category_dim: Optional[str] = None,
+    ):
+        """Cap a trade's net imports at domestic demand so downstream production / fabrication
+        flows cannot go negative.
+
+        If ``parent_category_dim`` and ``sub_category_dim`` are provided (e.g. polymer type 'p'
+        and material 'm' for plastics primary trade), net import excess of a sub-category item
+        (net imports > demand) is first reassigned to sibling sub-category items within the same
+        parent category that have available headroom (demand > net imports). Any remaining excess
+        that cannot be reassigned is capped at demand by reducing imports.
+
+        If no parent/sub grouping dimensions are provided (flat/single-category trades, e.g. cement
+        or steel), net imports exceeding demand are capped directly at demand.
+        """
+        trade_name = trade.name or "trade"
+        eps = sys.float_info.epsilon
+        tolerance = 100 * self._absolute_float_precision
+
+        # Make sure demand is aligned to historic time 'h' if demand has 't' and trade has 'h'
+        if "t" in demand.dims and "h" in trade.imports.dims:
+            demand = demand[{"t": trade.imports.dims["h"]}]
+
+        # Drop any element or extra non-trade dims from demand
+        demand = demand.sum_to(demand.dims.letters).maximum(0)
+
+        imp = trade.imports
+        exp = trade.exports
+        net = trade.net_imports
+
+        if parent_category_dim and sub_category_dim:
+            membership = (imp + exp).sum_to((parent_category_dim, sub_category_dim))
+            pm_mask = membership / membership.sum_over(parent_category_dim).maximum(eps)
+            demand_grouped = demand * pm_mask
+
+            excess = (net - demand_grouped).maximum(0)
+            headroom = (demand_grouped - net).maximum(0)
+            excess_parent = excess.sum_over(sub_category_dim)
+            headroom_parent = headroom.sum_over(sub_category_dim)
+
+            fill = headroom * (excess_parent / headroom_parent.maximum(eps)).minimum(1)
+            trade.imports[...] = imp - excess + fill
+
+            residual = (excess_parent - headroom_parent).maximum(0)
+            if (residual.values > tolerance).any():
+                self._warn_historical_net_import_cap(
+                    trade_name, residual, net, tolerance, eps
+                )
+        else:
+            common_dims = tuple(
+                letter for letter in trade.imports.dims.letters if letter in demand.dims.letters
+            )
+            demand_total = demand.sum_to(common_dims)
+            net_total = net.sum_to(common_dims)
+            excess = (net_total - demand_total).maximum(0)
+            if (excess.values > tolerance).any():
+                self._warn_historical_net_import_cap(
+                    trade_name, excess, net_total, tolerance, eps
+                )
+                excess_expanded = excess.cast_to(trade.imports.dims)
+                trade.imports[...] = (imp - excess_expanded).maximum(0)
+
+    def _warn_historical_net_import_cap(
+        self,
+        trade_name: str,
+        import_excess: fd.FlodymArray,
+        net_imports_total: fd.FlodymArray,
+        tolerance: float,
+        eps: float,
+    ):
+        """Emit a detailed warning listing where historic net imports exceeded demand.
+
+        Groups the affected coordinates by region and reports category breakdown plus affected years.
+        """
+        coords = import_excess.items_where(lambda x: x > tolerance)
+        letters = import_excess.dims.letters
+        t_letter = "h" if "h" in letters else "t"
+        h_idx = letters.index(t_letter)
+        r_idx = letters.index("r")
+        extra_idx = [i for i, letter in enumerate(letters) if letter not in (t_letter, "r")]
+        by_region = {}
+        for row in coords:
+            cats, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
+            if extra_idx:
+                cats.add(", ".join(str(row[i]) for i in extra_idx))
+            years.add(int(row[h_idx]))
+        detail_lines = []
+        for region, (cats, years) in sorted(by_region.items()):
+            year_str = ", ".join(str(y) for y in sorted(years))
+            if cats:
+                detail_lines.append(f"    {region}: {'; '.join(sorted(cats))}; {year_str}")
+            else:
+                detail_lines.append(f"    {region}: {year_str}")
+        detail = "\n".join(detail_lines)
+        sum_dims = (t_letter, "r")
+        max_reduction = np.max(
+            (
+                import_excess.sum_to(sum_dims)
+                / net_imports_total.maximum(0).sum_to(sum_dims).maximum(eps)
+            ).values
+        )
+        logging.warning(
+            f"'{trade_name}' trade: historic net imports exceed domestic demand; "
+            f"capped {len(coords)} entries in {len(by_region)} regions. "
+            f"Net imports reduced by up to {max_reduction:.0%} in a single region and year "
+            f"to match demand. Enable logging.DEBUG to see affected regions."
+        )
+        logging.debug(f"Affected regions and categories:\n{detail}")
 
     def _warn_historical_net_export_cap(
         self,
