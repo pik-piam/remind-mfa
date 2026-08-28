@@ -96,40 +96,40 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="C4_input", to_process="polymerization", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="other_reactants", to_process="polymerization", dim_letters=("t","e","r")),
             # primary stages
-            fd.FlowDefinition(from_process="polymerization", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="polymerization", to_process="primary_market", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="polymerization", to_process="losses", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="primary_market", to_process="exports", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="imports", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="primary_market", to_process="exports", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="imports", to_process="primary_market", dim_letters=("t","e","r","p","m")),
             # fabrication stages
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t","e","r","m","g")),
-            fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t","e","r","m","g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","p","m","g")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","p","m","g")),
+            fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t","e","r","p","m","g")),
+            fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t","e","r","p","m","g")),
             # use stage
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","m","g")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","p","m","g")),
             # end-of-life stages
-            fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="reclmech", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="reclchem", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="landfill", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="collected", to_process="reclmech", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="collected", to_process="reclchem", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="collected", to_process="landfill", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="reclmech", to_process="primary_market", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="reclchem", to_process="HVC_input", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="incineration", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="emission", to_process="captured", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="emission", to_process="atmosphere", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="captured", to_process="feedccu", dim_letters=("t","e","r")),
             # waste trade
-            fd.FlowDefinition(from_process="waste_market", to_process="collected", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="collected", to_process="waste_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="waste_market", to_process="exports", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="imports", to_process="waste_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="waste_market", to_process="collected", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="collected", to_process="waste_market", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="waste_market", to_process="exports", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="imports", to_process="waste_market", dim_letters=("t","e","r","p","m")),
 
         ]
     # fmt: on
@@ -156,7 +156,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.StockDefinition(
                 name="in_use",
                 process="use",
-                dim_letters=("t", "e", "r", "m", "g"),
+                dim_letters=("t", "e", "r", "p", "m", "g"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
@@ -252,7 +252,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         trades = [
             TradeDefinition(name="primary", dim_letters=("t", "r", "p", "m")),
             TradeDefinition(name="final", dim_letters=("t", "r", "p", "m", "g")),
-            TradeDefinition(name="waste", dim_letters=("t", "e", "r", "m")),
+            TradeDefinition(name="waste", dim_letters=("t", "e", "r", "p", "m")),
         ]
 
     return RemindMFADefinition(

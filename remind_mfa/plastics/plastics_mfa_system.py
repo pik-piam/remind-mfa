@@ -69,8 +69,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "total_primary_HVC": self.get_new_array(dim_letters=("t", "e", "r")),
-            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
+            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
             "HVC_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "HVC_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }

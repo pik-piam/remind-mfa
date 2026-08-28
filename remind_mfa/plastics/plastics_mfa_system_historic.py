@@ -67,11 +67,8 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         # get material split from historic stock inflow
         self.parameters["material_shares_use_inflow"] = fd.Parameter(
-            dims=self.dims["h", "r", "m", "g"],
-            values=(self.flows["good_market => use"].maximum(0))
-            .sum_over(("p",))
-            .get_shares_over(("m",))
-            .values,
+            dims=self.dims["h", "r", "p", "m", "g"],
+            values=(self.flows["good_market => use"].maximum(0)).get_shares_over(("m", "p")).values,
         )
 
         with np.errstate(divide="ignore"):
