@@ -1,5 +1,5 @@
 import colorsys
-from constants import AGG_COLOR_PALETTE, AGG_REGIONS, AGG_REGION_ORDER, COLOR_PALETTE
+from scripts_paper._constants import AGG_COLOR_PALETTE, AGG_REGIONS, AGG_REGION_ORDER, COLOR_PALETTE
 
 
 def get_column_name(df, target_name: str) -> str:

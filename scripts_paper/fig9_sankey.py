@@ -1,6 +1,6 @@
 import pathlib
 import pickle
-from constants import PATH_PLASTICS, RUN_PLASTICS
+from scripts_paper._constants import PATH_PLASTICS, RUN_PLASTICS
 
 from remind_mfa.common.common_config import (
     BaseVisualizationCfg,

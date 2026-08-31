@@ -12,11 +12,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import os
 
-from constants import AGG_COLOR_PALETTE
-from constants import AGG_REGION_ORDER
-from constants import AGG_REGIONS
-from constants import COLORS_REMIND
-from constants import REGION_DISPLAY_NAMES
+from scripts_paper._constants import AGG_COLOR_PALETTE
+from scripts_paper._constants import AGG_REGION_ORDER
+from scripts_paper._constants import AGG_REGIONS
+from scripts_paper._constants import COLORS_REMIND
+from scripts_paper._constants import REGION_DISPLAY_NAMES
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 

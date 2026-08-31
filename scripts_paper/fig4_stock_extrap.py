@@ -3,7 +3,7 @@ import math
 import pathlib
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from constants import (
+from scripts_paper._constants import (
     RUN_PLASTICS,
     PATH_PLASTICS,
     LAST_HISTORICAL_YEAR_PLASTICS,
@@ -15,12 +15,15 @@ from constants import (
     LAST_HISTORICAL_YEAR_CEMENT,
     REGION_DISPLAY_NAMES,
 )
+import os
+
+os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 MAT = "steel"
-HIDE_EXTR_LABELS = True
+HIDE_EXTR_LABELS = False
 # isos = list(REGION_DISPLAY_NAMES.keys())
 isos = ["JPN"]
-STEPS = [0, 1]
+STEPS = [3]
 
 
 if MAT == "cement":
@@ -38,8 +41,8 @@ elif MAT == "steel":
     RUN_MAT = RUN_STEEL
     PATH_MAT = PATH_STEEL
     LAST_HISTORICAL_YEAR_MAT = LAST_HISTORICAL_YEAR_STEEL
-    x_lower = 1900
-    y_lower = 0
+    x_lower = 1950
+    y_lower = 4
     y_upper = 12
 
 
@@ -103,8 +106,8 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
         if is_extrapolated_region:
             extrapolated_region_code = region_code
 
-        line_color = "#B0B0B0"
-        line_width = 1.5
+        line_color = "black" if is_extrapolated_region else "#B0B0B0"
+        line_width = 3 if is_extrapolated_region else 1.5
         trace_name = "Extrapolated region" if is_extrapolated_region else "Other regions"
         legend_group = (
             "historical_extrapolated_region" if is_extrapolated_region else "historical_other"
@@ -294,31 +297,31 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
             col=1,
         )
 
-    # fig.add_shape(
-    #     type="line",
-    #     x0=last_hist_gdppc,
-    #     x1=last_hist_gdppc,
-    #     y0=y_lower,
-    #     y1=y_upper,
-    #     xref="x",
-    #     yref="y",
-    #     line={"dash": "dash", "color": "black"},
-    # )
-    # fig.add_shape(
-    #     type="line",
-    #     x0=LAST_HISTORICAL_YEAR_MAT,
-    #     x1=LAST_HISTORICAL_YEAR_MAT,
-    #     y0=y_lower,
-    #     y1=y_upper,
-    #     xref="x2",
-    #     yref="y2",
-    #     line={"dash": "dash", "color": "black"},
-    # )
+    fig.add_shape(
+        type="line",
+        x0=last_hist_gdppc,
+        x1=last_hist_gdppc,
+        y0=y_lower,
+        y1=y_upper,
+        xref="x",
+        yref="y",
+        line={"dash": "dash", "color": "black"},
+    )
+    fig.add_shape(
+        type="line",
+        x0=LAST_HISTORICAL_YEAR_MAT,
+        x1=LAST_HISTORICAL_YEAR_MAT,
+        y0=y_lower,
+        y1=y_upper,
+        xref="x2",
+        yref="y2",
+        line={"dash": "dash", "color": "black"},
+    )
     fig.update_xaxes(
         title_text="GDP per capita (USD 2017)",
         title_standoff=4,
         type="log",
-        range=[math.log10(1000), math.log10(120000)],
+        range=[math.log10(10000), math.log10(120000)],
         row=1,
         col=1,
     )
@@ -438,34 +441,34 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
                 font={"color": color, "size": 13},
             )
 
-    # _add_historical_group(
-    #     x_left=hist_group_x,
-    #     group_top_y=top_hist_group_top_y,
-    #     yref="y domain",
-    #     within_group_spacing=within_group_spacing,
-    #     title_to_group_spacing=title_to_group_spacing,
-    # )
-    # _add_extrapolation_group(
-    #     x_right=extrap_group_x,
-    #     group_top_y=top_extrap_group_top_y,
-    #     yref="y domain",
-    #     within_group_spacing=within_group_spacing,
-    #     title_to_group_spacing=title_to_group_spacing,
-    # )
-    # _add_historical_group(
-    #     x_left=hist_group_x,
-    #     group_top_y=bottom_hist_group_top_y,
-    #     yref="y2 domain",
-    #     within_group_spacing=within_group_spacing,
-    #     title_to_group_spacing=title_to_group_spacing,
-    # )
-    # _add_extrapolation_group(
-    #     x_right=extrap_group_x,
-    #     group_top_y=bottom_extrap_group_top_y,
-    #     yref="y2 domain",
-    #     within_group_spacing=within_group_spacing,
-    #     title_to_group_spacing=title_to_group_spacing,
-    # )
+    _add_historical_group(
+        x_left=hist_group_x,
+        group_top_y=top_hist_group_top_y,
+        yref="y domain",
+        within_group_spacing=within_group_spacing,
+        title_to_group_spacing=title_to_group_spacing,
+    )
+    _add_extrapolation_group(
+        x_right=extrap_group_x,
+        group_top_y=top_extrap_group_top_y,
+        yref="y domain",
+        within_group_spacing=within_group_spacing,
+        title_to_group_spacing=title_to_group_spacing,
+    )
+    _add_historical_group(
+        x_left=hist_group_x,
+        group_top_y=bottom_hist_group_top_y,
+        yref="y2 domain",
+        within_group_spacing=within_group_spacing,
+        title_to_group_spacing=title_to_group_spacing,
+    )
+    _add_extrapolation_group(
+        x_right=extrap_group_x,
+        group_top_y=bottom_extrap_group_top_y,
+        yref="y2 domain",
+        within_group_spacing=within_group_spacing,
+        title_to_group_spacing=title_to_group_spacing,
+    )
 
     # Slightly raise subplot titles without affecting custom label annotations.
     for annotation in fig.layout.annotations:
@@ -480,7 +483,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     )
 
     # Save a high-resolution static copy while preserving on-figure relative sizing.
-    output_path = pathlib.Path(__file__).with_name(f"TMPfigure_0_{MAT}_{iso}_s{STEP}.png")
+    output_path = pathlib.Path(__file__).with_name(f"figure_0_{MAT}_{iso}_s{STEP}.png")
     fig.write_image(
         output_path,
         width=fig.layout.width,

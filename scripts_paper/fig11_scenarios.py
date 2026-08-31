@@ -3,7 +3,7 @@ import flodym as fd
 import pathlib
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from constants import (
+from scripts_paper._constants import (
     LAST_HISTORICAL_YEAR_STEEL,
     PATH_STEEL,
     RUN_STEEL,
@@ -18,7 +18,7 @@ from constants import (
     CMAP_5,
 )
 import os
-import utils
+import scripts_paper._utils as _utils
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
@@ -43,7 +43,7 @@ MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 
 
 def _legend_name(label: str, color: str) -> str:
-    return utils.legend_name(label, color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
+    return _utils.legend_name(label, color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
 
 
 def _get_column_name(df, target_name: str) -> str:

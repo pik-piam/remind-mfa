@@ -2,15 +2,15 @@ import pickle
 import pathlib
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from constants import (
+from scripts_paper._constants import (
     LAST_HISTORICAL_YEAR_STEEL,
     PATH_STEEL,
     REGION_DISPLAY_NAMES,
     RUN_STEEL,
 )
 import os
-import utils
-from utils import (
+import scripts_paper._utils as _utils
+from scripts_paper._utils import (
     get_column_name as _get_column_name,
     aggregate_region_timeseries as _aggregate_region_timeseries,
     ordered_regions as _ordered_regions,
@@ -78,10 +78,10 @@ def _build_figure(data_imports, data_exports, data_fabrication, data_forming) ->
     region_colors = {}
 
     def _get_region_color(region: str) -> str:
-        return utils.get_region_color(region, region_colors)
+        return _utils.get_region_color(region, region_colors)
 
     def _legend_name(label: str, color: str) -> str:
-        return utils.legend_name(label, color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
+        return _utils.legend_name(label, color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
 
     fig = make_subplots(
         rows=2,
