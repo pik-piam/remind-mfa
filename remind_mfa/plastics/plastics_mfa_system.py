@@ -242,7 +242,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         Where a region's ``recyclate`` exceeds the domestic ``demand`` it can feed, the surplus is
         exported; regions with headroom (``demand`` above their recyclate) import it, so the
-        backward-computed primary input stays non-negative instead of going negative for net-importer / 
+        backward-computed primary input stays non-negative instead of going negative for net-importer /
         high-recycling regions.
 
         Exports carry the surplus; imports are seeded with the headroom as a per-region
