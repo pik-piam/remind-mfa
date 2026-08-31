@@ -227,8 +227,9 @@ def plot_regional(
             sub = src[src["region"] == region].sort_values(x_col)
             _add(fig, sub[x_col], sub[y_col], name, color, dash, row, col, first)
         if not log_x:
-            fig.add_vline(x=last_hist_year, line_width=1, line_dash="dot", line_color="grey",
-                          row=row, col=col)
+            fig.add_vline(
+                x=last_hist_year, line_width=1, line_dash="dot", line_color="grey", row=row, col=col
+            )
     if log_x:
         fig.update_xaxes(type="log")
     fig.update_xaxes(title_text=x_label)
@@ -292,11 +293,7 @@ def summary_table(h12: pd.DataFrame, iso: pd.DataFrame, out: pathlib.Path):
         .head(10)
     )
     print("\nLargest regional discrepancies:")
-    print(
-        worst[["year", "region", "metric", "rel_diff_%"]]
-        .round(2)
-        .to_string(index=False)
-    )
+    print(worst[["year", "region", "metric", "rel_diff_%"]].round(2).to_string(index=False))
     return table
 
 
@@ -344,30 +341,51 @@ def main():
     print("Plotting …")
     # 1) stock per capita over GDP per capita
     plot_regional(
-        df_h12, df_iso, panel_regions,
-        y_col="stock_pc", x_col="gdppc",
+        df_h12,
+        df_iso,
+        panel_regions,
+        y_col="stock_pc",
+        x_col="gdppc",
         title="In-use stock per capita over GDP per capita",
-        x_label="GDP per capita [USD]", y_label="In-use stock per capita [t]",
-        log_x=True, last_hist_year=last_hist_year,
-        out=args.out, slug="stock_pc_over_gdp_pc", show=args.show,
+        x_label="GDP per capita [USD]",
+        y_label="In-use stock per capita [t]",
+        log_x=True,
+        last_hist_year=last_hist_year,
+        out=args.out,
+        slug="stock_pc_over_gdp_pc",
+        show=args.show,
     )
     # 2) stock inflow (demand)
     plot_regional(
-        df_h12, df_iso, panel_regions,
-        y_col="inflow", x_col="year",
+        df_h12,
+        df_iso,
+        panel_regions,
+        y_col="inflow",
+        x_col="year",
         title="Stock inflow (demand)",
-        x_label="Year", y_label="Inflow [t]",
-        log_x=False, last_hist_year=last_hist_year,
-        out=args.out, slug="stock_inflow", show=args.show,
+        x_label="Year",
+        y_label="Inflow [t]",
+        log_x=False,
+        last_hist_year=last_hist_year,
+        out=args.out,
+        slug="stock_inflow",
+        show=args.show,
     )
     # 3) primary production
     plot_regional(
-        df_h12, df_iso, panel_regions,
-        y_col="production", x_col="year",
+        df_h12,
+        df_iso,
+        panel_regions,
+        y_col="production",
+        x_col="year",
         title=f"Primary production ({PRODUCTION_FLOW})",
-        x_label="Year", y_label="Production [t]",
-        log_x=False, last_hist_year=last_hist_year,
-        out=args.out, slug="production", show=args.show,
+        x_label="Year",
+        y_label="Production [t]",
+        log_x=False,
+        last_hist_year=last_hist_year,
+        out=args.out,
+        slug="production",
+        show=args.show,
     )
 
     print("\nSummary …")
