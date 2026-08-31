@@ -55,6 +55,7 @@
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
         material_splits.do_visualize = false
         flows.do_visualize = false
+        scenario_params.do_visualize = false
 
     [plastics.export]
         path = "data/plastics/output/export"
