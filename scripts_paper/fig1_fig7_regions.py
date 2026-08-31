@@ -17,15 +17,11 @@ from scripts_paper._constants import AGG_REGION_ORDER
 from scripts_paper._constants import AGG_REGIONS
 from scripts_paper._constants import COLORS_REMIND
 from scripts_paper._constants import REGION_DISPLAY_NAMES
+from scripts_paper._constants import figure_output_path
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 CSV_PATH = pathlib.Path(__file__).with_name("regionmapping.csv")
-PLOT_AGGREGATED_REGIONS = True
-
-_OUTPUT_SUFFIX = "_agg" if PLOT_AGGREGATED_REGIONS else ""
-OUTPUT_HTML = pathlib.Path(__file__).with_name(f"regions_plot{_OUTPUT_SUFFIX}.html")
-OUTPUT_PNG = pathlib.Path(__file__).with_name(f"regions_plot{_OUTPUT_SUFFIX}.png")
 
 
 def load_region_mapping(csv_path: pathlib.Path) -> pd.DataFrame:
@@ -155,13 +151,17 @@ def build_figure(df: pd.DataFrame, aggregate_regions: bool = False) -> go.Figure
     return fig
 
 
-def main() -> None:
+def main(aggregate_regions: bool = True, show: bool = True) -> go.Figure:
     """Render the map and save HTML and PNG outputs."""
 
     df = load_region_mapping(CSV_PATH)
-    fig = build_figure(df, aggregate_regions=PLOT_AGGREGATED_REGIONS)
-    fig.write_image(OUTPUT_PNG, width=600, height=300, scale=2)
-    fig.show()
+    fig = build_figure(df, aggregate_regions=aggregate_regions)
+    figure_number = 7 if aggregate_regions else 1
+    output_png = figure_output_path(f"figure_{figure_number}.png")
+    fig.write_image(output_png, width=600, height=300, scale=2)
+    if show:
+        fig.show()
+    return fig
 
 
 if __name__ == "__main__":

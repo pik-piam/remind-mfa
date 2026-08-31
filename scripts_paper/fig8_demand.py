@@ -1,31 +1,13 @@
-import pickle
-import flodym as fd
-import pathlib
-from dataclasses import dataclass
+import argparse
+import os
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from scripts_paper._constants import (
-    LAST_HISTORICAL_YEAR_CEMENT,
-    LAST_HISTORICAL_YEAR_PLASTICS,
-    LAST_HISTORICAL_YEAR_STEEL,
-    PATH_CEMENT,
-    PATH_PLASTICS,
-    PATH_STEEL,
-    REGION_DISPLAY_NAMES,
-    RUN_CEMENT,
-    RUN_PLASTICS,
-    RUN_STEEL,
-)
-import os
+
 import scripts_paper._utils as _utils
-from scripts_paper._utils import (
-    get_column_name as _get_column_name,
-    aggregate_region_timeseries as _aggregate_region_timeseries,
-    ordered_regions as _ordered_regions,
-)
+from scripts_paper._constants import MATERIAL_ORDER, figure_output_path, get_material_config
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-
 
 LINE_WIDTH_SCALE = 1.5
 LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
@@ -37,72 +19,30 @@ MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 LEGEND_FONT_SIZE = 13
 
 
-@dataclass(frozen=True)
-class RunConfig:
-    directory: pathlib.Path
-    label: str
-    run_name: str
-    flow_name: str
-    last_historical_year: int
-    stock_index: str = None
-
-
-RUN_CONFIGS = [
-    RunConfig(
-        directory=PATH_PLASTICS,
-        label="a) Plastics",
-        run_name=RUN_PLASTICS,
-        flow_name="polymerization => primary_market",
-        last_historical_year=LAST_HISTORICAL_YEAR_PLASTICS,
-    ),
-    RunConfig(
-        directory=PATH_STEEL,
-        label="b) Steel",
-        run_name=RUN_STEEL,
-        flow_name="forming => ip_market",
-        last_historical_year=LAST_HISTORICAL_YEAR_STEEL,
-    ),
-    RunConfig(
-        directory=PATH_CEMENT,
-        label="c) Cement",
-        run_name=RUN_CEMENT,
-        flow_name="prod_cement => market_cement",
-        last_historical_year=LAST_HISTORICAL_YEAR_CEMENT,
-        stock_index="cement",
-    ),
-]
-
-
-fig = make_subplots(
-    rows=3,
-    cols=len(RUN_CONFIGS),
-    shared_xaxes=False,
-    horizontal_spacing=0.08,
-)
-
-seen_regions = set()
-region_colors = {}
-
-
-def _get_region_color(region: str) -> str:
-    return _utils.get_region_color(region, region_colors)
-
-
 def _legend_name(label: str, color: str) -> str:
     return _utils.legend_name(label, color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
 
 
-for i, config in enumerate(RUN_CONFIGS):
-    col = i + 1
-    pickle_path = config.directory / f"{config.run_name}.pickle"
-    with pickle_path.open("rb") as file_handle:
-        mfa = pickle.load(file_handle).future_mfa
+def _get_region_color(region: str, region_colors: dict, aggregate_regions: bool) -> str:
+    return _utils.get_region_color(
+        region, region_colors, aggregate_regions=aggregate_regions
+    )
 
-    flow = (mfa.flows[config.flow_name].sum_to(("t", "r")) / 1e6).to_df().reset_index()
-    time_col_flow = _get_column_name(flow, "Time")
-    region_col_flow = _get_column_name(flow, "Region")
-    value_col_flow = _get_column_name(flow, "value")
-    flow = _aggregate_region_timeseries(flow, time_col_flow, region_col_flow, value_col_flow)
+
+def _load_run_data(config, aggregate_regions: bool):
+    mfa = _utils.load_future_mfa(config.directory, config.default_run)
+
+    flow = (mfa.flows[config.production_flow_name].sum_to(("t", "r")) / 1e6).to_df().reset_index()
+    time_col_flow = _utils.get_column_name(flow, "Time")
+    region_col_flow = _utils.get_column_name(flow, "Region")
+    value_col_flow = _utils.get_column_name(flow, "value")
+    flow = _utils.aggregate_region_timeseries(
+        flow,
+        time_col_flow,
+        region_col_flow,
+        value_col_flow,
+        aggregate_regions=aggregate_regions,
+    )
 
     stock = mfa.stocks["in_use"].stock
     if config.stock_index is not None:
@@ -110,17 +50,26 @@ for i, config in enumerate(RUN_CONFIGS):
     stock = stock.sum_to(("t", "r")).to_df().reset_index()
     population = mfa.parameters["population"].sum_to(("t", "r")).to_df().reset_index()
 
-    time_col_stock = _get_column_name(stock, "Time")
-    region_col_stock = _get_column_name(stock, "Region")
-    value_col_stock = _get_column_name(stock, "value")
+    time_col_stock = _utils.get_column_name(stock, "Time")
+    region_col_stock = _utils.get_column_name(stock, "Region")
+    value_col_stock = _utils.get_column_name(stock, "value")
+    time_col_pop = _utils.get_column_name(population, "Time")
+    region_col_pop = _utils.get_column_name(population, "Region")
+    value_col_pop = _utils.get_column_name(population, "value")
 
-    time_col_pop = _get_column_name(population, "Time")
-    region_col_pop = _get_column_name(population, "Region")
-    value_col_pop = _get_column_name(population, "value")
-
-    stock = _aggregate_region_timeseries(stock, time_col_stock, region_col_stock, value_col_stock)
-    population = _aggregate_region_timeseries(
-        population, time_col_pop, region_col_pop, value_col_pop
+    stock = _utils.aggregate_region_timeseries(
+        stock,
+        time_col_stock,
+        region_col_stock,
+        value_col_stock,
+        aggregate_regions=aggregate_regions,
+    )
+    population = _utils.aggregate_region_timeseries(
+        population,
+        time_col_pop,
+        region_col_pop,
+        value_col_pop,
+        aggregate_regions=aggregate_regions,
     )
 
     stock_pc = stock.merge(
@@ -178,196 +127,260 @@ for i, config in enumerate(RUN_CONFIGS):
     flow_total_gt = flow_total.copy()
     flow_total_gt[value_col_flow] = flow_total_gt[value_col_flow] / 1000
 
-    stock_regions = _ordered_regions(stock_pc[region_col_stock].unique(), reverse=True)
-    for region_code in stock_regions:
-        region_df = stock_pc[stock_pc[region_col_stock] == region_code].sort_values(time_col_stock)
-        legend_label = REGION_DISPLAY_NAMES.get(region_code, region_code)
-        show_legend = region_code not in seen_regions
-        region_color = _get_region_color(region_code)
+    return {
+        "config": config,
+        "stock_pc": stock_pc,
+        "production_pc": production_pc,
+        "flow_gt": flow_gt,
+        "global_avg": global_avg,
+        "global_production": global_production,
+        "flow_total_gt": flow_total_gt,
+        "time_col_stock": time_col_stock,
+        "region_col_stock": region_col_stock,
+        "value_col_stock": value_col_stock,
+        "time_col_flow": time_col_flow,
+        "region_col_flow": region_col_flow,
+        "value_col_flow": value_col_flow,
+    }
+
+
+def main(use_h12: bool = False, show: bool = True):
+    aggregate_regions = not use_h12
+    run_configs = [get_material_config(material) for material in MATERIAL_ORDER]
+
+    fig = make_subplots(
+        rows=3,
+        cols=len(run_configs),
+        shared_xaxes=False,
+        horizontal_spacing=0.08,
+    )
+
+    seen_regions = set()
+    region_colors = {}
+
+    for col, config in enumerate(run_configs, start=1):
+        run_data = _load_run_data(config, aggregate_regions=aggregate_regions)
+
+        stock_regions = _utils.ordered_regions(
+            run_data["stock_pc"][run_data["region_col_stock"]].unique(),
+            reverse=True,
+            aggregate_regions=aggregate_regions,
+        )
+        for region_code in stock_regions:
+            region_df = run_data["stock_pc"][
+                run_data["stock_pc"][run_data["region_col_stock"]] == region_code
+            ].sort_values(run_data["time_col_stock"])
+            legend_label = _utils.get_region_label(
+                region_code, aggregate_regions=aggregate_regions
+            )
+            show_legend = region_code not in seen_regions
+            region_color = _get_region_color(
+                region_code, region_colors, aggregate_regions=aggregate_regions
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=region_df[run_data["time_col_stock"]],
+                    y=region_df[run_data["value_col_stock"]],
+                    mode="lines",
+                    name=_legend_name(legend_label, region_color),
+                    legendgroup=region_code,
+                    showlegend=show_legend,
+                    line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
+                ),
+                row=1,
+                col=col,
+            )
+            seen_regions.add(region_code)
 
         fig.add_trace(
             go.Scatter(
-                x=region_df[time_col_stock],
-                y=region_df[value_col_stock],
+                x=run_data["global_avg"][run_data["time_col_stock"]],
+                y=run_data["global_avg"][run_data["value_col_stock"]],
                 mode="lines",
-                name=_legend_name(legend_label, region_color),
-                legendgroup=region_code,
-                showlegend=show_legend,
-                line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
+                name=_legend_name("World", "black"),
+                legendgroup="world",
+                showlegend=(col == 1),
+                line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
             ),
             row=1,
             col=col,
         )
-        seen_regions.add(region_code)
 
-        #
-
-    fig.add_trace(
-        go.Scatter(
-            x=global_avg[time_col_stock],
-            y=global_avg[value_col_stock],
-            mode="lines",
-            name=_legend_name("World", "black"),
-            legendgroup="world",
-            showlegend=(col == 1),
-            line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
-        ),
-        row=1,
-        col=col,
-    )
-
-    production_regions = _ordered_regions(production_pc[region_col_flow].unique(), reverse=False)
-    for region_code in production_regions:
-        region_df = production_pc[production_pc[region_col_flow] == region_code].sort_values(
-            time_col_flow
+        production_regions = _utils.ordered_regions(
+            run_data["production_pc"][run_data["region_col_flow"]].unique(),
+            reverse=False,
+            aggregate_regions=aggregate_regions,
         )
-        legend_label = REGION_DISPLAY_NAMES.get(region_code, region_code)
-        show_legend = region_code not in seen_regions
-        region_color = _get_region_color(region_code)
+        for region_code in production_regions:
+            region_df = run_data["production_pc"][
+                run_data["production_pc"][run_data["region_col_flow"]] == region_code
+            ].sort_values(run_data["time_col_flow"])
+            legend_label = _utils.get_region_label(
+                region_code, aggregate_regions=aggregate_regions
+            )
+            show_legend = region_code not in seen_regions
+            region_color = _get_region_color(
+                region_code, region_colors, aggregate_regions=aggregate_regions
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=region_df[run_data["time_col_flow"]],
+                    y=region_df[run_data["value_col_flow"]],
+                    mode="lines",
+                    name=_legend_name(legend_label, region_color),
+                    legendgroup=region_code,
+                    showlegend=show_legend,
+                    line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
+                ),
+                row=2,
+                col=col,
+            )
+            seen_regions.add(region_code)
 
         fig.add_trace(
             go.Scatter(
-                x=region_df[time_col_flow],
-                y=region_df[value_col_flow],
+                x=run_data["global_production"][run_data["time_col_flow"]],
+                y=run_data["global_production"][run_data["value_col_flow"]],
                 mode="lines",
-                name=_legend_name(legend_label, region_color),
-                legendgroup=region_code,
-                showlegend=show_legend,
-                line={"color": region_color, "width": LINE_WIDTH_DEFAULT},
+                name=_legend_name("World", "black"),
+                legendgroup="world",
+                showlegend=False,
+                line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
             ),
             row=2,
             col=col,
         )
-        seen_regions.add(region_code)
 
-    fig.add_trace(
-        go.Scatter(
-            x=global_production[time_col_flow],
-            y=global_production[value_col_flow],
-            mode="lines",
-            name=_legend_name("World", "black"),
-            legendgroup="world",
-            showlegend=False,
-            line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
-        ),
-        row=2,
-        col=col,
-    )
+        flow_regions = _utils.ordered_regions(
+            run_data["flow_gt"][run_data["region_col_flow"]].unique(),
+            reverse=True,
+            aggregate_regions=aggregate_regions,
+        )
+        for region_code in flow_regions:
+            region_df = run_data["flow_gt"][
+                run_data["flow_gt"][run_data["region_col_flow"]] == region_code
+            ].sort_values(run_data["time_col_flow"])
+            legend_label = _utils.get_region_label(
+                region_code, aggregate_regions=aggregate_regions
+            )
+            region_color = _get_region_color(
+                region_code, region_colors, aggregate_regions=aggregate_regions
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=region_df[run_data["time_col_flow"]],
+                    y=region_df[run_data["value_col_flow"]],
+                    mode="lines",
+                    name=legend_label,
+                    legendgroup=region_code,
+                    showlegend=False,
+                    line={"color": region_color, "width": LINE_WIDTH_STACK},
+                    stackgroup=f"flow_col_{col}",
+                    fillcolor=region_color,
+                ),
+                row=3,
+                col=col,
+            )
 
-    flow_regions = _ordered_regions(flow_gt[region_col_flow].unique(), reverse=True)
-    for region_code in flow_regions:
-        region_df = flow_gt[flow_gt[region_col_flow] == region_code].sort_values(time_col_flow)
-        legend_label = REGION_DISPLAY_NAMES.get(region_code, region_code)
-        region_color = _get_region_color(region_code)
         fig.add_trace(
             go.Scatter(
-                x=region_df[time_col_flow],
-                y=region_df[value_col_flow],
+                x=run_data["flow_total_gt"][run_data["time_col_flow"]],
+                y=run_data["flow_total_gt"][run_data["value_col_flow"]],
                 mode="lines",
-                name=legend_label,
-                legendgroup=region_code,
+                name="World",
+                legendgroup="world",
                 showlegend=False,
-                line={"color": region_color, "width": LINE_WIDTH_STACK},
-                stackgroup=f"flow_col_{col}",
-                fillcolor=region_color,
+                line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
             ),
             row=3,
             col=col,
         )
 
-    fig.add_trace(
-        go.Scatter(
-            x=flow_total_gt[time_col_flow],
-            y=flow_total_gt[value_col_flow],
-            mode="lines",
-            name="World",
-            legendgroup="world",
-            showlegend=False,
-            line={"color": "black", "width": LINE_WIDTH_DEFAULT, "dash": "dot"},
-        ),
-        row=3,
-        col=col,
-    )
+        for metric_row in range(1, 4):
+            fig.add_vline(
+                x=config.last_historical_year,
+                line_dash="dash",
+                line_color="black",
+                line_width=LINE_WIDTH_VLINE,
+                row=metric_row,
+                col=col,
+            )
+            fig.update_xaxes(
+                title_text="Year",
+                title_standoff=4,
+                range=[1950, 2100],
+                row=metric_row,
+                col=col,
+            )
 
-    for metric_row in range(1, 4):
-        fig.add_vline(
-            x=config.last_historical_year,
-            line_dash="dash",
-            line_color="black",
-            line_width=LINE_WIDTH_VLINE,
-            row=metric_row,
-            col=col,
+    for col, config in enumerate(run_configs, start=1):
+        col_domain = fig.get_subplot(1, col).xaxis.domain
+        fig.add_annotation(
+            x=(col_domain[0] + col_domain[1]) / 2,
+            y=1.05,
+            xref="paper",
+            yref="paper",
+            text=f"<b>{config.panel_label}</b>",
+            showarrow=False,
+            xanchor="center",
+            font={"size": 16},
         )
-        fig.update_xaxes(
-            title_text="Year", title_standoff=4, range=[1950, 2100], row=metric_row, col=col
+
+    left_y_labels = [
+        "<b>In-use stock per capita (t)</b>",
+        "<b>Production per capita (t)</b>",
+        "<b>Production (Gt)</b>",
+    ]
+    for row, label in enumerate(left_y_labels, start=1):
+        row_domain = fig.get_subplot(row, 1).yaxis.domain
+        fig.add_annotation(
+            x=LEFT_Y_TITLE_X,
+            xshift=LEFT_Y_TITLE_XSHIFT,
+            y=(row_domain[0] + row_domain[1]) / 2,
+            xref="paper",
+            yref="paper",
+            text=label,
+            showarrow=False,
+            textangle=-90,
+            xanchor="right",
+            yanchor="middle",
+            font={"size": 16},
         )
 
-    fig.update_yaxes(title_text="", row=1, col=col)
-    fig.update_yaxes(title_text="", row=2, col=col)
-    fig.update_yaxes(title_text="", row=3, col=col)
-
-for col, config in enumerate(RUN_CONFIGS, start=1):
-    col_domain = fig.get_subplot(1, col).xaxis.domain
-    fig.add_annotation(
-        x=(col_domain[0] + col_domain[1]) / 2,
-        y=1.05,
-        xref="paper",
-        yref="paper",
-        text=f"<b>{config.label}</b>",
-        showarrow=False,
-        xanchor="center",
-        font={"size": 16},
-        # align="center",
+    fig.update_layout(
+        height=300 * len(run_configs) + 100,
+        width=900 if aggregate_regions else 1050,
+        template="plotly_white",
+        legend={
+            "orientation": "h",
+            "x": 0.5,
+            "xanchor": "center",
+            "y": 1.08,
+            "yanchor": "bottom",
+            "font": {"size": LEGEND_FONT_SIZE},
+            "bordercolor": "black",
+            "borderwidth": 1,
+        },
+        margin={"t": 130, "b": 60, "l": 80, "r": 50},
     )
 
-left_y_labels = [
-    "<b>In-use stock per capita (t)</b>",
-    "<b>Production per capita (t)</b>",
-    "<b>Production (Gt)</b>",
-]
-for row, label in enumerate(left_y_labels, start=1):
-    row_domain = fig.get_subplot(row, 1).yaxis.domain
-    fig.add_annotation(
-        x=LEFT_Y_TITLE_X,
-        xshift=LEFT_Y_TITLE_XSHIFT,
-        y=(row_domain[0] + row_domain[1]) / 2,
-        xref="paper",
-        yref="paper",
-        text=label,
-        showarrow=False,
-        textangle=-90,
-        xanchor="right",
-        yanchor="middle",
-        font={"size": 16},
+    output_path = figure_output_path(f"figure_8_{_utils.region_mode_suffix(use_h12)}.png")
+    fig.write_image(
+        output_path,
+        width=fig.layout.width,
+        height=fig.layout.height,
+        scale=3,
     )
+    if show:
+        fig.show()
+    return fig
 
 
-fig.update_layout(
-    height=300 * len(RUN_CONFIGS) + 100,
-    width=900,
-    template="plotly_white",
-    legend={
-        "orientation": "h",
-        "x": 0.5,
-        "xanchor": "center",
-        "y": 1.08,
-        "yanchor": "bottom",
-        "font": {"size": LEGEND_FONT_SIZE},
-        "bordercolor": "black",
-        "borderwidth": 1,
-    },
-    margin={"t": 130, "b": 60, "l": 80, "r": 50},
-)
-
-
-# Save a high-resolution static copy while preserving on-figure relative sizing.
-output_path = pathlib.Path(__file__).with_name("figure_1.png")
-fig.write_image(
-    output_path,
-    width=fig.layout.width,
-    height=fig.layout.height,
-    scale=3,
-)
-
-
-fig.show()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--h12", action="store_true")
+    parser.add_argument("--no-show", action="store_true")
+    args = parser.parse_args()
+    main(use_h12=args.h12, show=not args.no_show)

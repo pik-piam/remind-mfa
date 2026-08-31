@@ -1,5 +1,13 @@
+import pickle
 import colorsys
-from scripts_paper._constants import AGG_COLOR_PALETTE, AGG_REGIONS, AGG_REGION_ORDER, COLOR_PALETTE
+from scripts_paper._constants import (
+    AGG_COLOR_PALETTE,
+    AGG_REGIONS,
+    AGG_REGION_ORDER,
+    COLOR_PALETTE,
+    REGION_DISPLAY_NAMES,
+    REMIND_REGION_ORDER,
+)
 
 
 def get_column_name(df, target_name: str) -> str:
@@ -9,36 +17,84 @@ def get_column_name(df, target_name: str) -> str:
     raise KeyError(f"Could not find column '{target_name}' in dataframe columns {list(df.columns)}")
 
 
-def map_region(region: str) -> str:
-    return AGG_REGIONS.get(str(region), str(region))
+def map_region(region: str, aggregate_regions: bool = True) -> str:
+    region = str(region)
+    if not aggregate_regions:
+        return region
+    return AGG_REGIONS.get(region, region)
 
 
-def aggregate_region_timeseries(df, time_col: str, region_col: str, value_col: str):
+def aggregate_region_timeseries(
+    df,
+    time_col: str,
+    region_col: str,
+    value_col: str,
+    aggregate_regions: bool = True,
+):
     aggregated = df.copy()
-    aggregated[region_col] = aggregated[region_col].map(map_region)
+    aggregated[region_col] = aggregated[region_col].map(
+        lambda region: map_region(region, aggregate_regions=aggregate_regions)
+    )
+    group_cols = [time_col, region_col]
+    preserve_cols = [
+        col for col in aggregated.columns if col not in {time_col, region_col, value_col}
+    ]
+    if preserve_cols:
+        group_cols.extend(preserve_cols)
     return (
-        aggregated.groupby([time_col, region_col], as_index=False)[value_col]
+        aggregated.groupby(group_cols, as_index=False)[value_col]
         .sum()
-        .sort_values([region_col, time_col])
+        .sort_values(group_cols)
     )
 
 
-def ordered_regions(present_regions, reverse: bool = False):
-    ordered_from_config = AGG_REGION_ORDER[::-1] if reverse else AGG_REGION_ORDER
+def ordered_regions(present_regions, reverse: bool = False, aggregate_regions: bool = True):
+    base_order = AGG_REGION_ORDER if aggregate_regions else REMIND_REGION_ORDER
+    ordered_from_config = base_order[::-1] if reverse else base_order
     present = [str(region) for region in present_regions]
     configured = [region for region in ordered_from_config if region in present]
-    remainder = sorted(region for region in present if region not in set(AGG_REGION_ORDER))
+    remainder = sorted(region for region in present if region not in set(base_order))
     if reverse:
         remainder = remainder[::-1]
     return configured + remainder
 
 
-def get_region_color(region: str, region_colors: dict) -> str:
+def get_region_color(region: str, region_colors: dict, aggregate_regions: bool = True) -> str:
     if region not in region_colors:
-        region_colors[region] = AGG_COLOR_PALETTE.get(
-            region, COLOR_PALETTE[len(region_colors) % len(COLOR_PALETTE)]
-        )
+        if aggregate_regions:
+            region_colors[region] = AGG_COLOR_PALETTE.get(
+                region, COLOR_PALETTE[len(region_colors) % len(COLOR_PALETTE)]
+            )
+        else:
+            region_colors[region] = COLOR_PALETTE[len(region_colors) % len(COLOR_PALETTE)]
     return region_colors[region]
+
+
+def get_region_label(region: str, aggregate_regions: bool = True) -> str:
+    region = str(region)
+    if aggregate_regions:
+        return region
+    return REGION_DISPLAY_NAMES.get(region, region)
+
+
+def region_mode_suffix(use_h12: bool) -> str:
+    return "h12" if use_h12 else "agg5"
+
+
+def run_pickle_path(directory, run_name: str):
+    return directory / f"{run_name}.pickle"
+
+
+def load_model(directory, run_name: str):
+    pickle_path = run_pickle_path(directory, run_name)
+    if not pickle_path.exists():
+        raise FileNotFoundError(f"Missing run pickle: {pickle_path}")
+    with pickle_path.open("rb") as file_handle:
+        return pickle.load(file_handle)
+
+
+def load_future_mfa(directory, run_name: str):
+    return load_model(directory, run_name).future_mfa
 
 
 def _hex_to_rgb01(color: str):

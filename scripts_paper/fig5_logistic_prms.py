@@ -10,7 +10,8 @@ Three panels show the effect of varying:
 import numpy as np
 import plotly.subplots
 import plotly.graph_objects as go
-import pathlib
+
+from scripts_paper._constants import figure_output_path
 
 
 def create_logistic_parameter_plot():
@@ -115,7 +116,7 @@ def create_logistic_parameter_plot():
 if __name__ == "__main__":
     fig = create_logistic_parameter_plot()
     fig.show()
-    path = pathlib.Path(__file__).with_name("logistic_parameter_effects.png")
+    path = figure_output_path("figure_5.png")
     fig.write_image(
         path,
         width=fig.layout.width,

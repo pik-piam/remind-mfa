@@ -14,6 +14,7 @@ from scripts_paper._constants import (
     PATH_CEMENT,
     LAST_HISTORICAL_YEAR_CEMENT,
     REGION_DISPLAY_NAMES,
+    figure_output_path,
 )
 import os
 
@@ -483,7 +484,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     )
 
     # Save a high-resolution static copy while preserving on-figure relative sizing.
-    output_path = pathlib.Path(__file__).with_name(f"figure_0_{MAT}_{iso}_s{STEP}.png")
+    output_path = figure_output_path(f"figure_4_{MAT}_{iso}_s{STEP}.png")
     fig.write_image(
         output_path,
         width=fig.layout.width,

@@ -1,8 +1,11 @@
 import pathlib
+from dataclasses import dataclass
 
 PATH_CEMENT = pathlib.Path("data/cement/output/export/pickle")
 PATH_PLASTICS = pathlib.Path("data/plastics/output/export/pickle")
 PATH_STEEL = pathlib.Path("data/steel/output/export/pickle")
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+FIGURE_OUTPUT_DIR = SCRIPT_DIR / "png"
 
 # Default runs use SSP2 unless explicitly noted otherwise.
 RUN_CEMENT = "model_cement_SSP2_h12_2026-08-31--13-08-27"
@@ -10,6 +13,8 @@ RUN_CEMENT_SSP1 = "model_cement_SSP1_h12_2026-08-31--13-11-16"
 RUN_CEMENT_SSP1_LD = "model_cement_SSP1_CE_h12_2026-08-31--13-12-45"
 
 RUN_PLASTICS = "model_plastics_SSP2_h12_2026-07-30--17-31-38"
+RUN_PLASTICS_SSP1 = "model_plastics_SSP1_h12_2026-08-31--13-11-16"  # dummy
+RUN_PLASTICS_SSP1_LD = "model_plastics_SSP1_CE_h12_2026-08-31--13-12-45"  # dummy
 
 RUN_STEEL = "model_steel_SSP2_h12_2026-07-28--10-04-53"
 RUN_STEEL_SSP1 = "model_steel_SSP1_h12_2026-07-30--10-05-55"
@@ -33,6 +38,7 @@ REGION_DISPLAY_NAMES = {
     "SSA": "Sub-Saharan Africa",
     "USA": "USA",
 }
+REMIND_REGION_ORDER = list(REGION_DISPLAY_NAMES)
 
 AGG_REGIONS = {
     "CAZ": "OECD",
@@ -169,3 +175,83 @@ COLORS_REMIND = {
 }
 
 COLOR_PALETTE = COLOR_PALETTE_1
+
+SCENARIO_LABELS = ("SSP2", "SSP1-drivers", "SSP1-CE")
+MATERIAL_ORDER = ("plastics", "steel", "cement")
+
+
+@dataclass(frozen=True)
+class MaterialPlotConfig:
+    material: str
+    panel_label: str
+    directory: pathlib.Path
+    default_run: str
+    production_flow_name: str
+    last_historical_year: int
+    scenario_runs: tuple[str | None, ...] = ()
+    stock_index: str | None = None
+    trade_imports_flow_name: str | None = None
+    trade_exports_flow_name: str | None = None
+    trade_demand_flow_name: str | None = None
+    trade_supply_flow_name: str | None = None
+    sankey_slice_dict: dict[str, str | int] | None = None
+
+
+MATERIAL_CONFIGS = {
+    "plastics": MaterialPlotConfig(
+        material="plastics",
+        panel_label="a) Plastics",
+        directory=PATH_PLASTICS,
+        default_run=RUN_PLASTICS,
+        production_flow_name="polymerization => primary_market",
+        last_historical_year=LAST_HISTORICAL_YEAR_PLASTICS,
+        scenario_runs=(RUN_PLASTICS, RUN_PLASTICS_SSP1, RUN_PLASTICS_SSP1_LD),
+        trade_imports_flow_name="imports => primary_market",
+        trade_exports_flow_name="primary_market => exports",
+        trade_demand_flow_name="primary_market => fabrication",
+        trade_supply_flow_name="polymerization => primary_market",
+        sankey_slice_dict={"t": 2050, "e": "C"},
+    ),
+    "steel": MaterialPlotConfig(
+        material="steel",
+        panel_label="b) Steel",
+        directory=PATH_STEEL,
+        default_run=RUN_STEEL,
+        production_flow_name="forming => ip_market",
+        last_historical_year=LAST_HISTORICAL_YEAR_STEEL,
+        scenario_runs=(RUN_STEEL, RUN_STEEL_SSP1, RUN_STEEL_SSP1_LD),
+        trade_imports_flow_name="imports => ip_market",
+        trade_exports_flow_name="ip_market => exports",
+        trade_demand_flow_name="ip_market => fabrication",
+        trade_supply_flow_name="forming => ip_market",
+        sankey_slice_dict={"t": 2050},
+    ),
+    "cement": MaterialPlotConfig(
+        material="cement",
+        panel_label="c) Cement",
+        directory=PATH_CEMENT,
+        default_run=RUN_CEMENT,
+        production_flow_name="prod_cement => market_cement",
+        last_historical_year=LAST_HISTORICAL_YEAR_CEMENT,
+        scenario_runs=(RUN_CEMENT, RUN_CEMENT_SSP1, RUN_CEMENT_SSP1_LD),
+        stock_index="cement",
+        trade_imports_flow_name="imports => market_cement",
+        trade_exports_flow_name="market_cement => exports",
+        trade_demand_flow_name="market_cement => prod_product",
+        trade_supply_flow_name="prod_cement => market_cement",
+        sankey_slice_dict={"t": 2050},
+    ),
+}
+
+
+def get_material_config(material: str) -> MaterialPlotConfig:
+    try:
+        return MATERIAL_CONFIGS[material.lower()]
+    except KeyError as exc:
+        valid = ", ".join(MATERIAL_CONFIGS)
+        raise ValueError(f"Unknown material '{material}'. Expected one of: {valid}") from exc
+
+
+def figure_output_path(filename: str) -> pathlib.Path:
+    FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    return FIGURE_OUTPUT_DIR / filename
