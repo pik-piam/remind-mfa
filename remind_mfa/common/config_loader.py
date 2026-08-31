@@ -48,7 +48,9 @@ def _resolve_scenarios_path(config: dict, config_path: Path) -> None:
             scenarios_path = config_path.parent / scenarios_path
         scenarios_path = scenarios_path.resolve()
         if not scenarios_path.exists():
-            raise FileNotFoundError(f"Scenarios path {scenarios_path} does not exist (declared in {config_path}).")
+            raise FileNotFoundError(
+                f"Scenarios path {scenarios_path} does not exist (declared in {config_path})."
+            )
         input_config["scenarios_path"] = str(scenarios_path)
 
 
