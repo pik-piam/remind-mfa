@@ -138,8 +138,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         self.cap_historical_net_imports_to_demand(
             trade=historic_trade["primary_his"],
             demand=flw["primary_market => fabrication"],
-            parent_category_dim="p",
-            sub_category_dim="m",
+            category_dim="m",
         )
 
         extrapolator = TradeExtrapolator(
