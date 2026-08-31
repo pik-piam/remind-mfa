@@ -69,8 +69,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "total_primary_HVC": self.get_new_array(dim_letters=("t", "e", "r")),
-            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
-            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
+            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
             "HVC_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "HVC_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
@@ -214,31 +214,16 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         """Keep the historic primary trade's material split, but move the *excess* net imports of any
         material (the part above its fabrication demand) onto the other materials of the same polymer
         type that have headroom, so backward-computed production per material cannot go negative.
-
-        The primary trade is (h, r, p, m) and block-diagonal (each material belongs to one type p);
-        demand is (t, e, r, m). Excess is reassigned proportional to headroom (demand - net imports)
-        within the type, on the imports side only (exports untouched), so total imports and total
-        exports per type are preserved. Where a type's total excess exceeds its total headroom,
-        the unassignable remainder is dropped by capping net imports at demand (mass reduced, warned).
         """
         eps = sys.float_info.epsilon
         tolerance = 100 * self._absolute_float_precision
-        demand = demand[{"t": self.dims["h"]}].sum_over("e").maximum(0)  # (h, r, m) total mass
+        demand = demand[{"t": self.dims["h"]}].sum_over("e").maximum(0)  # (h, r, p, m)
 
         imp = historic_trade.imports  # (h, r, p, m)
-        exp = historic_trade.exports
         net = historic_trade.net_imports
 
-        # block-diagonal (type, material) membership from the trade's own structure, so demand is
-        # only compared/redistributed within each material's own type
-        membership = (imp + exp).sum_over(("h", "r"))  # (p, m)
-        pm_mask = membership / membership.sum_over("p").maximum(
-            eps
-        )  # (p, m): 1 where m in p else 0
-        demand_pm = demand * pm_mask  # (h, r, p, m)
-
-        excess = (net - demand_pm).maximum(0)  # (h, r, p, m)
-        headroom = (demand_pm - net).maximum(0)  # (h, r, p, m)
+        excess = (net - demand).maximum(0)  # (h, r, p, m)
+        headroom = (demand - net).maximum(0)  # (h, r, p, m)
         excess_type = excess.sum_over("m")  # (h, r, p)
         headroom_type = headroom.sum_over("m")  # (h, r, p)
 
