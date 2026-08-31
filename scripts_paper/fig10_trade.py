@@ -94,9 +94,7 @@ def _build_figure(config, aggregate_regions: bool) -> go.Figure:
             if region_df.empty:
                 continue
 
-            legend_label = _utils.get_region_label(
-                region_code, aggregate_regions=aggregate_regions
-            )
+            legend_label = _utils.get_region_label(region_code, aggregate_regions=aggregate_regions)
             region_color = _utils.get_region_color(
                 region_code, region_colors, aggregate_regions=aggregate_regions
             )

@@ -24,9 +24,7 @@ def _legend_name(label: str, color: str) -> str:
 
 
 def _get_region_color(region: str, region_colors: dict, aggregate_regions: bool) -> str:
-    return _utils.get_region_color(
-        region, region_colors, aggregate_regions=aggregate_regions
-    )
+    return _utils.get_region_color(region, region_colors, aggregate_regions=aggregate_regions)
 
 
 def _load_run_data(config, aggregate_regions: bool):
@@ -170,9 +168,7 @@ def main(use_h12: bool = False, show: bool = True):
             region_df = run_data["stock_pc"][
                 run_data["stock_pc"][run_data["region_col_stock"]] == region_code
             ].sort_values(run_data["time_col_stock"])
-            legend_label = _utils.get_region_label(
-                region_code, aggregate_regions=aggregate_regions
-            )
+            legend_label = _utils.get_region_label(region_code, aggregate_regions=aggregate_regions)
             show_legend = region_code not in seen_regions
             region_color = _get_region_color(
                 region_code, region_colors, aggregate_regions=aggregate_regions
@@ -216,9 +212,7 @@ def main(use_h12: bool = False, show: bool = True):
             region_df = run_data["production_pc"][
                 run_data["production_pc"][run_data["region_col_flow"]] == region_code
             ].sort_values(run_data["time_col_flow"])
-            legend_label = _utils.get_region_label(
-                region_code, aggregate_regions=aggregate_regions
-            )
+            legend_label = _utils.get_region_label(region_code, aggregate_regions=aggregate_regions)
             show_legend = region_code not in seen_regions
             region_color = _get_region_color(
                 region_code, region_colors, aggregate_regions=aggregate_regions
@@ -262,9 +256,7 @@ def main(use_h12: bool = False, show: bool = True):
             region_df = run_data["flow_gt"][
                 run_data["flow_gt"][run_data["region_col_flow"]] == region_code
             ].sort_values(run_data["time_col_flow"])
-            legend_label = _utils.get_region_label(
-                region_code, aggregate_regions=aggregate_regions
-            )
+            legend_label = _utils.get_region_label(region_code, aggregate_regions=aggregate_regions)
             region_color = _get_region_color(
                 region_code, region_colors, aggregate_regions=aggregate_regions
             )

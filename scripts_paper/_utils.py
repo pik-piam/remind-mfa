@@ -41,11 +41,7 @@ def aggregate_region_timeseries(
     ]
     if preserve_cols:
         group_cols.extend(preserve_cols)
-    return (
-        aggregated.groupby(group_cols, as_index=False)[value_col]
-        .sum()
-        .sort_values(group_cols)
-    )
+    return aggregated.groupby(group_cols, as_index=False)[value_col].sum().sort_values(group_cols)
 
 
 def ordered_regions(present_regions, reverse: bool = False, aggregate_regions: bool = True):

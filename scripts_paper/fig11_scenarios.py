@@ -8,7 +8,12 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import scripts_paper._utils as _utils
-from scripts_paper._constants import CMAP_5, SCENARIO_LABELS, figure_output_path, get_material_config
+from scripts_paper._constants import (
+    CMAP_5,
+    SCENARIO_LABELS,
+    figure_output_path,
+    get_material_config,
+)
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
