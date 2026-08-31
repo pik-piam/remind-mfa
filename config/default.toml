@@ -15,7 +15,7 @@
         do_stock_extrapolation_with_time_factor = false
 
     [base.visualization]
-        do_visualize = true
+        do_visualize = false
         do_show_figs = true
         do_save_figs = false
         plotting_engine = "plotly"
@@ -38,12 +38,12 @@
 
     [base.export]
         do_export = true
-        pickle.do_export = true
+        pickle.do_export = false
         csv.do_export = false
         iamc.do_export = false
         mrindustry.do_export = false
         assumptions.do_export = false
-        docs.do_export = false
+        docs.do_export = true
 
 [plastics]
     [plastics.model_switches]
