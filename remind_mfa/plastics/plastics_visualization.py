@@ -112,6 +112,9 @@ class PlasticsVisualizer(CommonVisualizer):
                 name="Incinerated",
                 linecolor_dim="Material",
             )
+        if self.cfg.scenario_params.do_visualize:
+            self.visualize_scenario_params(mfa=model.future_mfa)
+
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
@@ -374,3 +377,21 @@ class PlasticsVisualizer(CommonVisualizer):
             show_extrapolation=show_extrapolation,
             show_future=show_future,
         )
+
+    def visualize_scenario_params(self, mfa: fd.MFASystem):
+        rates = [
+            ("collection_rate", "Collection rate"),
+            ("landfill_rate", "Landfill rate"),
+            ("mechanical_recycling_rate", "Mechanical recycling rate"),
+            ("chemical_recycling_rate", "Chemical recycling rate"),
+            ("bio_production_rate", "Bio-based production rate"),
+            ("daccu_production_rate", "DACCU production rate"),
+        ]
+        for param_name, display_name in rates:
+            self.visualize_fdarr(
+                mfa=mfa,
+                flow=mfa.parameters[param_name],
+                name=display_name,
+                y_unit="%",
+                scale=100,
+            )
