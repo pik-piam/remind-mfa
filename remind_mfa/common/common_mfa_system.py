@@ -166,7 +166,7 @@ class CommonMFASystem(fd.MFASystem):
         total: fd.FlodymArray,
         tolerance: float,
         eps: float,
-        direction: str,
+        direction: Literal["imports", "exports"],
     ):
         """Emit a detailed warning listing where historic net imports/exports were capped.
 
