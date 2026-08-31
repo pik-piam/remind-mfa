@@ -135,8 +135,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # negative; reassign that excess to the other materials of the same polymer type (headroom),
         # keeping the trade's material split
         flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
-        self._redistribute_primary_import_excess_within_type(
-            historic_trade["primary_his"], flw["primary_market => fabrication"]
+        self.cap_historical_net_imports_to_demand(
+            trade=historic_trade["primary_his"],
+            demand=flw["primary_market => fabrication"],
+            parent_category_dim="p",
+            sub_category_dim="m",
         )
 
         extrapolator = TradeExtrapolator(
@@ -207,56 +210,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"]
 
         # fmt: on
-
-    def _redistribute_primary_import_excess_within_type(
-        self, historic_trade: Trade, demand: fd.FlodymArray
-    ):
-        """Keep the historic primary trade's material split, but move the *excess* net imports of any
-        material (the part above its fabrication demand) onto the other materials of the same polymer
-        type that have headroom, so backward-computed production per material cannot go negative.
-        """
-        eps = sys.float_info.epsilon
-        tolerance = 100 * self._absolute_float_precision
-        demand = demand[{"t": self.dims["h"]}].sum_over("e").maximum(0)  # (h, r, p, m)
-
-        imp = historic_trade.imports  # (h, r, p, m)
-        net = historic_trade.net_imports
-
-        excess = (net - demand).maximum(0)  # (h, r, p, m)
-        headroom = (demand - net).maximum(0)  # (h, r, p, m)
-        excess_type = excess.sum_over("m")  # (h, r, p)
-        headroom_type = headroom.sum_over("m")  # (h, r, p)
-
-        fill = headroom * (excess_type / headroom_type.maximum(eps)).minimum(1)  # (h, r, p, m)
-        historic_trade.imports[...] = imp - excess + fill  # exports unchanged
-
-        # warn where the type's excess could not be fully reassigned (net imports capped at demand)
-        residual = (excess_type - headroom_type).maximum(0)  # (h, r, p)
-        if (residual.values > tolerance).any():
-            coords = residual.items_where(lambda x: x > tolerance)  # rows (h, r, p)
-            h_idx = residual.dims.letters.index("h")
-            r_idx = residual.dims.letters.index("r")
-            p_idx = residual.dims.letters.index("p")
-            # polymer types and years affected per region
-            by_region = {}
-            for row in coords:
-                types, years = by_region.setdefault(str(row[r_idx]), (set(), set()))
-                types.add(str(row[p_idx]))
-                years.add(int(row[h_idx]))
-            detail = "\n".join(
-                f"    {region}: {', '.join(sorted(types))}; "
-                f"{', '.join(str(y) for y in sorted(years))}"
-                for region, (types, years) in sorted(by_region.items())
-            )
-            net_import_agg = net.maximum(0).sum_to(("h", "r"))
-            max_reduction = np.max(
-                (residual.sum_to(("h", "r")) / net_import_agg.maximum(eps)).values
-            )
-            logging.warning(
-                f"Primary net imports exceed fabrication demand and could not be reassigned within "
-                f"the polymer type; capped {len(coords)} entries at demand:\n{detail}"
-                f"\nNet imports reduced by up to {max_reduction:.0%} in a single region and year."
-            )
 
     def _adjust_primary_trade_for_secondary_excess(self, flw, trd):
         """
