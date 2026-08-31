@@ -57,6 +57,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             "other_reactants",
             "losses",
             "aux_recyclate_trade",
+            "aux_recl_feedstock_trade",
             "imports",
             "exports",
         ]
@@ -119,7 +120,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="aux_recyclate_trade", dim_letters=("t","e","r", "p", "m")),
             fd.FlowDefinition(from_process="aux_recyclate_trade", to_process="primary_market", dim_letters=("t","e","r","p","m")),
-            fd.FlowDefinition(from_process="reclchem", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="reclchem", to_process="aux_recl_feedstock_trade", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="aux_recl_feedstock_trade", to_process="HVC_input", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","p","m")),
@@ -135,6 +137,9 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             # recyclate trade (redistributes mechanical-recycling surplus between regions)
             fd.FlowDefinition(from_process="aux_recyclate_trade", to_process="exports", dim_letters=("t","e","r", "p", "m")),
             fd.FlowDefinition(from_process="imports", to_process="aux_recyclate_trade", dim_letters=("t","e","r","p","m")),
+            # recycled-feedstock trade (redistributes chemical-recycling surplus between regions)
+            fd.FlowDefinition(from_process="aux_recl_feedstock_trade", to_process="exports", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="imports", to_process="aux_recl_feedstock_trade", dim_letters=("t","e","r")),
 
         ]
     # fmt: on
@@ -259,6 +264,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             TradeDefinition(name="final", dim_letters=("t", "r", "p", "m", "g")),
             TradeDefinition(name="waste", dim_letters=("t", "e", "r", "p", "m")),
             TradeDefinition(name="aux_recyclate_trade", dim_letters=("t", "e", "r", "p", "m")),
+            TradeDefinition(name="aux_recl_feedstock_trade", dim_letters=("t", "e", "r")),
         ]
 
     return RemindMFADefinition(

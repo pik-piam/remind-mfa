@@ -85,7 +85,7 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_fdarr(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclchem => HVC_input"],
+                flow=model.future_mfa.flows["reclchem => aux_recl_feedstock_trade"],
                 name="Chemically recycled",
             )
             self.visualize_fdarr_stacked(
