@@ -4,7 +4,7 @@
         input_data_path = "../remind_mfa_data"
         input_data_revision = "2.0.0"
         region_mapping = "h12"
-        scenarios_path = "config/scenarios"
+        scenarios_path = "./scenarios"
 
     [base.model_switches]
         scenario = "SSP2"
