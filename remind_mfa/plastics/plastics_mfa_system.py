@@ -168,10 +168,10 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         self._redistribute_recyclate_surplus(
             market="aux_recyclate_trade",
-            downstream="primary_market",
             recyclate=flw["reclmech => aux_recyclate_trade"],
             demand=dom_supply,
         )
+        flw["aux_recyclate_trade => primary_market"][...] = flw["reclmech => aux_recyclate_trade"] - trd["aux_recyclate_trade"].exports + trd["aux_recyclate_trade"].imports
         flw["polymerization => primary_market"][...] = (
             dom_supply - flw["aux_recyclate_trade => primary_market"]
         )
@@ -195,10 +195,10 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => aux_recl_feedstock_trade"]
         self._redistribute_recyclate_surplus(
             market="aux_recl_feedstock_trade",
-            downstream="HVC_input",
             recyclate=flw["reclchem => aux_recl_feedstock_trade"],
             demand=flw["HVC_input => polymerization"],
         )
+        flw["aux_recl_feedstock_trade => HVC_input"][...] = flw["reclchem => aux_recl_feedstock_trade"] - trd["aux_recl_feedstock_trade"].exports + trd["aux_recl_feedstock_trade"].imports
         aux["total_primary_HVC"][...] = flw["HVC_input => polymerization"] - flw["aux_recl_feedstock_trade => HVC_input"]
 
         # carbon cycles via bio daccu feedstocks
@@ -235,7 +235,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
     def _redistribute_recyclate_surplus(
         self,
         market: str,
-        downstream: str,
         recyclate: fd.FlodymArray,
         demand: fd.FlodymArray,
     ):
@@ -243,16 +242,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         Where a region's ``recyclate`` exceeds the domestic ``demand`` it can feed, the surplus is
         exported; regions with headroom (``demand`` above their recyclate) import it, so the
-        backward-computed primary input (``demand - {market} => {downstream}``) stays non-negative
-        instead of going negative for net-importer / high-recycling regions.
+        backward-computed primary input stays non-negative instead of going negative for net-importer / 
+        high-recycling regions.
 
         Exports carry the surplus; imports are seeded with the headroom as a per-region
         distribution shape (shares summing to 1 per slice) and balanced up to the surplus total
         (``to="maximum"``), so each region imports ``surplus * headroom_share``. While a slice's
         total surplus <= total headroom, every region's import stays <= its headroom.
 
-        Writes the market's three flows (``imports => {market}``, ``{market} => exports``,
-        ``{market} => {downstream}``); the caller reads the last to close its primary balance.
+        Writes the market's imports and exports.
         Used for both mechanical (``reclmech`` -> ``primary_market``) and chemical
         (``reclchem`` -> ``HVC_input``) recyclate.
         """
@@ -264,7 +262,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd[market].balance(to="maximum", mask_scaled=(trd[market].exports.values == 0))
         flw[f"imports => {market}"][...] = trd[market].imports
         flw[f"{market} => exports"][...] = trd[market].exports
-        flw[f"{market} => {downstream}"][...] = recyclate - trd[market].exports + trd[market].imports
 
     def compute_other_stocks(self):
 
