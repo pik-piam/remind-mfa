@@ -1,0 +1,104 @@
+# TOML sketch of config/scenarios/BASE.csv
+# One array-of-tables entry per CSV row.
+
+# --- Model defaults ---
+[[saturation_level]]
+models = ["steel"]
+value = 10
+
+[[saturation_level]]
+models = ["plastics"]
+value = 3
+
+[[saturation_level]]
+models = ["cement"]
+value = 24
+
+# --- Scenario defaults ---
+[[stock_factor]]
+models = ["all"]
+value = 1.0
+year = 2100
+type = "factor"
+
+[[lifetime_mean]]
+models = ["all"]
+value = 1.0
+year = 2060
+type = "factor"
+
+[[lifetime_std]]
+models = ["all"]
+value = 1.0
+year = 2060
+type = "factor"
+
+# --- Plastics ---
+[[waste_his_imports]]
+models = ["plastics"]
+value = 0
+year = 2030
+type = "target"
+
+[[waste_his_exports]]
+models = ["plastics"]
+value = 0
+year = 2030
+type = "target"
+
+[[collection_rate]]
+models = ["plastics"]
+value = 1.0
+year = 2100
+type = "target"
+
+[[landfill_rate]]
+models = ["plastics"]
+value = 0.0
+year = 2050
+type = "target"
+
+[[mechanical_recycling_rate]]
+models = ["plastics"]
+value = 0.4
+year = 2050
+type = "target"
+
+[[chemical_recycling_rate]]
+models = ["plastics"]
+value = 0.1
+year = 2050
+type = "target"
+
+[[bio_production_rate]]
+models = ["plastics"]
+value = 0.2
+year = 2050
+type = "target"
+
+[[daccu_production_rate]]
+models = ["plastics"]
+value = 0.01
+year = 2050
+type = "target"
+
+# --- Cement (bottom-up) ---
+[[function_buildings_split]]
+models = ["cement"]
+value = 0.4
+year = 2060
+type = "target"
+Region = ["IND", "LAM", "OAS", "SSA"]
+"Stock Type" = "Res"
+Function = "RS"
+description = "New single-family homes make up 40% of residential floor area"
+
+[[structure_buildings_split]]
+models = ["cement"]
+value = 0.3
+year = 2060
+type = "target"
+Region = ["SSA"]
+Function = ["RS", "RM", "Com"]
+Structure = "M"
+description = "Masonry share in SSA decreases to 30%"
