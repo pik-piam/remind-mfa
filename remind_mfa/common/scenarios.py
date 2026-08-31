@@ -3,6 +3,7 @@ import ast
 import csv
 import itertools
 import numpy as np
+import yaml
 import flodym as fd
 from pydantic import Field, field_validator, model_validator
 from typing import Any, Dict, List, Optional
@@ -243,11 +244,11 @@ class ScenarioReader(RemindMFABaseModel):
 
     @staticmethod
     def _parse_dict_column(s: str) -> dict:
-        """Parse a dict from an index or extra column.
+        """Parse a dict from an index or extra column using YAML syntax.
 
-        Accepts ``{key: value, key2: [v1, v2]}`` with or without quotes around
-        bare identifiers and strings.  Numeric values are returned as numbers;
-        everything else is returned as a string.
+        Accepts the scenario column format used in config files, for example
+        ``{year: 2030, type: target}`` or
+        ``{Region: [IND, LAM], Function: RS}``.
         """
         s = s.strip()
         if not s:
@@ -256,65 +257,15 @@ class ScenarioReader(RemindMFABaseModel):
             raise ValueError(
                 f"Expected a dict (starting with '{{' and ending with '}}'), got: {s!r}"
             )
-        inner = s[1:-1].strip()
-        if not inner:
-            return {}
-        result = {}
-        for part in ScenarioReader._split_top_level(inner, ","):
-            colon_idx = part.index(":")
-            key = part[:colon_idx].strip().strip("\"'")
-            val_str = part[colon_idx + 1 :].strip()
-            result[key] = ScenarioReader._parse_dict_value(val_str)
-        return result
-
-    @staticmethod
-    def _parse_dict_value(s: str):
-        """Parse a single value that may be a number, quoted/bare string, or a list."""
-        s = s.strip()
-        if s.startswith("[") and s.endswith("]"):
-            inner = s[1:-1].strip()
-            if not inner:
-                return []
-            return [
-                ScenarioReader._parse_dict_value(v.strip())
-                for v in ScenarioReader._split_top_level(inner, ",")
-            ]
         try:
-            return ast.literal_eval(s)
-        except (ValueError, SyntaxError):
-            pass
-        # Bare identifier (unquoted string)
-        return s.strip("\"'")
-
-    @staticmethod
-    def _split_top_level(s: str, sep: str) -> list:
-        """Split *s* by *sep* while ignoring the separator inside brackets or quotes."""
-        parts = []
-        depth = 0
-        in_str = None
-        current = []
-        for c in s:
-            if in_str:
-                current.append(c)
-                if c == in_str:
-                    in_str = None
-            elif c in ('"', "'"):
-                in_str = c
-                current.append(c)
-            elif c in "([{":
-                depth += 1
-                current.append(c)
-            elif c in ")]}":
-                depth -= 1
-                current.append(c)
-            elif c == sep and depth == 0:
-                parts.append("".join(current).strip())
-                current = []
-            else:
-                current.append(c)
-        if current:
-            parts.append("".join(current).strip())
-        return parts
+            parsed = yaml.safe_load(s)
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Could not parse YAML dict column {s!r}: {exc}") from exc
+        if parsed is None:
+            return {}
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Expected a YAML mapping in column value, got: {type(parsed).__name__}")
+        return parsed
 
     @staticmethod
     def _expand_index(index: dict) -> list:
