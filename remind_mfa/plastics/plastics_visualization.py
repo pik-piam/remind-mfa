@@ -131,7 +131,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => aux_recyclate_trade"]
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["reclmech => aux_recyclate_trade"]
         )
         self.visualize_fdarr_stacked(
             mfa=mfa,
