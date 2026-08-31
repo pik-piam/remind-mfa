@@ -264,7 +264,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd[market].balance(to="maximum", mask_scaled=(trd[market].exports.values == 0))
         flw[f"imports => {market}"][...] = trd[market].imports
         flw[f"{market} => exports"][...] = trd[market].exports
-        flw[f"{market} => {downstream}"][...] = recyclate - trd[market].exports + trd[market].imports
+        flw[f"{market} => {downstream}"][...] = (
+            recyclate - trd[market].exports + trd[market].imports
+        )
 
     def compute_other_stocks(self):
 
