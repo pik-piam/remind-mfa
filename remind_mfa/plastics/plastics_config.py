@@ -6,7 +6,7 @@ class PlasticsVisualizationCfg(VisualizationCfg):
     """Visualization configuration for flows."""
     material_splits: BaseVisualizationCfg
     """Visualization configuration for material splits in consumption."""
-    scenario_params: BaseVisualizationCfg
+    scenario_params: BaseVisualizationCfg = BaseVisualizationCfg()
     """Visualization configuration for scenario parameters."""
 
 

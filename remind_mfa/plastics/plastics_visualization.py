@@ -321,33 +321,19 @@ class PlasticsVisualizer(CommonVisualizer):
         )
 
     def visualize_scenario_params(self, mfa: fd.MFASystem):
-        self.visualize_fdarr(
-            mfa=mfa,
-            flow=mfa.parameters["collection_rate"],
-            name="Collection rate",
-        )
-        self.visualize_fdarr(
-            mfa=mfa,
-            flow=mfa.parameters["landfill_rate"],
-            name="Landfill rate",
-        )
-        self.visualize_fdarr(
-            mfa=mfa,
-            flow=mfa.parameters["mechanical_recycling_rate"],
-            name="Mechanical recycling rate",
-        )
-        self.visualize_fdarr(
-            mfa=mfa,
-            flow=mfa.parameters["chemical_recycling_rate"],
-            name="Chemical recycling rate",
-        )
-        self.visualize_fdarr(
-            mfa=mfa,
-            flow=mfa.parameters["bio_production_rate"],
-            name="Bio-based production rate",
-        )
-        self.visualize_fdarr(
-            mfa=mfa,
-            flow=mfa.parameters["daccu_production_rate"],
-            name="DACCU production rate",
-        )
+        rates = [
+            ("collection_rate", "Collection rate"),
+            ("landfill_rate", "Landfill rate"),
+            ("mechanical_recycling_rate", "Mechanical recycling rate"),
+            ("chemical_recycling_rate", "Chemical recycling rate"),
+            ("bio_production_rate", "Bio-based production rate"),
+            ("daccu_production_rate", "DACCU production rate"),
+        ]
+        for param_name, display_name in rates:
+            self.visualize_fdarr(
+                mfa=mfa,
+                flow=mfa.parameters[param_name],
+                name=display_name,
+                y_unit="%",
+                scale=100,
+            )
