@@ -9,17 +9,27 @@ from constants import (
     RUN_STEEL,
     RUN_STEEL_SSP1,
     RUN_STEEL_SSP1_LD,
+    PATH_CEMENT,
+    RUN_CEMENT,
+    RUN_CEMENT_SSP1,
+    RUN_CEMENT_SSP1_LD,
     AGG_REGIONS,
     AGG_REGION_ORDER,
     CMAP_5,
 )
 import os
+import utils
 
 os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 DIRECTORY = PATH_STEEL
 FLOW_NAME = "forming => ip_market"
 RUNS = [RUN_STEEL, RUN_STEEL_SSP1, RUN_STEEL_SSP1_LD]
+
+DIRECTORY = PATH_CEMENT
+FLOW_NAME = "prod_cement => market_cement"
+RUNS = [RUN_CEMENT, RUN_CEMENT_SSP1, RUN_CEMENT_SSP1_LD]
+
 LABELS = ["SSP2", "SSP1-drivers", "SSP1-CE"]
 X_RANGE = [2000, 2100]
 X_TICKS = [2000, 2050, 2100]
@@ -29,6 +39,11 @@ LINE_WIDTH_SCALE = 1.5
 LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
 LINE_WIDTH_VLINE = 1.2 * LINE_WIDTH_SCALE
 LEGEND_FONT_SIZE = 13
+MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
+
+
+def _legend_name(label: str, color: str) -> str:
+    return utils.legend_name(label, color, MAXIMUM_LEGENDTEXT_BRIGHTNESS)
 
 
 def _get_column_name(df, target_name: str) -> str:
@@ -126,16 +141,17 @@ def _build_comparison_figure(array: fd.FlodymArray, subplot_dim: str | None = No
             run_df = panel_df[panel_df[run_col].astype(str) == str(run_label)].sort_values(time_col)
             if run_df.empty:
                 continue
+            line_color = RUN_COLOR_MAP.get(str(run_label))
             fig.add_trace(
                 go.Scatter(
                     x=run_df[time_col],
                     y=run_df[value_col],
                     mode="lines",
-                    name=str(run_label),
+                    name=_legend_name(str(run_label), line_color),
                     legendgroup=str(run_label),
                     showlegend=legend,
                     legendrank=run_legend_rank.get(str(run_label), len(LABELS) + 100),
-                    line={"color": RUN_COLOR_MAP.get(str(run_label)), "width": LINE_WIDTH_DEFAULT},
+                    line={"color": line_color, "width": LINE_WIDTH_DEFAULT},
                 ),
                 row=panel_row,
                 col=panel_col,

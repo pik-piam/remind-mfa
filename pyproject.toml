@@ -52,8 +52,8 @@ dev = [
     { include-group = "docs" },
 ]
 
-[tool.uv.sources]
-flodym = { path = "../flodym", editable = true }
+# [tool.uv.sources]
+# flodym = { path = "../flodym", editable = true }
 
 [tool.uv.build-backend]
 module-name = "remind_mfa"
