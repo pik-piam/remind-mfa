@@ -64,11 +64,13 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.flows["use => sysenv"][...] += self.stocks["in_use_historic"].outflow
 
         # get material split from historic stock inflow, jointly normalized over (m, p) so the shares
-        # sum to 1 across all polymer types and materials. 
+        # sum to 1 across all polymer types and materials.
         with np.errstate(divide="ignore"):
             self.parameters["material_shares_use_inflow"] = fd.Parameter(
                 dims=self.dims["h", "r", "p", "m", "g"],
-                values=(self.flows["good_market => use"].maximum(0)).get_shares_over(("m", "p")).values,
+                values=(self.flows["good_market => use"].maximum(0))
+                .get_shares_over(("m", "p"))
+                .values,
             )
         # country-level (iso249) runs have (r, g) cells with zero inflow -> 0/0 = NaN shares; zero them
         self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
