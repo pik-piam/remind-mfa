@@ -79,13 +79,13 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_fdarr_stacked(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclmech => primary_market"],
+                flow=model.future_mfa.flows["reclmech => aux_recyclate_trade"],
                 name="Mechanically recycled",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclchem => HVC_input"],
+                flow=model.future_mfa.flows["reclchem => aux_recl_feedstock_trade"],
                 name="Chemically recycled",
             )
             self.visualize_fdarr_stacked(
@@ -131,7 +131,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["reclmech => aux_recyclate_trade"]
         )
         self.visualize_fdarr_stacked(
             mfa=mfa,
