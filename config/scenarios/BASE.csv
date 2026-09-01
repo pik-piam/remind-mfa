@@ -13,12 +13,12 @@ lifetime_std,all,1.0,"{year: 2060, type: factor}",,
 # --- Plastics ---
 waste_his_imports,plastics,0,"{year: 2030, type: target}",,
 waste_his_exports,plastics,0,"{year: 2030, type: target}",,
-collection_rate,plastics,1.0,"{year: 2100, type: target}",,
-landfill_rate,plastics,0.0,"{year: 2050, type: target}",,
-mechanical_recycling_rate,plastics,0.4,"{year: 2050, type: target}",,
-chemical_recycling_rate,plastics,0.1,"{year: 2050, type: target}",,
-bio_production_rate,plastics,0.2,"{year: 2050, type: target}",,
-daccu_production_rate,plastics,0.01,"{year: 2050, type: target}",,
+collection_rate,plastics,0.99,"{year: 2100, type: target}",,
+landfill_rate,plastics,0.0,"{year: 2100, type: target}",,
+mechanical_recycling_rate,plastics,0.4,"{year: 2100, type: target}",,
+chemical_recycling_rate,plastics,0.1,"{year: 2100, type: target}",,
+bio_production_rate,plastics,0.1,"{year: 2100, type: target}",,
+daccu_production_rate,plastics,0.01,"{year: 2100, type: target}",,
 
 # --- Cement (bottom-up) ---
 function_buildings_split,cement,0.4,"{year: 2060, type: target}","{Region: [IND, LAM, OAS, SSA], Stock Type: Res, Function: RS}",New single-family homes make up 40% of residential floor area

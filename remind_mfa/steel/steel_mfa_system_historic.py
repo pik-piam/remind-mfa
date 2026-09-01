@@ -37,7 +37,7 @@ class SteelMFASystemHistoric(CommonMFASystem):
         flw["forming => ip_market"][...] = prm["production"] * prm["forming_yield"][{'t': self.dims['h']}]
         flw["forming => sysenv"][...] = flw["sysenv => forming"] - flw["forming => ip_market"]
 
-        self.cap_historical_net_exports_to_supply("steel", flw["forming => ip_market"])
+        self.cap_historical_net_exports_to_supply(trd["steel"], flw["forming => ip_market"])
 
         flw["ip_market => sysenv"][...] = trd["steel"].exports
         flw["sysenv => ip_market"][...] = trd["steel"].imports
@@ -50,7 +50,7 @@ class SteelMFASystemHistoric(CommonMFASystem):
         flw["fabrication => sysenv"][...] = flw["ip_market => fabrication"] - aux["fabrication_to_good_market_total"]
 
         # indirect net exports are capped to not exceed available fabrication inflow, else use inflow goes negative
-        self.cap_historical_net_exports_to_supply("indirect", aux["fabrication_to_good_market_total"])
+        self.cap_historical_net_exports_to_supply(trd["indirect"], aux["fabrication_to_good_market_total"])
 
         # Transfer to flows
         flw["sysenv => good_market"][...] = trd["indirect"].imports
