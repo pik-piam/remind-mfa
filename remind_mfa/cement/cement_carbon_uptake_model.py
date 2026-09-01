@@ -52,12 +52,10 @@ class CementCarbonUptakeModel(BaseModel):
     def build_subsystem(self):
         """Create the carbonation subsystem on the MFA and reroute the in-use outflow through it.
 
-        The base cement definition is carbonation-free (only ``in_use``, with ``use => sysenv``).
+        The base cement definition doesn't include eol stocks (hence ``use => sysenv``).
         This method injects the processes, stocks, and flows the carbonation model needs, so the
         memory-heavy ``eol`` cohort arrays (and the ``atmosphere``/``carbonated_co2`` stocks) are
-        allocated only when carbonation is active. flodym's ``MFASystem`` stores these as plain
-        mutable dicts, and mass-balance/flow checks iterate the current contents, so the injected
-        entries are picked up automatically.
+        allocated only when carbonation is active.
         """
         mfa = self.mfa
         in_use_letters = mfa.stocks["in_use"].dims.letters

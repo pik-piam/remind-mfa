@@ -30,22 +30,20 @@ def aggregate_bu_to_common(arr: fd.FlodymArray, common_end_use_dim: fd.Dimension
     return out
 
 
-def aggregate_bu_to_common_intensive(
-    arr: fd.FlodymArray, common_end_use_dim: fd.Dimension
-) -> fd.FlodymArray:
+def aggregate_bu_to_common_intensive[T: fd.FlodymArray](
+    arr: T, common_end_use_dim: fd.Dimension
+) -> T:
     """Aggregate an intensive bottom-up-end-use (b) quantity to common end uses (c): the
     residential value is the (identical) RS/RM value, Com passes through. Intensive
-    twin of `aggregate_bu_to_common` (which sums); valid because RS and RM carry the
-    same value for the intensive quantities this is used for (e.g. lifetimes)."""
+    twin of `aggregate_bu_to_common`. Class (e.g. Parameter) and name of the input are
+    preserved."""
     out = type(arr)(dims=arr.dims.replace("b", common_end_use_dim), name=arr.name)
     out[{"c": "Res"}] = arr[{"b": "RS"}]
     out[{"c": "Com"}] = arr[{"b": "Com"}]
     return out
 
 
-def extend_end_use_intensive(
-    arr: fd.FlodymArray, extended_end_use_dim: fd.Dimension
-) -> fd.FlodymArray:
+def extend_end_use_intensive[T: fd.FlodymArray](arr: T, extended_end_use_dim: fd.Dimension) -> T:
     """Extend an intensive end-use-resolved (u) quantity to extended end uses (e) by copying
     the residential value to both dwelling types (RS, RM). Only valid for intensive
     quantities (e.g. lifetimes); extensive quantities require a weighted split instead.
