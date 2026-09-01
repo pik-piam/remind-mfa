@@ -430,6 +430,8 @@ class CommonVisualizer(RemindMFABaseModel):
         regional: bool = True,
         per_capita: bool = False,
         linecolor_dim: Optional[str] = None,
+        y_unit: str = "t",
+        scale: float = 1.0,
     ):
         population = mfa.parameters["population"]
         if per_capita:
@@ -443,6 +445,8 @@ class CommonVisualizer(RemindMFABaseModel):
             "r",
         ] + ([linecolor_dim_letter] if linecolor_dim_letter is not None else [])
         flow = summing_func(flow.sum_to(dimlist))
+        if scale != 1.0:
+            flow = flow * scale
 
         fig, ap_flow = self.plot_history_and_future(
             mfa=mfa,
@@ -451,7 +455,7 @@ class CommonVisualizer(RemindMFABaseModel):
             x_array=None,
             linecolor_dim=linecolor_dim,
             x_label="Year",
-            y_label=f"{name} [t]",
+            y_label=f"{name} [{y_unit}]",
             title=f"{name} {pc_str} {regional_tag}",
             line_label=name if linecolor_dim is None else None,
         )
