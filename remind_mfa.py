@@ -8,7 +8,12 @@ from dotenv import load_dotenv
 
 from remind_mfa.cli.helper import prompt_for_config_names
 from remind_mfa.common.config_loader import load_config
-from remind_mfa.common.helpers import ModelNames, init_model, get_export_dir_prefix, set_export_dir_prefix
+from remind_mfa.common.helpers import (
+    ModelNames,
+    init_model,
+    get_export_dir_prefix,
+    set_export_dir_prefix,
+)
 
 app = typer.Typer()
 
@@ -65,8 +70,8 @@ def create_export_series_dir(bundle_export, bundle_path, model_config):
     if bundle_export:
         if bundle_path is None:
             bundle_path = os.path.join(
-                    model_config["export"]["path"], f"{get_export_dir_prefix()}_series"
-                )
+                model_config["export"]["path"], f"{get_export_dir_prefix()}_series"
+            )
             os.makedirs(bundle_path, exist_ok=True)
         model_config["export"]["path"] = bundle_path
 

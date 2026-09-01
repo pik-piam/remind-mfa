@@ -9,16 +9,19 @@ if TYPE_CHECKING:
 
 EXPORT_DIR_PREFIX = None
 
+
 def get_export_dir_prefix() -> str:
     """Current timestamp, formatted for use in export file and folder names."""
     if EXPORT_DIR_PREFIX is None:
         return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
     return EXPORT_DIR_PREFIX
 
+
 def set_export_dir_prefix(prefix: str) -> None:
     """Set a prefix for export file and folder names."""
     global EXPORT_DIR_PREFIX
     EXPORT_DIR_PREFIX = prefix
+
 
 class ModelNames(str, Enum):
     PLASTICS = "plastics"
