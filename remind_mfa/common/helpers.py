@@ -7,10 +7,13 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
+OMIT_TIMESTAMP_PREFIX = [False]
 
-def timestamp_str() -> str:
+def timestamp_prefix() -> str:
     """Current timestamp, formatted for use in export file and folder names."""
-    return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+    if OMIT_TIMESTAMP_PREFIX[0]:
+        return ""
+    return datetime.now().strftime("%Y-%m-%d--%H-%M-%S_")
 
 
 class ModelNames(str, Enum):

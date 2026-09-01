@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from remind_mfa.cli.helper import prompt_for_config_names
 from remind_mfa.common.config_loader import load_config
-from remind_mfa.common.helpers import ModelNames, init_model, timestamp_str
+from remind_mfa.common.helpers import ModelNames, init_model, timestamp_prefix, OMIT_TIMESTAMP_PREFIX
 
 app = typer.Typer()
 
@@ -50,13 +50,7 @@ def run_remind_mfa(
     bundle_path: str | None = None
     for model_name in models:
         model_config = load_config(config_names, model_name)
-        if bundle_export:
-            if bundle_path is None:
-                bundle_path = os.path.join(
-                    model_config["export"]["path"], f"{timestamp_str()}_bundle"
-                )
-                os.makedirs(bundle_path, exist_ok=True)
-            model_config["export"]["path"] = bundle_path
+        create_export_bundle_dir(bundle_export, bundle_path, model_config)
         model = init_model(cfg=model_config)
         logging.info(f"{type(model).__name__} instance created.")
         model.run()
@@ -65,6 +59,16 @@ def run_remind_mfa(
         logging.info("Export completed.")
         model.visualize()
         logging.info("Visualization completed.")
+
+
+def create_export_bundle_dir(bundle_export, bundle_path, model_config):
+    if bundle_export:
+        if bundle_path is None:
+            bundle_path = os.path.join(
+                    model_config["export"]["path"], f"{timestamp_prefix()}bundle"
+                )
+            os.makedirs(bundle_path, exist_ok=True)
+        model_config["export"]["path"] = bundle_path
 
 
 def prompt_for_model() -> ModelSelection:
@@ -103,6 +107,17 @@ def main(
             ),
         ),
     ] = False,
+    omit_timestamps: Annotated[
+        bool,
+        typer.Option(
+            "--omit-timestamps",
+            help=(
+                "Omit timestamps in the export paths. This is useful to get "
+                "reliable paths for data pipelines, but will overwrite previous "
+                "exports. Use with care."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Run REMIND-MFA with one or more layered configurations."""
     load_dotenv()
@@ -116,6 +131,10 @@ def main(
     models_to_run = list(ModelNames) if model_selection == "all" else [model_selection]
 
     configure_logger()
+
+    if omit_timestamps:
+        OMIT_TIMESTAMP_PREFIX[0] = True
+
     run_remind_mfa(config_names, models_to_run, bundle_export=bundle_export)
 
 

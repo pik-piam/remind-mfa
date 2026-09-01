@@ -23,7 +23,7 @@ from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.helpers import RemindMFABaseModel, timestamp_str
+from remind_mfa.common.helpers import RemindMFABaseModel, timestamp_prefix
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -107,7 +107,7 @@ class CommonDataExporter(RemindMFABaseModel):
         """Per-model-run export folder, created once and shared by exporter and visualizer."""
         if self._run_path is None:
             name = (
-                f"{timestamp_str()}_{model.cfg.model.value}_"
+                f"{timestamp_prefix()}{model.cfg.model.value}_"
                 f"{model.cfg.model_switches.scenario}_{model.cfg.input.region_mapping}"
             )
             self._run_path = os.path.join(self.cfg.path, name)
