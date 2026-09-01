@@ -96,7 +96,8 @@ class CementParameterReconciliation:
         self.ref_mfa = ref_mfa
         self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
 
-        self.reduced_end_use = ref_mfa.dims["c"]
+        self.prepare_dims()
+
         self._reconciled_split_items = {
             "product_material_split": ("concrete",),
             "end_use_split": tuple(self.reduced_end_use.items),
@@ -107,7 +108,6 @@ class CementParameterReconciliation:
 
         self.output_dims_are_independent = output_dims_are_independent
 
-        self.prepare_dims()
         self.input_prms = deepcopy(ref_mfa.parameters)
         self.prepare_prms(ref_mfa.parameters)
         self.prepare_flws()
@@ -116,9 +116,26 @@ class CementParameterReconciliation:
         self._rel_stds = self._build_rel_stds()
 
     def prepare_dims(self):
-        dims = self.ref_mfa.dims
-        self.input_dims = deepcopy(dims)
-        self.dims = deepcopy(dims)
+        self.input_dims = deepcopy(self.ref_mfa.dims)
+        self.reduced_end_use = self.input_dims["c"]
+
+    def reduce_u_to_common(self, arr: fd.FlodymArray) -> fd.FlodymArray:
+        """Restrict an end-use-resolved (u) array to the common end uses (c: Res/Com),
+        dropping the end uses outside the reconciliation (Ind/Civ).
+
+        Relies on the items of ``c`` being a name-identical subset of the items of ``u``.
+        Returns a new array; the input is left untouched.
+        """
+        return arr[{"u": self.reduced_end_use}]
+
+    def expand_common_to_u(self, arr: fd.FlodymArray, fill_value: float) -> fd.FlodymArray:
+        """Expand a common-end-use (c) array back to the full end-use dimension (u), filling
+        the end uses outside the reconciliation (Ind/Civ) with `fill_value`. Inverse of
+        `reduce_u_to_common`."""
+        new_dims = arr.dims.replace(self.reduced_end_use.letter, self.input_dims["u"])
+        out = fd.FlodymArray.full(dims=new_dims, fill_value=fill_value)
+        out[{"u": self.reduced_end_use}] = arr
+        return out
 
     def prepare_prms(self, source_prms: dict[str, fd.Parameter]):
         """Build the reduced working parameters `prms` from `source_prms`, and the
@@ -137,7 +154,7 @@ class CementParameterReconciliation:
         used during reconciliation."""
         # reduce end-use dimension to the common end use (Res/Com)
         if "u" in prm.dims.letters:
-            prm = prm[{"u": self.reduced_end_use}]
+            prm = self.reduce_u_to_common(prm)
         # remove time dimension
         if prm_name in ["floorspace"]:
             prm = prm[{"t": self._year_of_reconciliation}]
@@ -147,7 +164,7 @@ class CementParameterReconciliation:
         self.flws: dict[str, fd.Flow] = {}
         for key, val in self.ref_mfa.flows.items():
             if "u" in val.dims.letters:
-                val = val[{"u": self.reduced_end_use}]  # slicing returns a new array
+                val = self.reduce_u_to_common(val)  # slicing returns a new array
             else:
                 val = deepcopy(val)  # protect ref_mfa flows from in-place modification
             self.flws[key] = val
@@ -157,9 +174,9 @@ class CementParameterReconciliation:
         for key, val in self.ref_mfa.stocks.items():
             val = deepcopy(val)
             if "u" in val.dims.letters:
-                val.inflow = val.inflow[{"u": self.reduced_end_use}]
-                val.outflow = val.outflow[{"u": self.reduced_end_use}]
-                val.stock = val.stock[{"u": self.reduced_end_use}]
+                val.inflow = self.reduce_u_to_common(val.inflow)
+                val.outflow = self.reduce_u_to_common(val.outflow)
+                val.stock = self.reduce_u_to_common(val.stock)
                 val.dims = val.inflow.dims
                 if hasattr(val, "lifetime_model"):
                     val.lifetime_model.dims = val.inflow.dims
@@ -604,11 +621,7 @@ class CementParameterReconciliation:
         if "c" not in correction_factor.dims.letters or "u" not in original_letters:
             return correction_factor
 
-        # build new correction factor
-        new_dims = correction_factor.dims.replace(self.reduced_end_use.letter, self.input_dims["u"])
-        new_correction = fd.FlodymArray.full(dims=new_dims, fill_value=1.0)
-        new_correction[{"u": self.reduced_end_use}] = correction_factor
-        return new_correction
+        return self.expand_common_to_u(correction_factor, fill_value=1.0)
 
     def normalize_output_parameter(self, prm_name: str):
         """Renormalize a split parameter so it sums to 1 along its split dimension.
