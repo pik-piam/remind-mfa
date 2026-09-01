@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 OMIT_TIMESTAMP_PREFIX = [False]
 
+
 def timestamp_prefix() -> str:
     """Current timestamp, formatted for use in export file and folder names."""
     if OMIT_TIMESTAMP_PREFIX[0]:
