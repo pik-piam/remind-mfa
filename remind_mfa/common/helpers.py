@@ -12,7 +12,7 @@ EXPORT_DIR_PREFIX = None
 
 def get_export_dir_prefix() -> str:
     """Prefix for export directory names. If set to a fixed string previously, retrieve that.
-    Else, default to a current timestamp. 
+    Else, default to a current timestamp.
     """
     if EXPORT_DIR_PREFIX is None:
         return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
