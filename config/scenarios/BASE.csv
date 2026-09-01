@@ -1,4 +1,4 @@
-parameter,models,value,extra:year,extra:type,index:Region,index:Bottom-up Good,index:Structure,index:Dwelling Type,description
+parameter,models,value,extra:year,extra:type,index:Region,index:End Use,index:Structure,index:Dwelling Type,description
 
 # --- Model defaults ---
 saturation_level,steel,10,,,,,,,

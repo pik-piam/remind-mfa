@@ -29,10 +29,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
 
         if stock_is_cement:
-            # Input is cement stock (t, r, g): apply material split and convert to total product mass.
+            # Input is cement stock (t, r, u): apply material split and convert to total product mass.
             product_stock = stock_projection * prm["product_material_split"] / prm["cement_ratio"]
         else:
-            # Input is already product mass (t, r, g, m): just add k dim.
+            # Input is already product mass (t, r, u, m): just add k dim.
             product_stock = stock_projection
         stk["in_use"].stock = self.add_constituent_split(product_stock, prm)
 
@@ -47,10 +47,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
     def add_constituent_split(
         self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
     ) -> fd.FlodymArray:
-        """Add the Material Constituent (k) dimension to a product stock (t, r, g, m).
+        """Add the Material Constituent (k) dimension to a product stock (t, r, u, m).
 
         Splits into cement and non-cement using cement_ratio.
-        Returns an array with dim_letters (t, r, g, m, k).
+        Returns an array with dim_letters (t, r, u, m, k).
         """
         k_dim = fd.Dimension(
             name="Material Constituent",
