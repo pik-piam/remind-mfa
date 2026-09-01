@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -5,6 +6,11 @@ from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
+
+
+def timestamp_str() -> str:
+    """Current timestamp, formatted for use in export file and folder names."""
+    return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
 
 
 class ModelNames(str, Enum):

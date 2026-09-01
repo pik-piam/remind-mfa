@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.colors as plc
 import plotly.io as pio
 from typing import Optional, TYPE_CHECKING
-from pydantic import model_validator
+from pydantic import model_validator, PrivateAttr
 import flodym as fd
 import flodym.export as fde
 
@@ -25,6 +25,8 @@ class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
     display_names: CommonDisplayNames
 
+    _model: Optional["CommonModel"] = PrivateAttr(default=None)
+
     @model_validator(mode="after")
     def set_plotly_renderer(self):
         if self.cfg.plotting_engine == "plotly":
@@ -34,6 +36,7 @@ class CommonVisualizer(RemindMFABaseModel):
     def visualize(self, model: "CommonModel"):
         if not self.cfg.do_visualize:
             return
+        self._model = model
         self.visualize_common(model=model)
         self.visualize_custom(model=model)
         self.stop_and_show()
@@ -81,7 +84,9 @@ class CommonVisualizer(RemindMFABaseModel):
         self._show_and_save_plotly(fig, name="sankey")
 
     def figure_path(self, filename: str) -> str:
-        return os.path.join(self.cfg.figures_path, filename)
+        figures_dir = os.path.join(self._model.data_writer.run_path(self._model), "figures")
+        os.makedirs(figures_dir, exist_ok=True)
+        return os.path.join(figures_dir, filename)
 
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, filename: str, do_plot: bool = True):
         if do_plot:

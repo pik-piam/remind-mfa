@@ -1,4 +1,5 @@
 import logging
+import os
 import textwrap
 from typing import Annotated, Literal
 
@@ -7,7 +8,7 @@ from dotenv import load_dotenv
 
 from remind_mfa.cli.helper import prompt_for_config_names
 from remind_mfa.common.config_loader import load_config
-from remind_mfa.common.helpers import ModelNames, init_model
+from remind_mfa.common.helpers import ModelNames, init_model, timestamp_str
 
 app = typer.Typer()
 
@@ -43,9 +44,19 @@ def configure_logger():
     root.addHandler(handler)
 
 
-def run_remind_mfa(config_names: list[str], models: list[ModelNames]) -> None:
-    for model in models:
-        model_config = load_config(config_names, model)
+def run_remind_mfa(
+    config_names: list[str], models: list[ModelNames], bundle_export: bool = False
+) -> None:
+    bundle_path: str | None = None
+    for model_name in models:
+        model_config = load_config(config_names, model_name)
+        if bundle_export:
+            if bundle_path is None:
+                bundle_path = os.path.join(
+                    model_config["export"]["path"], f"{timestamp_str()}_bundle"
+                )
+                os.makedirs(bundle_path, exist_ok=True)
+            model_config["export"]["path"] = bundle_path
         model = init_model(cfg=model_config)
         logging.info(f"{type(model).__name__} instance created.")
         model.run()
@@ -81,6 +92,17 @@ def main(
         Literal["all", "plastics", "steel", "cement"] | None,
         typer.Option("--model", help="Model to run, or all."),
     ] = None,
+    bundle_export: Annotated[
+        bool,
+        typer.Option(
+            "--bundle-export",
+            help=(
+                "Group the exports of all models run in this invocation into one "
+                "timestamped subfolder of the export path, instead of each model "
+                "creating its own separate subfolder there."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Run REMIND-MFA with one or more layered configurations."""
     load_dotenv()
@@ -94,7 +116,7 @@ def main(
     models_to_run = list(ModelNames) if model_selection == "all" else [model_selection]
 
     configure_logger()
-    run_remind_mfa(config_names, models_to_run)
+    run_remind_mfa(config_names, models_to_run, bundle_export=bundle_export)
 
 
 if __name__ == "__main__":
