@@ -7,14 +7,18 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
-OMIT_TIMESTAMP_PREFIX = [False]
+EXPORT_DIR_PREFIX = None
 
-def timestamp_prefix() -> str:
+def get_export_dir_prefix() -> str:
     """Current timestamp, formatted for use in export file and folder names."""
-    if OMIT_TIMESTAMP_PREFIX[0]:
-        return ""
-    return datetime.now().strftime("%Y-%m-%d--%H-%M-%S_")
+    if EXPORT_DIR_PREFIX is None:
+        return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+    return EXPORT_DIR_PREFIX
 
+def set_export_dir_prefix(prefix: str) -> None:
+    """Set a prefix for export file and folder names."""
+    global EXPORT_DIR_PREFIX
+    EXPORT_DIR_PREFIX = prefix
 
 class ModelNames(str, Enum):
     PLASTICS = "plastics"

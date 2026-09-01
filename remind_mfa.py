@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from remind_mfa.cli.helper import prompt_for_config_names
 from remind_mfa.common.config_loader import load_config
-from remind_mfa.common.helpers import ModelNames, init_model, timestamp_prefix, OMIT_TIMESTAMP_PREFIX
+from remind_mfa.common.helpers import ModelNames, init_model, get_export_dir_prefix, set_export_dir_prefix
 
 app = typer.Typer()
 
@@ -50,7 +50,7 @@ def run_remind_mfa(
     bundle_path: str | None = None
     for model_name in models:
         model_config = load_config(config_names, model_name)
-        create_export_bundle_dir(bundle_export, bundle_path, model_config)
+        create_export_series_dir(bundle_export, bundle_path, model_config)
         model = init_model(cfg=model_config)
         logging.info(f"{type(model).__name__} instance created.")
         model.run()
@@ -61,11 +61,11 @@ def run_remind_mfa(
         logging.info("Visualization completed.")
 
 
-def create_export_bundle_dir(bundle_export, bundle_path, model_config):
+def create_export_series_dir(bundle_export, bundle_path, model_config):
     if bundle_export:
         if bundle_path is None:
             bundle_path = os.path.join(
-                    model_config["export"]["path"], f"{timestamp_prefix()}bundle"
+                    model_config["export"]["path"], f"{get_export_dir_prefix()}_series"
                 )
             os.makedirs(bundle_path, exist_ok=True)
         model_config["export"]["path"] = bundle_path
@@ -101,23 +101,23 @@ def main(
         typer.Option(
             "--bundle-export",
             help=(
-                "Group the exports of all models run in this invocation into one "
+                "Group the exports of all models run in this series into one "
                 "timestamped subfolder of the export path, instead of each model "
                 "creating its own separate subfolder there."
             ),
         ),
     ] = False,
-    omit_timestamps: Annotated[
-        bool,
+    export_prefix: Annotated[
+        str | None,
         typer.Option(
-            "--omit-timestamps",
+            "--export-prefix",
             help=(
-                "Omit timestamps in the export paths. This is useful to get "
-                "reliable paths for data pipelines, but will overwrite previous "
-                "exports. Use with care."
+                "Have a fixed prefix for export file and folder names, instead of the default "
+                "timestamp. This is useful to get reliable paths for data pipelines, but will "
+                "overwrite previous exports with the same prefix. Use with care."
             ),
         ),
-    ] = False,
+    ] = None,
 ) -> None:
     """Run REMIND-MFA with one or more layered configurations."""
     load_dotenv()
@@ -132,8 +132,8 @@ def main(
 
     configure_logger()
 
-    if omit_timestamps:
-        OMIT_TIMESTAMP_PREFIX[0] = True
+    if export_prefix is not None:
+        set_export_dir_prefix(export_prefix)
 
     run_remind_mfa(config_names, models_to_run, bundle_export=bundle_export)
 
