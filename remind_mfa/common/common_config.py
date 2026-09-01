@@ -1,11 +1,12 @@
-from typing import Optional
+import os
+from functools import cached_property
 
 import flodym as fd
 import pandas as pd
 from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
-from remind_mfa.common.helpers import RemindMFABaseModel, ModelNames, RegressOverModes
+from remind_mfa.common.helpers import ModelNames, RegressOverModes, RemindMFABaseModel
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -85,6 +86,8 @@ class IamcExportCfg(BaseExportCfg):
 class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
+    mrindustry: BaseExportCfg
+    """Configuration of export of material flows for use as REMIND inputs."""
     pickle: BaseExportCfg
     """Configuration of export to pickle files."""
     assumptions: BaseExportCfg
@@ -155,7 +158,7 @@ class VisualizationCfg(BaseVisualizationCfg):
 
 
 class InputCfg(RemindMFABaseModel):
-    madrat_output_path: Optional[str] = None
+    madrat_output_path: str | None = None
     """Where to find the madrat output archives to extract input data from. If None, MADRAT_OUTPUT_FOLDER is used."""
     force_extract_tgz: bool
     """Whether to force re-extraction of input data from tgz files. If False, extraction is only performed if pre-extracted data is not up-to date."""
@@ -167,6 +170,16 @@ class InputCfg(RemindMFABaseModel):
     """Target input-data revision, corresponding to rev<revision> in tgz names."""
     region_mapping: str
     """Target region mapping, corresponding to <region> in tgz names."""
+
+    @cached_property
+    def resolved_madrat_output_path(self) -> str:
+        path = self.madrat_output_path or os.environ.get("MADRAT_OUTPUTFOLDER")
+        if not path:
+            raise ValueError(
+                "No madrat output path configured. Set input.madrat_output_path or "
+                "environment variable MADRAT_OUTPUTFOLDER."
+            )
+        return path
 
     @staticmethod
     def _normalize_revision(revision: str) -> str:

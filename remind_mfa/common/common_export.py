@@ -1,20 +1,29 @@
 import logging
 import os
+import pickle
+import shutil
 from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
 import flodym as fd
 import flodym.export as fde
-import pickle
-import pyam
 
+_root_logger = logging.getLogger()
+_prev_level = _root_logger.level
+_root_logger.setLevel(logging.WARNING)
+import pyam  # noqa: E402
+
+_root_logger.setLevel(_prev_level)
+del _root_logger, _prev_level
+
+from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
+from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.common.helpers import RemindMFABaseModel
-from remind_mfa.common.common_config import ExportCfg
-from remind_mfa.common.assumptions_doc import assumptions_str, assumptions_df
 from remind_mfa.common.common_mappings import CommonDisplayNames
-from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.helpers import RemindMFABaseModel
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -31,9 +40,26 @@ class IamcVariable(RemindMFABaseModel):
     """Base unit of the array, e.g. "t/yr" or "t"."""
     split_name: Optional[str] = None
     """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
+    aggregate_parent: bool = True
+    """When this variable is split (``split_name`` set), whether its children are summed back
+    into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent
+    total is already produced by another split, to avoid double-counting the parent. Exactly one
+    split per parent may keep this True; a second aggregating split of the same parent raises at
+    export time."""
     region_weight: Optional[str] = None
     """Variable to weight by when aggregating to "World" (e.g. "Population" for per-capita
     variables). None = plain sum across regions."""
+
+
+class RemindInputVariable(RemindMFABaseModel):
+    """Declarative specification of a single variable that will serve as input to REMIND."""
+
+    name: str
+    """Name to use in the REMIND input layer."""
+    calculation_function: Callable[[CommonMFASystem], fd.FlodymArray]
+    """Given the future MFA system, returns the array to report, reduced to (t, r) or (t, r, <per-dim>)."""
+    unit: Optional[str] = None
+    """Base unit of the calculated data, e.g. "t/yr" or "t"."""
 
 
 class CommonDataExporter(RemindMFABaseModel):
@@ -57,6 +83,8 @@ class CommonDataExporter(RemindMFABaseModel):
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
+        if self.cfg.mrindustry.do_export:
+            self.write_mrindustry(model=model)
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
@@ -199,8 +227,15 @@ class CommonDataExporter(RemindMFABaseModel):
         for iamc_var in iamc_vars:
             iamc_df, variables = self._build_iamc_df(mfa, iamc_var, constants)
             iamc_dataframes.append(iamc_df)
-            if iamc_var.split_name is not None:
-                split_parent_components.setdefault(iamc_var.variable_name, []).extend(variables)
+            if iamc_var.split_name is not None and iamc_var.aggregate_parent:
+                if iamc_var.variable_name in split_parent_components:
+                    raise ValueError(
+                        f"'{iamc_var.variable_name}' is aggregated from more than one split "
+                        f"(latest via split_name='{iamc_var.split_name}'). Each split sums to the "
+                        f"full parent total, so aggregating from two would double-count it. Set "
+                        f"aggregate_parent=False on all but one orthogonal split of this variable."
+                    )
+                split_parent_components[iamc_var.variable_name] = variables
             if iamc_var.region_weight is not None:
                 region_weights.update({v: iamc_var.region_weight for v in variables})
         return pyam.concat(iamc_dataframes), split_parent_components, region_weights
@@ -259,6 +294,25 @@ class CommonDataExporter(RemindMFABaseModel):
         variables = list(dict.fromkeys(df["variable"]))
         return pyam.IamDataFrame(df, unit=iamc_var.unit, **constants), variables
 
+    def get_mrindustry_variables(self) -> list[RemindInputVariable]:
+        """Return the variables to export as REMIND input. Override in subclasses."""
+        raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
+
+    def write_mrindustry(self, model: "CommonModel"):
+        """Write material flows needed as inputs to REMIND."""
+        export_dir = Path(self.export_path("mrindustry"))
+        if export_dir.exists() and export_dir.is_dir():
+            shutil.rmtree(export_dir)
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        for variable in self.get_mrindustry_variables():
+            df = (
+                variable.calculation_function(model.future_mfa)
+                .to_df()
+                .rename(columns={"value": variable.name})
+            )
+            df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
+
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
         if not self.cfg.docs.do_export:
@@ -313,7 +367,7 @@ class CommonDataExporter(RemindMFABaseModel):
         schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
         schema_df.to_markdown(self.export_path("docs", "config_schema.md"), index=False)
 
-    def export_path(self, dataset: str, filename: str = None):
+    def export_path(self, dataset: str, filename: str | None = None) -> str:
         if not hasattr(self.cfg, dataset):
             raise ValueError(f"Dataset {dataset} not found in config")
         cfg_path = getattr(self.cfg, dataset).path

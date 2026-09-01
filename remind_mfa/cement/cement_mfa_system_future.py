@@ -85,10 +85,11 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["use => sysenv"][...] = stk["in_use"].outflow
 
         # cement trade
+        total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["cement"],
             future_trade=trd["cement"],
-            future_dom_demand=flw["market_cement => prod_product"],
+            future_dom_demand=total_cement_demand,
         )
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -108,6 +109,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
 
         # clinker trade
+        self.cap_historical_net_imports_to_demand(
+            trade=historic_trade["clinker"],
+            demand=flw["market_clinker => prod_cement"],
+        )
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["clinker"],
             future_trade=trd["clinker"],

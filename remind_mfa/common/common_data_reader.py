@@ -1,11 +1,11 @@
 import glob
 import os
 import tarfile
+import warnings
 from pathlib import Path
 
 import flodym as fd
 import pandas as pd
-from typing_extensions import TypeIs
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
@@ -15,6 +15,15 @@ from remind_mfa.common.helpers import module_from_prefix, prefix_from_module
 
 class CommonDataReader(fd.CompoundDataReader):
 
+    # Documentation-source files bundled in the tgz that belong in this repo's docs/
+    # folder rather than in the input-data folder.
+    DOC_SOURCE_FILES = {"mrmfa_sources.bib", "mrmfa_sources.csv"}
+
+    # Suffixes (before the ".tgz") distinguishing the two archive kinds produced by madrat:
+    # the main input-data archive and the (optional) validation-data archive.
+    MFA_SUFFIX = "_mfa"
+    VALIDATION_SUFFIX = "_validationmfa"
+
     def __init__(
         self,
         cfg: CommonCfg,
@@ -23,12 +32,12 @@ class CommonDataReader(fd.CompoundDataReader):
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):
+        self._input_cfg = cfg.input
         self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
         self.input_data_path = cfg.input.input_data_path
         self.input_data_revision = cfg.input.input_data_revision
         self.region_mapping = cfg.input.region_mapping
-        self.madrat_output_path = self.resolve_madrat_output_path(cfg.input.madrat_output_path)
         self.force_extract = cfg.input.force_extract_tgz
         self.definition = definition
         self.allow_missing_values = allow_missing_values
@@ -40,36 +49,16 @@ class CommonDataReader(fd.CompoundDataReader):
         return os.path.join(self.input_data_path, "input_data")
 
     @property
+    def validation_path(self) -> str:
+        return os.path.join(self.input_data_path, "validation")
+
+    @property
     def rev_filename(self) -> str:
         return "rev.txt"
 
     @property
     def regions_filename(self) -> str:
         return "regions.txt"
-
-    @staticmethod
-    def resolve_madrat_output_path(configured_path: str | None) -> str:
-        def check_path(path: str | None) -> TypeIs[str]:
-            if not path:
-                return False
-            if not Path(path).exists():
-                import logging
-
-                logging.warning(
-                    f"Specified MADRAT output path '{path}' does not exist. Creating it."
-                )
-                Path(path).mkdir(parents=True, exist_ok=True)
-            return True
-
-        if check_path(configured_path):
-            return configured_path
-        env_path = os.environ.get("MADRAT_OUTPUTFOLDER")
-        if not check_path(env_path):
-            raise ValueError(
-                "No madrat output path configured. Set input.madrat_output_path or "
-                "environment variable MADRAT_OUTPUTFOLDER."
-            )
-        return env_path
 
     def get_material_dimension_path(self, material: str) -> str:
         return os.path.join(self.input_data_path, "dimensions", material)
@@ -81,6 +70,10 @@ class CommonDataReader(fd.CompoundDataReader):
         # extract tar file if needed
         if self.extraction_needed(self.shared_parameter_path):
             self.extract_tar_file(self.shared_parameter_path)
+
+        # extract the matching validation archive (optional; warns if not found)
+        if self.extraction_needed(self.validation_path):
+            self.extract_validation_tar_file(self.validation_path)
 
         # dimensions
         dimension_files = self.get_dimension_dict(self.shared_parameter_path)
@@ -109,22 +102,22 @@ class CommonDataReader(fd.CompoundDataReader):
         with open(path, "w") as f:
             f.write(value)
 
-    @staticmethod
-    def parse_archive_name(filename: str) -> tuple[str, str]:
+    @classmethod
+    def parse_archive_name(cls, filename: str, suffix: str = MFA_SUFFIX) -> tuple[str, str]:
         stem = os.path.basename(filename)
         if stem.endswith(".tgz"):
             stem = stem[: -len(".tgz")]
 
-        if not stem.startswith("rev") or not stem.endswith("_mfa"):
+        if not stem.startswith("rev") or not stem.endswith(suffix):
             raise ValueError(
-                f"Invalid archive name '{filename}'. Expected format rev<rev>_<regions>_<hash>_mfa.tgz"
+                f"Invalid archive name '{filename}'. Expected format rev<rev>_<regions>_<hash>{suffix}.tgz"
             )
 
-        payload = stem[len("rev") : -len("_mfa")]
+        payload = stem[len("rev") : -len(suffix)]
         parts = payload.split("_")
         if len(parts) < 3:
             raise ValueError(
-                f"Invalid archive name '{filename}'. Expected format rev<rev>_<regions>_<hash>_mfa.tgz"
+                f"Invalid archive name '{filename}'. Expected format rev<rev>_<regions>_<hash>{suffix}.tgz"
             )
 
         rev = "_".join(parts[:-2]).strip()
@@ -146,19 +139,29 @@ class CommonDataReader(fd.CompoundDataReader):
         return current_rev != self.input_data_revision or current_regions != self.region_mapping
 
     @staticmethod
-    def build_target_tgz_pattern(input_data_revision: str, region_mapping: str) -> str:
-        return f"rev{glob.escape(input_data_revision)}_" f"{glob.escape(region_mapping)}_*_mfa.tgz"
-
-    def get_target_tgz_path(self) -> str:
-        search_pattern = self.build_target_tgz_pattern(
-            self.input_data_revision, self.region_mapping
+    def build_target_tgz_pattern(
+        input_data_revision: str, region_mapping: str, suffix: str = MFA_SUFFIX
+    ) -> str:
+        return (
+            f"rev{glob.escape(input_data_revision)}_" f"{glob.escape(region_mapping)}_*{suffix}.tgz"
         )
-        matches = sorted(glob.glob(os.path.join(self.madrat_output_path, search_pattern)))
+
+    def find_target_tgz_paths(self, suffix: str = MFA_SUFFIX) -> list[str]:
+        """Return all madrat archives matching the configured revision/region and given suffix."""
+        search_pattern = self.build_target_tgz_pattern(
+            self.input_data_revision, self.region_mapping, suffix
+        )
+        return sorted(
+            glob.glob(os.path.join(self._input_cfg.resolved_madrat_output_path, search_pattern))
+        )
+
+    def get_target_tgz_path(self, suffix: str = MFA_SUFFIX) -> str:
+        matches = self.find_target_tgz_paths(suffix)
         if not matches:
             raise FileNotFoundError(
                 "No matching tgz archive found in "
-                f"{self.madrat_output_path} for revision={self.input_data_revision}, "
-                f"region_mapping={self.region_mapping}."
+                f"{self._input_cfg.resolved_madrat_output_path} for revision={self.input_data_revision}, "
+                f"region_mapping={self.region_mapping}, suffix={suffix}."
             )
         if len(matches) > 1:
             raise ValueError(
@@ -169,15 +172,95 @@ class CommonDataReader(fd.CompoundDataReader):
         return matches[0]
 
     def extract_tar_file(self, material_parameter_path: str):
-        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
-        tgz_path = self.get_target_tgz_path()
+        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata.
+
+        Documentation-source files (see ``DOC_SOURCE_FILES``) are routed into this repo's
+        ``docs/`` folder instead of the input-data folder, so they stay in sync with the
+        selected input-data revision.
+        """
+        if not os.path.isdir(self._input_cfg.resolved_madrat_output_path):
+            raise FileNotFoundError(
+                f"MADRAT output path '{self._input_cfg.resolved_madrat_output_path}' does not exist. It is required to extract the "
+                "input-data archive for the configured revision/region mapping. Set "
+                "input.madrat_output_path or the MADRAT_OUTPUTFOLDER environment variable to an "
+                "existing directory containing the rev*_mfa.tgz archive."
+            )
+
+        tgz_path = self.get_target_tgz_path(self.MFA_SUFFIX)
+        self._extract_and_record(tgz_path, material_parameter_path, route_docs=True)
+
+    def extract_validation_tar_file(self, validation_path: str):
+        """Extracts the validation tgz matching the configured revision/region into ``validation_path``.
+
+        The validation archive is optional: if no archive matching the current input-data
+        revision and region mapping is found, a warning is issued and extraction is skipped
+        (rather than raising, as the main input-data archive does).
+        """
+        try:
+            madrat_output_path = self._input_cfg.resolved_madrat_output_path
+        except ValueError:
+            madrat_output_path = None
+        if not madrat_output_path or not os.path.isdir(madrat_output_path):
+            warnings.warn(
+                "No MADRAT output path available to extract the validation archive "
+                f"(revision={self.input_data_revision}, region_mapping={self.region_mapping}). "
+                "Validation data will not be available.",
+                stacklevel=2,
+            )
+            return
+
+        matches = self.find_target_tgz_paths(self.VALIDATION_SUFFIX)
+        if not matches:
+            warnings.warn(
+                "No validation tgz archive found in "
+                f"'{self._input_cfg.resolved_madrat_output_path}' for revision="
+                f"{self.input_data_revision}, region_mapping={self.region_mapping} "
+                f"(expected a rev*{self.VALIDATION_SUFFIX}.tgz archive). "
+                "Validation data will not be available.",
+                stacklevel=2,
+            )
+            return
+        if len(matches) > 1:
+            raise ValueError(
+                "Multiple matching validation tgz archives found for the selected revision/region "
+                "mapping. Make the selector more specific or remove duplicate archives. Matches: "
+                f"{[os.path.basename(match) for match in matches]}"
+            )
+
+        self._extract_and_record(
+            matches[0], validation_path, route_docs=False, suffix=self.VALIDATION_SUFFIX
+        )
+
+    def _extract_and_record(
+        self,
+        tgz_path: str,
+        target_path: str,
+        route_docs: bool,
+        suffix: str = MFA_SUFFIX,
+    ):
+        """Extract ``tgz_path`` into ``target_path`` and record its rev/regions metadata there.
+
+        If ``route_docs`` is set, documentation-source files (see ``DOC_SOURCE_FILES``) are
+        flattened into this repo's ``docs/`` folder instead of ``target_path``.
+        """
+        os.makedirs(target_path, exist_ok=True)
+
+        docs_path = Path(__file__).resolve().parents[2] / "docs"
+        if route_docs:
+            os.makedirs(docs_path, exist_ok=True)
 
         with tarfile.open(tgz_path, "r:gz") as tar:
-            tar.extractall(path=material_parameter_path)
+            for member in tar.getmembers():
+                if route_docs and os.path.basename(member.name) in self.DOC_SOURCE_FILES:
+                    # flatten so the file lands directly as docs/<basename>
+                    member.name = os.path.basename(member.name)
+                    tar.extract(member, path=docs_path)
+                else:
+                    tar.extract(member, path=target_path)
 
-        rev, regions = self.parse_archive_name(os.path.basename(tgz_path))
-        self.write_text_file(os.path.join(material_parameter_path, self.rev_filename), rev)
-        self.write_text_file(os.path.join(material_parameter_path, self.regions_filename), regions)
+        rev, regions = self.parse_archive_name(os.path.basename(tgz_path), suffix)
+        self.write_text_file(os.path.join(target_path, self.rev_filename), rev)
+        self.write_text_file(os.path.join(target_path, self.regions_filename), regions)
 
     def validate_parameter_files(self, parameter_files: dict[str, str]):
         """Validate that all expected parameter files for the selected model exist."""

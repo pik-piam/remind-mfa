@@ -113,6 +113,13 @@ def build_style_maps(df: pd.DataFrame) -> tuple[dict, dict]:
     return model_color, combo_style
 
 
+def _is_per_capita(sub: pd.DataFrame) -> bool:
+    """A variable is per-capita if its unit is per-capita (…/cap…) or its name says so."""
+    units = " ".join(str(u) for u in sub["unit"].dropna().unique()).lower()
+    names = " ".join(str(v) for v in sub["variable"].dropna().unique()).lower()
+    return "cap" in units or "per capita" in names
+
+
 def _sanitize(name: str) -> str:
     for ch in "|/\\ :":
         name = name.replace(ch, "_")
@@ -129,6 +136,7 @@ def plot_variable(
     ncols: int,
     outdir: Path,
     show: bool,
+    ylim: tuple[float, float] | None = None,
 ) -> None:
     """Produce one figure (region panels) for a single variable and save it as PNG."""
     regions = sorted(sub["region"].unique())
@@ -154,6 +162,8 @@ def plot_variable(
             )
         ax.set_title(region)
         ax.grid(True, alpha=0.3)
+        if ylim is not None:
+            ax.set_ylim(ylim)
     for ax in axes[len(regions) :]:
         ax.set_visible(False)
 
@@ -231,12 +241,24 @@ def main() -> None:
 
     model_color, combo_style = build_style_maps(combined)
 
+    # Per-capita variables share one common y-axis range so their plots are directly comparable.
+    per_capita_keys = {k for k in overlap_keys if _is_per_capita(combined[combined["_vkey"] == k])}
+    per_capita_ylim = None
+    if per_capita_keys:
+        pc_values = combined[combined["_vkey"].isin(per_capita_keys)]["value"]
+        vmin, vmax = float(pc_values.min()), float(pc_values.max())
+        pad = 0.05 * (vmax - vmin) if vmax > vmin else abs(vmax) or 1.0
+        per_capita_ylim = (min(vmin, 0.0), vmax + pad)
+
     print(f"Plotting {len(overlap_keys)} variable(s) to {outdir.relative_to(REPO_ROOT)}:")
     for key in overlap_keys:
         sub = combined[combined["_vkey"] == key]
         if sub.empty:
             continue
-        plot_variable(sub, model_keys[key], model_color, combo_style, args.ncols, outdir, args.show)
+        ylim = per_capita_ylim if key in per_capita_keys else None
+        plot_variable(
+            sub, model_keys[key], model_color, combo_style, args.ncols, outdir, args.show, ylim
+        )
 
 
 if __name__ == "__main__":

@@ -24,17 +24,29 @@ class PlasticsVisualizer(CommonVisualizer):
                 linecolor_dim="Good",
                 regional=False,
             )
+            self.visualize_fdarr_stacked(
+                mfa=model.future_mfa,
+                flow=model.future_mfa.stocks["in_use"].stock,
+                name="Stock",
+                linecolor_dim="Good",
+                regional=True,
+                per_capita=True,
+            )
 
-        if self.cfg.consumption.do_visualize:
-            self.compare_demand(mfa=model.future_mfa)
+        if self.cfg.material_splits.do_visualize:
             self.visualize_material_splits(mfa=model.future_mfa)
+
+        if self.cfg.production.do_visualize:
+            self.visualize_production(mfa=model.future_mfa, regional=True)
+            self.visualize_production(mfa=model.future_mfa, regional=False)
 
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model, subplot_dim="Good", linecolor_dim="Region")
             self.visualize_extrapolation(model=model, subplot_dim="Region", linecolor_dim="Good")
-            self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
 
         if self.cfg.flows.do_visualize:
+            self.visualize_production_trade_consumption(mfa=model.future_mfa, per_capita=False)
+            self.visualize_production_trade_consumption(mfa=model.future_mfa, per_capita=True)
             self.visualize_fdarr_stacked(
                 mfa=model.future_mfa,
                 flow=model.future_mfa.flows["polymerization => primary_market"],
@@ -100,11 +112,14 @@ class PlasticsVisualizer(CommonVisualizer):
                 name="Incinerated",
                 linecolor_dim="Material",
             )
+        if self.cfg.scenario_params.do_visualize:
+            self.visualize_scenario_params(mfa=model.future_mfa)
+
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         per_capita = self.cfg.consumption.per_capita
-        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
+        demand = mfa.stocks["in_use"].inflow.sum_over(("p", "m", "e"))
         self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=demand,
@@ -112,6 +127,71 @@ class PlasticsVisualizer(CommonVisualizer):
             linecolor_dim="Good",
             per_capita=per_capita,
             regional=True,
+        )
+
+    def visualize_production(self, mfa: fd.MFASystem, regional=True):
+        production = (
+            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+        )
+        self.visualize_fdarr_stacked(
+            mfa=mfa,
+            flow=production,
+            name="Plastics production",
+            regional=regional,
+            linecolor_dim="Material",
+        )
+
+    def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
+        production = (
+            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+        ).sum_to(("t", "r"))
+        primary_net_imports = (
+            mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]
+        ).sum_to(("t", "r"))
+        final_net_imports = (
+            mfa.flows["imports => good_market"] - mfa.flows["good_market => exports"]
+        ).sum_to(("t", "r"))
+        consumption = mfa.stocks["in_use"].inflow.sum_to(("t", "r"))
+
+        series_specs = [
+            (production, "Production", "#4E79A7"),
+            (primary_net_imports, "Primary net imports", "#F28E2B"),
+            (final_net_imports, "Final net imports", "#E15759"),
+            (consumption, "Consumption", "#59A14F"),
+        ]
+
+        if per_capita:
+            population = mfa.parameters["population"]
+            series_specs = [
+                (array / population, f"{label} (per capita)", color)
+                for array, label, color in series_specs
+            ]
+
+        series_colors = [color for _, _, color in series_specs]
+
+        fig = None
+        for idx, (array, label, color) in enumerate(series_specs):
+            ap = self.plotter_class(
+                array=array,
+                intra_line_dim="Time",
+                subplot_dim="Region",
+                fig=fig,
+                title=(
+                    "Plastics production, net imports, and consumption by region"
+                    if idx == 0
+                    else None
+                ),
+                xlabel="Year",
+                ylabel="Flow [t]",
+                line_label=label,
+                color_map=series_colors,
+            )
+            fig = ap.plot()
+
+        self.plot_and_save_figure(
+            ap,
+            f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}.png",
+            do_plot=False,
         )
 
     def compare_demand(self, mfa: fd.MFASystem):
@@ -126,7 +206,7 @@ class PlasticsVisualizer(CommonVisualizer):
         fig = px.line(df, x="year", y="value", color="source", markers=True)
 
         ap = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e", "g")),
+            array=mfa.stocks["in_use"].inflow.sum_over(("r", "p", "m", "e", "g")),
             intra_line_dim="Time",
             title="Demand [t]",
             line_label="REMIND-MFA",
@@ -264,9 +344,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
-        material_shares = mfa.parameters["material_shares_use_inflow"][
-            {"t": 2019}
-        ]  # material shares are kept constant over time, so we can just take the value for one year
+        # material shares are extrapolated by keeping the last historic value constant in the future, so we visualize the last historic year
+        material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}].sum_over(("p",))
         material_shares = material_shares.cumsum(dim_letter="m")
 
         ap_sector_splits = self.plotter_class(
@@ -298,3 +377,21 @@ class PlasticsVisualizer(CommonVisualizer):
             show_extrapolation=show_extrapolation,
             show_future=show_future,
         )
+
+    def visualize_scenario_params(self, mfa: fd.MFASystem):
+        rates = [
+            ("collection_rate", "Collection rate"),
+            ("landfill_rate", "Landfill rate"),
+            ("mechanical_recycling_rate", "Mechanical recycling rate"),
+            ("chemical_recycling_rate", "Chemical recycling rate"),
+            ("bio_production_rate", "Bio-based production rate"),
+            ("daccu_production_rate", "DACCU production rate"),
+        ]
+        for param_name, display_name in rates:
+            self.visualize_fdarr(
+                mfa=mfa,
+                flow=mfa.parameters[param_name],
+                name=display_name,
+                y_unit="%",
+                scale=100,
+            )
