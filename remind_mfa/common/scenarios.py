@@ -264,7 +264,9 @@ class ScenarioReader(RemindMFABaseModel):
         if parsed is None:
             return {}
         if not isinstance(parsed, dict):
-            raise ValueError(f"Expected a YAML mapping in column value, got: {type(parsed).__name__}")
+            raise ValueError(
+                f"Expected a YAML mapping in column value, got: {type(parsed).__name__}"
+            )
         return parsed
 
     @staticmethod
