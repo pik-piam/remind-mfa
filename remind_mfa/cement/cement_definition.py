@@ -17,7 +17,7 @@ def get_cement_definition(
         raise ValueError(
             "Historical Bottom-up not implemented. Please set historic=False or bottom_up=False."
         )
-    
+
 
     # 1) Dimensions
     dimensions = [
