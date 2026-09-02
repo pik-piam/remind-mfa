@@ -13,3 +13,4 @@ madrat_output/
 config/*.toml
 !config/default.toml
 !config/mrindustry.toml
+apptainer/results

@@ -1,0 +1,170 @@
+Bootstrap: docker
+From: rocker/r2u:24.04
+
+%labels
+    Description REMIND-MFA with mrmfa data pipeline
+
+%files
+    remind-mfa /opt/remind-mfa
+    mrmfa /opt/src/mrmfa
+    madrat_output /opt/madrat_output
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates curl git
+
+    ## Version: use Python package version as the single source of truth
+    version="$(sed -n 's/^version = "\(.*\)"/\1/p' /opt/remind-mfa/pyproject.toml | head -1)"
+    echo "Version ${version}" >> "$APPTAINER_LABELS"
+
+    ## R: mrmfa + madrat stack
+    rprofile="$(Rscript -e 'cat(Sys.getenv("R_HOME"))')/etc/Rprofile.site"
+    # Add the PIK repository for the madrat/magpie packages
+    sed -i '/bspm::enable()/i options(repos = c(getOption("repos"), pik = "https://rse.pik-potsdam.de/r/packages"))' "$rprofile"
+    # Silences bspm's D-Bus warning
+    sed -i '/bspm::enable()/i options(bspm.sudo = TRUE)' "$rprofile"
+    Rscript -e 'install.packages("remotes")'
+    # TODO: remove once the PIK repository serves the magpie4 version its
+    # package index advertises again (currently 2.80.1, which is a 404).
+    Rscript -e 'remotes::install_url("https://rse.pik-potsdam.de/r/packages/src/contrib/magpie4_2.80.0.tar.gz", upgrade = "never")'
+    Rscript -e 'remotes::install_local("/opt/src/mrmfa", dependencies = TRUE, upgrade = "never")'
+    Rscript -e 'library(mrmfa)'
+    rm -rf /opt/src/mrmfa
+
+    ## Python: remind-mfa (using venv created by uv)
+    # uv and the managed Python must live inside the image
+    export UV_PYTHON_INSTALL_DIR=/opt/uv/python
+    export UV_VERSION=0.11.28
+    export UV_INSTALL_DIR=/usr/local/bin
+    export UV_CACHE_DIR=/tmp/uv-cache
+    curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
+    cd /opt/remind-mfa
+    uv sync --locked --no-dev --python 3.14
+    # TODO: the latest flodym release is incompatible with recent pandas/numpy.
+    # Once a fixed version is released, drop this and let uv sync resolve it.
+    uv pip install "flodym @ git+https://github.com/pik-piam/flodym.git"
+
+    ## Input data: extract the archive matching the configured revision into
+    ## remind_mfa_data/input_data, so that runs need no writable input folder.
+    export MADRAT_OUTPUTFOLDER=/opt/madrat_output
+    export MPLBACKEND=Agg
+    uv run --no-sync apptainer/extract_input_data.py
+
+    ## Mount point
+    mkdir -p /output
+    ## Cleanup
+    apt-get clean
+    rm -rf /var/lib/apt/lists/* /tmp/uv-cache /root/.cache /root/.local
+
+%environment
+    export LC_ALL=${LC_ALL:-C.UTF-8}
+    export LANG=${LANG:-C.UTF-8}
+    # Keep the host's R user library (bind-mounted with $HOME) out of
+    # .libPaths(): host-compiled packages otherwise shadow the container's site library
+    export R_LIBS_USER=${R_LIBS_USER:-/opt/empty-r-user-lib}
+    export MADRAT_OUTPUTFOLDER=${MADRAT_OUTPUTFOLDER:-/opt/madrat_output}
+    export MADRAT_MAINFOLDER=${MADRAT_MAINFOLDER:-/madrat}
+    export MPLBACKEND=${MPLBACKEND:-Agg}
+    export MPLCONFIGDIR=${MPLCONFIGDIR:-/tmp/remind-mfa-mpl}
+    export XDG_CACHE_HOME=${XDG_CACHE_HOME:-/tmp/remind-mfa-cache}
+
+%runscript
+    set -eu
+    cmd="${1:-run}"
+    [ "$#" -gt 0 ] && shift || true
+
+    prepare_output() {
+        # the exporters create their dataset folders with a non-recursive mkdir
+        for model in plastics steel cement; do
+            if ! mkdir -p "/output/$model/export" "/output/$model/figures" 2>/dev/null; then
+                echo "ERROR: /output is not writable." >&2
+                echo "Bind a writable results directory:" >&2
+                echo "  --bind <dir>:/output" >&2
+                exit 1
+            fi
+        done
+    }
+
+    require_mainfolder() {
+        if [ ! -d "$MADRAT_MAINFOLDER" ]; then
+            echo "ERROR: MADRAT_MAINFOLDER=$MADRAT_MAINFOLDER does not exist." >&2
+            echo "Bind the madrat sources, e.g.:" >&2
+            echo "  --bind /p/projects/rd3mod/inputdata:/madrat:ro" >&2
+            exit 1
+        fi
+    }
+
+    require_writable_outputfolder() {
+        if [ ! -w "$MADRAT_OUTPUTFOLDER" ]; then
+            echo "ERROR: MADRAT_OUTPUTFOLDER=$MADRAT_OUTPUTFOLDER is not writable." >&2
+            echo "Bind a writable folder, e.g.:" >&2
+            echo "  --bind /path/out:/madrat_out --env MADRAT_OUTPUTFOLDER=/madrat_out" >&2
+            exit 1
+        fi
+    }
+
+    case "$cmd" in
+        run)
+            prepare_output
+            cd /opt/remind-mfa
+            if [ "$#" -eq 0 ]; then
+                set -- --model all
+            fi
+            exec uv run --no-sync remind_mfa.py --config default --config mrindustry "$@"
+            ;;
+        retrieve)
+            require_mainfolder
+            require_writable_outputfolder
+            exec Rscript /opt/remind-mfa/apptainer/retrieve_mfa.R "$@"
+            ;;
+        pipeline)
+            rev="${1:?usage: <sif> pipeline <rev> [mapping]}"
+            mapping="${2:-h12}"
+            require_mainfolder
+            require_writable_outputfolder
+            # The freshly generated archive has to be extracted into the
+            # input-data folder, which is read-only inside the image.
+            if [ ! -w /opt/remind-mfa/remind_mfa_data ] || [ ! -w /opt/remind-mfa/docs ]; then
+                echo "ERROR: the image is read-only, but extracting new input data writes to" >&2
+                echo "  /opt/remind-mfa/remind_mfa_data and /opt/remind-mfa/docs." >&2
+                echo "Run with --writable-tmpfs, or bind writable directories over both paths." >&2
+                exit 1
+            fi
+            Rscript /opt/remind-mfa/apptainer/retrieve_mfa.R --rev "$rev" --mapping "$mapping"
+            prepare_output
+            cfg="/tmp/remind-mfa-pipeline.$$.toml"
+            printf '[base]\n[base.input]\ninput_data_revision = "%s"\nregion_mapping = "%s"\nforce_extract_tgz = true\n' \
+                "$rev" "$mapping" > "$cfg"
+            cd /opt/remind-mfa
+            exec uv run --no-sync remind_mfa.py --config default --config mrindustry --config "$cfg" --model all
+            ;;
+        help|--help|-h)
+            echo "Usage: apptainer run [binds/env] <sif> <command> [args]"
+            echo ""
+            echo "Commands:"
+            echo "  run [remind_mfa.py args]  Run REMIND-MFA on the baked input data"
+            echo "                            (default: --model all)."
+            echo "                            Requires --bind <dir>:/output"
+            echo "  retrieve [options]        Generate madrat archives with mrmfa."
+            echo "                            Requires the madrat sources bound at"
+            echo "                            \$MADRAT_MAINFOLDER and a writable"
+            echo "                            \$MADRAT_OUTPUTFOLDER. Options:"
+            echo "                            --rev <revision>"
+            echo "                            --dev <suffix>"
+            echo "                            --sections steel,cement,plastic"
+            echo "  pipeline [options]        retrieve, then run `remind-mfa` on the result."
+            echo "                            Needs --writable-tmpfs (new input data is"
+            echo "                            extracted into the image)."
+            echo "  help                      Show this message."
+            ;;
+        *)
+            echo "Unknown command '$cmd'. Try: apptainer run <sif> help" >&2
+            exit 64
+            ;;
+    esac
+
+%help
+    REMIND-MFA container. See `apptainer run <sif> help` and `README.md` for usage.

@@ -1,0 +1,12 @@
+option(
+    'mrmfa_path',
+    type: 'string',
+    value: '',
+    description: 'mrmfa checkout to build into the image (empty: the apptainer/mrmfa submodule)',
+)
+option(
+    'test_model',
+    type: 'string',
+    value: 'steel',
+    description: 'Model run by the model-run smoke test',
+)
