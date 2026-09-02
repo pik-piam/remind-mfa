@@ -28,7 +28,7 @@ def _get_region_color(region: str, region_colors: dict, aggregate_regions: bool)
 
 
 def _load_run_data(config, aggregate_regions: bool):
-    mfa = _utils.load_future_mfa(config.directory, config.default_run)
+    mfa = _utils.load_future_mfa(config.material)
 
     flow = (mfa.flows[config.production_flow_name].sum_to(("t", "r")) / 1e6).to_df().reset_index()
     time_col_flow = _utils.get_column_name(flow, "Time")
@@ -142,7 +142,7 @@ def _load_run_data(config, aggregate_regions: bool):
     }
 
 
-def main(use_h12: bool = False, show: bool = True):
+def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
     aggregate_regions = not use_h12
     run_configs = [get_material_config(material) for material in MATERIAL_ORDER]
 

@@ -96,7 +96,7 @@ def _build_visualizer(material: str, do_show_figs: bool):
 def main(material: str = "plastics", show: bool = True):
     config = get_material_config(material)
     FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    mfa = load_future_mfa(config.directory, config.default_run)
+    mfa = load_future_mfa(config.material)
     visualizer = _build_visualizer(material, do_show_figs=show)
     visualizer.visualize_sankey(mfa)
 

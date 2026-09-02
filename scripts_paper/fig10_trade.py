@@ -19,7 +19,7 @@ LEGEND_FONT_SIZE = 13
 
 
 def _build_figure(config, aggregate_regions: bool) -> go.Figure:
-    mfa = _utils.load_future_mfa(config.directory, config.default_run)
+    mfa = _utils.load_future_mfa(config.material)
 
     def _load_flow(flow_name: str):
         df = (mfa.flows[flow_name].sum_to(("t", "r")) / 1e6).to_df().reset_index()

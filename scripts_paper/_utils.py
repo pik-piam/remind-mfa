@@ -1,5 +1,7 @@
 import pickle
 import colorsys
+import pathlib
+
 from scripts_paper._constants import (
     AGG_COLOR_PALETTE,
     AGG_REGIONS,
@@ -77,20 +79,20 @@ def region_mode_suffix(use_h12: bool) -> str:
     return "h12" if use_h12 else "agg5"
 
 
-def run_pickle_path(directory, run_name: str):
-    return directory / f"{run_name}.pickle"
+def run_pickle_path(material: str, scenario: str = "SSP2", region_mapping: str = "h12") -> pathlib.Path:
+    return pathlib.Path(f"data_out/paper/paper_{material}_{scenario}_{region_mapping}/model.pickle")
 
 
-def load_model(directory, run_name: str):
-    pickle_path = run_pickle_path(directory, run_name)
+def load_model(material: str, scenario: str = "SSP2", region_mapping: str = "h12"):
+    pickle_path = run_pickle_path(material, scenario, region_mapping)
     if not pickle_path.exists():
         raise FileNotFoundError(f"Missing run pickle: {pickle_path}")
     with pickle_path.open("rb") as file_handle:
         return pickle.load(file_handle)
 
 
-def load_future_mfa(directory, run_name: str):
-    return load_model(directory, run_name).future_mfa
+def load_future_mfa(material: str, scenario: str = "SSP2", region_mapping: str = "h12"):
+    return load_model(material, scenario, region_mapping).future_mfa
 
 
 def _hex_to_rgb01(color: str):

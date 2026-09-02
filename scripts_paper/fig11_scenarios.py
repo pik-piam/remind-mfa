@@ -34,13 +34,10 @@ def _legend_name(label: str, color: str) -> str:
 def _available_runs(config):
     runs = []
     missing_labels = []
-    for label, run_name in zip(SCENARIO_LABELS, config.scenario_runs, strict=False):
-        if run_name is None:
-            missing_labels.append(label)
-            continue
-        pickle_path = _utils.run_pickle_path(config.directory, run_name)
+    for scenario, label in SCENARIO_LABELS.items():
+        pickle_path = _utils.run_pickle_path(config.material, scenario=scenario)
         if pickle_path.exists():
-            runs.append((label, run_name))
+            runs.append((label, scenario))
         else:
             missing_labels.append(label)
     if not runs:
@@ -57,8 +54,8 @@ def _available_runs(config):
 def _build_comparison_array(config, runs):
     labels = [label for label, _ in runs]
     arrays = []
-    for _, run_name in runs:
-        mfa = _utils.load_future_mfa(config.directory, run_name)
+    for _, scenario in runs:
+        mfa = _utils.load_future_mfa(config.material, scenario=scenario)
         arrays.append(mfa.flows[config.production_flow_name])
     new_dim = fd.Dimension(letter="X", name="Run", items=labels)
     return fd.flodym_array_stack(arrays, dimension=new_dim) / 1e9
