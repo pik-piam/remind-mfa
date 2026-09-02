@@ -52,6 +52,12 @@ def merge_parameters_sources():
             "mechanical_recycling_yield": "[@Uekert23]",
             "chemical_recycling_yield": "[@Yadav23]",
             "reclmech_loss_uncontrolled_rate": "[@brown_potential_2023]",
+            "lifetime_rel_std": "Expert guess",            
+            "waste_size_min": "[@Kaufmann2024]",
+            "waste_size_max": "[@Kaufmann2024]",
+            "cao_emission_factor": "Stoichiometry",
+            "floorspace": "[@edgeb26]",
+            "hibernating_stock_share": "[@Zhang26]"
         }
         if CUSTOM_SOURCES:
             mapped = merged_df["Name"].map(CUSTOM_SOURCES)
