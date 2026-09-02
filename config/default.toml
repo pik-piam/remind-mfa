@@ -16,7 +16,10 @@
 
     [base.transience]
         transience_run = true
-        
+
+    [base.trade]
+        source = "extrapolate" # extrapolate from historic trade
+
     [base.visualization]
         do_visualize = true
         do_show_figs = true
@@ -45,6 +48,7 @@
         csv.do_export = false
         iamc.do_export = false
         mrindustry.do_export = false
+        atlas.do_export = false
         assumptions.do_export = false
         docs.do_export = false
 

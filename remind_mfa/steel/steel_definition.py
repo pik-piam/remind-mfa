@@ -1,9 +1,12 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.steel.steel_config import SteelCfg
-from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import (
+    RemindMFADefinition,
+    RemindMFAParameterDefinition,
+    trade_parameters_read_from_data,
+)
 from remind_mfa.common.trade import TradeDefinition
+from remind_mfa.steel.steel_config import SteelCfg
 
 
 def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
@@ -272,6 +275,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             TradeDefinition(name="indirect", dim_letters=("t", "r", "g")),
             TradeDefinition(name="scrap", dim_letters=("t", "r")),
         ]
+        parameters += trade_parameters_read_from_data(cfg, trades)
 
     return RemindMFADefinition(
         dimensions=dimensions,

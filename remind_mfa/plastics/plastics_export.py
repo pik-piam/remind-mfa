@@ -21,6 +21,12 @@ class PlasticsDataExporter(CommonDataExporter):
             ("t", "r", "m")
         )
 
+    @staticmethod
+    def _plastics_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Demand for primary plastics."""
+        return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
+
+
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         def hvc_input(mfa: fd.MFASystem) -> fd.FlodymArray:
             """HVC input into plastics production"""
@@ -35,6 +41,15 @@ class PlasticsDataExporter(CommonDataExporter):
             RemindInputVariable(
                 name="p37_plasticWaste",
                 calculation_function=PlasticsDataExporter._plastic_waste,
+                unit="t/yr",
+            ),
+        ]
+
+    def get_atlas_variables(self) -> list[RemindInputVariable]:
+        return [
+            RemindInputVariable(
+                name="plastics_demand",
+                calculation_function=PlasticsDataExporter._plastics_demand,
                 unit="t/yr",
             ),
         ]

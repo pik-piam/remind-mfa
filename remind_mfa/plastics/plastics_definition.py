@@ -1,6 +1,6 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import ExtrapolationDefinition, RemindMFADefinition
+from remind_mfa.common.common_definition import ExtrapolationDefinition, RemindMFADefinition, trade_parameters_read_from_data
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -274,6 +274,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             TradeDefinition(name="final", dim_letters=("t", "r", "p", "m", "g")),
             TradeDefinition(name="waste", dim_letters=("t", "e", "r", "p", "m")),
         ]
+        parameters += trade_parameters_read_from_data(cfg, trades)
 
     return RemindMFADefinition(
         dimensions=dimensions,
