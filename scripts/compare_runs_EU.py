@@ -69,21 +69,29 @@ from plotly.subplots import make_subplots
 
 DIRECTORIES = {
     "plastics": "data/plastics/output/transience/pickle",
-    "steel":    "data/steel/output/transience/pickle",
+    "steel": "data/steel/output/transience/pickle",
 }
 
 RUN_DIM_LETTER = "X"
-RUN_DIM_NAME   = "Run"
+RUN_DIM_NAME = "Run"
 
 
 def _parse_args():
     p = argparse.ArgumentParser(description="Compare multiple model runs visually.")
     p.add_argument("runs", nargs="*", help="Scenario run stems (no .pickle extension)")
-    p.add_argument("--model", default="steel", choices=list(DIRECTORIES),
-                   help="Which model type to compare (default: steel)")
-    p.add_argument("--custom", nargs="*", default=None,
-                   help="Extra run stems/paths drawn as plain lines labelled by file name. "
-                        "Not folded into the scenario structure.")
+    p.add_argument(
+        "--model",
+        default="steel",
+        choices=list(DIRECTORIES),
+        help="Which model type to compare (default: steel)",
+    )
+    p.add_argument(
+        "--custom",
+        nargs="*",
+        default=None,
+        help="Extra run stems/paths drawn as plain lines labelled by file name. "
+        "Not folded into the scenario structure.",
+    )
     return p.parse_args()
 
 
@@ -91,9 +99,11 @@ def _parse_args():
 # ║ Model configuration — the single place where steel and plastics differ.   ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
+
 @dataclass(frozen=True)
 class MarketSpec:
     """A trade market plus the optional good / material slice we focus on."""
+
     name: str
     good: Optional[str] = None
     material: Optional[str] = None
@@ -106,6 +116,7 @@ class DependencyPanel:
     ``demand`` is either ``"stock_inflow"`` (``in_use`` stock inflow) or
     ``"flow:<flow name>"``. The good/material slice is taken from ``market``.
     """
+
     market: MarketSpec
     demand: str
 
@@ -113,8 +124,9 @@ class DependencyPanel:
 @dataclass(frozen=True)
 class DemandPanel:
     """A standalone demand time series shown in the 'demands' figure."""
+
     title: str
-    source: str                     # "stock_inflow" or "flow:<name>"
+    source: str  # "stock_inflow" or "flow:<name>"
     good: Optional[str] = None
     material: Optional[str] = None
 
@@ -122,7 +134,8 @@ class DemandPanel:
 @dataclass(frozen=True)
 class FlowPlot:
     """A single overlaid flow figure (one line per run)."""
-    source: str                     # "stock_inflow" or "flow:<name>"
+
+    source: str  # "stock_inflow" or "flow:<name>"
     name: str
     subplot_dim: Optional[str] = None
     good: Optional[str] = None
@@ -137,25 +150,27 @@ class TradeOverlay:
     ``map_EU-MFA_flows.py``) against that market's imports/exports. One dotted
     line is drawn per scenario in ``scenarios``.
     """
-    market: str                      # trade market figure to draw on (e.g. "primary")
-    label: str                       # legend prefix (e.g. "Traded recyclate")
-    filename: str                    # cs4r file name within each scenario dir
-    base_dir: str                    # dir holding the per-scenario subdirs
-    scenarios: dict                  # {legend suffix: scenario subdir}
+
+    market: str  # trade market figure to draw on (e.g. "primary")
+    label: str  # legend prefix (e.g. "Traded recyclate")
+    filename: str  # cs4r file name within each scenario dir
+    base_dir: str  # dir holding the per-scenario subdirs
+    scenarios: dict  # {legend suffix: scenario subdir}
     region: Optional[str] = None
     material: Optional[str] = None
     good: Optional[str] = None
-    sign: float = -1.0                # multiply values (use -1 to align with exports)
+    sign: float = -1.0  # multiply values (use -1 to align with exports)
 
 
 @dataclass(frozen=True)
 class ModelConfig:
     """Everything that differs between steel and plastics for these figures."""
+
     name: str
     region: str
-    x_start_year: int               # left edge for most time-axis plots
-    x_end_year: int                 # right edge for all time-axis plots
-    delta_start_year: int           # left edge for the Δ-net-imports plot
+    x_start_year: int  # left edge for most time-axis plots
+    x_end_year: int  # right edge for all time-axis plots
+    delta_start_year: int  # left edge for the Δ-net-imports plot
 
     # Scenario groups (steel strategies / plastics scenarios) and their styling.
     group_order: list[str]
@@ -163,9 +178,9 @@ class ModelConfig:
     color: dict[str, str]
     fill_solid: dict[str, str]
     fill_dashed: dict[str, str]
-    use_ambition_bands: bool        # steel: True (Conservative→HA band); plastics: False
-    baseline_group: str             # group used as Δ reference + for baseline-only plots
-    show_baseline_line: bool        # draw a separate grey baseline line on top (steel only)
+    use_ambition_bands: bool  # steel: True (Conservative→HA band); plastics: False
+    baseline_group: str  # group used as Δ reference + for baseline-only plots
+    show_baseline_line: bool  # draw a separate grey baseline line on top (steel only)
     color_baseline: str
 
     # Market display names (e.g. steel "primary" = "Primary steel").
@@ -176,9 +191,9 @@ class ModelConfig:
     dependency_panels: list[DependencyPanel]
     demand_panels: list[DemandPanel]
     demand_title: str
-    region_panels: list[DependencyPanel]   # for stacked-by-region + trade-mechanism
+    region_panels: list[DependencyPanel]  # for stacked-by-region + trade-mechanism
     flow_plots: list[FlowPlot]
-    csv_flows: list[tuple[str, str]]        # (label, source) for CSV export
+    csv_flows: list[tuple[str, str]]  # (label, source) for CSV export
 
     # Filters for the raw per-market trade overlay figure.
     trade_good_filters: dict[str, str] = field(default_factory=dict)
@@ -189,11 +204,11 @@ class ModelConfig:
 
 
 # Shared colour palette (Plotly default qualitative colours).
-_GREY   = "#7f7f7f"
-_BLUE   = "#1f77b4"
+_GREY = "#7f7f7f"
+_BLUE = "#1f77b4"
 _ORANGE = "#ff7f0e"
-_GREEN  = "#2ca02c"
-_RED    = "#d62728"
+_GREEN = "#2ca02c"
+_RED = "#d62728"
 _PURPLE = "#9467bd"
 
 # Distinct palette for custom (non-scenario) runs, kept clear of the scenario
@@ -203,18 +218,18 @@ _CUSTOM_COLORS = ["#17becf", "#bcbd22", "#e377c2", "#8c564b", "#393b79", "#00000
 
 def _fill(hex_color: str, alpha: float) -> str:
     """Convert a ``#rrggbb`` colour to an ``rgba(...)`` string with given alpha."""
-    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (1, 3, 5))
     return f"rgba({r},{g},{b},{alpha})"
 
 
 # ── steel config ───────────────────────────────────────────────────────────
 
 _STEEL_GROUPS = {
-    "Downsizing":      _BLUE,
-    "Redesign":        _ORANGE,
+    "Downsizing": _BLUE,
+    "Redesign": _ORANGE,
     "Remanufacturing": _GREEN,
-    "Combined":        _RED,
-    "AHSS":            _PURPLE,
+    "Combined": _RED,
+    "AHSS": _PURPLE,
 }
 _STEEL_DISPLAY = {**{g: g for g in _STEEL_GROUPS}, "AHSS": "AHSS & HSS", "Baseline": "Baseline"}
 
@@ -235,7 +250,7 @@ STEEL_CONFIG = ModelConfig(
     color_baseline=_GREY,
     market_display={
         "indirect": "Steel in goods",
-        "steel":    "Intermediate steel products",
+        "steel": "Intermediate steel products",
     },
     markets=[
         MarketSpec("indirect", good="Transport"),
@@ -273,8 +288,8 @@ STEEL_CONFIG = ModelConfig(
 # No ambitions. The Baseline is drawn as a grey line on top (as for steel).
 # We focus on PET in packaging (final-goods market) and PET in the primary market.
 
-_PL_GROUPS = {"S1": _BLUE, "S2": _ORANGE}              # circularity scenarios (coloured lines)
-_PL_ALL = {**_PL_GROUPS, "Baseline": _GREY}           # incl. the grey baseline
+_PL_GROUPS = {"S1": _BLUE, "S2": _ORANGE}  # circularity scenarios (coloured lines)
+_PL_ALL = {**_PL_GROUPS, "Baseline": _GREY}  # incl. the grey baseline
 
 # Reader-facing scenario names. Internal identifiers (S0/S1/S2/Baseline) are kept
 # throughout for data lookup; only the legend/title text is renamed here.
@@ -297,8 +312,8 @@ PLASTICS_CONFIG = ModelConfig(
     color_baseline=_GREY,
     market_display={
         "primary": "Primary",
-        "final":   "Final goods",
-        "waste":   "Waste",
+        "final": "Final goods",
+        "waste": "Waste",
     },
     markets=[
         MarketSpec("final", good="Packaging", material="PET"),
@@ -306,7 +321,9 @@ PLASTICS_CONFIG = ModelConfig(
     ],
     dependency_panels=[
         DependencyPanel(MarketSpec("final", good="Packaging", material="PET"), "stock_inflow"),
-        DependencyPanel(MarketSpec("primary", material="PET"), "flow:primary_market => fabrication"),
+        DependencyPanel(
+            MarketSpec("primary", material="PET"), "flow:primary_market => fabrication"
+        ),
     ],
     demand_panels=[
         DemandPanel("PET in packaging", "stock_inflow", good="Packaging", material="PET"),
@@ -315,11 +332,18 @@ PLASTICS_CONFIG = ModelConfig(
     demand_title="PET demands",
     region_panels=[
         DependencyPanel(MarketSpec("final", good="Packaging", material="PET"), "stock_inflow"),
-        DependencyPanel(MarketSpec("primary", material="PET"), "flow:primary_market => fabrication"),
+        DependencyPanel(
+            MarketSpec("primary", material="PET"), "flow:primary_market => fabrication"
+        ),
     ],
     flow_plots=[
         FlowPlot("stock_inflow", "Stock inflow — PET", material="PET", subplot_dim="Good"),
-        FlowPlot("flow:fabrication => good_market", "Good supply — PET", material="PET", subplot_dim="Good"),
+        FlowPlot(
+            "flow:fabrication => good_market",
+            "Good supply — PET",
+            material="PET",
+            subplot_dim="Good",
+        ),
         FlowPlot("flow:primary_market => fabrication", "PET demand", material="PET"),
     ],
     csv_flows=[
@@ -330,7 +354,7 @@ PLASTICS_CONFIG = ModelConfig(
         ("fabrication__good_market", "flow:fabrication => good_market"),
         ("primary_market__fabrication", "flow:primary_market => fabrication"),
         ("polymerization__primary_market", "flow:polymerization => primary_market"),
-        ("reclmech__primary_market", "flow:reclmech => primary_market")
+        ("reclmech__primary_market", "flow:reclmech => primary_market"),
     ],
     trade_good_filters={"final": "Packaging"},
     trade_material_filters={"final": "PET", "primary": "PET", "waste": "PET"},
@@ -359,6 +383,7 @@ MODEL_CONFIGS = {"steel": STEEL_CONFIG, "plastics": PLASTICS_CONFIG}
 # ║ Loading and stacking model pickles                                         ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
+
 def pick_files(directory: pathlib.Path, runs: Optional[list[str]]) -> list[pathlib.Path]:
     available = sorted(directory.glob("model_*.pickle"))
     if not available:
@@ -385,8 +410,9 @@ def _resolve_path(run: str, directory: pathlib.Path) -> pathlib.Path:
     return p
 
 
-def pick_custom_files(directory: pathlib.Path, custom_args: Optional[list[str]],
-                      exclude: list[pathlib.Path]) -> list[pathlib.Path]:
+def pick_custom_files(
+    directory: pathlib.Path, custom_args: Optional[list[str]], exclude: list[pathlib.Path]
+) -> list[pathlib.Path]:
     """Resolve custom run paths.
 
     * ``custom_args`` given (``--custom a b``) → resolve those stems/paths.
@@ -417,8 +443,7 @@ def custom_label(stem: str, model: str) -> str:
     return "_".join(parts) or stem
 
 
-def load_cs4r_series(path: pathlib.Path, region=None, material=None, good=None,
-                     sign: float = 1.0):
+def load_cs4r_series(path: pathlib.Path, region=None, material=None, good=None, sign: float = 1.0):
     """Read a cs4r flow file and return ``(years, values)`` summed over Time.
 
     cs4r layout: comment lines start with ``*``; the data is comma-separated with
@@ -494,6 +519,7 @@ def build_combined_mfa(models, run_dim: fd.Dimension) -> fd.MFASystem:
             new_params[name] = base.parameters[name]
 
     from remind_mfa.common.trade import Trade, TradeSet
+
     new_trade_set = None
     if base.trade_set is not None:
         new_markets = {}
@@ -504,8 +530,13 @@ def build_combined_mfa(models, run_dim: fd.Dimension) -> fd.MFASystem:
         new_trade_set = TradeSet.model_construct(markets=new_markets)
 
     return base.model_copy(
-        update={"dims": new_dims, "flows": new_flows, "stocks": new_stocks,
-                "parameters": new_params, "trade_set": new_trade_set}
+        update={
+            "dims": new_dims,
+            "flows": new_flows,
+            "stocks": new_stocks,
+            "parameters": new_params,
+            "trade_set": new_trade_set,
+        }
     )
 
 
@@ -515,8 +546,17 @@ def build_combined_mfa(models, run_dim: fd.Dimension) -> fd.MFASystem:
 # A run label encodes a group, an ambition (steel only) and a trade variant.
 # ``scenario_map`` is a nested dict: {group: {ambition: {trade: run_index}}}.
 
-_STRATEGY_TOKENS = ["Downsizing", "Redesign", "Remanufacturing", "Combined", "AHSS",
-                    "Baseline", "S2", "S1", "S0"]
+_STRATEGY_TOKENS = [
+    "Downsizing",
+    "Redesign",
+    "Remanufacturing",
+    "Combined",
+    "AHSS",
+    "Baseline",
+    "S2",
+    "S1",
+    "S0",
+]
 _AMBITIONS = ["Conservative", "Highly Ambitious"]
 
 
@@ -531,9 +571,11 @@ def _trade_variant(label: str) -> str:
 def make_short_label(stem: str, model: str) -> str:
     """Convert a pickle file stem to a short, human-readable run label."""
     trade = _trade_variant(stem)
-    trade_suffix = {"fix_supply_alpha0": " fix_supply_α0",
-                    "fix_supply_alpha1": " fix_supply_α1",
-                    "default": ""}[trade]
+    trade_suffix = {
+        "fix_supply_alpha0": " fix_supply_α0",
+        "fix_supply_alpha1": " fix_supply_α1",
+        "default": "",
+    }[trade]
 
     if model == "plastics":
         # S1 / S2 = circularity scenarios; everything else (incl. S0) is the Baseline.
@@ -555,8 +597,10 @@ def parse_run_labels(labels: list[str]) -> dict:
         group = next((s for s in _STRATEGY_TOKENS if s in label), "Unknown")
         if group == "Baseline":
             ambition = "Baseline"
-        elif any(tok in label for tok in ("Highly Ambitious", "Highly_Ambitious",
-                                          "Highly_mbitious", " HA ")) or label.endswith(" HA"):
+        elif any(
+            tok in label
+            for tok in ("Highly Ambitious", "Highly_Ambitious", "Highly_mbitious", " HA ")
+        ) or label.endswith(" HA"):
             ambition = "Highly Ambitious"
         else:
             ambition = "Conservative"
@@ -578,14 +622,15 @@ def _baseline_index(scenario_map: dict, cfg: ModelConfig) -> Optional[int]:
     for ambition in group.values():
         if "default" in ambition:
             return ambition["default"]
-    for ambition in group.values():           # fallback: any trade variant
+    for ambition in group.values():  # fallback: any trade variant
         for idx in ambition.values():
             return idx
     return None
 
 
-def market_title(market_display: dict, name: str,
-                 good: Optional[str] = None, material: Optional[str] = None) -> str:
+def market_title(
+    market_display: dict, name: str, good: Optional[str] = None, material: Optional[str] = None
+) -> str:
     """Human-readable market title, optionally annotated with material/good."""
     base = market_display.get(name, name)
     parts = [p for p in (material, good) if p is not None]
@@ -595,6 +640,7 @@ def market_title(market_display: dict, name: str,
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║ Comparison visualizer factory                                              ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
+
 
 def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
     """Build a ``ComparisonVisualizer`` class bound to one model's config."""
@@ -649,10 +695,10 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             """Resolve a ``"stock_inflow"`` / ``"flow:<name>"`` source string."""
             if source == "stock_inflow":
                 return mfa.stocks["in_use"].inflow
-            return mfa.flows[source[len("flow:"):]]
+            return mfa.flows[source[len("flow:") :]]
 
         def _has_source(self, mfa, source: str) -> bool:
-            return source == "stock_inflow" or source[len("flow:"):] in mfa.flows
+            return source == "stock_inflow" or source[len("flow:") :] in mfa.flows
 
         def _present_markets(self, mfa, specs: list[MarketSpec]) -> list[MarketSpec]:
             return [s for s in specs if s.name in mfa.trade_set.markets]
@@ -664,8 +710,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             sel = {k: v for k, v in sel.items() if v is not None}
             return (trade.imports - trade.exports)[sel].sum_to(["t", run_letter]).values
 
-        def _demand_matrix(self, mfa, source, run_letter,
-                           good=None, material=None) -> np.ndarray:
+        def _demand_matrix(self, mfa, source, run_letter, good=None, material=None) -> np.ndarray:
             """Summed demand series over (t, run), filtered to good/material."""
             arr = self._resolve(mfa, source)
             sel = self._sel(arr, {"r": cfg.region, "g": good, "m": material})
@@ -708,8 +753,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 color = _CUSTOM_COLORS[ci % len(_CUSTOM_COLORS)]
                 show = col == 1 and label not in legend_shown
                 for sign, mat in signed_vals:
-                    self._add_line(fig, col, times, sign * mat[:, idx] / scale,
-                                   color, label, show, width=2)
+                    self._add_line(
+                        fig, col, times, sign * mat[:, idx] / scale, color, label, show, width=2
+                    )
                     show = False
                 if col == 1:
                     legend_shown.add(label)
@@ -722,8 +768,13 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             if row is None:
                 fig.add_vline(x=self._last_hist_year, line_dash="dash", line_color="lightgray")
             else:
-                fig.add_vline(x=self._last_hist_year, line_dash="dash",
-                              line_color="lightgray", row=row, col=col)
+                fig.add_vline(
+                    x=self._last_hist_year,
+                    line_dash="dash",
+                    line_color="lightgray",
+                    row=row,
+                    col=col,
+                )
 
         @staticmethod
         def _dash_style(dash) -> str:
@@ -733,21 +784,49 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 return dash
             return "dash" if dash else "solid"
 
-        def _add_band(self, fig, col, times, y_lo, y_hi, color, fillcolor,
-                      name, showlegend, dash=False):
-            fig.add_trace(go.Scatter(x=times, y=y_lo, showlegend=False,
-                line=dict(color=color, width=0), mode="lines", hoverinfo="skip"),
-                row=1, col=col)
-            fig.add_trace(go.Scatter(x=times, y=y_hi, name=name, showlegend=showlegend,
-                fill="tonexty", fillcolor=fillcolor,
-                line=dict(color=color, width=1.5, dash=self._dash_style(dash)),
-                mode="lines"), row=1, col=col)
+        def _add_band(
+            self, fig, col, times, y_lo, y_hi, color, fillcolor, name, showlegend, dash=False
+        ):
+            fig.add_trace(
+                go.Scatter(
+                    x=times,
+                    y=y_lo,
+                    showlegend=False,
+                    line=dict(color=color, width=0),
+                    mode="lines",
+                    hoverinfo="skip",
+                ),
+                row=1,
+                col=col,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=times,
+                    y=y_hi,
+                    name=name,
+                    showlegend=showlegend,
+                    fill="tonexty",
+                    fillcolor=fillcolor,
+                    line=dict(color=color, width=1.5, dash=self._dash_style(dash)),
+                    mode="lines",
+                ),
+                row=1,
+                col=col,
+            )
 
-        def _add_line(self, fig, col, times, y, color, name, showlegend,
-                      dash=False, width=1.5):
-            fig.add_trace(go.Scatter(x=times, y=y, name=name, showlegend=showlegend,
-                line=dict(color=color, width=width, dash=self._dash_style(dash)),
-                mode="lines"), row=1, col=col)
+        def _add_line(self, fig, col, times, y, color, name, showlegend, dash=False, width=1.5):
+            fig.add_trace(
+                go.Scatter(
+                    x=times,
+                    y=y,
+                    name=name,
+                    showlegend=showlegend,
+                    line=dict(color=color, width=width, dash=self._dash_style(dash)),
+                    mode="lines",
+                ),
+                row=1,
+                col=col,
+            )
 
         @staticmethod
         def _suffix(is_conservative: bool, fixed_supply: bool = False) -> str:
@@ -759,9 +838,19 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             return f" ({amb}, fixed supply)" if fixed_supply else f" ({amb})"
 
         # ── the shared scenario drawer ──────────────────────────────────────
-        def _draw_scenario_panel(self, fig, col, times, mat, scenario_map, *,
-                                 scale, legend_shown, draw_baseline_line,
-                                 skip_group=None):
+        def _draw_scenario_panel(
+            self,
+            fig,
+            col,
+            times,
+            mat,
+            scenario_map,
+            *,
+            scale,
+            legend_shown,
+            draw_baseline_line,
+            skip_group=None,
+        ):
             """Draw all scenario groups into one subplot column.
 
             ``mat`` is a (n_t, n_run) matrix. For each group:
@@ -790,47 +879,86 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 if c_def is not None and ha_def is not None:
                     lo = np.minimum(mat[:, c_def], mat[:, ha_def]) / scale
                     hi = np.maximum(mat[:, c_def], mat[:, ha_def]) / scale
-                    self._add_band(fig, col, times, lo, hi, color,
-                                   cfg.fill_solid[group], display, show_leg)
+                    self._add_band(
+                        fig, col, times, lo, hi, color, cfg.fill_solid[group], display, show_leg
+                    )
                     legend_shown.add(group)
                 else:
                     idx = c_def if c_def is not None else ha_def
                     if idx is not None:
                         width = 1.5 if c_def is not None else 2.5
-                        self._add_line(fig, col, times, mat[:, idx] / scale, color,
-                                       display + self._suffix(c_def is not None),
-                                       show_leg, width=width)
+                        self._add_line(
+                            fig,
+                            col,
+                            times,
+                            mat[:, idx] / scale,
+                            color,
+                            display + self._suffix(c_def is not None),
+                            show_leg,
+                            width=width,
+                        )
                         legend_shown.add(group)
 
                 # dashed (fix_supply trade)
                 if c_fs is not None and ha_fs is not None:
                     lo = np.minimum(mat[:, c_fs], mat[:, ha_fs]) / scale
                     hi = np.maximum(mat[:, c_fs], mat[:, ha_fs]) / scale
-                    self._add_band(fig, col, times, lo, hi, color,
-                                   cfg.fill_dashed[group], f"{display} (fixed supply)",
-                                   col == 1, dash=True)
+                    self._add_band(
+                        fig,
+                        col,
+                        times,
+                        lo,
+                        hi,
+                        color,
+                        cfg.fill_dashed[group],
+                        f"{display} (fixed supply)",
+                        col == 1,
+                        dash=True,
+                    )
                 else:
                     idx = c_fs if c_fs is not None else ha_fs
                     if idx is not None:
                         width = 1.5 if c_fs is not None else 2.5
-                        self._add_line(fig, col, times, mat[:, idx] / scale, color,
-                                       display + self._suffix(c_fs is not None, fixed_supply=True),
-                                       col == 1, dash=True, width=width)
+                        self._add_line(
+                            fig,
+                            col,
+                            times,
+                            mat[:, idx] / scale,
+                            color,
+                            display + self._suffix(c_fs is not None, fixed_supply=True),
+                            col == 1,
+                            dash=True,
+                            width=width,
+                        )
 
             if draw_baseline_line and cfg.show_baseline_line:
                 bl = _baseline_index(scenario_map, cfg)
                 if bl is not None:
                     baseline_name = cfg.display.get(cfg.baseline_group, cfg.baseline_group)
-                    self._add_line(fig, col, times, mat[:, bl] / scale, cfg.color_baseline,
-                                   baseline_name, col == 1 and "Baseline" not in legend_shown,
-                                   width=2)
+                    self._add_line(
+                        fig,
+                        col,
+                        times,
+                        mat[:, bl] / scale,
+                        cfg.color_baseline,
+                        baseline_name,
+                        col == 1 and "Baseline" not in legend_shown,
+                        width=2,
+                    )
                     legend_shown.add("Baseline")
 
             self._draw_custom_lines(fig, col, times, [(1, mat)], scale, legend_shown)
 
         # ── raw trade overlay ───────────────────────────────────────────────
-        def visualize_trade(self, mfa, region=None, linecolor_dims=None,
-                            subplot_dims=None, good_filters=None, material_filters=None):
+        def visualize_trade(
+            self,
+            mfa,
+            region=None,
+            linecolor_dims=None,
+            subplot_dims=None,
+            good_filters=None,
+            material_filters=None,
+        ):
             region = cfg.region if region is None else region
             for name, trade in mfa.trade_set.markets.items():
                 imports = trade.imports[{"r": region}] if region is not None else trade.imports
@@ -860,18 +988,27 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 colors = per_run + per_run
 
                 ap_imports = self.plotter_class(
-                    array=imports, intra_line_dim="Time", subplot_dim=subplot_dim,
-                    linecolor_dim=linecolor_dim, display_names=self.display_names.dct,
+                    array=imports,
+                    intra_line_dim="Time",
+                    subplot_dim=subplot_dim,
+                    linecolor_dim=linecolor_dim,
+                    display_names=self.display_names.dct,
                     color_map=colors,
                 )
                 fig = ap_imports.plot()
                 title = f"{market_title(cfg.market_display, name, mkt_good, mkt_mat)} Trade"
                 ap_exports = self.plotter_class(
-                    array=-exports, intra_line_dim="Time", subplot_dim=subplot_dim,
-                    linecolor_dim=linecolor_dim, line_type="dash",
-                    display_names=self.display_names.dct, title=title,
-                    ylabel="Trade (Exports negative)", suppress_legend=True,
-                    fig=fig, color_map=colors,
+                    array=-exports,
+                    intra_line_dim="Time",
+                    subplot_dim=subplot_dim,
+                    linecolor_dim=linecolor_dim,
+                    line_type="dash",
+                    display_names=self.display_names.dct,
+                    title=title,
+                    ylabel="Trade (Exports negative)",
+                    suppress_legend=True,
+                    fig=fig,
+                    color_map=colors,
                 )
                 fig = ap_exports.plot()
                 fig.update_xaxes(range=[cfg.x_start_year, cfg.x_end_year])
@@ -893,14 +1030,18 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                         print(f"  overlay file missing, skipping: {path}")
                         continue
                     years, vals = load_cs4r_series(
-                        path, region=ov.region, material=ov.material,
-                        good=ov.good, sign=ov.sign)
+                        path, region=ov.region, material=ov.material, good=ov.good, sign=ov.sign
+                    )
                     color = _CUSTOM_COLORS[ci % len(_CUSTOM_COLORS)]
-                    fig.add_trace(go.Scatter(
-                        x=years, y=vals, mode="lines",
-                        name=f"{ov.label} {cfg.display.get(suffix, suffix)}",
-                        line=dict(color=color, width=2, dash="dot"),
-                    ))
+                    fig.add_trace(
+                        go.Scatter(
+                            x=years,
+                            y=vals,
+                            mode="lines",
+                            name=f"{ov.label} {cfg.display.get(suffix, suffix)}",
+                            line=dict(color=color, width=2, dash="dot"),
+                        )
+                    )
 
         # ── individual flow overlays ────────────────────────────────────────
         def _visualize_flows(self, mfa):
@@ -910,12 +1051,18 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 arr = self._resolve(mfa, spec.source)
                 sel = self._sel(arr, {"m": spec.material, "g": spec.good})
                 sel = {k: v for k, v in sel.items() if v is not None}
-                self.visualize_flow(mfa, flow=arr[sel] if sel else arr, name=spec.name,
-                                    region=cfg.region, linecolor_dim=RUN,
-                                    subplot_dim=spec.subplot_dim)
+                self.visualize_flow(
+                    mfa,
+                    flow=arr[sel] if sel else arr,
+                    name=spec.name,
+                    region=cfg.region,
+                    linecolor_dim=RUN,
+                    subplot_dim=spec.subplot_dim,
+                )
 
-        def visualize_flow(self, mfa, flow, name, region=None,
-                          linecolor_dim=None, subplot_dim=None):
+        def visualize_flow(
+            self, mfa, flow, name, region=None, linecolor_dim=None, subplot_dim=None
+        ):
             flow = flow[{"r": region}] if region is not None else flow
             lc_letter = mfa.dims[linecolor_dim].letter if linecolor_dim else None
             sp_letter = mfa.dims[subplot_dim].letter if subplot_dim else None
@@ -923,9 +1070,15 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             flow = flow.sum_to(dimlist)
 
             fig, ap_flow = self.plot_history_and_future(
-                mfa=mfa, data_to_plot=flow, subplot_dim=subplot_dim, x_array=None,
-                linecolor_dim=linecolor_dim, x_label="Year", y_label=f"{name} [t]",
-                title=name, line_label=name if linecolor_dim is None else None,
+                mfa=mfa,
+                data_to_plot=flow,
+                subplot_dim=subplot_dim,
+                x_array=None,
+                linecolor_dim=linecolor_dim,
+                x_label="Year",
+                y_label=f"{name} [t]",
+                title=name,
+                line_label=name if linecolor_dim is None else None,
             )
             fig.update_xaxes(range=[cfg.x_start_year, cfg.x_end_year])
             self._add_hist_line(fig)
@@ -946,11 +1099,18 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
             for col, m in enumerate(markets, start=1):
                 vals = self._net_imports(mfa, m, run_letter)
-                delta = (vals - vals[:, bl:bl + 1]) / 1e6   # Mt
-                self._draw_scenario_panel(fig, col, times, delta, scenario_map,
-                                          scale=1, legend_shown=legend_shown,
-                                          draw_baseline_line=False,
-                                          skip_group=cfg.baseline_group)
+                delta = (vals - vals[:, bl : bl + 1]) / 1e6  # Mt
+                self._draw_scenario_panel(
+                    fig,
+                    col,
+                    times,
+                    delta,
+                    scenario_map,
+                    scale=1,
+                    legend_shown=legend_shown,
+                    draw_baseline_line=False,
+                    skip_group=cfg.baseline_group,
+                )
                 fig.add_hline(y=0, line_dash="dot", line_color="gray", row=1, col=col)
                 self._add_hist_line(fig, row=1, col=col)
 
@@ -958,7 +1118,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             fig.update_yaxes(title_text="Δ Net Imports [Mt]", col=1)
             fig.update_layout(
                 title_text=f"Δ Net Imports vs {cfg.display[cfg.baseline_group]} — {cfg.region}",
-                hovermode="x unified")
+                hovermode="x unified",
+            )
             self._show_and_save_plotly(fig, "delta_net_imports")
 
         # ── absolute net imports ────────────────────────────────────────────
@@ -972,9 +1133,16 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
             for col, m in enumerate(markets, start=1):
                 vals = self._net_imports(mfa, m, run_letter)
-                self._draw_scenario_panel(fig, col, times, vals, scenario_map,
-                                          scale=1e6, legend_shown=legend_shown,
-                                          draw_baseline_line=True)
+                self._draw_scenario_panel(
+                    fig,
+                    col,
+                    times,
+                    vals,
+                    scenario_map,
+                    scale=1e6,
+                    legend_shown=legend_shown,
+                    draw_baseline_line=True,
+                )
                 self._add_hist_line(fig, row=1, col=col)
 
             fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
@@ -996,10 +1164,12 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 if not self._has_source(mfa, dp.demand):
                     continue
                 net = self._net_imports(mfa, dp.market, run_letter)
-                demand = self._demand_matrix(mfa, dp.demand, run_letter,
-                                             good=dp.market.good, material=dp.market.material)
-                title = market_title(cfg.market_display, dp.market.name,
-                                     dp.market.good, dp.market.material)
+                demand = self._demand_matrix(
+                    mfa, dp.demand, run_letter, good=dp.market.good, material=dp.market.material
+                )
+                title = market_title(
+                    cfg.market_display, dp.market.name, dp.market.good, dp.market.material
+                )
                 panels.append((net / np.maximum(demand, eps), title))
             if not panels:
                 return
@@ -1007,16 +1177,24 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             fig = make_subplots(rows=1, cols=len(panels), subplot_titles=[p[1] for p in panels])
             legend_shown = set()
             for col, (dep, _) in enumerate(panels, start=1):
-                self._draw_scenario_panel(fig, col, times, dep, scenario_map,
-                                          scale=1, legend_shown=legend_shown,
-                                          draw_baseline_line=True)
+                self._draw_scenario_panel(
+                    fig,
+                    col,
+                    times,
+                    dep,
+                    scenario_map,
+                    scale=1,
+                    legend_shown=legend_shown,
+                    draw_baseline_line=True,
+                )
                 self._add_hist_line(fig, row=1, col=col)
 
             fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
             fig.update_yaxes(title_text="Dependency ratio", col=1)
             fig.update_layout(
                 title_text=f"Import Dependency (Net imports / Demand) — {cfg.region}",
-                hovermode="x unified")
+                hovermode="x unified",
+            )
             self._show_and_save_plotly(fig, "import_dependency")
 
         # ── demands ──────────────────────────────────────────────────────────
@@ -1028,8 +1206,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             for dpan in cfg.demand_panels:
                 if not self._has_source(mfa, dpan.source):
                     continue
-                vals = self._demand_matrix(mfa, dpan.source, run_letter,
-                                           good=dpan.good, material=dpan.material)
+                vals = self._demand_matrix(
+                    mfa, dpan.source, run_letter, good=dpan.good, material=dpan.material
+                )
                 panels.append((vals, dpan.title))
             if not panels:
                 return
@@ -1037,14 +1216,23 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             fig = make_subplots(rows=1, cols=len(panels), subplot_titles=[p[1] for p in panels])
             legend_shown = set()
             for col, (vals, _) in enumerate(panels, start=1):
-                self._draw_scenario_panel(fig, col, times, vals, scenario_map,
-                                          scale=1e6, legend_shown=legend_shown,
-                                          draw_baseline_line=True)
+                self._draw_scenario_panel(
+                    fig,
+                    col,
+                    times,
+                    vals,
+                    scenario_map,
+                    scale=1e6,
+                    legend_shown=legend_shown,
+                    draw_baseline_line=True,
+                )
                 self._add_hist_line(fig, row=1, col=col)
 
             fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
             fig.update_yaxes(title_text="[Mt]", col=1)
-            fig.update_layout(title_text=f"{cfg.demand_title} — {cfg.region}", hovermode="x unified")
+            fig.update_layout(
+                title_text=f"{cfg.demand_title} — {cfg.region}", hovermode="x unified"
+            )
             self._show_and_save_plotly(fig, "demands")
 
         # ── gross trade ──────────────────────────────────────────────────────
@@ -1052,8 +1240,10 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             trade = mfa.trade_set.markets[spec.name]
             sel = self._sel(trade.imports, {"r": cfg.region, "g": spec.good, "m": spec.material})
             sel = {k: v for k, v in sel.items() if v is not None}
-            return (trade.imports[sel].sum_to(["t", run_letter]).values,
-                    trade.exports[sel].sum_to(["t", run_letter]).values)
+            return (
+                trade.imports[sel].sum_to(["t", run_letter]).values,
+                trade.exports[sel].sum_to(["t", run_letter]).values,
+            )
 
         def _draw_gross_groups(self, fig, col, times, signed_vals, scenario_map, legend_shown):
             """Draw scenario groups for a gross-trade subplot.
@@ -1080,16 +1270,25 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                     if c_def is not None and ha_def is not None:
                         lo = np.minimum(sign * vals[:, c_def], sign * vals[:, ha_def]) / 1e6
                         hi = np.maximum(sign * vals[:, c_def], sign * vals[:, ha_def]) / 1e6
-                        self._add_band(fig, col, times, lo, hi, color,
-                                       cfg.fill_solid[group], display, leg)
+                        self._add_band(
+                            fig, col, times, lo, hi, color, cfg.fill_solid[group], display, leg
+                        )
                         if sign == 1 and col == 1:
                             legend_shown.add(group)
                     else:
                         idx = c_def if c_def is not None else ha_def
                         if idx is not None:
                             width = 1.5 if c_def is not None else 2.5
-                            self._add_line(fig, col, times, sign * vals[:, idx] / 1e6, color,
-                                           display + self._suffix(c_def is not None), leg, width=width)
+                            self._add_line(
+                                fig,
+                                col,
+                                times,
+                                sign * vals[:, idx] / 1e6,
+                                color,
+                                display + self._suffix(c_def is not None),
+                                leg,
+                                width=width,
+                            )
                             if sign == 1 and col == 1:
                                 legend_shown.add(group)
                     # fix_supply: one trace per α value, distinguished by line style
@@ -1108,11 +1307,29 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                         if len(a_idxs) >= 2:
                             lo = np.min([sign * vals[:, i] for i in a_idxs], axis=0) / 1e6
                             hi = np.max([sign * vals[:, i] for i in a_idxs], axis=0) / 1e6
-                            self._add_band(fig, col, times, lo, hi, color, cfg.fill_dashed[group],
-                                           fs_name, fs_leg, dash=dash_style)
+                            self._add_band(
+                                fig,
+                                col,
+                                times,
+                                lo,
+                                hi,
+                                color,
+                                cfg.fill_dashed[group],
+                                fs_name,
+                                fs_leg,
+                                dash=dash_style,
+                            )
                         else:
-                            self._add_line(fig, col, times, sign * vals[:, a_idxs[0]] / 1e6, color,
-                                           fs_name, fs_leg, dash=dash_style)
+                            self._add_line(
+                                fig,
+                                col,
+                                times,
+                                sign * vals[:, a_idxs[0]] / 1e6,
+                                color,
+                                fs_name,
+                                fs_leg,
+                                dash=dash_style,
+                            )
 
         def _draw_gross_baseline(self, fig, col, times, signed_vals, scenario_map, legend_shown):
             if not cfg.show_baseline_line:
@@ -1123,22 +1340,35 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             show_bl = col == 1 and "Baseline" not in legend_shown
             baseline_name = cfg.display.get(cfg.baseline_group, cfg.baseline_group)
             for sign, vals in signed_vals:
-                self._add_line(fig, col, times, sign * vals[:, bl] / 1e6,
-                               cfg.color_baseline, baseline_name, show_bl, width=2)
+                self._add_line(
+                    fig,
+                    col,
+                    times,
+                    sign * vals[:, bl] / 1e6,
+                    cfg.color_baseline,
+                    baseline_name,
+                    show_bl,
+                    width=2,
+                )
                 show_bl = False
             if col == 1:
                 legend_shown.add("Baseline")
 
         def visualize_gross_trade(self, mfa, run_labels, run_letter):
-            """Gross imports (+) and exports (−) for the EU region.
-            """
+            """Gross imports (+) and exports (−) for the EU region."""
             scenario_map = self._scenario_map(run_labels)
             times = list(mfa.dims["t"].items)
 
             combined = []
             for spec in self._present_markets(mfa, cfg.markets):
                 imp, exp = self._gross_matrices(mfa, spec, run_letter)
-                combined.append((market_title(cfg.market_display, spec.name, spec.good, spec.material), imp, exp))
+                combined.append(
+                    (
+                        market_title(cfg.market_display, spec.name, spec.good, spec.material),
+                        imp,
+                        exp,
+                    )
+                )
             if not combined:
                 return
 
@@ -1146,8 +1376,12 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             legend_shown = set()
             for col, (_, imp, exp) in enumerate(combined, start=1):
                 fig.add_hline(y=0, line_dash="dot", line_color="lightgray", row=1, col=col)
-                self._draw_gross_groups(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
-                self._draw_gross_baseline(fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown)
+                self._draw_gross_groups(
+                    fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown
+                )
+                self._draw_gross_baseline(
+                    fig, col, times, [(1, imp), (-1, exp)], scenario_map, legend_shown
+                )
                 self._draw_custom_lines(fig, col, times, [(1, imp), (-1, exp)], 1e6, legend_shown)
                 self._add_hist_line(fig, row=1, col=col)
             fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
@@ -1168,8 +1402,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
             Guarded to plastics by the presence of the recyclate trade overlay.
             """
-            ov = next((o for o in cfg.trade_overlays
-                       if "recyclate" in o.filename.lower()), None)
+            ov = next((o for o in cfg.trade_overlays if "recyclate" in o.filename.lower()), None)
             if ov is None or ov.market not in mfa.trade_set.markets:
                 return
             primary_spec = next((m for m in cfg.markets if m.name == ov.market), None)
@@ -1177,8 +1410,11 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 return
             # scenarios shown: those that are both in the overlay and scenario groups
             # (excludes the S0/baseline entry, matching the reference FIG 5)
-            panels = [(suffix, subdir) for suffix, subdir in ov.scenarios.items()
-                      if suffix in cfg.group_order]
+            panels = [
+                (suffix, subdir)
+                for suffix, subdir in ov.scenarios.items()
+                if suffix in cfg.group_order
+            ]
             if not panels:
                 return
 
@@ -1187,8 +1423,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             imp, _ = self._gross_matrices(mfa, primary_spec, run_letter)  # (n_t, n_run)
             base = pathlib.Path(ov.base_dir)
 
-            fig = make_subplots(rows=1, cols=len(panels),
-                                subplot_titles=[cfg.display.get(g, g) for g, _ in panels])
+            fig = make_subplots(
+                rows=1, cols=len(panels), subplot_titles=[cfg.display.get(g, g) for g, _ in panels]
+            )
             legend_shown = set()
             for col, (group, subdir) in enumerate(panels, start=1):
                 color = cfg.color[group]
@@ -1200,14 +1437,14 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                     idx = next((ad[trade_key] for ad in amb.values() if trade_key in ad), None)
                     if idx is not None:
                         break
-                primary = (imp[:, idx] / 1e6 if idx is not None
-                           else np.full(len(times), np.nan))
+                primary = imp[:, idx] / 1e6 if idx is not None else np.full(len(times), np.nan)
 
                 # EU-MFA net recyclate import need (sign −1: +value = export → import need)
                 path = base / subdir / ov.filename
                 if path.exists():
-                    yrs, vals = load_cs4r_series(path, region=ov.region, material=ov.material,
-                                                 good=ov.good, sign=-1.0)
+                    yrs, vals = load_cs4r_series(
+                        path, region=ov.region, material=ov.material, good=ov.good, sign=-1.0
+                    )
                     rec_series = pd.Series(vals, index=[int(y) for y in yrs])
                     recyc = np.array([rec_series.get(t, np.nan) for t in times]) / 1e6
                 else:
@@ -1216,21 +1453,56 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
                 # shaded infeasible region where recyclate need exceeds primary imports
                 upper = np.where(np.isfinite(recyc) & (recyc > primary), recyc, primary)
-                fig.add_trace(go.Scatter(x=times, y=primary, mode="lines",
-                    line=dict(width=0), showlegend=False, hoverinfo="skip"), row=1, col=col)
-                fig.add_trace(go.Scatter(x=times, y=upper, mode="lines", fill="tonexty",
-                    fillcolor=_fill(color, 0.15), line=dict(width=0),
-                    name="recyclate need > primary imports",
-                    showlegend="excess" not in legend_shown, hoverinfo="skip"), row=1, col=col)
+                fig.add_trace(
+                    go.Scatter(
+                        x=times,
+                        y=primary,
+                        mode="lines",
+                        line=dict(width=0),
+                        showlegend=False,
+                        hoverinfo="skip",
+                    ),
+                    row=1,
+                    col=col,
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=times,
+                        y=upper,
+                        mode="lines",
+                        fill="tonexty",
+                        fillcolor=_fill(color, 0.15),
+                        line=dict(width=0),
+                        name="recyclate need > primary imports",
+                        showlegend="excess" not in legend_shown,
+                        hoverinfo="skip",
+                    ),
+                    row=1,
+                    col=col,
+                )
                 legend_shown.add("excess")
 
-                self._add_line(fig, col, times, primary, _GREY,
-                               "Total primary imports (fix_supply α=1)",
-                               "primary" not in legend_shown, width=2)
+                self._add_line(
+                    fig,
+                    col,
+                    times,
+                    primary,
+                    _GREY,
+                    "Total primary imports (fix_supply α=1)",
+                    "primary" not in legend_shown,
+                    width=2,
+                )
                 legend_shown.add("primary")
-                self._add_line(fig, col, times, recyc, color,
-                               f"EU-MFA net recyclate import need ({cfg.display.get(group, group)})",
-                               True, width=2)
+                self._add_line(
+                    fig,
+                    col,
+                    times,
+                    recyc,
+                    color,
+                    f"EU-MFA net recyclate import need ({cfg.display.get(group, group)})",
+                    True,
+                    width=2,
+                )
 
                 self._add_hist_line(fig, row=1, col=col)
 
@@ -1238,7 +1510,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             fig.update_yaxes(title_text="Imports [Mt]", col=1)
             fig.update_layout(
                 title_text=f"Recyclate import need vs. primary imports — {cfg.region}",
-                hovermode="x unified")
+                hovermode="x unified",
+            )
             self._show_and_save_plotly(fig, "recyclate_import_need")
 
         # ── stacked gross trade by region (baseline only) ───────────────────
@@ -1268,37 +1541,52 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             for dp in self._region_market_specs(mfa):
                 spec = dp.market
                 trade = mfa.trade_set.markets[spec.name]
-                sel = self._sel(trade.imports, {run_letter: baseline_label, "g": spec.good, "m": spec.material})
+                sel = self._sel(
+                    trade.imports, {run_letter: baseline_label, "g": spec.good, "m": spec.material}
+                )
                 sel = {k: v for k, v in sel.items() if v is not None}
                 imp = trade.imports[sel].sum_to(["t", "r"]).values / 1e6
                 exp = trade.exports[sel].sum_to(["t", "r"]).values / 1e6
 
                 # EU largest → place on top by sorting others by mean imports
                 avg_imp = imp.mean(axis=0)
-                ordered = sorted([r for r in regions if r != cfg.region],
-                                 key=lambda r: avg_imp[regions.index(r)]) + [cfg.region]
+                ordered = sorted(
+                    [r for r in regions if r != cfg.region], key=lambda r: avg_imp[regions.index(r)]
+                ) + [cfg.region]
 
                 title = market_title(cfg.market_display, spec.name, spec.good, spec.material)
-                fig = make_subplots(rows=1, cols=2,
-                                    subplot_titles=[f"{title} imports", f"{title} exports"])
+                fig = make_subplots(
+                    rows=1, cols=2, subplot_titles=[f"{title} imports", f"{title} exports"]
+                )
                 legend_shown = set()
                 for col, vals in enumerate([imp, exp], start=1):
                     for r in ordered:
                         r_idx = regions.index(r)
-                        fig.add_trace(go.Scatter(
-                            x=times, y=vals[:, r_idx], name=r, stackgroup="one", mode="lines",
-                            line=dict(color=region_colors[r], width=0.5),
-                            fillcolor=region_colors[r],
-                            showlegend=(col == 1 and r not in legend_shown),
-                        ), row=1, col=col)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times,
+                                y=vals[:, r_idx],
+                                name=r,
+                                stackgroup="one",
+                                mode="lines",
+                                line=dict(color=region_colors[r], width=0.5),
+                                fillcolor=region_colors[r],
+                                showlegend=(col == 1 and r not in legend_shown),
+                            ),
+                            row=1,
+                            col=col,
+                        )
                         legend_shown.add(r)
                 self._add_hist_line(fig)
                 fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
                 fig.update_yaxes(title_text="[Mt]", col=1)
                 fig.update_layout(
                     title_text=f"Global {title} trade by region — {cfg.display[cfg.baseline_group]}",
-                    hovermode="x unified")
-                self._show_and_save_plotly(fig, f"global_trade_stacked_{spec.name}{self._suffix_fname(spec)}")
+                    hovermode="x unified",
+                )
+                self._show_and_save_plotly(
+                    fig, f"global_trade_stacked_{spec.name}{self._suffix_fname(spec)}"
+                )
 
         # ── trade mechanism by region (baseline only) ───────────────────────
         def visualize_trade_mechanism(self, mfa, run_labels, run_letter):
@@ -1322,7 +1610,11 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 base_sel = {run_letter: baseline_label, "g": spec.good, "m": spec.material}
 
                 demand_arr = self._resolve(mfa, dp.demand)
-                demand = demand_arr[self._clean(self._sel(demand_arr, base_sel))].sum_to(["t", "r"]).values
+                demand = (
+                    demand_arr[self._clean(self._sel(demand_arr, base_sel))]
+                    .sum_to(["t", "r"])
+                    .values
+                )
 
                 trade = mfa.trade_set.markets[spec.name]
                 t_sel = self._clean(self._sel(trade.imports, base_sel))
@@ -1337,20 +1629,34 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 fig = make_subplots(rows=nrows, cols=ncols, subplot_titles=all_regions)
                 for r_i in range(n_regions):
                     row, col = r_i // ncols + 1, r_i % ncols + 1
-                    for label, ratios in [("Imports / Demand", ratio_id[:, r_i]),
-                                          ("Exports / Supply", ratio_es[:, r_i])]:
-                        fig.add_trace(go.Scatter(
-                            x=times, y=ratios, name=label, showlegend=(r_i == 0),
-                            line=dict(color=ratio_colors[label], width=2), mode="lines",
-                        ), row=row, col=col)
+                    for label, ratios in [
+                        ("Imports / Demand", ratio_id[:, r_i]),
+                        ("Exports / Supply", ratio_es[:, r_i]),
+                    ]:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times,
+                                y=ratios,
+                                name=label,
+                                showlegend=(r_i == 0),
+                                line=dict(color=ratio_colors[label], width=2),
+                                mode="lines",
+                            ),
+                            row=row,
+                            col=col,
+                        )
                 self._add_hist_line(fig)
                 fig.update_xaxes(title_text="Year", range=[cfg.x_start_year, cfg.x_end_year])
                 fig.update_yaxes(title_text="Ratio", col=1)
                 title = market_title(cfg.market_display, spec.name, spec.good, spec.material)
                 fig.update_layout(
                     title_text=f"{title} trade ratios by region — {cfg.display[cfg.baseline_group]}",
-                    hovermode="x unified", height=300 * nrows)
-                self._show_and_save_plotly(fig, f"trade_ratios_{spec.name}_by_region{self._suffix_fname(spec)}")
+                    hovermode="x unified",
+                    height=300 * nrows,
+                )
+                self._show_and_save_plotly(
+                    fig, f"trade_ratios_{spec.name}_by_region{self._suffix_fname(spec)}"
+                )
 
         # ── helpers for the region-level (baseline-only) figures ─────────────
         def _region_market_specs(self, mfa) -> list[DependencyPanel]:
@@ -1371,6 +1677,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║ CSV export                                                                 ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
+
 
 def export_trade_csv(models, labels, directory: pathlib.Path, output_dir=None):
     """One CSV per (run, market): [dims…, imports_t, exports_t, net_imports_t]."""
@@ -1404,7 +1711,7 @@ def export_flows_csv(models, labels, cfg: ModelConfig, directory: pathlib.Path, 
     def resolve(mfa, source):
         if source == "stock_inflow":
             return mfa.stocks["in_use"].inflow
-        return mfa.flows[source[len("flow:"):]]
+        return mfa.flows[source[len("flow:") :]]
 
     for model, label in zip(models, labels):
         mfa = model.future_mfa
@@ -1424,6 +1731,7 @@ def export_flows_csv(models, labels, cfg: ModelConfig, directory: pathlib.Path, 
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║ Main                                                                       ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
+
 
 def main():
     args = _parse_args()
@@ -1476,7 +1784,7 @@ def main():
         for lab in scenario_labels:
             for group in ("S2", "S1", "Baseline"):
                 if lab.startswith(group):
-                    overrides[lab] = cfg.display.get(group, group) + lab[len(group):]
+                    overrides[lab] = cfg.display.get(group, group) + lab[len(group) :]
                     break
         vis.display_names.dct.update(overrides)
 

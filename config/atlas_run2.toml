@@ -1,6 +1,6 @@
 # Second REMIND-MFA run of the coupling with the ATLAS trade model.
 #
-# Future trade is read from ATLAS data instead of being extrapolated. 
+# Future trade is read from ATLAS data instead of being extrapolated.
 [base]
     [base.trade]
         source = "data"

@@ -26,7 +26,6 @@ class PlasticsDataExporter(CommonDataExporter):
         """Demand for primary plastics."""
         return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
 
-
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         def hvc_input(mfa: fd.MFASystem) -> fd.FlodymArray:
             """HVC input into plastics production"""
