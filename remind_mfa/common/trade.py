@@ -166,7 +166,7 @@ def set_trade_from_data(
 
 def _warn_uncovered_years(future_trade: Trade, historic_time: fd.Dimension, market_name: str):
     """Warn about future years in which both imports and exports of the given data are zero.
-    
+
     Might happen if the cs4r file as output by ATLAS does not cover all future years, in which case the reader will silently set the trade to zero in those years. This is usually not intended.
     """
     total = _global_values(future_trade.imports) + _global_values(future_trade.exports)

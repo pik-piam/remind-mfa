@@ -182,7 +182,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # imports of final goods cannot exceed plastics demand
         historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}])
         historic_trade["final_his"].balance(to="minimum")
-    
+
         if "final" in self.get_trade_markets_from_data():
             self.set_trade_from_data("final", historic_trade["final_his"])
         else:
