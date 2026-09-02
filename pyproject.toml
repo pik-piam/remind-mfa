@@ -27,6 +27,7 @@ dependencies = [
     "xlwt>=1.3.0",
     "plotly>=5.18.0",
     "pydantic>=2.8.2",
+    "PyYAML>=6.0.2",
     "flodym>=1.0.0",
     "pyam-iamc>=3.5.0",
     "ixmp4>=0.16.4",
