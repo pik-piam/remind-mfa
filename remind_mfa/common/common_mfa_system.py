@@ -4,7 +4,7 @@ import numpy as np
 import flodym as fd
 from typing import Optional
 
-from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade import Trade, TradeSet
 from remind_mfa.common.common_config import CommonCfg
 
 
@@ -47,6 +47,23 @@ class CommonMFASystem(fd.MFASystem):
         for name, trade in self.trade_set.markets.items():
             trade.imports[...] = self.parameters[f"{name}_imports"]
             trade.exports[...] = self.parameters[f"{name}_exports"]
+
+    def get_trade_markets_from_data(self) -> list[str]:
+        """Names of the trade markets that are read from data instead of being extrapolated."""
+        return self.cfg.trade.markets_from_data(self.cfg.model)
+
+    def set_trade_from_data(self, market: str, historic_trade: Trade):
+        """Set the future trade of the given market from the parameters
+        ``trade_[market]_imports`` and ``trade_[market]_exports``.
+        """
+        set_trade_from_data(
+            future_trade=self.trade_set[market],
+            imports=self.parameters[f"trade_{market}_imports"],
+            exports=self.parameters[f"trade_{market}_exports"],
+            historic_trade=historic_trade,
+            balance_to=self.cfg.trade.balance,
+            market_name=market,
+        )
 
     def cap_historical_net_exports_to_supply(self, trade_name: str, supply: fd.FlodymArray):
         """Cap a historic trade's *net* exports at the available domestic supply so downstream
