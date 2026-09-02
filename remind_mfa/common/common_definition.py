@@ -35,6 +35,34 @@ def get_definition():
     )
 
 
+def trade_parameters_read_from_data(
+    cfg: CommonCfg, trades: list[TradeDefinition]
+) -> list[RemindMFAParameterDefinition]:
+    """Definitions of the parameters holding future trade read from data (e.g. ATLAS output).
+
+    Returns one import and one export parameter per trade market, with the dimensions of that market.
+    Call with the *future* trade definitions.
+    """
+    trades_by_name = {trade.name: trade for trade in trades}
+    parameters = []
+    for market in cfg.trade.markets_from_data(cfg.model):
+        if market not in trades_by_name:
+            raise ValueError(
+                f"Trade market '{market}' configured in trade.data_markets is not defined for "
+                f"model '{cfg.model.value}'. Available markets: {list(trades_by_name)}."
+            )
+        for direction in ("imports", "exports"):
+            parameters.append(
+                RemindMFAParameterDefinition(
+                    name=f"trade_{market}_{direction}",
+                    dim_letters=trades_by_name[market].dim_letters,
+                    description=f"Future {market} {direction} read from data instead of being "
+                    "extrapolated from historic trade",
+                )
+            )
+    return parameters
+
+
 class PlainDataPointDefinition(RemindMFABaseModel):
 
     name: str

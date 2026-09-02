@@ -12,3 +12,6 @@ madrat_output/
 .env
 config/*.toml
 !config/default.toml
+!config/mrindustry.toml
+!config/atlas_run1.toml
+!config/atlas_run2.toml

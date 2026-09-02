@@ -1,0 +1,13 @@
+# Second REMIND-MFA run of the coupling with the ATLAS trade model.
+#
+# Future trade is read from ATLAS data instead of being extrapolated.
+[base]
+    [base.trade]
+        source = "data"
+        # data_markets = ["steel"]  # defaults to the material's primary market
+
+    [base.export]
+        do_export = true
+        atlas.do_export = false
+        csv.do_export = true
+        pickle.do_export = true

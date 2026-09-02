@@ -75,6 +75,8 @@ class CommonDataExporter(RemindMFABaseModel):
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
         if self.cfg.mrindustry.do_export:
             self.write_mrindustry(model=model)
+        if self.cfg.atlas.do_export:
+            self.write_atlas(model=model)
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
@@ -277,20 +279,36 @@ class CommonDataExporter(RemindMFABaseModel):
         """Return the variables to export as REMIND input. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
 
+    def get_atlas_variables(self) -> list[RemindInputVariable]:
+        """Return the material demand variables used as input to the ATLAS trade model.
+        Override in subclasses."""
+        raise NotImplementedError("Subclasses must implement get_atlas_variables method")
+
     def write_mrindustry(self, model: "CommonModel"):
         """Write material flows needed as inputs to REMIND."""
-        export_dir = Path(self.export_path("mrindustry"))
+        self.write_variable_csvs(model, self.get_mrindustry_variables(), "mrindustry")
+
+    def write_atlas(self, model: "CommonModel"):
+        """Write the material demand needed as input to the ATLAS trade model."""
+        self.write_variable_csvs(model, self.get_atlas_variables(), "atlas")
+
+    def write_variable_csvs(
+        self, model: "CommonModel", variables: list[RemindInputVariable], dataset: str
+    ):
+        """Write one CSV file per given variable into the export folder of the given dataset,
+        replacing any previous content of that folder."""
+        export_dir = Path(self.export_path(dataset))
         if export_dir.exists() and export_dir.is_dir():
             shutil.rmtree(export_dir)
         export_dir.mkdir(parents=True, exist_ok=True)
 
-        for variable in self.get_mrindustry_variables():
+        for variable in variables:
             df = (
                 variable.calculation_function(model.future_mfa)
                 .to_df()
                 .rename(columns={"value": variable.name})
             )
-            df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
+            df.to_csv(self.export_path(dataset, f"{variable.name}.csv"))
 
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
