@@ -164,6 +164,7 @@ SCENARIO_LABELS = {"SSP2": "SSP2", "SSP1": "SSP1-drivers", "SSP1_CE": "SSP1-CE"}
 MATERIAL_ORDER = ("plastics", "steel", "cement")
 MFA_REGION_MAPPINGS = ("h12", "iso249")
 
+
 @dataclass(frozen=True)
 class MaterialPlotConfig:
     material: str
