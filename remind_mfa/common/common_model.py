@@ -96,7 +96,10 @@ class CommonModel:
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
-        if self.cfg.transience.baseline_pickle_path is not None:
+        if (
+            self.cfg.transience.baseline_pickle_path is not None
+            and self.cfg.transience.baseline_pickle_path != ""
+        ):
             self.baseline_trade = self.data_reader.read_baseline_trade()
             self.baseline_flows = self.data_reader.read_baseline_flows()
         else:
