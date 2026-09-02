@@ -364,7 +364,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         base_dir = os.path.join(*path_tuple)
         if not os.path.isdir(base_dir):
-            os.mkdir(base_dir)
+            Path(base_dir).mkdir(parents=True, exist_ok=True)
 
         if filename is not None:
             path_tuple += (filename,)
