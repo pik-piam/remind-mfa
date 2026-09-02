@@ -66,7 +66,7 @@ class CementModel(CommonModel):
         )
         return weight
 
-    def derive_parameters(self):
+    def calculate_derived_parameters(self):
 
         # copy/rename for use in common model
         self.parameters["sector_split_limit"] = self.parameters["end_use_split"]
@@ -159,7 +159,7 @@ class CementModel(CommonModel):
         # reconcile parameters, then re-derive dependent parameters from the result
         self.parameters = self.historic_parameters
         self.reconcile_parameters()
-        self.derive_parameters()
+        self.calculate_derived_parameters()
 
         # compute reconciled historic top-down mfa
         self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
