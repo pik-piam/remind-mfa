@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -5,6 +6,23 @@ from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
+
+EXPORT_DIR_PREFIX = None
+
+
+def get_export_dir_prefix() -> str:
+    """Prefix for export directory names. If set to a fixed string previously, retrieve that.
+    Else, default to a current timestamp.
+    """
+    if EXPORT_DIR_PREFIX is None:
+        return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+    return EXPORT_DIR_PREFIX
+
+
+def set_export_dir_prefix(prefix: str) -> None:
+    """Set a prefix for export file and folder names."""
+    global EXPORT_DIR_PREFIX
+    EXPORT_DIR_PREFIX = prefix
 
 
 class ModelNames(str, Enum):

@@ -2,13 +2,13 @@ import logging
 import os
 import pickle
 import shutil
-from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
 
 import flodym as fd
 import flodym.export as fde
+from pydantic import PrivateAttr
 
 _root_logger = logging.getLogger()
 _prev_level = _root_logger.level
@@ -23,7 +23,7 @@ from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.helpers import RemindMFABaseModel
+from remind_mfa.common.helpers import RemindMFABaseModel, get_export_dir_prefix
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -66,17 +66,22 @@ class CommonDataExporter(RemindMFABaseModel):
     cfg: ExportCfg
     display_names: CommonDisplayNames
 
+    # Datasets producing a single file: placed directly in the run folder, no subfolder.
+    FLAT_DATASETS: ClassVar[set[str]] = {"pickle", "iamc", "assumptions"}
+
+    _model: Optional["CommonModel"] = PrivateAttr(default=None)
+    _run_path: Optional[str] = PrivateAttr(default=None)
+
     def export(self, model: "CommonModel"):
         if not self.cfg.do_export:
             return
+        self._model = model
         self.export_common(model)
         self.export_custom(model)
 
     def export_common(self, model: "CommonModel"):
         mfa = model.future_mfa
         if self.cfg.pickle.do_export:
-            fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("pickle", "mfa.pickle"))
-            self.export_model_to_pickle(model=model)
             pickle.dump(model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
             dir_out = self.export_path("csv", "flows")
@@ -98,15 +103,16 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_custom(self, model: "CommonModel"):
         pass
 
-    def export_model_to_pickle(self, model: "CommonModel"):
-        material = model.cfg.model.value
-        scenario = model.cfg.model_switches.scenario
-        region_mapping = model.cfg.input.region_mapping
-        datetime_str = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
-        filename = f"model_{material}_{scenario}_{region_mapping}_{datetime_str}.pickle"
-        export_path = self.export_path("pickle", filename)
-        with open(export_path, "wb") as f:
-            pickle.dump(model, f)
+    def run_path(self, model: "CommonModel") -> str:
+        """Per-model-run export folder, created once and shared by exporter and visualizer."""
+        if self._run_path is None:
+            name = (
+                f"{get_export_dir_prefix()}_{model.cfg.model.value}_"
+                f"{model.cfg.model_switches.scenario}_{model.cfg.input.region_mapping}"
+            )
+            self._run_path = os.path.join(self.cfg.path, name)
+            os.makedirs(self._run_path, exist_ok=True)
+        return self._run_path
 
     @property
     def model_name(self) -> str:
@@ -358,18 +364,17 @@ class CommonDataExporter(RemindMFABaseModel):
         cfg_path = getattr(self.cfg, dataset).path
 
         if cfg_path is not None:
-            path_tuple = (cfg_path,)
+            base_dir = cfg_path
+        elif dataset in self.FLAT_DATASETS:
+            base_dir = self.run_path(self._model)
         else:
-            path_tuple = (self.cfg.path, dataset)
+            base_dir = os.path.join(self.run_path(self._model), dataset)
 
-        base_dir = os.path.join(*path_tuple)
-        if not os.path.isdir(base_dir):
-            os.mkdir(base_dir)
+        os.makedirs(base_dir, exist_ok=True)
 
-        if filename is not None:
-            path_tuple += (filename,)
-
-        return os.path.join(*path_tuple)
+        if filename is None:
+            return base_dir
+        return os.path.join(base_dir, filename)
 
     def to_iamc_df(self, array: fd.FlodymArray):
         time_out = fd.Dimension(name="Time Out", letter="O", items=self.cfg.iamc.time_items)

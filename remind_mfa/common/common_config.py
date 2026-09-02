@@ -128,8 +128,6 @@ class GDPVisualizationCfg(BaseVisualizationCfg):
 
 
 class VisualizationCfg(BaseVisualizationCfg):
-    figures_path: str
-    """Path to the figures directory."""
     do_show_figs: bool = True
     """Whether to show figures."""
     do_save_figs: bool = False

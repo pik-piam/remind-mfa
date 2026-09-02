@@ -38,6 +38,7 @@
 
     [base.export]
         do_export = true
+        path = "data_out"
         pickle.do_export = true
         csv.do_export = false
         iamc.do_export = false
@@ -51,14 +52,12 @@
         do_stock_extrapolation_with_time_factor = true
 
     [plastics.visualization]
-        figures_path = "data/plastics/output/figures"
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
         material_splits.do_visualize = false
         flows.do_visualize = false
         scenario_params.do_visualize = false
 
     [plastics.export]
-        path = "data/plastics/output/export"
         docs.path = "docs/plastics"
 
 [steel]
@@ -66,11 +65,9 @@
         do_stock_extrapolation_by_category = true
 
     [steel.visualization]
-        figures_path = "data/steel/output/figures"
         scrap_demand_supply.do_visualize = false
 
     [steel.export]
-        path = "data/steel/output/export"
         docs.path = "docs/steel"
 
 [cement]
@@ -81,7 +78,6 @@
         do_stock_extrapolation_by_category = false
 
     [cement.visualization]
-        figures_path = "data/cement/output/figures"
         eol_stock.do_visualize = false
         eol_stock.over_gdp = false
         eol_stock.per_capita = false
@@ -94,5 +90,4 @@
         carbonation.do_visualize = false
 
     [cement.export]
-        path = "data/cement/output/export"
         docs.path = "docs/cement"
