@@ -16,7 +16,7 @@
 
     [base.transience]
         transience_run = true
-        
+
     [base.visualization]
         do_visualize = true
         do_show_figs = true

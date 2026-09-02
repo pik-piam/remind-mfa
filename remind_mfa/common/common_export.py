@@ -92,7 +92,13 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_model_to_pickle(self, model: "CommonModel"):
         material = model.cfg.model.value
         if model.cfg.transience.transience_run == True:
-            transience = "_transience" + "_" + model.cfg.transience.transience_scenario + "_" + model.cfg.transience.trade_scenario
+            transience = (
+                "_transience"
+                + "_"
+                + model.cfg.transience.transience_scenario
+                + "_"
+                + model.cfg.transience.trade_scenario
+            )
         else:
             transience = ""
         scenario = model.cfg.model_switches.scenario + transience
