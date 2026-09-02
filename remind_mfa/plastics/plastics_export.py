@@ -22,7 +22,7 @@ class PlasticsDataExporter(CommonDataExporter):
         )
 
     @staticmethod
-    def _plastics_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+    def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Demand for primary plastics."""
         return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
 
@@ -49,7 +49,7 @@ class PlasticsDataExporter(CommonDataExporter):
         return [
             RemindInputVariable(
                 name="plastics_demand",
-                calculation_function=PlasticsDataExporter._plastics_demand,
+                calculation_function=PlasticsDataExporter._plastics_fabrication_demand,
                 unit="t/yr",
             ),
         ]
