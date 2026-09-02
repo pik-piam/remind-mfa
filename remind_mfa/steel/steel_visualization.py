@@ -27,14 +27,19 @@ class SteelVisualizer(CommonVisualizer):
             self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
         if model.cfg.transience.transience_run:
             self.visualize_transience_eol_parameters(
-                model, 
-                parameter_REMIND_MFA=model.parameters["recovery_rate"][{"r": "EUR", "t": model.dims["u"], "g": model.dims["f"]}],
-                parameter_EU_MFA=model.parameters["recovery_rate_EU-MFA"]*model.parameters["collection_rate_EU-MFA"],
+                model,
+                parameter_REMIND_MFA=model.parameters["recovery_rate"][
+                    {"r": "EUR", "t": model.dims["u"], "g": model.dims["f"]}
+                ],
+                parameter_EU_MFA=model.parameters["recovery_rate_EU-MFA"]
+                * model.parameters["collection_rate_EU-MFA"],
                 linecolor_dim="EU-MFA_Good",
             )
             self.visualize_transience_eol_parameters(
-                model, 
-                parameter_REMIND_MFA=model.future_mfa.flows["use => eol_market"].sum_to(("t", "r"))[{"r": "EUR", "t": model.dims["u"]}],
+                model,
+                parameter_REMIND_MFA=model.future_mfa.flows["use => eol_market"].sum_to(("t", "r"))[
+                    {"r": "EUR", "t": model.dims["u"]}
+                ],
                 parameter_EU_MFA=model.parameters["available_scrap_EU-MFA"][{"r": "EUR"}],
             )
         self.stop_and_show()

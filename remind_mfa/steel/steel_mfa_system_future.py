@@ -14,7 +14,13 @@ class SteelMFASystem(CommonMFASystem):
 
     cfg: SteelCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict):
+    def compute(
+        self,
+        stock_projection: fd.FlodymArray,
+        historic_trade: TradeSet,
+        baseline_trade: TradeSet,
+        baseline_flows: dict,
+    ):
         """
         Perform all computations for the MFA system.
         """
@@ -73,7 +79,9 @@ class SteelMFASystem(CommonMFASystem):
             # TODO extrapolate EU-MFA data or run MFA only until 2050
             self.demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"][{"r": "EUR"}]
             # store original inflow for comparison
-            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}]
+            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[
+                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+            ]
             # Replace with EU-MFA data
             inflow = self.stocks["in_use"].inflow
             self.stocks["in_use"] = fd.InflowDrivenDSM(
@@ -83,10 +91,14 @@ class SteelMFASystem(CommonMFASystem):
                 process=self.stocks["in_use"].process,
             )
             self.stocks["in_use"].inflow[...] = inflow
-            self.stocks["in_use"].inflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
+            self.stocks["in_use"].inflow[
+                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+            ] = self.demand_EU_MFA
             self.stocks["in_use"].compute()
             # store original outflow (generated from EU-MFA inflow and REMIND-MFA lifetime model) for comparison
-            self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}]
+            self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[
+                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+            ]
             # Replace with EU-MFA data
             self.stock_outflow_EU_MFA = self.parameters["stock_outflow_EU-MFA"]
             inflow = self.stocks["in_use"].inflow
@@ -98,16 +110,22 @@ class SteelMFASystem(CommonMFASystem):
                 process=self.stocks["in_use"].process,
             )
             self.stocks["in_use"].inflow[...] = inflow
-            self.stocks["in_use"].inflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}] = self.demand_EU_MFA
+            self.stocks["in_use"].inflow[
+                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+            ] = self.demand_EU_MFA
             self.stocks["in_use"].outflow[...] = outflow
-            self.stocks["in_use"].outflow[{"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}] = self.stock_outflow_EU_MFA
+            self.stocks["in_use"].outflow[
+                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+            ] = self.stock_outflow_EU_MFA
             self.stocks["in_use"].compute()
             logging.warning(
                 f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for EUR region are not computed from stock projection, but taken from EU-MFA. "
                 f"The stock is calculated as a simple flow-driven stock. "
             )
 
-    def compute_flows(self, historic_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict):
+    def compute_flows(
+        self, historic_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict
+    ):
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
@@ -191,7 +209,7 @@ class SteelMFASystem(CommonMFASystem):
 
         if self.cfg.transience.transience_run == True:
             # historic scrap trade needs to be scaled down to not exceed the EU-MFA stock outflow * recovery_rate (which would be the case for 1903-1950)
-            # in a normal run, this happens in the historic MFA, but since we replaced the stock outflow with EU-MFA data, we need to ensure the scrap trade is consistent with this 
+            # in a normal run, this happens in the historic MFA, but since we replaced the stock outflow with EU-MFA data, we need to ensure the scrap trade is consistent with this
             historic_trade["scrap"].exports[...] = historic_trade["scrap"].exports.minimum(flw["use => eol_market"][{"t": self.dims["h"]}])
             historic_trade["scrap"].balance(to="minimum")
 

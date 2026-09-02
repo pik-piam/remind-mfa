@@ -11,7 +11,6 @@ sys.path.insert(0, ".")
 from remind_mfa.steel.steel_model import SteelModel
 from remind_mfa.plastics.plastics_model import PlasticsModel
 
-
 CE_SCENARIOS = {
     "steel": [
         "Downsizing_Conservative_Steel_01_06_2026",
@@ -83,7 +82,9 @@ def run_all(base_cfg_file: str, material: str):
                 model.visualize()
                 logging.info(f"Completed run {run_num}/{total}")
             except Exception as e:
-                logging.error(f"Failed run {run_num}/{total} ({ce_scenario}, {trade_scenario}): {e}")
+                logging.error(
+                    f"Failed run {run_num}/{total} ({ce_scenario}, {trade_scenario}): {e}"
+                )
                 failed.append((ce_scenario, trade_scenario))
 
     if failed:
@@ -97,7 +98,9 @@ def run_all(base_cfg_file: str, material: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run all transience scenarios for a material.")
     parser.add_argument("material", choices=["steel", "plastics"])
-    parser.add_argument("cfg_file", nargs="?", default=None, help="Config file (default: config/<material>.yml)")
+    parser.add_argument(
+        "cfg_file", nargs="?", default=None, help="Config file (default: config/<material>.yml)"
+    )
     args = parser.parse_args()
 
     cfg_file = args.cfg_file or DEFAULT_CONFIG[args.material]

@@ -1,6 +1,10 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import ExtrapolationDefinition, RemindMFADefinition, trade_parameters_read_from_data
+from remind_mfa.common.common_definition import (
+    ExtrapolationDefinition,
+    RemindMFADefinition,
+    trade_parameters_read_from_data,
+)
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition

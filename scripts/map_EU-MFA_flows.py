@@ -1,41 +1,71 @@
 import sys
 import pandas as pd
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent))
 from backcast_by_reference import backcast_by_reference
 import argparse
 
-MATERIALS = ['plastics', 'steel']
+MATERIALS = ["plastics", "steel"]
 FLOWS_BY_MATERIAL = {
-    'plastics': ['demand', 'stock_outflow', 'collected_eol', 'sorted_eol', 'recycled_eol', 'traded_recyclate'],
-    'steel': ['demand', 'collected_eol', 'lost_eol', 'scrap'],
+    "plastics": [
+        "demand",
+        "stock_outflow",
+        "collected_eol",
+        "sorted_eol",
+        "recycled_eol",
+        "traded_recyclate",
+    ],
+    "steel": ["demand", "collected_eol", "lost_eol", "scrap"],
 }
 # Some flows don't exist for every scenario. traded_recyclate is only produced
 # by the CE-PET scenarios (S0/S1/S2), not by the plastics baseline, so it is
 # skipped there.
 SCENARIO_EXCLUDED_FLOWS = {
-    'baseline': ['traded_recyclate'],
+    "baseline": ["traded_recyclate"],
 }
 # Flows with no baseline counterpart: non-baseline scenarios are not supplemented
 # with baseline data for the non-PET / non-Packaging combinations.
-FLOWS_WITHOUT_BASELINE = {'traded_recyclate'}
+FLOWS_WITHOUT_BASELINE = {"traded_recyclate"}
 SCENARIOS = {
-    'plastics': ['baseline', 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'],
-    'steel': ['Baseline_Steel_01_06_2026', 
-              'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 
-              'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 
-              'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 
-              'AHSS & HSS_ Conservative_Steel', 'AHSS & HSS_ Highly_Ambitious_Steel',
-              'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel']
+    "plastics": [
+        "baseline",
+        "CE-PET_fd_plastics_S0",
+        "CE-PET_fd_plastics_S1",
+        "CE-PET_fd_plastics_S2",
+    ],
+    "steel": [
+        "Baseline_Steel_01_06_2026",
+        "Downsizing_Conservative_Steel_01_06_2026",
+        "Downsizing_Highly_Ambitious_Steel_result_01_06_2026",
+        "Redesign_ Conservative_Steel",
+        "Redesign_ Highly_Ambitious_Steel",
+        "Remanufacturing_Conservative_Steel",
+        "Remanufacturing_Highly_Ambitious_Steel",
+        "AHSS & HSS_ Conservative_Steel",
+        "AHSS & HSS_ Highly_Ambitious_Steel",
+        "Combined_Conservative_Steel",
+        "Combined_Highly_Ambitious_Steel",
+    ],
 }
 
 ALL_SCENARIOS = [s for scenarios in SCENARIOS.values() for s in scenarios]
 
 parser = argparse.ArgumentParser()
-parser.add_argument('material', choices=MATERIALS, nargs='?', default=None,
-                    help='Material to process (default: all materials)')
-parser.add_argument('scenario', choices=ALL_SCENARIOS, nargs='?', default=None,
-                    help='Scenario to process (default: all scenarios)')
+parser.add_argument(
+    "material",
+    choices=MATERIALS,
+    nargs="?",
+    default=None,
+    help="Material to process (default: all materials)",
+)
+parser.add_argument(
+    "scenario",
+    choices=ALL_SCENARIOS,
+    nargs="?",
+    default=None,
+    help="Scenario to process (default: all scenarios)",
+)
 args = parser.parse_args()
 
 
@@ -66,17 +96,23 @@ def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
     df["Region"] = "EU27+3"
     df["value"] = df["value"] * 1000
 
-    polymer_map = mapping[mapping.original_dimension == "polymers"][["original_element", "target_element"]]
-    df = df.merge(polymer_map, left_on="polymer", right_on="original_element", how="left").rename(
-        columns={"target_element": "Material"}
-    ).drop(columns="original_element")
+    polymer_map = mapping[mapping.original_dimension == "polymers"][
+        ["original_element", "target_element"]
+    ]
+    df = (
+        df.merge(polymer_map, left_on="polymer", right_on="original_element", how="left")
+        .rename(columns={"target_element": "Material"})
+        .drop(columns="original_element")
+    )
 
     sector_map = mapping[mapping.original_dimension == "end_use_sectors_MainSectors"][
         ["original_element", "target_element"]
     ]
-    df = df.merge(sector_map, left_on="sector", right_on="original_element", how="left").rename(
-        columns={"target_element": "Good"}
-    ).drop(columns="original_element")
+    df = (
+        df.merge(sector_map, left_on="sector", right_on="original_element", how="left")
+        .rename(columns={"target_element": "Good"})
+        .drop(columns="original_element")
+    )
 
     df = df.groupby(["Time", "Region", "Material", "Good"], as_index=False)["value"].sum()
     df.loc[df["value"] < 0.1, "value"] = 0.0
@@ -93,11 +129,11 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
     """
     BASELINE_OUT_DIR = Path("../remind_mfa_data/transience/baseline")
     flow_to_file = {
-        "demand":        "pl_stock_inflow_EU-MFA.cs4r",
+        "demand": "pl_stock_inflow_EU-MFA.cs4r",
         "stock_outflow": "pl_stock_outflow_EU-MFA.cs4r",
         "collected_eol": "pl_collected_eol_EU-MFA.cs4r",
-        "sorted_eol":    "pl_sorted_eol_EU-MFA.cs4r",
-        "recycled_eol":  "pl_recycled_eol_EU-MFA.cs4r",
+        "sorted_eol": "pl_sorted_eol_EU-MFA.cs4r",
+        "recycled_eol": "pl_recycled_eol_EU-MFA.cs4r",
     }
     path = BASELINE_OUT_DIR / flow_to_file[flow]
     if not path.exists():
@@ -106,7 +142,9 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
             f"before non-baseline scenarios, since it is used as the backcasting reference."
         )
     return pd.read_csv(
-        path, comment="*", header=None,
+        path,
+        comment="*",
+        header=None,
         names=["Time", "Region", "Type", "Material", "Good", "value"],
     )
 
@@ -114,48 +152,48 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
 def run_combination(material: str, flow: str, scenario: str):
     OUTPUT_DIR = Path("../remind_mfa_data/transience") / scenario
     REF_DIR = Path("../remind_mfa_data/transience/reference")
-    if material == 'plastics':
+    if material == "plastics":
         DATA_DIR = Path("data/plastics/input/transience") / scenario
         MAPPING_FILE = Path("data/plastics/input/transience/EU_MFA_mapping_plastics.csv")
-        if flow == 'demand':
-            INPUT_FILE  = DATA_DIR / "plastics_market__end_use_stock.csv"
+        if flow == "demand":
+            INPUT_FILE = DATA_DIR / "plastics_market__end_use_stock.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
-        elif flow == 'stock_outflow':
-            INPUT_FILE  = DATA_DIR / "end_use_stock__waste_collection.csv"
+        elif flow == "stock_outflow":
+            INPUT_FILE = DATA_DIR / "end_use_stock__waste_collection.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_outflow_EU-MFA.cs4r"
-        elif flow == 'collected_eol':
-            INPUT_FILE  = DATA_DIR / "waste_collection__waste_sorting.csv"
+        elif flow == "collected_eol":
+            INPUT_FILE = DATA_DIR / "waste_collection__waste_sorting.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_collected_eol_EU-MFA.cs4r"
-        elif flow == 'sorted_eol': # TODO think about trade of collected waste?
+        elif flow == "sorted_eol":  # TODO think about trade of collected waste?
             if scenario == "baseline":
-                INPUT_FILE  = DATA_DIR / "waste_sorting__sorted_waste_market.csv"
+                INPUT_FILE = DATA_DIR / "waste_sorting__sorted_waste_market.csv"
             else:
-                INPUT_FILE  = DATA_DIR / "sorted_waste_market__recycling.csv"
+                INPUT_FILE = DATA_DIR / "sorted_waste_market__recycling.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_sorted_eol_EU-MFA.cs4r"
-        elif flow == 'recycled_eol':
+        elif flow == "recycled_eol":
             if scenario == "baseline":
-                INPUT_FILE  = DATA_DIR / "recycling__recyclate_sysenv.csv"
+                INPUT_FILE = DATA_DIR / "recycling__recyclate_sysenv.csv"
             else:
-                INPUT_FILE  = DATA_DIR / "recycling__recyclate_market.csv"
+                INPUT_FILE = DATA_DIR / "recycling__recyclate_market.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_recycled_eol_EU-MFA.cs4r"
         elif flow == "traded_recyclate":
             INPUT_FILE = DATA_DIR / "polymer_market__recyclate_sysenv.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_traded_recyclate_EU-MFA.cs4r"
         DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
-    elif material == 'steel':
+    elif material == "steel":
         DATA_DIR = Path("data/steel/input/transience") / scenario
         MAPPING_FILE = Path("data/steel/input/transience/EU_MFA_mapping_steel.csv")
-        if flow == 'demand':
-            INPUT_FILE  = DATA_DIR / "steel_goods_market__end_use_stock_combined.csv"
+        if flow == "demand":
+            INPUT_FILE = DATA_DIR / "steel_goods_market__end_use_stock_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
-        elif flow == 'collected_eol':
-            INPUT_FILE  = DATA_DIR / "end_use_stock__waste_management_combined.csv"
+        elif flow == "collected_eol":
+            INPUT_FILE = DATA_DIR / "end_use_stock__waste_management_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_collected_eol_EU-MFA.cs4r"
-        elif flow == 'lost_eol':
-            INPUT_FILE  = DATA_DIR / "end_use_stock__sysenv_combined.csv"
+        elif flow == "lost_eol":
+            INPUT_FILE = DATA_DIR / "end_use_stock__sysenv_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_lost_eol_EU-MFA.cs4r"
-        elif flow == 'scrap':
-            INPUT_FILE  = DATA_DIR / "waste_management__available_scrap_sysenv_combined.csv"
+        elif flow == "scrap":
+            INPUT_FILE = DATA_DIR / "waste_management__available_scrap_sysenv_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
         DIMENSION_DIR = Path("../remind_mfa_data/dimensions/steel")
 
@@ -164,16 +202,22 @@ def run_combination(material: str, flow: str, scenario: str):
     # --- load and filter ---
     df1 = pd.read_csv(INPUT_FILE, sep=",")
     df1 = df1.rename(columns={"time": "Time", "region": "Region"})
-    df1 = df1[df1.element == "All"].copy() # only consider total flows, no Cu contamination flow for steel
+    df1 = df1[
+        df1.element == "All"
+    ].copy()  # only consider total flows, no Cu contamination flow for steel
     if material == "plastics":
         if scenario == "baseline":
             # flows are available at subregion level with differentiated lifetimes;
             # use subregions for consistency
-            eu_subregions = ["Germany", "West", "South", "North", "East"] 
+            eu_subregions = ["Germany", "West", "South", "North", "East"]
             df1 = df1[df1.Region.isin(eu_subregions)].copy()
-            if flow == "sorted_eol": # currently, only mechanical recycling to granulate is considered
+            if (
+                flow == "sorted_eol"
+            ):  # currently, only mechanical recycling to granulate is considered
                 df1 = df1[df1.waste_category == "Mechanical recycling"].copy()
-            if flow == "recycled_eol": # currently, only mechanical recycling to granulate is considered
+            if (
+                flow == "recycled_eol"
+            ):  # currently, only mechanical recycling to granulate is considered
                 df1 = df1[df1.secondary_raw_material == "Granulate"].copy()
         else:
             # Non-baseline scenarios have quarterly timesteps (Y.0, Y.25, Y.5, Y.75).
@@ -190,7 +234,7 @@ def run_combination(material: str, flow: str, scenario: str):
     elif material == "steel":
         df1 = df1[df1.Region == "EU27+1"].copy()
         df1.loc[:, "Region"] = "EUR"
-    df1["value"] = df1["value"] * 1000          # kt -> t
+    df1["value"] = df1["value"] * 1000  # kt -> t
 
     # --- load mapping ---
     mapping = pd.read_csv(MAPPING_FILE, sep=";")
@@ -200,30 +244,40 @@ def run_combination(material: str, flow: str, scenario: str):
         polymer_map = mapping[mapping.original_dimension == "polymers"][
             ["original_element", "target_element"]
         ]
-        df2 = df1.merge(
-            polymer_map,
-            left_on="polymer",
-            right_on="original_element",
-            how="left",
-        ).rename(columns={"target_element": "Material"}).drop(columns="original_element")
+        df2 = (
+            df1.merge(
+                polymer_map,
+                left_on="polymer",
+                right_on="original_element",
+                how="left",
+            )
+            .rename(columns={"target_element": "Material"})
+            .drop(columns="original_element")
+        )
 
         # --- map end-use sectors -> Good ---
         if scenario == "baseline":
             sector_map = mapping[mapping.original_dimension == "end_use_sectors_MainSectors"][
                 ["original_element", "target_element"]
             ]
-            df3 = df2.merge(
-                sector_map,
-                left_on="sector",
-                right_on="original_element",
-                how="left",
-            ).rename(columns={"target_element": "Good"}).drop(columns="original_element")
+            df3 = (
+                df2.merge(
+                    sector_map,
+                    left_on="sector",
+                    right_on="original_element",
+                    how="left",
+                )
+                .rename(columns={"target_element": "Good"})
+                .drop(columns="original_element")
+            )
         else:
             df3 = df2.copy()
-            df3["Good"] = "Packaging"  # in non-baseline scenarios, only packaging sector is differentiated, so assign all flows to Packaging Good
+            df3["Good"] = (
+                "Packaging"  # in non-baseline scenarios, only packaging sector is differentiated, so assign all flows to Packaging Good
+            )
 
         # --- report unmapped entries ---
-        n_unmapped_mat  = df3["Material"].isna().sum()
+        n_unmapped_mat = df3["Material"].isna().sum()
         n_unmapped_good = df3["Good"].isna().sum()
         if n_unmapped_mat > 0:
             print(f"WARNING: {n_unmapped_mat} rows with unmapped polymer (Material=NaN):")
@@ -233,15 +287,14 @@ def run_combination(material: str, flow: str, scenario: str):
             print(df3[df3["Good"].isna()]["sector"].unique())
 
         # --- aggregate ---
-        df_EU_MFA = (
-            df3.groupby(["Time", "Region", "Material", "Good"], as_index=False)["value"]
-            .sum()
-        )
+        df_EU_MFA = df3.groupby(["Time", "Region", "Material", "Good"], as_index=False)[
+            "value"
+        ].sum()
         dimensions = "(EU-MFA_Time,Region,Type,EU-MFA_Material,EU-MFA_Good,value)"
 
         # for collected_eol and stock_outflow, the value for PVC in packaging is at around 1e-30 in 2031 (because PVC in packaging is stopped in 2030 and the small amount is a result of the lifetime model)
         # this causes issues for parameter calculation in the MFA, so set values that are <100kg to zero
-        if flow != "traded_recyclate":  
+        if flow != "traded_recyclate":
             df_EU_MFA.loc[df_EU_MFA["value"] < 0.1, "value"] = 0.0
 
         # non-baseline scenarios only have PET×Packaging data; supplement with baseline flows for all other combinations
@@ -252,37 +305,41 @@ def run_combination(material: str, flow: str, scenario: str):
             df_baseline_others = df_baseline.merge(
                 nonbaseline_combos, on=["Material", "Good"], how="left", indicator=True
             )
-            df_baseline_others = df_baseline_others[df_baseline_others["_merge"] == "left_only"].drop(columns="_merge")
+            df_baseline_others = df_baseline_others[
+                df_baseline_others["_merge"] == "left_only"
+            ].drop(columns="_merge")
             df_EU_MFA = pd.concat([df_EU_MFA, df_baseline_others], ignore_index=True)
 
         # --- load reference (Historic Time, Region, Type, value) ---
         ref = pd.read_csv(
             REF_DIR / "pl_production.cs4r",
-            comment="*", header=None,
+            comment="*",
+            header=None,
             names=["Time", "Region", "Type", "value"],
         )
         # EU-MFA plastics flows are all Type="Plastics", so filter the reference to match
         ref = ref[ref.Type == "Plastics"].copy()
-        
+
     elif material == "steel":
         if flow == "scrap":
             # --- aggregate ---
-            df_EU_MFA = (
-                df1.groupby(["Time", "Region"], as_index=False)["value"]
-                .sum()
-            )
+            df_EU_MFA = df1.groupby(["Time", "Region"], as_index=False)["value"].sum()
             dimensions = "(EU-MFA_Time,Region,value)"
-        else: 
+        else:
             # --- map end-use sectors -> Good ---
             sector_map = mapping[mapping.original_dimension == "end_use_sectors"][
                 ["original_element", "target_element"]
             ]
-            df2 = df1.merge(
-                sector_map,
-                left_on="sector",
-                right_on="original_element",
-                how="left",
-            ).rename(columns={"target_element": "Good"}).drop(columns="original_element")
+            df2 = (
+                df1.merge(
+                    sector_map,
+                    left_on="sector",
+                    right_on="original_element",
+                    how="left",
+                )
+                .rename(columns={"target_element": "Good"})
+                .drop(columns="original_element")
+            )
 
             # --- report unmapped entries ---
             n_unmapped_good = df2["Good"].isna().sum()
@@ -291,16 +348,14 @@ def run_combination(material: str, flow: str, scenario: str):
                 print(df2[df2["Good"].isna()]["sector"].unique())
 
             # --- aggregate ---
-            df_EU_MFA = (
-                df2.groupby(["Time", "Region", "Good"], as_index=False)["value"]
-                .sum()
-            )
+            df_EU_MFA = df2.groupby(["Time", "Region", "Good"], as_index=False)["value"].sum()
             dimensions = "(EU-MFA_Time,Region,EU-MFA_Good,value)"
 
         # --- load reference (Historic Time, Region, value) ---
         ref = pd.read_csv(
             REF_DIR / "st_production.cs4r",
-            comment="*", header=None,
+            comment="*",
+            header=None,
             names=["Time", "Region", "value"],
         )
 
@@ -328,7 +383,7 @@ def run_combination(material: str, flow: str, scenario: str):
         # get all dimension columns except Time and value
         group_dims = [c for c in df_EU_MFA.columns if c not in ("Time", "value")]
         # create full grid of all combinations of Time and group_dims, using ref for Time values before the first year in df_EU_MFA
-        EU_MFA_years   = sorted(df_EU_MFA["Time"].unique())
+        EU_MFA_years = sorted(df_EU_MFA["Time"].unique())
         ref_years = sorted(ref["Time"].unique())
         all_years = sorted(set(EU_MFA_years) | set(ref_years))
         full_grid = pd.DataFrame({"Time": all_years}).merge(
@@ -389,7 +444,9 @@ if __name__ == "__main__":
             excluded = SCENARIO_EXCLUDED_FLOWS.get(scenario, [])
             for flow in FLOWS_BY_MATERIAL[material]:
                 if flow in excluded:
-                    print(f"Skipping {material} / {flow} / {scenario}: "
-                          f"flow not available for this scenario")
+                    print(
+                        f"Skipping {material} / {flow} / {scenario}: "
+                        f"flow not available for this scenario"
+                    )
                     continue
                 run_combination(material, flow, scenario)

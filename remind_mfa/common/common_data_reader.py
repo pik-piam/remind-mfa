@@ -46,7 +46,11 @@ class CommonDataReader(fd.CompoundDataReader):
         self.allow_extra_values = allow_extra_values
         self.transience_scenario = cfg.transience.transience_scenario
         self.prepare_input_readers()
-        self.baseline_pickle_path = os.path.join(*(cfg.export.path, "pickle"), cfg.transience.baseline_pickle_path) if cfg.transience.baseline_pickle_path else None
+        self.baseline_pickle_path = (
+            os.path.join(*(cfg.export.path, "pickle"), cfg.transience.baseline_pickle_path)
+            if cfg.transience.baseline_pickle_path
+            else None
+        )
 
     @property
     def shared_parameter_path(self) -> str:
@@ -300,7 +304,7 @@ class CommonDataReader(fd.CompoundDataReader):
             baseline_model = pickle.load(fh)
         baseline_trade = baseline_model.future_mfa.trade_set
         return baseline_trade
-    
+
     def read_baseline_flows(self) -> dict:
         """Load flows dictionary from a baseline pickle file."""
         with open(self.baseline_pickle_path, "rb") as fh:
@@ -339,9 +343,7 @@ class CommonDataReader(fd.CompoundDataReader):
                     parameter.scenario_folder,
                     self.transience_scenario,
                 )
-                filepath = os.path.join(
-                    scenario_path, f"{material_prefix}_{parameter.name}.cs4r"
-                )
+                filepath = os.path.join(scenario_path, f"{material_prefix}_{parameter.name}.cs4r")
             else:
                 filepath = os.path.join(
                     material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
