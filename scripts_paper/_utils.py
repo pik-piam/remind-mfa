@@ -79,7 +79,9 @@ def region_mode_suffix(use_h12: bool) -> str:
     return "h12" if use_h12 else "agg5"
 
 
-def run_pickle_path(material: str, scenario: str = "SSP2", region_mapping: str = "h12") -> pathlib.Path:
+def run_pickle_path(
+    material: str, scenario: str = "SSP2", region_mapping: str = "h12"
+) -> pathlib.Path:
     return pathlib.Path(f"data_out/paper/paper_{material}_{scenario}_{region_mapping}/model.pickle")
 
 
