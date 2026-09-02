@@ -48,8 +48,9 @@ def merge_parameters_sources():
 
         # Apply custom mapping: use CUSTOM_SOURCES for parameters with empty Sources
         CUSTOM_SOURCES = {
-            "carbon_content_materials": "Data from stochiometric calculations and estimates based on expert judgement for broader categories",
+            "carbon_content_materials": "Carbon contents of different polymers are calculated from their chemical structure. For broader categories (Other thermoplastics, other thermosets), rough assumptions and weighted averages were used.",
             "mechanical_recycling_yield": "[@Uekert23]",
+            "chemical_recycling_yield": "[@Yadav23]",
             "reclmech_loss_uncontrolled_rate": "[@brown_potential_2023]",
         }
         if CUSTOM_SOURCES:

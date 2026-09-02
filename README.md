@@ -62,7 +62,7 @@ git clone https://gitlab.pik-potsdam.de/simson_data/remind_mfa_data.git
 ```bash
 uv run scripts/fetch_from_hpc.py mfa-archive --config default <hpc>
 ```
-where `<hpc>` is the ssh address/alias of the PIK cluster, e.g., `<Your PIK user name>@hpc.pik-potsdam.de`.
+where `<hpc>` is the ssh address/alias of the PIK cluster, e.g., `username@hpc.pik-potsdam.de` (with your PIK user name).
 Alternatively, you can also use `uv run scripts/fetch_from_hpc.py mrmfa-sources <hpc>` to copy the input data for `mrmfa` from the cluster to your local machine, and then run `mrmfa` locally to generate the madrat output data.
 
 
