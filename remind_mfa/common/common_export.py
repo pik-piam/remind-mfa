@@ -100,7 +100,8 @@ class CommonDataExporter(RemindMFABaseModel):
         pass
 
     def _clear_recomputable_caches(self, model: "CommonModel"):
-        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling.
+        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
+        to save memory.
 
         These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
         properties, which lazily recompute when the backing attribute is ``None`` -- so clearing
