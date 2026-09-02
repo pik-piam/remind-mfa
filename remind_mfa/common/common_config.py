@@ -202,7 +202,7 @@ class InputCfg(RemindMFABaseModel):
     def validate_input_data_selector(self):
         self.input_data_revision = self._normalize_revision(self.input_data_revision)
         return self
-    
+
 
 class TransienceCfg(RemindMFABaseModel):
     transience_run: bool = False

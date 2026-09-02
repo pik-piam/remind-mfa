@@ -332,7 +332,7 @@ class RecentHistoricalAverage(RemindMFABaseModel):
             raise ValueError(f"Negative value in average: {items}")
         else:
             return average
-        
+
 
 class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
     """Trade extrapolation for a scenario where one region's domestic supply is fixed to
@@ -407,7 +407,7 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
         self.future_trade.imports[...] = self.baseline_future_trade.imports
         self.future_trade.exports[...] = self.baseline_future_trade.exports
 
-        # demand delta for the fixed-supply region 
+        # demand delta for the fixed-supply region
         delta = self.future_dom_demand - self.baseline_dom_demand
         delta_r = delta[{"r": r}]
 
@@ -455,20 +455,21 @@ class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
             values=(delta_r_cast.values > 0.0).astype(float),
         )
         self.future_trade.imports[...] = (
-            (1.0 - use_default) * self.future_trade.imports
-            + use_default * self.default_future_trade.imports
-        )
+            1.0 - use_default
+        ) * self.future_trade.imports + use_default * self.default_future_trade.imports
         self.future_trade.exports[...] = (
-            (1.0 - use_default) * self.future_trade.exports
-            + use_default * self.default_future_trade.exports
-        )
+            1.0 - use_default
+        ) * self.future_trade.exports + use_default * self.default_future_trade.exports
 
-        self.future_trade.exports[{"t": self.historic_trade.exports.dims["h"]}] = self.historic_trade.exports
-        self.future_trade.imports[{"t": self.historic_trade.imports.dims["h"]}] = self.historic_trade.imports
+        self.future_trade.exports[{"t": self.historic_trade.exports.dims["h"]}] = (
+            self.historic_trade.exports
+        )
+        self.future_trade.imports[{"t": self.historic_trade.imports.dims["h"]}] = (
+            self.historic_trade.imports
+        )
 
         logging.info(
             f"FixedSupplyTradeExtrapolator: supply of '{r}' fixed to baseline. "
             f"import_adjustment_share={alpha}. "
             f"Mean demand delta for '{r}': {delta_r.values.mean():.2f}"
         )
-

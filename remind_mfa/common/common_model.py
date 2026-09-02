@@ -70,7 +70,9 @@ class CommonModel:
         stock_projection = self.get_long_term_stock()
 
         self.future_mfa = self.make_mfa(historic=False)
-        self.future_mfa.compute(stock_projection, historic_trade, self.baseline_trade, self.baseline_flows)
+        self.future_mfa.compute(
+            stock_projection, historic_trade, self.baseline_trade, self.baseline_flows
+        )
 
     def export(self):
         self.data_writer.export(model=self)
@@ -88,13 +90,16 @@ class CommonModel:
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
             allow_missing_values=True,  # needed for at least steel scrap data and for bottom-up (cement)
-            allow_extra_values=True, # for transience, to allow removing dimension items that are not part of the scope of EU-MFA
+            allow_extra_values=True,  # for transience, to allow removing dimension items that are not part of the scope of EU-MFA
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
-        if self.cfg.transience.baseline_pickle_path is not None and self.cfg.transience.baseline_pickle_path != '':
+        if (
+            self.cfg.transience.baseline_pickle_path is not None
+            and self.cfg.transience.baseline_pickle_path != ""
+        ):
             self.baseline_trade = self.data_reader.read_baseline_trade()
             self.baseline_flows = self.data_reader.read_baseline_flows()
         else:
@@ -298,8 +303,12 @@ class CommonModel:
 
         # denormalize
         self.time_factor = time_factor  # store for later use in visualization
-        self.sector_specific_sat_level = sector_specific_sat_level # store for later use in visualization
-        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level * self.time_factor
+        self.sector_specific_sat_level = (
+            sector_specific_sat_level  # store for later use in visualization
+        )
+        long_term_stock = (
+            self.stock_handler.stocks * self.sector_specific_sat_level * self.time_factor
+        )
 
         return long_term_stock
 

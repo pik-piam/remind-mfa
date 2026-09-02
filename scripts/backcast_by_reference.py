@@ -31,17 +31,17 @@ def backcast_by_reference(
     DataFrame in same long format as x, extended into ref years
     """
     # --- identify group columns (all except Time and value) ---
-    group_cols_x   = [c for c in x.columns  if c not in ("Time", value_col)]
+    group_cols_x = [c for c in x.columns if c not in ("Time", value_col)]
     group_cols_ref = [c for c in ref.columns if c not in ("Time", value_col)]
 
     shared_group_cols = [c for c in group_cols_x if c in group_cols_ref]
-    extra_group_cols  = [c for c in group_cols_x if c not in group_cols_ref]
+    extra_group_cols = [c for c in group_cols_x if c not in group_cols_ref]
     id_cols = ["Region"] + [c for c in shared_group_cols if c != "Region"]
 
-    x   = x.copy().sort_values(["Time"] + group_cols_x).reset_index(drop=True)
+    x = x.copy().sort_values(["Time"] + group_cols_x).reset_index(drop=True)
     ref = ref.copy().sort_values(["Time"] + group_cols_ref).reset_index(drop=True)
 
-    x_years   = sorted(x["Time"].unique())
+    x_years = sorted(x["Time"].unique())
     ref_years = sorted(ref["Time"].unique())
 
     shared_years = sorted(set(x_years) & set(ref_years))
@@ -49,7 +49,7 @@ def backcast_by_reference(
         raise ValueError("x and ref must share at least one year for backcasting.")
 
     # --- adapt ref regions to x regions ---
-    x_regions   = x["Region"].unique()
+    x_regions = x["Region"].unique()
     ref_regions = ref["Region"].unique()
 
     ref_expanded_parts = []
@@ -78,7 +78,7 @@ def backcast_by_reference(
         ref = ref.merge(extra_combos, on=id_cols, how="left")
 
     # --- compute ratios on shared years (now ref and x have the same dims) ---
-    x_shared   = x[x["Time"].isin(shared_years)].rename(columns={value_col: "x_val"})
+    x_shared = x[x["Time"].isin(shared_years)].rename(columns={value_col: "x_val"})
     ref_shared = ref[ref["Time"].isin(shared_years)].rename(columns={value_col: "ref_val"})
 
     ratios = x_shared.merge(ref_shared, on=["Time"] + group_cols_x, how="outer")
@@ -95,7 +95,7 @@ def backcast_by_reference(
     ratios.loc[ratios["ratio"].isna() | np.isinf(ratios["ratio"]), "base_weight"] = n_shared + 1
 
     ratios["row_min"] = ratios.groupby(group_cols_x)["base_weight"].transform("min")
-    ratios["weight"]  = ratios["base_weight"] - ratios["row_min"] + 1
+    ratios["weight"] = ratios["base_weight"] - ratios["row_min"] + 1
 
     ratios.loc[ratios["ratio"].isna() | np.isinf(ratios["ratio"]), "weight"] = -1
     ratios["row_max"] = ratios.groupby(group_cols_x)["weight"].transform("max")
@@ -108,8 +108,8 @@ def backcast_by_reference(
     ratios["weight_sum"] = ratios.groupby(group_cols_x)["weight"].transform(
         lambda s: s.sum(min_count=1)
     )
-    ratios["norm_weight"]    = ratios["weight"] / ratios["weight_sum"]
-    ratios["weighted_ratio"] = ratios["ratio"]  * ratios["norm_weight"]
+    ratios["norm_weight"] = ratios["weight"] / ratios["weight_sum"]
+    ratios["weighted_ratio"] = ratios["ratio"] * ratios["norm_weight"]
 
     final_ratio = (
         ratios.groupby(group_cols_x, as_index=False)["weighted_ratio"]
@@ -136,9 +136,7 @@ def backcast_by_reference(
         on=["Time"] + group_cols_x,
         how="left",
     )
-    final.loc[final[value_col].isna(), value_col] = final.loc[
-        final[value_col].isna(), "ref_fill"
-    ]
+    final.loc[final[value_col].isna(), value_col] = final.loc[final[value_col].isna(), "ref_fill"]
     final = final.drop(columns=["ref_fill"])
 
     if do_make_zero_na:
