@@ -9,6 +9,7 @@ from remind_mfa.common.helpers import ModelNames
 
 def copy_default_config(destination: Path) -> None:
     shutil.copy(CONFIG_DIR / "default.toml", destination / "default.toml")
+    (destination / "scenarios").mkdir()
 
 
 @pytest.mark.parametrize("model", list(ModelNames))
@@ -17,6 +18,27 @@ def test_default_config_validates_for_every_model(model):
 
     assert config["model"] == model.value
     assert config["visualization"]["figures_path"].startswith(f"data/{model.value}/")
+
+
+def test_scenarios_path_is_relative_to_declaring_config_file(tmp_path: Path):
+    config_path = tmp_path / "custom.toml"
+    config_path.write_text('[base.input]\nscenarios_path = "scenarios"\n', encoding="utf-8")
+    (tmp_path / "scenarios").mkdir()
+
+    config = load_config([CONFIG_DIR / "default.toml", config_path], ModelNames.STEEL)
+
+    assert config["input"]["scenarios_path"] == str(tmp_path / "scenarios")
+
+
+def test_absolute_scenarios_path_is_unchanged(tmp_path: Path):
+    scenarios_path = tmp_path / "scenarios"
+    config_path = tmp_path / "custom.toml"
+    config_path.write_text(f'[base.input]\nscenarios_path = "{scenarios_path}"\n', encoding="utf-8")
+    scenarios_path.mkdir()
+
+    config = load_config([CONFIG_DIR / "default.toml", config_path], ModelNames.STEEL)
+
+    assert config["input"]["scenarios_path"] == str(scenarios_path)
 
 
 def test_model_overrides_all_base_layers(tmp_path):
