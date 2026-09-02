@@ -44,7 +44,7 @@
         iamc.do_export = false
         mrindustry.do_export = false
         assumptions.do_export = false
-        docs.do_export = false
+        docs.do_export = true
 
 [plastics]
     [plastics.model_switches]

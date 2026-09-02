@@ -1,27 +1,26 @@
 Dimensions,Name,Description
 "h, r",collection_rate,Collection rate of plastic waste
 "h, r",mechanical_recycling_rate,Mechanical recycling rate of collected waste
-"h, r",chemical_recycling_rate,Chemical recycling rate of collected waste
+,chemical_recycling_rate,Chemical recycling rate of collected waste
 "h, r",incineration_rate,Incineration rate of collected waste
-"h, r, m",primary_his_imports,Historic primary plastics imports
-"h, r, m",primary_his_exports,Historic primary plastics exports
-"h, r, m, g",final_his_imports,Historic final goods imports
-"h, r, m, g",final_his_exports,Historic final goods exports
-"h, r, m",waste_his_imports,Historic plastic waste imports
-"h, r, m",waste_his_exports,Historic plastic waste exports
-"h, r",bio_production_rate,Share of bio-based HVC production
-"h, r",daccu_production_rate,Share of DACCU HVC production
+"h, r, p, m",primary_his_imports,Historic primary plastics imports
+"h, r, p, m",primary_his_exports,Historic primary plastics exports
+"h, r, p, m, g",final_his_imports,Historic final goods imports
+"h, r, p, m, g",final_his_exports,Historic final goods exports
+"h, r, p, m",waste_his_imports,Historic plastic waste imports
+"h, r, p, m",waste_his_exports,Historic plastic waste exports
+,bio_production_rate,Share of bio-based HVC production
+,daccu_production_rate,Share of DACCU HVC production
 "m, e",HVC_input_ratio,Ratio of HVC inputs to polymerization
 "m, e",C4_input_ratio,Ratio of C4 inputs to polymerization
 m,polymerization_yield,Polymerization yield
-"t, r, m",mechanical_recycling_yield,Yield of mechanical recycling
-"t, r, m",reclmech_loss_uncontrolled_rate,Rate of mechanical recycling losses to uncontrolled disposal
+,mechanical_recycling_yield,Yield of mechanical recycling
+,reclmech_loss_uncontrolled_rate,Rate of mechanical recycling losses to uncontrolled disposal
 ,chemical_recycling_yield,Yield of chemical recycling
-"r, m, g",material_shares_in_goods,Share of materials in goods
-"h, r",emission_capture_rate,Carbon capture rate for emissions of incinerated plastics
+,emission_capture_rate,Carbon capture rate for emissions of incinerated plastics
 "e, m",carbon_content_materials,Carbon content of materials
-"h, r, g",consumption,Historic plastic use by industries such as converters for the fabrication of plastic products
-g,sector_split,Global sector split of plastic use
+"h, r, p",production,"Historic plastic production, differentiated by polymer type (Fibre/Rubber/Plastics)"
+"h, r, p, m, g",sector_polymer_split,Share of each polymer and end-use sector within total Fibre/Rubber/Plastics apparent consumption per region
 g,lifetime_mean,Mean lifetime of goods
 g,lifetime_std,Standard deviation of lifetime
 "t, r, S",population,Population
