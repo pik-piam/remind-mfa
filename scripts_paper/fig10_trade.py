@@ -160,7 +160,6 @@ def _build_figure(config, aggregate_regions: bool) -> go.Figure:
         template="plotly_white",
         width=750 if aggregate_regions else 900,
         height=500,
-        title={"text": f"<b>{config.material.title()}</b>", "x": 0.5, "xanchor": "center"},
         legend={
             "y": 0.5,
             "yanchor": "middle",

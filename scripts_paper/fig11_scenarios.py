@@ -188,7 +188,6 @@ def _build_comparison_figure(config, array: fd.FlodymArray, aggregate_regions: b
         width=900 if n_cols == 3 else 1200,
         height=600 if n_rows == 2 else 300 * n_rows,
         margin={"t": 120, "b": 70, "l": 90, "r": 70},
-        title={"text": f"<b>{config.material.title()}</b>", "x": 0.5, "xanchor": "center"},
         legend={
             "x": 0.5,
             "y": 1.08,
