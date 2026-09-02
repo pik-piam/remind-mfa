@@ -182,13 +182,16 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # imports of final goods cannot exceed plastics demand
         historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}])
         historic_trade["final_his"].balance(to="minimum")
-
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["final_his"],
-            future_trade=self.trade_set["final"],
-            future_dom_demand=stk["in_use"].inflow,
-        )
-        extrapolator.run()
+    
+        if "final" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("final", historic_trade["final_his"])
+        else:
+            extrapolator = TradeExtrapolator(
+                historic_trade=historic_trade["final_his"],
+                future_trade=self.trade_set["final"],
+                future_dom_demand=stk["in_use"].inflow,
+            )
+            extrapolator.run()
 
         flw["good_market => exports"][...] = (
             trd["final"].exports * self.parameters["carbon_content_materials"]
@@ -206,7 +209,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historic_trade["primary_his"], flw["primary_market => fabrication"]
         )
 
-        if self.cfg.transience.trade_scenario in ("fix_supply_alpha0", "fix_supply_alpha1"):
+        if "primary" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("primary", historic_trade["primary_his"])
+        elif self.cfg.transience.trade_scenario in ("fix_supply_alpha0", "fix_supply_alpha1"):
             if self.cfg.transience.baseline_pickle_path is None:
                 raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
             alpha = 0.0 if self.cfg.transience.trade_scenario == "fix_supply_alpha0" else 1.0
@@ -228,13 +233,14 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 fixed_supply_region = "EU27+3",
                 import_adjustment_share = alpha,
             )
+            extrapolator.run()
         else:
             extrapolator = TradeExtrapolator(
                 historic_trade=historic_trade["primary_his"],
                 future_trade=self.trade_set["primary"],
                 future_dom_demand=flw["primary_market => fabrication"],
             )
-        extrapolator.run()
+            extrapolator.run()
         # net exports of plastics should be at least the secondary production from mechanical recycling minus domestic plastics demand.
         self._adjust_primary_trade_for_secondary_excess(flw, trd)
 
