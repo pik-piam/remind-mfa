@@ -1,4 +1,5 @@
 """Tests for reading .cs4r parameter files."""
+
 from pathlib import Path
 
 import flodym as fd
@@ -33,9 +34,7 @@ def test_data_trade_parameter_is_read_from_cs4r(tmp_path: Path):
 
     parameter = reader.read_parameter_values(PARAMETER_NAME, dims=DIMS)
 
-    np.testing.assert_allclose(
-        np.asarray(parameter.values, dtype=float), [[1.5, 2.5], [3.5, 4.5]]
-    )
+    np.testing.assert_allclose(np.asarray(parameter.values, dtype=float), [[1.5, 2.5], [3.5, 4.5]])
 
 
 def test_cs4r_without_dimension_header_is_rejected(tmp_path: Path):
