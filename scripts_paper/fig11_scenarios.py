@@ -25,6 +25,14 @@ LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
 LINE_WIDTH_VLINE = 1.2 * LINE_WIDTH_SCALE
 LEGEND_FONT_SIZE = 13
 MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
+LEGEND_Y = 1.12
+WORLD_PANEL_CONFIG = {
+    "x0": -0.20,
+    "x1": 1.20,
+    "y0": -0.30,
+    "y1": 1.20,
+    "line_width": 1.0,
+}
 
 
 def _legend_name(label: str, color: str) -> str:
@@ -111,7 +119,7 @@ def _build_comparison_figure(config, array: fd.FlodymArray, aggregate_regions: b
         cols=n_cols,
         subplot_titles=subplot_titles,
         horizontal_spacing=0.10,
-        vertical_spacing=0.16 if n_rows <= 2 else 0.10,
+        vertical_spacing=0.22 if n_rows <= 2 else 0.12,
     )
 
     run_color_map = {
@@ -159,6 +167,20 @@ def _build_comparison_figure(config, array: fd.FlodymArray, aggregate_regions: b
         col=world_col,
     )
 
+    fig.add_shape(
+        type="rect",
+        xref="x domain",
+        yref="y domain",
+        x0=WORLD_PANEL_CONFIG["x0"],
+        x1=WORLD_PANEL_CONFIG["x1"],
+        y0=WORLD_PANEL_CONFIG["y0"],
+        y1=WORLD_PANEL_CONFIG["y1"],
+        row=world_row,
+        col=world_col,
+        line={"color": "black", "width": WORLD_PANEL_CONFIG["line_width"]},
+        fillcolor="rgba(0,0,0,0)",
+    )
+
     for panel_index, region_code in enumerate(region_panels, start=1):
         row, col = _panel_position(panel_index)
         region_df = data[data[region_col] == region_code]
@@ -190,7 +212,7 @@ def _build_comparison_figure(config, array: fd.FlodymArray, aggregate_regions: b
         margin={"t": 120, "b": 70, "l": 90, "r": 70},
         legend={
             "x": 0.5,
-            "y": 1.08,
+            "y": LEGEND_Y,
             "xanchor": "center",
             "yanchor": "bottom",
             "orientation": "h",
