@@ -9,14 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import flodym as fd
 import flodym.export as fde
-
-_root_logger = logging.getLogger()
-_prev_level = _root_logger.level
-_root_logger.setLevel(logging.WARNING)
-import pyam  # noqa: E402
-
-_root_logger.setLevel(_prev_level)
-del _root_logger, _prev_level
+import pyam
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg

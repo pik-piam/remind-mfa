@@ -42,6 +42,11 @@ def configure_logger():
         root.removeHandler(h)
     root.addHandler(handler)
 
+    # mute info for packages spamming the log
+    muted_packages = ["alembic", "plotly", "kaleido", "choreographer"]
+    for package in muted_packages:
+        logging.getLogger(package).setLevel(logging.WARNING)
+
 
 def run_remind_mfa(config_names: list[str], models: list[ModelNames]) -> None:
     for model in models:
