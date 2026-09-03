@@ -44,6 +44,7 @@ docs = [
 ]
 dev = [
     "black>=25.1.0",
+    "graphviz>=0.21",
     "marimo>=0.23.14",
     "nbformat>=5.10.4",
     "pytest>=9.1.1",
