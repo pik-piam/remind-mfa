@@ -76,48 +76,48 @@ class CommonDataExporter(RemindMFABaseModel):
         if not self.cfg.do_export:
             return
         self._model = model
-        self.export_common(model)
-        self.export_custom(model)
+        self.export_common()
+        self.export_custom()
 
-    def export_common(self, model: "CommonModel"):
-        mfa = model.future_mfa
+    def export_common(self):
+        mfa = self._model.future_mfa
         if self.cfg.pickle.do_export:
-            self._clear_recomputable_caches(model)
-            pickle.dump(model, open(self.export_path("pickle", "model.pickle"), "wb"))
+            self._clear_recomputable_caches()
+            pickle.dump(self._model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
         if self.cfg.mrindustry.do_export:
-            self.write_mrindustry(model=model)
+            self.write_mrindustry()
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
         if self.cfg.docs.do_export:
-            self.definition_to_markdown(model.definition_future)
+            self.definition_to_markdown(self._model.definition_future)
             self.assumptions_to_markdown()
-            self.cfg_to_markdown(cfg=model.cfg)
+            self.cfg_to_markdown(cfg=self._model.cfg)
         if self.cfg.iamc.do_export:
-            self.write_iamc(model=model)
+            self.write_iamc()
 
-    def export_custom(self, model: "CommonModel"):
+    def export_custom(self):
         pass
 
-    def run_path(self, model: "CommonModel") -> str:
+    def run_path(self) -> str:
         """Per-model-run export folder, created once and shared by exporter and visualizer."""
         if self._run_path is None:
             if self.cfg.bundle_export:
                 self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
             name = (
-                f"{export_dir_prefix(model.cfg.export.prefix)}_{model.cfg.model.value}_"
-                f"{model.cfg.model_switches.scenario}_{model.cfg.input.region_mapping}"
+                f"{export_dir_prefix(self._model.cfg.export.prefix)}_{self._model.cfg.model.value}_"
+                f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}"
             )
             self._run_path = os.path.join(self.cfg.path, name)
             Path(self._run_path).mkdir(parents=True, exist_ok=True)
         return self._run_path
 
-    def _clear_recomputable_caches(self, model: "CommonModel"):
+    def _clear_recomputable_caches(self):
         """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
         to save memory.
 
@@ -126,7 +126,7 @@ class CommonDataExporter(RemindMFABaseModel):
         them here is transparent: the next access (including any later ``stock.compute()``)
         rebuilds them from the stored lifetime parameters.
         """
-        for mfa in (model.historic_mfa, model.future_mfa):
+        for mfa in (self._model.historic_mfa, self._model.future_mfa):
             for stock in mfa.stocks.values():
                 lifetime_model: fd.LifetimeModel | None = getattr(stock, "lifetime_model", None)
                 if lifetime_model is not None:
@@ -178,16 +178,16 @@ class CommonDataExporter(RemindMFABaseModel):
         """
         return []
 
-    def write_iamc(self, model: "CommonModel"):
+    def write_iamc(self):
         iamc_vars = self.iamc_variables()
         if not iamc_vars:
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        self._warn_if_iamc_includes_historic(model)
+        self._warn_if_iamc_includes_historic()
 
-        mfa = model.future_mfa
-        constants = {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
+        mfa = self._model.future_mfa
+        constants = {"model": self.model_name, "scenario": self._model.cfg.model_switches.scenario}
 
         iamc_dataframe, split_parent_components, region_weights = self._build_all_iamc_df(
             mfa, iamc_vars, constants
@@ -199,14 +199,14 @@ class CommonDataExporter(RemindMFABaseModel):
 
         iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 
-    def _warn_if_iamc_includes_historic(self, model: "CommonModel"):
+    def _warn_if_iamc_includes_historic(self):
         """Warn if the configured IAMC export range covers historic years.
 
         Historic years derive partly from proprietary input data (e.g. WorldSteel), so
         including them in a shared output risks leaking that data. The last historic year is
         taken per-material from the model's historic time dimension.
         """
-        last_historic_year = model.dims["h"].items[-1]
+        last_historic_year = self._model.dims["h"].items[-1]
         historic = [y for y in self.cfg.iamc.time_items if y <= last_historic_year]
         if historic:
             logging.warning(
@@ -216,7 +216,7 @@ class CommonDataExporter(RemindMFABaseModel):
             )
 
     def _build_all_iamc_df(
-        self, mfa: "CommonMFASystem", iamc_vars: list, constants: dict
+        self, mfa: "CommonMFASystem", iamc_vars: list[IamcVariable], constants: dict
     ) -> tuple[pyam.IamDataFrame, dict[str, list[str]], dict[str, str]]:
         """Build one IamDataFrame per iamc variable and concatenate them.
 
@@ -307,7 +307,7 @@ class CommonDataExporter(RemindMFABaseModel):
         """Return the variables to export as REMIND input. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
 
-    def write_mrindustry(self, model: "CommonModel"):
+    def write_mrindustry(self):
         """Write material flows needed as inputs to REMIND."""
         export_dir = Path(self.export_path("mrindustry"))
         if export_dir.exists() and export_dir.is_dir():
@@ -316,7 +316,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         for variable in self.get_mrindustry_variables():
             df = (
-                variable.calculation_function(model.future_mfa)
+                variable.calculation_function(self._model.future_mfa)
                 .to_df()
                 .rename(columns={"value": variable.name})
             )
@@ -384,9 +384,9 @@ class CommonDataExporter(RemindMFABaseModel):
         if cfg_path is not None:
             base_dir = cfg_path
         elif dataset in self.FLAT_DATASETS:
-            base_dir = self.run_path(self._model)
+            base_dir = self.run_path()
         else:
-            base_dir = os.path.join(self.run_path(self._model), dataset)
+            base_dir = os.path.join(self.run_path(), dataset)
 
         if not os.path.isdir(base_dir):
             Path(base_dir).mkdir(parents=True, exist_ok=True)

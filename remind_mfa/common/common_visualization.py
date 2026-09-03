@@ -85,7 +85,7 @@ class CommonVisualizer(RemindMFABaseModel):
         self._show_and_save_plotly(fig, base_name="sankey")
 
     def figure_path(self, base_name: str) -> str:
-        figures_dir = os.path.join(self._model.data_writer.run_path(self._model), "figures")
+        figures_dir = os.path.join(self._model.data_writer.run_path(), "figures")
         os.makedirs(figures_dir, exist_ok=True)
         return os.path.join(figures_dir, f"{base_name}.png")
 
