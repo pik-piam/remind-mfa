@@ -1,5 +1,4 @@
 import logging
-import os
 import textwrap
 from typing import Annotated, Literal
 
@@ -8,12 +7,7 @@ from dotenv import load_dotenv
 
 from remind_mfa.cli.helper import prompt_for_config_names
 from remind_mfa.common.config_loader import load_config
-from remind_mfa.common.helpers import (
-    ModelNames,
-    init_model,
-    get_export_dir_prefix,
-    set_export_dir_prefix,
-)
+from remind_mfa.common.helpers import ModelNames, init_model
 
 app = typer.Typer()
 
@@ -49,13 +43,11 @@ def configure_logger():
     root.addHandler(handler)
 
 
-def run_remind_mfa(
-    config_names: list[str], models: list[ModelNames], bundle_export: bool = False
-) -> None:
-    bundle_path: str | None = None
+def run_remind_mfa(config_names: list[str], models: list[ModelNames]) -> None:
     for model_name in models:
+        logging.info("=" * 103)
+        logging.info(f"Starting {model_name.value} run...")
         model_config = load_config(config_names, model_name)
-        create_export_series_dir(bundle_export, bundle_path, model_config)
         model = init_model(cfg=model_config)
         logging.info(f"{type(model).__name__} instance created.")
         model.run()
@@ -64,16 +56,6 @@ def run_remind_mfa(
         logging.info("Export completed.")
         model.visualize()
         logging.info("Visualization completed.")
-
-
-def create_export_series_dir(bundle_export, bundle_path, model_config):
-    if bundle_export:
-        if bundle_path is None:
-            bundle_path = os.path.join(
-                model_config["export"]["path"], f"{get_export_dir_prefix()}_series"
-            )
-            os.makedirs(bundle_path, exist_ok=True)
-        model_config["export"]["path"] = bundle_path
 
 
 def prompt_for_model() -> ModelSelection:
@@ -101,28 +83,6 @@ def main(
         Literal["all", "plastics", "steel", "cement"] | None,
         typer.Option("--model", help="Model to run, or all."),
     ] = None,
-    bundle_export: Annotated[
-        bool,
-        typer.Option(
-            "--bundle-export",
-            help=(
-                "Group the exports of all models run in this series into one "
-                "timestamped subfolder of the export path, instead of each model "
-                "creating its own separate subfolder there."
-            ),
-        ),
-    ] = False,
-    export_prefix: Annotated[
-        str | None,
-        typer.Option(
-            "--export-prefix",
-            help=(
-                "Have a fixed prefix for export file and folder names, instead of the default "
-                "timestamp. This is useful to get reliable paths for data pipelines, but will "
-                "overwrite previous exports with the same prefix. Use with care."
-            ),
-        ),
-    ] = None,
 ) -> None:
     """Run REMIND-MFA with one or more layered configurations."""
     load_dotenv()
@@ -137,10 +97,7 @@ def main(
 
     configure_logger()
 
-    if export_prefix is not None:
-        set_export_dir_prefix(export_prefix)
-
-    run_remind_mfa(config_names, models_to_run, bundle_export=bundle_export)
+    run_remind_mfa(config_names, models_to_run)
 
 
 if __name__ == "__main__":

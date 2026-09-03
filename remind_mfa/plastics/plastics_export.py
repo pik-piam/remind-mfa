@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
 
 
 class PlasticsDataExporter(CommonDataExporter):
+    _model: Optional["PlasticsModel"] = PrivateAttr(default=None)
 
     @staticmethod
     def _plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -39,18 +41,18 @@ class PlasticsDataExporter(CommonDataExporter):
             ),
         ]
 
-    def export_custom(self, model: "PlasticsModel"):
+    def export_custom(self):
         if self.cfg.csv.do_export:
-            self.export_eol_data_by_region_and_year(mfa=model.future_mfa)
-            self.export_use_data_by_region_and_year(mfa=model.future_mfa)
-            self.export_recycling_data_by_region_and_year(mfa=model.future_mfa)
-            self.export_stock_extrapolation(model=model)
+            self.export_eol_data_by_region_and_year(mfa=self._model.future_mfa)
+            self.export_use_data_by_region_and_year(mfa=self._model.future_mfa)
+            self.export_recycling_data_by_region_and_year(mfa=self._model.future_mfa)
+            self.export_stock_extrapolation()
 
-    def export_stock_extrapolation(self, model: "PlasticsModel"):
-        model.stock_handler.pure_parameters.to_df().to_csv(
+    def export_stock_extrapolation(self):
+        self._model.stock_handler.pure_parameters.to_df().to_csv(
             self.export_path("csv", "stock_extrapolation_parameters.csv")
         )
-        model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
+        self._model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
             self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
         )
 
