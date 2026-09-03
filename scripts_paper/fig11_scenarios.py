@@ -1,6 +1,5 @@
 import argparse
 import math
-import os
 import warnings
 
 import flodym as fd
@@ -14,8 +13,6 @@ from scripts_paper._constants import (
     figure_output_path,
     get_material_config,
 )
-
-os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 X_RANGE = [2000, 2100]
 X_TICKS = [2000, 2050, 2100]

@@ -1,13 +1,10 @@
 import argparse
-import os
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import scripts_paper._utils as _utils
 from scripts_paper._constants import figure_output_path, get_material_config
-
-os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 X_RANGE = [2000, 2100]
 X_TICKS = [2000, 2050, 2100]

@@ -1,13 +1,10 @@
 import argparse
-import os
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import scripts_paper._utils as _utils
 from scripts_paper._constants import MATERIAL_ORDER, figure_output_path, get_material_config
-
-os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 LINE_WIDTH_SCALE = 1.5
 LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE

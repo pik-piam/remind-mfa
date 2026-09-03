@@ -1,5 +1,4 @@
 import argparse
-import os
 
 from remind_mfa.cement.cement_mappings import CementDisplayNames
 from remind_mfa.cement.cement_visualization import CementVisualizer
@@ -9,7 +8,6 @@ from remind_mfa.common.common_config import (
     GDPVisualizationCfg,
     SankeyVisualizationCfg,
     StockVisualizationCfg,
-    VisualizationCfg,
 )
 from remind_mfa.plastics.plastics_mappings import PlasticsDisplayNames
 from remind_mfa.plastics.plastics_config import PlasticsVisualizationCfg
@@ -20,8 +18,6 @@ from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.cement.cement_config import CementVisualizationCfg
 from scripts_paper._constants import FIGURE_OUTPUT_DIR, figure_output_path, get_material_config
 from scripts_paper._utils import load_future_mfa
-
-os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 
 def _exclude_processes(material: str) -> list[str]:

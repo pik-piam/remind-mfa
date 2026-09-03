@@ -16,9 +16,6 @@ from scripts_paper._constants import (
     REGION_DISPLAY_NAMES,
     figure_output_path,
 )
-import os
-
-os.environ["BROWSER_PATH"] = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 MAT = "steel"
 HIDE_EXTR_LABELS = False
