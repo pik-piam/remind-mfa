@@ -75,6 +75,7 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_common(self, model: "CommonModel"):
         mfa = model.future_mfa
         if self.cfg.pickle.do_export:
+            self._clear_recomputable_caches(model)
             fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("pickle", "mfa.pickle"))
             self.export_model_to_pickle(model=model)
             pickle.dump(model, open(self.export_path("pickle", "model.pickle"), "wb"))
@@ -97,6 +98,21 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def export_custom(self, model: "CommonModel"):
         pass
+
+    def _clear_recomputable_caches(self, model: "CommonModel"):
+        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
+        to save memory.
+
+        These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
+        properties, which lazily recompute when the backing attribute is ``None`` -- so clearing
+        them here is transparent: the next access (including any later ``stock.compute()``)
+        rebuilds them from the stored lifetime parameters.
+        """
+        for mfa in (model.historic_mfa, model.future_mfa):
+            for stock in mfa.stocks.values():
+                lifetime_model = getattr(stock, "lifetime_model", None)
+                if lifetime_model is not None:
+                    lifetime_model.reset_cached_arrays()
 
     def export_model_to_pickle(self, model: "CommonModel"):
         material = model.cfg.model.value

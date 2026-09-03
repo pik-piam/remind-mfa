@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "../remind_mfa_data"
-        input_data_revision = "2.0.0"
+        input_data_revision = "2.2.0"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -88,7 +88,7 @@
         prod_clinker.do_visualize = false
         prod_cement.do_visualize = true
         prod_product.do_visualize = false
-        sankey.plotter_args.split_flows_by = "Stock Type"
+        sankey.plotter_args.split_flows_by = "End Use"
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
         carbonation.do_visualize = false
