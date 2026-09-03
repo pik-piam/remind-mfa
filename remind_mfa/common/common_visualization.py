@@ -12,7 +12,6 @@ import flodym.export as fde
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
-from remind_mfa.common.helpers import RegressOverModes
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
@@ -37,30 +36,30 @@ class CommonVisualizer(RemindMFABaseModel):
         if not self.cfg.do_visualize:
             return
         self._model = model
-        self.visualize_common(model=model)
-        self.visualize_custom(model=model)
+        self.visualize_common()
+        self.visualize_custom()
         self.stop_and_show()
 
-    def visualize_common(self, model: "CommonModel"):
+    def visualize_common(self):
         if self.cfg.gdp.do_visualize:
-            self.visualize_gdppc(model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita)
+            self.visualize_gdppc(self._model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita)
         if self.cfg.use_stock.do_visualize:
-            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=True)
-            self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=True)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=False)
         if self.cfg.trade.do_visualize:
-            self.visualize_trade(model.future_mfa)
+            self.visualize_trade(self._model.future_mfa)
         if self.cfg.sankey.do_visualize:
-            self.visualize_sankey(model.future_mfa)
+            self.visualize_sankey(self._model.future_mfa)
         if self.cfg.consumption.do_visualize:
-            self.visualize_consumption(mfa=model.future_mfa)
+            self.visualize_consumption(mfa=self._model.future_mfa)
         if self.cfg.sector_splits.do_visualize:
-            self.visualize_sector_splits(model, regional=True)
-            self.visualize_sector_splits(model, regional=False)
+            self.visualize_sector_splits(regional=True)
+            self.visualize_sector_splits(regional=False)
         if self.cfg.extrapolation.do_visualize:
-            self.visualize_extrapolation(model=model)
-            self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
+            self.visualize_extrapolation()
+            self.visualize_extrapolation_functions(stock_handler=self._model.stock_handler)
 
-    def visualize_custom(self, model: "CommonModel"):
+    def visualize_custom(self):
         """To be overwritten by model subclasses"""
         pass
 
@@ -282,7 +281,7 @@ class CommonVisualizer(RemindMFABaseModel):
         return subplot_dim, summing_func, name_str
 
     def visualize_extrapolation_functions(
-        self, model: "CommonModel", stock_handler: StockExtrapolation
+        self, stock_handler: StockExtrapolation
     ):
         regional = "r" in stock_handler.indep_fit_dim_letters
         subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
@@ -290,21 +289,21 @@ class CommonVisualizer(RemindMFABaseModel):
             assert (
                 len(goods_dim_letter) == 1
             ), "Only one non-region dimension supported in extrapolation visualization"
-            linecolor_dim = model.dims[goods_dim_letter.pop()].name
+            linecolor_dim = self._model.dims[goods_dim_letter.pop()].name
         else:
             linecolor_dim = None
         extrapolation = stock_handler.extrapolation
         fit_prms = extrapolation.fit_prms
 
         log_gdppc = np.log10(stock_handler.gdppc.values)
-        gdppc = np.logspace(np.min(log_gdppc), np.max(log_gdppc), model.dims["t"].len)
+        gdppc = np.logspace(np.min(log_gdppc), np.max(log_gdppc), self._model.dims["t"].len)
         gdppc = broadcast_trailing_dimensions(gdppc, stock_handler.dims_out)
         predictor = stock_handler.get_predictor(gdppc)
 
         def to_flodym(np_array, name=None):
             fda = fd.FlodymArray(dims=stock_handler.dims_out, values=np_array, name=name)
             if not regional:
-                first_region = model.dims["r"].items[0]
+                first_region = self._model.dims["r"].items[0]
                 fda = fda[first_region]
             return fda
 
@@ -402,13 +401,13 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
-    def visualize_sector_splits(self, model: "CommonModel", regional: bool = True):
+    def visualize_sector_splits(self, regional: bool = True):
 
-        end_use_good_letter = model.end_use_good_letter
+        end_use_good_letter = self._model.end_use_good_letter
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", end_use_good_letter))
+            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", end_use_good_letter))
         )
         sector_splits = consumption.get_shares_over(end_use_good_letter)
         sector_splits = sector_splits.cumsum(dim_letter=end_use_good_letter)
@@ -417,7 +416,7 @@ class CommonVisualizer(RemindMFABaseModel):
             array=sector_splits,
             intra_line_dim="Time",
             **subplot_dim,
-            linecolor_dim=model.dims[end_use_good_letter].name,
+            linecolor_dim=self._model.dims[end_use_good_letter].name,
             xlabel="Year",
             ylabel="Sector Splits [%]",
             display_names=self.display_names.dct,
@@ -507,17 +506,16 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_extrapolation(
         self,
-        model: "CommonModel",
         subplot_dim: str = "Region",
         linecolor_dim: Optional[str] = None,
         show_extrapolation: bool = True,
         show_future: bool = True,
     ):
-        mfa = model.future_mfa
+        mfa = self._model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
-        population = model.parameters["population"]
-        stock = model.stock_handler.stocks * model.sector_specific_sat_level
-        extrapolation = model.stock_handler.fitted_regression * model.sector_specific_sat_level
+        population = self._model.parameters["population"]
+        stock = self._model.stock_handler.stocks * self._model.sector_specific_sat_level
+        extrapolation = self._model.stock_handler.fitted_regression * self._model.sector_specific_sat_level
         x_array = None
 
         pc_str = "pC" if per_capita else ""
@@ -527,7 +525,7 @@ class CommonVisualizer(RemindMFABaseModel):
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
-            x_array = model.parameters["gdppc"]
+            x_array = self._model.parameters["gdppc"]
             if not per_capita:
                 x_array = x_array * population
 

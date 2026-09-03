@@ -1,28 +1,31 @@
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
-EXPORT_DIR_PREFIX = None
+_SERIES_EXPORT_PATH = None
 
 
-def get_export_dir_prefix() -> str:
-    """Prefix for export directory names. If set to a fixed string previously, retrieve that.
-    Else, default to a current timestamp.
-    """
-    if EXPORT_DIR_PREFIX is None:
-        return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
-    return EXPORT_DIR_PREFIX
+def _timestamp_prefix() -> str:
+    return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
 
 
-def set_export_dir_prefix(prefix: str) -> None:
-    """Set a prefix for export file and folder names."""
-    global EXPORT_DIR_PREFIX
-    EXPORT_DIR_PREFIX = prefix
+def export_dir_prefix(prescribed_prefix: str | None = None) -> str:
+    """Return the export prefix, creating it once and reusing it across model runs."""
+    return prescribed_prefix if prescribed_prefix is not None else _timestamp_prefix()
+
+
+def series_export_path(base_path: str, prefix: str | None = None) -> str:
+    """Return the series prefix, creating it once and reusing it across model runs."""
+    global _SERIES_EXPORT_PATH
+    if _SERIES_EXPORT_PATH is None:
+        _SERIES_EXPORT_PATH = Path(base_path) / (export_dir_prefix(prefix) + "_series")
+    return _SERIES_EXPORT_PATH
 
 
 class ModelNames(str, Enum):

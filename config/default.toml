@@ -39,6 +39,8 @@
     [base.export]
         do_export = true
         path = "data_out"
+        bundle_export = false
+        # prefix = "test"
         pickle.do_export = true
         csv.do_export = false
         iamc.do_export = false

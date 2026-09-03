@@ -23,7 +23,7 @@ from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.helpers import RemindMFABaseModel, get_export_dir_prefix
+from remind_mfa.common.helpers import RemindMFABaseModel, series_export_path, export_dir_prefix
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -106,12 +106,14 @@ class CommonDataExporter(RemindMFABaseModel):
     def run_path(self, model: "CommonModel") -> str:
         """Per-model-run export folder, created once and shared by exporter and visualizer."""
         if self._run_path is None:
+            if self.cfg.bundle_export:
+                self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
             name = (
-                f"{get_export_dir_prefix()}_{model.cfg.model.value}_"
+                f"{export_dir_prefix(model.cfg.export.prefix)}_{model.cfg.model.value}_"
                 f"{model.cfg.model_switches.scenario}_{model.cfg.input.region_mapping}"
             )
             self._run_path = os.path.join(self.cfg.path, name)
-            os.makedirs(self._run_path, exist_ok=True)
+            Path(self._run_path).mkdir(parents=True, exist_ok=True)
         return self._run_path
 
     @property
