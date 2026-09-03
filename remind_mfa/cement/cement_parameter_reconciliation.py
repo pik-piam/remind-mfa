@@ -65,9 +65,12 @@ class CementParameterReconciliation:
           material split, Res/Com for the end-use split) keep their reconciled values and
           let the unused complement (mortar; Civ/Ind) absorb ``1 - sum(reconciled)``.
           Note: dwelling_split and structure_split are accessed exclusively via
-          ``get_shares_over`` in the model, so their absolute scale does not affect any
-          computation. They are re-normalized here anyway to keep the raw parameter values
-          consistent (summing to 1) for inspection and export.
+          ``get_shares_over`` in the reconciled stock functions, so during the
+          optimization only their relative proportions matter and their norm does not
+          affect any computation. After the reconciliation, however, the model uses
+          their raw values (mortar dwelling split, concrete mass shares, derived global
+          split means), where the norm does matter. They are re-normalized here to keep
+          the raw parameter values consistent (summing to 1) for these downstream steps.
     """
 
     _normalization_dims: dict[str, tuple[str, ...]] = {
