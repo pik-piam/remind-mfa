@@ -1,4 +1,4 @@
-parameter,models,value,extra:year,extra:type,index:Region,index:Stock Type,index:Function,index:Structure,description
+parameter,models,value,extra:year,extra:type,index:Region,index:End Use,index:Structure,index:Dwelling Type,description
 
 # --- Model defaults ---
 saturation_level,steel,10,,,,,,,
@@ -21,10 +21,8 @@ bio_production_rate,plastics,0.1,2100,target,,,,,
 daccu_production_rate,plastics,0.01,2100,target,,,,,
 
 # --- Cement (bottom-up) ---
-function_buildings_split,cement,0.4,2060,target,IND,Res,RS,,New single-family homes make up 40% of residential floor area
-function_buildings_split,cement,0.4,2060,target,LAM,Res,RS,,New single-family homes make up 40% of residential floor area
-function_buildings_split,cement,0.4,2060,target,OAS,Res,RS,,New single-family homes make up 40% of residential floor area
-function_buildings_split,cement,0.4,2060,target,SSA,Res,RS,,New single-family homes make up 40% of residential floor area
-structure_buildings_split,cement,0.3,2060,target,SSA,,RS,M,Masonry share in SSA decreases to 30%
-structure_buildings_split,cement,0.3,2060,target,SSA,,RM,M,Masonry share in SSA decreases to 30%
-structure_buildings_split,cement,0.3,2060,target,SSA,,Com,M,Masonry share in SSA decreases to 30%
+development_gdppc_low,cement,8000,,,,,,,GDP per capita below which splits fully converge to their global means
+development_gdppc_high,cement,30000,,,,,,,GDP per capita above which regions keep their own splits
+structure_split,cement,structure_split_mean,2060,target,,,,,Low-GDP regions converge their structure split to the global mean
+dwelling_split,cement,dwelling_split_mean,2060,target,,,,,Low-GDP regions converge their dwelling split to the global mean
+hibernating_stock_share,cement,0.10,2060,target,CHA,,,,Chinas hibernating stock share reduces to 10% by 2060
