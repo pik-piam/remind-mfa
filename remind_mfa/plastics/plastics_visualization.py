@@ -47,7 +47,9 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_extrapolation(subplot_dim="Region", linecolor_dim="Good")
 
         if self.cfg.flows.do_visualize:
-            self.visualize_production_trade_consumption(mfa=self._model.future_mfa, per_capita=False)
+            self.visualize_production_trade_consumption(
+                mfa=self._model.future_mfa, per_capita=False
+            )
             self.visualize_production_trade_consumption(mfa=self._model.future_mfa, per_capita=True)
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,

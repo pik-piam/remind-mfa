@@ -42,7 +42,9 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_common(self):
         if self.cfg.gdp.do_visualize:
-            self.visualize_gdppc(self._model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita)
+            self.visualize_gdppc(
+                self._model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita
+            )
         if self.cfg.use_stock.do_visualize:
             self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=True)
             self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=False)
@@ -280,9 +282,7 @@ class CommonVisualizer(RemindMFABaseModel):
             name_str = "global"
         return subplot_dim, summing_func, name_str
 
-    def visualize_extrapolation_functions(
-        self, stock_handler: StockExtrapolation
-    ):
+    def visualize_extrapolation_functions(self, stock_handler: StockExtrapolation):
         regional = "r" in stock_handler.indep_fit_dim_letters
         subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
         if goods_dim_letter := set(stock_handler.indep_fit_dim_letters) - set(("r")):
@@ -515,7 +515,9 @@ class CommonVisualizer(RemindMFABaseModel):
         per_capita = self.cfg.use_stock.per_capita
         population = self._model.parameters["population"]
         stock = self._model.stock_handler.stocks * self._model.sector_specific_sat_level
-        extrapolation = self._model.stock_handler.fitted_regression * self._model.sector_specific_sat_level
+        extrapolation = (
+            self._model.stock_handler.fitted_regression * self._model.sector_specific_sat_level
+        )
         x_array = None
 
         pc_str = "pC" if per_capita else ""
