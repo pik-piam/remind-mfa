@@ -63,9 +63,9 @@ class CommonVisualizer(RemindMFABaseModel):
         """To be overwritten by model subclasses"""
         pass
 
-    def _show_and_save_plotly(self, fig: go.Figure, name):
+    def _show_and_save_plotly(self, fig: go.Figure, base_name: str):
         if self.cfg.do_save_figs:
-            fig.write_image(self.figure_path(f"{name}.png"))
+            fig.write_image(self.figure_path(base_name))
         if self.cfg.do_show_figs:
             fig.show()
 
@@ -80,20 +80,20 @@ class CommonVisualizer(RemindMFABaseModel):
             font_size=20,
         )
 
-        self._show_and_save_plotly(fig, name="sankey")
+        self._show_and_save_plotly(fig, base_name="sankey")
 
-    def figure_path(self, filename: str) -> str:
+    def figure_path(self, base_name: str) -> str:
         figures_dir = os.path.join(self._model.data_writer.run_path(self._model), "figures")
         os.makedirs(figures_dir, exist_ok=True)
-        return os.path.join(figures_dir, filename)
+        return os.path.join(figures_dir, f"{base_name}.png")
 
-    def plot_and_save_figure(self, plotter: fde.ArrayPlotter, filename: str, do_plot: bool = True):
+    def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
             plotter.plot()
         if self.cfg.do_show_figs:
             plotter.show()
         if self.cfg.do_save_figs:
-            plotter.save(self.figure_path(filename), width=2200, height=1300, scale=3)
+            plotter.save(self.figure_path(base_name), width=2200, height=1300, scale=3)
 
     def stop_and_show(self):
         if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
@@ -172,7 +172,7 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self.plot_and_save_figure(
             ap_scatter_stock,
-            f"stocks_global_by_region{'_and_' + subplot_dim if subplot_dim is not None else ''}{'_per_capita' if per_capita else ''}.png",
+            f"stocks_global_by_region{'_and_' + subplot_dim if subplot_dim is not None else ''}{'_per_capita' if per_capita else ''}",
             do_plot=False,
         )
 
@@ -399,7 +399,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 chart_type=chart_type,
             )
             fig = ap_exports.plot()
-            self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
+            self.plot_and_save_figure(ap_exports, f"trade_{name}", do_plot=False)
 
     def visualize_sector_splits(self, regional: bool = True):
 
@@ -424,7 +424,7 @@ class CommonVisualizer(RemindMFABaseModel):
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}.png")
+        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}")
 
     def visualize_fdarr(
         self,
@@ -464,7 +464,7 @@ class CommonVisualizer(RemindMFABaseModel):
             line_label=name if linecolor_dim is None else None,
         )
 
-        self.plot_and_save_figure(ap_flow, f"{name}_{pc_str}_{regional_tag}.png", do_plot=False)
+        self.plot_and_save_figure(ap_flow, f"{name}_{pc_str}_{regional_tag}", do_plot=False)
 
     def visualize_fdarr_stacked(
         self,
@@ -502,7 +502,7 @@ class CommonVisualizer(RemindMFABaseModel):
             title=f"{name} {pc_str} {regional_tag}",
         )
         fig = ap.plot()
-        self.plot_and_save_figure(ap, f"{name}_stacked_{pc_str}_{regional_tag}.png", do_plot=False)
+        self.plot_and_save_figure(ap, f"{name}_stacked_{pc_str}_{regional_tag}", do_plot=False)
 
     def visualize_extrapolation(
         self,
@@ -597,7 +597,7 @@ class CommonVisualizer(RemindMFABaseModel):
         over_str = "_overGDP" if self.cfg.use_stock.over_gdp else "_overTime"
         self.plot_and_save_figure(
             ap,
-            f"stocks{extrapolation_name}{future_name}{subplot_str}{linecolor_str}{over_str}.png",
+            f"stocks{extrapolation_name}{future_name}{subplot_str}{linecolor_str}{over_str}",
             do_plot=False,
         )
 
@@ -617,7 +617,7 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap.plot()
         if change:
-            self.plot_and_save_figure(ap, "gdppc_change.png", do_plot=False)
+            self.plot_and_save_figure(ap, "gdppc_change", do_plot=False)
         else:
             fig.update_yaxes(type="log")
-            self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
+            self.plot_and_save_figure(ap, "gdppc", do_plot=False)

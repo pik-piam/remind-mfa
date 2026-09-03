@@ -110,7 +110,7 @@ class SteelVisualizer(CommonVisualizer):
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
 
-        self._show_and_save_plotly(fig, name="sankey")
+        self._show_and_save_plotly(fig, base_name="sankey")
 
     def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
@@ -141,7 +141,7 @@ class SteelVisualizer(CommonVisualizer):
             )
             fig = plotter.plot()
 
-        self.plot_and_save_figure(plotter, f"production_{name_str}.png", do_plot=False)
+        self.plot_and_save_figure(plotter, f"production_{name_str}", do_plot=False)
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
@@ -244,4 +244,4 @@ class SteelVisualizer(CommonVisualizer):
         #         fig=fig,
         #     )
 
-        self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}.png")
+        self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}")

@@ -193,7 +193,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
         self.plot_and_save_figure(
             ap,
-            f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}.png",
+            f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}",
             do_plot=False,
         )
 
@@ -216,7 +216,7 @@ class PlasticsVisualizer(CommonVisualizer):
             fig=fig,
         )
         ap.plot()
-        self.plot_and_save_figure(ap, "demand_validation.png", do_plot=False)
+        self.plot_and_save_figure(ap, "demand_validation", do_plot=False)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
@@ -343,7 +343,7 @@ class PlasticsVisualizer(CommonVisualizer):
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
 
-        self._show_and_save_plotly(fig, name="sankey")
+        self._show_and_save_plotly(fig, base_name="sankey")
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
@@ -363,7 +363,7 @@ class PlasticsVisualizer(CommonVisualizer):
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"material_splits.png")
+        self.plot_and_save_figure(ap_sector_splits, f"material_splits")
 
     def visualize_scenario_params(self, mfa: fd.MFASystem):
         rates = [
