@@ -1,5 +1,7 @@
 import warnings
 
+from dotenv import load_dotenv
+
 from scripts_paper._constants import MATERIAL_ORDER, MFA_REGION_MAPPINGS
 from scripts_paper.fig1_fig7_regions import main as render_regions
 from scripts_paper.fig8_demand import main as render_demand
@@ -9,6 +11,9 @@ from scripts_paper.fig11_scenarios import main as render_scenarios
 
 
 def main(show: bool = False):
+
+    load_dotenv()
+
     render_regions(aggregate_regions=False, show=show)
     render_regions(aggregate_regions=True, show=show)
 
