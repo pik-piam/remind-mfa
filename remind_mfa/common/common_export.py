@@ -128,19 +128,9 @@ class CommonDataExporter(RemindMFABaseModel):
         """
         for mfa in (model.historic_mfa, model.future_mfa):
             for stock in mfa.stocks.values():
-                lifetime_model = getattr(stock, "lifetime_model", None)
+                lifetime_model: fd.LifetimeModel | None = getattr(stock, "lifetime_model", None)
                 if lifetime_model is not None:
                     lifetime_model.reset_cached_arrays()
-
-    def export_model_to_pickle(self, model: "CommonModel"):
-        material = model.cfg.model.value
-        scenario = model.cfg.model_switches.scenario
-        region_mapping = model.cfg.input.region_mapping
-        datetime_str = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
-        filename = f"model_{material}_{scenario}_{region_mapping}_{datetime_str}.pickle"
-        export_path = self.export_path("pickle", filename)
-        with open(export_path, "wb") as f:
-            pickle.dump(model, f)
 
     @property
     def model_name(self) -> str:
