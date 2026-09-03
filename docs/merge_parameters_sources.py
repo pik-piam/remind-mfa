@@ -14,7 +14,7 @@ def _split_sources(value):
         return []
     if not CITATION_LIST_PATTERN.fullmatch(value):
         return [value]
-    return [token.strip() for token in value.split(",") if token.strip()]
+    return re.findall(r"\[@[^\]]+\]", value)
 
 
 def _combine_sources(existing, custom):
