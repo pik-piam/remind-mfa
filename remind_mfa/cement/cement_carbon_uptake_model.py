@@ -1,6 +1,7 @@
 import string
-import numpy as np
+
 import flodym as fd
+import numpy as np
 from pydantic import BaseModel, Field, model_validator
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
@@ -594,7 +595,7 @@ def shift_with_zero(
 
 
 def get_age_distribution(
-    stock: fd.DynamicStockModel, t: int, data_type: str = "stock"
+    stock: fd.InflowDrivenDSM | fd.StockDrivenDSM, t: int, data_type: str = "stock"
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Returns the histogram of ages of either stock or outflow at time step t.
