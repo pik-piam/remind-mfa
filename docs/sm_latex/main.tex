@@ -8,6 +8,7 @@
 \usepackage{longtable}
 \usepackage{csquotes}
 \usepackage{pdflscape}
+\usepackage{graphicx}
 \usepackage[hidelinks]{hyperref}
 \usepackage[backend=biber,style=authoryear,maxbibnames=99]{biblatex}
 
@@ -34,7 +35,29 @@
 \tableofcontents
 \clearpage
 
+\begin{landscape}
+\section{Regions}
+
+\subsection{REMIND "H12" 12-region aggregation}
+\InputGeneratedTable{regions_h12.tex}
+
+\subsection{Results section 5-region aggregation}
+\InputGeneratedTable{regions_agg5.tex}
+\end{landscape}
+
+\clearpage
 \section{Plastics}
+
+\subsection{Flowchart}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[scale=0.4]{plastics.drawio.png}
+    \caption{Flowchart of the prospective plastics MFA system.}
+    \label{fig:flowachart_plastics}
+\end{figure}
+
+\clearpage
+
 \subsection{Dimensions}
 \InputGeneratedTable{generated/plastics_dimensions.tex}
 
@@ -58,6 +81,17 @@
 \clearpage
 
 \section{Steel}
+
+\subsection{Flowchart}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[scale=0.4]{steel.drawio.png}
+    \caption{Flowchart of the prospective steel MFA system.}
+    \label{fig:flowachart_steel}
+\end{figure}
+
+\clearpage
+
 \subsection{Dimensions}
 \InputGeneratedTable{generated/steel_dimensions.tex}
 
@@ -81,6 +115,17 @@
 \clearpage
 
 \section{Cement}
+
+\subsection{Flowchart}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[scale=0.4]{cement.drawio.png}
+    \caption{Flowchart of the prospective cement MFA system.}
+    \label{fig:flowachart_cement}
+\end{figure}
+
+\clearpage
+
 \subsection{Dimensions}
 \InputGeneratedTable{generated/cement_dimensions.tex}
 
