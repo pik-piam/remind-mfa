@@ -78,14 +78,15 @@ class PlasticsDataExporter(CommonDataExporter):
                 variable_name="Production|Chemicals|Plastics|Primary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
                     mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
-                    - mfa.flows["reclchem => HVC_input"]
+                    - mfa.flows["aux_recl_feedstock_trade => HVC_input"]
                 ),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Production|Chemicals|Plastics|Secondary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["reclmech => primary_market"] + mfa.flows["reclchem => HVC_input"]
+                    mfa.flows["aux_recyclate_trade => primary_market"]
+                    + mfa.flows["aux_recl_feedstock_trade => HVC_input"]
                 ).sum_to(("t", "r")),
                 unit="t/yr",
             ),
@@ -97,6 +98,18 @@ class PlasticsDataExporter(CommonDataExporter):
                 ),
                 unit="t/yr",
                 split_dims=["Good"],
+            ),
+            # demand by polymer type
+            # Same parent as the "by Good" split above (orthogonal breakdown), so opt out of
+            # summing these children back into the parent to avoid double-counting the total.
+            IamcVariable(
+                variable_name="Material Demand|Chemicals|Plastics",
+                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
+                    ("t", "r", "p")
+                ),
+                unit="t/yr",
+                split_name="Type",
+                aggregate_parent=False,
             ),
             # demand per capita
             IamcVariable(
@@ -143,5 +156,6 @@ class PlasticsDataExporter(CommonDataExporter):
     def iamc_aggregates(self) -> list[str]:
         # Primary + Secondary are separate specs (no `per`), so their parent must be
         # aggregated explicitly. "Material Demand|Chemicals|Plastics" is handled
-        # automatically via its `per="Good"` split.
+        # automatically via its "by Good" split, which owns the parent total; the
+        # orthogonal "by Type" split opts out via aggregate_parent=False.
         return ["Production|Chemicals|Plastics"]

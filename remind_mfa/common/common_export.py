@@ -11,7 +11,14 @@ from pydantic import PrivateAttr
 
 import flodym as fd
 import flodym.export as fde
-import pyam
+
+_root_logger = logging.getLogger()
+_prev_level = _root_logger.level
+_root_logger.setLevel(logging.WARNING)
+import pyam  # noqa: E402
+
+_root_logger.setLevel(_prev_level)
+del _root_logger, _prev_level
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
@@ -36,6 +43,12 @@ class IamcVariable(RemindMFABaseModel):
     """Base unit of the array, e.g. "t/yr" or "t"."""
     split_dims: Optional[List[str] | Literal["all"]] = None
     """Dimension names or letters to split into child variables (e.g. "Good"). None = single variable. "all" = all non-(h, t, r) dimensions."""
+    aggregate_parent: bool = True
+    """When this variable is split (``split_name`` set), whether its children are summed back
+    into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent
+    total is already produced by another split, to avoid double-counting the parent. Exactly one
+    split per parent may keep this True; a second aggregating split of the same parent raises at
+    export time."""
     region_weight: Optional[str] = None
     """Variable to weight by when aggregating to "World" (e.g. "Population" for per-capita
     variables). None = plain sum across regions."""
@@ -70,6 +83,7 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_common(self, model: "CommonModel"):
         mfa = model.future_mfa
         if self.cfg.pickle.do_export:
+            self._clear_recomputable_caches(model)
             fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("pickle", "mfa.pickle"))
             self.export_model_to_pickle(model=model)
             pickle.dump(model, open(self.export_path("pickle", "model.pickle"), "wb"))
@@ -94,6 +108,21 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def export_custom(self, model: "CommonModel"):
         pass
+
+    def _clear_recomputable_caches(self, model: "CommonModel"):
+        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
+        to save memory.
+
+        These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
+        properties, which lazily recompute when the backing attribute is ``None`` -- so clearing
+        them here is transparent: the next access (including any later ``stock.compute()``)
+        rebuilds them from the stored lifetime parameters.
+        """
+        for mfa in (model.historic_mfa, model.future_mfa):
+            for stock in mfa.stocks.values():
+                lifetime_model = getattr(stock, "lifetime_model", None)
+                if lifetime_model is not None:
+                    lifetime_model.reset_cached_arrays()
 
     def export_model_to_pickle(self, model: "CommonModel"):
         material = model.cfg.model.value
@@ -288,8 +317,15 @@ class CommonDataExporter(RemindMFABaseModel):
         for iamc_var in iamc_vars:
             iamc_df, variables = self._iamc_var_to_iamc_df(mfa, iamc_var, constants)
             iamc_dataframes.append(iamc_df)
-            if iamc_var.split_name is not None:
-                split_parent_components.setdefault(iamc_var.variable_name, []).extend(variables)
+            if iamc_var.split_name is not None and iamc_var.aggregate_parent:
+                if iamc_var.variable_name in split_parent_components:
+                    raise ValueError(
+                        f"'{iamc_var.variable_name}' is aggregated from more than one split "
+                        f"(latest via split_name='{iamc_var.split_name}'). Each split sums to the "
+                        f"full parent total, so aggregating from two would double-count it. Set "
+                        f"aggregate_parent=False on all but one orthogonal split of this variable."
+                    )
+                split_parent_components[iamc_var.variable_name] = variables
             if iamc_var.region_weight is not None:
                 region_weights.update({v: iamc_var.region_weight for v in variables})
         return pyam.concat(iamc_dataframes), split_parent_components, region_weights
@@ -476,7 +512,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         base_dir = os.path.join(*path_tuple)
         if not os.path.isdir(base_dir):
-            os.mkdir(base_dir)
+            Path(base_dir).mkdir(parents=True, exist_ok=True)
 
         if filename is not None:
             path_tuple += (filename,)

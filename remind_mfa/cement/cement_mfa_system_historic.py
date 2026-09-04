@@ -14,6 +14,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         self.fill_trade()
         self.balance_trade()
         prm, trd, flw, stk = self.mfa_stats()
+        self.cap_historical_net_exports_to_supply(trd["cement"], prm["cement_production"])
         self.compute_cement_stock(prm, trd, flw, stk)
         self.compute_other_flows(prm, trd, flw, stk)
         self.check_mass_balance()
@@ -23,6 +24,8 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         """
         Balance trade data to global imports.
         This best reflects high historical US imports according to USGS DS140.
+        Note that cap_historical_net_exports_to_supply re-balances to the minimum in the
+        years where it has to cap net exports.
         """
         self.trade_set.balance(to="imports")
 
@@ -45,7 +48,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         flw["market_cement => use"][...] = (
             (flw["prod_cement => market_cement"] + trd["cement"].net_imports)
             * (1 - prm["cement_losses"])
-            * prm["stock_type_split"]
+            * prm["end_use_split"]
         )
 
         stk["in_use"].inflow[...] = flw["market_cement => use"]
