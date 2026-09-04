@@ -144,7 +144,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["aux_recyclate_trade => primary_market"]
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["aux_recyclate_trade => primary_market"]
         ).sum_to(("t", "r"))
         primary_net_imports = (
             mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]
