@@ -20,25 +20,6 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
-# Kaleido's Chromium subprocess does not shut down cleanly on Windows (kaleido 1.x /
-# choreographer). The image is fully written before the async context manager exit runs,
-# so suppressing the cleanup error is safe.
-try:
-    import choreographer.browser_async as _choro
-
-    _orig_close = _choro.Browser._close
-
-    async def _close_ignore_cleanup_error(self):
-        try:
-            await _orig_close(self)
-        except RuntimeError as e:
-            if "Couldn't close or kill browser subprocess" not in str(e):
-                raise
-
-    _choro.Browser._close = _close_ignore_cleanup_error
-except ImportError:
-    pass
-
 
 class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
@@ -86,22 +67,9 @@ class CommonVisualizer(RemindMFABaseModel):
         """To be overwritten by model subclasses"""
         pass
 
-    def _fig_cfg(self, name: str):
-        """Figure sizing/font options, falling back to defaults when the config
-        predates them (e.g. configs unpickled from older runs)."""
-        return getattr(self.cfg, name, VisualizationCfg.model_fields[name].default)
-
     def _show_and_save_plotly(self, fig: go.Figure, name):
-        fig.update_layout(font_size=self._fig_cfg("font_size"))
-        # subplot titles are annotations, whose font is independent of layout.font.size
-        fig.update_annotations(font_size=self._fig_cfg("font_size"))
         if self.cfg.do_save_figs:
-            fig.write_image(
-                self.figure_path(f"{name}.png"),
-                width=fig.layout.width or self._fig_cfg("fig_width"),
-                height=fig.layout.height or self._fig_cfg("fig_height"),
-                scale=self._fig_cfg("fig_scale"),
-            )
+            fig.write_image(self.figure_path(f"{name}.png"))
         if self.cfg.do_show_figs:
             fig.show()
 
@@ -124,19 +92,10 @@ class CommonVisualizer(RemindMFABaseModel):
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, filename: str, do_plot: bool = True):
         if do_plot:
             plotter.plot()
-        if self.cfg.plotting_engine == "plotly":
-            plotter.fig.update_layout(font_size=self._fig_cfg("font_size"))
-            # subplot titles are annotations, whose font is independent of layout.font.size
-            plotter.fig.update_annotations(font_size=self._fig_cfg("font_size"))
         if self.cfg.do_show_figs:
             plotter.show()
         if self.cfg.do_save_figs:
-            plotter.save(
-                self.figure_path(filename),
-                width=self._fig_cfg("fig_width"),
-                height=self._fig_cfg("fig_height"),
-                scale=self._fig_cfg("fig_scale"),
-            )
+            plotter.save(self.figure_path(filename), width=2200, height=1300, scale=3)
 
     def stop_and_show(self):
         if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
@@ -755,11 +714,7 @@ class CommonVisualizer(RemindMFABaseModel):
             ylabel="Demand [t]",
         )
         fig = ap_3.plot()
-        self.plot_and_save_figure(
-            ap_3,
-            f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
-            do_plot=False,
-        )
+        self._show_and_save_plotly(fig, name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")
 
     def visualize_transience_outflow(
         self,
@@ -821,11 +776,7 @@ class CommonVisualizer(RemindMFABaseModel):
             ylabel="Stock outflow [t]",
         )
         fig = ap_3.plot()
-        self.plot_and_save_figure(
-            ap_3,
-            f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
-            do_plot=False,
-        )
+        self._show_and_save_plotly(fig, name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")
 
     def visualize_transience_eol_parameters(
         self,
@@ -863,6 +814,4 @@ class CommonVisualizer(RemindMFABaseModel):
             ylabel="Parameter value",
         )
         fig = ap_2.plot()
-        self.plot_and_save_figure(
-            ap_2, f"transience_comparison_{parameter_REMIND_MFA.name}.png", do_plot=False
-        )
+        self._show_and_save_plotly(fig, name=f"transience_comparison_{parameter_REMIND_MFA.name}.png")
