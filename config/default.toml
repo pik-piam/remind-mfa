@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "../remind_mfa_data"
-        input_data_revision = "2.2.0"
+        input_data_revision = "2.0.0"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -50,7 +50,7 @@
         mrindustry.do_export = false
         atlas.do_export = false
         assumptions.do_export = false
-        docs.do_export = true
+        docs.do_export = false
 
 [plastics]
     [plastics.input]

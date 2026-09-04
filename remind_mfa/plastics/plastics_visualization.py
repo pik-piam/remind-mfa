@@ -150,7 +150,7 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_transience_eol_parameters(
                 model,
-                parameter_REMIND_MFA=model.future_mfa.flows["reclmech => primary_market"].sum_to(
+                parameter_REMIND_MFA=model.future_mfa.flows["reclmech => aux_recyclate_trade"].sum_to(
                     ("t", "r", "m")
                 )[{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
                 parameter_EU_MFA=model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[
@@ -192,7 +192,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+            mfa.flows["polymerization => primary_market"] + mfa.flows["aux_recyclate_trade => primary_market"]
         ).sum_to(("t", "r"))
         primary_net_imports = (
             mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]
@@ -470,7 +470,7 @@ class PlasticsVisualizer(CommonVisualizer):
         super().visualize_transience_outflow(
             model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow
         )
-        
+
     def visualize_scenario_params(self, mfa: fd.MFASystem):
         rates = [
             ("collection_rate", "Collection rate"),
