@@ -79,13 +79,13 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_fdarr_stacked(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclmech => primary_market"],
+                flow=model.future_mfa.flows["reclmech => aux_recyclate_trade"],
                 name="Mechanically recycled",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclchem => HVC_input"],
+                flow=model.future_mfa.flows["reclchem => aux_recl_feedstock_trade"],
                 name="Chemically recycled",
             )
             self.visualize_fdarr_stacked(
@@ -159,6 +159,9 @@ class PlasticsVisualizer(CommonVisualizer):
                 linecolor_dim="EU-MFA_Material",
             )
             # these flows are not totally equal because REMIND-MFA includes trade while for EU-MFA recycling rate we currently assume that no waste is traded (TODO get sorted_waste_market__recycling flow to be sure that this is correct)
+        
+        if self.cfg.scenario_params.do_visualize:
+            self.visualize_scenario_params(mfa=model.future_mfa)
 
         self.stop_and_show()
 
@@ -176,7 +179,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["reclmech => aux_recyclate_trade"]
         )
         self.visualize_fdarr_stacked(
             mfa=mfa,
@@ -415,6 +419,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
+        # material shares are extrapolated by keeping the last historic value constant in the future, so we visualize the last historic year
         material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}].sum_over(("p",))
         material_shares = material_shares.cumsum(dim_letter="m")
 
@@ -465,3 +470,21 @@ class PlasticsVisualizer(CommonVisualizer):
         super().visualize_transience_outflow(
             model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow
         )
+        
+    def visualize_scenario_params(self, mfa: fd.MFASystem):
+        rates = [
+            ("collection_rate", "Collection rate"),
+            ("landfill_rate", "Landfill rate"),
+            ("mechanical_recycling_rate", "Mechanical recycling rate"),
+            ("chemical_recycling_rate", "Chemical recycling rate"),
+            ("bio_production_rate", "Bio-based production rate"),
+            ("daccu_production_rate", "DACCU production rate"),
+        ]
+        for param_name, display_name in rates:
+            self.visualize_fdarr(
+                mfa=mfa,
+                flow=mfa.parameters[param_name],
+                name=display_name,
+                y_unit="%",
+                scale=100,
+            )

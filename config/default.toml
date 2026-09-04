@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "../remind_mfa_data"
-        input_data_revision = "2.0.0"
+        input_data_revision = "2.2.0"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -50,7 +50,7 @@
         mrindustry.do_export = false
         atlas.do_export = false
         assumptions.do_export = false
-        docs.do_export = false
+        docs.do_export = true
 
 [plastics]
     [plastics.input]
@@ -71,6 +71,7 @@
         sankey.plotter_args.exclude_processes = ["sysenv", "atmosphere", "feedfoss", "feedbio", "feeddaccu", "feedccu", "HVC_input", "C4_input", "other_reactants", "emission", "uncontrolled", "incineration", "losses", "reclchem", "mismanaged", "landfill"]
         material_splits.do_visualize = true
         flows.do_visualize = false
+        scenario_params.do_visualize = false
 
     [plastics.export]
         path = "data/plastics/output/transience"
@@ -108,7 +109,7 @@
         prod_clinker.do_visualize = false
         prod_cement.do_visualize = true
         prod_product.do_visualize = false
-        sankey.plotter_args.split_flows_by = "Stock Type"
+        sankey.plotter_args.split_flows_by = "End Use"
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
         carbonation.do_visualize = false
