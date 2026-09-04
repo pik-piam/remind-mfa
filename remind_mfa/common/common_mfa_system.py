@@ -2,7 +2,7 @@ import logging
 import sys
 import numpy as np
 import flodym as fd
-from typing import Optional
+from typing import Literal, Optional
 
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.common_config import CommonCfg
