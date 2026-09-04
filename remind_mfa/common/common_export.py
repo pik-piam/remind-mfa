@@ -230,8 +230,7 @@ class CommonDataExporter(RemindMFABaseModel):
         df_out = pd.concat(df_list)
 
         constants = self.iamc_constants(self._model)
-        # TODO: units
-        pyam_df = pyam.IamDataFrame(df_out, unit="t/yr", **constants)
+        pyam_df = pyam.IamDataFrame(df_out, **constants)
         self._convert_iamc_units(pyam_df)
         pyam_df.to_excel(self.export_path("iamc", f"output_iamc_raw_{suffix}.xlsx"))
 
@@ -262,9 +261,9 @@ class CommonDataExporter(RemindMFABaseModel):
             ("Imports", lambda trade: trade.imports),
         ]
         for name, trade in mfa.trade_set.markets.items():
-            for name, array_func in config:
+            for direction, array_func in config:
                 df = self._complete_and_agg(
-                    vname_base=f"{vname_base}|Trade|{name}|{name}",
+                    vname_base=f"{vname_base}|Trade|{name}|{direction}",
                     array=array_func(trade),
                 )
                 df["unit"] = "t/yr"
@@ -276,7 +275,7 @@ class CommonDataExporter(RemindMFABaseModel):
                 logging.warning(f"IAMC export: Skipping non-FlodymArray parameter {param.name} of type {type(param)}")
                 continue
             if "h" in param.dims:
-                logging.warning(f"IAMC export: Skipping parameter {param.name} with hostorical dim")
+                logging.warning(f"IAMC export: Skipping parameter {param.name} with historical dim")
                 continue
             dims =  mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
             param = param.cast_to(dims)
@@ -284,6 +283,7 @@ class CommonDataExporter(RemindMFABaseModel):
                 vname_base=f"{vname_base}|Parameters|{name}",
                 array=param,
             )
+            # TODO
             df["unit"] = "unknown"
             df_list.append(df)
 
@@ -396,7 +396,7 @@ class CommonDataExporter(RemindMFABaseModel):
             array: fd.FlodymArray,
         ) -> pd.DataFrame:
         df_agg = self._fd_array_to_df_for_iamc(vname_base, array, split_dims=None)
-        if self._riamc_only_agg:
+        if self._riamc_only_agg or array.dims.letters == ("t", "r"):
             return df_agg
         df_complete = self._fd_array_to_df_for_iamc(vname_base, array, split_dims="all")
         return pd.concat([df_agg, df_complete], ignore_index=True)
