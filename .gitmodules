@@ -1,9 +1,9 @@
-[submodule "ATLAS-Trade"]
-	path = ATLAS-Trade
+[submodule "ATLAS_Trade"]
+	path = ATLAS_Trade
 	url = https://github.com/pik-piam/ATLAS-Trade.git
 	branch = transience
-[submodule "ATLAS-Trade-data-pipeline"]
-	path = ATLAS-Trade-data-pipeline
+[submodule "ATLAS_Trade_data_pipeline"]
+	path = ATLAS_Trade_data_pipeline
 	url = https://github.com/pik-piam/ATLAS-Trade_data-pipeline.git
 [submodule "remind_mfa_data"]
 	path = remind_mfa_data
