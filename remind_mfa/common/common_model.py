@@ -1,5 +1,6 @@
 import copy
 import logging
+from pathlib import Path
 from typing import Optional
 import flodym as fd
 import numpy as np
@@ -17,7 +18,7 @@ from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.helpers import RegressOverModes, series_export_path
 
 
 class CommonModel:

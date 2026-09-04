@@ -1,4 +1,7 @@
+from typing import TYPE_CHECKING, Optional
+
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
@@ -6,8 +9,13 @@ from remind_mfa.common.common_export import (
     RemindInputVariable,
 )
 
+if TYPE_CHECKING:
+    from remind_mfa.steel.steel_model import SteelModel
+
 
 class SteelDataExporter(CommonDataExporter):
+    _model: Optional["SteelModel"] = PrivateAttr(default=None)
+
     @staticmethod
     def _total_steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Total steel output after production and forming losses, before trade."""
@@ -64,18 +72,18 @@ class SteelDataExporter(CommonDataExporter):
                     mfa.flows["fabrication => good_market"] / mfa.parameters["fabrication_yield"]
                 ).sum_to(("t", "r", "g")),
                 unit="t/yr",
-                split_name="Good",
+                split_dims=["Good"],
             ),
             IamcVariable(
                 variable_name="Material Stock|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=lambda mfa: mfa.stocks["in_use"].stock.sum_to(("t", "r", "g")),
                 unit="t",
-                split_name="Good",
+                split_dims=["Good"],
             ),
             IamcVariable(
                 variable_name="Scrap|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=SteelDataExporter._eol_scrap_potential,
                 unit="t/yr",
-                split_name="Good",
+                split_dims=["Good"],
             ),
         ]
