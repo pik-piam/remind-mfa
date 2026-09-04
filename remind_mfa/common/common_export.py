@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
 
-
 class IamcVariable(RemindMFABaseModel):
     """Declarative specification of a single IAMC output variable."""
 
@@ -272,12 +271,14 @@ class CommonDataExporter(RemindMFABaseModel):
     def _write_riamc_parameters(self, mfa: fd.MFASystem, vname_base, df_list):
         for name, param in mfa.parameters.items():
             if not isinstance(param, fd.FlodymArray):
-                logging.warning(f"IAMC export: Skipping non-FlodymArray parameter {param.name} of type {type(param)}")
+                logging.warning(
+                    f"IAMC export: Skipping non-FlodymArray parameter {param.name} of type {type(param)}"
+                )
                 continue
             if "h" in param.dims:
                 logging.warning(f"IAMC export: Skipping parameter {param.name} with historical dim")
                 continue
-            dims =  mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
+            dims = mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
             param = param.cast_to(dims)
             df = self._complete_and_agg(
                 vname_base=f"{vname_base}|Parameters|{name}",
@@ -391,10 +392,10 @@ class CommonDataExporter(RemindMFABaseModel):
         return pyam.IamDataFrame(df, unit=iamc_var.unit, **constants), variables
 
     def _complete_and_agg(
-            self,
-            vname_base: str,
-            array: fd.FlodymArray,
-        ) -> pd.DataFrame:
+        self,
+        vname_base: str,
+        array: fd.FlodymArray,
+    ) -> pd.DataFrame:
         df_agg = self._fd_array_to_df_for_iamc(vname_base, array, split_dims=None)
         if self._riamc_only_agg or array.dims.letters == ("t", "r"):
             return df_agg
@@ -402,16 +403,18 @@ class CommonDataExporter(RemindMFABaseModel):
         return pd.concat([df_agg, df_complete], ignore_index=True)
 
     def _fd_array_to_df_for_iamc(
-            self,
-            vname_base: str,
-            array: fd.FlodymArray,
-            split_dims: Optional[list[str] | Literal["all"]] = None,
-        ) -> pd.DataFrame:
+        self,
+        vname_base: str,
+        array: fd.FlodymArray,
+        split_dims: Optional[list[str] | Literal["all"]] = None,
+    ) -> pd.DataFrame:
 
-        require_dims_err_msg = f"Array {array.name} must include 't' or 'h' and 'r' dimensions for IAMC export"
+        require_dims_err_msg = (
+            f"Array {array.name} must include 't' or 'h' and 'r' dimensions for IAMC export"
+        )
         if "r" not in array.dims:
             raise ValueError(require_dims_err_msg)
-        if ("t" in array.dims) +  ("h" in array.dims) != 1:
+        if ("t" in array.dims) + ("h" in array.dims) != 1:
             raise ValueError(require_dims_err_msg)
         base_dims = ("t", "r") if "t" in array.dims else ("h", "r")
 
@@ -426,7 +429,9 @@ class CommonDataExporter(RemindMFABaseModel):
         df = self._merge_index_columns(df, array.dims, vname_base)
         return df
 
-    def _merge_index_columns(self, df: "pd.DataFrame", dims: fd.DimensionSet,  base_name: str) -> "pd.DataFrame":
+    def _merge_index_columns(
+        self, df: "pd.DataFrame", dims: fd.DimensionSet, base_name: str
+    ) -> "pd.DataFrame":
         names = [dim.name for dim in dims if dim.letter not in ("h", "t", "r")]
         df["variable"] = base_name
         for name in names:
