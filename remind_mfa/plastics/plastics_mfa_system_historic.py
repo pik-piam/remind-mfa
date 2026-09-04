@@ -17,7 +17,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.trade_set.balance(to="maximum")
         self.compute_flows()
         self.compute_historic_stock()
-        self.check_mass_balance()
+        self.check_mass_balance(raise_error=True)
         self.check_flows(raise_error=False)
 
     def compute_flows(self):
@@ -30,7 +30,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         # primary net exports are capped to not exceed domestic production, else fabrication inflow goes negative
         self.cap_historical_net_exports_to_supply(
-            "primary_his", flw["polymerization => primary_market"]
+            trd["primary_his"], flw["polymerization => primary_market"]
         )
 
         flw["primary_market => fabrication"][...] = (
@@ -40,7 +40,9 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         # final net exports (per good and material) are capped to not exceed fabrication supply
         # stop-over trade is allowed, but positive net imports of one good cannot be balanced by re-exporting a different good
-        self.cap_historical_net_exports_to_supply("final_his", flw["fabrication => good_market"])
+        self.cap_historical_net_exports_to_supply(
+            trd["final_his"], flw["fabrication => good_market"]
+        )
 
         # distribute the good_market => use flow among the good & material categories
         flw["good_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
@@ -63,19 +65,17 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.stocks["in_use_historic"].compute()
         self.flows["use => sysenv"][...] += self.stocks["in_use_historic"].outflow
 
-        # get material split from historic stock inflow
-        material_shares = (self.flows["good_market => use"].maximum(0)).get_shares_over(("m", "p"))
-        # A (region, good) with zero tracked (Plastics-type) inflow gives an undefined 0/0
-        # share -> NaN. This happens where a good's consumption is entirely Fibre/Rubber,
-        # which are excluded from material tracking (e.g. SSA's Textile sector is ~100%
-        # fibre). Set those shares to 0: there is genuinely no Plastics-type material to
-        # split, and the future in-use inflow derived from it is ~0 anyway. Leaving NaN
-        # propagates into stk["in_use"].inflow and crashes the trade extrapolator.
-        material_shares.values[np.isnan(material_shares.values)] = 0.0
-        self.parameters["material_shares_use_inflow"] = fd.Parameter(
-            dims=self.dims["h", "r", "p", "m", "g"],
-            values=material_shares.values,
-        )
+        # get material split from historic stock inflow, jointly normalized over (m, p) so the shares
+        # sum to 1 across all polymer types and materials.
+        with np.errstate(divide="ignore"):
+            self.parameters["material_shares_use_inflow"] = fd.Parameter(
+                dims=self.dims["h", "r", "p", "m", "g"],
+                values=(self.flows["good_market => use"].maximum(0))
+                .get_shares_over(("m", "p"))
+                .values,
+            )
+        # country-level (iso249) runs have (r, g) cells with zero inflow -> 0/0 = NaN shares; zero them
+        self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
         # get global good split from historic stock inflow
         self.parameters["global_good_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "g"],

@@ -8,16 +8,14 @@
 | High Value Chemical input |
 | C4 input                  |
 | Polymerization            |
-| Fabrication               |
 | Primary Market            |
-| Waste Market              |
+| Fabrication               |
 | Good Market               |
-| Imports                   |
-| Exports                   |
-| Mechanical Recycling      |
-| Chemical Recycling        |
 | Use Phase                 |
 | EoL                       |
+| Waste Market              |
+| Mechanical Recycling      |
+| Chemical Recycling        |
 | Incineration              |
 | Landfilled                |
 | Collected                 |
@@ -28,3 +26,5 @@
 | Atmosphere                |
 | Other Reactants           |
 | Losses                    |
+| Imports                   |
+| Exports                   |
