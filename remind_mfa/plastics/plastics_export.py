@@ -96,7 +96,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     ("t", "r", "g")
                 ),
                 unit="t/yr",
-                split_name="Good",
+                split_dims=["Good"],
             ),
             # demand per capita
             IamcVariable(
@@ -128,7 +128,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     ("t", "r", "g")
                 ),
                 unit="t/yr",
-                split_name="Good",
+                split_dims=["Good"],
             ),
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
@@ -136,7 +136,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     ("t", "r", "g")
                 ),
                 unit="t/yr",
-                split_name="Good",
+                split_dims=["Good"],
             ),
         ]
 

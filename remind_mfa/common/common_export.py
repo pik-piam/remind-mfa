@@ -5,8 +5,9 @@ import shutil
 from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, List, Literal
 import pandas as pd
+from pydantic import PrivateAttr
 
 import flodym as fd
 import flodym.export as fde
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
 
+
 class IamcVariable(RemindMFABaseModel):
     """Declarative specification of a single IAMC output variable."""
 
@@ -32,8 +34,8 @@ class IamcVariable(RemindMFABaseModel):
     """Given the future MFA system, returns the array to report, reduced to (t, r) or (t, r, <per-dim>)."""
     unit: str
     """Base unit of the array, e.g. "t/yr" or "t"."""
-    split_name: Optional[str] = None
-    """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
+    split_dims: Optional[List[str] | Literal["all"]] = None
+    """Dimension names or letters to split into child variables (e.g. "Good"). None = single variable. "all" = all non-(h, t, r) dimensions."""
     region_weight: Optional[str] = None
     """Variable to weight by when aggregating to "World" (e.g. "Population" for per-capita
     variables). None = plain sum across regions."""
@@ -53,6 +55,11 @@ class RemindInputVariable(RemindMFABaseModel):
 class CommonDataExporter(RemindMFABaseModel):
     cfg: ExportCfg
     display_names: CommonDisplayNames
+
+    _riamc_only_agg: PrivateAttr[bool] = False
+    """If True, only export the aggregated variables, not the split components.
+    Set by the write_riamc() method to avoid passing the flag through multiple layers of function calls.
+    """
 
     def export(self, model: "CommonModel"):
         if not self.cfg.do_export:
@@ -81,8 +88,9 @@ class CommonDataExporter(RemindMFABaseModel):
             self.assumptions_to_markdown()
             self.cfg_to_markdown(cfg=model.cfg)
         if self.cfg.iamc.do_export:
-            self.write_iamc(model=model)
-            self.write_iamc_raw(model=model)
+            # self.write_iamc(model=model)
+            self.write_riamc(model=model, only_agg=True)
+            self.write_riamc(model=model, only_agg=False)
 
     def export_custom(self, model: "CommonModel"):
         pass
@@ -168,75 +176,80 @@ class CommonDataExporter(RemindMFABaseModel):
         """IAMC constants to include in every exported variable."""
         return {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
 
-    def write_iamc_raw(self, model: "CommonModel"):
-        prefix = f"MFA|{model.cfg.model.value}"
-        # future
-        df_future = self.write_iamc_raw_mfa(model.future_mfa, f"{prefix}|Future")
-        # TODO: enable if config.iamc_years contains historical years
-        # historical
-        # df_historical = self.write_iamc_raw_mfa(model.historic_mfa, f"{prefix}|Historical")
-        # parameters
-        # df_prms = self.write_iamc_raw_parameters(model.parameters, f"{prefix}|Parameters")
-        # extras
-        # df_extras = self.write_iamc_raw_extras(model, f"{prefix}|Extras")
+    def write_riamc(self, model: "CommonModel", only_agg: bool = False):
 
-        df_out = pd.concat([df_future])  # , df_historical, df_prms])  # , df_extras])
+        prefix = f"MFA|{model.cfg.model.value}"
+        mfa = model.future_mfa
+        vname_base = f"{prefix}|Future"
+
+        self._riamc_only_agg = only_agg
+        suffix = "agg" if only_agg else "complete"
+
+        df_list = []
+        self._write_riamc_flows(mfa, vname_base, df_list)
+        self._write_riamc_stocks(mfa, vname_base, df_list)
+        self._write_riamc_trades(mfa, vname_base, df_list)
+        self._write_riamc_parameters(mfa, vname_base, df_list)
+
+        df_out = pd.concat(df_list)
+
         constants = self.iamc_constants(model)
         # TODO: units
         pyam_df = pyam.IamDataFrame(df_out, unit="t/yr", **constants)
-        pyam_df.to_excel(self.export_path("iamc", "output_iamc_raw.xlsx"))
+        self._convert_iamc_units(pyam_df)
+        pyam_df.to_excel(self.export_path("iamc", f"output_iamc_raw_{suffix}.xlsx"))
 
-
-    def write_iamc_raw_extras(self, model: "CommonModel", label: str):
-        df_all = []
-        # model.stock_handler
-        return pd.concat(df_all)
-
-
-    def write_iamc_raw_parameters(self, parameters: fd.FlodymArraySet, label: str):
-        df_all = []
-        for name, array in parameters.items():
-            df = self.to_iamc_df(array, self.cfg.iamc.time_items)
-            df = self._merge_index_columns(df, array.dims, f"{label}|{name}")
-            df_all.append(df)
-        return pd.concat(df_all)
-
-    def write_iamc_raw_mfa(self, mfa: CommonMFASystem, label: str):
-        # flows
-        df_all = []
+    def _write_riamc_flows(self, mfa: fd.MFASystem, vname_base, df_list):
         for flow in mfa.flows.values():
-            df = self.to_iamc_df(flow, self.cfg.iamc.time_items)
-            df = self._merge_index_columns(df, flow.dims, f"{label}|Flows|{flow.name}")
-            df_all.append(df)
-        for stock in mfa.stocks.values():
-            df_inflow = self.to_iamc_df(stock.inflow, self.cfg.iamc.time_items)
-            df_inflow = self._merge_index_columns(df_inflow, stock.dims, f"{label}|Stocks|{stock.name}|Inflow")
-            df_outflow = self.to_iamc_df(stock.outflow, self.cfg.iamc.time_items)
-            df_outflow = self._merge_index_columns(df_outflow, stock.dims, f"{label}|Stocks|{stock.name}|Outflow")
-            df_stock = self.to_iamc_df(stock.stock, self.cfg.iamc.time_items)
-            df_stock = self._merge_index_columns(df_stock, stock.dims, f"{label}|Stocks|{stock.name}|Stock")
-            df_all.append(df_inflow)
-            df_all.append(df_outflow)
-            df_all.append(df_stock)
-        # trades
-        for name, trade in mfa.trade_set.markets.items():
-            df_exports = self.to_iamc_df(trade.exports, self.cfg.iamc.time_items)
-            df_exports = self._merge_index_columns(df_exports, trade.exports.dims, f"{label}|Trade|{name}|Exports")
-            df_imports = self.to_iamc_df(trade.imports, self.cfg.iamc.time_items)
-            df_imports = self._merge_index_columns(df_imports, trade.imports.dims, f"{label}|Trade|{name}|Imports")
-            df_all.append(df_exports)
-            df_all.append(df_imports)
-        return pd.concat(df_all)
+            df = self._complete_and_agg(f"{vname_base}|Flows|{flow.name}", flow)
+            df["unit"] = "t/yr"
+            df_list.append(df)
 
-    def _merge_index_columns(self, df: "pd.DataFrame", dims: fd.DimensionSet,  base_name: str) -> "pd.DataFrame":
-        names = [dim.name for dim in dims if dim.letter not in ("h", "t", "r")]
-        if not names:
-            df["variable"] = base_name
-            return df
-        else:
-            df["variable"] = base_name + "|" + df[names].astype(str).agg("|".join, axis=1)
-            df = df.drop(columns=names)
-            return df
+    def _write_riamc_stocks(self, mfa, vname_base, df_list):
+        config = [
+            ("Inflow", lambda stock: stock.inflow, "t/yr"),
+            ("Outflow", lambda stock: stock.outflow, "t/yr"),
+            ("Stock", lambda stock: stock.stock, "t"),
+        ]
+        for stock in mfa.stocks.values():
+            for name, array_func, unit in config:
+                df = self._complete_and_agg(
+                    vname_base=f"{vname_base}|Stocks|{stock.name}|{name}",
+                    array=array_func(stock),
+                )
+                df["unit"] = unit
+                df_list.append(df)
+
+    def _write_riamc_trades(self, mfa, vname_base, df_list):
+        config = [
+            ("Exports", lambda trade: trade.exports),
+            ("Imports", lambda trade: trade.imports),
+        ]
+        for name, trade in mfa.trade_set.markets.items():
+            for name, array_func in config:
+                df = self._complete_and_agg(
+                    vname_base=f"{vname_base}|Trade|{name}|{name}",
+                    array=array_func(trade),
+                )
+                df["unit"] = "t/yr"
+                df_list.append(df)
+
+    def _write_riamc_parameters(self, mfa: fd.MFASystem, vname_base, df_list):
+        for name, param in mfa.parameters.items():
+            if not isinstance(param, fd.FlodymArray):
+                logging.warning(f"IAMC export: Skipping non-FlodymArray parameter {param.name} of type {type(param)}")
+                continue
+            if "h" in param.dims:
+                logging.warning(f"IAMC export: Skipping parameter {param.name} with hostorical dim")
+                continue
+            dims =  mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
+            param = param.cast_to(dims)
+            df = self._complete_and_agg(
+                vname_base=f"{vname_base}|Parameters|{name}",
+                array=param,
+            )
+            df["unit"] = "unknown"
+            df_list.append(df)
 
     def _warn_if_iamc_includes_historic(self, model: "CommonModel"):
         """Warn if the configured IAMC export range covers historic years.
@@ -273,7 +286,7 @@ class CommonDataExporter(RemindMFABaseModel):
         split_parent_components: dict[str, list[str]] = {}
         region_weights: dict[str, str] = {}
         for iamc_var in iamc_vars:
-            iamc_df, variables = self._build_iamc_df(mfa, iamc_var, constants)
+            iamc_df, variables = self._iamc_var_to_iamc_df(mfa, iamc_var, constants)
             iamc_dataframes.append(iamc_df)
             if iamc_var.split_name is not None:
                 split_parent_components.setdefault(iamc_var.variable_name, []).extend(variables)
@@ -322,18 +335,61 @@ class CommonDataExporter(RemindMFABaseModel):
         iamc_dataframe.convert_unit(current="t", to="Mt", inplace=True)
         iamc_dataframe.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor=1000, inplace=True)
 
-    def _build_iamc_df(
+    def _iamc_var_to_iamc_df(
         self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
     ) -> tuple[pyam.IamDataFrame, list[str]]:
         """Build the IamDataFrame for a iamc variable and return it with the variable names it produced."""
-        df = self.to_iamc_df(iamc_var.calculation_function(mfa), self.cfg.iamc.time_items)
-        df["variable"] = iamc_var.variable_name
-        if iamc_var.split_name is not None:
-            df["variable"] += "|" + df[iamc_var.split_name]
-            df = df.drop(columns=[iamc_var.split_name])
-
+        df = self._fd_array_to_df_for_iamc(
+            vname_base=iamc_var.variable_name,
+            array=iamc_var.calculation_function(mfa),
+            split_dims=iamc_var.split_dims,
+        )
         variables = list(dict.fromkeys(df["variable"]))
         return pyam.IamDataFrame(df, unit=iamc_var.unit, **constants), variables
+
+    def _complete_and_agg(
+            self,
+            vname_base: str,
+            array: fd.FlodymArray,
+        ) -> pd.DataFrame:
+        df_agg = self._fd_array_to_df_for_iamc(vname_base, array, split_dims=None)
+        if self._riamc_only_agg:
+            return df_agg
+        df_complete = self._fd_array_to_df_for_iamc(vname_base, array, split_dims="all")
+        return pd.concat([df_agg, df_complete], ignore_index=True)
+
+    def _fd_array_to_df_for_iamc(
+            self,
+            vname_base: str,
+            array: fd.FlodymArray,
+            split_dims: Optional[list[str] | Literal["all"]] = None,
+        ) -> pd.DataFrame:
+
+        require_dims_err_msg = f"Array {array.name} must include 't' or 'h' and 'r' dimensions for IAMC export"
+        if "r" not in array.dims:
+            raise ValueError(require_dims_err_msg)
+        if ("t" in array.dims) +  ("h" in array.dims) != 1:
+            raise ValueError(require_dims_err_msg)
+        base_dims = ("t", "r") if "t" in array.dims else ("h", "r")
+
+        if split_dims is None:
+            split_dims = []
+        elif split_dims == "all":
+            split_dims = [dim.name for dim in array.dims if dim.letter not in ("h", "t", "r")]
+
+        array = array.sum_to(base_dims + tuple(split_dims))
+
+        df = self.to_iamc_df(array, self.cfg.iamc.time_items)
+        df = self._merge_index_columns(df, array.dims, vname_base)
+        return df
+
+    def _merge_index_columns(self, df: "pd.DataFrame", dims: fd.DimensionSet,  base_name: str) -> "pd.DataFrame":
+        names = [dim.name for dim in dims if dim.letter not in ("h", "t", "r")]
+        df["variable"] = base_name
+        for name in names:
+            df["variable"] += "|" + df[name].astype(str)
+            df = df.drop(columns=name)
+        return df
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         """Return the variables to export as REMIND input. Override in subclasses."""
@@ -429,6 +485,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def to_iamc_df(self, array: fd.FlodymArray, time_items: list):
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
-        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
+        time_letter = "t" if "t" in array.dims else "h"
+        df = array[{time_letter: time_out}].to_df(dim_to_columns="Time Out", index=False)
         df = df.rename(columns={"Region": "region"})
         return df
