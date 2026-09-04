@@ -132,7 +132,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = (
             mfa.flows["polymerization => primary_market"]
-            + mfa.flows["reclmech => aux_recyclate_trade"]
+            + mfa.flows["aux_recyclate_trade => primary_market"]
         )
         self.visualize_fdarr_stacked(
             mfa=mfa,
@@ -144,7 +144,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+            mfa.flows["polymerization => primary_market"] + mfa.flows["aux_recyclate_trade => primary_market"]
         ).sum_to(("t", "r"))
         primary_net_imports = (
             mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]
@@ -226,12 +226,16 @@ class PlasticsVisualizer(CommonVisualizer):
                 "primary": "Material",
                 "final": "Material",
                 "waste": "Material",
+                "aux_recyclate_trade": "Material",
+                "aux_recl_feedstock_trade": None,
             }
         else:
             linecolor_dims = {
                 "primary": None,
                 "final": None,
                 "waste": None,
+                "aux_recyclate_trade": None,
+                "aux_recl_feedstock_trade": None,
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
