@@ -1,6 +1,6 @@
+from pydantic import PrivateAttr
 import flodym as fd
-from typing import TYPE_CHECKING
-import numpy as np
+from typing import TYPE_CHECKING, Optional
 import logging
 
 from remind_mfa.common.common_visualization import CommonVisualizer
@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 class CementVisualizer(CommonVisualizer):
     cfg: CementVisualizationCfg
 
+    _model: Optional["CementModel"] = PrivateAttr(default=None)
+
     def _end_use_letter(self, mfa: fd.MFASystem) -> str:
         """The end-use-like letter the MFA's flows carry: u in top-down runs,
         e in combined/reconciled runs."""
@@ -22,8 +24,8 @@ class CementVisualizer(CommonVisualizer):
     def _end_use_dim_name(self, mfa: fd.MFASystem) -> str:
         return mfa.dims[self._end_use_letter(mfa)].name
 
-    def visualize_custom(self, model: "CementModel"):
-        mfa: StockDrivenCementMFASystem = model.future_mfa
+    def visualize_custom(self):
+        mfa: StockDrivenCementMFASystem = self._model.future_mfa
         if self.cfg.prod_clinker.do_visualize:
             self.visualize_prod_clinker(mfa=mfa)
         if self.cfg.prod_cement.do_visualize:
@@ -34,7 +36,7 @@ class CementVisualizer(CommonVisualizer):
         if self.cfg.eol_stock.do_visualize:
             self.visualize_eol_stock(mfa=mfa)
         if self.cfg.carbonation.do_visualize:
-            if not model.cfg.model_switches.carbonation:
+            if not self._model.cfg.model_switches.carbonation:
                 logging.warning(
                     "Carbonation visualization requested, but carbonation module not activated."
                 )

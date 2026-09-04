@@ -1,0 +1,21 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fls
+*.fdb_latexmk
+*.log
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex*
+*.toc
+*.xdv
+*.pdf
+*.png
+
+# Generated table fragments and copied bibliography
+generated/
+mrmfa_sources.bib

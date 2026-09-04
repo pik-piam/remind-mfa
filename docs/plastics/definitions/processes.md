@@ -26,5 +26,7 @@
 | Atmosphere                |
 | Other Reactants           |
 | Losses                    |
+| aux_recyclate_trade       |
+| aux_recl_feedstock_trade  |
 | Imports                   |
 | Exports                   |

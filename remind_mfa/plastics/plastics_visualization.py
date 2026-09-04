@@ -1,9 +1,9 @@
+from pydantic import PrivateAttr
 import flodym as fd
-import numpy as np
 import pandas as pd
 
 import plotly.graph_objects as go
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import flodym.export as fde
 import plotly.express as px
 
@@ -15,18 +15,20 @@ if TYPE_CHECKING:
 
 class PlasticsVisualizer(CommonVisualizer):
 
-    def visualize_custom(self, model: "PlasticsModel"):
+    _model: Optional["PlasticsModel"] = PrivateAttr(default=None)
+
+    def visualize_custom(self):
         if self.cfg.use_stock.do_visualize:
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.stocks["in_use"].stock,
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.stocks["in_use"].stock,
                 name="Stock",
                 linecolor_dim="Good",
                 regional=False,
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.stocks["in_use"].stock,
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.stocks["in_use"].stock,
                 name="Stock",
                 linecolor_dim="Good",
                 regional=True,
@@ -34,86 +36,88 @@ class PlasticsVisualizer(CommonVisualizer):
             )
 
         if self.cfg.material_splits.do_visualize:
-            self.visualize_material_splits(mfa=model.future_mfa)
+            self.visualize_material_splits(mfa=self._model.future_mfa)
 
         if self.cfg.production.do_visualize:
-            self.visualize_production(mfa=model.future_mfa, regional=True)
-            self.visualize_production(mfa=model.future_mfa, regional=False)
+            self.visualize_production(mfa=self._model.future_mfa, regional=True)
+            self.visualize_production(mfa=self._model.future_mfa, regional=False)
 
         if self.cfg.extrapolation.do_visualize:
-            self.visualize_extrapolation(model=model, subplot_dim="Good", linecolor_dim="Region")
-            self.visualize_extrapolation(model=model, subplot_dim="Region", linecolor_dim="Good")
+            self.visualize_extrapolation(subplot_dim="Good", linecolor_dim="Region")
+            self.visualize_extrapolation(subplot_dim="Region", linecolor_dim="Good")
 
         if self.cfg.flows.do_visualize:
-            self.visualize_production_trade_consumption(mfa=model.future_mfa, per_capita=False)
-            self.visualize_production_trade_consumption(mfa=model.future_mfa, per_capita=True)
+            self.visualize_production_trade_consumption(
+                mfa=self._model.future_mfa, per_capita=False
+            )
+            self.visualize_production_trade_consumption(mfa=self._model.future_mfa, per_capita=True)
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["polymerization => primary_market"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["polymerization => primary_market"],
                 name="Primary production",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["polymerization => primary_market"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["polymerization => primary_market"],
                 name="Primary production",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["primary_market => fabrication"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["primary_market => fabrication"],
                 name="Primary plastics demand",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["fabrication => good_market"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["fabrication => good_market"],
                 name="Fabrication",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.stocks["in_use"].inflow,
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.stocks["in_use"].inflow,
                 name="Demand",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclmech => aux_recyclate_trade"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["reclmech => aux_recyclate_trade"],
                 name="Mechanically recycled",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclchem => aux_recl_feedstock_trade"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["reclchem => aux_recl_feedstock_trade"],
                 name="Chemically recycled",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["eol => collected"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["eol => collected"],
                 name="Collected",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["collected => reclmech"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["collected => reclmech"],
                 name="Sorted to mechanical recycling",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["collected => landfill"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["collected => landfill"],
                 name="Landfilled",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
-                mfa=model.future_mfa,
-                flow=model.future_mfa.flows["collected => incineration"],
+                mfa=self._model.future_mfa,
+                flow=self._model.future_mfa.flows["collected => incineration"],
                 name="Incinerated",
                 linecolor_dim="Material",
             )
         if self.cfg.scenario_params.do_visualize:
-            self.visualize_scenario_params(mfa=model.future_mfa)
+            self.visualize_scenario_params(mfa=self._model.future_mfa)
 
         self.stop_and_show()
 
@@ -191,7 +195,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
         self.plot_and_save_figure(
             ap,
-            f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}.png",
+            f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}",
             do_plot=False,
         )
 
@@ -214,7 +218,7 @@ class PlasticsVisualizer(CommonVisualizer):
             fig=fig,
         )
         ap.plot()
-        self.plot_and_save_figure(ap, "demand_validation.png", do_plot=False)
+        self.plot_and_save_figure(ap, "demand_validation", do_plot=False)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
@@ -238,11 +242,12 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_sankey(self, mfa: fd.MFASystem):
         # Define colors for each stage
         production_color = "#EDC948"
-        use_color = "#9EC3D5"
+        use_color = "#D4965B"
         eol_color = "#499894"
         recycle_color = "#86BCB6"
         emission_color = "#E15759"
         trade_color = "#D37295"
+        atmosphere_color = "#84A3F8"
 
         # Initialize default flow color mapping
         flow_color_dict = {"default": production_color}
@@ -265,16 +270,6 @@ class PlasticsVisualizer(CommonVisualizer):
             }
         )
 
-        # Assign colors to emission flows
-        flow_color_dict.update(
-            {
-                fn: emission_color
-                for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("atmosphere", "mismanaged", "uncontrolled", "emission", "losses")
-            }
-        )
-
         # Assign colors to recycling flows
         flow_color_dict.update(
             {
@@ -282,6 +277,25 @@ class PlasticsVisualizer(CommonVisualizer):
                 for fn, f in mfa.flows.items()
                 if f.from_process.name in ("reclmech", "reclchem")
                 or f.to_process.name in ("reclmech", "reclchem")
+            }
+        )
+
+        # Assign colors to atmosphere flows
+        flow_color_dict.update(
+            {
+                fn: atmosphere_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "atmosphere"
+                or f.to_process.name in ("atmosphere", "emission")
+            }
+        )
+
+        # Assign colors to emission flows
+        flow_color_dict.update(
+            {
+                fn: emission_color
+                for fn, f in mfa.flows.items()
+                if f.to_process.name in ("mismanaged", "uncontrolled", "emission", "losses")
             }
         )
 
@@ -298,21 +312,38 @@ class PlasticsVisualizer(CommonVisualizer):
         # Update Sankey layout configuration
         self.cfg.sankey.plotter_args.update(
             {
-                "valueformat": ".2s",  # scientific notation, two significant digits
-                "node_pad": 15,  # padding between nodes
-                "node_thickness": 20,  # node thickness
-                "arrangement": "snap",  # reduce crossings by snapping nodes
                 "flow_color_dict": flow_color_dict,
-                "node_color_dict": {"default": "gray", "use": "black"},
+                "node_color_dict": {"default": "#CCCCCC", "use": "#999999"},
             }
         )
 
         # Prepare display names and generate the Sankey diagram
-        display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
+        # display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
+        display_names_fmt = self.display_names.dct
         plotter = fde.PlotlySankeyPlotter(
             mfa=mfa, display_names=display_names_fmt, **self.cfg.sankey.plotter_args
         )
-        fig = plotter.plot()
+        links = plotter._get_links_dict()
+        nodes = plotter._get_nodes_dict()
+        nodes.update(
+            {
+                "pad": 15,
+                "thickness": 20,
+            }
+        )
+        fig = go.Figure(
+            go.Sankey(
+                arrangement="snap",
+                link=links,
+                node=nodes,
+                orientation="v",
+                textfont={
+                    "size": 12,
+                    # "weight": 600,
+                    "shadow": "0px 0px 0px rgba(0,0,0,0)",
+                },
+            )
+        )
 
         # Add legend entries
         legend_entries = [
@@ -321,7 +352,8 @@ class PlasticsVisualizer(CommonVisualizer):
             (eol_color, "End-of-Life"),
             (recycle_color, "Recycling"),
             (emission_color, "Losses"),
-            (trade_color, "Trade"),
+            # (trade_color, "Trade"),
+            (atmosphere_color, "Atmosphere"),
         ]
         for color, label in legend_entries:
             fig.add_trace(
@@ -336,12 +368,16 @@ class PlasticsVisualizer(CommonVisualizer):
 
         # Final layout adjustments and display
         fig.update_layout(
-            font_size=18, showlegend=True, plot_bgcolor="rgba(0,0,0,0)", font_color="black"
+            font_size=12,
+            # font_weight = 600,
+            showlegend=True,
+            plot_bgcolor="rgba(0,0,0,0)",
+            # font_color="black",
         )
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
 
-        self._show_and_save_plotly(fig, name="sankey")
+        self._show_and_save_plotly(fig, base_name="sankey")
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
@@ -361,23 +397,7 @@ class PlasticsVisualizer(CommonVisualizer):
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"material_splits.png")
-
-    def visualize_extrapolation(
-        self,
-        model: "PlasticsModel",
-        subplot_dim: str = "Region",
-        linecolor_dim: str = None,
-        show_extrapolation: bool = True,
-        show_future: bool = True,
-    ):
-        super().visualize_extrapolation(
-            model=model,
-            subplot_dim=subplot_dim,
-            linecolor_dim=linecolor_dim,
-            show_extrapolation=show_extrapolation,
-            show_future=show_future,
-        )
+        self.plot_and_save_figure(ap_sector_splits, f"material_splits")
 
     def visualize_scenario_params(self, mfa: fd.MFASystem):
         rates = [
