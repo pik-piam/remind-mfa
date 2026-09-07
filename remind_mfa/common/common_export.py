@@ -300,7 +300,9 @@ class CommonDataExporter(RemindMFABaseModel):
                 continue
             dims = mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
             param = param.cast_to(dims)
-            df = self._fd_array_to_df_for_iamc(f"{vname_base}|Parameters|{name}", param, split_dims="all")
+            df = self._fd_array_to_df_for_iamc(
+                f"{vname_base}|Parameters|{name}", param, split_dims="all"
+            )
             df["unit"] = unit
             df_list.append(df)
 
