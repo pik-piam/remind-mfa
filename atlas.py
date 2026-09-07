@@ -34,14 +34,15 @@ ConfigOption = Annotated[
 ]
 VariantOption = Annotated[AtlasVariant, typer.Option(help="ATLAS technology variant.")]
 Co2PriceOption = Annotated[AtlasCo2Price, typer.Option(help="ATLAS CO2-price option.")]
-ScenarioPkBudgOption = Annotated[AtlasScenarioPkBudg, typer.Option(help="ATLAS PkBudg scenario selection.")]
+ScenarioPkBudgOption = Annotated[
+    AtlasScenarioPkBudg, typer.Option(help="ATLAS PkBudg scenario selection.")
+]
+
 
 @app.command()
 def run_mfa(
     model: ModelOption,
-    stage: Annotated[
-        Literal["one", "two"], typer.Option(help="MFA stage to run.")
-    ],
+    stage: Annotated[Literal["one", "two"], typer.Option(help="MFA stage to run.")],
 ) -> None:
     """Run one model of the MFA: either to produce the demand (stage one) or the actual results (stage two)."""
 
@@ -77,7 +78,8 @@ def copy_demands(
 def copy_trade(
     model: ModelOption,
     source: Annotated[
-        Path | None, typer.Option("--source", help="Path to trade projection produced by the ATLAS model.")
+        Path | None,
+        typer.Option("--source", help="Path to trade projection produced by the ATLAS model."),
     ] = None,
     variant: VariantOption = AtlasVariant.GREEN_GREY,
     co2price: Co2PriceOption = AtlasCo2Price.NONE,
@@ -91,7 +93,15 @@ def copy_trade(
     paths = get_coupling_paths(model, ["default", "atlas_run2"])
     if not source:
         variant_value = variant.value.replace("-", "_")
-        source = ATLAS_TRADE_ROOT / "outputs" / "output_no_cet" / "future" / variant_value / "cache" / f"future_projections_summary_{variant_value}.xlsx"
+        source = (
+            ATLAS_TRADE_ROOT
+            / "outputs"
+            / "output_no_cet"
+            / "future"
+            / variant_value
+            / "cache"
+            / f"future_projections_summary_{variant_value}.xlsx"
+        )
     imports_path, exports_path = copy_trade_to_mfa(
         model,
         source,
@@ -103,27 +113,24 @@ def copy_trade(
 
 
 @app.command()
-def preprocess(
-) -> None:
+def preprocess() -> None:
     """Run the ATLAS data-preprocessing Snakemake workflow."""
 
     execute_command(["pixi", "run", "snakemake", "--cores", "5"], ATLAS_DATA_PIPELINE_ROOT)
 
 
 @app.command()
-def calibrate(
-) -> None:
+def calibrate() -> None:
     """Calibrate the ATLAS trade model."""
 
     execute_command(
         ["pixi", "run", "python", "run/run_history_calibration.py", "--region-set", "REMIND"],
-        ATLAS_TRADE_ROOT
+        ATLAS_TRADE_ROOT,
     )
 
 
 @app.command()
-def validate(
-) -> None:
+def validate() -> None:
     """Validate the ATLAS trade model against historical data."""
 
     execute_command(
@@ -141,8 +148,10 @@ def future(
     """Calculate ATLAS future trade projections."""
 
     execute_command(
-    [
-            "pixi", "run", "python",
+        [
+            "pixi",
+            "run",
+            "python",
             "run/run_future_scenarios.py",
             "--run-model",
             variant.value,
@@ -153,10 +162,11 @@ def future(
             co2price.value,
             "--scenario-PkBudg",
             scenario_pkbudg.value,
-            "--excel"
+            "--excel",
         ],
-        ATLAS_TRADE_ROOT
+        ATLAS_TRADE_ROOT,
     )
+
 
 @app.command()
 def couple(
@@ -164,9 +174,7 @@ def couple(
     variant: VariantOption = AtlasVariant.GREEN_GREY,
     co2price: Co2PriceOption = AtlasCo2Price.NONE,
     scenario_pkbudg: ScenarioPkBudgOption = AtlasScenarioPkBudg.BUDG_1000,
-    force: Annotated[
-        bool, typer.Option("--force", help="Overwrite existing files.")
-    ] = False,
+    force: Annotated[bool, typer.Option("--force", help="Overwrite existing files.")] = False,
 ) -> None:
     """Run MFA, preprocessing, ATLAS, and MFA again."""
 

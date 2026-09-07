@@ -23,7 +23,7 @@ The trade flows of REMIND-MFA are delivered especially to the [EU-MFA](https://t
 ## Coupling with the ATLAS trade model
 
 Trade is normally extrapolated from historic trade (`TradeExtrapolator`). Alternatively, it can be
-calculated by the ATLAS trade model, which needs the material demand of REMIND-MFA as input. 
+calculated by the ATLAS trade model, which needs the material demand of REMIND-MFA as input.
 
 Make sure you have `pixi` installed (e.g., `curl -fsSL https://pixi.sh/install.sh | sh`).
 
@@ -34,7 +34,7 @@ uv run atlas.py couple --model steel
 ```
 
 `couple` runs MFA with `default,atlas_run1`, copies demand to the data pipeline, runs the ATLAS data pipeline, calibration, validation, and the ATLAS future model, transfers the resulting trade, then runs MFA
-with `default,atlas_run2`. 
+with `default,atlas_run2`.
 
 Each stage can also be retried or run independently:
 

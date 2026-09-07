@@ -24,17 +24,21 @@ from enum import Enum
 
 
 class AtlasVariant(Enum):
-    SINGLE_RES = 'single-res'
-    GREEN_GREY = 'green-grey'
+    SINGLE_RES = "single-res"
+    GREEN_GREY = "green-grey"
+
+
 class AtlasCo2Price(Enum):
-    ALL = 'all'
-    CBAM = 'cbam'
-    DOMESTIC = 'domestic'
-    NONE = 'none'
+    ALL = "all"
+    CBAM = "cbam"
+    DOMESTIC = "domestic"
+    NONE = "none"
+
+
 class AtlasScenarioPkBudg(Enum):
-    BUDG_650 = '650'
-    BUDG_1000 = '1000'
-    BOTH = 'both'
+    BUDG_650 = "650"
+    BUDG_1000 = "1000"
+    BOTH = "both"
 
 
 class AtlasCouplingError(ValueError):
@@ -138,9 +142,12 @@ def get_coupling_paths(
         )
 
     if os.environ.get("ATLAS_MFA_INPUT_DIRECTORY"):
-        atlas_demand_path = Path(os.environ["ATLAS_MFA_INPUT_DIRECTORY"]) / spec.pipeline_demand_filename
+        atlas_demand_path = (
+            Path(os.environ["ATLAS_MFA_INPUT_DIRECTORY"]) / spec.pipeline_demand_filename
+        )
     else:
         from ATLAS_Trade_data_pipeline.config.paths import RAW_DATA as ATLAS_RAW_DATA
+
         atlas_demand_path = ATLAS_RAW_DATA / "REMIND_MFA" / spec.pipeline_demand_filename
     return CouplingPaths(
         exported_demand_path=atlas_export_path / spec.demand_filename,
@@ -149,6 +156,7 @@ def get_coupling_paths(
         region_dimension_path=dimensions_path / "regions.csv",
         time_dimension_path=dimensions_path / "time_in_years.csv",
     )
+
 
 def _validate_nonnegative_frame(frame: pd.DataFrame, value_column: str, context: str) -> None:
     values = pd.to_numeric(frame[value_column], errors="coerce")
@@ -208,13 +216,17 @@ def copy_steel_demand_to_atlas(source: Path, target: Path) -> pd.DataFrame:
     return result
 
 
-def copy_demand_to_atlas(model: ModelNames, source: Path, target: Path, force: bool = False) -> pd.DataFrame:
+def copy_demand_to_atlas(
+    model: ModelNames, source: Path, target: Path, force: bool = False
+) -> pd.DataFrame:
     """Convert a model demand export for ATLAS preprocessing."""
     if not source.is_file():
         raise AtlasCouplingError(f"MFA demand export was not found: {source}")
 
     if target.exists() and not force:
-        raise AtlasCouplingError(f"ATLAS demand target already exists: {target}, use '--force' to overwrite.")
+        raise AtlasCouplingError(
+            f"ATLAS demand target already exists: {target}, use '--force' to overwrite."
+        )
 
     if model == ModelNames.STEEL:
         return copy_steel_demand_to_atlas(source, target)
@@ -236,10 +248,10 @@ def load_atlas_trade_projection(
     source: Path, scenario_pkbudg: AtlasScenarioPkBudg, region_dimension_path: Path
 ) -> pd.DataFrame:
     """Load one ATLAS scenario through the ATLAS Pixi environment."""
-    
+
     if not source.is_file():
         raise AtlasCouplingError(f"ATLAS result file was not found: {source}")
-    
+
     data = pd.read_excel(source, sheet_name=f"PkBudg{scenario_pkbudg.value}_q_ij")
 
     required_columns = {"i", "j", "year", "quantity"}
@@ -307,7 +319,9 @@ def _validate_global_balance(imports: pd.DataFrame, exports: pd.DataFrame) -> No
 
 
 def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
-    result = data.rename(columns={"year": "Time", "region": "Region", "quantity": "value"}).loc[:, ["Time", "Region", "value"]]
+    result = data.rename(columns={"year": "Time", "region": "Region", "quantity": "value"}).loc[
+        :, ["Time", "Region", "value"]
+    ]
     _atomic_write_text(
         path,
         "* note: dimensions: (Time,Region,value)\n"
