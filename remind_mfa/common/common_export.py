@@ -27,7 +27,12 @@ from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.helpers import DOCS_PATH, RemindMFABaseModel, series_export_path, export_dir_prefix
+from remind_mfa.common.helpers import (
+    DOCS_PATH,
+    RemindMFABaseModel,
+    series_export_path,
+    export_dir_prefix,
+)
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -361,13 +366,12 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def merge_parameters_sources(self, params_df: pd.DataFrame):
 
-
-        sources_df = pd.read_csv(self._model.data_reader.shared_parameter_path / "mrmfa_sources.csv")
+        sources_df = pd.read_csv(
+            self._model.data_reader.shared_parameter_path / "mrmfa_sources.csv"
+        )
 
         merged_df = merge_parameters_sources(
-            sources_df=sources_df,
-            params_df=params_df,
-            prefix=self._model.name[:2]
+            sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
         )
 
         output_file = self.model_docs_path / "definitions/parameters.md"
@@ -432,4 +436,3 @@ class CommonDataExporter(RemindMFABaseModel):
     def model_docs_path(self) -> str:
         """Per-model-run export folder for docs, created once and shared by exporter and visualizer."""
         return DOCS_PATH / self._model.name
-

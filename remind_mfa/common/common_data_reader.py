@@ -168,8 +168,7 @@ class CommonDataReader(fd.CompoundDataReader):
         return matches[0]
 
     def extract_tar_file(self, material_parameter_path: str):
-        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata.
-        """
+        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
         if not os.path.isdir(self._input_cfg.resolved_madrat_output_path):
             raise FileNotFoundError(
                 f"MADRAT output path '{self._input_cfg.resolved_madrat_output_path}' does not exist. It is required to extract the "
@@ -219,9 +218,7 @@ class CommonDataReader(fd.CompoundDataReader):
                 f"{[os.path.basename(match) for match in matches]}"
             )
 
-        self._extract_and_record(
-            matches[0], validation_path, suffix=self.VALIDATION_SUFFIX
-        )
+        self._extract_and_record(matches[0], validation_path, suffix=self.VALIDATION_SUFFIX)
 
     def _extract_and_record(
         self,
@@ -229,8 +226,7 @@ class CommonDataReader(fd.CompoundDataReader):
         target_path: str,
         suffix: str = MFA_SUFFIX,
     ):
-        """Extract ``tgz_path`` into ``target_path`` and record its rev/regions metadata there.
-        """
+        """Extract ``tgz_path`` into ``target_path`` and record its rev/regions metadata there."""
         os.makedirs(target_path, exist_ok=True)
 
         with tarfile.open(tgz_path, "r:gz") as tar:

@@ -11,11 +11,9 @@ import re
 
 import pandas as pd
 
-
 # A citation list such as "[@Andrews2019], [@Kaufmann2024]" may be split on commas.
 # Free-text sources may contain commas themselves and are kept as one opaque token.
 CITATION_LIST_PATTERN = re.compile(r"\[@[^\]]+\](\s*,\s*\[@[^\]]+\])*")
-
 
 
 def merge_bib_files(src_paths: List[str], out_path: str) -> Tuple[int, int, int]:
@@ -57,7 +55,9 @@ def merge_bib_files(src_paths: List[str], out_path: str) -> Tuple[int, int, int]
     return total_read, duplicates, written
 
 
-def merge_parameters_sources(sources_df: pd.DataFrame, params_df: pd.DataFrame, prefix: str) -> pd.DataFrame:
+def merge_parameters_sources(
+    sources_df: pd.DataFrame, params_df: pd.DataFrame, prefix: str
+) -> pd.DataFrame:
     """Merge parameter files with source information and generate markdown documentation."""
 
     # Filter sources for this module (module-specific + common)
@@ -99,12 +99,11 @@ def merge_parameters_sources(sources_df: pd.DataFrame, params_df: pd.DataFrame, 
         has_custom = mapped.notna() & (mapped.astype(str).str.strip() != "")
         merged_df.loc[has_custom, "Sources"] = [
             _combine_sources(existing, custom)
-            for existing, custom in zip(
-                merged_df.loc[has_custom, "Sources"], mapped[has_custom]
-            )
+            for existing, custom in zip(merged_df.loc[has_custom, "Sources"], mapped[has_custom])
         ]
 
     return merged_df
+
 
 def _split_entries(text: str) -> List[str]:
     """Split raw bibtex file content into individual entry strings.
@@ -132,6 +131,7 @@ def _extract_key(entry: str) -> Optional[str]:
         return m.group(1).strip()
     return None
 
+
 def _split_sources(value):
     """Split a source string into tokens, keeping free text intact."""
     value = str(value).strip()
@@ -149,5 +149,3 @@ def _combine_sources(existing, custom):
         if token not in tokens:
             tokens.append(token)
     return ", ".join(tokens)
-
-
