@@ -70,7 +70,6 @@ class CommonDataReader(fd.CompoundDataReader):
     def regions_filename(self) -> str:
         return "regions.txt"
 
-
     def prepare_input_readers(self):
         # prepare directory for extracted input data
         self.parameters_path.mkdir(parents=True, exist_ok=True)
@@ -296,7 +295,7 @@ class CommonDataReader(fd.CompoundDataReader):
         parameter_files: dict[str, str | os.PathLike[str]] = {}
         for parameter in self.definition.parameters:
             model_specific_file = self.parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
-            legacy_file =  self.legacy_parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
+            legacy_file = self.legacy_parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
 
             if not model_specific_file.exists() and legacy_file.exists():
                 warnings.warn(
