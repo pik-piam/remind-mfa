@@ -84,6 +84,10 @@ class IamcExportCfg(BaseExportCfg):
 
 
 class ExportCfg(BaseExportCfg):
+    bundle_export: bool = False
+    """Whether to group all model outputs from one run into a shared <prefix>_series folder."""
+    prefix: str | None = None
+    """Optional fixed prefix for export file and folder names. Defaults to a timestamp."""
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
     mrindustry: BaseExportCfg
@@ -128,8 +132,6 @@ class GDPVisualizationCfg(BaseVisualizationCfg):
 
 
 class VisualizationCfg(BaseVisualizationCfg):
-    figures_path: str
-    """Path to the figures directory."""
     do_show_figs: bool = True
     """Whether to show figures."""
     do_save_figs: bool = False
