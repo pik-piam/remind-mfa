@@ -46,7 +46,7 @@
         iamc.do_export = false
         mrindustry.do_export = false
         assumptions.do_export = false
-        docs.do_export = true
+        docs.do_export = false
 
 [plastics]
     [plastics.model_switches]
@@ -59,18 +59,12 @@
         flows.do_visualize = false
         scenario_params.do_visualize = false
 
-    [plastics.export]
-        docs.path = "docs/plastics"
-
 [steel]
     [steel.model_switches]
         do_stock_extrapolation_by_category = true
 
     [steel.visualization]
         scrap_demand_supply.do_visualize = false
-
-    [steel.export]
-        docs.path = "docs/steel"
 
 [cement]
     [cement.model_switches]
@@ -90,6 +84,3 @@
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
         carbonation.do_visualize = false
-
-    [cement.export]
-        docs.path = "docs/cement"
