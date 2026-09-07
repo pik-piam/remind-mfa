@@ -7,7 +7,7 @@
         scenarios_path = "config/scenarios"
 
     [base.model_switches]
-        scenario = "SSP1_CE"
+        scenario = "SSP2"
         stock_extrapolation_class_name = "LogisticExtrapolation"
         regress_over = "loggdppc"
         lifetime_model_name = "LogNormalLifetime"
