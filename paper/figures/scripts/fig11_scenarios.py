@@ -20,9 +20,11 @@ SCENARIO_COLORS = CMAP_5[::-2]
 LINE_WIDTH_SCALE = 1.5
 LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
 LINE_WIDTH_VLINE = 1.2 * LINE_WIDTH_SCALE
-LEGEND_FONT_SIZE = 13
+LEGEND_FONT_SIZE = 14
+AXIS_LABEL_FONT_SIZE = 14
 MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 LEGEND_Y = 1.12
+LEFT_COLUMN_Y_LABEL_X = -0.075
 WORLD_PANEL_CONFIG = {
     "x0": -0.20,
     "x1": 1.20,
@@ -130,6 +132,10 @@ def _build_comparison_figure(config, array: fd.FlodymArray, aggregate_regions: b
         col = index % n_cols + 1
         return row, col
 
+    def _yaxis_layout_name(row: int, col: int) -> str:
+        axis_index = (row - 1) * n_cols + col
+        return "yaxis" if axis_index == 1 else f"yaxis{axis_index}"
+
     def _add_panel_traces(panel_df, panel_row: int, panel_col: int, legend: bool):
         ordered_runs = list(array.dims["X"].items)
         present_runs = set(panel_df[run_col].astype(str))
@@ -198,10 +204,32 @@ def _build_comparison_figure(config, array: fd.FlodymArray, aggregate_regions: b
 
     fig.for_each_xaxis(
         lambda axis: axis.update(
-            title_text="Year", title_standoff=4, range=X_RANGE, tickmode="array", tickvals=X_TICKS
+            title_text="Year",
+            title_font={"size": AXIS_LABEL_FONT_SIZE},
+            title_standoff=4,
+            range=X_RANGE,
+            tickmode="array",
+            tickvals=X_TICKS,
         )
     )
     fig.for_each_yaxis(lambda axis: axis.update(title_text="", showgrid=True))
+    for row in range(1, n_rows + 1):
+        yaxis = getattr(fig.layout, _yaxis_layout_name(row=row, col=1), None)
+        if yaxis is None or yaxis.domain is None:
+            continue
+        y0, y1 = yaxis.domain
+        fig.add_annotation(
+            x=LEFT_COLUMN_Y_LABEL_X,
+            y=0.5 * (y0 + y1),
+            xref="paper",
+            yref="paper",
+            text="Production (Gt)",
+            font={"size": AXIS_LABEL_FONT_SIZE},
+            textangle=-90,
+            showarrow=False,
+            xanchor="center",
+            yanchor="middle",
+        )
     fig.update_layout(
         template="plotly_white",
         width=900 if n_cols == 3 else 1200,
