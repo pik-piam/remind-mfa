@@ -11,6 +11,8 @@ from _constants import (
     REMIND_REGION_ORDER,
 )
 
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+
 
 def get_column_name(df, target_name: str) -> str:
     for column in df.columns:
@@ -82,7 +84,7 @@ def region_mode_suffix(use_h12: bool) -> str:
 def run_pickle_path(
     material: str, scenario: str = "SSP2", region_mapping: str = "h12"
 ) -> pathlib.Path:
-    return pathlib.Path(f"data_out/paper/paper_{material}_{scenario}_{region_mapping}/model.pickle")
+    return REPO_ROOT / f"data_out/paper/paper_{material}_{scenario}_{region_mapping}/model.pickle"
 
 
 def load_model(material: str, scenario: str = "SSP2", region_mapping: str = "h12"):
