@@ -2,6 +2,7 @@ import glob
 import os
 import tarfile
 import warnings
+from os import PathLike
 from pathlib import Path
 
 import flodym as fd
@@ -10,7 +11,7 @@ import pandas as pd
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDimensionFiles
-from remind_mfa.common.helpers import module_from_prefix, prefix_from_module
+from remind_mfa.common.helpers import prefix_from_module
 
 
 class CommonDataReader(fd.CompoundDataReader):
@@ -35,7 +36,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self._input_cfg = cfg.input
         self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
-        self.input_data_path = cfg.input.input_data_path
+        self.input_data_path = Path(cfg.input.input_data_path)
         self.input_data_revision = cfg.input.input_data_revision
         self.region_mapping = cfg.input.region_mapping
         self.force_extract = cfg.input.force_extract_tgz
@@ -45,12 +46,21 @@ class CommonDataReader(fd.CompoundDataReader):
         self.prepare_input_readers()
 
     @property
-    def shared_parameter_path(self) -> str:
-        return os.path.join(self.input_data_path, "input_data")
+    def parameters_path(self) -> Path:
+        return self.input_data_path / "parameters"
 
     @property
-    def validation_path(self) -> str:
-        return os.path.join(self.input_data_path, "validation")
+    def legacy_parameters_path(self) -> Path:
+        root = Path(__file__).resolve().parents[2]
+        return root / "remind_mfa_data" / "input_data"
+
+    @property
+    def validation_path(self) -> Path:
+        return self.input_data_path / "validation"
+
+    @property
+    def dimensions_path(self) -> Path:
+        return self.input_data_path / "dimensions" / self.model_class
 
     @property
     def rev_filename(self) -> str:
@@ -60,28 +70,25 @@ class CommonDataReader(fd.CompoundDataReader):
     def regions_filename(self) -> str:
         return "regions.txt"
 
-    def get_material_dimension_path(self, material: str) -> str:
-        return os.path.join(self.input_data_path, "dimensions", material)
 
     def prepare_input_readers(self):
         # prepare directory for extracted input data
-        os.makedirs(self.shared_parameter_path, exist_ok=True)
+        self.parameters_path.mkdir(parents=True, exist_ok=True)
 
         # extract tar file if needed
-        if self.extraction_needed(self.shared_parameter_path):
-            self.extract_tar_file(self.shared_parameter_path)
+        if self.extraction_needed(self.parameters_path):
+            self.extract_tar_file(self.parameters_path)
 
         # extract the matching validation archive (optional; warns if not found)
         if self.extraction_needed(self.validation_path):
             self.extract_validation_tar_file(self.validation_path)
 
         # dimensions
-        dimension_files = self.get_dimension_dict(self.shared_parameter_path)
+        dimension_files = self.get_dimension_files()
         dimension_reader = CommonDimensionReader(dimension_files)
 
         # parameters
-        parameter_files = self.get_parameter_dict(self.shared_parameter_path)
-        self.validate_parameter_files(parameter_files)
+        parameter_files = self.get_parameter_files()
         parameter_reader = MadratParameterReader(
             parameter_files,
             allow_extra_values=self.allow_extra_values,
@@ -91,22 +98,21 @@ class CommonDataReader(fd.CompoundDataReader):
         super().__init__(dimension_reader=dimension_reader, parameter_reader=parameter_reader)
 
     @staticmethod
-    def read_text_file(path: str) -> str | None:
+    def read_text_file(path: str | os.PathLike[str]) -> str | None:
         if not os.path.exists(path):
             return None
         with open(path, "r") as f:
             return f.read().strip()
 
     @staticmethod
-    def write_text_file(path: str, value: str):
+    def write_text_file(path: str | os.PathLike[str], value: str):
         with open(path, "w") as f:
             f.write(value)
 
     @classmethod
     def parse_archive_name(cls, filename: str, suffix: str = MFA_SUFFIX) -> tuple[str, str]:
         stem = os.path.basename(filename)
-        if stem.endswith(".tgz"):
-            stem = stem[: -len(".tgz")]
+        stem = stem.removesuffix(".tgz")
 
         if not stem.startswith("rev") or not stem.endswith(suffix):
             raise ValueError(
@@ -129,11 +135,11 @@ class CommonDataReader(fd.CompoundDataReader):
 
         return rev, regions
 
-    def extraction_needed(self, material_parameter_path: str) -> bool:
+    def extraction_needed(self, parameters_path: Path) -> bool:
         if self.force_extract:
             return True
-        rev_path = os.path.join(material_parameter_path, self.rev_filename)
-        regions_path = os.path.join(material_parameter_path, self.regions_filename)
+        rev_path = parameters_path / self.rev_filename
+        regions_path = parameters_path / self.regions_filename
         current_rev = self.read_text_file(rev_path)
         current_regions = self.read_text_file(regions_path)
         return current_rev != self.input_data_revision or current_regions != self.region_mapping
@@ -171,7 +177,7 @@ class CommonDataReader(fd.CompoundDataReader):
             )
         return matches[0]
 
-    def extract_tar_file(self, material_parameter_path: str):
+    def extract_tar_file(self, parameters_path: Path):
         """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata.
 
         Documentation-source files (see ``DOC_SOURCE_FILES``) are routed into this repo's
@@ -187,9 +193,9 @@ class CommonDataReader(fd.CompoundDataReader):
             )
 
         tgz_path = self.get_target_tgz_path(self.MFA_SUFFIX)
-        self._extract_and_record(tgz_path, material_parameter_path, route_docs=True)
+        self._extract_and_record(tgz_path, parameters_path, route_docs=True)
 
-    def extract_validation_tar_file(self, validation_path: str):
+    def extract_validation_tar_file(self, validation_path: Path):
         """Extracts the validation tgz matching the configured revision/region into ``validation_path``.
 
         The validation archive is optional: if no archive matching the current input-data
@@ -234,7 +240,7 @@ class CommonDataReader(fd.CompoundDataReader):
     def _extract_and_record(
         self,
         tgz_path: str,
-        target_path: str,
+        target_path: Path,
         route_docs: bool,
         suffix: str = MFA_SUFFIX,
     ):
@@ -243,11 +249,11 @@ class CommonDataReader(fd.CompoundDataReader):
         If ``route_docs`` is set, documentation-source files (see ``DOC_SOURCE_FILES``) are
         flattened into this repo's ``docs/`` folder instead of ``target_path``.
         """
-        os.makedirs(target_path, exist_ok=True)
+        target_path.mkdir(parents=True, exist_ok=True)
 
         docs_path = Path(__file__).resolve().parents[2] / "docs"
         if route_docs:
-            os.makedirs(docs_path, exist_ok=True)
+            docs_path.mkdir(parents=True, exist_ok=True)
 
         with tarfile.open(tgz_path, "r:gz") as tar:
             for member in tar.getmembers():
@@ -262,63 +268,46 @@ class CommonDataReader(fd.CompoundDataReader):
         self.write_text_file(os.path.join(target_path, self.rev_filename), rev)
         self.write_text_file(os.path.join(target_path, self.regions_filename), regions)
 
-    def validate_parameter_files(self, parameter_files: dict[str, str]):
-        """Validate that all expected parameter files for the selected model exist."""
-        missing = [
-            (name, path) for name, path in parameter_files.items() if not os.path.exists(path)
-        ]
+    def _validate_files(self, kind: str, files: dict[str, str | os.PathLike[str]]):
+        missing = {name: path for name, path in files.items() if not Path(path).exists()}
         if missing:
             raise FileNotFoundError(
-                f"Missing parameter files in shared input_data folder '{self.shared_parameter_path}' for model "
-                f"'{self.model_class}': { [f'{name} -> {os.path.basename(path)}' for name, path in missing]}"
+                f"Missing {kind} files for model "
+                f"'{self.model_class}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
             )
 
-        for filepath in parameter_files.values():
-            filename = os.path.basename(filepath)
-            if "_" not in filename:
-                raise ValueError(
-                    f"Unexpected filename format: {filename}. "
-                    "Must have form of 'prefix_parametername.cs4r'"
-                )
-            prefix = filename.split("_")[0]
-            try:
-                material = module_from_prefix(prefix)
-            except ValueError as e:
-                raise ValueError(f"Unexpected prefix '{prefix}' in filename '{filename}'.") from e
-            if material != self.model_class:
-                raise ValueError(
-                    f"Parameter file '{filename}' does not belong to selected model '{self.model_class}'."
-                )
-
-    def get_dimension_dict(self, material_parameter_path: str) -> dict[str, str]:
-        material_dimension_path = self.get_material_dimension_path(self.model_class)
-
-        dimension_files: dict[str, str] = {}
+    def get_dimension_files(self) -> dict[str, str | os.PathLike[str]]:
+        dimension_files: dict[str, str | os.PathLike[str]] = {}
         for dimension in self.definition.dimensions:
-            dimension_filename = self.dimension_file_mapping[dimension.name]
-            dimension_files[dimension.name] = os.path.join(
-                material_dimension_path, f"{dimension_filename}.csv"
-            )
-        # Special case for Region dimensions
-        if "Region" in dimension_files:
-            regionmapping_path = os.path.join(material_parameter_path, "regionmapping.csv")
-            if not os.path.exists(regionmapping_path):
-                raise FileNotFoundError(
-                    f"No regionmapping.csv found in shared input_data folder {material_parameter_path}"
-                )
-            dimension_files["Region"] = regionmapping_path
+            if dimension.name == "Region":
+                # Special case for Region: it is read from the parameters folder, not the dimensions folder
+                dimension_path = self.parameters_path / "regionmapping.csv"
+            else:
+                dimension_filename = self.dimension_file_mapping[dimension.name]
+                dimension_path = self.dimensions_path / f"{dimension_filename}.csv"
 
+            dimension_files[dimension.name] = dimension_path
+
+        self._validate_files("dimension", dimension_files)
         return dimension_files
 
-    def get_parameter_dict(self, material_parameter_path: str) -> dict[str, str]:
-        material_prefix = prefix_from_module(self.model_class)
-        parameter_files: dict[str, str] = {}
+    def get_parameter_files(self) -> dict[str, str | os.PathLike[str]]:
+        model_prefix = prefix_from_module(self.model_class)
+        parameter_files: dict[str, str | os.PathLike[str]] = {}
         for parameter in self.definition.parameters:
-            material_specific_file = os.path.join(
-                material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
-            )
-            parameter_files[parameter.name] = material_specific_file
+            model_specific_file = self.parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
+            legacy_file =  self.legacy_parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
 
+            if not model_specific_file.exists() and legacy_file.exists():
+                warnings.warn(
+                    f"Parameter file '{model_specific_file}' not found. Using legacy file '{legacy_file}' instead.",
+                    stacklevel=2,
+                )
+                parameter_files[parameter.name] = legacy_file
+            else:
+                parameter_files[parameter.name] = model_specific_file
+
+        self._validate_files("parameter", parameter_files)
         return parameter_files
 
 
@@ -357,7 +346,7 @@ class MadratParameterReader(fd.CSVParameterReader):
         self.read_csv_kwargs = {"names": header, "skiprows": skiprows}
 
     @staticmethod
-    def extract_cs4r_info(filepath: str):
+    def extract_cs4r_info(filepath: str | PathLike[str]) -> tuple[list[str], int]:
         """Extract header and skiprows from .cs4r file."""
         pre_str = "dimensions: ("
         post_str = ")"
