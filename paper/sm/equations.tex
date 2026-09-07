@@ -1,0 +1,235 @@
+
+\section{Detailed general methods with equations}
+
+
+%=======================================================================
+%=======================================================================
+%=======================================================================
+\subsection{Stock extrapolation} \label{sec:stock_extrapol}
+
+
+%=======================================================================
+\subsubsection{Step 1: Common regression}
+
+
+$L(p,x)$ is the logistic curve over $x$ parametrized by $p = (\alpha,\beta,\gamma)^T$, that is
+\begin{equation}
+    L(p,x) =  \alpha / (1 + \exp(-4\,\gamma\,(x - \beta))),
+\end{equation}
+where $\alpha$ is the saturation level, $\beta$ is the horizontal offset and $\gamma$ is the growth rate.
+
+Let $u$ be the index for the time vector (year), $r$ the region and $u$ the in-use category.
+
+We first calculate the common regression for per-capita in-use stocks $f^{(1)}_u(t)$ (where the superscript $(1)$ indicates Step 1 of the stock extrapolation procedure) from
+\begin{equation}
+f^{(1)}_u(t) = L\big(\hat{p}^{(1)}_u,\,x(t)\big)
+\end{equation}
+where $x_r(t)$ is the base-10-logarithm of the GDP per capita of that region and the parameter vector $\hat{p}^{(1)}_{u}$ is the result of the regression
+\begin{equation}
+    \hat{p}^{(1)}_{u} = \arg\min_{p} \left( \sum_{t,r} (L(p,x_r(t))-h_{r,u}(t))^2 \right),
+\end{equation}
+where $h_{r,u}(t)$ is the historical per-capita in-use stock for one in-use good and region, as calculated from the historical MFA.
+
+%=======================================================================
+\subsubsection{Step 2: Regional adaptation}
+
+In this step, we vary the parameter set from step 1 by region. This step aims to ensure a trade-off between continuing historical in-use-stock development trends, while not diverging too much from the common regression from Step 1.
+
+To this end, we find a regional curve
+\begin{equation}
+f^{(2)}_{u,r}(t) = L\big(\hat{p}^{(2)}_{u,r},\,x(t)\big)
+\end{equation}
+with the region-specific parameter set $\hat{p}^{(2)}_{u,r}$, which we obtain from the optimization problem
+\begin{equation}
+    \hat{p}^{(2)}_{u,r} = \arg\min_{p} \Big( W_{T_a}\,T_a(p) + W_{T_r}\,T_r(p) + W_{T_d}\,T_d(p) + W_{D_\alpha}\,D_\alpha(p) + W_{D_\beta}\,D_\beta(p) + W_{D_\gamma}\,D_\gamma(p) \Big)
+\end{equation}
+Where $T_a$, $T_r$, $T_d$, $D_\alpha$, $D_\beta$, and $D_\gamma$ all describe terms of a penalty function, and $W_i$ the corresponding weights.
+
+The terms
+\begin{equation}
+\begin{split}
+    T_a(p) &= \big(L(p,x_r(t_{0}))-h_{r,u}(t_{0}) \big)^2, \\
+    T_r(p) &= \left(\frac{L(p,x_r(t_{0}))-h_{r,u}(t_{0})}{h_{r,u}(t_{0})} \right)^2, \qquad\qquad\qquad\qquad\text{and} \\
+    T_d(p) &= \Big(\frac{d}{d t}\Big|_{t=t_{0}}\big(L(p,x_r(t))\big)-\frac{d}{d t}\Big|_{t=t_{0}}\big(h_{r,u}(t)\big) \Big)^2 \\
+\end{split}
+\end{equation}
+all penalize deviations of the regionally adapted function from the historical in-use stocks $h$ at the last historical time step $t_{0}$.
+In particular, the terms $T_a$ and $T_d$ penalize absolute and relative deviations of the function value, whereas $T_r$ penalizes deviations of the derivative.
+
+On the other hand, the terms
+\begin{equation}
+\begin{split}
+    D_\alpha(p) &= (\alpha-\hat{\alpha}^{(1)}_{u})^2, \\
+    D_\beta(p) &= (\beta-\hat{\beta}^{(1)}_{u})^2, \quad\text{and} \\
+    D_\gamma(p) &= (\gamma-\hat{\gamma}^{(1)}_{u})^2
+\end{split}
+\end{equation}
+penalize deviations of the parameters $\alpha$, $\beta$, and $\gamma$ from the parameters of the common regression $\hat{p}^{(1)}_u$.
+
+The weights of these parameter terms are chosen empirically to achieve a good trade-off and are the same for all materials. Their values are
+\begin{equation}
+W_{T_a} = 20, \quad
+W_{T_r} = 1, \quad
+W_{T_d} = 4000, \quad
+W_{D_\alpha} = 10, \quad
+W_{D_\beta} = 7.5, \quad \text{and} \quad
+W_{D_\gamma} = 0.025.
+\end{equation}
+
+%TODO: units
+
+%=======================================================================
+\subsubsection{Step 3: Transition smoothing}
+
+Since Step 2 does not guarantee an exact match of value and derivative to historical data, a blending procedure from historical data $h_{r,u}(t)$ to the logistic curve $f^{(2)}_{u,r}(t)$ is performed.
+
+The blending procedure is carried out in the time domain. The resulting smoothed function $f^{(3)}_{u,r}(t)$ is calculated as the result of an initial value problem (a differential equation), where its second derivative is controlled as described below, and its function value and first derivative are determined by time integration.
+
+The second derivative is determined to drive the smoothed function $f^{(3)}_{u,r}(t)$ towards it's target $f^{(2)}_{u,r}(t)$. To this end, a critically damped PD-controller is used, which means that the second derivative has two terms: One is proportional to the difference in the function value (the "P" in "PD", as in "proportional"), whereas the other is proportional to the differences in the derivative (the "D" in "PD", as in "difference"). In the following, a notation change is introduced to avoid confusion: The the target value (also "set point" in control theory) is labeled $f^{(2)}_{u,r}(t) = s(t)$ and the smoothed transition (i.e. the solution variable of the differential equation is labeled $f^{(3)}_{u,r}(t) = y(t)$. One or two dots denote first and second time derivatives $\dot{y}(t) = \frac{dy}{d t}$ and $\ddot{y}(t) = \frac{d^2y}{d t^2}$
+
+The resulting differential equation then reads
+% TODO: check
+\begin{equation} \label{eq:pd_acc}
+    \ddot{y}(t) = - 2k\; (\dot{y}(t) - \dot{s}(t^*)) - k^2\;(y(t)-s(t)).
+\end{equation}
+The constant $k$ is a damping factor which determines the convergence speed. It is set to a value such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within 50 years.
+
+The asterisk $t^*$ is part of a look-ahead modification described below.
+The differential equation is solved with an explicit Euler scheme, that is by starting at $t=t_{0}$ and executing the following three assignments year by year.
+\begin{equation}
+\begin{split}
+    \ddot{y}(t) &= - 2k\; (\dot{y}(t) - \dot{s}(t)) - k^2\;(y(t)-s(t)) \\
+    \dot{y}(t+\Delta t) &= \dot{y}(t) + \ddot{y}(t) \; \Delta t \\
+    y(t+\Delta t) &= y(t) + \dot{y}(t+1) \; \Delta t \\
+\end{split}
+\end{equation}
+Here, $\Delta t$ is the time step width, one year in this case. The value $y(t)$ finally yields the smoothed function.
+
+Since the set point $s(t)$ is known a priori for all years (it is the output of Step 2), its future development over time can be used by the algorithm. In particular, the derivative $\dot{s}$ in Eq. \eqref{eq:pd_acc} is evaluated at a later time than $t$, that is $t^*=t+c(t)$, where $c(t)$ is varied between one and five years.
+This lessens overshoots of the smoothed function if the logistic target function nears saturation.
+
+
+
+%=======================================================================
+%=======================================================================
+%=======================================================================
+\subsection{Trade extrapolation}
+
+For trade extrapolation, a heuristic was developed that produces plausible future scenarios.
+
+As a first step, trade flows of single regions are extrapolated into the future separately. In a second step, imports and exports are corrected to achieve global market clearing.
+
+In the following, an independent notation is used, such that same symbols as in Section \ref{sec:stock_extrapol} do not denote the same variables.
+
+%=======================================================================
+\subsubsection{Regional extrapolation}
+
+Regionally, a trade market fulfills the mass balance
+\begin{equation} \label{eq:trade_extrapol_massb}
+    p_r(t) + i_r(t) = e_r(t) + d_r(t),
+\end{equation}
+where $p$ denotes local production, $i$ denotes imports, $e$ denotes exports and $d$ denotes local demand. $t$ is the year and $r$ is the region.
+
+In the future MFA, the production value chain from material production to end-use is calculated backwards, starting with end-use goods demand.
+
+This means that first, local demand for end-use products is known, and imports, exports, and local production of end-uses products have to be calculated together to fulfill Eq. \eqref{eq:trade_extrapol_massb}.
+
+Similarly, after calculating local raw material demand from local production of end-use goods, this local demand is known for the raw material trade market as well, and imports, exports, and local production of end-uses products have to be calculated together to fulfill Eq. \eqref{eq:trade_extrapol_massb}.
+
+For scrap or waste markets, on the other hand, supply is known (from the outflow of the in-use stock and and collection rates). So for this stage, the local "production" is known, and imports, exports and local "demand" have to be calculated together.
+
+\subsubsection{Basic scaling}
+
+Let's consider the first, demand-driven case first. Since imports and domestically produced goods are often treated as substitutes, it is a natural choice to keep the import share constant, i.e.
+\begin{equation} \label{eq:import_scaling_basic}
+    \frac{i_r(t)}{d_r(t)} = \frac{i_r(t_{0})}{d_r(t_{0})},
+\end{equation}
+where $t_{0}$ is the last historical time step. Similarly, as the share of locally produced goods which is exported may stay approximately constant, which leads to the scaling
+\begin{equation} \label{eq:export_scaling_basic}
+    \frac{e_r(t)}{p_r(t)} =  \frac{e_r(t_{0})}{p_r(t_{0})}.
+\end{equation}
+
+\subsubsection{Scaling modification for increasing demand / production}
+
+An issue with this implementation is that regions with still very low GDP and therefore low domestic demand and production sometimes have high import and/or export shares. Partly due to lacking domestic supply/demand, partly due to lacking data. The import and export shares of these regions are therefore converged to the global average import/export shares in the last historical year, if production or demand have very high relative increases.
+
+This is achieved with the formula
+
+\begin{equation} \label{eq:import_scaling_incr}
+    i_r(t) = d_r(t) \left(\frac{i_r(t_{0})}{d_r(t_{0})}\right)^{(1-\alpha)} \left(\frac{\sum_{r'} i_{r'}(t_{0})}{\sum_{r'} d_{r'}(t_{0})}\right)^{\alpha} \quad\text{for}\quad d_r(t) \geq d_r(t_{0})
+\end{equation}
+with a blending factor $0\leq\alpha\leq1$, which is a function of relative demand change $\alpha(\,d_r(t)/d_r(t_{0})\,)$. In particular, the quintic spline
+\begin{equation}
+    \alpha(\delta) = 6\, \delta^5 - 15 \, \delta^4 + 10 \, \delta^3
+\end{equation}
+with $\delta$ the logarithm of the relative demand change
+\begin{equation}
+\delta = \log_{50}(d_r(t)/d_r(t_{0})).
+\end{equation}
+
+Similarly, exports are scaled as
+\begin{equation} \label{eq:export_scaling_incr}
+    e_r(t) = p_r(t) \left(\frac{e_r(t_{0})}{p_r(t_{0})}\right)^{(1-\alpha)} \left(\frac{\sum_{r'} e_{r'}(t_{0})}{\sum_{r'} p_{r'}(t_{0})}\right)^{\alpha} \quad\text{for}\quad d_r(t) \geq d_r(t_{0})
+\end{equation}
+Note that $\alpha$ depends on demand, not production, for simplicity.
+
+\subsubsection{Scaling modification for decreasing demand}
+
+For decreasing demand, a different phenomenon occurs: Such regions have standing production capacity, which lower production cost, and often protectionist policies to safeguard these capacities. We therefore assume that exports stay constant in this case, i.e.
+\begin{equation} \label{eq:export_scaling_decr}
+    e_r(t) = e_r(t_{0}) \quad\text{for}\quad d_r(t) \leq d_r(t_{0})
+\end{equation}
+while imports are still scaled proportionally with demand as in Eq. \eqref{eq:import_scaling_basic}, i.e.
+\begin{equation} \label{eq:import_scaling_decr}
+    i_r(t) = i_r(t_{0}) \frac{d_r(t)}{d_r(t_{0})}  \quad\text{for}\quad d_r(t) \leq d_r(t_{0}).
+\end{equation}
+
+\subsubsection{Solving for exports and production}
+
+Imports only depend on the known variable demand and can therefore be calculated directly. Exports, on the other hand, depend on production (cf. Eq. \eqref{eq:export_scaling_basic}), which in turn is determined from the mass balance in Eq. \eqref{eq:trade_extrapol_massb} and thus depends on exports. This equation system is solved in a fix-point iteration loop. This loop is initialized with the assumption
+\begin{equation}
+     \frac{p_r(t)}{p_r(t_{0})} =\frac{d_r(t)}{d_r(t_{0})}.
+\end{equation}
+
+In every iteration, Eqs. \eqref{eq:export_scaling_incr} or \eqref{eq:export_scaling_decr} are solved for $e_r(t)$, after which Eq. \eqref{eq:trade_extrapol_massb} is solved for $p_r(t)$. This updated $p_r(t)$ is then used for the next iteration. Ten iterations are used without a convergence criterion, which yields sufficient accuracy.
+
+
+\subsubsection{Scrap and waste trade}
+
+Scrap and waste trade is calculated just as the other trade stages, with the difference that the roles of imports and exports as well as those of demand and production are flipped.
+
+This means that exports are calculated first. They are still scaled with production, as in Eq. \eqref{eq:export_scaling_basic}. Imports are scaled with demand, as in \eqref{eq:import_scaling_basic}. Imports and demand are calculated concurrently with a fix-point iteration.
+
+In case of increasing scrap/waste production, the Eqs. \eqref{eq:export_scaling_incr} and \eqref{eq:import_scaling_incr} are used, while for decreasing production, \eqref{eq:export_scaling_decr} and \eqref{eq:import_scaling_decr} are used.
+
+
+
+%=======================================================================
+\subsubsection{Global balancing}
+
+Global market clearing prescribes that global exports equal global imports, i.e.
+\begin{equation}
+    \sum_r e_r(t) = \sum_r i_r(t).
+\end{equation}
+This condition is not necessarily fulfilled after the extrapolation step. Therefore imports and/or exports are multiplied such that their global sums have the same common value $g(t)$ (detailed later), i.e.
+ \begin{equation}
+    e_r(r) = \tilde{e}_r(t) \frac{g(t)}{\sum_{r'} (\tilde{e}_{r'}(t))},
+    \qquad
+    i_r(r) = \tilde{i}_r(t) \frac{g(t)}{\sum_{r'} (\tilde{i}_{r'}(t))}
+\end{equation}
+Here, the tilde accent denotes values before the scaling step, and the apostrophe is only added to the summing index $r'$ to not be confused with the equation index $r$.
+
+For future trades, the common value $g(t)$ is determined as the harmonic mean of imports and exports, i.e.
+\begin{equation}
+    g(t) = \sqrt{\sum_r (\tilde{e}_r(t)) \; \sum_r (\tilde{i}_r(t))}
+    \quad\text{for}\quad t > t_{0}.
+\end{equation}
+
+
+The above balancing is also performed for historical trades, as exogenous import and export data from the literature do not always sum to the same global values. In this case, it is assumed that trade volumes are rather under-reported than over-reported, such that the maximum is used for the global common sum instead, i.e.
+\begin{equation}
+    g(t) = \max \left( \sum_r (\tilde{e}_r(t)) ,\; \sum_r (\tilde{i}_r(t))\right)
+    \quad\text{for}\quad t \leq t_{0}.
+\end{equation}
+
+

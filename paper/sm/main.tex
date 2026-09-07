@@ -9,7 +9,9 @@
 \usepackage{csquotes}
 \usepackage{pdflscape}
 \usepackage{graphicx}
+\usepackage{amsmath}
 \usepackage[hidelinks]{hyperref}
+% \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage[backend=biber,style=authoryear,maxbibnames=99]{biblatex}
 
 \addbibresource{../../docs/all_refs.bib}
@@ -25,6 +27,8 @@
 	}%
 }
 
+\DeclareMathOperator*{\argmin}{arg\,min}
+
 \title{Supplementary Materials}
 \author{}
 \date{}
@@ -34,6 +38,8 @@
 \maketitle
 \tableofcontents
 \clearpage
+
+\input{equations.tex}
 
 \input{definitions.tex}
 
