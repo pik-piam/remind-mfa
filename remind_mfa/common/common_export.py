@@ -71,6 +71,13 @@ class CommonDataExporter(RemindMFABaseModel):
     # Datasets producing a single file: placed directly in the run folder, no subfolder.
     FLAT_DATASETS: ClassVar[set[str]] = {"pickle", "iamc", "assumptions"}
 
+    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+        "lifetime_mean": "yr",
+        "lifetime_std": "yr",
+        "population": "cap",
+        "gdppc": "$/cap/yr",
+    }
+
     _model: Optional["CommonModel"] = PrivateAttr(default=None)
     _run_path: Optional[str] = PrivateAttr(default=None)
     _riamc_only_agg: Optional[bool] = PrivateAttr(default=False)
@@ -111,6 +118,11 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def export_custom(self):
         pass
+
+    @property
+    def riamc_prms(self) -> dict[str, str]:
+        """IAMC parameters to include in every exported variable."""
+        return CommonDataExporter._RIAMC_PRMS | self._RIAMC_PRMS
 
     def run_path(self) -> str:
         """Per-model-run export folder, created once and shared by exporter and visualizer."""
@@ -216,6 +228,7 @@ class CommonDataExporter(RemindMFABaseModel):
         prefix = f"MFA|{self._model.cfg.model.value}"
         mfa = self._model.future_mfa
         vname_base = f"{prefix}|Future"
+        constants = self.iamc_constants(self._model)
 
         self._riamc_only_agg = only_agg
         suffix = "agg" if only_agg else "complete"
@@ -224,12 +237,18 @@ class CommonDataExporter(RemindMFABaseModel):
         self._write_riamc_flows(mfa, vname_base, df_list)
         self._write_riamc_stocks(mfa, vname_base, df_list)
         self._write_riamc_trades(mfa, vname_base, df_list)
-        self._write_riamc_parameters(mfa, vname_base, df_list)
 
         df_out = pd.concat(df_list)
-
-        constants = self.iamc_constants(self._model)
         pyam_df = pyam.IamDataFrame(df_out, **constants)
+        self._aggregate_iamc_regions(pyam_df, region_weights={})
+
+        if not only_agg:
+            df_list = []
+            self._write_riamc_parameters(mfa, vname_base, df_list)
+            df_out = pd.concat(df_list)
+            pyam_df_prms = pyam.IamDataFrame(df_out, **constants)
+            pyam_df = pyam_df.append(pyam_df_prms)
+
         self._convert_iamc_units(pyam_df)
         pyam_df.to_excel(self.export_path("iamc", f"output_iamc_raw_{suffix}.xlsx"))
 
@@ -269,7 +288,8 @@ class CommonDataExporter(RemindMFABaseModel):
                 df_list.append(df)
 
     def _write_riamc_parameters(self, mfa: fd.MFASystem, vname_base, df_list):
-        for name, param in mfa.parameters.items():
+        for name, unit in self.riamc_prms.items():
+            param = mfa.parameters[name]
             if not isinstance(param, fd.FlodymArray):
                 logging.warning(
                     f"IAMC export: Skipping non-FlodymArray parameter {param.name} of type {type(param)}"
@@ -280,12 +300,8 @@ class CommonDataExporter(RemindMFABaseModel):
                 continue
             dims = mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
             param = param.cast_to(dims)
-            df = self._complete_and_agg(
-                vname_base=f"{vname_base}|Parameters|{name}",
-                array=param,
-            )
-            # TODO
-            df["unit"] = "unknown"
+            df = self._fd_array_to_df_for_iamc(f"{vname_base}|Parameters|{name}", param, split_dims="all")
+            df["unit"] = unit
             df_list.append(df)
 
     def _warn_if_iamc_includes_historic(self):
@@ -375,9 +391,20 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def _convert_iamc_units(self, iamc_dataframe: pyam.IamDataFrame):
         """Convert the model's base units to the reporting units used in IAMC output."""
-        iamc_dataframe.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
-        iamc_dataframe.convert_unit(current="t", to="Mt", inplace=True)
-        iamc_dataframe.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor=1000, inplace=True)
+
+        # all units:
+        # {'-', 't', 't/sqm', 'm', 'cap', 'sqm', 'yr', '$/cap/yr', 't/yr', '1/yr'}
+
+        conversions = [
+            {"current": "t/yr", "to": "Mt/yr"},
+            {"current": "t", "to": "Mt"},
+            {"current": "t/cap/yr", "to": "kg/cap/yr", "factor": 1000},
+            {"current": "sqm", "to": "Gsqm", "factor": 1e-9},
+            {"current": "t/sqm", "to": "Mt/Gsqm", "factor": 1e3},
+        ]
+
+        for conv in conversions:
+            iamc_dataframe.convert_unit(**conv, inplace=True)
 
     def _iamc_var_to_iamc_df(
         self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict

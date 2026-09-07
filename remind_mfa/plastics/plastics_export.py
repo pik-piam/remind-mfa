@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 import flodym as fd
 from pydantic import PrivateAttr
@@ -15,6 +15,27 @@ if TYPE_CHECKING:
 
 class PlasticsDataExporter(CommonDataExporter):
     _model: Optional["PlasticsModel"] = PrivateAttr(default=None)
+
+
+    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+        "collection_rate": "-",
+        "mechanical_recycling_rate": "-",
+        "chemical_recycling_rate": "-",
+        "bio_production_rate": "-",
+        "daccu_production_rate": "-",
+        "HVC_input_ratio": "-",
+        "C4_input_ratio": "-",
+        "polymerization_yield": "-",
+        "mechanical_recycling_yield": "-",
+        "reclmech_loss_uncontrolled_rate": "-",
+        "chemical_recycling_yield": "-",
+        "emission_capture_rate": "-",
+        "carbon_content_materials": "-",
+        "sector_polymer_split": "-",
+        "landfill_rate": "-",
+        "material_shares_use_inflow": "-",
+        "sector_split_limit": "-",
+    }
 
     @staticmethod
     def _plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
