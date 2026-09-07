@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "../remind_mfa_data"
-        input_data_revision = "2.2.0"
+        input_data_revision = "2.2.1"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
