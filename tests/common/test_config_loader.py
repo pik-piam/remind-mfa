@@ -16,7 +16,7 @@ def test_default_config_validates_for_every_model(model):
     config = load_config(["default"], model)
 
     assert config["model"] == model.value
-    assert config["visualization"]["figures_path"].startswith(f"data/{model.value}/")
+    assert config["export"]["path"] == "data_out"
 
 
 def test_model_overrides_all_base_layers(tmp_path):

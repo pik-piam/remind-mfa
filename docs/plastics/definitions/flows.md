@@ -33,8 +33,10 @@
 | t, e, r, p, m    | Collected                 | Landfilled                |
 | t, e, r, p, m    | Collected                 | Incineration              |
 | t, e, r, p, m    | Uncollected               | Uncontrolled              |
-| t, e, r, p, m    | Mechanical Recycling      | Primary Market            |
-| t, e, r          | Chemical Recycling        | High Value Chemical input |
+| t, e, r, p, m    | Mechanical Recycling      | aux_recyclate_trade       |
+| t, e, r, p, m    | aux_recyclate_trade       | Primary Market            |
+| t, e, r          | Chemical Recycling        | aux_recl_feedstock_trade  |
+| t, e, r          | aux_recl_feedstock_trade  | High Value Chemical input |
 | t, e, r          | Chemical Recycling        | Emissions                 |
 | t, e, r, p, m    | Mechanical Recycling      | Uncontrolled              |
 | t, e, r, p, m    | Mechanical Recycling      | Incineration              |
@@ -46,3 +48,7 @@
 | t, e, r, p, m    | Collected                 | Waste Market              |
 | t, e, r, p, m    | Waste Market              | Exports                   |
 | t, e, r, p, m    | Imports                   | Waste Market              |
+| t, e, r, p, m    | aux_recyclate_trade       | Exports                   |
+| t, e, r, p, m    | Imports                   | aux_recyclate_trade       |
+| t, e, r          | aux_recl_feedstock_trade  | Exports                   |
+| t, e, r          | Imports                   | aux_recl_feedstock_trade  |

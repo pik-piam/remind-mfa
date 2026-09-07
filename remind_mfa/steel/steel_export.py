@@ -1,4 +1,7 @@
+from typing import TYPE_CHECKING, ClassVar, Optional
+
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
@@ -6,8 +9,26 @@ from remind_mfa.common.common_export import (
     RemindInputVariable,
 )
 
+if TYPE_CHECKING:
+    from remind_mfa.steel.steel_model import SteelModel
+
 
 class SteelDataExporter(CommonDataExporter):
+    _model: Optional["SteelModel"] = PrivateAttr(default=None)
+
+    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+        "forming_yield": "-",
+        "fabrication_yield": "-",
+        "recovery_rate": "-",
+        "scrap_in_bof_rate": "-",
+        "forming_loss_rate": "-",
+        "fabrication_losses": "-",
+        "production_loss_rate": "-",
+        "sector_split": "-",
+        "sector_split_limit": "-",
+        "aggregate_fabrication_yield": "-",
+    }
+
     @staticmethod
     def _total_steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Total steel output after production and forming losses, before trade."""
@@ -64,18 +85,18 @@ class SteelDataExporter(CommonDataExporter):
                     mfa.flows["fabrication => good_market"] / mfa.parameters["fabrication_yield"]
                 ).sum_to(("t", "r", "g")),
                 unit="t/yr",
-                split_name="Good",
+                split_dims=["Good"],
             ),
             IamcVariable(
                 variable_name="Material Stock|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=lambda mfa: mfa.stocks["in_use"].stock.sum_to(("t", "r", "g")),
                 unit="t",
-                split_name="Good",
+                split_dims=["Good"],
             ),
             IamcVariable(
                 variable_name="Scrap|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=SteelDataExporter._eol_scrap_potential,
                 unit="t/yr",
-                split_name="Good",
+                split_dims=["Good"],
             ),
         ]

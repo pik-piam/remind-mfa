@@ -1,10 +1,16 @@
+from typing import TYPE_CHECKING, ClassVar, Optional
+
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
     IamcVariable,
     RemindInputVariable,
 )
+
+if TYPE_CHECKING:
+    from remind_mfa.cement.cement_model import CementModel
 
 
 def _sum_to_end_use_split(arr: fd.FlodymArray) -> fd.FlodymArray:
@@ -22,6 +28,42 @@ def _sum_to_end_use_split(arr: fd.FlodymArray) -> fd.FlodymArray:
 
 
 class CementDataExporter(CommonDataExporter):
+    _model: Optional["CementModel"] = PrivateAttr(default=None)
+
+    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+        "end_use_split": "-",
+        "clinker_ratio": "-",
+        "cement_losses": "-",
+        "clinker_losses": "-",
+        "cement_ratio": "-",
+        "product_material_split": "-",
+        "clinker_cao_ratio": "-",
+        "cao_carbonation_share": "-",
+        "cao_emission_factor": "-",
+        "ckd_cao_ratio": "-",
+        "ckd_landfill_share": "-",
+        "carbonation_rate": "1/yr",
+        "carbonation_rate_buried": "1/yr",
+        "carbonation_rate_coating": "1/yr",
+        "carbonation_rate_co2": "1/yr",
+        "carbonation_rate_additives": "1/yr",
+        "product_thickness": "m",
+        "material_application_split": "-",
+        "waste_type_split": "-",
+        "waste_size_share": "-",
+        "waste_size_min": "m",
+        "waste_size_max": "m",
+        "floorspace": "sqm",
+        "dwelling_split": "-",
+        "structure_split": "-",
+        "concrete_building_mi": "t/sqm",
+        "hibernating_stock_share": "-",
+        "development_weight": "-",
+        "sector_split_limit": "-",
+        "dwelling_split_mean": "-",
+        "structure_split_mean": "-",
+    }
+
     @staticmethod
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Cement output before trade and construction losses"""
@@ -63,7 +105,7 @@ class CementDataExporter(CommonDataExporter):
                     mfa.flows["market_cement => prod_product"]
                 ),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Material Stock|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
@@ -71,7 +113,7 @@ class CementDataExporter(CommonDataExporter):
                     mfa.stocks["in_use"].stock[{"k": "cement"}]
                 ),
                 unit="t",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Scrap|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
@@ -79,6 +121,6 @@ class CementDataExporter(CommonDataExporter):
                     mfa.stocks["in_use"].outflow[{"k": "cement"}]
                 ),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
         ]
