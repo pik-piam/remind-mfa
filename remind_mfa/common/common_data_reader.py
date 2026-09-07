@@ -15,10 +15,6 @@ from remind_mfa.common.helpers import module_from_prefix, prefix_from_module
 
 class CommonDataReader(fd.CompoundDataReader):
 
-    # Documentation-source files bundled in the tgz that belong in this repo's docs/
-    # folder rather than in the input-data folder.
-    DOC_SOURCE_FILES = {"mrmfa_sources.bib", "mrmfa_sources.csv"}
-
     # Suffixes (before the ".tgz") distinguishing the two archive kinds produced by madrat:
     # the main input-data archive and the (optional) validation-data archive.
     MFA_SUFFIX = "_mfa"
@@ -45,12 +41,12 @@ class CommonDataReader(fd.CompoundDataReader):
         self.prepare_input_readers()
 
     @property
-    def shared_parameter_path(self) -> str:
-        return os.path.join(self.input_data_path, "input_data")
+    def shared_parameter_path(self) -> Path:
+        return Path(self.input_data_path) / "input_data"
 
     @property
-    def validation_path(self) -> str:
-        return os.path.join(self.input_data_path, "validation")
+    def validation_path(self) -> Path:
+        return Path(self.input_data_path) / "validation"
 
     @property
     def rev_filename(self) -> str:
@@ -60,8 +56,8 @@ class CommonDataReader(fd.CompoundDataReader):
     def regions_filename(self) -> str:
         return "regions.txt"
 
-    def get_material_dimension_path(self, material: str) -> str:
-        return os.path.join(self.input_data_path, "dimensions", material)
+    def get_material_dimension_path(self, material: str) -> Path:
+        return Path(self.input_data_path) / "dimensions" / material
 
     def prepare_input_readers(self):
         # prepare directory for extracted input data
@@ -172,12 +168,7 @@ class CommonDataReader(fd.CompoundDataReader):
         return matches[0]
 
     def extract_tar_file(self, material_parameter_path: str):
-        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata.
-
-        Documentation-source files (see ``DOC_SOURCE_FILES``) are routed into this repo's
-        ``docs/`` folder instead of the input-data folder, so they stay in sync with the
-        selected input-data revision.
-        """
+        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
         if not os.path.isdir(self._input_cfg.resolved_madrat_output_path):
             raise FileNotFoundError(
                 f"MADRAT output path '{self._input_cfg.resolved_madrat_output_path}' does not exist. It is required to extract the "
@@ -187,7 +178,7 @@ class CommonDataReader(fd.CompoundDataReader):
             )
 
         tgz_path = self.get_target_tgz_path(self.MFA_SUFFIX)
-        self._extract_and_record(tgz_path, material_parameter_path, route_docs=True)
+        self._extract_and_record(tgz_path, material_parameter_path)
 
     def extract_validation_tar_file(self, validation_path: str):
         """Extracts the validation tgz matching the configured revision/region into ``validation_path``.
@@ -227,36 +218,19 @@ class CommonDataReader(fd.CompoundDataReader):
                 f"{[os.path.basename(match) for match in matches]}"
             )
 
-        self._extract_and_record(
-            matches[0], validation_path, route_docs=False, suffix=self.VALIDATION_SUFFIX
-        )
+        self._extract_and_record(matches[0], validation_path, suffix=self.VALIDATION_SUFFIX)
 
     def _extract_and_record(
         self,
         tgz_path: str,
         target_path: str,
-        route_docs: bool,
         suffix: str = MFA_SUFFIX,
     ):
-        """Extract ``tgz_path`` into ``target_path`` and record its rev/regions metadata there.
-
-        If ``route_docs`` is set, documentation-source files (see ``DOC_SOURCE_FILES``) are
-        flattened into this repo's ``docs/`` folder instead of ``target_path``.
-        """
+        """Extract ``tgz_path`` into ``target_path`` and record its rev/regions metadata there."""
         os.makedirs(target_path, exist_ok=True)
 
-        docs_path = Path(__file__).resolve().parents[2] / "docs"
-        if route_docs:
-            os.makedirs(docs_path, exist_ok=True)
-
         with tarfile.open(tgz_path, "r:gz") as tar:
-            for member in tar.getmembers():
-                if route_docs and os.path.basename(member.name) in self.DOC_SOURCE_FILES:
-                    # flatten so the file lands directly as docs/<basename>
-                    member.name = os.path.basename(member.name)
-                    tar.extract(member, path=docs_path)
-                else:
-                    tar.extract(member, path=target_path)
+            tar.extractall(target_path)
 
         rev, regions = self.parse_archive_name(os.path.basename(tgz_path), suffix)
         self.write_text_file(os.path.join(target_path, self.rev_filename), rev)
