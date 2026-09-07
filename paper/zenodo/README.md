@@ -38,6 +38,9 @@ A global aggregation (Region "World") is also available for all flows, stocks, a
 
 ### Variable naming convention for the complete dataset:
 
+The complete dataset contains the following variables:
+
+```
 <material>|Flows|<flow name>
 <material>|Flows|<flow name>|<sub-dims>
 
@@ -54,23 +57,51 @@ A global aggregation (Region "World") is also available for all flows, stocks, a
 <material>|Trades|<trade name>|Exports|<sub-dims>
 
 <material>|Paramaters|<parameter name>|<sub-dims>
+```
 
 Notes:
-- flows are named as "<from_process> => <to_process>"
+- Flows are named as "<from_process> => <to_process>"
 - <sub-dims> refers to dimensions in the variables apart from region and time (such as end-use).
   If variables contain such additional dimensions, they're given once fully disaggregated, and once aggregated along all non-region-non-time dimensions.
 - Paramaters are not aggregated
 
 ### Variables contained in the reduced dataset:
 
+The reduced dataset contains the following variables.
 
+```
 <material>|Flows|<flow name>
 <material>|Stocks|<stock name>|Stock
 <material>|Stocks|<stock name>|Inflow
 <material>|Stocks|<stock name>|Outflow
 <material>|Trades|<trade name>|Imports
 <material>|Trades|<trade name>|Exports
+```
 
 Notes:
-Flows, Stocks, and Trades are given, disaggregated only by region and time.
-All these values are also contained in the complete dataset - but a reduced version can be more practical, e.g. if searching for a variable name.
+- Flows, Stocks, and Trades are given, disaggregated only by region and time.
+- All these values are also contained in the complete dataset - but a reduced version can be more practical, e.g. if searching for a variable name.
+
+### Variables of special interest
+
+- Total material consumption contained in end-use products can be found under <!-- TODO: stock name -->
+  ```
+  <material>|Stocks|use|Inflow
+  ```
+  for all materials.
+
+- Total material production can be found under different flows for different materials:
+  - plastics:
+    ```
+    plastics|flows|polymerization => primary_market
+    +
+    plastics|flows|aux_recyclate_trade => primary_market
+    ```
+  - steel:
+    ```
+    steel|flows|forming => ip_market
+    ```
+  - cement:
+    ```
+    cement|flows|prod_cement => market_cement
+    ```
