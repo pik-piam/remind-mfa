@@ -2,12 +2,11 @@ import warnings
 
 from dotenv import load_dotenv
 
-from scripts_paper._constants import MATERIAL_ORDER, MFA_REGION_MAPPINGS
-from scripts_paper.fig1_fig7_regions import main as render_regions
-from scripts_paper.fig8_demand import main as render_demand
-from scripts_paper.fig9_sankey import main as render_sankey
-from scripts_paper.fig10_trade import main as render_trade
-from scripts_paper.fig11_scenarios import main as render_scenarios
+from _constants import MATERIAL_ORDER, MFA_REGION_MAPPINGS
+from fig1_fig7_regions import main as render_regions
+from fig8_demand import main as render_demand
+from fig10_trade import main as render_trade
+from fig11_scenarios import main as render_scenarios
 
 
 def main(show: bool = False):

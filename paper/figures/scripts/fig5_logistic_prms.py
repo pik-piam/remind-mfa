@@ -11,7 +11,7 @@ import numpy as np
 import plotly.subplots
 import plotly.graph_objects as go
 
-from scripts_paper._constants import figure_output_path
+from _constants import figure_output_path
 
 
 def create_logistic_parameter_plot():

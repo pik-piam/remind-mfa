@@ -3,7 +3,7 @@ import math
 import pathlib
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from scripts_paper._constants import (
+from _constants import (
     RUN_PLASTICS,
     PATH_PLASTICS,
     LAST_HISTORICAL_YEAR_PLASTICS,

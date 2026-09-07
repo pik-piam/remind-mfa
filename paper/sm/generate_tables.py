@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-SOURCE_ROOT = ROOT.parent
+SOURCE_ROOT = ROOT.parent.parent / "docs"
 OUTPUT_ROOT = ROOT / "generated"
-BIB_SOURCE = SOURCE_ROOT / "mrmfa_sources.bib"
-BIB_TARGET = ROOT / "mrmfa_sources.bib"
 
 SECTIONS = ["plastics", "steel", "cement"]
 SUBSECTIONS = ["dimensions", "processes", "flows", "stocks", "trades", "parameters"]
@@ -40,26 +37,6 @@ def escape_latex(text: str) -> str:
     for char in text:
         escaped.append(replacements.get(char, char))
     return "".join(escaped)
-
-
-def sanitize_bib_text(text: str) -> str:
-    text = unicodedata.normalize("NFKC", text)
-    replacements = {
-        "–": "--",
-        "—": "---",
-        "−": "-",
-        "“": "``",
-        "”": "''",
-        "‘": "'",
-        "’": "'",
-        "…": "...",
-        " ": " ",
-        "­": "",
-        "": "",
-    }
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-    return text
 
 
 def citation_placeholder(match: re.Match[str]) -> str:
@@ -153,9 +130,6 @@ def render_table(
 
 def main() -> None:
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    BIB_TARGET.write_text(
-        sanitize_bib_text(BIB_SOURCE.read_text(encoding="utf-8")), encoding="utf-8"
-    )
     for section in SECTIONS:
         for subsection in SUBSECTIONS:
             source = SOURCE_ROOT / section / "definitions" / f"{subsection}.md"

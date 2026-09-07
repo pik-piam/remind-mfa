@@ -11,12 +11,12 @@ import pathlib
 import pandas as pd
 import plotly.graph_objects as go
 
-from scripts_paper._constants import AGG_COLOR_PALETTE
-from scripts_paper._constants import AGG_REGION_ORDER
-from scripts_paper._constants import AGG_REGIONS
-from scripts_paper._constants import COLORS_REMIND
-from scripts_paper._constants import REGION_DISPLAY_NAMES
-from scripts_paper._constants import figure_output_path
+from _constants import AGG_COLOR_PALETTE
+from _constants import AGG_REGION_ORDER
+from _constants import AGG_REGIONS
+from _constants import COLORS_REMIND
+from _constants import REGION_DISPLAY_NAMES
+from _constants import figure_output_path
 
 CSV_PATH = pathlib.Path(__file__).with_name("regionmapping.csv")
 

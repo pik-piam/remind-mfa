@@ -2,7 +2,7 @@ import pathlib
 from dataclasses import dataclass
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-FIGURE_OUTPUT_DIR = SCRIPT_DIR / "png"
+FIGURE_OUTPUT_DIR = SCRIPT_DIR.parent / "png"
 
 LAST_HISTORICAL_YEAR_CEMENT = 2023
 LAST_HISTORICAL_YEAR_PLASTICS = 2024

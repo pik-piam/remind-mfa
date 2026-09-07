@@ -16,8 +16,8 @@ from remind_mfa.steel.steel_mappings import SteelDisplayNames
 from remind_mfa.steel.steel_config import SteelVisualizationCfg
 from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.cement.cement_config import CementVisualizationCfg
-from scripts_paper._constants import FIGURE_OUTPUT_DIR, figure_output_path, get_material_config
-from scripts_paper._utils import load_future_mfa
+from _constants import FIGURE_OUTPUT_DIR, figure_output_path, get_material_config
+from _utils import load_future_mfa
 
 
 def _exclude_processes(material: str) -> list[str]:

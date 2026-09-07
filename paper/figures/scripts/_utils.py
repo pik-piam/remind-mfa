@@ -2,7 +2,7 @@ import pickle
 import colorsys
 import pathlib
 
-from scripts_paper._constants import (
+from _constants import (
     AGG_COLOR_PALETTE,
     AGG_REGIONS,
     AGG_REGION_ORDER,
