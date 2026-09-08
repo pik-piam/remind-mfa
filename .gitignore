@@ -9,6 +9,8 @@ site/
 .claude/
 CLAUDE.md
 madrat_output/
+data_in/parameters/
+data_out
 .env
 config/*.toml
 !config/default.toml
