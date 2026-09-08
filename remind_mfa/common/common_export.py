@@ -5,9 +5,8 @@ import shutil
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, List, Literal, ClassVar
-import pandas as pd
-from pydantic import PrivateAttr
 
+import pandas as pd
 import flodym as fd
 import flodym.export as fde
 from pydantic import PrivateAttr
@@ -218,9 +217,8 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def write_riamc(self, only_agg: bool = False):
 
-        prefix = f"MFA|{self._model.cfg.model.value}"
         mfa = self._model.future_mfa
-        vname_base = f"{prefix}|Future"
+        vname_base = self._model.cfg.model.value
         constants = self.iamc_constants(self._model)
 
         self._riamc_only_agg = only_agg
