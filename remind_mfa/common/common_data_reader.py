@@ -51,8 +51,7 @@ class CommonDataReader(fd.CompoundDataReader):
 
     @property
     def legacy_parameters_path(self) -> Path:
-        root = Path(__file__).resolve().parents[2]
-        return root / "remind_mfa_data" / "input_data"
+        return self.input_data_path / "legacy" / "input_data"
 
     @property
     def validation_path(self) -> Path:
