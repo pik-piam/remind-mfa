@@ -65,7 +65,7 @@ class StockExtrapolation(RemindMFABaseModel):
         """
         self.historic_dim_letters = self.historic_stocks.dims.letters
         self.target_dim_letters = ("t",) + self.historic_dim_letters[1:]
-        self.fit_dim_idx = tuple((self.end_use_good_letter,))
+        self.fit_dim_idx = self.historic_stocks.dims.index(self.end_use_good_letter)
 
     def calc_arrays_from_parameters_dict(self):
         """Calc drivers (GDP and population) and various variations of it"""
@@ -129,7 +129,7 @@ class StockExtrapolation(RemindMFABaseModel):
         self.extrapolation = self.cfg.stock_extrapolation_class(
             data_to_extrapolate=data_to_extrapolate,
             predictor_values=predictor_values,
-            independent_dims=self.fit_dim_idx,
+            independent_dims=(self.fit_dim_idx,),
             bound_list=self.bound_list,
             weights=weights,
         )
