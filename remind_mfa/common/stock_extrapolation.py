@@ -45,7 +45,7 @@ class StockExtrapolation(RemindMFABaseModel):
     def extrapolate(self):
         """Preprocessing and extrapolation."""
         self.set_dims()
-        self.calc_arrays_from_parameters_dict()
+        self.calc_needed_arrays()
         self.common_regression()
         self.regional_adaptation()
         # apply stock scenario: scale the extrapolated trajectory before smoothing
@@ -67,7 +67,7 @@ class StockExtrapolation(RemindMFABaseModel):
         self.target_dim_letters = ("t",) + self.historic_dim_letters[1:]
         self.fit_dim_idx = self.historic_stocks.dims.index(self.end_use_good_letter)
 
-    def calc_arrays_from_parameters_dict(self):
+    def calc_needed_arrays(self):
         """Calc drivers (GDP and population) and various variations of it"""
         self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
