@@ -247,6 +247,7 @@ class CommonDataReader(fd.CompoundDataReader):
         If ``route_docs`` is set, documentation-source files (see ``DOC_SOURCE_FILES``) are
         flattened into this repo's ``docs/`` folder instead of ``target_path``.
         """
+        logging.info(f"Extracting new input data from {tgz_path} into {target_path}...")
         target_path.mkdir(parents=True, exist_ok=True)
 
         docs_path = Path(__file__).resolve().parents[2] / "docs"
