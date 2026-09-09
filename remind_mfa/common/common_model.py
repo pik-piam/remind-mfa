@@ -230,7 +230,7 @@ class CommonModel:
 
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
         normalized_historic_stock = historic_stocks / (
-            sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
+            sector_specific_sat_level * time_factor[{"t": self.dims["h"]}]
         )
 
         # after normalization, target saturation level is 1 across all regions and sectors.

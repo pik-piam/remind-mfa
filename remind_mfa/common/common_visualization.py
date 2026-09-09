@@ -282,15 +282,6 @@ class CommonVisualizer(RemindMFABaseModel):
         return subplot_dim, summing_func, name_str
 
     def visualize_extrapolation_functions(self, stock_handler: StockExtrapolation):
-        regional = "r" in stock_handler.indep_fit_dim_letters
-        subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
-        if goods_dim_letter := set(stock_handler.indep_fit_dim_letters) - set(("r")):
-            assert (
-                len(goods_dim_letter) == 1
-            ), "Only one non-region dimension supported in extrapolation visualization"
-            linecolor_dim = self._model.dims[goods_dim_letter.pop()].name
-        else:
-            linecolor_dim = None
         extrapolation = stock_handler.extrapolation
         fit_prms = extrapolation.fit_prms
 
@@ -301,9 +292,8 @@ class CommonVisualizer(RemindMFABaseModel):
 
         def to_flodym(np_array, name=None):
             fda = fd.FlodymArray(dims=stock_handler.dims_out, values=np_array, name=name)
-            if not regional:
-                first_region = self._model.dims["r"].items[0]
-                fda = fda[first_region]
+            first_region = self._model.dims["r"].items[0]
+            fda = fda[first_region]
             return fda
 
         prms = [fit_prms[np.newaxis, ..., i] for i in range(extrapolation.n_prms)]
@@ -317,14 +307,13 @@ class CommonVisualizer(RemindMFABaseModel):
             intra_line_dim="Time",
             title="Stock regression function",
             x_array=x_array,
-            linecolor_dim=linecolor_dim,
-            **subplot_dim,
+            linecolor_dim=self._model.end_use_good_letter,
         )
         fig = ap.plot()
 
         self.plot_and_save_figure(
             ap,
-            f"regression_function_{regional_str}",
+            "regression_function",
             do_plot=False,
         )
 
