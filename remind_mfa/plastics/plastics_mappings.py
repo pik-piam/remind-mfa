@@ -43,4 +43,6 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "good_market": "Good Market",
         "imports": "Imports",
         "exports": "Exports",
+        "aux_recyclate_trade": "Auxiliary Recyclate Trade",
+        "aux_recl_feedstock_trade": "Auxiliary Recycled Feedstock Trade",
     }

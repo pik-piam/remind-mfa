@@ -3,14 +3,18 @@ message: "If you use this software, please cite it as below."
 authors:
   - family-names: Duerrwaechter
     given-names: Jakob
-  - family-names: Hosak
-    given-names: Merlin Jo
-  - family-names: Dacie
-    given-names: Sally
   - family-names: Weiss
     given-names: Bennet
   - family-names: Schweiger
     given-names: Leonie
+  - family-names: Diez
+    given-names: Tobias
+  - family-names: Zhang
+    given-names: Qianzhi
+  - family-names: Hosak
+    given-names: Merlin Jo
+  - family-names: Dacie
+    given-names: Sally
 title: "REMIND-MFA"
 version: 2
 date-released: 2023-11-01
