@@ -13,7 +13,6 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
-from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
