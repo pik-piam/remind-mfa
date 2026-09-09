@@ -40,10 +40,7 @@ class CommonModel:
     do_stock_extrapolation_with_time_factor: bool = False
     # parameters for a static time-dependent penetration curve if desired.
     # Needed in `calculate_time_factor` if do_stock_extrapolation_with_time_factor is True.
-    time_factor_prms = {
-        "horizontal_shift_base": None,
-        "growth_rate": None
-    }
+    time_factor_prms = {"horizontal_shift_base": None, "growth_rate": None}
 
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
@@ -233,8 +230,8 @@ class CommonModel:
         time_factor = self.calculate_time_factor()
 
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = (
-            historic_stocks / (sector_specific_sat_level / time_factor[{"t": self.dims["h"]}])
+        normalized_historic_stock = historic_stocks / (
+            sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
         )
 
         # after normalization, target saturation level is 1 across all regions and sectors.
