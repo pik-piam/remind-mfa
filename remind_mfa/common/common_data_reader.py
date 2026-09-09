@@ -1,7 +1,7 @@
 import glob
 import os
 import tarfile
-import warnings
+import logging
 from os import PathLike
 from pathlib import Path
 
@@ -205,7 +205,7 @@ class CommonDataReader(fd.CompoundDataReader):
         except ValueError:
             madrat_output_path = None
         if not madrat_output_path or not os.path.isdir(madrat_output_path):
-            warnings.warn(
+            logging.warning(
                 "No MADRAT output path available to extract the validation archive "
                 f"(revision={self.input_data_revision}, region_mapping={self.region_mapping}). "
                 "Validation data will not be available.",
@@ -215,7 +215,7 @@ class CommonDataReader(fd.CompoundDataReader):
 
         matches = self.find_target_tgz_paths(self.VALIDATION_SUFFIX)
         if not matches:
-            warnings.warn(
+            logging.warning(
                 "No validation tgz archive found in "
                 f"'{self._input_cfg.resolved_madrat_output_path}' for revision="
                 f"{self.input_data_revision}, region_mapping={self.region_mapping} "
@@ -292,18 +292,21 @@ class CommonDataReader(fd.CompoundDataReader):
     def get_parameter_files(self) -> dict[str, str | os.PathLike[str]]:
         model_prefix = prefix_from_module(self.model_class)
         parameter_files: dict[str, str | os.PathLike[str]] = {}
+        legacy_files = ()
         for parameter in self.definition.parameters:
             model_specific_file = self.parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
             legacy_file = self.legacy_parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
 
             if not model_specific_file.exists() and legacy_file.exists():
-                warnings.warn(
-                    f"Parameter file '{model_specific_file}' not found. Using legacy file '{legacy_file}' instead.",
-                    stacklevel=2,
-                )
+                legacy_files += (parameter.name,)
                 parameter_files[parameter.name] = legacy_file
             else:
                 parameter_files[parameter.name] = model_specific_file
+        if legacy_files:
+            logging.warning(
+                f"Parameter files for parameters {legacy_files} not found. Using legacy files instead.",
+                stacklevel=2,
+            )
 
         self._validate_files("parameter", parameter_files)
         return parameter_files
