@@ -9,7 +9,6 @@
     [base.model_switches]
         scenario = "SSP2"
         stock_extrapolation_class_name = "LogisticExtrapolation"
-        regress_over = "loggdppc"
         lifetime_model_name = "LogNormalLifetime"
 
     [base.visualization]

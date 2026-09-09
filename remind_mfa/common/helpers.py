@@ -81,8 +81,3 @@ class RemindMFABaseModel(BaseModel):
         arbitrary_types_allowed=True,
         use_attribute_docstrings=True,
     )
-
-
-class RegressOverModes(str, Enum):
-    LOGGDPPC = "loggdppc"
-    LOGGDPPC_TIME = "loggdppc_time"
