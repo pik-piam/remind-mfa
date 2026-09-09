@@ -7,10 +7,7 @@
 %=======================================================================
 \subsection{Stock extrapolation} \label{sec:stock_extrapol}
 
-
-%=======================================================================
-\subsubsection{Step 1: Common regression}
-
+In-use stock per capita for every region and end-use category is regressed on the logarithm of GDP per capita using a logistic function.
 
 $L(p,x)$ is the logistic curve over $x$ parametrized by $p = (\alpha,\beta,\gamma)^T$, that is
 \begin{equation}
@@ -18,28 +15,40 @@ $L(p,x)$ is the logistic curve over $x$ parametrized by $p = (\alpha,\beta,\gamm
 \end{equation}
 where $\alpha$ is the saturation level, $\beta$ is the horizontal offset and $\gamma$ is the growth rate.
 
-Let $u$ be the index for the time vector (year), $r$ the region and $u$ the in-use category.
+We define the normalized logistic function $\tilde{L}(\varphi,x) = L(p,x)/\alpha$
+\begin{equation}
+    \tilde{L}(\varphi,x) =  1 / (1 + \exp(-4\,\gamma\,(x - \beta))),
+\end{equation}
+with reduced parameters $\varphi = (\beta,\,\gamma)^T$.
 
-We first calculate the common regression for per-capita in-use stocks $f^{(1)}_u(t)$ (where the superscript $(1)$ indicates Step 1 of the stock extrapolation procedure) from
+In the following, let $t$ be the index for the time vector (year), $r$ the region and $u$ the in-use category.
+
+We multiply the prescribed saturation level $\alpha_\text{tot}$ for each material with lifetime-weighted prescribed limit end-use inflow shares $\sigma_u$ to obtain the saturation level $\alpha_u$ for each in-use category $u$, i.e. $\alpha_u = \alpha_\text{tot} \, \sigma_u$.
+
+We normalize the per-capita historical stocks $h_{r,u}(t)$ for each region and good (as calculated from the historical MFA) by this end-use-specific saturation level $\alpha_u$ to obtain the normalized historical stocks $\tilde{h}_{r,u}(t) = h_{r,u}(t)/\alpha_u$.
+
+%=======================================================================
+\subsubsection{Step 1: Common regression}
+
+We first calculate the common regression for normalized per-capita in-use stocks $f^{(1)}_u(t)$ (where the superscript $(1)$ indicates Step 1 of the stock extrapolation procedure) from
 \begin{equation}
-f^{(1)}_u(t) = L\big(\hat{p}^{(1)}_u,\,x(t)\big)
+f^{(1)}_u(t) = \tilde{L}\big(\hat{\varphi}^{(1)}_u,\,x_r(t)\big)
 \end{equation}
-where $x_r(t)$ is the base-10-logarithm of the GDP per capita of that region and the parameter vector $\hat{p}^{(1)}_{u}$ is the result of the regression
+where $x_r(t)$ is the base-10-logarithm of the GDP per capita\footnote{Strictly speaking, the GDP per capita is divided by 1USD/cap to make it unitless before taking the logarithm} of that region and $\hat{\varphi}^{(1)}_u$ are the estimated reduced parameters.
 \begin{equation}
-    \hat{p}^{(1)}_{u} = \arg\min_{p} \left( \sum_{t,r} (L(p,x_r(t))-h_{r,u}(t))^2 \right),
+    \hat{\varphi}^{(1)}_u = \arg\min_{\varphi} \left( \sum_{t,r} (\tilde{L}(\varphi,x_r(t))-\tilde{h}_{r,u}(t))^2 \right).
 \end{equation}
-where $h_{r,u}(t)$ is the historical per-capita in-use stock for one in-use good and region, as calculated from the historical MFA.
 
 %=======================================================================
 \subsubsection{Step 2: Regional adaptation}
 
-In this step, we vary the parameter set from step 1 by region. This step aims to ensure a trade-off between continuing historical in-use-stock development trends, while not diverging too much from the common regression from Step 1.
+In this step, we vary the parameter set from Step 1 by region. This step aims to ensure a trade-off between continuing historical in-use-stock development trends, while not diverging too much from the common regression from Step 1.
 
 To this end, we find a regional curve
 \begin{equation}
 f^{(2)}_{u,r}(t) = L\big(\hat{p}^{(2)}_{u,r},\,x(t)\big)
 \end{equation}
-with the region-specific parameter set $\hat{p}^{(2)}_{u,r}$, which we obtain from the optimization problem
+with the region-specific parameter set $\hat{p}^{(2)}_{u,r}$. Note that we allow deviating saturation levels $\hat{\alpha}^{(2)}_{u,r} \neq 1$, so we now use the full logistic function $L$ with parameter vector $p$. We obtain $\hat{p}^{(2)}_{u,r}$ from the minimization
 \begin{equation}
     \hat{p}^{(2)}_{u,r} = \arg\min_{p} \Big( W_{T_a}\,T_a(p) + W_{T_r}\,T_r(p) + W_{T_d}\,T_d(p) + W_{D_\alpha}\,D_\alpha(p) + W_{D_\beta}\,D_\beta(p) + W_{D_\gamma}\,D_\gamma(p) \Big)
 \end{equation}
@@ -48,40 +57,38 @@ Where $T_a$, $T_r$, $T_d$, $D_\alpha$, $D_\beta$, and $D_\gamma$ all describe te
 The terms
 \begin{equation}
 \begin{split}
-    T_a(p) &= \big(L(p,x_r(t_{0}))-h_{r,u}(t_{0}) \big)^2, \\
-    T_r(p) &= \left(\frac{L(p,x_r(t_{0}))-h_{r,u}(t_{0})}{h_{r,u}(t_{0})} \right)^2, \qquad\qquad\qquad\qquad\text{and} \\
-    T_d(p) &= \Big(\frac{d}{d t}\Big|_{t=t_{0}}\big(L(p,x_r(t))\big)-\frac{d}{d t}\Big|_{t=t_{0}}\big(h_{r,u}(t)\big) \Big)^2 \\
+    T_a(p) &= \big(L(p,x_r(t_{0}))-\tilde{h}_{r,u}(t_{0}) \big)^2, \\
+    T_r(p) &= \left(\frac{L(p,x_r(t_{0}))-\tilde{h}_{r,u}(t_{0})}{\tilde{h}_{r,u}(t_{0})} \right)^2, \qquad\qquad\qquad\qquad\text{and} \\
+    T_d(p) &= \Big(\frac{d}{d t}\Big|_{t=t_{0}}\big(L(p,x_r(t))\big)-\frac{d}{d t}\Big|_{t=t_{0}}\big(\tilde{h}_{r,u}(t)\big) \Big)^2 \\
 \end{split}
 \end{equation}
-all penalize deviations of the regionally adapted function from the historical in-use stocks $h$ at the last historical time step $t_{0}$.
-In particular, the terms $T_a$ and $T_d$ penalize absolute and relative deviations of the function value, whereas $T_r$ penalizes deviations of the derivative.
+all penalize deviations of the regionally adapted function from the normalized historical in-use stocks $\tilde{h}_{r,u}$ at the last historical time step $t_{0}$.
+In particular, the terms $T_a$ and $T_d$ penalize absolute and relative deviations of the function value, whereas $T_r$ penalizes deviations of the derivative w.r.t. time\footnote{The derivative is taken with respect to time, not with respect to GDP per capita, to avoid numerical issues in case of stagnating or declining historical GDP per capita.}.
 
 On the other hand, the terms
 \begin{equation}
 \begin{split}
-    D_\alpha(p) &= (\alpha-\hat{\alpha}^{(1)}_{u})^2, \\
+    D_\alpha(p) &= (\alpha-1)^2, \\
     D_\beta(p) &= (\beta-\hat{\beta}^{(1)}_{u})^2, \quad\text{and} \\
     D_\gamma(p) &= (\gamma-\hat{\gamma}^{(1)}_{u})^2
 \end{split}
 \end{equation}
-penalize deviations of the parameters $\alpha$, $\beta$, and $\gamma$ from the parameters of the common regression $\hat{p}^{(1)}_u$.
+penalize deviations of the parameters $\alpha$, $\beta$, and $\gamma$ from the parameters of the common regression $\hat{\varphi}^{(1)}_u$.
 
 The weights of these parameter terms are chosen empirically to achieve a good trade-off and are the same for all materials. Their values are
 \begin{equation}
 W_{T_a} = 20, \quad
 W_{T_r} = 1, \quad
-W_{T_d} = 4000, \quad
+W_{T_d} = 4000\, \text{yr}^{-2}, \quad
 W_{D_\alpha} = 10, \quad
 W_{D_\beta} = 7.5, \quad \text{and} \quad
 W_{D_\gamma} = 0.025.
 \end{equation}
 
-%TODO: units
-
 %=======================================================================
 \subsubsection{Step 3: Transition smoothing}
 
-Since Step 2 does not guarantee an exact match of value and derivative to historical data, a blending procedure from historical data $h_{r,u}(t)$ to the logistic curve $f^{(2)}_{u,r}(t)$ is performed.
+Since Step 2 does not guarantee an exact match of value and derivative to historical data, a blending procedure from historical data $\tilde{h}_{r,u}(t)$ to the logistic curve $f^{(2)}_{u,r}(t)$ is performed.
 
 The blending procedure is carried out in the time domain. The resulting smoothed function $f^{(3)}_{u,r}(t)$ is calculated as the result of an initial value problem (a differential equation), where its second derivative is controlled as described below, and its function value and first derivative are determined by time integration.
 
@@ -92,23 +99,28 @@ The resulting differential equation then reads
 \begin{equation} \label{eq:pd_acc}
     \ddot{y}(t) = - 2k\; (\dot{y}(t) - \dot{s}(t^*)) - k^2\;(y(t)-s(t)).
 \end{equation}
-The constant $k$ is a damping factor which determines the convergence speed. It is set to a value such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within 50 years.
+The constant $k$ is a damping factor which determines the convergence speed. It is set to a value such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within 50 years. The asterisk $t^*$ is part of a look-ahead modification described below.
 
-The asterisk $t^*$ is part of a look-ahead modification described below.
 The differential equation is solved with an explicit Euler scheme, that is by starting at $t=t_{0}$ and executing the following three assignments year by year.
 \begin{equation}
 \begin{split}
     \ddot{y}(t) &= - 2k\; (\dot{y}(t) - \dot{s}(t)) - k^2\;(y(t)-s(t)) \\
     \dot{y}(t+\Delta t) &= \dot{y}(t) + \ddot{y}(t) \; \Delta t \\
-    y(t+\Delta t) &= y(t) + \dot{y}(t+1) \; \Delta t \\
+    y_p(t+\Delta t) &= y(t) + \dot{y}(t+1) \; \Delta t \\
 \end{split}
 \end{equation}
-Here, $\Delta t$ is the time step width, one year in this case. The value $y(t)$ finally yields the smoothed function.
+Here, $\Delta t$ is the time step width, one year in this case. The value $y_p(t)$ is the preliminary smoothed function. The actual smoothed function $y(t)$ is finally obtained through the nudging procedure
+\begin{equation}
+    y(t+\Delta t) = \theta(t)\, s(t+\Delta t) + (1-\theta(t))\, y_p(t+\Delta t)
+\end{equation}
+with the nudging factor $\theta(t)$. It is increased over time to accelerate the complete convergence of the smoothed function to the target function.
 
 Since the set point $s(t)$ is known a priori for all years (it is the output of Step 2), its future development over time can be used by the algorithm. In particular, the derivative $\dot{s}$ in Eq. \eqref{eq:pd_acc} is evaluated at a later time than $t$, that is $t^*=t+c(t)$, where $c(t)$ is varied between one and five years.
 This lessens overshoots of the smoothed function if the logistic target function nears saturation.
 
+\subsubsection{Denormalization}
 
+Finally, the smoothed normalized per-capita stocks $f^{(3)}_{u,r}(t)$ are multiplied with the good-specific saturation level $\alpha_u$ and with the population of the region $r$ to obtain the in-use stock extrapolation for each region and end-use category.
 
 %=======================================================================
 %=======================================================================
@@ -119,7 +131,7 @@ For trade extrapolation, a heuristic was developed that produces plausible futur
 
 As a first step, trade flows of single regions are extrapolated into the future separately. In a second step, imports and exports are corrected to achieve global market clearing.
 
-In the following, an independent notation is used, such that same symbols as in Section \ref{sec:stock_extrapol} do not denote the same variables.
+In the following, an independent notation is used, such that symbols also occurring in Section \ref{sec:stock_extrapol} do not denote the same variables.
 
 %=======================================================================
 \subsubsection{Regional extrapolation}

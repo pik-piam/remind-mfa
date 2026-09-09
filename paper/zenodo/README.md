@@ -17,10 +17,13 @@ Scenario results for prospective material demands and flows computed with REMIND
   - REMIND 12-region aggregation (definition and three-letter codes see paper SM XXX)
   - Country-resolution (249 countries with ISO 3166 codes)
 
-CAVEAT: Any MFA is only as good as its data. Especially for small regions, production and/or trade data are often unavailable or inaccurate, so they are reconstructed from more aggregated data sets. We advise to treat the country-resolution dataset with caution, but users can perform their own regional aggregations on it.
+Note that these two datasets are from different model runs.
+In particular, the stock extrapolation is different: The stock is regressed to historical regional data and subsequently adapted to each single regions, so different aggregations will yield different results.
+
+CAVEAT on the country-resolution dataset: Any MFA is only as good as its data. Especially for small regions, production and/or trade data are often unavailable or inaccurate, so they are reconstructed from more aggregated data sets. We advise to treat the country-resolution dataset with caution, but users can perform their own regional aggregations on it.
 The data quality is also different across materials:
 Trade da is available for most single countries for all materials.
-Production data is available for XXX countries/regions for steel, XXX countries/regions for cement and XXX countries/regions for plastics, indicating potential inaccuracies especially for the plastics MFA. Regional aggregations should be performed to average out possible single-country errors.
+Production data is available for 96 countries/regions for steel, 256 countries/regions for cement, but only 8 countries/regions for plastics, indicating potential inaccuracies especially for the plastics MFA. Regional aggregations should be performed to average out possible single-country errors.
 
 The data is available in the region set it was computed with.
 A global aggregation (Region "World") is also available for all flows, stocks, and trades, but not parameters (since they can't generally be simply summed to get the global values)
