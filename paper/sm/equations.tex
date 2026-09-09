@@ -7,7 +7,7 @@
 %=======================================================================
 \subsection{Stock extrapolation} \label{sec:stock_extrapol}
 
-In-use stock per capita for every region and end-use category is regressed on the logarithm of GDP per capita using a logistic function.
+In-use stock per capita for each region and end-use category is regressed on the logarithm of GDP per capita using a logistic function.
 
 $L(p,x)$ is the logistic curve over $x$ parametrized by $p = (\alpha,\beta,\gamma)^T$, that is
 \begin{equation}
@@ -21,7 +21,7 @@ We define the normalized logistic function $\tilde{L}(\varphi,x) = L(p,x)/\alpha
 \end{equation}
 with reduced parameters $\varphi = (\beta,\,\gamma)^T$.
 
-In the following, let $t$ be the index for the time vector (year), $r$ the region and $u$ the in-use category.
+In the following, $t$ indexes the time vector (year), $r$ indexes the region, and $u$ indexes the in-use category.
 
 We multiply the prescribed saturation level $\alpha_\text{tot}$ for each material with lifetime-weighted prescribed limit end-use inflow shares $\sigma_u$ to obtain the saturation level $\alpha_u$ for each in-use category $u$, i.e. $\alpha_u = \alpha_\text{tot} \, \sigma_u$.
 
@@ -42,7 +42,7 @@ where $x_r(t)$ is the base-10 logarithm of the GDP per capita\footnote{Strictly 
 %=======================================================================
 \subsubsection{Step 2: Regional adaptation}
 
-In this step, we vary the parameter set from Step 1 by region. This step aims to ensure a trade-off between continuing historical in-use-stock development trends, while not diverging too much from the common regression from Step 1.
+In this step, we vary the parameter set from Step 1 by region. This step aims to balance continuation of historical in-use-stock development trends with limited deviation from the common regression in Step 1.
 
 To this end, we find a regional curve
 \begin{equation}
@@ -90,7 +90,7 @@ W_{D_\gamma} = 0.025.
 
 Since Step 2 does not guarantee an exact match of value and derivative to historical data, a blending procedure from historical data $\tilde{h}_{r,u}(t)$ to the logistic curve $f^{(2)}_{u,r}(t)$ is performed.
 
-The blending procedure is carried out in the time domain. The resulting smoothed function $f^{(3)}_{u,r}(t)$ is calculated as the result of an initial value problem (a differential equation), where its second derivative is controlled as described below, and its function value and first derivative are determined by time integration.
+The blending procedure is carried out in the time domain. The resulting smoothed function $f^{(3)}_{u,r}(t)$ is obtained by solving an initial value problem (a differential equation): its second derivative is controlled as described below, and its function value and first derivative are determined by time integration.
 
 The second derivative is determined to drive the smoothed function $f^{(3)}_{u,r}(t)$ towards its target $f^{(2)}_{u,r}(t)$. To this end, a critically damped PD-controller is used, which means that the second derivative has two terms: one is proportional to the difference in the function value (the "P" in "PD", as in "proportional"), whereas the other is proportional to the differences in the derivative (the "D" in "PD", as in "difference"). In the following, a notation change is introduced to avoid confusion: the target value (also "set point" in control theory) is labeled $f^{(2)}_{u,r}(t) = s(t)$, and the smoothed transition (i.e. the solution variable of the differential equation) is labeled $f^{(3)}_{u,r}(t) = y(t)$. One or two dots denote first and second time derivatives $\dot{y}(t) = \frac{dy}{d t}$ and $\ddot{y}(t) = \frac{d^2y}{d t^2}$.
 
@@ -114,7 +114,7 @@ Here, $\Delta t$ is the time step width, one year in this case. The value $y_p(t
 \end{equation}
 with the nudging factor $\theta(t)$. It is increased over time to accelerate the complete convergence of the smoothed function to the target function.
 
-Since the set point $s(t)$ is known a priori for all years (it is the output of Step 2), its future development over time can be used by the algorithm. In particular, the derivative $\dot{s}$ in Eq. \eqref{eq:pd_acc} is evaluated at a later time than $t$, that is $t^*=t+c(t)$, where $c(t)$ is varied between one and five years.
+Since the set point $s(t)$ is known a priori for all years (it is the output of Step 2), its future development over time can be used by the algorithm. In particular, the derivative $\dot{s}$ in Eq. \eqref{eq:pd_acc} is evaluated at a later time than $t$, i.e. at $t^*=t+c(t)$, where $c(t)$ is varied between one and five years.
 This lessens overshoots of the smoothed function if the logistic target function nears saturation.
 
 \subsubsection{Denormalization}
@@ -128,7 +128,7 @@ Finally, the smoothed normalized per-capita stocks $f^{(3)}_{u,r}(t)$ are multip
 
 For trade extrapolation, a heuristic was developed that produces plausible future scenarios.
 
-As a first step, trade flows of single regions are extrapolated into the future separately. In a second step, imports and exports are corrected to achieve global market clearing.
+As a first step, trade flows of individual regions are extrapolated into the future separately. In a second step, imports and exports are corrected to achieve global market clearing.
 
 In the following, an independent notation is used, such that symbols also occurring in Section \ref{sec:stock_extrapol} do not denote the same variables.
 
@@ -139,13 +139,13 @@ Regionally, a trade market fulfills the mass balance
 \begin{equation} \label{eq:trade_extrapol_massb}
     p_r(t) + i_r(t) = e_r(t) + d_r(t),
 \end{equation}
-where $p$ denotes local production, $i$ denotes imports, $e$ denotes exports and $d$ denotes local demand. $t$ is the year and $r$ is the region.
+where $p$ denotes local production, $i$ denotes imports, $e$ denotes exports, and $d$ denotes local demand. Here, $t$ is the year and $r$ is the region.
 
-In the future MFA, the production value chain from material production to end-use is calculated backwards, starting with end-use goods demand.
+In the future MFA, the production value chain from material production to end-use is calculated backward, starting with end-use goods demand.
 
 This means that first, local demand for end-use products is known, and imports, exports, and local production of end-use products have to be calculated together to fulfill Eq. \eqref{eq:trade_extrapol_massb}.
 
-Similarly, after calculating local raw material demand from local production of end-use goods, this local demand is known for the raw material trade market as well, and imports, exports, and local production of end-use products have to be calculated together to fulfill Eq. \eqref{eq:trade_extrapol_massb}.
+Similarly, after calculating local raw material demand from local production of end-use goods, this local demand is known for the raw material trade market as well, and imports, exports, and local production of raw materials have to be calculated together to fulfill Eq. \eqref{eq:trade_extrapol_massb}.
 
 For scrap or waste markets, on the other hand, supply is known (from the outflow of the in-use stock and collection rates). So for this stage, the local "production" is known, and imports, exports, and local "demand" have to be calculated together.
 
@@ -207,9 +207,9 @@ In every iteration, Eqs. \eqref{eq:export_scaling_incr} or \eqref{eq:export_scal
 
 \subsubsection{Scrap and waste trade}
 
-Scrap and waste trade is calculated just as the other trade stages, with the difference that the roles of imports and exports as well as those of demand and production are flipped.
+Scrap and waste trade is calculated analogously to the other trade stages, with the difference that the roles of imports and exports as well as those of demand and production are flipped.
 
-This means that exports are calculated first. They are still scaled with production, as in Eq. \eqref{eq:export_scaling_basic}. Imports are scaled with demand, as in Eq. \eqref{eq:import_scaling_basic}. Imports and demand are calculated concurrently with a fixed-point iteration.
+This means that exports are calculated first. They are still scaled with production, as in Eq. \eqref{eq:export_scaling_basic}. Imports are scaled with demand, as in Eq. \eqref{eq:import_scaling_basic}. Imports and demand are then calculated concurrently with a fixed-point iteration.
 
 In case of increasing scrap/waste production, the Eqs. \eqref{eq:export_scaling_incr} and \eqref{eq:import_scaling_incr} are used, while for decreasing production, \eqref{eq:export_scaling_decr} and \eqref{eq:import_scaling_decr} are used.
 
@@ -222,7 +222,7 @@ Global market clearing prescribes that global exports equal global imports, i.e.
 \begin{equation}
     \sum_r e_r(t) = \sum_r i_r(t).
 \end{equation}
-This condition is not necessarily fulfilled after the extrapolation step. Therefore imports and/or exports are multiplied such that their global sums have the same common value $g(t)$ (detailed later), i.e.
+This condition is not necessarily fulfilled after the extrapolation step. Therefore imports and/or exports are multiplied such that their global sums have the same common value $g(t)$ (defined below), i.e.
  \begin{equation}
     e_r(t) = \tilde{e}_r(t) \frac{g(t)}{\sum_{r'} (\tilde{e}_{r'}(t))},
     \qquad
@@ -239,6 +239,6 @@ For future trades, the common value $g(t)$ is determined as the geometric mean o
 
 The above balancing is also performed for historical trades, as exogenous import and export data from the literature do not always sum to the same global values. In this case, it is assumed that trade volumes are rather under-reported than over-reported, such that the maximum is used for the global common sum instead, i.e.
 \begin{equation}
-    g(t) = \max \left( \sum_r (\tilde{e}_r(t)) ,\; \sum_r (\tilde{i}_r(t))\right)
+    g(t) = \max \left( \sum_r (\tilde{e}_r(t)),\; \sum_r (\tilde{i}_r(t))\right)
     \quad\text{for}\quad t \leq t_{0}.
 \end{equation}
