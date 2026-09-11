@@ -33,7 +33,9 @@ def test_scenarios_path_is_relative_to_declaring_config_file(tmp_path: Path):
 def test_absolute_scenarios_path_is_unchanged(tmp_path: Path):
     scenarios_path = tmp_path / "scenarios"
     config_path = tmp_path / "custom.toml"
-    config_path.write_text(f'[base.input]\nscenarios_path = "{scenarios_path}"\n', encoding="utf-8")
+    config_path.write_text(
+        f'[base.input]\nscenarios_path = "{scenarios_path.as_posix()}"\n', encoding="utf-8"
+    )
     scenarios_path.mkdir()
 
     config = load_config([CONFIG_DIR / "default.toml", config_path], ModelNames.STEEL)
