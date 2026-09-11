@@ -4,7 +4,7 @@
         input_data_path = "data_in"
         input_data_revision = "2.2.2"
         region_mapping = "h12"
-        scenarios_path = "config/scenarios"
+        scenarios_path = "./scenarios"
 
     [base.model_switches]
         scenario = "SSP2"
