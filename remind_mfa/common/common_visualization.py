@@ -13,7 +13,6 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
-from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
@@ -283,15 +282,6 @@ class CommonVisualizer(RemindMFABaseModel):
         return subplot_dim, summing_func, name_str
 
     def visualize_extrapolation_functions(self, stock_handler: StockExtrapolation):
-        regional = "r" in stock_handler.indep_fit_dim_letters
-        subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
-        if goods_dim_letter := set(stock_handler.indep_fit_dim_letters) - set(("r")):
-            assert (
-                len(goods_dim_letter) == 1
-            ), "Only one non-region dimension supported in extrapolation visualization"
-            linecolor_dim = self._model.dims[goods_dim_letter.pop()].name
-        else:
-            linecolor_dim = None
         extrapolation = stock_handler.extrapolation
         fit_prms = extrapolation.fit_prms
 
@@ -302,50 +292,30 @@ class CommonVisualizer(RemindMFABaseModel):
 
         def to_flodym(np_array, name=None):
             fda = fd.FlodymArray(dims=stock_handler.dims_out, values=np_array, name=name)
-            if not regional:
-                first_region = self._model.dims["r"].items[0]
-                fda = fda[first_region]
+            first_region = self._model.dims["r"].items[0]
+            fda = fda[first_region]
             return fda
 
         prms = [fit_prms[np.newaxis, ..., i] for i in range(extrapolation.n_prms)]
 
-        if isinstance(extrapolation, TwoPredictorExtrapolation):
-            # see loop below for purposes of the list entries
-            factors = [
-                ["f1", "Saturation level", "x2", "Time"],
-                ["f2", "Growth over GDP", "x1", "log10(GDPpC)"],
-                ["f3", "Growth over Time", "x2", "Time"],
-            ]
-        else:
-            factors = [
-                [None, "Growth", None, stock_handler.cfg.regress_over],
-            ]
+        values = extrapolation.func(predictor, prms)
+        array = to_flodym(values)
+        x_array = to_flodym(predictor, "GDPpC")
 
-        for factor_name, title, predictor_key, predictor_name in factors:
-            kwargs = {} if factor_name is None else {"factor": factor_name}
-            values = extrapolation.func(predictor, prms, **kwargs)
-            array = to_flodym(values, name=factor_name)
-            if predictor_key:
-                x_array = predictor[predictor_key]
-            else:
-                x_array = predictor
-            x_array = to_flodym(x_array, predictor_name)
+        ap = self.plotter_class(
+            array=array,
+            intra_line_dim="Time",
+            title="Stock regression function",
+            x_array=x_array,
+            linecolor_dim=self._model.end_use_good_letter,
+        )
+        fig = ap.plot()
 
-            ap = self.plotter_class(
-                array=array,
-                intra_line_dim="Time",
-                title=title,
-                x_array=x_array,
-                linecolor_dim=linecolor_dim,
-                **subplot_dim,
-            )
-            fig = ap.plot()
-
-            self.plot_and_save_figure(
-                ap,
-                f"regression_function_{factor_name}_{regional_str}",
-                do_plot=False,
-            )
+        self.plot_and_save_figure(
+            ap,
+            "regression_function",
+            do_plot=False,
+        )
 
     def visualize_trade(
         self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None
