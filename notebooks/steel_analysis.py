@@ -50,9 +50,7 @@ def _(Path, load_dotenv, os):
     )
 
     load_dotenv(repo_root / ".env")
-    madrat_main_folder = Path(
-        os.environ.get("MADRAT_MAINFOLDER", repo_root.parent / ".madrat")
-    )
+    madrat_main_folder = Path(os.environ.get("MADRAT_MAINFOLDER", repo_root.parent / ".madrat"))
     sources_dir = madrat_main_folder / "sources"
     if not sources_dir.exists():
         raise FileNotFoundError(
@@ -149,9 +147,7 @@ def _(mo, pd, ws_digitised_dir):
     # Global scrap consumption 1975-2008, unit kt -> Mt
     ws_scrap_global = (
         pd.read_excel(
-            ws_digitised_dir
-            / "scrap_consumption"
-            / "global_scrap_consumption_1975-2008.xlsx",
+            ws_digitised_dir / "scrap_consumption" / "global_scrap_consumption_1975-2008.xlsx",
             sheet_name="Data",
         )
         .melt(id_vars="Year", var_name="year", value_name="value")
@@ -175,16 +171,13 @@ def _(pd, ws_digitised_dir):
         df = df[["country_name", "Consumption"]].rename(
             columns={"country_name": "region", "Consumption": "value"}
         )
-        df["region"] = (
-            df["region"].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
-        )
+        df["region"] = df["region"].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
         # unify the varying EU aggregate labels, e.g. "European Union ( 15 )"
         # df["region"] = df["region"].str.replace(
         #    r"^European Union.*$", "European Union", regex=True
         # )
         df["year"] = year
         return df.dropna(subset="value")
-
 
     ws_scrap_yearbook = pd.concat(
         [_read_ws_yearbook(y) for y in range(2000, 2009)], ignore_index=True
@@ -230,7 +223,6 @@ def _(mo, pd, ws_database_dir):
             .assign(value=lambda d: d["value"] / 1e3)
             .set_index(["region", "year"])
         )
-
 
     ws_crude = read_ws_database("P01_crude_2023-10-23.xlsx")
     ws_crude.query("region == 'World'").sort_values("year").pipe(
@@ -300,9 +292,7 @@ def _(px, ws_by_type_comparison):
     ws_by_type_gap = ws_by_type_comparison.assign(
         gap=lambda df: df["value"] - df["total_by_type"],
         gap_percent=lambda df: (
-            abs((df["value"] - df["total_by_type"]))
-            / df["value"].where(df["value"] != 0)
-            * 100
+            abs((df["value"] - df["total_by_type"])) / df["value"].where(df["value"] != 0) * 100
         ),
     ).where(lambda df: df["gap_percent"] > 0.05)
     px.histogram(
@@ -373,9 +363,7 @@ def _(mo, ws_pigiron_trade):
         )
         .sort_values("pigiron_import_total", ascending=False)
     )
-    mo.ui.table(
-        ws_pigiron_trade_totals, label="Worldsteel World pig iron trade totals [Mt]"
-    )
+    mo.ui.table(ws_pigiron_trade_totals, label="Worldsteel World pig iron trade totals [Mt]")
     return (ws_pigiron_trade_totals,)
 
 
@@ -383,9 +371,7 @@ def _(mo, ws_pigiron_trade):
 def _(px, ws_pigiron_trade, ws_pigiron_trade_totals):
     # According to Metalloinvest p.157: demand for merchant pig iron has declined over recent years in most of the major markets
     # That doesn't seem to be really the case in Worldsteel data - seems to be rather constant
-    top_regions = (
-        ws_pigiron_trade_totals.query("pigiron_import_total > 0").head(10).index.tolist()
-    )
+    top_regions = ws_pigiron_trade_totals.query("pigiron_import_total > 0").head(10).index.tolist()
     trade_top_regions = ws_pigiron_trade.query("region in @top_regions & region != 'World'")
     px.line(
         trade_top_regions,
@@ -409,9 +395,7 @@ def _(mo, read_ws_database, ws_pigiron_trade):
         pigiron_after_export=lambda df: df["pigiron"] - df["pigiron_export"],
         pigiron_after_import=lambda df: df["pigiron"] + df["pigiron_import"],
     )
-    mo.ui.table(
-        ws_iron.query("region != 'World'"), label="Worldsteel World iron production [Mt]"
-    )
+    mo.ui.table(ws_iron.query("region != 'World'"), label="Worldsteel World iron production [Mt]")
     return (ws_iron,)
 
 
@@ -441,9 +425,7 @@ def _(ws_bof, ws_eaf, ws_iron):
             ),
             bof_gap_raw=lambda df: df["pigiron"] - 0.86 * df["bof"],
             bof_gap=lambda df: df["pigiron_after_export"] - 0.86 * df["bof"],
-            bof_gap_percent=lambda df: (
-                (df["bof_gap"] / df["bof"].where(df["bof"] != 0)) * 100
-            ),
+            bof_gap_percent=lambda df: ((df["bof_gap"] / df["bof"].where(df["bof"] != 0)) * 100),
         )
         .sort_values(["region", "year"])
         .query("region != 'Others'")
@@ -630,9 +612,7 @@ def _(mo, ws_bof_consistency):
         scrap_demand=lambda df: 0.22 * df["bof"] + 1.1355 * df["eaf"],
         naive_scrap_demand=lambda df: df["eaf"] - df["dri"],
         dri_demand=lambda df: 0.1075 * df["eaf"],
-        pigiron_gap=lambda df: (
-            df["pigiron"] - df["pigiron_demand"] + df["pigiron_trade_net"]
-        ),
+        pigiron_gap=lambda df: (df["pigiron"] - df["pigiron_demand"] + df["pigiron_trade_net"]),
         pigiron_gap_percent=lambda df: (
             (df["pigiron_gap"] / df["bof"].where(df["bof"] != 0)) * 100
         ),
@@ -908,11 +888,8 @@ def _(pd, region_map, ws_bof, ws_crude, ws_eaf):
             subset = df.loc[df.index.get_level_values("region").isin(countries)]
             if subset.empty:
                 continue
-            frames.append(
-                subset.groupby("year")["value"].sum().reset_index().assign(region=region)
-            )
+            frames.append(subset.groupby("year")["value"].sum().reset_index().assign(region=region))
         return pd.concat(frames, ignore_index=True)
-
 
     ws_crude_regional = aggregate_ws_database(ws_crude)
     ws_eaf_regional = aggregate_ws_database(ws_eaf)
@@ -977,9 +954,7 @@ def _(mo):
 
 @app.cell
 def _(bir_consumption, mo, ws_scrap_regional):
-    comparable_regions = sorted(
-        set(bir_consumption["region"]) & set(ws_scrap_regional["region"])
-    )
+    comparable_regions = sorted(set(bir_consumption["region"]) & set(ws_scrap_regional["region"]))
     consumption_region_picker = mo.ui.dropdown(
         options=comparable_regions,
         value="World" if "World" in comparable_regions else comparable_regions[0],
@@ -1036,9 +1011,7 @@ def _(consumption_comparison, mo):
     _overlap = consumption_comparison.dropna()
     _overlap = _overlap.assign(
         deviation=lambda d: d["BIR"] - d["Worldsteel"],
-        relative_deviation_percent=lambda d: (
-            (d["BIR"] - d["Worldsteel"]) / d["Worldsteel"] * 100
-        ),
+        relative_deviation_percent=lambda d: ((d["BIR"] - d["Worldsteel"]) / d["Worldsteel"] * 100),
     )
     mo.ui.table(
         _overlap.reset_index(),
@@ -1072,18 +1045,16 @@ def _(mo):
 def _(bir_consumption, bir_region_alias, bir_share, ws_crude_regional):
     _bir_scrap_from_share = (
         bir_share.assign(region=lambda d: d["region"].replace(bir_region_alias))
-        .merge(
-            ws_crude_regional.rename(columns={"value": "production"}), on=["region", "year"]
-        )
+        .merge(ws_crude_regional.rename(columns={"value": "production"}), on=["region", "year"])
         .assign(scrap_from_share=lambda d: d["value"] / 100 * d["production"])
     )
 
     bir_scrap = (
         bir_consumption.rename(columns={"value": "scrap_from_consumption"})
         .merge(_bir_scrap_from_share, on=["region", "year"], how="outer")
-        .assign(
-            scrap=lambda d: d[["scrap_from_consumption", "scrap_from_share"]].mean(axis=1)
-        )[["region", "year", "scrap_from_consumption", "scrap_from_share", "scrap"]]
+        .assign(scrap=lambda d: d[["scrap_from_consumption", "scrap_from_share"]].mean(axis=1))[
+            ["region", "year", "scrap_from_consumption", "scrap_from_share", "scrap"]
+        ]
         .set_index(["region", "year"])
     )
     bir_scrap
@@ -1207,16 +1178,11 @@ def _(bir_scrap, pd, region_map, ws_iron_demand):
         if _subset.empty:
             continue
         _regional_frames.append(
-            _subset.groupby("year")[_columns]
-            .sum(min_count=1)
-            .assign(region=_region)
-            .reset_index()
+            _subset.groupby("year")[_columns].sum(min_count=1).assign(region=_region).reset_index()
         )
 
     ws_iron_demand_regional = (
-        pd.concat(_regional_frames, ignore_index=True)
-        .set_index(["region", "year"])
-        .sort_index()
+        pd.concat(_regional_frames, ignore_index=True).set_index(["region", "year"]).sort_index()
     )
     regression_data = (
         bir_scrap[["scrap"]]
@@ -1249,9 +1215,7 @@ def _(np, pd, regression_data):
         columns=regression_outputs,
     )
     regression_predictions = regression_data[regression_outputs].copy()
-    regression_predictions[[f"{output}_predicted" for output in regression_outputs]] = (
-        _predicted
-    )
+    regression_predictions[[f"{output}_predicted" for output in regression_outputs]] = _predicted
 
     _residuals = _y - _predicted
     _total_sum_squares = ((_y - _y.mean(axis=0)) ** 2).sum(axis=0)
@@ -1293,9 +1257,7 @@ def _(linear_regression_coefficients, mo, regression_metrics):
 
 @app.cell
 def _(pd, px, regression_predictions):
-    _actual = regression_predictions[["bof", "eaf"]].rename(
-        columns={"bof": "BOF", "eaf": "EAF"}
-    )
+    _actual = regression_predictions[["bof", "eaf"]].rename(columns={"bof": "BOF", "eaf": "EAF"})
     _predicted = regression_predictions[["bof_predicted", "eaf_predicted"]].rename(
         columns={"bof_predicted": "BOF", "eaf_predicted": "EAF"}
     )
@@ -1472,12 +1434,9 @@ def _(
             **_shape_options,
         )
 
-
     _production_nnls = regression_data[regression_inputs].to_numpy() @ result_nnls
     _nnls_predictions = regression_data[regression_outputs].copy()
-    _nnls_predictions[[f"{route}_predicted" for route in regression_outputs]] = (
-        _production_nnls
-    )
+    _nnls_predictions[[f"{route}_predicted" for route in regression_outputs]] = _production_nnls
     _actual = _nnls_predictions[["bof", "eaf"]].rename(columns={"bof": "BOF", "eaf": "EAF"})
     _predicted = _nnls_predictions[["bof_predicted", "eaf_predicted"]].rename(
         columns={"bof_predicted": "BOF", "eaf_predicted": "EAF"}
@@ -1634,9 +1593,7 @@ def _(np, pd):
     ) -> pd.Series | float:
         """Divide finite values, returning NaN for undefined ratios."""
         if isinstance(denominator, pd.Series):
-            result = numerator / denominator.where(
-                np.isfinite(denominator) & denominator.ne(0)
-            )
+            result = numerator / denominator.where(np.isfinite(denominator) & denominator.ne(0))
             return result.where(np.isfinite(result))
         if not np.isfinite(denominator) or denominator == 0:
             return numerator * np.nan
@@ -1644,7 +1601,6 @@ def _(np, pd):
         if isinstance(result, pd.Series):
             return result.where(np.isfinite(result))
         return float(result) if np.isfinite(result) else np.nan
-
 
     def steel_balance_parameters(data: pd.DataFrame) -> pd.DataFrame:
         """Infer annual parameters without clipping inconsistent observations."""
@@ -1654,12 +1610,8 @@ def _(np, pd):
         )
         for route, primary in [("bof", "pigiron"), ("eaf", "dri")]:
             result[f"{route}scrap"] = result["lossrate"] * data[route] - data[primary]
-            result[f"{route}scrap_part"] = balance_ratio(
-                result[f"{route}scrap"], data["scrap"]
-            )
-            result[f"{route}scrap_rate"] = balance_ratio(
-                result[f"{route}scrap"], data[route]
-            )
+            result[f"{route}scrap_part"] = balance_ratio(result[f"{route}scrap"], data["scrap"])
+            result[f"{route}scrap_rate"] = balance_ratio(result[f"{route}scrap"], data[route])
         result["parameters_defined"] = np.isfinite(
             result[["lossrate", "bofscrap_part", "eafscrap_part"]]
         ).all(axis=1)
@@ -1671,16 +1623,13 @@ def _(np, pd):
         )
         return result
 
-
     def steel_balance_parameters_mean(annual: pd.DataFrame) -> pd.DataFrame:
         """Average annual parameters on a common set of defined years per region."""
         columns = ["lossrate", "bofscrap_part", "eafscrap_part"]
         valid = np.isfinite(annual[columns]).all(axis=1)
         result = annual[columns].where(valid).groupby(level="region").mean()
         result["years_used"] = valid.groupby(level="region").sum()
-        result["years_excluded"] = (
-            valid.groupby(level="region").size() - result["years_used"]
-        )
+        result["years_excluded"] = valid.groupby(level="region").size() - result["years_used"]
         result["invalid_years"] = (
             (valid & ~annual["physically_admissible"]).groupby(level="region").sum()
         )
@@ -1693,10 +1642,7 @@ def _(np, pd):
         )
         return result
 
-
-    def steel_balance_production(
-        data: pd.DataFrame, parameters: pd.DataFrame
-    ) -> pd.DataFrame:
+    def steel_balance_production(data: pd.DataFrame, parameters: pd.DataFrame) -> pd.DataFrame:
         """Predict from inputs and annual or fixed regional parameters only."""
         if parameters.index.names == ["region"]:
             parameters = parameters.reindex(data.index.get_level_values("region")).set_axis(
@@ -1715,7 +1661,6 @@ def _(np, pd):
         )
         return result
 
-
     def steel_equation_coefficients(parameters: pd.DataFrame) -> pd.DataFrame:
         """Translate mass-balance parameters into both routes' linear coefficients."""
         frames = []
@@ -1726,9 +1671,7 @@ def _(np, pd):
                 columns=["intercept", "pigiron", "scrap", "dri"],
             )
             frame[primary] = balance_ratio(1.0, parameters["lossrate"])
-            frame["scrap"] = balance_ratio(
-                parameters[f"{route}scrap_part"], parameters["lossrate"]
-            )
+            frame["scrap"] = balance_ratio(parameters[f"{route}scrap_part"], parameters["lossrate"])
             frames.append(
                 frame.reset_index()
                 .melt(
@@ -1739,7 +1682,6 @@ def _(np, pd):
                 .assign(route=route.upper())
             )
         return pd.concat(frames, ignore_index=True)
-
 
     def steel_coefficient_parameters(coefficients: pd.DataFrame) -> pd.DataFrame:
         """Interpret regression slopes and expose departures from the equations."""
@@ -1781,10 +1723,7 @@ def _(np, pd):
             )
         return pd.DataFrame(rows)
 
-
-    def steel_production_metrics(
-        predictions: pd.DataFrame, overall: bool = False
-    ) -> pd.DataFrame:
+    def steel_production_metrics(predictions: pd.DataFrame, overall: bool = False) -> pd.DataFrame:
         """Score methods on identical finite observations within each route and region."""
         rows = []
         methods = predictions["method"].unique()
@@ -1796,9 +1735,7 @@ def _(np, pd):
                 wide = group.pivot(
                     index=["region", "year"], columns="method", values="predicted"
                 ).reindex(columns=methods)
-                actual = (
-                    group.groupby(["region", "year"])["actual"].first().reindex(wide.index)
-                )
+                actual = group.groupby(["region", "year"])["actual"].first().reindex(wide.index)
                 common = np.isfinite(wide).all(axis=1) & np.isfinite(actual)
                 observed = actual[common].to_numpy()
                 total = ((observed - observed.mean()) ** 2).sum() if len(observed) else 0.0
@@ -1811,9 +1748,7 @@ def _(np, pd):
                             "method": method,
                             "observations": len(error),
                             "excluded": int((~common).sum()),
-                            "r_squared": 1 - (error**2).sum() / total
-                            if total > 0
-                            else np.nan,
+                            "r_squared": 1 - (error**2).sum() / total if total > 0 else np.nan,
                             "rmse": np.sqrt((error**2).mean()) if len(error) else np.nan,
                             "mae": np.abs(error).mean() if len(error) else np.nan,
                             "bias": error.mean() if len(error) else np.nan,
@@ -1859,9 +1794,7 @@ def _(
     pooled_annual_parameters = balance_parameters.iloc[:, :0].copy()
     for _route in ["bof", "eaf"]:
         for _parameter in [f"lossrate_{_route}", f"{_route}scrap_part"]:
-            pooled_annual_parameters[_parameter] = pooled_implied_parameters.iloc[0][
-                _parameter
-            ]
+            pooled_annual_parameters[_parameter] = pooled_implied_parameters.iloc[0][_parameter]
         pooled_annual_parameters[f"{_route}scrap"] = (
             pooled_annual_parameters[f"{_route}scrap_part"] * regression_data["scrap"]
         )
@@ -1930,12 +1863,8 @@ def _(
     balance_parameter_comparison = pd.concat(
         [
             _annual[_columns].reset_index().assign(method="Mass-balance equations"),
-            _mean[_columns]
-            .reset_index()
-            .assign(method="Mass-balance equations + Region Average"),
-            pooled_annual_parameters[_columns]
-            .reset_index()
-            .assign(method="Pooled regression"),
+            _mean[_columns].reset_index().assign(method="Mass-balance equations + Region Average"),
+            pooled_annual_parameters[_columns].reset_index().assign(method="Pooled regression"),
             pooled_annual_parameters[_columns]
             .groupby(level="region")
             .mean()
@@ -2007,9 +1936,7 @@ def _(
         .merge(_pooled, how="cross")
         .assign(method="Pooled regression")
     )
-    balance_coefficient_comparison = pd.concat(
-        [_annual, _fixed, _pooled], ignore_index=True
-    )
+    balance_coefficient_comparison = pd.concat([_annual, _fixed, _pooled], ignore_index=True)
     return (balance_coefficient_comparison,)
 
 
@@ -2034,9 +1961,7 @@ def _(balance_coefficient_comparison, mo, px):
     mo.vstack(
         [
             _plot,
-            mo.ui.table(
-                balance_coefficient_comparison, label="Linear coefficient comparison"
-            ),
+            mo.ui.table(balance_coefficient_comparison, label="Linear coefficient comparison"),
         ]
     )
     return
@@ -2171,9 +2096,7 @@ def _(balance_production_metrics, mo):
                 "equations where its in-sample RMSE is lower."
             ),
             mo.ui.table(
-                pooled_advantage.sort_values(
-                    "rmse_reduction", ascending=False
-                ),  # or: _winners
+                pooled_advantage.sort_values("rmse_reduction", ascending=False),  # or: _winners
                 label="Region-route combinations where pooled regression has lower RMSE",
             ),
         ]
@@ -2293,13 +2216,9 @@ def _(np, pd, regression_data):
         _design = np.column_stack([np.ones(len(_x)), _x])
         _bof_design = _design[:, [0, 1, 2]]
 
-        _bof_coefficients, _, _bof_rank, _ = np.linalg.lstsq(
-            _bof_design, _y[:, 0], rcond=None
-        )
+        _bof_coefficients, _, _bof_rank, _ = np.linalg.lstsq(_bof_design, _y[:, 0], rcond=None)
         _eaf_coefficients, _, _eaf_rank, _ = np.linalg.lstsq(_design, _y[:, 1], rcond=None)
-        _coefficients = np.column_stack(
-            [np.append(_bof_coefficients, 0.0), _eaf_coefficients]
-        )
+        _coefficients = np.column_stack([np.append(_bof_coefficients, 0.0), _eaf_coefficients])
         _predicted = _design @ _coefficients
         _residuals = _y - _predicted
         _total_sum_squares = ((_y - _y.mean(axis=0)) ** 2).sum(axis=0)
@@ -2409,9 +2328,7 @@ def _(
                 label=f"Regression coefficients for {_region}",
             ),
             mo.ui.table(
-                regional_regression_metrics[
-                    regional_regression_metrics["region"] == _region
-                ],
+                regional_regression_metrics[regional_regression_metrics["region"] == _region],
                 label=f"In-sample regression metrics for {_region}",
             ),
         ]
