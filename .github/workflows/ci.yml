@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,3 +37,79 @@ jobs:
 
     - name: Run tests
       run: uv run pytest
+  
+  run:
+    name: Run model
+    runs-on: ubuntu-latest
+    env:
+      MADRAT_OUTPUTFOLDER: ${{ github.workspace }}/madrat_output
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        submodules: false
+
+    - name: Check out the data_in/legacy submodule
+      # The submodule lives on gitlab.pik-potsdam.de and is declared with an SSH
+      # remote, which actions/checkout cannot authenticate against on its own.
+      env:
+        GITLAB_TOKEN: ${{ secrets.PIK_GITLAB_TOKEN }}
+      run: |
+        set -eu
+        if [ -z "${GITLAB_TOKEN:-}" ]; then
+          echo "Secret PIK_GITLAB_TOKEN is not set for this repository." >&2
+          exit 1
+        fi
+        git config --global \
+          url."https://oauth2:${GITLAB_TOKEN}@gitlab.pik-potsdam.de/".insteadOf \
+          "git@gitlab.pik-potsdam.de:"
+        git submodule update --init --depth 1 data_in/legacy
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      with:
+        enable-cache: true
+        version: "0.11.28"
+        python-version: "3.14"
+
+    - name: Install
+      run: uv sync --locked
+
+    - name: Cache MFA input archive
+      id: madrat-cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.MADRAT_OUTPUTFOLDER }}
+        # The archive only changes when `input.input_data_revision` or
+        # `input.region_mapping` in config/default.toml change.
+        key: madrat-mfa-${{ hashFiles('config/default.toml') }}
+
+    - name: Configure SSH access to the HPC
+      if: steps.madrat-cache.outputs.cache-hit != 'true'
+      env:
+        HPC_SSH_KEY: ${{ secrets.HPC_SSH_KEY }}
+        HPC_KNOWN_HOSTS: ${{ secrets.HPC_KNOWN_HOSTS }}
+        HPC_HOST: ${{ secrets.HPC_HOST }}
+        HPC_JUMP_HOST: ${{ secrets.HPC_JUMP_HOST }}
+      run: |
+        set -eu
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        printf '%s\n' "$HPC_SSH_KEY" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        printf '%s\n' "$HPC_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        # The cluster is only reachable through the PIK login gateway
+        {
+          printf 'Host hpc\n'
+          printf '  HostName %s\n' "${HPC_HOST##*@}"
+          printf '  User %s\n' "${HPC_HOST%@*}"
+          printf '  ProxyJump %s\n' "$HPC_JUMP_HOST"
+        } > ~/.ssh/config
+        chmod 600 ~/.ssh/config
+
+    - name: Download MFA input archive
+      if: steps.madrat-cache.outputs.cache-hit != 'true'
+      run: uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
+
+    - name: Run model
+      run: uv run remind_mfa.py --config default --config ci --model all
