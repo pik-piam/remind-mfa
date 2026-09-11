@@ -17,7 +17,7 @@ def test_default_config_validates_for_every_model(model):
     config = load_config(["default"], model)
 
     assert config["model"] == model.value
-    assert config["visualization"]["figures_path"].startswith(f"data/{model.value}/")
+    assert config["export"]["path"] == "data_out"
 
 
 def test_scenarios_path_is_relative_to_declaring_config_file(tmp_path: Path):

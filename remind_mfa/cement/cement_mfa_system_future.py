@@ -1,4 +1,3 @@
-import numpy as np
 import flodym as fd
 
 from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
@@ -18,7 +17,6 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         self.compute_in_use_stock(stock_projection, **kwargs)
         self.compute_flows(historic_trade)
-        self.compute_other_stocks()
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
@@ -31,10 +29,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
 
         if stock_is_cement:
-            # Input is cement stock (t, r, s): apply material split and convert to total product mass.
+            # Input is cement stock (t, r, u): apply material split and convert to total product mass.
             product_stock = stock_projection * prm["product_material_split"] / prm["cement_ratio"]
         else:
-            # Input is already product mass (t, r, s, m): just add k dim.
+            # Input is already product mass (t, r, u, m): just add k dim.
             product_stock = stock_projection
         stk["in_use"].stock = self.add_constituent_split(product_stock, prm)
 
@@ -49,10 +47,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
     def add_constituent_split(
         self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
     ) -> fd.FlodymArray:
-        """Add the Material Constituent (k) dimension to a product stock (t, r, s, m).
+        """Add the Material Constituent (k) dimension to a product stock (t, r, u, m).
 
         Splits into cement and non-cement using cement_ratio.
-        Returns an array with dim_letters (t, r, s, m, k).
+        Returns an array with dim_letters (t, r, u, m, k).
         """
         k_dim = fd.Dimension(
             name="Material Constituent",
@@ -82,11 +80,16 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
+        # use phase: the in-use outflow leaves the system boundary. When carbonation is active,
+        # CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
+        flw["use => sysenv"][...] = stk["in_use"].outflow
+
         # cement trade
+        total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["cement"],
             future_trade=trd["cement"],
-            future_dom_demand=flw["market_cement => prod_product"],
+            future_dom_demand=total_cement_demand,
         )
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -106,6 +109,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
 
         # clinker trade
+        self.cap_historical_net_imports_to_demand(
+            trade=historic_trade["clinker"],
+            demand=flw["market_clinker => prod_cement"],
+        )
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["clinker"],
             future_trade=trd["clinker"],
@@ -134,14 +141,3 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["sysenv => imports"][...] = (
             flw["imports => market_cement"] + flw["imports => market_clinker"]
         )
-
-    def compute_other_stocks(self):
-        flw = self.flows
-        stk = self.stocks
-
-        # eol
-        flw["use => eol"][...] = stk["in_use"].outflow
-        stk["eol"].inflow[...] = flw["use => eol"]
-        stk["eol"].lifetime_model.set_prms(mean=np.inf)
-        stk["eol"].compute()
-        flw["eol => sysenv"][...] = stk["eol"].outflow
