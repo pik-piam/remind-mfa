@@ -70,6 +70,8 @@ jobs:
       env:
         HPC_SSH_KEY: ${{ secrets.HPC_SSH_KEY }}
         HPC_KNOWN_HOSTS: ${{ secrets.HPC_KNOWN_HOSTS }}
+        HPC_HOST: ${{ secrets.HPC_HOST }}
+        HPC_JUMP_HOST: ${{ secrets.HPC_JUMP_HOST }}
       run: |
         set -eu
         mkdir -p ~/.ssh
@@ -77,12 +79,18 @@ jobs:
         printf '%s\n' "$HPC_SSH_KEY" > ~/.ssh/id_ed25519
         chmod 600 ~/.ssh/id_ed25519
         printf '%s\n' "$HPC_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        # The cluster is only reachable through the PIK login gateway
+        {
+          printf 'Host hpc\n'
+          printf '  HostName %s\n' "${HPC_HOST##*@}"
+          printf '  User %s\n' "${HPC_HOST%@*}"
+          printf '  ProxyJump %s\n' "$HPC_JUMP_HOST"
+        } > ~/.ssh/config
+        chmod 600 ~/.ssh/config
 
     - name: Download MFA input archive
       if: steps.madrat-cache.outputs.cache-hit != 'true'
-      env:
-        HPC_HOST: ${{ secrets.HPC_HOST }}
-      run: uv run scripts/fetch_from_hpc.py mfa-archive "$HPC_HOST" --config default --config ci
+      run: uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
 
     - name: Run model
       run: uv run remind_mfa.py --config default --config ci --model all
