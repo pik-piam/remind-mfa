@@ -10,6 +10,7 @@ site/
 CLAUDE.md
 madrat_output/
 data_in/parameters/
+data_in/validation/
 data_out
 .env
 config/*.toml
