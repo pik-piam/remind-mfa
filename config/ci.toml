@@ -1,0 +1,8 @@
+# Configuration layer for running during continuous integration (CI)
+
+[base]
+    [base.visualization]
+        # Headless: the plotly browser renderer cannot open
+        do_visualize = false
+        do_show_figs = false
+        do_save_figs = false
