@@ -46,6 +46,24 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v7
+      with:
+        submodules: false
+
+    - name: Check out the data_in/legacy submodule
+      # The submodule lives on gitlab.pik-potsdam.de and is declared with an SSH
+      # remote, which actions/checkout cannot authenticate against on its own.
+      env:
+        GITLAB_TOKEN: ${{ secrets.PIK_GITLAB_TOKEN }}
+      run: |
+        set -eu
+        if [ -z "${GITLAB_TOKEN:-}" ]; then
+          echo "Secret PIK_GITLAB_TOKEN is not set for this repository." >&2
+          exit 1
+        fi
+        git config --global \
+          url."https://oauth2:${GITLAB_TOKEN}@gitlab.pik-potsdam.de/".insteadOf \
+          "git@gitlab.pik-potsdam.de:"
+        git submodule update --init --depth 1 data_in/legacy
 
     - name: Install uv
       uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
