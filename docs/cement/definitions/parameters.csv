@@ -1,8 +1,8 @@
 Dimensions,Name,Description
-"r, s",stock_type_split,Split of cement production into different stock types.
+"r, u",end_use_split,Split of cement production into different end uses.
 "h, r",cement_production,Historic cement production volume for each region and year.
 "h, r",clinker_ratio,Historic clinker-to-cement ratio for each region.
-"h, r, s",lifetime_mean,Mean lifetime of historic cement stocks by region and stock type.
+"h, r, u",lifetime_mean,Mean lifetime of historic cement stocks by region and end use.
 ,lifetime_rel_std,Relative standard deviation of lifetime of cement in buildings and infrastructure.
 "h, r",clinker_imports,Historic clinker imports for each region and year.
 "h, r",clinker_exports,Historic clinker exports for each region and year.
@@ -14,7 +14,6 @@ Dimensions,Name,Description
 ,clinker_losses,Share of clinker lost during clinker production.
 "r, m",cement_ratio,Share of product mass that is cement for each product material.
 "r, m",product_material_split,Share of product output allocated to each material by region.
-r,industrialized_regions,List of regions considered industrialized for stock extrapolation.
 ,clinker_cao_ratio,Mass fraction of CaO contained in clinker.
 m,cao_carbonation_share,Share of CaO that is available for carbonation per material.
 ,cao_emission_factor,Process CO2 emission factor from producing CaO.
@@ -31,8 +30,8 @@ a,product_thickness,Average thickness assumed for each product application.
 "r, w, p",waste_size_share,Share of waste distributed across size classes per region and type.
 "w, p",waste_size_min,Minimum particle size represented for each waste type and class.
 "w, p",waste_size_max,Maximum particle size represented for each waste type and class.
-"t, r, S, s",floorspace,Historic and projected total buildings floorspace per region and stock type.
-"r, s, f",function_buildings_split,Split of building stock types into different functions per region.
-"r, f, b",structure_buildings_split,Split of building functions into different structure types per region.
-"r, f, b",concrete_building_mi,Material intensity of concrete (t/m2) differentiated by building function and structure.
+"t, r, S, c",floorspace,Historic and projected total buildings floorspace per region and common end use (Res/Com).
+"r, d",dwelling_split,Split of residential floor area into single- (RS) and multi-family (RM) homes.
+"r, b, s",structure_split,Split of building end uses into different structure types per region.
+"r, b, s",concrete_building_mi,Material intensity of concrete (t/m2) differentiated by building end use and structure.
 r,hibernating_stock_share,Share of building stock that is hibernating (built but unused and not demolished).
