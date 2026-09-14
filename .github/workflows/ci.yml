@@ -121,7 +121,7 @@ jobs:
 
     - name: Run model
       run: uv run remind_mfa.py --config default --config ci --model all
-    
+
     - name: Stage for deployment
       # The above run exports all figures as HTML into data_out/ci_series/
       # Copy only the HTML pages and plotly.min.js; pickles etc. may exceed Cloudflare's file size limit.
