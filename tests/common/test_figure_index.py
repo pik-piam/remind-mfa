@@ -27,7 +27,9 @@ def test_collect_figures_groups_by_run_and_encodes_hrefs(tmp_path: Path):
             name="sankey",
             href="ci_plastics_SSP2_h12/figures/sankey.html",
         ),
-        FigureEntry(run="ci_steel_SSP2_h12", name="gdppc", href="ci_steel_SSP2_h12/figures/gdppc.html"),
+        FigureEntry(
+            run="ci_steel_SSP2_h12", name="gdppc", href="ci_steel_SSP2_h12/figures/gdppc.html"
+        ),
         FigureEntry(
             run="ci_steel_SSP2_h12",
             name="production_Steel production",

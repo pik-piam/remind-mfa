@@ -77,8 +77,7 @@ class CommonVisualizer(RemindMFABaseModel):
             fig.show()
 
     def _save_figure_html(self, fig: go.Figure, base_name: str) -> None:
-        """Save a plotly figure as a standalone HTML file next to the other figure exports.
-        """
+        """Save a plotly figure as a standalone HTML file next to the other figure exports."""
         fig.write_html(
             self.figure_path(base_name, extension="html"),
             include_plotlyjs="directory",
