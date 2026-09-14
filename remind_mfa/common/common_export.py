@@ -66,9 +66,11 @@ class CommonDataExporter(RemindMFABaseModel):
     _run_path: Optional[str] = PrivateAttr(default=None)
 
     def export(self, model: "CommonModel"):
+        # Always set the model as the visualizer needs it to determine the run folder
+        # even when data export is disabled.
+        self._model = model
         if not self.cfg.do_export:
             return
-        self._model = model
         self.export_common()
         self.export_custom()
 
