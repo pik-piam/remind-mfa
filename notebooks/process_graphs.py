@@ -16,13 +16,14 @@ def _():
     from remind_mfa.common.config_loader import load_config
 
     dotenv.load_dotenv()
-    CONFIG_PATH = Path(__file__).parents[1] / "config" / "default.toml"
+    ROOT_DIR = Path(__file__).parents[1]
+    CONFIG_PATH = ROOT_DIR / "config" / "default.toml"
 
     graphs = []
     for historic in [True, False]:
         graphs.append(mo.md(f"# MFA {'Historic' if historic else 'Future'}"))
         for model_name in ModelNames:
-            model_config = load_config([CONFIG_PATH], model_name)
+            model_config = load_config([CONFIG_PATH], model_name, root_dir=ROOT_DIR)
             model = init_model(cfg=model_config)
             mfa = model.make_mfa(historic=historic)
             dot = GraphvizProcessGraphPlotter(mfa=mfa, rankdir="LR").plot()

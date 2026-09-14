@@ -43,15 +43,32 @@ def _resolve_scenarios_path(config: dict, config_path: Path) -> None:
         input_config = section.get("input")
         if not input_config or "scenarios_path" not in input_config:
             continue
-        scenarios_path = Path(input_config["scenarios_path"])
-        if not scenarios_path.is_absolute():
-            scenarios_path = config_path.parent / scenarios_path
-        scenarios_path = scenarios_path.resolve()
+        scenarios_path = _resolve_relative_path(input_config["scenarios_path"], config_path.parent)
         if not scenarios_path.exists():
             raise FileNotFoundError(
                 f"Scenarios path {scenarios_path} does not exist (declared in {config_path})."
             )
         input_config["scenarios_path"] = str(scenarios_path)
+
+
+def _resolve_input_data_path(config: dict, root_dir: Path) -> None:
+    """Resolve a relative input data directory against the given root directory."""
+    input_config = config.get("input")
+    if not input_config or "input_data_path" not in input_config:
+        return
+    input_data_path = _resolve_relative_path(input_config["input_data_path"], root_dir)
+    if not input_data_path.exists():
+        raise FileNotFoundError(
+            f"Input data path {input_data_path} does not exist (resolved against {root_dir})."
+        )
+    input_config["input_data_path"] = str(input_data_path)
+
+def _resolve_relative_path(path: str, root_dir: Path) -> Path:
+    """Resolve a relative path against the given root directory."""
+    resolved_path = Path(path)
+    if not resolved_path.is_absolute():
+        resolved_path = root_dir / resolved_path
+    return resolved_path.resolve()
 
 
 def _load_config_file(name: str | Path, config_dir: Path = CONFIG_DIR) -> dict:
@@ -78,6 +95,7 @@ def load_config(
     config_names: list[str | Path],
     model: ModelNames | None = None,
     config_dir: Path = CONFIG_DIR,
+    root_dir: Path | None = None,
 ) -> dict:
     """Load and merge the specified configuration, and return the resulting, validated model configuration."""
     layers = [_load_config_file(name, config_dir) for name in config_names]
@@ -92,6 +110,7 @@ def load_config(
 
     # Merge the model-specific configuration into the base configuration
     config = _deep_merge(base_config, model_config)
+    _resolve_input_data_path(config, root_dir if root_dir is not None else Path.cwd())
     if model is not None:
         config["model"] = model.value
         get_model_class(model).ConfigCls.model_validate(config)
