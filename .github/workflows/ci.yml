@@ -37,7 +37,7 @@ jobs:
 
     - name: Run tests
       run: uv run pytest
-  
+
   run:
     name: Run model
     runs-on: ubuntu-latest
