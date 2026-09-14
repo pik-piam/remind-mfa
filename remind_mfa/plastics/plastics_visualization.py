@@ -150,16 +150,18 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_transience_eol_parameters(
                 model,
-                parameter_REMIND_MFA=model.future_mfa.flows["reclmech => aux_recyclate_trade"].sum_to(
-                    ("t", "r", "m")
-                )[{"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}],
+                parameter_REMIND_MFA=model.future_mfa.flows[
+                    "reclmech => aux_recyclate_trade"
+                ].sum_to(("t", "r", "m"))[
+                    {"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}
+                ],
                 parameter_EU_MFA=model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[
                     {"r": "EU27+3"}
                 ],
                 linecolor_dim="EU-MFA_Material",
             )
             # these flows are not totally equal because REMIND-MFA includes trade while for EU-MFA recycling rate we currently assume that no waste is traded (TODO get sorted_waste_market__recycling flow to be sure that this is correct)
-        
+
         if self.cfg.scenario_params.do_visualize:
             self.visualize_scenario_params(mfa=model.future_mfa)
 
@@ -192,7 +194,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["aux_recyclate_trade => primary_market"]
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["aux_recyclate_trade => primary_market"]
         ).sum_to(("t", "r"))
         primary_net_imports = (
             mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]

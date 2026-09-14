@@ -714,7 +714,10 @@ class CommonVisualizer(RemindMFABaseModel):
             ylabel="Demand [t]",
         )
         fig = ap_3.plot()
-        self._show_and_save_plotly(fig, name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")
+        self._show_and_save_plotly(
+            fig,
+            name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+        )
 
     def visualize_transience_outflow(
         self,
@@ -776,7 +779,10 @@ class CommonVisualizer(RemindMFABaseModel):
             ylabel="Stock outflow [t]",
         )
         fig = ap_3.plot()
-        self._show_and_save_plotly(fig, name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png")
+        self._show_and_save_plotly(
+            fig,
+            name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+        )
 
     def visualize_transience_eol_parameters(
         self,
@@ -814,4 +820,6 @@ class CommonVisualizer(RemindMFABaseModel):
             ylabel="Parameter value",
         )
         fig = ap_2.plot()
-        self._show_and_save_plotly(fig, name=f"transience_comparison_{parameter_REMIND_MFA.name}.png")
+        self._show_and_save_plotly(
+            fig, name=f"transience_comparison_{parameter_REMIND_MFA.name}.png"
+        )
