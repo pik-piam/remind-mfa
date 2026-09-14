@@ -63,6 +63,7 @@ def _resolve_input_data_path(config: dict, root_dir: Path) -> None:
         )
     input_config["input_data_path"] = str(input_data_path)
 
+
 def _resolve_relative_path(path: str, root_dir: Path) -> Path:
     """Resolve a relative path against the given root directory."""
     resolved_path = Path(path)

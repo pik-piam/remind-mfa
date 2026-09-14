@@ -50,6 +50,7 @@ def test_input_data_path_is_relative_to_root_dir(tmp_path: Path):
 
     assert config["input"]["input_data_path"] == str(target_path)
 
+
 def test_model_overrides_all_base_layers(tmp_path):
     copy_default_config(tmp_path)
     (tmp_path / "first.toml").write_text(
