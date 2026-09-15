@@ -56,7 +56,7 @@ class CommonDataReader(fd.CompoundDataReader):
     @property
     def parameters_path(self) -> Path:
         return self.input_data_path / "parameters"
-    
+
     @property
     def legacy_path(self) -> Path:
         return self.input_data_path / "legacy"
@@ -68,7 +68,7 @@ class CommonDataReader(fd.CompoundDataReader):
     @property
     def validation_path(self) -> Path:
         return self.input_data_path / "validation"
-    
+
     @property
     def dimensions_path(self) -> Path:
         return self.input_data_path / "dimensions" / self.model_class
@@ -323,7 +323,9 @@ class CommonDataReader(fd.CompoundDataReader):
         for parameter in self.definition.parameters:
             if parameter.scenario_folder is not None:
                 # scenario-specific parameter: read from input_data/<scenario_folder>/<scenario>/
-                scenario_path = self.legacy_path / parameter.scenario_folder / self.transience_scenario
+                scenario_path = (
+                    self.legacy_path / parameter.scenario_folder / self.transience_scenario
+                )
                 model_specific_file = scenario_path / f"{model_prefix}_{parameter.name}.cs4r"
             else:
                 model_specific_file = self.parameters_path / f"{model_prefix}_{parameter.name}.cs4r"

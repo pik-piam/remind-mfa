@@ -37,9 +37,9 @@ class SteelVisualizer(CommonVisualizer):
             )
             self.visualize_transience_eol_parameters(
                 self._model,
-                parameter_REMIND_MFA=self._model.future_mfa.flows["use => eol_market"].sum_to(("t", "r"))[
-                    {"r": "EUR", "t": self._model.dims["u"]}
-                ],
+                parameter_REMIND_MFA=self._model.future_mfa.flows["use => eol_market"].sum_to(
+                    ("t", "r")
+                )[{"r": "EUR", "t": self._model.dims["u"]}],
                 parameter_EU_MFA=self._model.parameters["available_scrap_EU-MFA"][{"r": "EUR"}],
             )
         self.stop_and_show()

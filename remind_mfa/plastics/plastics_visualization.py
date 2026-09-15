@@ -137,9 +137,9 @@ class PlasticsVisualizer(CommonVisualizer):
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_rate"][
                     {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
                 ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters["mechanical_recycling_rate_EU-MFA"].sum_over(
-                    ("p")
-                ),
+                parameter_EU_MFA=self._model.parameters[
+                    "mechanical_recycling_rate_EU-MFA"
+                ].sum_over(("p")),
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
@@ -147,9 +147,9 @@ class PlasticsVisualizer(CommonVisualizer):
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_yield"][
                     {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
                 ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters["mechanical_recycling_yield_EU-MFA"].sum_over(
-                    ("p")
-                ),
+                parameter_EU_MFA=self._model.parameters[
+                    "mechanical_recycling_yield_EU-MFA"
+                ].sum_over(("p")),
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
@@ -159,9 +159,9 @@ class PlasticsVisualizer(CommonVisualizer):
                 ].sum_to(("t", "r", "m"))[
                     {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
                 ],
-                parameter_EU_MFA=self._model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[
-                    {"r": "EU27+3"}
-                ],
+                parameter_EU_MFA=self._model.parameters["recycled_eol_EU-MFA"].sum_to(
+                    ("u", "r", "n")
+                )[{"r": "EU27+3"}],
                 linecolor_dim="EU-MFA_Material",
             )
             # these flows are not totally equal because REMIND-MFA includes trade while for EU-MFA recycling rate we currently assume that no waste is traded (TODO get sorted_waste_market__recycling flow to be sure that this is correct)
