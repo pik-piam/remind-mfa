@@ -25,6 +25,11 @@ class PlasticsDataExporter(CommonDataExporter):
     def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Demand for primary plastics."""
         return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
+    
+    @staticmethod
+    def _plastics_primary_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Production of primary plastics."""
+        return (mfa.flows["polymerization => primary_market"] + mfa.flows["aux_recyclate_trade => primary_market"]).sum_to(("t", "r", "m"))
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         def hvc_input(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -51,6 +56,11 @@ class PlasticsDataExporter(CommonDataExporter):
                 calculation_function=PlasticsDataExporter._plastics_fabrication_demand,
                 unit="t/yr",
             ),
+            RemindInputVariable(
+                name="plastics_production",
+                calculation_function=PlasticsDataExporter._plastics_primary_production,
+                unit="t/yr",
+            ),
         ]
 
     def export_custom(self, model: "PlasticsModel"):
@@ -58,7 +68,6 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_eol_data_by_region_and_year(mfa=model.future_mfa)
             self.export_use_data_by_region_and_year(mfa=model.future_mfa)
             self.export_recycling_data_by_region_and_year(mfa=model.future_mfa)
-            self.export_production_data_by_region_and_year(mfa=model.future_mfa)
             self.export_stock_extrapolation(model=model)
 
     def export_stock_extrapolation(self, model: "PlasticsModel"):
@@ -85,13 +94,6 @@ class PlasticsDataExporter(CommonDataExporter):
     def export_recycling_data_by_region_and_year(self, mfa: fd.MFASystem):
         df = PlasticsDataExporter._plastic_waste(mfa).to_df(index=True)
         df.to_csv(self.export_path("csv", "recycling_by_region_year.csv"), index=True)
-
-    def export_production_data_by_region_and_year(self, mfa: fd.MFASystem):
-        df = (
-            mfa.flows["polymerization => primary_market"]
-            + mfa.flows["reclmech => primary_market"]
-        ).sum_to(("t", "r", "m")).to_df(index=True)
-        df.to_csv(self.export_path("csv", "production_by_region_year.csv"), index=True)
 
     def iamc_variables(self) -> list[IamcVariable]:
         return [
