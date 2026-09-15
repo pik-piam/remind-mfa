@@ -25,11 +25,14 @@ class PlasticsDataExporter(CommonDataExporter):
     def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Demand for primary plastics."""
         return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
-    
+
     @staticmethod
     def _plastics_primary_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Production of primary plastics."""
-        return (mfa.flows["polymerization => primary_market"] + mfa.flows["aux_recyclate_trade => primary_market"]).sum_to(("t", "r", "m"))
+        return (
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["aux_recyclate_trade => primary_market"]
+        ).sum_to(("t", "r", "m"))
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         def hvc_input(mfa: fd.MFASystem) -> fd.FlodymArray:
