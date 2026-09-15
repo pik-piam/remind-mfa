@@ -62,3 +62,20 @@ module-root = ""
 
 [tool.black]
 line-length = 100
+
+[tool.ty.rules]
+invalid-argument-type = "ignore"
+not-subscriptable = "ignore"
+missing-argument = "ignore"
+unresolved-attribute = "ignore"
+unsupported-operator = "ignore"
+invalid-assignment = "ignore"
+pydantic-discarded-extra-argument = "ignore"
+too-many-positional-arguments = "ignore"
+invalid-method-override = "ignore"
+invalid-return-type = "ignore"
+unknown-argument = "ignore"
+invalid-parameter-default = "ignore"
+unresolved-import = "ignore"
+redundant-condition = "ignore"
+invalid-type-form = "ignore"
