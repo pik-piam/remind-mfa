@@ -48,7 +48,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.transience_scenario = cfg.transience.transience_scenario
         self.prepare_input_readers()
         self.baseline_pickle_path = (
-            os.path.join(*(cfg.export.path, "pickle"), cfg.transience.baseline_pickle_path)
+            os.path.join(cfg.export.path, cfg.transience.baseline_pickle_path, "model.pickle")
             if cfg.transience.baseline_pickle_path
             else None
         )
@@ -56,6 +56,10 @@ class CommonDataReader(fd.CompoundDataReader):
     @property
     def parameters_path(self) -> Path:
         return self.input_data_path / "parameters"
+    
+    @property
+    def legacy_path(self) -> Path:
+        return self.input_data_path / "legacy"
 
     @property
     def legacy_parameters_path(self) -> Path:
@@ -319,8 +323,8 @@ class CommonDataReader(fd.CompoundDataReader):
         for parameter in self.definition.parameters:
             if parameter.scenario_folder is not None:
                 # scenario-specific parameter: read from input_data/<scenario_folder>/<scenario>/
-                scenario_path = self.input_data_path / parameter.scenario_folder / self.transience_scenario
-                model_specific_file = scenario_path / f"{material_prefix}_{parameter.name}.cs4r"
+                scenario_path = self.legacy_path / parameter.scenario_folder / self.transience_scenario
+                model_specific_file = scenario_path / f"{model_prefix}_{parameter.name}.cs4r"
             else:
                 model_specific_file = self.parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
                 legacy_file = self.legacy_parameters_path / f"{model_prefix}_{parameter.name}.cs4r"

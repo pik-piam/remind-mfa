@@ -64,7 +64,7 @@
         do_stock_extrapolation_with_time_factor = true
 
     [plastics.transience]
-        baseline_pickle_path = 'model_plastics_SSP2_transience_CE-PET_fd_plastics_S0_default_2c0a4149_2026-06-29--09-13-07.pickle'
+        baseline_pickle_path = '2026-09-15--17-08-25_plastics_SSP2_2c0a4149_CE-PET_fd_plastics_S0_default' 
         transience_scenario = 'CE-PET_fd_plastics_S0' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
         trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
@@ -83,7 +83,7 @@
         do_stock_extrapolation_by_category = true
 
     [steel.transience]
-        baseline_pickle_path = 'model_steel_SSP2_transience_Baseline_Steel_01_06_2026_default_h12_2026-06-04--13-58-49.pickle'
+        baseline_pickle_path = '2026-09-15--17-01-13_steel_SSP2_h12_Baseline_Steel_01_06_2026_default'
         transience_scenario = 'Baseline_Steel_01_06_2026' # 'Baseline_Steel_01_06_2026', 'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel'
         trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 

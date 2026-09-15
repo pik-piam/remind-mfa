@@ -117,49 +117,49 @@ class PlasticsVisualizer(CommonVisualizer):
                 linecolor_dim="Material",
             )
 
-        if model.cfg.transience.transience_run:
+        if self._model.cfg.transience.transience_run:
             self.visualize_transience_eol_parameters(
-                model,
-                parameter_REMIND_MFA=model.parameters["collection_rate"][
+                self._model,
+                parameter_REMIND_MFA=self._model.parameters["collection_rate"][
                     {
                         "r": "EU27+3",
-                        "m": model.dims["n"],
-                        "g": model.dims["f"],
-                        "t": model.dims["u"],
+                        "m": self._model.dims["n"],
+                        "g": self._model.dims["f"],
+                        "t": self._model.dims["u"],
                     }
                 ].sum_over(("p")),
-                parameter_EU_MFA=model.parameters["collection_rate_EU-MFA"].sum_over(("p")),
+                parameter_EU_MFA=self._model.parameters["collection_rate_EU-MFA"].sum_over(("p")),
                 subplot_dim="EU-MFA_Good",
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
-                model,
-                parameter_REMIND_MFA=model.parameters["mechanical_recycling_rate"][
-                    {"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}
+                self._model,
+                parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_rate"][
+                    {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
                 ].sum_over(("p")),
-                parameter_EU_MFA=model.parameters["mechanical_recycling_rate_EU-MFA"].sum_over(
+                parameter_EU_MFA=self._model.parameters["mechanical_recycling_rate_EU-MFA"].sum_over(
                     ("p")
                 ),
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
-                model,
-                parameter_REMIND_MFA=model.parameters["mechanical_recycling_yield"][
-                    {"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}
+                self._model,
+                parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_yield"][
+                    {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
                 ].sum_over(("p")),
-                parameter_EU_MFA=model.parameters["mechanical_recycling_yield_EU-MFA"].sum_over(
+                parameter_EU_MFA=self._model.parameters["mechanical_recycling_yield_EU-MFA"].sum_over(
                     ("p")
                 ),
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
-                model,
-                parameter_REMIND_MFA=model.future_mfa.flows[
+                self._model,
+                parameter_REMIND_MFA=self._model.future_mfa.flows[
                     "reclmech => aux_recyclate_trade"
                 ].sum_to(("t", "r", "m"))[
-                    {"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}
+                    {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
                 ],
-                parameter_EU_MFA=model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[
+                parameter_EU_MFA=self._model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[
                     {"r": "EU27+3"}
                 ],
                 linecolor_dim="EU-MFA_Material",

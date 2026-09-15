@@ -84,7 +84,7 @@ class CommonDataExporter(RemindMFABaseModel):
         if self.cfg.mrindustry.do_export:
             self.write_mrindustry()
         if self.cfg.atlas.do_export:
-            self.write_atlas(model=model)
+            self.write_atlas(model=self._model)
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
@@ -106,7 +106,8 @@ class CommonDataExporter(RemindMFABaseModel):
                 self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
             name = (
                 f"{export_dir_prefix(self._model.cfg.export.prefix)}_{self._model.cfg.model.value}_"
-                f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}"
+                f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}_"
+                f"{self._model.cfg.transience.transience_scenario}_{self._model.cfg.transience.trade_scenario}"
             )
             self._run_path = os.path.join(self.cfg.path, name)
             Path(self._run_path).mkdir(parents=True, exist_ok=True)
@@ -309,14 +310,14 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def write_mrindustry(self):
         """Write material flows needed as inputs to REMIND."""
-        self.write_variable_csvs(model, self.get_mrindustry_variables(), "mrindustry")
+        self.write_variable_csvs(self._model, self.get_mrindustry_variables(), "mrindustry")
 
-    def write_atlas(self, model: "CommonModel"):
+    def write_atlas(self):
         """Write the material demand needed as input to the ATLAS trade model."""
-        self.write_variable_csvs(model, self.get_atlas_variables(), "atlas")
+        self.write_variable_csvs(self._model, self.get_atlas_variables(), "atlas")
 
     def write_variable_csvs(
-        self, model: "CommonModel", variables: list[RemindInputVariable], dataset: str
+        self, variables: list[RemindInputVariable], dataset: str
     ):
         """Write one CSV file per given variable into the export folder of the given dataset,
         replacing any previous content of that folder."""

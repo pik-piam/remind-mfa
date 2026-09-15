@@ -545,12 +545,10 @@ class CommonVisualizer(RemindMFABaseModel):
         mfa = self._model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         population = self._model.parameters["population"]
-        stock = self._model.stock_handler.stocks * self._model.sector_specific_sat_level * model.time_factor
+        stock = self._model.stock_handler.stocks * self._model.sector_specific_sat_level * self._model.time_factor
         extrapolation = (
-            self._(
-            model.stock_handler.fitted_regression
+            self._model.stock_handler.fitted_regression
             * self._model.sector_specific_sat_level
-        )
             * self._model.time_factor
         )
         x_array = None
@@ -721,7 +719,7 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(
             fig,
-            name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+            base_name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
         )
 
     def visualize_transience_outflow(
@@ -786,7 +784,7 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(
             fig,
-            name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+            base_name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
         )
 
     def visualize_transience_eol_parameters(
@@ -826,5 +824,6 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap_2.plot()
         self._show_and_save_plotly(
-            fig, name=f"transience_comparison_{parameter_REMIND_MFA.name}.png"
+            fig, 
+            base_name=f"transience_comparison_{parameter_REMIND_MFA.name}.png"
         )
