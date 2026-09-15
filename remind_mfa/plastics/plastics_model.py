@@ -14,7 +14,6 @@ from remind_mfa.common.data_blending import blend
 
 
 class PlasticsModel(CommonModel):
-
     ConfigCls = PlasticsCfg
     DimensionFilesCls = PlasticsDimensionFiles
     DataExporterCls = PlasticsDataExporter

@@ -6,7 +6,6 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 
 
 class PriceDrivenTrade(RemindMFABaseModel):
-
     model_config = ConfigDict(extra="allow")
 
     eta_demand: float = -0.3
@@ -45,7 +44,6 @@ class PriceDrivenTrade(RemindMFABaseModel):
         demand = 1.0 * demand_0
 
         for i in range(self.max_iter):
-
             # demand and supply
             demand = demand_0 * (price / price_0) ** self.eta_demand
             supply = supply_0 * (price / price_0) ** self.eta_supply
@@ -82,7 +80,6 @@ class PriceDrivenTrade(RemindMFABaseModel):
         domestic_share_target = (demand - imports_target) / demand
 
         for i in range(self.max_iter):
-
             # update trade
             imports, exports = self.get_trade(price, demand)
 

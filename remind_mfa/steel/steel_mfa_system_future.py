@@ -8,7 +8,6 @@ from remind_mfa.steel.steel_config import SteelCfg
 
 
 class SteelMFASystem(CommonMFASystem):
-
     cfg: SteelCfg
 
     def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):

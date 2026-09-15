@@ -1,9 +1,10 @@
 repos:
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 26.5.1
+  # Run linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
     hooks:
-      - id: black
-        language_version: python3.12
+      - id: ruff-check
+      - id: ruff-format
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -11,3 +12,8 @@ repos:
       - id: check-case-conflict
       - id: end-of-file-fixer
       - id: trailing-whitespace
+  # Keep uv.lock in sync with pyproject.toml
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.1
+    hooks:
+      - id: uv-lock

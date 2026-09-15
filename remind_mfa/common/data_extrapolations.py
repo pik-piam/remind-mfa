@@ -34,18 +34,18 @@ class Extrapolation(RemindMFABaseModel):
 
     @model_validator(mode="after")
     def validate_data(self):
-        assert (
-            self.data_to_extrapolate.shape[0] <= self.predictor_values.shape[0]
-        ), "data_to_extrapolate cannot be longer than predictor_values"
-        assert (
-            self.data_to_extrapolate.shape[1:] == self.predictor_values.shape[1:]
-        ), "Data to extrapolate and predictor_values must have the same shape except for the first dimension."
+        assert self.data_to_extrapolate.shape[0] <= self.predictor_values.shape[0], (
+            "data_to_extrapolate cannot be longer than predictor_values"
+        )
+        assert self.data_to_extrapolate.shape[1:] == self.predictor_values.shape[1:], (
+            "Data to extrapolate and predictor_values must have the same shape except for the first dimension."
+        )
         if self.weights is None:
             self.weights = np.ones_like(self.data_to_extrapolate)
         else:
-            assert (
-                self.weights.shape == self.data_to_extrapolate.shape
-            ), "Weights must have the same shape as data_to_extrapolate."
+            assert self.weights.shape == self.data_to_extrapolate.shape, (
+                "Weights must have the same shape as data_to_extrapolate."
+            )
         return self
 
     @property
@@ -125,7 +125,6 @@ class Extrapolation(RemindMFABaseModel):
 
         # loop over dimensions that are regressed independently
         for slice_indep in np.ndindex(predictor_shape):
-
             slice_all = [slice(None)] * len(self.predictor_values.shape)
             for i, j in enumerate(self.independent_dims):
                 slice_all[j] = slice_indep[i]
@@ -178,7 +177,6 @@ class Extrapolation(RemindMFABaseModel):
 
 
 class ProportionalExtrapolation(Extrapolation):
-
     prm_names: ClassVar[list[str]] = ["proportionality_factor"]
 
     @staticmethod
@@ -190,7 +188,6 @@ class ProportionalExtrapolation(Extrapolation):
 
 
 class PehlExtrapolation(Extrapolation):
-
     prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
@@ -207,7 +204,6 @@ class PehlExtrapolation(Extrapolation):
 
 
 class ExponentialSaturationExtrapolation(Extrapolation):
-
     prm_names: ClassVar[list[str]] = ["saturation_level", "stretch_factor"]
 
     @staticmethod
@@ -225,7 +221,6 @@ class ExponentialSaturationExtrapolation(Extrapolation):
 
 
 class LogisticExtrapolation(Extrapolation):
-
     prm_names: ClassVar[list[str]] = ["saturation_level", "offset", "growth_rate"]
     norm_c: ClassVar[float] = 4
 
@@ -264,9 +259,9 @@ class TwoPredictorExtrapolation(Extrapolation):
 
     def check_predictor(self, x):
         x2 = x["x2"]
-        assert (
-            x2 is not None
-        ), f"{type(self).__name__} requires a secondary predictor with field name 'x2', but it was not found in the predictor values."
+        assert x2 is not None, (
+            f"{type(self).__name__} requires a secondary predictor with field name 'x2', but it was not found in the predictor values."
+        )
 
     def selective_product(self, key: str, factors: dict):
         if key is None:
