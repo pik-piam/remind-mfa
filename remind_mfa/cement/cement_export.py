@@ -1,10 +1,16 @@
+from typing import TYPE_CHECKING, Optional
+
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
     IamcVariable,
     RemindInputVariable,
 )
+
+if TYPE_CHECKING:
+    from remind_mfa.cement.cement_model import CementModel
 
 
 def _sum_to_end_use_split(arr: fd.FlodymArray) -> fd.FlodymArray:
@@ -22,6 +28,8 @@ def _sum_to_end_use_split(arr: fd.FlodymArray) -> fd.FlodymArray:
 
 
 class CementDataExporter(CommonDataExporter):
+    _model: Optional["CementModel"] = PrivateAttr(default=None)
+
     @staticmethod
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Cement output before trade and construction losses"""
