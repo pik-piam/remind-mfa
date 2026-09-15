@@ -24,6 +24,11 @@ class SteelDataExporter(CommonDataExporter):
         return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g"))
 
     @staticmethod
+    def _steel_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Demand for intermediate steel products."""
+        return mfa.flows["ip_market => fabrication"].sum_to(("t", "r"))
+
+    @staticmethod
     def _total_available_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Home and new scrap, plus old scrap after collection and trade, but before the model diverts any surplus to excess scrap."""
         return (
@@ -47,6 +52,15 @@ class SteelDataExporter(CommonDataExporter):
             RemindInputVariable(
                 name="steel_scrap",
                 calculation_function=SteelDataExporter._total_available_scrap,
+                unit="t/yr",
+            ),
+        ]
+
+    def get_atlas_variables(self) -> list[RemindInputVariable]:
+        return [
+            RemindInputVariable(
+                name="steel_demand",
+                calculation_function=SteelDataExporter._steel_demand,
                 unit="t/yr",
             ),
         ]

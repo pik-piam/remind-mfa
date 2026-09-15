@@ -44,6 +44,7 @@ class CommonModel:
         self.read_scenario_parameters()
         self.select_driver_scen()
         self.modify_parameters()
+        self.calculate_derived_parameters()
         self.init_export_and_visualization()
 
     def run(self):
@@ -61,12 +62,18 @@ class CommonModel:
         self.extrapolate_parameters()
         self.check_parameters()
 
+        # compute parameter modifications for transience
+        if self.cfg.transience.transience_run:
+            self.compute_transience_parameters()
+
         logging.info("Extrapolating in-use stock...")
         stock_projection = self.get_long_term_stock()
 
         logging.info("Running future MFA system...")
         self.future_mfa = self.make_mfa(historic=False)
-        self.future_mfa.compute(stock_projection, historic_trade)
+        self.future_mfa.compute(
+            stock_projection, historic_trade, self.baseline_trade, self.baseline_flows
+        )
 
     def export(self):
         self.data_writer.export(model=self)
@@ -84,12 +91,21 @@ class CommonModel:
             definition=self.definition_future,
             dimension_file_mapping=self.DimensionFilesCls(),
             allow_missing_values=True,  # needed for at least steel scrap data and for bottom-up (cement)
-            allow_extra_values=False,
+            allow_extra_values=True,  # for transience, to allow removing dimension items that are not part of the scope of EU-MFA
         )
         self.dims = self.data_reader.read_dimensions(self.definition_future.dimensions)
         self.parameters = self.data_reader.read_parameters(
             self.definition_future.parameters, dims=self.dims
         )
+        if (
+            self.cfg.transience.baseline_pickle_path is not None
+            and self.cfg.transience.baseline_pickle_path != ""
+        ):
+            self.baseline_trade = self.data_reader.read_baseline_trade()
+            self.baseline_flows = self.data_reader.read_baseline_flows()
+        else:
+            self.baseline_trade = None
+            self.baseline_flows = None
 
     def check_parameters(self, exceptions: Optional[list] = None, raise_error: bool = False):
         """Check if all parameters are free of NaN and negative values after data read-in."""
@@ -138,7 +154,19 @@ class CommonModel:
         self.scenario_parameters = scenario_reader.get_parameters()
 
     def modify_parameters(self):
-        """Manual changes to parameters"""
+        """Manual changes to parameters. Called once at initialization."""
+        pass
+
+    def calculate_derived_parameters(self):
+        """Derive parameters from other parameters. Called once at initialization, after
+        `modify_parameters`. Must be re-called after any step that changes parameters
+        (e.g. cement re-calls it after reconciliation), so derived values stay consistent
+        with the current parameter set. Unlike `modify_parameters`, implementations must
+        be idempotent: recompute outputs from inputs, never modify inputs in place."""
+        pass
+
+    def compute_transience_parameters(self):
+        """Calculate parameters for EU region for transience based on flows from EU-MFA"""
         pass
 
     def extrapolate_parameters(self):
@@ -283,10 +311,13 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
+        self.time_factor = time_factor  # store for later use in visualization
         self.sector_specific_sat_level = (
-            sector_specific_sat_level * time_factor
-        )  # to be used in visualization of extrapolation functions
-        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
+            sector_specific_sat_level  # store for later use in visualization
+        )
+        long_term_stock = (
+            self.stock_handler.stocks * self.sector_specific_sat_level * self.time_factor
+        )
 
         return long_term_stock
 

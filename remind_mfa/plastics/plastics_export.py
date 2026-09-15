@@ -21,6 +21,11 @@ class PlasticsDataExporter(CommonDataExporter):
             ("t", "r", "m")
         )
 
+    @staticmethod
+    def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Demand for primary plastics."""
+        return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
+
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         def hvc_input(mfa: fd.MFASystem) -> fd.FlodymArray:
             """HVC input into plastics production"""
@@ -35,6 +40,15 @@ class PlasticsDataExporter(CommonDataExporter):
             RemindInputVariable(
                 name="p37_plasticWaste",
                 calculation_function=PlasticsDataExporter._plastic_waste,
+                unit="t/yr",
+            ),
+        ]
+
+    def get_atlas_variables(self) -> list[RemindInputVariable]:
+        return [
+            RemindInputVariable(
+                name="plastics_demand",
+                calculation_function=PlasticsDataExporter._plastics_fabrication_demand,
                 unit="t/yr",
             ),
         ]
@@ -86,14 +100,15 @@ class PlasticsDataExporter(CommonDataExporter):
                 variable_name="Production|Chemicals|Plastics|Primary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
                     mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
-                    - mfa.flows["reclchem => HVC_input"]
+                    - mfa.flows["aux_recl_feedstock_trade => HVC_input"]
                 ),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Production|Chemicals|Plastics|Secondary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["reclmech => primary_market"] + mfa.flows["reclchem => HVC_input"]
+                    mfa.flows["aux_recyclate_trade => primary_market"]
+                    + mfa.flows["aux_recl_feedstock_trade => HVC_input"]
                 ).sum_to(("t", "r")),
                 unit="t/yr",
             ),

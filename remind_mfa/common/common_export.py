@@ -75,6 +75,7 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_common(self, model: "CommonModel"):
         mfa = model.future_mfa
         if self.cfg.pickle.do_export:
+            self._clear_recomputable_caches(model)
             fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("pickle", "mfa.pickle"))
             self.export_model_to_pickle(model=model)
             pickle.dump(model, open(self.export_path("pickle", "model.pickle"), "wb"))
@@ -84,6 +85,8 @@ class CommonDataExporter(RemindMFABaseModel):
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
         if self.cfg.mrindustry.do_export:
             self.write_mrindustry(model=model)
+        if self.cfg.atlas.do_export:
+            self.write_atlas(model=model)
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
@@ -98,9 +101,34 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_custom(self, model: "CommonModel"):
         pass
 
+    def _clear_recomputable_caches(self, model: "CommonModel"):
+        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
+        to save memory.
+
+        These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
+        properties, which lazily recompute when the backing attribute is ``None`` -- so clearing
+        them here is transparent: the next access (including any later ``stock.compute()``)
+        rebuilds them from the stored lifetime parameters.
+        """
+        for mfa in (model.historic_mfa, model.future_mfa):
+            for stock in mfa.stocks.values():
+                lifetime_model = getattr(stock, "lifetime_model", None)
+                if lifetime_model is not None:
+                    lifetime_model.reset_cached_arrays()
+
     def export_model_to_pickle(self, model: "CommonModel"):
         material = model.cfg.model.value
-        scenario = model.cfg.model_switches.scenario
+        if model.cfg.transience.transience_run == True:
+            transience = (
+                "_transience"
+                + "_"
+                + model.cfg.transience.transience_scenario
+                + "_"
+                + model.cfg.transience.trade_scenario
+            )
+        else:
+            transience = ""
+        scenario = model.cfg.model_switches.scenario + transience
         region_mapping = model.cfg.input.region_mapping
         datetime_str = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
         filename = f"model_{material}_{scenario}_{region_mapping}_{datetime_str}.pickle"
@@ -283,20 +311,36 @@ class CommonDataExporter(RemindMFABaseModel):
         """Return the variables to export as REMIND input. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
 
+    def get_atlas_variables(self) -> list[RemindInputVariable]:
+        """Return the material demand variables used as input to the ATLAS trade model.
+        Override in subclasses."""
+        raise NotImplementedError("Subclasses must implement get_atlas_variables method")
+
     def write_mrindustry(self, model: "CommonModel"):
         """Write material flows needed as inputs to REMIND."""
-        export_dir = Path(self.export_path("mrindustry"))
+        self.write_variable_csvs(model, self.get_mrindustry_variables(), "mrindustry")
+
+    def write_atlas(self, model: "CommonModel"):
+        """Write the material demand needed as input to the ATLAS trade model."""
+        self.write_variable_csvs(model, self.get_atlas_variables(), "atlas")
+
+    def write_variable_csvs(
+        self, model: "CommonModel", variables: list[RemindInputVariable], dataset: str
+    ):
+        """Write one CSV file per given variable into the export folder of the given dataset,
+        replacing any previous content of that folder."""
+        export_dir = Path(self.export_path(dataset))
         if export_dir.exists() and export_dir.is_dir():
             shutil.rmtree(export_dir)
         export_dir.mkdir(parents=True, exist_ok=True)
 
-        for variable in self.get_mrindustry_variables():
+        for variable in variables:
             df = (
                 variable.calculation_function(model.future_mfa)
                 .to_df()
                 .rename(columns={"value": variable.name})
             )
-            df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
+            df.to_csv(self.export_path(dataset, f"{variable.name}.csv"))
 
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
@@ -364,7 +408,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         base_dir = os.path.join(*path_tuple)
         if not os.path.isdir(base_dir):
-            os.mkdir(base_dir)
+            Path(base_dir).mkdir(parents=True, exist_ok=True)
 
         if filename is not None:
             path_tuple += (filename,)

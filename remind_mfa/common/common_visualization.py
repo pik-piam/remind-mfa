@@ -46,6 +46,7 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_use_stock(mfa=model.future_mfa, subplots_by_good=False)
         if self.cfg.trade.do_visualize:
             self.visualize_trade(model.future_mfa)
+            self.visualize_net_trade(model.future_mfa)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(model.future_mfa)
         if self.cfg.consumption.do_visualize:
@@ -56,6 +57,11 @@ class CommonVisualizer(RemindMFABaseModel):
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation(model=model)
             self.visualize_extrapolation_functions(model=model, stock_handler=model.stock_handler)
+        if model.cfg.transience.transience_run:
+            self.visualize_transience_inflow(model=model, subplot_dim="EU-MFA_Good")
+            self.visualize_transience_inflow(model=model)
+            self.visualize_transience_outflow(model=model, subplot_dim="EU-MFA_Good")
+            self.visualize_transience_outflow(model=model)
 
     def visualize_custom(self, model: "CommonModel"):
         """To be overwritten by model subclasses"""
@@ -397,6 +403,21 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
 
+    def visualize_net_trade(
+        self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None
+    ):
+
+        for name, trade in mfa.trade_set.markets.items():
+            net_imports = trade.net_imports
+            self.visualize_fdarr(
+                mfa=mfa,
+                flow=net_imports,
+                name=name + " Net Imports",
+                linecolor_dim=linecolor_dims[name] if linecolor_dims is not None else None,
+                regional=True,
+                shared_yaxes=True,
+            )
+
     def visualize_sector_splits(self, model: "CommonModel", regional: bool = True):
 
         end_use_good_letter = model.end_use_good_letter
@@ -430,6 +451,9 @@ class CommonVisualizer(RemindMFABaseModel):
         regional: bool = True,
         per_capita: bool = False,
         linecolor_dim: Optional[str] = None,
+        shared_yaxes: bool = False,
+        y_unit: str = "t",
+        scale: float = 1.0,
     ):
         population = mfa.parameters["population"]
         if per_capita:
@@ -443,6 +467,8 @@ class CommonVisualizer(RemindMFABaseModel):
             "r",
         ] + ([linecolor_dim_letter] if linecolor_dim_letter is not None else [])
         flow = summing_func(flow.sum_to(dimlist))
+        if scale != 1.0:
+            flow = flow * scale
 
         fig, ap_flow = self.plot_history_and_future(
             mfa=mfa,
@@ -451,10 +477,19 @@ class CommonVisualizer(RemindMFABaseModel):
             x_array=None,
             linecolor_dim=linecolor_dim,
             x_label="Year",
-            y_label=f"{name} [t]",
+            y_label=f"{name} [{y_unit}]",
             title=f"{name} {pc_str} {regional_tag}",
             line_label=name if linecolor_dim is None else None,
         )
+
+        if shared_yaxes:
+            y_vals = [
+                y for trace in fig.data if trace.y is not None for y in trace.y if y is not None
+            ]
+            if y_vals:
+                y_min, y_max = min(y_vals), max(y_vals)
+                margin = (y_max - y_min) * 0.05
+                fig.update_yaxes(range=[y_min - margin, y_max + margin])
 
         self.plot_and_save_figure(ap_flow, f"{name}_{pc_str}_{regional_tag}.png", do_plot=False)
 
@@ -507,8 +542,12 @@ class CommonVisualizer(RemindMFABaseModel):
         mfa = model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         population = model.parameters["population"]
-        stock = model.stock_handler.stocks * model.sector_specific_sat_level
-        extrapolation = model.stock_handler.fitted_regression * model.sector_specific_sat_level
+        stock = model.stock_handler.stocks * model.sector_specific_sat_level * model.time_factor
+        extrapolation = (
+            model.stock_handler.fitted_regression
+            * model.sector_specific_sat_level
+            * model.time_factor
+        )
         x_array = None
 
         pc_str = "pC" if per_capita else ""
@@ -614,3 +653,173 @@ class CommonVisualizer(RemindMFABaseModel):
         else:
             fig.update_yaxes(type="log")
             self.plot_and_save_figure(ap, "gdppc.png", do_plot=False)
+
+    def visualize_transience_inflow(
+        self,
+        model: "CommonModel",
+        subplot_dim: str = None,
+        EU_region: str = "EUR",
+        inflow: fd.FlodymArray = None,
+    ):
+        # visualize comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data
+        if inflow is None:
+            inflow = model.future_mfa.stocks["in_use"].inflow[
+                {"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}
+            ]
+        demand_REMIND_MFA = model.future_mfa.demand_REMIND_MFA
+        demand_EU_MFA = model.future_mfa.demand_EU_MFA
+        dimlist = ["u"]
+        if subplot_dim is not None:
+            subplot_dimletter = next(
+                dimlist.letter for dimlist in model.dims.dim_list if dimlist.name == subplot_dim
+            )
+            dimlist.append(subplot_dimletter)
+        inflow = inflow.sum_to(dimlist)
+        demand_REMIND_MFA = demand_REMIND_MFA.sum_to(dimlist)
+        demand_EU_MFA = demand_EU_MFA.sum_to(dimlist)
+
+        ap = self.plotter_class(
+            array=demand_REMIND_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            line_label="REMIND-MFA",
+            title="Comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Demand [t]",
+        )
+        fig = ap.plot()
+        ap_2 = self.plotter_class(
+            array=demand_EU_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            fig=fig,
+            line_type="dot",
+            line_label="EU-MFA",
+            color_map=ap.color_map * 2,
+            title="Comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Demand [t]",
+        )
+        fig = ap_2.plot()
+        ap_3 = self.plotter_class(
+            array=inflow,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            fig=fig,
+            line_type="dash",
+            line_label="Inflow (for reference)",
+            color_map=ap.color_map * 2,
+            title="Comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Demand [t]",
+        )
+        fig = ap_3.plot()
+        self._show_and_save_plotly(
+            fig,
+            name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+        )
+
+    def visualize_transience_outflow(
+        self,
+        model: "CommonModel",
+        EU_region: str = "EUR",
+        subplot_dim: str = None,
+        inflow: fd.FlodymArray = None,
+    ):
+        # visualize comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data
+        if inflow is None:
+            inflow = model.future_mfa.stocks["in_use"].inflow[
+                {"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}
+            ]
+        outflow_REMIND_MFA = model.future_mfa.stock_outflow_REMIND_MFA
+        outflow_EU_MFA = model.future_mfa.stock_outflow_EU_MFA
+        dimlist = ["u"]
+        if subplot_dim is not None:
+            subplot_dimletter = next(
+                dimlist.letter for dimlist in model.dims.dim_list if dimlist.name == subplot_dim
+            )
+            dimlist.append(subplot_dimletter)
+        inflow = inflow.sum_to(dimlist)
+        outflow_REMIND_MFA = outflow_REMIND_MFA.sum_to(dimlist)
+        outflow_EU_MFA = outflow_EU_MFA.sum_to(dimlist)
+
+        ap = self.plotter_class(
+            array=outflow_REMIND_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            line_label="REMIND-MFA",
+            title="Comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Stock outflow [t]",
+        )
+        fig = ap.plot()
+        ap_2 = self.plotter_class(
+            array=outflow_EU_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            fig=fig,
+            line_type="dot",
+            line_label="EU-MFA",
+            color_map=ap.color_map * 2,
+            title="Comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Stock outflow [t]",
+        )
+        fig = ap_2.plot()
+        ap_3 = self.plotter_class(
+            array=inflow,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            fig=fig,
+            line_type="dash",
+            line_label="Inflow (for reference)",
+            color_map=ap.color_map * 2,
+            title="Comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data",
+            xlabel="Year",
+            ylabel="Stock outflow [t]",
+        )
+        fig = ap_3.plot()
+        self._show_and_save_plotly(
+            fig,
+            name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+        )
+
+    def visualize_transience_eol_parameters(
+        self,
+        model: "CommonModel",
+        parameter_EU_MFA: fd.FlodymArray,
+        parameter_REMIND_MFA: fd.FlodymArray,
+        subplot_dim: str = None,
+        linecolor_dim: str = None,
+    ):
+        # visualize comparison of EOL parameters for EUR region between REMIND-MFA and EU-MFA data
+        if linecolor_dim is not None:
+            n_colors = parameter_REMIND_MFA.dims[linecolor_dim].len
+        else:
+            n_colors = 1
+        colors = plc.qualitative.Dark24[:n_colors] * 2
+
+        ap = self.plotter_class(
+            array=parameter_REMIND_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            color_map=colors,
+        )
+        fig = ap.plot()
+        ap_2 = self.plotter_class(
+            array=parameter_EU_MFA,
+            intra_line_dim="EU-MFA_Time",
+            subplot_dim=subplot_dim,
+            linecolor_dim=linecolor_dim,
+            fig=fig,
+            line_type="dot",
+            color_map=colors,
+            title=f"Comparison of {parameter_REMIND_MFA.name} for EUR region between REMIND-MFA and EU-MFA data (dotted)",
+            xlabel="Year",
+            ylabel="Parameter value",
+        )
+        fig = ap_2.plot()
+        self._show_and_save_plotly(
+            fig, name=f"transience_comparison_{parameter_REMIND_MFA.name}.png"
+        )

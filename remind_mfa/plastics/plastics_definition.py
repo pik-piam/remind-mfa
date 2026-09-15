@@ -1,6 +1,10 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import ExtrapolationDefinition, RemindMFADefinition
+from remind_mfa.common.common_definition import (
+    ExtrapolationDefinition,
+    RemindMFADefinition,
+    trade_parameters_read_from_data,
+)
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -16,6 +20,9 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Type", dim_letter="p", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Good", dim_letter="f", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Material", dim_letter="n", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="u", dtype=int),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
@@ -56,6 +63,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             "atmosphere",
             "other_reactants",
             "losses",
+            "aux_recyclate_trade",
+            "aux_recl_feedstock_trade",
             "imports",
             "exports",
         ]
@@ -109,15 +118,17 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             # use stage
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","p","m","g")),
             # end-of-life stages
-            fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","p","m", "g")),
             fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="collected", to_process="reclmech", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="collected", to_process="reclchem", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="collected", to_process="landfill", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","p","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="primary_market", dim_letters=("t","e","r","p","m")),
-            fd.FlowDefinition(from_process="reclchem", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="reclmech", to_process="aux_recyclate_trade", dim_letters=("t","e","r", "p", "m")),
+            fd.FlowDefinition(from_process="aux_recyclate_trade", to_process="primary_market", dim_letters=("t","e","r","p","m")),
+            fd.FlowDefinition(from_process="reclchem", to_process="aux_recl_feedstock_trade", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="aux_recl_feedstock_trade", to_process="HVC_input", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","p","m")),
@@ -130,6 +141,12 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="collected", to_process="waste_market", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="waste_market", to_process="exports", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="imports", to_process="waste_market", dim_letters=("t","e","r","p","m")),
+            # recyclate trade (redistributes mechanical-recycling surplus between regions)
+            fd.FlowDefinition(from_process="aux_recyclate_trade", to_process="exports", dim_letters=("t","e","r", "p", "m")),
+            fd.FlowDefinition(from_process="imports", to_process="aux_recyclate_trade", dim_letters=("t","e","r","p","m")),
+            # recycled-feedstock trade (redistributes chemical-recycling surplus between regions)
+            fd.FlowDefinition(from_process="aux_recl_feedstock_trade", to_process="exports", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="imports", to_process="aux_recl_feedstock_trade", dim_letters=("t","e","r")),
 
         ]
     # fmt: on
@@ -157,7 +174,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                 name="in_use",
                 process="use",
                 dim_letters=("t", "e", "r", "p", "m", "g"),
-                subclass=fd.SimpleFlowDrivenStock,
+                subclass=fd.InflowDrivenDSM,
+                lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
                 name="atmospheric",
@@ -240,6 +258,22 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Population",),
         RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r", "S"),
                                      description="GDP per capita",),
+        # for TRANSIENCE: output parameters from other MIC3 models
+        RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+                                     description="Stock inflow for EU27+3",
+                                     scenario_folder="transience",),
+        RemindMFAParameterDefinition(name="stock_outflow_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+                                     description="Stock outflow for EU27+3",
+                                     scenario_folder="transience",),
+        RemindMFAParameterDefinition(name="collected_eol_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+                                     description="Collected EOL plastics for EU27+3",
+                                     scenario_folder="transience",),
+        RemindMFAParameterDefinition(name="sorted_eol_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+                                     description="Sorted EOL plastics for EU27+3",
+                                     scenario_folder="transience",),
+        RemindMFAParameterDefinition(name="recycled_eol_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+                                     description="Recycled EOL plastics for EU27+3",
+                                     scenario_folder="transience",),
     ]
     # fmt: on
 
@@ -253,7 +287,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             TradeDefinition(name="primary", dim_letters=("t", "r", "p", "m")),
             TradeDefinition(name="final", dim_letters=("t", "r", "p", "m", "g")),
             TradeDefinition(name="waste", dim_letters=("t", "e", "r", "p", "m")),
+            TradeDefinition(name="aux_recyclate_trade", dim_letters=("t", "e", "r", "p", "m")),
+            TradeDefinition(name="aux_recl_feedstock_trade", dim_letters=("t", "e", "r")),
         ]
+        parameters += trade_parameters_read_from_data(cfg, trades)
 
     return RemindMFADefinition(
         dimensions=dimensions,
@@ -269,12 +306,12 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
 scenario_parameters = [
     ExtrapolationDefinition(name="waste_his_imports", dim_letters=("r",)),
     ExtrapolationDefinition(name="waste_his_exports", dim_letters=("r",)),
-    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="chemical_recycling_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="bio_production_rate", dim_letters=("r",)),
-    ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",)),
+    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",), blending_function="converge_quadratic"),
+    ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",), blending_function="converge_quadratic"),
+    ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",), blending_function="converge_quadratic"),
+    ExtrapolationDefinition(name="chemical_recycling_rate", dim_letters=("r",), blending_function="hermite"),
+    ExtrapolationDefinition(name="bio_production_rate", dim_letters=("r",), blending_function="hermite"),
+    ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",), blending_function="hermite"),
     ExtrapolationDefinition(name="emission_capture_rate", dim_letters=("r",)),
     ExtrapolationDefinition(name="material_shares_use_inflow"),
 ]

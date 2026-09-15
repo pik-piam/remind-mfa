@@ -5,6 +5,9 @@ class SteelDimensionFiles(CommonDimensionFiles):
     _own_mapping = {
         "Material": "materials",
         "Good": "goods_in_use",
+        "EU-MFA_Good": "eu_mfa_goods",
+        "EU-MFA_Material": "eu_mfa_materials",
+        "EU-MFA_Time": "eu_mfa_time",
     }
 
 

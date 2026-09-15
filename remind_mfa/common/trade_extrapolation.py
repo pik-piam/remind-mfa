@@ -1,4 +1,6 @@
 import sys
+import logging
+from copy import deepcopy
 import numpy as np
 import flodym as fd
 from pydantic import model_validator, ConfigDict
@@ -339,3 +341,144 @@ class RecentHistoricalAverage(RemindMFABaseModel):
             raise ValueError(f"Negative value in average: {items}")
         else:
             return average
+
+
+class FixedSupplyTradeExtrapolator(RemindMFABaseModel):
+    """Trade extrapolation for a scenario where one region's domestic supply is fixed to
+    the baseline scenario (e.g. EUR supply locked to REMIND-MFA baseline).
+
+    Any change in demand relative to baseline is absorbed by trade:
+    - ``import_adjustment_share`` (alpha) fraction via increased/decreased imports
+    - ``(1 - alpha)`` fraction via decreased/increased exports
+
+    Mass balance for the fixed-supply region:
+        supply_fixed + imports_new = demand_new + exports_new
+    with delta = demand_new - demand_baseline:
+        imports_new  = imports_baseline + alpha * delta
+        exports_new  = exports_baseline - (1 - alpha) * delta
+
+    All other regions keep their baseline future trade unchanged; global trade is
+    re-balanced after the EUR adjustment.
+    """
+
+    historic_trade: Trade
+    """Historic trade data, used to keep historic trade in historic years."""
+    baseline_future_trade: Trade
+    """Trade computed by the regular TradeExtrapolator using baseline (REMIND-MFA) demand."""
+    default_future_trade: Trade
+    """Trade computed by the regular TradeExtrapolator using the new (scenario) demand.
+    Used wherever the fixed-supply region's demand exceeds the baseline, since fixing
+    supply there is not defensible (the region would import demand it could produce)."""
+    future_trade: Trade
+    """Future trade object to write results into."""
+    baseline_dom_demand: fd.FlodymArray
+    """Baseline domestic demand for all regions (dims must include 't' and 'r')."""
+    future_dom_demand: fd.FlodymArray
+    """New domestic demand for all regions (EU-MFA for fixed-supply region, same as
+    baseline for others). Must have the same dims as baseline_dom_demand."""
+    import_adjustment_share: float = 0.5
+    """Fraction of demand delta absorbed by imports. 0 = only exports adjust, 1 = only imports adjust."""
+    fixed_supply_region: str = "EUR"
+    """Label of the region whose supply is fixed to the baseline."""
+
+    @model_validator(mode="after")
+    def validate_inputs(self):
+        if not 0.0 <= self.import_adjustment_share <= 1.0:
+            raise ValueError("import_adjustment_share must be between 0 and 1.")
+        if "t" not in self.baseline_dom_demand.dims.letters:
+            raise ValueError("baseline_dom_demand must have a time dimension 't'.")
+        if self.baseline_dom_demand.dims != self.future_dom_demand.dims:
+            raise ValueError("baseline_dom_demand and future_dom_demand must have the same dims.")
+        if self.default_future_trade.imports.dims != self.future_trade.imports.dims:
+            raise ValueError("default_future_trade and future_trade must have the same dims.")
+        if self.fixed_supply_region not in self.future_trade.imports.dims["r"].items:
+            raise ValueError(
+                f"fixed_supply_region '{self.fixed_supply_region}' not found in region dimension."
+            )
+        return self
+
+    def run(self):
+        """Compute future trade with fixed supply for the target region.
+
+        Where the fixed-supply region's demand drops below baseline (delta <= 0), the
+        region keeps its baseline supply and absorbs the demand change via trade.
+        Where demand rises above baseline (delta > 0), fixing supply would force the
+        region to import demand it could simply produce, which is hard to justify; there
+        we fall back to the default extrapolation (supply grows with demand). At delta = 0
+        both candidates equal the baseline trade, so a hard switch introduces no kink.
+        Both candidate trades are globally balanced and the switch weight depends only on
+        the fixed-region delta (constant over r), so the blended result stays balanced.
+        """
+        alpha = self.import_adjustment_share
+        r = self.fixed_supply_region
+
+        # start from baseline trade for all regions
+        self.future_trade.imports[...] = self.baseline_future_trade.imports
+        self.future_trade.exports[...] = self.baseline_future_trade.exports
+
+        # demand delta for the fixed-supply region
+        delta = self.future_dom_demand - self.baseline_dom_demand
+        delta_r = delta[{"r": r}]
+
+        # Step 1: apply trade adjustment for fixed-supply region
+        self.future_trade.imports[{"r": r}] = (
+            self.baseline_future_trade.imports[{"r": r}] + alpha * delta_r
+        )
+        self.future_trade.exports[{"r": r}] = (
+            self.baseline_future_trade.exports[{"r": r}] - (1.0 - alpha) * delta_r
+        )
+
+        # Step 2: balance trade by adjusting only non-EUR regions
+        #
+        # eu_import_origin_shares: each non-EUR region's share of non-EUR exports.
+        # Approximates where EUR imports originate (who exports to EUR).
+        non_eur_exports = deepcopy(self.baseline_future_trade.exports)
+        non_eur_exports[{"r": r}] = 0.0
+        eu_import_origin_shares = non_eur_exports.get_shares_over("r")
+        eu_import_origin_shares.values[np.isnan(eu_import_origin_shares.values)] = 0.0
+
+        # eu_export_destination_shares: each non-EUR region's share of non-EUR imports.
+        # Approximates where EUR exports are destined (who imports from EUR).
+        non_eur_imports = deepcopy(self.baseline_future_trade.imports)
+        non_eur_imports[{"r": r}] = 0.0
+        eu_export_destination_shares = non_eur_imports.get_shares_over("r")
+        eu_export_destination_shares.values[np.isnan(eu_export_destination_shares.values)] = 0.0
+
+        # EUR imports increase by alpha*delta_r  → non-EUR regions export more (to supply EUR)
+        # EUR exports decrease by (1-alpha)*delta_r → non-EUR regions import less (less supply from EUR)
+        # The EUR slice has zero share in both share arrays, so only non-EUR is affected.
+        self.future_trade.exports[...] += eu_import_origin_shares * alpha * delta_r
+        self.future_trade.imports[...] -= eu_export_destination_shares * (1.0 - alpha) * delta_r
+
+        # Step 3: where the fixed-supply region's demand exceeds baseline (delta > 0),
+        # use the default extrapolation instead of the fixed-supply construction.
+        # use_default is 1 where delta_r > 0 and 0 otherwise; it depends only on the
+        # fixed-region delta (broadcast over r), so blending two globally-balanced trades
+        # keeps the global balance intact.
+        # The demand may carry dimensions the trade lacks (e.g. element 'e'); sum the delta
+        # down to the net mass delta over the shared dims *before* taking the sign.
+        common_letters = delta_r.dims.intersect_with(self.future_trade.imports.dims).letters
+        delta_r_cast = delta_r.sum_to(common_letters).cast_to(self.future_trade.imports.dims)
+        use_default = fd.FlodymArray(
+            dims=self.future_trade.imports.dims,
+            values=(delta_r_cast.values > 0.0).astype(float),
+        )
+        self.future_trade.imports[...] = (
+            1.0 - use_default
+        ) * self.future_trade.imports + use_default * self.default_future_trade.imports
+        self.future_trade.exports[...] = (
+            1.0 - use_default
+        ) * self.future_trade.exports + use_default * self.default_future_trade.exports
+
+        self.future_trade.exports[{"t": self.historic_trade.exports.dims["h"]}] = (
+            self.historic_trade.exports
+        )
+        self.future_trade.imports[{"t": self.historic_trade.imports.dims["h"]}] = (
+            self.historic_trade.imports
+        )
+
+        logging.info(
+            f"FixedSupplyTradeExtrapolator: supply of '{r}' fixed to baseline. "
+            f"import_adjustment_share={alpha}. "
+            f"Mean demand delta for '{r}': {delta_r.values.mean():.2f}"
+        )

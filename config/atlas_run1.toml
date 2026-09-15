@@ -1,0 +1,13 @@
+# First REMIND-MFA run of the coupling with the ATLAS trade model.
+#
+# The purpose is to calculate the material demand that ATLAS needs as input. This is exported to
+# <export.path>/atlas/. From there it is copied into the ATLAS pre-processing folder, ATLAS is run,
+# and its trade output is fed back into the second run (config/atlas_run2.toml).
+[base]
+    [base.trade]
+        source = "extrapolate"
+
+    [base.export]
+        do_export = true
+        atlas.do_export = true
+        pickle.do_export = true

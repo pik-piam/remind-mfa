@@ -1,5 +1,6 @@
 import os
 from functools import cached_property
+from typing import Literal
 
 import flodym as fd
 import pandas as pd
@@ -88,6 +89,8 @@ class ExportCfg(BaseExportCfg):
     """Configuration of export to CSV files"""
     mrindustry: BaseExportCfg
     """Configuration of export of material flows for use as REMIND inputs."""
+    atlas: BaseExportCfg = BaseExportCfg(do_export=False)
+    """Configuration of export of material demand for use as input to the ATLAS trade model."""
     pickle: BaseExportCfg
     """Configuration of export to pickle files."""
     assumptions: BaseExportCfg
@@ -138,6 +141,16 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Plotting engine to use for visualizations."""
     plotly_renderer: str = "browser"
     """Plotly renderer to use for visualizations."""
+    fig_width: int = 1000
+    """Logical width (px) of saved figures. Keep close to the final display size: readability
+    in a report depends on the font size relative to this width, not on the pixel resolution."""
+    fig_height: int = 600
+    """Logical height (px) of saved figures."""
+    fig_scale: int = 3
+    """Resolution multiplier for saved figures (sharpness only; does not affect text readability)."""
+    font_size: int = 18
+    """Base font size (px) applied to saved figures. Larger fonts relative to fig_width make text
+    readable once the image is scaled down to fit a Word/report page."""
 
     use_stock: StockVisualizationCfg
     """Visualization configuration for use stock."""
@@ -194,9 +207,50 @@ class InputCfg(RemindMFABaseModel):
         return self
 
 
+class TransienceCfg(RemindMFABaseModel):
+    transience_run: bool = False
+    """Whether model run is a run with input data from other MIC3 models in the TRANSIENCE project."""
+    baseline_pickle_path: str | None = None
+    """Name of the run to use as baseline for transience trade extrapolations."""
+    transience_scenario: str = "baseline"
+    """Name of the scenario to use. Must be one of 'baseline', 'ME', 'RU'."""
+    trade_scenario: str = "default"
+    """Name of the trade extrapolation scenario to use. Must be one of 'default', 'fix_supply_alpha0', 'fix_supply_alpha1'."""
+
+
+PRIMARY_TRADE_MARKETS = {
+    ModelNames.STEEL: "steel",
+    ModelNames.PLASTICS: "primary",
+    ModelNames.CEMENT: "cement",
+}
+"""Trade market of each material in which the main (intermediate) product is traded."""
+
+
+class TradeCfg(RemindMFABaseModel):
+    source: Literal["extrapolate", "data"] = "extrapolate"
+    """Where future trade comes from: extrapolated from historic trade, or read from input data
+    (e.g. output of the ATLAS trade model)."""
+    data_markets: list[str] = []
+    """Trade markets read from data when source is 'data'. Empty means the material's primary
+    market (see PRIMARY_TRADE_MARKETS)."""
+    balance: str | None = "hmean"
+    """Method used to balance global imports and exports of trade read from data, see
+    `Trade.get_reference_trade`. None disables balancing."""
+
+    def markets_from_data(self, model: ModelNames) -> list[str]:
+        """Names of the trade markets read from data for the given material."""
+        if self.source != "data":
+            return []
+        return self.data_markets or [PRIMARY_TRADE_MARKETS[model]]
+
+
 class CommonCfg(RemindMFABaseModel):
     model: ModelNames
     """Model to use. Must be one of 'plastics', 'steel', or 'cement'."""
+    transience: TransienceCfg
+    """Configuration for runs with input data from other MIC3 models in the TRANSIENCE project."""
+    trade: TradeCfg = TradeCfg()
+    """Configuration of where future trade comes from."""
     input: InputCfg
     """Input data configuration."""
     model_switches: ModelSwitches

@@ -79,13 +79,13 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_fdarr_stacked(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclmech => primary_market"],
+                flow=model.future_mfa.flows["reclmech => aux_recyclate_trade"],
                 name="Mechanically recycled",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr(
                 mfa=model.future_mfa,
-                flow=model.future_mfa.flows["reclchem => HVC_input"],
+                flow=model.future_mfa.flows["reclchem => aux_recl_feedstock_trade"],
                 name="Chemically recycled",
             )
             self.visualize_fdarr_stacked(
@@ -112,6 +112,59 @@ class PlasticsVisualizer(CommonVisualizer):
                 name="Incinerated",
                 linecolor_dim="Material",
             )
+
+        if model.cfg.transience.transience_run:
+            self.visualize_transience_eol_parameters(
+                model,
+                parameter_REMIND_MFA=model.parameters["collection_rate"][
+                    {
+                        "r": "EU27+3",
+                        "m": model.dims["n"],
+                        "g": model.dims["f"],
+                        "t": model.dims["u"],
+                    }
+                ].sum_over(("p")),
+                parameter_EU_MFA=model.parameters["collection_rate_EU-MFA"].sum_over(("p")),
+                subplot_dim="EU-MFA_Good",
+                linecolor_dim="EU-MFA_Material",
+            )
+            self.visualize_transience_eol_parameters(
+                model,
+                parameter_REMIND_MFA=model.parameters["mechanical_recycling_rate"][
+                    {"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}
+                ].sum_over(("p")),
+                parameter_EU_MFA=model.parameters["mechanical_recycling_rate_EU-MFA"].sum_over(
+                    ("p")
+                ),
+                linecolor_dim="EU-MFA_Material",
+            )
+            self.visualize_transience_eol_parameters(
+                model,
+                parameter_REMIND_MFA=model.parameters["mechanical_recycling_yield"][
+                    {"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}
+                ].sum_over(("p")),
+                parameter_EU_MFA=model.parameters["mechanical_recycling_yield_EU-MFA"].sum_over(
+                    ("p")
+                ),
+                linecolor_dim="EU-MFA_Material",
+            )
+            self.visualize_transience_eol_parameters(
+                model,
+                parameter_REMIND_MFA=model.future_mfa.flows[
+                    "reclmech => aux_recyclate_trade"
+                ].sum_to(("t", "r", "m"))[
+                    {"r": "EU27+3", "m": model.dims["n"], "t": model.dims["u"]}
+                ],
+                parameter_EU_MFA=model.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "n"))[
+                    {"r": "EU27+3"}
+                ],
+                linecolor_dim="EU-MFA_Material",
+            )
+            # these flows are not totally equal because REMIND-MFA includes trade while for EU-MFA recycling rate we currently assume that no waste is traded (TODO get sorted_waste_market__recycling flow to be sure that this is correct)
+
+        if self.cfg.scenario_params.do_visualize:
+            self.visualize_scenario_params(mfa=model.future_mfa)
+
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
@@ -128,7 +181,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["reclmech => aux_recyclate_trade"]
         )
         self.visualize_fdarr_stacked(
             mfa=mfa,
@@ -140,7 +194,8 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
         production = (
-            mfa.flows["polymerization => primary_market"] + mfa.flows["reclmech => primary_market"]
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["aux_recyclate_trade => primary_market"]
         ).sum_to(("t", "r"))
         primary_net_imports = (
             mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]
@@ -231,6 +286,21 @@ class PlasticsVisualizer(CommonVisualizer):
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
+    def visualize_net_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
+        if linecolor_dims is True:
+            linecolor_dims = {
+                "primary": "Material",
+                "final": "Material",
+                "waste": "Material",
+            }
+        else:
+            linecolor_dims = {
+                "primary": None,
+                "final": None,
+                "waste": None,
+            }
+        super().visualize_net_trade(mfa, linecolor_dims=linecolor_dims)
+
     def visualize_sankey(self, mfa: fd.MFASystem):
         # Define colors for each stage
         production_color = "#EDC948"
@@ -239,57 +309,66 @@ class PlasticsVisualizer(CommonVisualizer):
         recycle_color = "#86BCB6"
         emission_color = "#E15759"
         trade_color = "#D37295"
+        # Packaging gets its own color; all other goods share one "Other" color
+        packaging_color = "#6574BD"
+        other_color = "#BAB0AC"
+        good_colors = [
+            packaging_color if good == "Packaging" else other_color
+            for good in mfa.dims["Good"].items
+        ]
 
         # Initialize default flow color mapping
-        flow_color_dict = {"default": production_color}
-
-        # Assign colors to 'use' flows
+        flow_color_dict = {"default": use_color}
         flow_color_dict.update(
-            {
-                fn: use_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "use" or f.to_process.name == "use"
-            }
+            {fn: ("Good", good_colors) for fn, f in mfa.flows.items() if "Good" in f.dims}
         )
 
-        # Assign colors to end-of-life flows
-        flow_color_dict.update(
-            {
-                fn: eol_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("eol", "collected")
-            }
-        )
+        # # Assign colors to 'use' flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: use_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name == "use" or f.to_process.name == "use"
+        #     }
+        # )
 
-        # Assign colors to emission flows
-        flow_color_dict.update(
-            {
-                fn: emission_color
-                for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("atmosphere", "mismanaged", "uncontrolled", "emission", "losses")
-            }
-        )
+        # # Assign colors to end-of-life flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: eol_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name in ("eol", "collected")
+        #     }
+        # )
 
-        # Assign colors to recycling flows
-        flow_color_dict.update(
-            {
-                fn: recycle_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("reclmech", "reclchem")
-                or f.to_process.name in ("reclmech", "reclchem")
-            }
-        )
+        # # Assign colors to emission flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: emission_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.to_process.name in ("atmosphere", "mismanaged", "uncontrolled", "emission", "losses")
+        #     }
+        # )
 
-        # Assign colors to trade flows
-        flow_color_dict.update(
-            {
-                fn: trade_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("imports", "exports")
-                or f.to_process.name in ("imports", "exports")
-            }
-        )
+        # # Assign colors to recycling flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: recycle_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name in ("reclmech", "reclchem")
+        #         or f.to_process.name in ("reclmech", "reclchem")
+        #     }
+        # )
+
+        # # Assign colors to trade flows
+        # flow_color_dict.update(
+        #     {
+        #         fn: trade_color
+        #         for fn, f in mfa.flows.items()
+        #         if f.from_process.name in ("imports", "exports")
+        #         or f.to_process.name in ("imports", "exports")
+        #     }
+        # )
 
         # Update Sankey layout configuration
         self.cfg.sankey.plotter_args.update(
@@ -312,13 +391,15 @@ class PlasticsVisualizer(CommonVisualizer):
 
         # Add legend entries
         legend_entries = [
-            (production_color, "Production"),
-            (use_color, "Use"),
-            (eol_color, "End-of-Life"),
-            (recycle_color, "Recycling"),
-            (emission_color, "Losses"),
-            (trade_color, "Trade"),
+            # (production_color, "Production"),
+            (use_color, "Total"),
+            # (eol_color, "End-of-Life"),
+            # (recycle_color, "Recycling"),
+            # (emission_color, "Losses"),
+            # (trade_color, "Trade"),
         ]
+        legend_entries.append([packaging_color, "Packaging"])
+        legend_entries.append([other_color, "Other"])
         for color, label in legend_entries:
             fig.add_trace(
                 go.Scatter(
@@ -374,3 +455,39 @@ class PlasticsVisualizer(CommonVisualizer):
             show_extrapolation=show_extrapolation,
             show_future=show_future,
         )
+
+    def visualize_transience_inflow(self, model: "PlasticsModel", subplot_dim: str = None):
+        EU_region = "EU27+3"
+        inflow = model.future_mfa.stocks["in_use"].inflow[
+            {"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}
+        ]
+        super().visualize_transience_inflow(
+            model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow
+        )
+
+    def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None):
+        EU_region = "EU27+3"
+        inflow = model.future_mfa.stocks["in_use"].inflow[
+            {"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}
+        ]
+        super().visualize_transience_outflow(
+            model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow
+        )
+
+    def visualize_scenario_params(self, mfa: fd.MFASystem):
+        rates = [
+            ("collection_rate", "Collection rate"),
+            ("landfill_rate", "Landfill rate"),
+            ("mechanical_recycling_rate", "Mechanical recycling rate"),
+            ("chemical_recycling_rate", "Chemical recycling rate"),
+            ("bio_production_rate", "Bio-based production rate"),
+            ("daccu_production_rate", "DACCU production rate"),
+        ]
+        for param_name, display_name in rates:
+            self.visualize_fdarr(
+                mfa=mfa,
+                flow=mfa.parameters[param_name],
+                name=display_name,
+                y_unit="%",
+                scale=100,
+            )

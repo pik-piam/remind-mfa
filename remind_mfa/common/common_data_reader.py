@@ -1,10 +1,12 @@
 import glob
+import pickle
 import os
 import tarfile
 import warnings
 from pathlib import Path
 
 import flodym as fd
+from typing import Optional
 import pandas as pd
 
 from remind_mfa.common.common_config import CommonCfg
@@ -42,7 +44,13 @@ class CommonDataReader(fd.CompoundDataReader):
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
+        self.transience_scenario = cfg.transience.transience_scenario
         self.prepare_input_readers()
+        self.baseline_pickle_path = (
+            os.path.join(*(cfg.export.path, "pickle"), cfg.transience.baseline_pickle_path)
+            if cfg.transience.baseline_pickle_path
+            else None
+        )
 
     @property
     def shared_parameter_path(self) -> str:
@@ -290,6 +298,20 @@ class CommonDataReader(fd.CompoundDataReader):
                     f"Parameter file '{filename}' does not belong to selected model '{self.model_class}'."
                 )
 
+    def read_baseline_trade(self) -> dict:
+        """Load trade set from a baseline pickle file."""
+        with open(self.baseline_pickle_path, "rb") as fh:
+            baseline_model = pickle.load(fh)
+        baseline_trade = baseline_model.future_mfa.trade_set
+        return baseline_trade
+
+    def read_baseline_flows(self) -> dict:
+        """Load flows dictionary from a baseline pickle file."""
+        with open(self.baseline_pickle_path, "rb") as fh:
+            baseline_model = pickle.load(fh)
+        baseline_flows = baseline_model.future_mfa.flows
+        return baseline_flows
+
     def get_dimension_dict(self, material_parameter_path: str) -> dict[str, str]:
         material_dimension_path = self.get_material_dimension_path(self.model_class)
 
@@ -314,10 +336,19 @@ class CommonDataReader(fd.CompoundDataReader):
         material_prefix = prefix_from_module(self.model_class)
         parameter_files: dict[str, str] = {}
         for parameter in self.definition.parameters:
-            material_specific_file = os.path.join(
-                material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
-            )
-            parameter_files[parameter.name] = material_specific_file
+            if parameter.scenario_folder is not None:
+                # scenario-specific parameter: read from input_data/<scenario_folder>/<scenario>/
+                scenario_path = os.path.join(
+                    self.input_data_path,
+                    parameter.scenario_folder,
+                    self.transience_scenario,
+                )
+                filepath = os.path.join(scenario_path, f"{material_prefix}_{parameter.name}.cs4r")
+            else:
+                filepath = os.path.join(
+                    material_parameter_path, f"{material_prefix}_{parameter.name}.cs4r"
+                )
+            parameter_files[parameter.name] = filepath
 
         return parameter_files
 

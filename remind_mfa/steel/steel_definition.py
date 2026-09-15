@@ -1,9 +1,12 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.steel.steel_config import SteelCfg
-from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import (
+    RemindMFADefinition,
+    RemindMFAParameterDefinition,
+    trade_parameters_read_from_data,
+)
 from remind_mfa.common.trade import TradeDefinition
+from remind_mfa.steel.steel_config import SteelCfg
 
 
 def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
@@ -12,6 +15,8 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Good", dim_letter="f", dtype=str),
+        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="u", dtype=int),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
@@ -234,6 +239,27 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             name="scrap_exports", dim_letters=("h", "r"),
             description="Historic combined eol product and scrap exports"
         ),
+        # for TRANSIENCE: output parameters from other MIC3 models
+        RemindMFAParameterDefinition(
+            name="stock_inflow_EU-MFA", dim_letters=("u", "r", "f"),
+            description="Stock inflow for EU28",
+            scenario_folder="transience",
+        ),
+        RemindMFAParameterDefinition(
+            name="collected_eol_EU-MFA", dim_letters=("u", "r", "f"),
+            description="Collected EOL steel goods for EU28",
+            scenario_folder="transience",
+        ),
+        RemindMFAParameterDefinition(
+            name="lost_eol_EU-MFA", dim_letters=("u", "r", "f"),
+            description="Lost EOL steel goods for EU28",
+            scenario_folder="transience",
+        ),
+        RemindMFAParameterDefinition(
+            name="available_scrap_EU-MFA", dim_letters=("u", "r"),
+            description="Available scrap for EU28",
+            scenario_folder="transience",
+        ),
     ]
     # fmt: on
 
@@ -249,6 +275,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             TradeDefinition(name="indirect", dim_letters=("t", "r", "g")),
             TradeDefinition(name="scrap", dim_letters=("t", "r")),
         ]
+        parameters += trade_parameters_read_from_data(cfg, trades)
 
     return RemindMFADefinition(
         dimensions=dimensions,

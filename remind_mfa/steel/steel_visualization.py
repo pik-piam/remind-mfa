@@ -25,6 +25,23 @@ class SteelVisualizer(CommonVisualizer):
         if self.cfg.scrap_demand_supply.do_visualize:
             self.visualize_scrap_demand_supply(model.future_mfa, regional=True)
             self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
+        if model.cfg.transience.transience_run:
+            self.visualize_transience_eol_parameters(
+                model,
+                parameter_REMIND_MFA=model.parameters["recovery_rate"][
+                    {"r": "EUR", "t": model.dims["u"], "g": model.dims["f"]}
+                ],
+                parameter_EU_MFA=model.parameters["recovery_rate_EU-MFA"]
+                * model.parameters["collection_rate_EU-MFA"],
+                linecolor_dim="EU-MFA_Good",
+            )
+            self.visualize_transience_eol_parameters(
+                model,
+                parameter_REMIND_MFA=model.future_mfa.flows["use => eol_market"].sum_to(("t", "r"))[
+                    {"r": "EUR", "t": model.dims["u"]}
+                ],
+                parameter_EU_MFA=model.parameters["available_scrap_EU-MFA"][{"r": "EUR"}],
+            )
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
@@ -45,6 +62,13 @@ class SteelVisualizer(CommonVisualizer):
 
         flow_color_dict = {"default": production_color}
         flow_color_dict.update(
+            {
+                fn: trade_color
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "imports" or f.to_process.name == "exports"
+            }
+        )
+        flow_color_dict.update(
             {fn: ("Good", good_colors) for fn, f in mfa.flows.items() if "Good" in f.dims}
         )
         flow_color_dict.update(
@@ -61,13 +85,6 @@ class SteelVisualizer(CommonVisualizer):
                 if f.to_process.name in ["losses", "excess_scrap", "obsolete"]
             }
         )
-        flow_color_dict.update(
-            {
-                fn: trade_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "imports" or f.to_process.name == "exports"
-            }
-        )
         self.cfg.sankey.plotter_args["flow_color_dict"] = flow_color_dict
 
         self.cfg.sankey.plotter_args["node_color_dict"] = {"default": "gray", "use": "black"}
@@ -82,6 +99,7 @@ class SteelVisualizer(CommonVisualizer):
             [production_color, "Production Phase"],
             [scrap_color, "Scrap Treatment"],
             [losses_color, "Losses and Waste"],
+            [trade_color, "Trade"],
             ["white", ""],
             ["white", "Product Phase"],
         ]
@@ -151,7 +169,7 @@ class SteelVisualizer(CommonVisualizer):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
 
-    def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=False):
+    def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
         if linecolor_dims is True:
             linecolor_dims = {
                 "steel": None,
@@ -165,6 +183,21 @@ class SteelVisualizer(CommonVisualizer):
                 "scrap": None,
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
+
+    def visualize_net_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
+        if linecolor_dims is True:
+            linecolor_dims = {
+                "steel": None,
+                "indirect": "Good",
+                "scrap": None,
+            }
+        else:
+            linecolor_dims = {
+                "steel": None,
+                "indirect": None,
+                "scrap": None,
+            }
+        super().visualize_net_trade(mfa, linecolor_dims=linecolor_dims)
 
     def visualize_scrap_demand_supply(self, mfa: fd.MFASystem, regional=True):
 
