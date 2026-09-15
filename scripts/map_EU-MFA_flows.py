@@ -71,7 +71,7 @@ args = parser.parse_args()
 
 def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
     """Load and aggregate baseline plastics data into (Time, Region, Material, Good, value)."""
-    BASELINE_DIR = Path("data/plastics/input/transience/baseline")
+    BASELINE_DIR = Path("data_in/legacy/transience_input/plastics/baseline")
     eu_subregions = ["Germany", "West", "South", "North", "East"]
 
     if flow == "demand":
@@ -127,7 +127,7 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
     period (1950-2060), so it provides a complete trajectory for extending the
     shorter non-baseline scenario series into the past.
     """
-    BASELINE_OUT_DIR = Path("../remind_mfa_data/transience/baseline")
+    BASELINE_OUT_DIR = Path("data_in/legacy/transience/baseline")
     flow_to_file = {
         "demand": "pl_stock_inflow_EU-MFA.cs4r",
         "stock_outflow": "pl_stock_outflow_EU-MFA.cs4r",
@@ -150,11 +150,11 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
 
 
 def run_combination(material: str, flow: str, scenario: str):
-    OUTPUT_DIR = Path("../remind_mfa_data/transience") / scenario
-    REF_DIR = Path("../remind_mfa_data/transience/reference")
+    OUTPUT_DIR = Path("data_in/legacy/transience") / scenario
+    REF_DIR = Path("data_in/legacy/transience/reference")
     if material == "plastics":
-        DATA_DIR = Path("data/plastics/input/transience") / scenario
-        MAPPING_FILE = Path("data/plastics/input/transience/EU_MFA_mapping_plastics.csv")
+        DATA_DIR = Path("data_in/legacy/transience_input/plastics") / scenario
+        MAPPING_FILE = Path("data_in/legacy/transience_input/plastics/EU_MFA_mapping_plastics.csv")
         if flow == "demand":
             INPUT_FILE = DATA_DIR / "plastics_market__end_use_stock.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
@@ -181,8 +181,8 @@ def run_combination(material: str, flow: str, scenario: str):
             OUTPUT_FILE = OUTPUT_DIR / "pl_traded_recyclate_EU-MFA.cs4r"
         DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
     elif material == "steel":
-        DATA_DIR = Path("data/steel/input/transience") / scenario
-        MAPPING_FILE = Path("data/steel/input/transience/EU_MFA_mapping_steel.csv")
+        DATA_DIR = Path("data_in/legacy/transience_input/steel") / scenario
+        MAPPING_FILE = Path("data_in/legacy/transience_input/steel/EU_MFA_mapping_steel.csv")
         if flow == "demand":
             INPUT_FILE = DATA_DIR / "steel_goods_market__end_use_stock_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
