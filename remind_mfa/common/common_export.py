@@ -316,9 +316,7 @@ class CommonDataExporter(RemindMFABaseModel):
         """Write the material demand needed as input to the ATLAS trade model."""
         self.write_variable_csvs(self._model, self.get_atlas_variables(), "atlas")
 
-    def write_variable_csvs(
-        self, variables: list[RemindInputVariable], dataset: str
-    ):
+    def write_variable_csvs(self, variables: list[RemindInputVariable], dataset: str):
         """Write one CSV file per given variable into the export folder of the given dataset,
         replacing any previous content of that folder."""
         export_dir = Path(self.export_path(dataset))
