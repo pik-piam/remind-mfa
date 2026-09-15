@@ -38,6 +38,9 @@ jobs:
     - name: Run tests
       run: uv run pytest
 
+    - name: Run type checker
+      run: uv check --isolated --locked
+
   run:
     name: Run model
     runs-on: ubuntu-latest
