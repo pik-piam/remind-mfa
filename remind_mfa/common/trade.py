@@ -24,9 +24,9 @@ class Trade(RemindMFABaseModel):
 
     @model_validator(mode="after")
     def validate_trade_dimensions(self):
-        assert (
-            self.imports.dims.letters == self.exports.dims.letters
-        ), "Imports and exports must have the same dimensions."
+        assert self.imports.dims.letters == self.exports.dims.letters, (
+            "Imports and exports must have the same dimensions."
+        )
         return self
 
     @property

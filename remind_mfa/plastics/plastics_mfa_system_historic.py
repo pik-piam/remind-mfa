@@ -6,7 +6,6 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 
 class PlasticsMFASystemHistoric(CommonMFASystem):
-
     cfg: PlasticsCfg
 
     def compute(self):

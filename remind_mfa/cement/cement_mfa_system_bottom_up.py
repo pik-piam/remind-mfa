@@ -58,7 +58,6 @@ def extend_end_use_intensive[T: fd.FlodymArray](arr: T, extended_end_use_dim: fd
 
 
 class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
-
     def compute(self, td_in_use: fd.Stock, historic_trade: TradeSet):
         """
         Perform all computations for the MFA system.

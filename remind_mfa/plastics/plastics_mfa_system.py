@@ -10,7 +10,6 @@ from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
 class PlasticsMFASystemFuture(CommonMFASystem):
-
     cfg: PlasticsCfg
 
     def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
