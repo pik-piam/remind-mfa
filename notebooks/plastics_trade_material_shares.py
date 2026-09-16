@@ -19,9 +19,9 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    mo.md(
-        "This notebook is completely AI generated, with very little human checking!"
-    ).callout(kind="danger", title="AI Disclaimer")
+    mo.md("This notebook is completely AI generated, with very little human checking!").callout(
+        kind="danger", title="AI Disclaimer"
+    )
     return
 
 
@@ -44,7 +44,6 @@ def _(Path, pd):
             "Run this notebook from the `notebooks` directory of the repository."
         )
 
-
     def read_trade_cs4r(flow: str) -> pd.DataFrame:
         """Read a historic primary plastics trade parameter file.
 
@@ -65,7 +64,6 @@ def _(Path, pd):
         trade["Flow"] = flow.capitalize()
         return trade
 
-
     trade_long = pd.concat(
         [read_trade_cs4r("exports"), read_trade_cs4r("imports")], ignore_index=True
     )
@@ -76,14 +74,12 @@ def _(Path, pd):
 
 @app.cell
 def _(mo, trade_long):
-    mo.md(
-        f"""
+    mo.md(f"""
     Loaded {len(trade_long):,} rows covering
     {trade_long["Time"].min()}-{trade_long["Time"].max()},
     {trade_long["Region"].nunique()} regions and
     {trade_long["Material"].nunique()} materials.
-    """
-    )
+    """)
     return
 
 
@@ -111,7 +107,6 @@ def _(pd, trade_long):
             index=group_columns, columns="Material", values="value", aggfunc="sum"
         )
         return totals.div(totals.sum(axis=1), axis=0)
-
 
     global_shares = material_shares(trade_long, ["Flow", "Time"])
     return global_shares, material_shares
@@ -198,12 +193,8 @@ def _(global_shares, pd):
         summary["relative_range"] = summary["range_pp"] / summary["mean_pct"]
         return summary.sort_values("range_pp", ascending=False)
 
-
     global_stability = pd.concat(
-        {
-            flow: stability(group.droplevel("Flow"))
-            for flow, group in global_shares.groupby("Flow")
-        },
+        {flow: stability(group.droplevel("Flow")) for flow, group in global_shares.groupby("Flow")},
         names=["Flow", "Material"],
     )
     return global_stability, stability
@@ -287,9 +278,7 @@ def _(material_shares, trade_long):
 @app.cell
 def _(flow_picker, px, region_picker, regional_shares):
     selected_shares = (
-        regional_shares.xs(
-            (flow_picker.value, region_picker.value), level=("Flow", "Region")
-        )
+        regional_shares.xs((flow_picker.value, region_picker.value), level=("Flow", "Region"))
         .stack()
         .rename("share")
         .reset_index()
@@ -314,8 +303,8 @@ def _(ERAS, mo, pd, regional_shares):
                 {
                     region: 100
                     * (
-                        group.loc[(flow, region, start) : (flow, region, end)].max()
-                        - group.loc[(flow, region, start) : (flow, region, end)].min()
+                        group.loc[(flow, region, start):(flow, region, end)].max()
+                        - group.loc[(flow, region, start):(flow, region, end)].min()
                     ).max()
                     for region in group.index.get_level_values("Region").unique()
                 },
