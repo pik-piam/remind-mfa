@@ -112,4 +112,4 @@ jobs:
       run: uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
 
     - name: Run model
-      run: uv run remind_mfa.py --config default --config ci --model all
+      run: uv run remind_mfa --config default --config ci --model all
