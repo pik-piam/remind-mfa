@@ -1,10 +1,10 @@
 [base]
     [base.input]
         force_extract_tgz = false
-        input_data_path = "./remind_mfa_data"
-        input_data_revision = "2.0.0"
+        input_data_path = "data_in"
+        input_data_revision = "2.2.2"
         region_mapping = "h12"
-        scenarios_path = "config/scenarios"
+        scenarios_path = "./scenarios"
 
     [base.model_switches]
         scenario = "SSP2"
@@ -44,6 +44,9 @@
 
     [base.export]
         do_export = true
+        path = "data_out/transience"
+        bundle_export = false
+        # prefix = "test"
         pickle.do_export = true
         csv.do_export = false
         iamc.do_export = false
@@ -61,12 +64,11 @@
         do_stock_extrapolation_with_time_factor = true
 
     [plastics.transience]
-        baseline_pickle_path = 'model_plastics_SSP2_transience_CE-PET_fd_plastics_S0_default_2c0a4149_2026-06-29--09-13-07.pickle'
+        baseline_pickle_path = '2026-09-15--17-08-25_plastics_SSP2_2c0a4149_CE-PET_fd_plastics_S0_default'
         transience_scenario = 'CE-PET_fd_plastics_S0' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
         trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
     [plastics.visualization]
-        figures_path = "data/plastics/output/transience/figures"
         sankey.plotter_args.slice_dict = { "t" = 2019, "r" = "EU27+3", "m" = "PET" }
         sankey.plotter_args.exclude_processes = ["sysenv", "atmosphere", "feedfoss", "feedbio", "feeddaccu", "feedccu", "HVC_input", "C4_input", "other_reactants", "emission", "uncontrolled", "incineration", "losses", "reclchem", "mismanaged", "landfill"]
         material_splits.do_visualize = true
@@ -74,7 +76,6 @@
         scenario_params.do_visualize = false
 
     [plastics.export]
-        path = "data/plastics/output/transience"
         docs.path = "docs/plastics"
 
 [steel]
@@ -82,16 +83,14 @@
         do_stock_extrapolation_by_category = true
 
     [steel.transience]
-        baseline_pickle_path = 'model_steel_SSP2_transience_Baseline_Steel_01_06_2026_default_h12_2026-06-04--13-58-49.pickle'
+        baseline_pickle_path = '2026-09-15--17-01-13_steel_SSP2_h12_Baseline_Steel_01_06_2026_default'
         transience_scenario = 'Baseline_Steel_01_06_2026' # 'Baseline_Steel_01_06_2026', 'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel'
         trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
     [steel.visualization]
-        figures_path = "data/steel/output/transience/figures"
         scrap_demand_supply.do_visualize = false
 
     [steel.export]
-        path = "data/steel/output/transience"
         docs.path = "docs/steel"
 
 [cement]
@@ -102,7 +101,6 @@
         do_stock_extrapolation_by_category = false
 
     [cement.visualization]
-        figures_path = "data/cement/output/figures"
         eol_stock.do_visualize = false
         eol_stock.over_gdp = false
         eol_stock.per_capita = false
@@ -115,5 +113,4 @@
         carbonation.do_visualize = false
 
     [cement.export]
-        path = "data/cement/output/export"
         docs.path = "docs/cement"
