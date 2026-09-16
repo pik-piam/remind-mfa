@@ -9,13 +9,13 @@ complete shared `[base]` table and optional top-level `[plastics]`, `[steel]`, a
 Run one material with the default configuration using:
 
 ```shell
-uv run remind_mfa --config default --material steel
+uv run remind-mfa --config default --model steel
 ```
 
 Repeat `--config` to apply partial overlay files:
 
 ```shell
-uv run remind_mfa --config default --config local --material all
+uv run remind-mfa --config default --config local --model all
 ```
 
 In this case, all `base` sections are recursively merged in command-line order, as are all sections

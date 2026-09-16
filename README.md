@@ -33,7 +33,7 @@ python -m pip install .
 To run a model, run
 
 ```shell
-uv run remind_mfa --config default --material steel
+uv run remind-mfa --config default --model steel
 ```
 
 from the main directory. Configuration names resolve to TOML files below `config`, so
@@ -41,12 +41,12 @@ from the main directory. Configuration names resolve to TOML files below `config
 order, with later files overriding earlier files:
 
 ```shell
-uv run remind_mfa --config default --config local --material all
+uv run remind-mfa --config default --config local --model all
 ```
 See the
 [configuration documentation](docs/config.md) for the file layout and merge rules.
 
-You can also simply run `remind_mfa` without arguments, in which case you will be prompted to select a configuration and a material.
+You can also simply run `remind-mfa` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
 
