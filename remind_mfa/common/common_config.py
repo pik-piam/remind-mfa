@@ -6,7 +6,7 @@ import pandas as pd
 from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
-from remind_mfa.common.helpers import ModelNames, RegressOverModes, RemindMFABaseModel
+from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -32,12 +32,6 @@ class ModelSwitches(RemindMFABaseModel):
     """Class name of the extrapolation subclass to use for stock extrapolation."""
     lifetime_model_name: str
     """Class name of the lifetime model subclass to use for the in-use stock."""
-    do_stock_extrapolation_by_category: bool = False
-    """Whether to perform stock extrapolation by good category."""
-    regress_over: RegressOverModes
-    """Variable to use as a predictor for stock extrapolation."""
-    do_stock_extrapolation_with_time_factor: bool = False
-    """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
