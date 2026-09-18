@@ -6,7 +6,7 @@ import flodym as fd
 import numpy as np
 
 from remind_mfa.common.common_config import CommonCfg
-from remind_mfa.common.trade import Trade, TradeSet
+from remind_mfa.common.trade import Trade, TradeSet, set_trade_from_data
 
 
 class CommonMFASystem(fd.MFASystem):
