@@ -57,10 +57,6 @@ def run_mfa(
 @app.command("copy-demands")
 def copy_demands(
     model: ModelOption,
-    source: Annotated[Path | None, typer.Option(help="MFA ATLAS-demand CSV to convert.")] = None,
-    target: Annotated[
-        Path | None, typer.Option(help="ATLAS data-pipeline fabrication CSV.")
-    ] = None,
     force: Annotated[
         bool, typer.Option("--force", help="Overwrite existing ATLAS demand target.")
     ] = False,
@@ -68,10 +64,9 @@ def copy_demands(
     """Convert an MFA demand export to the format and location ATLAS expects."""
 
     paths = get_coupling_paths(model, ["default", "atlas_run1"])
-    demand_source = source or paths.exported_demand_path
-    demand_target = target or paths.atlas_demand_path
-    result = copy_demand_to_atlas(model, demand_source, demand_target, force)
-    typer.echo(f"Wrote {len(result)} demand rows to {demand_target}")
+    for demand_source, demand_target in paths.mfa_pipeline_mapping.items():
+        result = copy_demand_to_atlas(model, demand_source, demand_target, force)
+        typer.echo(f"Wrote {len(result)} demand rows to {demand_target}")
 
 
 @app.command("copy-trade")
