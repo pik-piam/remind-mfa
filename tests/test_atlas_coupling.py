@@ -6,6 +6,7 @@ import pytest
 from remind_mfa.atlas_coupling import (
     AtlasCouplingError,
     AtlasScenarioPkBudg,
+    _adjust_plastics_trade,
     aggregate_bilateral_trade,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
@@ -68,6 +69,43 @@ def test_aggregate_bilateral_trade_sums_flows():
 
     assert imports.to_dict("records") == [{"year": 2025, "region": "B", "quantity": 5.0}]
     assert exports.to_dict("records") == [{"year": 2025, "region": "A", "quantity": 5.0}]
+
+
+def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(
+    tmp_path, monkeypatch
+):
+    parameters_path = tmp_path / "data_in" / "parameters"
+    parameters_path.mkdir(parents=True)
+    (parameters_path / "pl_primary_his_imports.cs4r").write_text(
+        "* note: dimensions: (Historic Time,Region,Type,Material,value)\n"
+        "2023,EUR,Plastics,LDPE,100\n"
+        "2024,EUR,Plastics,HDPE,3\n"
+        "2024,EUR,Plastics,LDPE,1\n"
+        "2024,CAN,Plastics,LDPE,1\n",
+        encoding="utf-8",
+    )
+    (parameters_path / "pl_primary_his_exports.cs4r").write_text(
+        "* note: dimensions: (Historic Time,Region,Type,Material,value)\n"
+        "2024,EUR,Plastics,HDPE,1\n"
+        "2024,CAN,Plastics,LDPE,3\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("remind_mfa.atlas_coupling.PROJECT_ROOT", tmp_path)
+
+    imports, exports = _adjust_plastics_trade(
+        pd.DataFrame({"year": [2025, 2025], "region": ["EUR", "CAN"], "quantity": [40.0, 60.0]}),
+        pd.DataFrame({"year": [2025, 2025], "region": ["EUR", "CAN"], "quantity": [20.0, 30.0]}),
+    )
+
+    assert imports.to_dict("records") == [
+        {"year": 2025, "region": "CAN", "type": "Plastics", "material": "LDPE", "quantity": 60.0},
+        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "HDPE", "quantity": 30.0},
+        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "LDPE", "quantity": 10.0},
+    ]
+    assert exports.to_dict("records") == [
+        {"year": 2025, "region": "CAN", "type": "Plastics", "material": "LDPE", "quantity": 30.0},
+        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "HDPE", "quantity": 20.0},
+    ]
 
 
 def _write_dimensions(tmp_path: Path) -> tuple[Path, Path]:

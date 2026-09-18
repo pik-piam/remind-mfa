@@ -277,15 +277,67 @@ def _validate_global_balance(imports: pd.DataFrame, exports: pd.DataFrame) -> No
 
 
 def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
-    result = data.rename(columns={"year": "Time", "region": "Region", "quantity": "value"}).loc[
-        :, ["Time", "Region", "value"]
-    ]
+    result = data.rename(columns={"year": "Time", "region": "Region", "quantity": "value", "type": "Type", "material": "Material"})
+    dimensions = ",".join(result.columns)
     _atomic_write_text(
         path,
-        "* note: dimensions: (Time,Region,value)\n"
+        f"* note: dimensions: ({dimensions})\n"
         + result.to_csv(index=False, header=False, lineterminator="\n"),
     )
 
+def _adjust_plastics_trade(imports: pd.DataFrame, exports: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split future plastics trade with the latest historic material shares."""
+
+    adjusted_flows = []
+    for flow, future_trade in (("imports", imports), ("exports", exports)):
+        historic_path = (
+            PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_his_{flow}.cs4r"
+        )
+        if not historic_path.is_file():
+            raise AtlasCouplingError(
+                f"Historic plastics {flow} trade parameter was not found: {historic_path}"
+            )
+
+        historic_trade = pd.read_csv(
+            historic_path,
+            comment="*",
+            header=None,
+            names=["historic_year", "region", "type", "material", "quantity"],
+        )
+        if historic_trade.empty:
+            raise AtlasCouplingError(f"Historic plastics {flow} trade parameter is empty.")
+
+        historic_trade["historic_year"] = pd.to_numeric(
+            historic_trade["historic_year"], errors="coerce"
+        )
+        historic_trade["quantity"] = pd.to_numeric(
+            historic_trade["quantity"], errors="coerce"
+        )
+        if historic_trade[["historic_year", "quantity"]].isna().any().any():
+            raise AtlasCouplingError(
+                f"Historic plastics {flow} trade parameter contains invalid values."
+            )
+
+        latest_year = historic_trade["historic_year"].max()
+        latest_trade = historic_trade.loc[historic_trade["historic_year"] == latest_year]
+        material_shares = (
+            latest_trade.groupby(["region", "type", "material"], as_index=False)["quantity"]
+            .sum()
+        )
+        material_shares["share"] = material_shares["quantity"] / material_shares.groupby("region")["quantity"].transform("sum")
+
+        adjusted = future_trade.merge(
+            material_shares.loc[:, ["region", "type", "material", "share"]],
+            how="outer",
+            on=["region"],
+        )
+        print(adjusted)
+        adjusted["quantity"] = adjusted["quantity"] * adjusted.pop("share")
+        adjusted_flows.append(
+            adjusted.loc[:, ["year", "region", "type", "material", "quantity"]]
+        )
+
+    return tuple(adjusted_flows)
 
 def copy_trade_to_mfa(
     model: ModelNames,
@@ -302,6 +354,9 @@ def copy_trade_to_mfa(
     imports, exports = aggregate_bilateral_trade(data)
 
     _validate_global_balance(imports, exports)
+
+    if model == ModelNames.PLASTICS:
+        imports, exports = _adjust_plastics_trade(imports, exports)
 
     parameter_dir = Path(input_data_path) / "parameters"
     imports_path = parameter_dir / f"{spec.parameter_prefix}_trade_{spec.trade_market}_imports.cs4r"
