@@ -84,7 +84,7 @@ class CommonDataExporter(RemindMFABaseModel):
         if self.cfg.mrindustry.do_export:
             self.write_mrindustry()
         if self.cfg.atlas.do_export:
-            self.write_atlas(model=self._model)
+            self.write_atlas()
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
@@ -310,11 +310,11 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def write_mrindustry(self):
         """Write material flows needed as inputs to REMIND."""
-        self.write_variable_csvs(self._model, self.get_mrindustry_variables(), "mrindustry")
+        self.write_variable_csvs(self.get_mrindustry_variables(), "mrindustry")
 
     def write_atlas(self):
         """Write the material demand needed as input to the ATLAS trade model."""
-        self.write_variable_csvs(self._model, self.get_atlas_variables(), "atlas")
+        self.write_variable_csvs(self.get_atlas_variables(), "atlas")
 
     def write_variable_csvs(self, variables: list[RemindInputVariable], dataset: str):
         """Write one CSV file per given variable into the export folder of the given dataset,
