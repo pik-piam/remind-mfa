@@ -1,12 +1,15 @@
-import flodym as fd
-import numpy as np
 import logging
-from copy import deepcopy
 import sys
+from copy import deepcopy
+
+import flodym as fd
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.trade import TradeSet, Trade
-from remind_mfa.common.trade_extrapolation import TradeExtrapolator, FixedSupplyTradeExtrapolator
+from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade_extrapolation import (
+    FixedSupplyTradeExtrapolator,
+    TradeExtrapolator,
+)
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
@@ -35,10 +38,10 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historic MFA system
 
         self.trade_set["waste"].imports[...] = (
-            self.parameters[f"waste_his_imports"] * self.parameters["carbon_content_materials"]
+            self.parameters["waste_his_imports"] * self.parameters["carbon_content_materials"]
         )
         self.trade_set["waste"].exports[...] = (
-            self.parameters[f"waste_his_exports"] * self.parameters["carbon_content_materials"]
+            self.parameters["waste_his_exports"] * self.parameters["carbon_content_materials"]
         )
         self.trade_set.balance(to="maximum")
 
@@ -112,8 +115,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             ] = self.stock_outflow_EU_MFA
             self.stocks["in_use"].compute()
             logging.warning(
-                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for EU27+3 region are not computed from stock projection, but taken from EU-MFA. "
-                f"The stock is calculated as a simple flow-driven stock. "
+                "TRANSIENCE mode is on. Both in-use stock inflow and outflow for EU27+3 region are not computed from stock projection, but taken from EU-MFA. "
+                "The stock is calculated as a simple flow-driven stock. "
             )
 
     def compute_flows(
@@ -183,12 +186,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}])
         historic_trade["final_his"].balance(to="minimum")
 
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["final_his"],
-            future_trade=self.trade_set["final"],
-            future_dom_demand=stk["in_use"].inflow,
-        )
-        extrapolator.run()
+        if "final" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("final", historic_trade["final_his"])
+        else:
+            extrapolator = TradeExtrapolator(
+                historic_trade=historic_trade["final_his"],
+                future_trade=self.trade_set["final"],
+                future_dom_demand=stk["in_use"].inflow,
+            )
+            extrapolator.run()
 
         flw["good_market => exports"][...] = (
             trd["final"].exports * self.parameters["carbon_content_materials"]
@@ -208,7 +214,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             category_dim="m",
         )
 
-        if self.cfg.transience.trade_scenario in ("fix_supply_alpha0", "fix_supply_alpha1"):
+        if "primary" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("primary", historic_trade["primary_his"])
+        elif self.cfg.transience.trade_scenario in ("fix_supply_alpha0", "fix_supply_alpha1"):
             if self.cfg.transience.baseline_pickle_path is None:
                 raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
             alpha = 0.0 if self.cfg.transience.trade_scenario == "fix_supply_alpha0" else 1.0
@@ -230,13 +238,14 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 fixed_supply_region = "EU27+3",
                 import_adjustment_share = alpha,
             )
+            extrapolator.run()
         else:
             extrapolator = TradeExtrapolator(
                 historic_trade=historic_trade["primary_his"],
                 future_trade=self.trade_set["primary"],
                 future_dom_demand=flw["primary_market => fabrication"],
             )
-        extrapolator.run()
+            extrapolator.run()
 
         flw["primary_market => exports"][...] = (
             trd["primary"].exports * self.parameters["carbon_content_materials"]

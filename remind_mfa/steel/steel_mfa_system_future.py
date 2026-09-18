@@ -148,12 +148,15 @@ class SteelMFASystem(CommonMFASystem):
         flw["good_market => use"][...] = stk["in_use"].inflow
         # Pre-use
 
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["indirect"],
-            future_trade=trd["indirect"],
-            future_dom_demand=flw["good_market => use"],
-        )
-        extrapolator.run()
+        if "indirect" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("indirect", historic_trade["indirect"])
+        else:
+            extrapolator = TradeExtrapolator(
+                historic_trade=historic_trade["indirect"],
+                future_trade=trd["indirect"],
+                future_dom_demand=flw["good_market => use"],
+            )
+            extrapolator.run()
 
         flw["imports => good_market"][...] = trd["indirect"].imports
         flw["good_market => exports"][...] = trd["indirect"].exports
@@ -164,7 +167,9 @@ class SteelMFASystem(CommonMFASystem):
         flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
         flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
 
-        if self.cfg.transience.trade_scenario in ("fix_supply_alpha0", "fix_supply_alpha1"):
+        if "steel" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("steel", historic_trade["steel"])
+        elif self.cfg.transience.trade_scenario in ("fix_supply_alpha0", "fix_supply_alpha1"):
             if self.cfg.transience.baseline_pickle_path is None:
                 raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
             alpha = 0.0 if self.cfg.transience.trade_scenario == "fix_supply_alpha0" else 1.0
@@ -186,13 +191,14 @@ class SteelMFASystem(CommonMFASystem):
                 future_dom_demand = flw["ip_market => fabrication"],
                 import_adjustment_share = alpha,
             )
+            extrapolator.run()
         else:
             extrapolator = TradeExtrapolator(
                 historic_trade=historic_trade["steel"],
                 future_trade=trd["steel"],
                 future_dom_demand=flw["ip_market => fabrication"],
             )
-        extrapolator.run()
+            extrapolator.run()
 
         flw["imports => ip_market"][...] = trd["steel"].imports
         flw["ip_market => exports"][...] = trd["steel"].exports
@@ -213,12 +219,15 @@ class SteelMFASystem(CommonMFASystem):
             historic_trade["scrap"].exports[...] = historic_trade["scrap"].exports.minimum(flw["use => eol_market"][{"t": self.dims["h"]}])
             historic_trade["scrap"].balance(to="minimum")
 
-        extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["scrap"],
-            future_trade=trd["scrap"],
-            future_dom_supply=flw["use => eol_market"],
-        )
-        extrapolator.run()
+        if "scrap" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("scrap", historic_trade["scrap"])
+        else:
+            extrapolator = TradeExtrapolator(
+                historic_trade=historic_trade["scrap"],
+                future_trade=trd["scrap"],
+                future_dom_supply=flw["use => eol_market"],
+            )
+            extrapolator.run()
 
         flw["imports => eol_market"][...] = trd["scrap"].imports
         flw["eol_market => exports"][...] = trd["scrap"].exports
