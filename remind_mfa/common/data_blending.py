@@ -145,7 +145,6 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
 
 
 class CriticallyDampedBlender:
-
     def __init__(
         self,
         time: Union[np.ndarray, list],
@@ -167,21 +166,21 @@ class CriticallyDampedBlender:
         self.historical = historical
         self.prediction = prediction
 
-        assert (
-            self.time.shape[0] == self.prediction.shape[0]
-        ), "Time and prediction must have the same length."
-        assert (
-            self.historical.shape[1:] == self.prediction.shape[1:]
-        ), "Historical and prediction must have the same shape, except along the time dimension."
-        assert (
-            self.historical.shape[0] <= self.prediction.shape[0]
-        ), "Historical data cannot be longer than prediction."
+        assert self.time.shape[0] == self.prediction.shape[0], (
+            "Time and prediction must have the same length."
+        )
+        assert self.historical.shape[1:] == self.prediction.shape[1:], (
+            "Historical and prediction must have the same shape, except along the time dimension."
+        )
+        assert self.historical.shape[0] <= self.prediction.shape[0], (
+            "Historical data cannot be longer than prediction."
+        )
 
         self.lifetime = lifetime
         if self.lifetime is not None:
-            assert (
-                self.lifetime.shape == self.prediction.shape[1:]
-            ), "Lifetime must match spatial shape of prediction."
+            assert self.lifetime.shape == self.prediction.shape[1:], (
+                "Lifetime must match spatial shape of prediction."
+            )
 
     def blend(
         self,

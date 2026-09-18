@@ -15,7 +15,6 @@ from remind_mfa.common.helpers import prefix_from_module
 
 
 class CommonDataReader(fd.CompoundDataReader):
-
     # Documentation-source files bundled in the tgz that belong in this repo's docs/
     # folder rather than in the input-data folder.
     DOC_SOURCE_FILES = {"mrmfa_sources.bib", "mrmfa_sources.csv"}
@@ -146,9 +145,7 @@ class CommonDataReader(fd.CompoundDataReader):
     def build_target_tgz_pattern(
         input_data_revision: str, region_mapping: str, suffix: str = MFA_SUFFIX
     ) -> str:
-        return (
-            f"rev{glob.escape(input_data_revision)}_" f"{glob.escape(region_mapping)}_*{suffix}.tgz"
-        )
+        return f"rev{glob.escape(input_data_revision)}_{glob.escape(region_mapping)}_*{suffix}.tgz"
 
     def find_target_tgz_paths(self, suffix: str = MFA_SUFFIX) -> list[str]:
         """Return all madrat archives matching the configured revision/region and given suffix."""
@@ -272,7 +269,7 @@ class CommonDataReader(fd.CompoundDataReader):
         if missing:
             raise FileNotFoundError(
                 f"Missing {kind} files for model "
-                f"'{self.model_class}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
+                f"'{self.model_class}': {[f'{name} -> {path!r}' for name, path in missing.items()]}"
             )
 
     def get_dimension_files(self) -> dict[str, str | os.PathLike[str]]:

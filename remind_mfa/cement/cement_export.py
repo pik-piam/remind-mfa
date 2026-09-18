@@ -44,7 +44,7 @@ class CementDataExporter(CommonDataExporter):
             ),
             RemindInputVariable(
                 name="cement_clinker_ratio",
-                calculation_function=lambda mfa: (mfa.parameters["clinker_ratio"]),
+                calculation_function=lambda mfa: mfa.parameters["clinker_ratio"],
             ),
         ]
 

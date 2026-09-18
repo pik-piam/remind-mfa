@@ -74,7 +74,6 @@ def module_from_prefix(prefix: str) -> str:
 
 
 class RemindMFABaseModel(BaseModel):
-
     model_config = ConfigDict(
         extra="forbid",
         protected_namespaces=(),
