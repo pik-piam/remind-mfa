@@ -201,7 +201,7 @@ def _warn_uncovered_years(future_trade: Trade, historic_time: fd.Dimension, mark
     if uncovered:
         logging.warning(
             f"'{market_name}': trade data is zero in {len(uncovered)} future year(s) "
-            f"({uncovered[0]}-{uncovered[-1]}). These years are probably not covered by the data."
+            f"({uncovered}). These years are probably not covered by the data."
         )
 
 
