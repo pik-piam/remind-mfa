@@ -51,10 +51,7 @@ class ModelSpec:
 
     name: str
     model: ModelNames
-    supported: bool
-    demand_variable: str | None
-    demand_filename: str | None
-    pipeline_demand_filename: str | None
+    mfa_pipeline_mapping: dict[str, str]
     trade_market: str | None
     parameter_prefix: str | None
 
@@ -63,20 +60,19 @@ MATERIAL_SPECS = {
     "steel": ModelSpec(
         name="steel",
         model=ModelNames.STEEL,
-        supported=True,
-        demand_variable="steel_demand",
-        demand_filename="steel_demand.csv",
-        pipeline_demand_filename="ip_market__fabrication.csv",
+        mfa_pipeline_mapping={
+            "steel_demand.csv": "ip_market__fabrication.csv"
+        },
         trade_market="steel",
         parameter_prefix="st",
     ),
     "plastics": ModelSpec(
         name="plastics",
         model=ModelNames.PLASTICS,
-        supported=False,
-        demand_variable="plastics_demand",
-        demand_filename="plastics_demand.csv",
-        pipeline_demand_filename=None,
+        mfa_pipeline_mapping={
+            "plastics_demand.csv": "primary_market__fabrication.csv",
+            "plastics_production.csv": "production_by_region_year.csv"
+        },
         trade_market="primary",
         parameter_prefix="pl",
     ),
@@ -87,8 +83,7 @@ MATERIAL_SPECS = {
 class CouplingPaths:
     """Filesystem locations relevant to ATLAS coupling for one REMIND-MFA model."""
 
-    exported_demand_path: Path
-    atlas_demand_path: Path
+    mfa_pipeline_mapping: dict[Path, Path]
     input_data_path: Path
     region_dimension_path: Path
     time_dimension_path: Path
@@ -103,10 +98,6 @@ def get_model_spec(model: ModelNames) -> ModelSpec:
     if spec is None:
         choices = ", ".join([*MATERIAL_SPECS, "cement"])
         raise AtlasCouplingError(f"Unknown model {model!r}. Choose one of: {choices}.")
-    if not spec.supported:
-        raise AtlasCouplingError(
-            f"ATLAS coupling for model '{spec.name}' is planned but not implemented yet."
-        )
     return spec
 
 
@@ -125,59 +116,39 @@ def get_coupling_paths(
     spec = get_model_spec(model)
     config = load_config(list(config_names), spec.model, config_dir=config_dir)
     export_cfg = config["export"]
-    atlas_cfg = export_cfg.get("atlas", {})
+    scenario = config["model_switches"].get("scenario")
+    region_mapping = config["input"].get("region_mapping")
+    transience_scenario = config["transience"].get("transience_scenario")
+    trade_scenario = config["transience"].get("trade_scenario")
     export_path = _resolve_path(export_cfg["path"], root)
-    atlas_export_path = (
-        _resolve_path(atlas_cfg["path"], root) if atlas_cfg.get("path") else export_path / "atlas"
-    )
+    atlas_export_path = export_path / f"{export_cfg['prefix']}_series" / f"{export_cfg['prefix']}_{model.value}_{scenario}_{region_mapping}_{transience_scenario}_{trade_scenario}" / "atlas"
     input_data_path = _resolve_path(config["input"]["input_data_path"], root)
     dimensions_path = input_data_path / "dimensions" / spec.name
 
-    if spec.demand_filename is None:
-        raise AtlasCouplingError(f"Model '{spec.name}' has no ATLAS demand export configured.")
-
-    if spec.pipeline_demand_filename is None:
+    if not spec.mfa_pipeline_mapping:
         raise AtlasCouplingError(
-            f"No ATLAS data-pipeline demand location is configured for model '{spec.name}'."
+            f"No ATLAS output-pipeline mapping is configured for model '{spec.name}'."
         )
 
     if os.environ.get("ATLAS_MFA_INPUT_DIRECTORY"):
-        atlas_demand_path = (
-            Path(os.environ["ATLAS_MFA_INPUT_DIRECTORY"]) / spec.pipeline_demand_filename
+        target_dir = (
+            Path(os.environ["ATLAS_MFA_INPUT_DIRECTORY"])
         )
     else:
         from ATLAS_Trade_data_pipeline.config.paths import RAW_DATA as ATLAS_RAW_DATA
 
-        atlas_demand_path = ATLAS_RAW_DATA / "REMIND_MFA" / spec.pipeline_demand_filename
+        target_dir = ATLAS_RAW_DATA / "REMIND_MFA"
+
+    mfa_pipeline_mapping = {
+        atlas_export_path / key: target_dir / value for key, value in spec.mfa_pipeline_mapping.items()
+    }
+
     return CouplingPaths(
-        exported_demand_path=atlas_export_path / spec.demand_filename,
-        atlas_demand_path=atlas_demand_path,
+        mfa_pipeline_mapping=mfa_pipeline_mapping,
         input_data_path=input_data_path,
         region_dimension_path=dimensions_path / "regions.csv",
         time_dimension_path=dimensions_path / "time_in_years.csv",
     )
-
-
-def _validate_nonnegative_frame(frame: pd.DataFrame, value_column: str, context: str) -> None:
-    values = pd.to_numeric(frame[value_column], errors="coerce")
-    if values.isna().any() or not values.map(math.isfinite).all():
-        raise AtlasCouplingError(
-            f"{context} contains missing or non-finite values in '{value_column}'."
-        )
-    if (values < 0).any():
-        raise AtlasCouplingError(f"{context} contains negative values in '{value_column}'.")
-    frame[value_column] = values
-
-
-def _validate_coordinates(frame: pd.DataFrame, columns: Sequence[str], context: str) -> None:
-    if frame[list(columns)].isna().any().any():
-        raise AtlasCouplingError(f"{context} contains missing coordinates.")
-    for column in columns:
-        if frame[column].astype(str).str.strip().eq("").any():
-            raise AtlasCouplingError(f"{context} contains blank '{column}' coordinates.")
-    if frame.duplicated(list(columns)).any():
-        raise AtlasCouplingError(f"{context} contains duplicate {tuple(columns)} coordinates.")
-
 
 def _atomic_write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -191,27 +162,12 @@ def _atomic_write_text(path: Path, content: str) -> None:
         raise
 
 
-def copy_steel_demand_to_atlas(source: Path, target: Path) -> pd.DataFrame:
-    """Convert a steel demand export into the A_6 fabrication input CSV."""
+def copy_mfa_output_to_atlas(source: Path, target: Path, column_map: dict[str, str]) -> pd.DataFrame:
+    """Convert a MFA export into the input CSV for ATLAS."""
     frame = pd.read_csv(source)
-    required_columns = {"Time", "Region", "steel_demand"}
-    missing_columns = sorted(required_columns - set(frame.columns))
-    if missing_columns:
-        raise AtlasCouplingError(
-            f"MFA steel demand export {source} is missing columns: {', '.join(missing_columns)}."
-        )
-
-    result = frame.loc[:, ["Time", "Region", "steel_demand"]].rename(
-        columns={"steel_demand": "value"}
+    result = frame.rename(
+        columns=column_map
     )
-    result["Time"] = pd.to_numeric(result["Time"], errors="coerce")
-    if result["Time"].isna().any() or (result["Time"] % 1 != 0).any():
-        raise AtlasCouplingError("MFA steel demand export contains invalid Time values.")
-    result["Time"] = result["Time"].astype(int)
-    result["Region"] = result["Region"].astype(str).str.strip()
-    _validate_coordinates(result, ("Time", "Region"), "MFA steel demand export")
-    _validate_nonnegative_frame(result, "value", "MFA steel demand export")
-    result = result.sort_values(["Time", "Region"], ignore_index=True)
     _atomic_write_text(target, result.to_csv(index=False, lineterminator="\n"))
     return result
 
@@ -229,7 +185,9 @@ def copy_demand_to_atlas(
         )
 
     if model == ModelNames.STEEL:
-        return copy_steel_demand_to_atlas(source, target)
+        return copy_mfa_output_to_atlas(source, target, column_map={"steel_demand": "value"})
+    if model == ModelNames.PLASTICS:
+        return copy_mfa_output_to_atlas(source, target, column_map={"plastics_demand": "value", "plastics_production": "value"})
     raise AtlasCouplingError(f"No demand converter is implemented for model '{model}'.")
 
 
@@ -345,7 +303,7 @@ def copy_trade_to_mfa(
 
     _validate_global_balance(imports, exports)
 
-    parameter_dir = Path(input_data_path) / "input_data"
+    parameter_dir = Path(input_data_path) / "parameters"
     imports_path = parameter_dir / f"{spec.parameter_prefix}_trade_{spec.trade_market}_imports.cs4r"
     exports_path = parameter_dir / f"{spec.parameter_prefix}_trade_{spec.trade_market}_exports.cs4r"
     _write_cs4r(imports_path, imports)

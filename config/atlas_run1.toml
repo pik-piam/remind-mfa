@@ -9,5 +9,7 @@
 
     [base.export]
         do_export = true
+        bundle_export = true
+        prefix = "atlas"
         atlas.do_export = true
         pickle.do_export = true
