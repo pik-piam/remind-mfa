@@ -37,6 +37,9 @@ dependencies = [
     "kaleido>=1.4.0",
 ]
 
+[project.scripts]
+remind-mfa = "remind_mfa.cli.main:app"
+
 [dependency-groups]
 docs = [
     "mkdocs>=1.6.1",
