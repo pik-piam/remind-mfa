@@ -60,9 +60,7 @@ MATERIAL_SPECS = {
     "steel": ModelSpec(
         name="steel",
         model=ModelNames.STEEL,
-        mfa_pipeline_mapping={
-            "steel_demand.csv": "ip_market__fabrication.csv"
-        },
+        mfa_pipeline_mapping={"steel_demand.csv": "ip_market__fabrication.csv"},
         trade_market="steel",
         parameter_prefix="st",
     ),
@@ -71,7 +69,7 @@ MATERIAL_SPECS = {
         model=ModelNames.PLASTICS,
         mfa_pipeline_mapping={
             "plastics_demand.csv": "primary_market__fabrication.csv",
-            "plastics_production.csv": "production_by_region_year.csv"
+            "plastics_production.csv": "production_by_region_year.csv",
         },
         trade_market="primary",
         parameter_prefix="pl",
@@ -121,7 +119,12 @@ def get_coupling_paths(
     transience_scenario = config["transience"].get("transience_scenario")
     trade_scenario = config["transience"].get("trade_scenario")
     export_path = _resolve_path(export_cfg["path"], root)
-    atlas_export_path = export_path / f"{export_cfg['prefix']}_series" / f"{export_cfg['prefix']}_{model.value}_{scenario}_{region_mapping}_{transience_scenario}_{trade_scenario}" / "atlas"
+    atlas_export_path = (
+        export_path
+        / f"{export_cfg['prefix']}_series"
+        / f"{export_cfg['prefix']}_{model.value}_{scenario}_{region_mapping}_{transience_scenario}_{trade_scenario}"
+        / "atlas"
+    )
     input_data_path = _resolve_path(config["input"]["input_data_path"], root)
     dimensions_path = input_data_path / "dimensions" / spec.name
 
@@ -131,16 +134,15 @@ def get_coupling_paths(
         )
 
     if os.environ.get("ATLAS_MFA_INPUT_DIRECTORY"):
-        target_dir = (
-            Path(os.environ["ATLAS_MFA_INPUT_DIRECTORY"])
-        )
+        target_dir = Path(os.environ["ATLAS_MFA_INPUT_DIRECTORY"])
     else:
         from ATLAS_Trade_data_pipeline.config.paths import RAW_DATA as ATLAS_RAW_DATA
 
         target_dir = ATLAS_RAW_DATA / "REMIND_MFA"
 
     mfa_pipeline_mapping = {
-        atlas_export_path / key: target_dir / value for key, value in spec.mfa_pipeline_mapping.items()
+        atlas_export_path / key: target_dir / value
+        for key, value in spec.mfa_pipeline_mapping.items()
     }
 
     return CouplingPaths(
@@ -149,6 +151,7 @@ def get_coupling_paths(
         region_dimension_path=dimensions_path / "regions.csv",
         time_dimension_path=dimensions_path / "time_in_years.csv",
     )
+
 
 def _atomic_write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -162,12 +165,12 @@ def _atomic_write_text(path: Path, content: str) -> None:
         raise
 
 
-def copy_mfa_output_to_atlas(source: Path, target: Path, column_map: dict[str, str]) -> pd.DataFrame:
+def copy_mfa_output_to_atlas(
+    source: Path, target: Path, column_map: dict[str, str]
+) -> pd.DataFrame:
     """Convert a MFA export into the input CSV for ATLAS."""
     frame = pd.read_csv(source)
-    result = frame.rename(
-        columns=column_map
-    )
+    result = frame.rename(columns=column_map)
     _atomic_write_text(target, result.to_csv(index=False, lineterminator="\n"))
     return result
 
@@ -187,7 +190,9 @@ def copy_demand_to_atlas(
     if model == ModelNames.STEEL:
         return copy_mfa_output_to_atlas(source, target, column_map={"steel_demand": "value"})
     if model == ModelNames.PLASTICS:
-        return copy_mfa_output_to_atlas(source, target, column_map={"plastics_demand": "value", "plastics_production": "value"})
+        return copy_mfa_output_to_atlas(
+            source, target, column_map={"plastics_demand": "value", "plastics_production": "value"}
+        )
     raise AtlasCouplingError(f"No demand converter is implemented for model '{model}'.")
 
 
@@ -277,7 +282,15 @@ def _validate_global_balance(imports: pd.DataFrame, exports: pd.DataFrame) -> No
 
 
 def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
-    result = data.rename(columns={"year": "Time", "region": "Region", "quantity": "value", "type": "Type", "material": "Material"})
+    result = data.rename(
+        columns={
+            "year": "Time",
+            "region": "Region",
+            "quantity": "value",
+            "type": "Type",
+            "material": "Material",
+        }
+    )
     dimensions = ",".join(result.columns)
     _atomic_write_text(
         path,
@@ -285,14 +298,15 @@ def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
         + result.to_csv(index=False, header=False, lineterminator="\n"),
     )
 
-def _adjust_plastics_trade(imports: pd.DataFrame, exports: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+
+def _adjust_plastics_trade(
+    imports: pd.DataFrame, exports: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split future plastics trade with the latest historic material shares."""
 
     adjusted_flows = []
     for flow, future_trade in (("imports", imports), ("exports", exports)):
-        historic_path = (
-            PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_his_{flow}.cs4r"
-        )
+        historic_path = PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_his_{flow}.cs4r"
         if not historic_path.is_file():
             raise AtlasCouplingError(
                 f"Historic plastics {flow} trade parameter was not found: {historic_path}"
@@ -310,9 +324,7 @@ def _adjust_plastics_trade(imports: pd.DataFrame, exports: pd.DataFrame) -> tupl
         historic_trade["historic_year"] = pd.to_numeric(
             historic_trade["historic_year"], errors="coerce"
         )
-        historic_trade["quantity"] = pd.to_numeric(
-            historic_trade["quantity"], errors="coerce"
-        )
+        historic_trade["quantity"] = pd.to_numeric(historic_trade["quantity"], errors="coerce")
         if historic_trade[["historic_year", "quantity"]].isna().any().any():
             raise AtlasCouplingError(
                 f"Historic plastics {flow} trade parameter contains invalid values."
@@ -320,11 +332,12 @@ def _adjust_plastics_trade(imports: pd.DataFrame, exports: pd.DataFrame) -> tupl
 
         latest_year = historic_trade["historic_year"].max()
         latest_trade = historic_trade.loc[historic_trade["historic_year"] == latest_year]
-        material_shares = (
-            latest_trade.groupby(["region", "type", "material"], as_index=False)["quantity"]
-            .sum()
-        )
-        material_shares["share"] = material_shares["quantity"] / material_shares.groupby("region")["quantity"].transform("sum")
+        material_shares = latest_trade.groupby(["region", "type", "material"], as_index=False)[
+            "quantity"
+        ].sum()
+        material_shares["share"] = material_shares["quantity"] / material_shares.groupby("region")[
+            "quantity"
+        ].transform("sum")
 
         adjusted = future_trade.merge(
             material_shares.loc[:, ["region", "type", "material", "share"]],
@@ -333,11 +346,10 @@ def _adjust_plastics_trade(imports: pd.DataFrame, exports: pd.DataFrame) -> tupl
         )
         print(adjusted)
         adjusted["quantity"] = adjusted["quantity"] * adjusted.pop("share")
-        adjusted_flows.append(
-            adjusted.loc[:, ["year", "region", "type", "material", "quantity"]]
-        )
+        adjusted_flows.append(adjusted.loc[:, ["year", "region", "type", "material", "quantity"]])
 
     return tuple(adjusted_flows)
+
 
 def copy_trade_to_mfa(
     model: ModelNames,

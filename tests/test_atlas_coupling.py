@@ -71,9 +71,7 @@ def test_aggregate_bilateral_trade_sums_flows():
     assert exports.to_dict("records") == [{"year": 2025, "region": "A", "quantity": 5.0}]
 
 
-def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(
-    tmp_path, monkeypatch
-):
+def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(tmp_path, monkeypatch):
     parameters_path = tmp_path / "data_in" / "parameters"
     parameters_path.mkdir(parents=True)
     (parameters_path / "pl_primary_his_imports.cs4r").write_text(
