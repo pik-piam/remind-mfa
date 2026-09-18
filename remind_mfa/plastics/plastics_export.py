@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
 
 
 class PlasticsDataExporter(CommonDataExporter):
+    _model: Optional["PlasticsModel"] = PrivateAttr(default=None)
 
     @staticmethod
     def _plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -20,6 +22,19 @@ class PlasticsDataExporter(CommonDataExporter):
         return (mfa.flows["collected => reclmech"] + mfa.flows["collected => reclchem"]).sum_to(
             ("t", "r", "m")
         )
+
+    @staticmethod
+    def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Demand for primary plastics."""
+        return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
+
+    @staticmethod
+    def _plastics_primary_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Production of primary plastics."""
+        return (
+            mfa.flows["polymerization => primary_market"]
+            + mfa.flows["aux_recyclate_trade => primary_market"]
+        ).sum_to(("t", "r", "m"))
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         def hvc_input(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -39,18 +54,32 @@ class PlasticsDataExporter(CommonDataExporter):
             ),
         ]
 
-    def export_custom(self, model: "PlasticsModel"):
-        if self.cfg.csv.do_export:
-            self.export_eol_data_by_region_and_year(mfa=model.future_mfa)
-            self.export_use_data_by_region_and_year(mfa=model.future_mfa)
-            self.export_recycling_data_by_region_and_year(mfa=model.future_mfa)
-            self.export_stock_extrapolation(model=model)
+    def get_atlas_variables(self) -> list[RemindInputVariable]:
+        return [
+            RemindInputVariable(
+                name="plastics_demand",
+                calculation_function=PlasticsDataExporter._plastics_fabrication_demand,
+                unit="t/yr",
+            ),
+            RemindInputVariable(
+                name="plastics_production",
+                calculation_function=PlasticsDataExporter._plastics_primary_production,
+                unit="t/yr",
+            ),
+        ]
 
-    def export_stock_extrapolation(self, model: "PlasticsModel"):
-        model.stock_handler.pure_parameters.to_df().to_csv(
+    def export_custom(self):
+        if self.cfg.csv.do_export:
+            self.export_eol_data_by_region_and_year(mfa=self._model.future_mfa)
+            self.export_use_data_by_region_and_year(mfa=self._model.future_mfa)
+            self.export_recycling_data_by_region_and_year(mfa=self._model.future_mfa)
+            self.export_stock_extrapolation()
+
+    def export_stock_extrapolation(self):
+        self._model.stock_handler.pure_parameters.to_df().to_csv(
             self.export_path("csv", "stock_extrapolation_parameters.csv")
         )
-        model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
+        self._model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
             self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
         )
 
@@ -78,14 +107,15 @@ class PlasticsDataExporter(CommonDataExporter):
                 variable_name="Production|Chemicals|Plastics|Primary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
                     mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
-                    - mfa.flows["reclchem => HVC_input"]
+                    - mfa.flows["aux_recl_feedstock_trade => HVC_input"]
                 ),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Production|Chemicals|Plastics|Secondary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["reclmech => primary_market"] + mfa.flows["reclchem => HVC_input"]
+                    mfa.flows["aux_recyclate_trade => primary_market"]
+                    + mfa.flows["aux_recl_feedstock_trade => HVC_input"]
                 ).sum_to(("t", "r")),
                 unit="t/yr",
             ),

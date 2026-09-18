@@ -1,5 +1,6 @@
 import copy
 import logging
+from pathlib import Path
 from typing import Optional
 import flodym as fd
 import numpy as np
@@ -17,7 +18,7 @@ from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.helpers import RegressOverModes
+from remind_mfa.common.helpers import RegressOverModes, series_export_path
 
 
 class CommonModel:
@@ -44,12 +45,15 @@ class CommonModel:
         self.read_scenario_parameters()
         self.select_driver_scen()
         self.modify_parameters()
+        self.calculate_derived_parameters()
         self.init_export_and_visualization()
 
     def run(self):
+        logging.info("Running historical MFA system...")
         self.historic_mfa = self.make_mfa(historic=True)
         self.historic_mfa.compute()
 
+        logging.info("Extrapolating parameters...")
         self.transfer_historic_parameters()
 
         historic_trade = self.historic_mfa.trade_set
@@ -63,12 +67,10 @@ class CommonModel:
         if self.cfg.transience.transience_run:
             self.compute_transience_parameters()
 
-        # compute parameter modifications for transience
-        if self.cfg.transience.transience_run:
-            self.compute_transience_parameters()
-
+        logging.info("Extrapolating in-use stock...")
         stock_projection = self.get_long_term_stock()
 
+        logging.info("Running future MFA system...")
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(
             stock_projection, historic_trade, self.baseline_trade, self.baseline_flows
@@ -153,7 +155,15 @@ class CommonModel:
         self.scenario_parameters = scenario_reader.get_parameters()
 
     def modify_parameters(self):
-        """Manual changes to parameters"""
+        """Manual changes to parameters. Called once at initialization."""
+        pass
+
+    def calculate_derived_parameters(self):
+        """Derive parameters from other parameters. Called once at initialization, after
+        `modify_parameters`. Must be re-called after any step that changes parameters
+        (e.g. cement re-calls it after reconciliation), so derived values stay consistent
+        with the current parameter set. Unlike `modify_parameters`, implementations must
+        be idempotent: recompute outputs from inputs, never modify inputs in place."""
         pass
 
     def compute_transience_parameters(self):

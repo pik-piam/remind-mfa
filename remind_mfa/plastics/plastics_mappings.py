@@ -10,6 +10,7 @@ class PlasticsDimensionFiles(CommonDimensionFiles):
         "EU-MFA_Good": "eu_mfa_goods",
         "EU-MFA_Material": "eu_mfa_materials",
         "EU-MFA_Time": "eu_mfa_time",
+        "Type": "type",
     }
 
 
@@ -45,4 +46,6 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "good_market": "Good Market",
         "imports": "Imports",
         "exports": "Exports",
+        "aux_recyclate_trade": "Auxiliary Recyclate Trade",
+        "aux_recl_feedstock_trade": "Auxiliary Recycled Feedstock Trade",
     }

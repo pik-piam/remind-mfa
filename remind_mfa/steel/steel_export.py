@@ -1,4 +1,7 @@
+from typing import TYPE_CHECKING, Optional
+
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
@@ -6,8 +9,13 @@ from remind_mfa.common.common_export import (
     RemindInputVariable,
 )
 
+if TYPE_CHECKING:
+    from remind_mfa.steel.steel_model import SteelModel
+
 
 class SteelDataExporter(CommonDataExporter):
+    _model: Optional["SteelModel"] = PrivateAttr(default=None)
+
     @staticmethod
     def _total_steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Total steel output after production and forming losses, before trade."""
@@ -22,6 +30,11 @@ class SteelDataExporter(CommonDataExporter):
     def _eol_scrap_potential(mfa: fd.MFASystem) -> fd.FlodymArray:
         """End-of-life scrap available before collection and trade."""
         return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g"))
+
+    @staticmethod
+    def _steel_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Demand for intermediate steel products."""
+        return mfa.flows["ip_market => fabrication"].sum_to(("t", "r"))
 
     @staticmethod
     def _total_available_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -47,6 +60,15 @@ class SteelDataExporter(CommonDataExporter):
             RemindInputVariable(
                 name="steel_scrap",
                 calculation_function=SteelDataExporter._total_available_scrap,
+                unit="t/yr",
+            ),
+        ]
+
+    def get_atlas_variables(self) -> list[RemindInputVariable]:
+        return [
+            RemindInputVariable(
+                name="steel_demand",
+                calculation_function=SteelDataExporter._steel_demand,
                 unit="t/yr",
             ),
         ]
