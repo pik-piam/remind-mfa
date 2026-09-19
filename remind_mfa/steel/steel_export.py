@@ -1,4 +1,7 @@
+from typing import TYPE_CHECKING, Optional
+
 import flodym as fd
+from pydantic import PrivateAttr
 
 from remind_mfa.common.common_export import (
     CommonDataExporter,
@@ -6,8 +9,13 @@ from remind_mfa.common.common_export import (
     RemindInputVariable,
 )
 
+if TYPE_CHECKING:
+    from remind_mfa.steel.steel_model import SteelModel
+
 
 class SteelDataExporter(CommonDataExporter):
+    _model: Optional["SteelModel"] = PrivateAttr(default=None)
+
     @staticmethod
     def _total_steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Total steel output after production and forming losses, before trade."""

@@ -1,4 +1,5 @@
 import logging
+import textwrap
 from typing import Annotated, Literal
 
 import typer
@@ -15,17 +16,43 @@ type ModelSelection = Literal["all"] | ModelNames
 
 
 def configure_logger():
-    logging.basicConfig(
-        format="%(asctime)s %(levelname)-8s %(message)s",
-        level=logging.INFO,
-        datefmt="%Y-%m-%d %H:%M:%S",
-        force=True,
-    )
+    _FMT = "%(asctime)s %(levelname)-8s %(message)s"
+    _DATEFMT = "%Y-%m-%d %H:%M:%S"
+    _WIDTH = 132
+    _INDENT = " " * 29  # len("2026-08-21 12:00:00 INFO     ")
+
+    class _IndentFormatter(logging.Formatter):
+        def format(self, record: logging.LogRecord) -> str:
+            text = super().format(record)
+            parts = []
+            for i, line in enumerate(text.splitlines()):
+                if i == 0:
+                    parts.append(textwrap.fill(line, width=_WIDTH, subsequent_indent=_INDENT))
+                else:
+                    parts.append(
+                        textwrap.fill(_INDENT + line, width=_WIDTH, subsequent_indent=_INDENT)
+                    )
+            return "\n".join(parts)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(_IndentFormatter(fmt=_FMT, datefmt=_DATEFMT))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    for h in root.handlers[:]:
+        root.removeHandler(h)
+    root.addHandler(handler)
+
+    # mute info for packages spamming the log
+    muted_packages = ["alembic", "plotly", "kaleido", "choreographer"]
+    for package in muted_packages:
+        logging.getLogger(package).setLevel(logging.WARNING)
 
 
 def run_remind_mfa(config_names: list[str], models: list[ModelNames]) -> None:
-    for model in models:
-        model_config = load_config(config_names, model)
+    for model_name in models:
+        logging.info("=" * 103)
+        logging.info(f"Starting {model_name.value} run...")
+        model_config = load_config(config_names, model_name)
         model = init_model(cfg=model_config)
         logging.info(f"{type(model).__name__} instance created.")
         model.run()
@@ -74,6 +101,7 @@ def main(
     models_to_run = list(ModelNames) if model_selection == "all" else [model_selection]
 
     configure_logger()
+
     run_remind_mfa(config_names, models_to_run)
 
 

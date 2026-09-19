@@ -7,8 +7,5 @@
 | Market: Cement      |
 | Production: Product |
 | Use phase           |
-| End of life         |
-| Atmosphere          |
-| Carbonation         |
 | imports             |
 | exports             |

@@ -1,10 +1,8 @@
 import numpy as np
-import os
-from plotly import colors as plc
 import plotly.graph_objects as go
-import pyam
+from pydantic import PrivateAttr
 import flodym as fd
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import flodym.export as fde
 
 from remind_mfa.common.common_visualization import CommonVisualizer
@@ -18,13 +16,15 @@ class SteelVisualizer(CommonVisualizer):
 
     cfg: SteelVisualizationCfg
 
-    def visualize_custom(self, model: "SteelModel"):
+    _model: Optional["SteelModel"] = PrivateAttr(default=None)
+
+    def visualize_custom(self):
         if self.cfg.production.do_visualize:
-            self.visualize_production(mfa=model.future_mfa, regional=True)
-            self.visualize_production(mfa=model.future_mfa, regional=False)
+            self.visualize_production(mfa=self._model.future_mfa, regional=True)
+            self.visualize_production(mfa=self._model.future_mfa, regional=False)
         if self.cfg.scrap_demand_supply.do_visualize:
-            self.visualize_scrap_demand_supply(model.future_mfa, regional=True)
-            self.visualize_scrap_demand_supply(model.future_mfa, regional=False)
+            self.visualize_scrap_demand_supply(self._model.future_mfa, regional=True)
+            self.visualize_scrap_demand_supply(self._model.future_mfa, regional=False)
         self.stop_and_show()
 
     def visualize_consumption(self, mfa: fd.MFASystem):
@@ -110,7 +110,7 @@ class SteelVisualizer(CommonVisualizer):
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
 
-        self._show_and_save_plotly(fig, name="sankey")
+        self._show_and_save_plotly(fig, base_name="sankey")
 
     def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
@@ -141,7 +141,7 @@ class SteelVisualizer(CommonVisualizer):
             )
             fig = plotter.plot()
 
-        self.plot_and_save_figure(plotter, f"production_{name_str}.png", do_plot=False)
+        self.plot_and_save_figure(plotter, f"production_{name_str}", do_plot=False)
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
@@ -244,4 +244,4 @@ class SteelVisualizer(CommonVisualizer):
         #         fig=fig,
         #     )
 
-        self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}.png")
+        self.plot_and_save_figure(ap, f"scrap_demand_supply_{name_str}")

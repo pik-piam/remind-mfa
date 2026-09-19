@@ -1,11 +1,17 @@
 import logging
 from typing import Optional
 from copy import deepcopy
+import numpy as np
 import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.cement.cement_definition import get_cement_definition
-from remind_mfa.cement.cement_mfa_system_bottom_up import StockDrivenBottomUpCementMFASystem
+from remind_mfa.cement.cement_mfa_system_bottom_up import (
+    StockDrivenBottomUpCementMFASystem,
+    expand_common_to_bu,
+    extend_end_use_intensive,
+)
+from remind_mfa.common.data_blending import blend
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDimensionFiles, CementDisplayNames
@@ -30,17 +36,67 @@ class CementModel(CommonModel):
     get_definition = staticmethod(get_cement_definition)
 
     # TODO: unify, then delete
-    end_use_good_letter: str = "s"
+    end_use_good_letter: str = "u"
     historic_stock_name: str = "in_use"
 
     def modify_parameters(self):
-        # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["stock_type_split"]
-
         # construct lifetime std from mean and relative std
         lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
         lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
         self.parameters["lifetime_std"] = lifetime_std
+
+        # development weight for gdp-dependent parameters/scenarios
+        self.parameters["development_weight"] = self.calc_development_weight()
+
+    def calc_development_weight(self) -> fd.Parameter:
+        """Development weight per region from GDP per capita at the last historic year:
+        Blends log(GDP per capita) from 1 at low GDP to 0 at high GDP, with the transition range
+        defined by the scenario parameters `development_gdppc_low` and `development_gdppc_high`."""
+        # TODO this could be merged with steel's approach
+        gdppc = self.parameters["gdppc"][{"t": self.dims["h"].items[-1]}]
+        weight = fd.Parameter(dims=gdppc.dims, name="development_weight")
+        weight[...] = blend(
+            target_dims=gdppc.dims,
+            y_lower=1.0,
+            y_upper=0.0,
+            x=gdppc.apply(np.log),
+            x_lower=np.log(self.scenario_parameters["development_gdppc_low"]),
+            x_upper=np.log(self.scenario_parameters["development_gdppc_high"]),
+            type="poly_mix",
+        )
+        return weight
+
+    def calculate_derived_parameters(self):
+
+        # copy/rename for use in common model
+        self.parameters["sector_split_limit"] = self.parameters["end_use_split"]
+
+        # derive mean dwelling and structure splits from global weighted average
+        prm = self.parameters
+        w = prm["development_weight"]
+        floorspace = prm["floorspace"][{"t": self.dims["h"].items[-1]}]
+
+        # dwelling split target
+        res_floorspace = floorspace[{"c": "Res"}]
+        global_dwelling_split = (prm["dwelling_split"] * res_floorspace).sum_over(
+            "r"
+        ) / res_floorspace.sum_over("r")
+        dwelling_split_mean = fd.Parameter(
+            dims=prm["dwelling_split"].dims, name="dwelling_split_mean"
+        )
+        dwelling_split_mean[...] = w * global_dwelling_split + (1.0 - w) * prm["dwelling_split"]
+        prm["dwelling_split_mean"] = dwelling_split_mean
+
+        # structure split target
+        bu_floorspace = expand_common_to_bu(floorspace, prm)
+        global_structure_split = (prm["structure_split"] * bu_floorspace).sum_over(
+            "r"
+        ) / bu_floorspace.sum_over("r")
+        structure_split_mean = fd.Parameter(
+            dims=prm["structure_split"].dims, name="structure_split_mean"
+        )
+        structure_split_mean[...] = w * global_structure_split + (1.0 - w) * prm["structure_split"]
+        prm["structure_split_mean"] = structure_split_mean
 
     def run(self):
         super().run()
@@ -49,11 +105,24 @@ class CementModel(CommonModel):
             return self.run_with_reconciliation()
 
     def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
-        """Construct the future bottom-up MFA."""
-        return self.make_mfa(
+        """Construct the future bottom-up MFA.
+
+        Lifetime parameter is broadcasted to extended-end-use dimension for bottom-up MFA.
+        """
+        bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,
         )
+        bu_mfa.parameters = {
+            **bu_mfa.parameters,
+            "lifetime_mean": extend_end_use_intensive(
+                self.parameters["lifetime_mean"], self.dims["e"]
+            ),
+            "lifetime_std": extend_end_use_intensive(
+                self.parameters["lifetime_std"], self.dims["e"]
+            ),
+        }
+        return bu_mfa
 
     def run_with_reconciliation(self):
         """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
@@ -85,12 +154,12 @@ class CementModel(CommonModel):
         # For now, we simply compute non-reconiled bottom-up stock for analysis.
         bu_mfa = self.make_bottom_up_mfa()
         bu_mfa.compute_floorspace_stock()
-        bu_mfa.compute_bottom_up_stock()
-        self.bu_stock = bu_mfa.stocks["bu_in_use"].stock
+        self.bu_stock = bu_mfa.compute_bottom_up_stock()
 
-        # reconcile parameters
+        # reconcile parameters, then re-derive dependent parameters from the result
         self.parameters = self.historic_parameters
         self.reconcile_parameters()
+        self.calculate_derived_parameters()
 
         # compute reconciled historic top-down mfa
         self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
@@ -120,7 +189,7 @@ class CementModel(CommonModel):
 
     def reconcile_parameters(
         self,
-        max_iter: int = 10,
+        max_iter: int = 5,
         tol: Optional[float] = 1e-3,
     ):
         """Reconcile parameters between top-down and bottom-up stocks.
