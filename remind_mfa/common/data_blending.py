@@ -277,33 +277,42 @@ class CriticallyDampedBlender:
         # 4.74 is the solution to (1+x)*exp(-x) = 0.05: the critically damped step response
         # k = 4.74 / approaching_time means 95% convergence within approaching_time years.
         k = 4.74 / approaching_time
-        # Nudge alpha grows quadratically from 0 to 1 over nudge_timescale
-        nudge_timescale = 10 * approaching_time
-        dt_elapsed = t_array - t_array[0]
-        nudge_arr = np.minimum(1.0, (dt_elapsed / nudge_timescale) ** 2)
 
-        # --- Precompute look-ahead predictor velocity for each timestep ---
+        # --- Precompute look-ahead predictor velocity and acceleration ---
         vp_array = self._lookahead_velocity(p_array, dt, n_steps, approaching_time)
+        ap_array = np.gradient(vp_array, dt, axis=0)
+
+        historical_time = self.time[: self.historical.shape[0]]
+        historical_velocity = np.gradient(self.historical, historical_time, axis=0)
+        historical_acceleration = np.gradient(
+            historical_velocity, historical_time, axis=0
+        )
 
         # --- Initialize state ---
         y = np.zeros_like(p_array, dtype=float)
         v = np.zeros_like(p_array, dtype=float)
-        y[0], v[0] = y0.copy(), v0.copy()
-        y_curr, v_curr = y[0].copy(), v[0].copy()
+        a = np.zeros_like(p_array, dtype=float)
+        y[0], v[0], a[0] = (
+            y0.copy(),
+            v0.copy(),
+            historical_acceleration[-1].copy(),
+        )
+        y_curr, v_curr, a_curr = y[0].copy(), v[0].copy(), a[0].copy()
 
         # --- Integrate ---
         for i in range(1, n_steps):
-            # 1. Compute acceleration
-            dv_dt = k**2 * (p_array[i] - y_curr) + 2 * k * (vp_array[i] - v_curr)
-            # 2. Update velocity and position
-            v_curr = v_curr + dv_dt * dt
+            # 1. Compute jerk.
+            jerk = (
+                k**3 * (p_array[i] - y_curr)
+                + 3 * k**2 * (vp_array[i] - v_curr)
+                + 3 * k * (ap_array[i] - a_curr)
+            )
+            # 2. Update acceleration, velocity, and position.
+            a_curr = a_curr + jerk * dt
+            v_curr = v_curr + a_curr * dt
             y_curr = y_curr + v_curr * dt
-            # 3. Nudge y toward p by the current alpha
-            y_curr = (1 - nudge_arr[i]) * y_curr + nudge_arr[i] * p_array[i]
-            # 4. Re-sync velocity to the nudge-corrected position so the D-term stays consistent
-            v_curr = (y_curr - y[i - 1]) / dt
-            # Store results
-            y[i], v[i] = y_curr, v_curr
+            # Store results.
+            y[i], v[i], a[i] = y_curr, v_curr, a_curr
 
         return y
 
