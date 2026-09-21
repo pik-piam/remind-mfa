@@ -221,10 +221,18 @@ class CriticallyDampedBlender:
         v0 = self._trend_slope(
             self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
         )
+        historical_time = self.time[: self.historical.shape[0]]
+        historical_velocity = np.gradient(self.historical, historical_time, axis=0)
+        historical_acceleration = np.gradient(
+            historical_velocity, historical_time, axis=0
+        )
+        a0 = historical_acceleration[-1]
+
         # 3. Integrate to find the blended future path Y(t)
         y_future = self._integrate_transition(
             y0,
             v0,
+            a0,
             t_future,
             p_future,
             approaching_time,
@@ -243,6 +251,7 @@ class CriticallyDampedBlender:
         self,
         y0: np.ndarray,
         v0: np.ndarray,
+        a0: np.ndarray,
         t_array: np.ndarray,
         p_array: np.ndarray,
         approaching_time: float,
@@ -282,21 +291,11 @@ class CriticallyDampedBlender:
         vp_array = self._lookahead_velocity(p_array, dt, n_steps, approaching_time)
         ap_array = np.gradient(vp_array, dt, axis=0)
 
-        historical_time = self.time[: self.historical.shape[0]]
-        historical_velocity = np.gradient(self.historical, historical_time, axis=0)
-        historical_acceleration = np.gradient(
-            historical_velocity, historical_time, axis=0
-        )
-
         # --- Initialize state ---
         y = np.zeros_like(p_array, dtype=float)
         v = np.zeros_like(p_array, dtype=float)
         a = np.zeros_like(p_array, dtype=float)
-        y[0], v[0], a[0] = (
-            y0.copy(),
-            v0.copy(),
-            historical_acceleration[-1].copy(),
-        )
+        y[0], v[0], a[0] = y0.copy(), v0.copy(), a0.copy()
         y_curr, v_curr, a_curr = y[0].copy(), v[0].copy(), a[0].copy()
 
         # --- Integrate ---
