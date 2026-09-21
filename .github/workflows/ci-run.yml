@@ -16,7 +16,7 @@ permissions:
 #   fetch  - fetches the private inputs from HPC and stores them in the Actions cache
 #   run    - executes the model run (no secrets required)
 #   deploy - publishes the figures
-jobs:  
+jobs:
   fetch:
     name: Fetch model inputs
     runs-on: ubuntu-latest
