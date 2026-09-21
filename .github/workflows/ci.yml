@@ -50,12 +50,15 @@ jobs:
     env:
       MADRAT_OUTPUTFOLDER: ${{ github.workspace }}/madrat_output
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    # Guard: Only run this job for trusted contributors (since we are using secrets and accessing the HPC)
+    if: github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
     - name: Checkout
       uses: actions/checkout@v7
       with:
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
         submodules: false
+        allow-unsafe-pr-checkout: true
 
     - name: Check out the data_in/legacy submodule
       # The submodule lives on gitlab.pik-potsdam.de and is declared with an SSH
