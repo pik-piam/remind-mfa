@@ -9,10 +9,7 @@
     [base.model_switches]
         scenario = "SSP2"
         stock_extrapolation_class_name = "LogisticExtrapolation"
-        regress_over = "loggdppc"
         lifetime_model_name = "LogNormalLifetime"
-        do_stock_extrapolation_by_category = false
-        do_stock_extrapolation_with_time_factor = false
 
     [base.visualization]
         do_visualize = true
@@ -49,10 +46,6 @@
         docs.do_export = false
 
 [plastics]
-    [plastics.model_switches]
-        do_stock_extrapolation_by_category = true
-        do_stock_extrapolation_with_time_factor = true
-
     [plastics.visualization]
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
         material_splits.do_visualize = false
@@ -60,9 +53,6 @@
         scenario_params.do_visualize = false
 
 [steel]
-    [steel.model_switches]
-        do_stock_extrapolation_by_category = true
-
     [steel.visualization]
         scrap_demand_supply.do_visualize = false
 
@@ -71,7 +61,6 @@
         carbonation = false
         parameter_reconciliation.do_reconcile = false
         parameter_reconciliation.do_combine_mfas = true
-        do_stock_extrapolation_by_category = false
 
     [cement.visualization]
         eol_stock.do_visualize = false
