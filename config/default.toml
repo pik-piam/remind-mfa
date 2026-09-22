@@ -4,15 +4,12 @@
         input_data_path = "data_in"
         input_data_revision = "2.2.2"
         region_mapping = "h12"
-        scenarios_path = "config/scenarios"
+        scenarios_path = "./scenarios"
 
     [base.model_switches]
         scenario = "SSP2"
         stock_extrapolation_class_name = "LogisticExtrapolation"
-        regress_over = "loggdppc"
         lifetime_model_name = "LogNormalLifetime"
-        do_stock_extrapolation_by_category = false
-        do_stock_extrapolation_with_time_factor = false
 
     [base.visualization]
         do_visualize = true
@@ -46,38 +43,24 @@
         iamc.do_export = false
         mrindustry.do_export = false
         assumptions.do_export = false
-        docs.do_export = true
+        docs.do_export = false
 
 [plastics]
-    [plastics.model_switches]
-        do_stock_extrapolation_by_category = true
-        do_stock_extrapolation_with_time_factor = true
-
     [plastics.visualization]
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
         material_splits.do_visualize = false
         flows.do_visualize = false
         scenario_params.do_visualize = false
 
-    [plastics.export]
-        docs.path = "docs/plastics"
-
 [steel]
-    [steel.model_switches]
-        do_stock_extrapolation_by_category = true
-
     [steel.visualization]
         scrap_demand_supply.do_visualize = false
-
-    [steel.export]
-        docs.path = "docs/steel"
 
 [cement]
     [cement.model_switches]
         carbonation = false
         parameter_reconciliation.do_reconcile = false
         parameter_reconciliation.do_combine_mfas = true
-        do_stock_extrapolation_by_category = false
 
     [cement.visualization]
         eol_stock.do_visualize = false
@@ -90,6 +73,3 @@
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
         carbonation.do_visualize = false
-
-    [cement.export]
-        docs.path = "docs/cement"
