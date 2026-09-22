@@ -70,6 +70,10 @@ class CommonModel:
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(stock_projection, historic_trade)
 
+    @property
+    def name(self) -> str:
+        return self.cfg.model.value
+
     def export(self):
         self.data_writer.export(model=self)
 

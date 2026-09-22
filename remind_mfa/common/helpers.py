@@ -10,6 +10,8 @@ if TYPE_CHECKING:
 
 _SERIES_EXPORT_PATH = None
 
+DOCS_PATH = Path(__file__).parents[2] / "docs"
+
 
 def _timestamp_prefix() -> str:
     return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
