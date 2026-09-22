@@ -135,7 +135,9 @@ class VisualizationCfg(BaseVisualizationCfg):
     do_show_figs: bool = True
     """Whether to show figures."""
     do_save_figs: bool = False
-    """Whether to save figures."""
+    """Whether to save figures as static png files."""
+    do_save_figs_html: bool = False
+    """Whether to save figures as standalone HTML files."""
     plotting_engine: str = "plotly"
     """Plotting engine to use for visualizations."""
     plotly_renderer: str = "browser"
@@ -157,6 +159,12 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Visualization configuration for extrapolation."""
     sector_splits: BaseVisualizationCfg
     """Visualization configuration for sector splits."""
+
+    @model_validator(mode="after")
+    def validate(self):
+        if self.do_save_figs_html and self.plotting_engine != "plotly":
+            raise ValueError("do_save_figs_html requires plotting_engine = 'plotly'.")
+        return self
 
 
 class InputCfg(RemindMFABaseModel):

@@ -4,12 +4,17 @@ data/
 .idea
 .vscode
 remind_mfa.egg-info
+.wrangler/cache/
 site/
 .github/copilot-instructions.md
 .claude/
 CLAUDE.md
 madrat_output/
+data_in/parameters/
+data_in/validation/
+data_out
 .env
 config/*.toml
 !config/default.toml
+!config/ci.toml
 !config/mrindustry.toml

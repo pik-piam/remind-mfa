@@ -8,19 +8,12 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
 
 import flodym as fd
 import flodym.export as fde
+import pyam
 from pydantic import PrivateAttr
 import pandas as pd
 
 from remind_mfa.common.docs_export_helpers import merge_parameters_sources
 from remind_mfa.common.docs_export_helpers import merge_bib_files
-
-_root_logger = logging.getLogger()
-_prev_level = _root_logger.level
-_root_logger.setLevel(logging.WARNING)
-import pyam  # noqa: E402
-
-_root_logger.setLevel(_prev_level)
-del _root_logger, _prev_level
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
@@ -82,9 +75,11 @@ class CommonDataExporter(RemindMFABaseModel):
     _run_path: Optional[str] = PrivateAttr(default=None)
 
     def export(self, model: "CommonModel"):
+        # Always set the model as the visualizer needs it to determine the run folder
+        # even when data export is disabled.
+        self._model = model
         if not self.cfg.do_export:
             return
-        self._model = model
         self.export_common()
         self.export_custom()
 

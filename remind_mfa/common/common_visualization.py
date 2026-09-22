@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 import plotly.graph_objects as go
@@ -12,6 +13,7 @@ import flodym.export as fde
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
+from remind_mfa.common.figure_index import write_figure_index
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
@@ -39,6 +41,7 @@ class CommonVisualizer(RemindMFABaseModel):
         self.visualize_common()
         self.visualize_custom()
         self.stop_and_show()
+        self.write_figure_index()
 
     def visualize_common(self):
         if self.cfg.gdp.do_visualize:
@@ -68,8 +71,34 @@ class CommonVisualizer(RemindMFABaseModel):
     def _show_and_save_plotly(self, fig: go.Figure, base_name: str):
         if self.cfg.do_save_figs:
             fig.write_image(self.figure_path(base_name))
+        if self.cfg.do_save_figs_html:
+            self._save_figure_html(fig, base_name)
         if self.cfg.do_show_figs:
             fig.show()
+
+    def _save_figure_html(self, fig: go.Figure, base_name: str) -> None:
+        """Save a plotly figure as a standalone HTML file next to the other figure exports."""
+        fig.write_html(
+            self.figure_path(base_name, extension="html"),
+            include_plotlyjs="directory",
+            full_html=True,
+            config={"responsive": True},
+            auto_open=False,
+        )
+
+    def write_figure_index(self) -> Path | None:
+        """Write the index page listing all HTML figures of this run.
+
+        With bundled export the index covers the whole series, i.e. all models run so
+        far and thus is written into the parent series folder;
+        otherwise it is written into the run folder.
+        """
+        if not self.cfg.do_save_figs_html:
+            return None
+        data_writer = self._model.data_writer
+        run_path = Path(data_writer.run_path())
+        root = run_path.parent if data_writer.cfg.bundle_export else run_path
+        return write_figure_index(root)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         plotter = fde.PlotlySankeyPlotter(
@@ -84,10 +113,10 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self._show_and_save_plotly(fig, base_name="sankey")
 
-    def figure_path(self, base_name: str) -> str:
+    def figure_path(self, base_name: str, extension: str = "png") -> str:
         figures_dir = os.path.join(self._model.data_writer.run_path(), "figures")
         os.makedirs(figures_dir, exist_ok=True)
-        return os.path.join(figures_dir, f"{base_name}.png")
+        return os.path.join(figures_dir, f"{base_name}.{extension}")
 
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
@@ -96,6 +125,8 @@ class CommonVisualizer(RemindMFABaseModel):
             plotter.show()
         if self.cfg.do_save_figs:
             plotter.save(self.figure_path(base_name), width=2200, height=1300, scale=3)
+        if self.cfg.do_save_figs_html:
+            self._save_figure_html(plotter.fig, base_name)
 
     def stop_and_show(self):
         if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
