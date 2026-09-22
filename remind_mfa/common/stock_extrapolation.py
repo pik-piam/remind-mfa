@@ -29,8 +29,6 @@ class StockExtrapolation(RemindMFABaseModel):
     """Dimension set for the data."""
     parameters: dict[str, fd.Parameter]
     """Parameters for the extrapolation."""
-    target_dim_letters: Union[Tuple[str, ...], str] = "all"
-    """Sets the dimensions of the stock extrapolation output. If "all", the output will have the same shape as historic_stocks, except for the time dimension. Defaults to "all"."""
     end_use_good_letter: str = "g"
     """Letter of the end-use good dimension"""
     bound_list: BoundList = BoundList()
@@ -45,7 +43,7 @@ class StockExtrapolation(RemindMFABaseModel):
     def extrapolate(self):
         """Preprocessing and extrapolation."""
         self.set_dims()
-        self.calc_arrays_from_parameters_dict()
+        self.calc_needed_arrays()
         self.common_regression()
         self.regional_adaptation()
         # apply stock scenario: scale the extrapolated trajectory before smoothing
@@ -56,18 +54,11 @@ class StockExtrapolation(RemindMFABaseModel):
         return self
 
     def set_dims(self):
-        """
-        Check target_dim_letters.
-        Set fit_dim_letters and check:
-        fit_dim_letters should be the same as target_dim_letters, but without the time dimension, except if otherwise defined.
-        In this case, fit_dim_letters should be a subset of target_dim_letters.
-        This check cannot be performed if self.target_dim_letters or self.fit_dim_letters is None.
-        """
         self.historic_dim_letters = self.historic_stocks.dims.letters
-        self.target_dim_letters = ("t",) + self.historic_dim_letters[1:]
-        self.fit_dim_idx = tuple((self.end_use_good_letter,))
+        target_dim_letters = ("t",) + self.historic_dim_letters[1:]
+        self.dims_out = self.dims[target_dim_letters]
 
-    def calc_arrays_from_parameters_dict(self):
+    def calc_needed_arrays(self):
         """Calc drivers (GDP and population) and various variations of it"""
         self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
         self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
@@ -123,15 +114,13 @@ class StockExtrapolation(RemindMFABaseModel):
         """
         all_weights = (self.gdppc * self.pop).get_shares_over(("r",))
         historic_weights = all_weights[{"t": self.dims["h"]}]
-        data_to_extrapolate = self.historic_stocks_pc.values
-        predictor_values = self.predictor
-        weights = historic_weights.values
+        independent_dims = (self.historic_stocks_pc.dims.index(self.end_use_good_letter),)
         self.extrapolation = self.cfg.stock_extrapolation_class(
-            data_to_extrapolate=data_to_extrapolate,
-            predictor_values=predictor_values,
-            independent_dims=self.fit_dim_idx,
+            data_to_extrapolate=self.historic_stocks_pc.values,
+            predictor_values=self.predictor,
+            independent_dims=independent_dims,
             bound_list=self.bound_list,
-            weights=weights,
+            weights=historic_weights.values,
         )
         self.extrapolation.regress()
 
@@ -238,10 +227,6 @@ class StockExtrapolation(RemindMFABaseModel):
 
         stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
-
-    @property
-    def dims_out(self):
-        return self.dims[self.target_dim_letters]
 
     @property
     def n_historic(self):
