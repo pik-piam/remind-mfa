@@ -16,9 +16,6 @@ nav:
       - Context: transience_context.md
       - Integration in MIC3: mic3_integration.md
 theme: readthedocs
-hooks:
-  - docs/merge_bibtex_files.py
-  - docs/merge_parameters_sources.py
 plugins:
   - search
   - include-markdown

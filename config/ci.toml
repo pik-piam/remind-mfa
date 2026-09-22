@@ -1,0 +1,14 @@
+# Configuration layer for running during continuous integration (CI)
+
+[base]
+    [base.visualization]
+        do_visualize = true
+        # Headless (never open a browser); figures are exported as interactive HTML instead
+        do_show_figs = false
+        do_save_figs = false
+        do_save_figs_html = true
+
+    [base.export]
+        # Export visualizations to data_out/ci_series/
+        bundle_export = true
+        prefix = "ci"

@@ -3,7 +3,6 @@ import numpy as np
 from scipy.optimize import minimize
 from pydantic import model_validator
 from logging import warning
-from tqdm import tqdm
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_extrapolations import Extrapolation
 
@@ -67,14 +66,7 @@ class StockFitter(RemindMFABaseModel):
         ids_failed = []
         n_r = hdims["r"].len
         n_g = hdims[self.goods_dim_letter].len
-        iterator = np.ndindex((n_r, n_g))
-        status_bar = tqdm(
-            iterator,
-            desc=" " * 29 + "Regional adaptation:",
-            total=n_r * n_g,
-            ncols=132,
-        )
-        for ir, ig in status_bar:
+        for ir, ig in np.ndindex((n_r, n_g)):
             try:
                 prms[ir, ig, :] = self.fit_single(
                     historic=self.historic_stocks_pc.values[:, ir, ig],
