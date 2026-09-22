@@ -74,6 +74,10 @@ class CommonModel:
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(stock_projection, historic_trade)
 
+    @property
+    def name(self) -> str:
+        return self.cfg.model.value
+
     def export(self):
         self.data_writer.export(model=self)
 
@@ -272,7 +276,9 @@ class CommonModel:
     def calculate_time_factor(self):
         # add static time-dependent penetration curve if desired.
         if self.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray.full(dims=self.dims["t", "r", "g"], fill_value=1.0)
+            time_factor = fd.FlodymArray.full(
+                dims=self.dims["t", "r", self.end_use_good_letter], fill_value=1.0
+            )
             time = np.array(self.dims["t"].items)
             lifetime = self.lifetime_limit()  # shape (g, r)
             h_base = self.time_factor_prms["horizontal_shift_base"]
@@ -283,8 +289,8 @@ class CommonModel:
                 )
             for r in self.dims["r"].items:
                 for g in self.dims[self.end_use_good_letter].items:
-                    # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
-                    # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
+                    # the horizontal shift base is shifted by the lifetimes,
+                    # so goods with longer lifetimes reach saturation later
                     lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
                     prms = [1, h_base + lt, growth]
                     ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class

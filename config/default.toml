@@ -4,7 +4,7 @@
         input_data_path = "data_in"
         input_data_revision = "2.2.2"
         region_mapping = "h12"
-        scenarios_path = "config/scenarios"
+        scenarios_path = "./scenarios"
 
     [base.model_switches]
         scenario = "SSP2"
@@ -43,7 +43,7 @@
         iamc.do_export = false
         mrindustry.do_export = false
         assumptions.do_export = false
-        docs.do_export = true
+        docs.do_export = false
 
 [plastics]
     [plastics.visualization]
@@ -52,15 +52,9 @@
         flows.do_visualize = false
         scenario_params.do_visualize = false
 
-    [plastics.export]
-        docs.path = "docs/plastics"
-
 [steel]
     [steel.visualization]
         scrap_demand_supply.do_visualize = false
-
-    [steel.export]
-        docs.path = "docs/steel"
 
 [cement]
     [cement.model_switches]
@@ -79,6 +73,3 @@
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
         carbonation.do_visualize = false
-
-    [cement.export]
-        docs.path = "docs/cement"
