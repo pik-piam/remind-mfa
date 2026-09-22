@@ -276,7 +276,9 @@ class CommonModel:
     def calculate_time_factor(self):
         # add static time-dependent penetration curve if desired.
         if self.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray.full(dims=self.dims["t", "r", self.end_use_good_letter], fill_value=1.0)
+            time_factor = fd.FlodymArray.full(
+                dims=self.dims["t", "r", self.end_use_good_letter], fill_value=1.0
+            )
             time = np.array(self.dims["t"].items)
             lifetime = self.lifetime_limit()  # shape (g, r)
             h_base = self.time_factor_prms["horizontal_shift_base"]
