@@ -189,22 +189,25 @@ class CriticallyDampedBlender:
     ) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
-        approach (PD-controller logic) to ensure a smooth transition.
+        approach to ensure a C2-continuous transition.
 
-        The transition is modeled as a dynamic critically damped spring-damper system:
+        The transition is modeled as a third-order critically damped tracking system:
 
-            Y'' + 2kY' + k²Y = k²P(t) + 2kP'(t)
+            Y''' + 3kY'' + 3k²Y' + k³Y = k³P(t) + 3k²P'(t) + 3kP''(t)
 
         where Y is the blended trajectory, P the extrapolation target, and
-        k = 4.74 / approaching_time the damping parameter. The ODE is solved using a
-        semi-implicit Euler method with an anticipatory D-term to prevent overshoot.
-        A quadratic nudge applied after each step guarantees convergence to P over the long run.
+        k = 6.30 / approaching_time the damping parameter. The initial position is the
+        last historical value; the initial velocity and acceleration are estimated from
+        local polynomial fits to the recent historical trend, so position, slope, and
+        curvature are all continuous at the transition point. The ODE is integrated with
+        a semi-implicit Euler method; P'(t) and P''(t) are estimated with a look-ahead so
+        the controller reacts to upcoming changes in P (e.g. saturation) before they occur.
 
         Args:
             approaching_time (float): Characteristic timescale in years. Sets the damping
-                parameter ``k = 4.74 / approaching_time`` (95% step-response convergence
-                within ``approaching_time`` years) and the nudge timescale
-                ``10 * approaching_time``. Defaults to 50.
+                parameter ``k = 6.30 / approaching_time`` (95% step-response convergence
+                within ``approaching_time`` years). Must satisfy ``k * dt <= 0.5`` for
+                numerical stability, i.e. ``approaching_time >= 12.6 * dt``. Defaults to 50.
 
         Returns:
             np.ndarray: Stock array with exact historical values preserved up to the last
@@ -223,7 +226,11 @@ class CriticallyDampedBlender:
             self.time, self.historical, trend_window, last_history_idx, deg=1
         )
         _, a0 = self._trend_derivatives(
-            self.time, self.historical, trend_window + 1, last_history_idx, deg=2,
+            self.time,
+            self.historical,
+            trend_window + 1,
+            last_history_idx,
+            deg=2,
         )
 
         # 3. Integrate to find the blended future path Y(t)
@@ -255,39 +262,51 @@ class CriticallyDampedBlender:
         approaching_time: float,
     ) -> np.ndarray:
         """
-        Integrate a trajectory from an initial state (y0, v0) that smoothly tracks a target
-        prediction p_array using a critically damped PD-controller.
+        Integrate a trajectory from an initial state (y0, v0, a0) that smoothly tracks a
+        target prediction p_array using a third-order critically damped controller.
 
         The controller drives Y toward P via:
-            Y'' + 2k·Y' + k²Y = k²P(t) + 2k·P'(t),   k = 4.74 / approaching_time
-        integrated with a semi-implicit Euler method. P'(t) is estimated with a look-ahead
-        to prevent overshoot during saturation phases. A quadratic nudge applied after each
-        step guarantees convergence to P over the long run.
+            Y''' + 3k·Y'' + 3k²·Y' + k³Y = k³P(t) + 3k²·P'(t) + 3k·P''(t),
+            k = 6.30 / approaching_time
+        integrated with a semi-implicit Euler method. P'(t) and P''(t) are estimated with
+        a look-ahead to prevent overshoot during saturation phases.
 
         Args:
             y0 (np.ndarray): Initial position at the transition point. Shape ``(spatial...)``.
             v0 (np.ndarray): Initial velocity (slope) at the transition point, same shape as ``y0``.
+            a0 (np.ndarray): Initial acceleration (curvature) at the transition point,
+                same shape as ``y0``.
             t_array (np.ndarray): 1D array of time values starting at the transition point.
             p_array (np.ndarray): Target prediction array with time as the first axis,
                 shape ``(len(t_array), spatial...)``. Must be uniformly spaced in time.
             approaching_time (float): Characteristic timescale in years. Sets the damping
-                parameter ``k = 4.74 / approaching_time`` and the nudge timescale
-                ``10 * approaching_time``.
+                parameter ``k = 6.30 / approaching_time``.
 
         Returns:
             np.ndarray: Integrated trajectory array of shape ``(len(t_array), spatial...)``.
+
+        Raises:
+            ValueError: If ``k * dt > 0.5``, i.e. ``approaching_time`` is too small relative
+                to the time step for the integration to be numerically stable.
         """
         n_steps = len(t_array)
         dt = t_array[1] - t_array[0]
 
-        # --- Precompute k and nudge schedule ---
-        # 4.74 is the solution to (1+x)*exp(-x) = 0.05: the critically damped step response
-        # k = 4.74 / approaching_time means 95% convergence within approaching_time years.
-        k = 4.74 / approaching_time
+        # 6.30 is the solution to (1+x+x²/2)*exp(-x) = 0.05: the third-order critically
+        # damped step response. k = 6.30 / approaching_time means 95% convergence within
+        # approaching_time years.
+        k = 6.30 / approaching_time
+
+        # The semi-implicit Euler scheme diverges for k*dt above ~0.52.
+        if k * dt > 0.5:
+            raise ValueError(
+                f"approaching_time={approaching_time} is too small for time step dt={dt}: "
+                f"k*dt = {k * dt:.2f} > 0.5 makes the integration numerically unstable. "
+                f"Use approaching_time >= {12.6 * dt:.1f}."
+            )
 
         # --- Precompute look-ahead predictor velocity and acceleration ---
-        vp_array = self._lookahead_velocity(p_array, dt, n_steps, approaching_time)
-        ap_array = np.gradient(vp_array, dt, axis=0)
+        vp_array, ap_array = self._lookahead_derivatives(p_array, dt, n_steps, approaching_time)
 
         # --- Initialize state ---
         y = np.zeros_like(p_array, dtype=float)
@@ -298,11 +317,13 @@ class CriticallyDampedBlender:
 
         # --- Integrate ---
         for i in range(1, n_steps):
-            # 1. Compute jerk.
+            # 1. Compute jerk. The target is sampled at the old step (i-1), consistent
+            # with the state (y, v, a) it is compared against; sampling at i makes the
+            # converged trajectory systematically lead the target by one time step.
             jerk = (
-                k**3 * (p_array[i] - y_curr)
-                + 3 * k**2 * (vp_array[i] - v_curr)
-                + 3 * k * (ap_array[i] - a_curr)
+                k**3 * (p_array[i - 1] - y_curr)
+                + 3 * k**2 * (vp_array[i - 1] - v_curr)
+                + 3 * k * (ap_array[i - 1] - a_curr)
             )
             # 2. Update acceleration, velocity, and position.
             a_curr = a_curr + jerk * dt
@@ -313,22 +334,29 @@ class CriticallyDampedBlender:
 
         return y
 
-    def _lookahead_velocity(
+    def _lookahead_derivatives(
         self,
         p_array: np.ndarray,
         dt: float,
         n_steps: int,
         approaching_time: float,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Estimate P'(t + n_fwd(t)*dt) for each timestep — the slope of the prediction
-        looked up n_fwd steps ahead. This anticipates future changes in P (e.g. saturation),
-        allowing the D-term of the controller to begin reacting before P actually flattens,
-        preventing overshoot.
+        Estimate P'(t + n_fwd(t)*dt) and P''(t + n_fwd(t)*dt) for each timestep — the
+        slope and curvature of the prediction looked up n_fwd steps ahead. This
+        anticipates future changes in P (e.g. saturation), allowing the derivative terms
+        of the controller to begin reacting before P actually flattens, preventing
+        overshoot.
 
         n_fwd ramps continuously from n_fwd_max down to 0 over the first half of
         approaching_time, then stays at 0 (plain local slope). The continuous ramp avoids
-        the discrete jumps that arise from integer look-ahead steps.
+        the discrete jumps that arise from integer look-ahead steps. Both derivatives are
+        computed on the raw prediction first and then sampled at the shifted position, so
+        the ramp itself does not distort the curvature estimate.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: Look-ahead first and second derivative of the
+            prediction, each of shape ``(n_steps, spatial...)``.
         """
         n_fwd_max = 5
         n_ramp_steps = max(1, int((approaching_time / 2) / dt))
@@ -336,17 +364,21 @@ class CriticallyDampedBlender:
         # Continuous look-ahead amount for each step: 5 → 0 over n_ramp_steps, then 0
         n_fwd_cont = n_fwd_max * np.maximum(0.0, 1.0 - np.arange(n_steps) / n_ramp_steps)
 
-        # Slope of p at every step (central differences; second-order one-sided at boundaries)
+        # Slope and curvature of p at every step
+        # (central differences; second-order one-sided at boundaries)
         vp_raw = np.gradient(p_array, dt, axis=0)
+        ap_raw = np.gradient(vp_raw, dt, axis=0)
 
-        # For each step i, look n_fwd_cont[i] steps forward in the slope array
+        # For each step i, look n_fwd_cont[i] steps forward in the derivative arrays
         look_pos = np.clip(np.arange(n_steps, dtype=float) + n_fwd_cont, 0, n_steps - 1)
 
         # Fractional interpolation between the two bracketing integer positions
         lo = look_pos.astype(int)
         hi = np.minimum(lo + 1, n_steps - 1)
         w = (look_pos - lo).reshape((-1,) + (1,) * (p_array.ndim - 1))
-        return (1 - w) * vp_raw[lo] + w * vp_raw[hi]
+        vp = (1 - w) * vp_raw[lo] + w * vp_raw[hi]
+        ap = (1 - w) * ap_raw[lo] + w * ap_raw[hi]
+        return vp, ap
 
     def _lifetime_dependent_n(
         self,
@@ -400,7 +432,6 @@ class CriticallyDampedBlender:
         # 4. Round to nearest integer for array indexing/window sizing
         return np.round(n_float).astype(int)
 
-
     def _trend_derivatives(
         self,
         t: np.ndarray,
@@ -408,33 +439,36 @@ class CriticallyDampedBlender:
         window_size: Union[int, np.ndarray],
         idx: int,
         deg: int = 1,
-    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Calculate the slope of ``y`` at a given time index across all spatial dimensions.
+        Calculate the first and second derivative of ``y`` at a given time index across
+        all spatial dimensions.
 
-        For each dimension element combination a polynomial of degree ``deg`` (at most) is fitted to the
-        ``n`` most recent time steps ending at ``idx``, and the analytical derivative of that
-        polynomial is evaluated at ``t[idx]``. When fewer than two points are available
-        (``current_deg == 0``), a simple  backward finite-difference fallback is used.
+        For each dimension element combination a polynomial of degree ``deg`` is fitted to
+        the ``window_size + 1`` most recent time steps ending at ``idx``, and the analytical
+        derivatives of that polynomial are evaluated at ``t[idx]``. For ``deg=1``, the
+        second derivative is zero.
 
         Args:
             t (np.ndarray): 1-D array of time values.
             y (np.ndarray): Data array with time as the first axis, arbitrary spatial shape thereafter.
             window_size (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
-                positions or an array matching the spatial shape of ``y``.
-            idx (int): Time index at which to evaluate the slope (typically the last historical index).
-            deg (int): Maximum polynomial degree for the local fit. Defaults to 1.
-            If ``deg`` is 2, returns both the first and second derivatives.
+                positions or an array matching the spatial shape of ``y``. Must be at least ``deg``
+                everywhere so the fit is well-determined.
+            idx (int): Time index at which to evaluate the derivatives (typically the last
+                historical index).
+            deg (int): Polynomial degree for the local fit. Defaults to 1.
 
         Returns:
-            np.ndarray: Array of slopes with the same shape as ``y.shape[1:]``.
+            tuple[np.ndarray, np.ndarray]: Arrays of first and second derivatives, each with
+            the same shape as ``y.shape[1:]``.
 
         Raises:
+            ValueError: If any entry of ``window_size`` is smaller than ``deg``.
             ValueError: If ``window_size`` is an array whose shape does not match the spatial shape of ``y``.
-            ValueError: If ``deg`` is not 1 or 2.
         """
 
-        if not np.any(window_size >= deg):
+        if not np.all(window_size >= deg):
             raise ValueError(
                 f"Window size {window_size} must be at least {deg} to fit a polynomial of degree {deg}."
             )
