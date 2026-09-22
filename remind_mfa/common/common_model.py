@@ -283,8 +283,8 @@ class CommonModel:
                 )
             for r in self.dims["r"].items:
                 for g in self.dims[self.end_use_good_letter].items:
-                    # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
-                    # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
+                    # the horizontal shift base is shifted by the lifetimes,
+                    # so goods with longer lifetimes reach saturation later
                     lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
                     prms = [1, h_base + lt, growth]
                     ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class
