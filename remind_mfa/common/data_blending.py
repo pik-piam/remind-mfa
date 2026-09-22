@@ -218,15 +218,13 @@ class CriticallyDampedBlender:
 
         # 2. Set the initial conditions at the transition point
         y0 = self.historical[last_history_idx, :]
-        v0 = self._trend_slope(
-            self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
+        trend_window = self._lifetime_dependent_n()
+        v0, _ = self._trend_derivatives(
+            self.time, self.historical, trend_window, last_history_idx, deg=1
         )
-        historical_time = self.time[: self.historical.shape[0]]
-        historical_velocity = np.gradient(self.historical, historical_time, axis=0)
-        historical_acceleration = np.gradient(
-            historical_velocity, historical_time, axis=0
+        _, a0 = self._trend_derivatives(
+            self.time, self.historical, trend_window + 1, last_history_idx, deg=2,
         )
-        a0 = historical_acceleration[-1]
 
         # 3. Integrate to find the blended future path Y(t)
         y_future = self._integrate_transition(
@@ -402,9 +400,15 @@ class CriticallyDampedBlender:
         # 4. Round to nearest integer for array indexing/window sizing
         return np.round(n_float).astype(int)
 
-    def _trend_slope(
-        self, t: np.ndarray, y: np.ndarray, n: Union[int, np.ndarray], idx: int, deg: int = 1
-    ) -> np.ndarray:
+
+    def _trend_derivatives(
+        self,
+        t: np.ndarray,
+        y: np.ndarray,
+        window_size: Union[int, np.ndarray],
+        idx: int,
+        deg: int = 1,
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         """
         Calculate the slope of ``y`` at a given time index across all spatial dimensions.
 
@@ -416,56 +420,51 @@ class CriticallyDampedBlender:
         Args:
             t (np.ndarray): 1-D array of time values.
             y (np.ndarray): Data array with time as the first axis, arbitrary spatial shape thereafter.
-            n (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
+            window_size (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
                 positions or an array matching the spatial shape of ``y``.
             idx (int): Time index at which to evaluate the slope (typically the last historical index).
             deg (int): Maximum polynomial degree for the local fit. Defaults to 1.
+            If ``deg`` is 2, returns both the first and second derivatives.
 
         Returns:
             np.ndarray: Array of slopes with the same shape as ``y.shape[1:]``.
 
         Raises:
-            ValueError: If ``n`` is an array whose shape does not match the spatial shape of ``y``.
+            ValueError: If ``window_size`` is an array whose shape does not match the spatial shape of ``y``.
             ValueError: If ``deg`` is not 1 or 2.
         """
+
+        if not np.any(window_size >= deg):
+            raise ValueError(
+                f"Window size {window_size} must be at least {deg} to fit a polynomial of degree {deg}."
+            )
+
         dim_shape = y.shape[1:]  # assuming time is the first dimension
         deriv_array = np.zeros(dim_shape, dtype=float)
+        second_deriv_array = np.zeros(dim_shape, dtype=float)
 
         # Standardize n into an array so we can index it easily
-        if isinstance(n, (int, np.integer)):
-            n_array = np.full(dim_shape, n, dtype=int)
+        if isinstance(window_size, (int, np.integer)):
+            window_sizes = np.full(dim_shape, window_size, dtype=int)
         else:
-            n_array = np.asarray(n)
-            if n_array.shape != dim_shape:
+            window_sizes = np.asarray(window_size)
+            if window_sizes.shape != dim_shape:
                 raise ValueError(
-                    f"Shape of n {n_array.shape} must match spatial shape of y {dim_shape}."
+                    f"Shape of window_size {window_sizes.shape} must match spatial shape of y {dim_shape}."
                 )
 
+        # TODO can this be vectorized?
         for spatial_idx in np.ndindex(dim_shape):
-            current_n = n_array[spatial_idx]
-            start_idx = max(0, idx - current_n)
+            start_idx = max(0, idx - window_sizes[spatial_idx])
 
             time_slice = slice(start_idx, idx + 1)
             t_window = t[time_slice]
             y_window = y[(time_slice,) + spatial_idx]
 
-            # Set degree based on available points, not exceeding specified deg
-            current_deg = min(deg, current_n - 1)
-            if current_deg == 0:
-                # fall back to finite difference
-                deriv_array[spatial_idx] = (y_window[-1] - y_window[-2]) / (
-                    t_window[-1] - t_window[-2]
-                )
-                continue
-
             # Fit polynomial to this single 1D array
-            coeffs = np.polyfit(t_window, y_window, deg=current_deg)
+            polynomial = np.polynomial.Polynomial.fit(t_window, y_window, deg=deg)
 
-            if current_deg == 1:
-                deriv_array[spatial_idx] = coeffs[0]
-            elif current_deg == 2:
-                deriv_array[spatial_idx] = 2 * coeffs[0] * t_window[-1] + coeffs[1]
-            else:
-                raise ValueError("Only polynomial degrees 1 or 2 are supported.")
+            deriv_array[spatial_idx] = polynomial.deriv(1)(t[idx])
+            second_deriv_array[spatial_idx] = polynomial.deriv(2)(t[idx])
 
-        return deriv_array
+        return deriv_array, second_deriv_array
