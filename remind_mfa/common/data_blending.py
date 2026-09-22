@@ -378,7 +378,7 @@ class CriticallyDampedBlender:
         w = (look_pos - lo).reshape((-1,) + (1,) * (p_array.ndim - 1))
         vp = (1 - w) * vp_raw[lo] + w * vp_raw[hi]
         ap = (1 - w) * ap_raw[lo] + w * ap_raw[hi]
-        return vp, ap
+        return vp_raw, ap
 
     def _lifetime_dependent_n(
         self,
