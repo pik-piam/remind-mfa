@@ -300,7 +300,7 @@ class CommonModel:
                 )
             for r in self.dims["r"].items:
                 for g in self.dims[self.end_use_good_letter].items:
-                    # the horizontal shift base is shifted by the lifetimes, 
+                    # the horizontal shift base is shifted by the lifetimes,
                     # so goods with longer lifetimes reach saturation later
                     lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
                     prms = [1, h_base + lt, growth]
