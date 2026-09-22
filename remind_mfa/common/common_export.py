@@ -361,9 +361,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def merge_parameters_sources(self, params_df: pd.DataFrame):
 
-        sources_df = pd.read_csv(
-            self._model.data_reader.parameters_path / "mrmfa_sources.csv"
-        )
+        sources_df = pd.read_csv(self._model.data_reader.parameters_path / "mrmfa_sources.csv")
 
         merged_df = merge_parameters_sources(
             sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
