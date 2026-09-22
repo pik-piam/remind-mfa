@@ -271,8 +271,8 @@ class CriticallyDampedBlender:
         The controller drives Y toward P via:
             Y''' + 3k·Y'' + 3k²·Y' + k³Y = k³P(t) + 3k²·P'(t) + 3k·P''(t),
             k = 6.30 / approaching_time
-        integrated with a semi-implicit Euler method. P'(t) and P''(t) are estimated with
-        a look-ahead to prevent overshoot during saturation phases.
+        integrated with a semi-implicit Euler method. P'(t) is the local slope; P''(t)
+        is estimated with a look-ahead to prevent overshoot during saturation phases.
 
         Args:
             y0 (np.ndarray): Initial position at the transition point. Shape ``(spatial...)``.
@@ -309,7 +309,7 @@ class CriticallyDampedBlender:
             )
 
         # --- Precompute look-ahead predictor velocity and acceleration ---
-        vp_array, ap_array = self._lookahead_derivatives(p_array, dt, n_steps, approaching_time)
+        vp_array, ap_array = self._calculate_derivatives(p_array, dt, n_steps, approaching_time)
 
         # --- Initialize state ---
         y = np.zeros_like(p_array, dtype=float)
@@ -337,7 +337,7 @@ class CriticallyDampedBlender:
 
         return y
 
-    def _lookahead_derivatives(
+    def _calculate_derivatives(
         self,
         p_array: np.ndarray,
         dt: float,
@@ -345,21 +345,21 @@ class CriticallyDampedBlender:
         approaching_time: float,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Estimate P'(t + n_fwd(t)*dt) and P''(t + n_fwd(t)*dt) for each timestep — the
-        slope and curvature of the prediction looked up n_fwd steps ahead. This
-        anticipates future changes in P (e.g. saturation), allowing the derivative terms
-        of the controller to begin reacting before P actually flattens, preventing
-        overshoot.
+        Estimate P'(t) at each timestep, and P''(t + n_fwd(t)*dt) — the curvature of the
+        prediction looked up n_fwd steps ahead. Only the curvature term is shifted:
+        looking ahead lets it anticipate future changes in P (e.g. saturation), so the
+        derivative term of the controller begins reacting before P actually flattens,
+        preventing overshoot. The velocity term uses the plain local slope.
 
         n_fwd ramps continuously from n_fwd_max down to 0 over the first half of
-        approaching_time, then stays at 0 (plain local slope). The continuous ramp avoids
-        the discrete jumps that arise from integer look-ahead steps. Both derivatives are
-        computed on the raw prediction first and then sampled at the shifted position, so
-        the ramp itself does not distort the curvature estimate.
+        approaching_time, then stays at 0 (plain local curvature). The continuous ramp
+        avoids the discrete jumps that arise from integer look-ahead steps. Both
+        derivatives are computed on the raw prediction first; only the curvature is then
+        sampled at the shifted position, so the ramp itself does not distort the estimate.
 
         Returns:
-            tuple[np.ndarray, np.ndarray]: Look-ahead first and second derivative of the
-            prediction, each of shape ``(n_steps, spatial...)``.
+            tuple[np.ndarray, np.ndarray]: Local first derivative and look-ahead second
+            derivative of the prediction, each of shape ``(n_steps, spatial...)``.
         """
         n_fwd_max = 5
         n_ramp_steps = max(1, int((approaching_time / 2) / dt))
@@ -379,7 +379,6 @@ class CriticallyDampedBlender:
         lo = look_pos.astype(int)
         hi = np.minimum(lo + 1, n_steps - 1)
         w = (look_pos - lo).reshape((-1,) + (1,) * (p_array.ndim - 1))
-        vp = (1 - w) * vp_raw[lo] + w * vp_raw[hi]
         ap = (1 - w) * ap_raw[lo] + w * ap_raw[hi]
         return vp_raw, ap
 
