@@ -354,7 +354,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def merge_bibtex_files(self):
         """Compatibility wrapper used previously; merges two default files."""
-        src1 = self._model.data_reader.shared_parameter_path / "mrmfa_sources.bib"
+        src1 = self._model.data_reader.parameters_path / "mrmfa_sources.bib"
         src2 = DOCS_PATH / "custom_refs.bib"
         out = DOCS_PATH / "all_refs.bib"
         merge_bib_files([src1, src2], out)
@@ -362,7 +362,7 @@ class CommonDataExporter(RemindMFABaseModel):
     def merge_parameters_sources(self, params_df: pd.DataFrame):
 
         sources_df = pd.read_csv(
-            self._model.data_reader.shared_parameter_path / "mrmfa_sources.csv"
+            self._model.data_reader.parameters_path / "mrmfa_sources.csv"
         )
 
         merged_df = merge_parameters_sources(
