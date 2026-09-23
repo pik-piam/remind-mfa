@@ -1,4 +1,5 @@
-import argparse
+import csv
+import pathlib
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -14,6 +15,25 @@ LEFT_Y_TITLE_X = 0
 LEFT_Y_TITLE_XSHIFT = -30
 MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 LEGEND_FONT_SIZE = 14
+REGION_MAPPING_PATH = pathlib.Path(__file__).resolve().with_name("regionmapping.csv")
+
+
+def _load_country_to_h12_region_map() -> dict:
+    region_map = {}
+    with REGION_MAPPING_PATH.open(newline="", encoding="utf-8") as file_handle:
+        reader = csv.reader(file_handle, delimiter=";")
+        next(reader, None)
+        for row in reader:
+            if len(row) < 4:
+                continue
+            country_code = row[2].strip()
+            region_code = row[3].strip()
+            if country_code:
+                region_map[country_code] = region_code
+    return region_map
+
+
+COUNTRY_TO_H12_REGION = _load_country_to_h12_region_map()
 
 
 def _legend_name(label: str, color: str) -> str:
@@ -24,13 +44,33 @@ def _get_region_color(region: str, region_colors: dict, aggregate_regions: bool)
     return _utils.get_region_color(region, region_colors, aggregate_regions=aggregate_regions)
 
 
-def _load_run_data(config, aggregate_regions: bool):
-    mfa = _utils.load_future_mfa(config.material)
+def _aggregate_region_timeseries_with_map(df, time_col: str, region_col: str, value_col: str, region_map: dict):
+    aggregated = df.copy()
+    aggregated[region_col] = aggregated[region_col].map(
+        lambda region: region_map.get(str(region), str(region))
+    )
+    group_cols = [time_col, region_col]
+    return aggregated.groupby(group_cols, as_index=False)[value_col].sum().sort_values(group_cols)
+
+
+
+def _load_run_data(config, aggregate_regions: bool, mfa_regions: str):
+    mfa = _utils.load_future_mfa(config.material, region_mapping=mfa_regions)
 
     flow = (mfa.flows[config.production_flow_name].sum_to(("t", "r")) / 1e6).to_df().reset_index()
     time_col_flow = _utils.get_column_name(flow, "Time")
     region_col_flow = _utils.get_column_name(flow, "Region")
     value_col_flow = _utils.get_column_name(flow, "value")
+
+    if mfa_regions == "iso249":
+        flow = _aggregate_region_timeseries_with_map(
+            flow,
+            time_col_flow,
+            region_col_flow,
+            value_col_flow,
+            COUNTRY_TO_H12_REGION,
+        )
+
     flow = _utils.aggregate_region_timeseries(
         flow,
         time_col_flow,
@@ -51,6 +91,22 @@ def _load_run_data(config, aggregate_regions: bool):
     time_col_pop = _utils.get_column_name(population, "Time")
     region_col_pop = _utils.get_column_name(population, "Region")
     value_col_pop = _utils.get_column_name(population, "value")
+
+    if mfa_regions == "iso249":
+        stock = _aggregate_region_timeseries_with_map(
+            stock,
+            time_col_stock,
+            region_col_stock,
+            value_col_stock,
+            COUNTRY_TO_H12_REGION,
+        )
+        population = _aggregate_region_timeseries_with_map(
+            population,
+            time_col_pop,
+            region_col_pop,
+            value_col_pop,
+            COUNTRY_TO_H12_REGION,
+        )
 
     stock = _utils.aggregate_region_timeseries(
         stock,
@@ -154,7 +210,7 @@ def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
     region_colors = {}
 
     for col, config in enumerate(run_configs, start=1):
-        run_data = _load_run_data(config, aggregate_regions=aggregate_regions)
+        run_data = _load_run_data(config, aggregate_regions=aggregate_regions, mfa_regions=mfa_regions)
 
         stock_regions = _utils.ordered_regions(
             run_data["stock_pc"][run_data["region_col_stock"]].unique(),
@@ -355,7 +411,8 @@ def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
         margin={"t": 130, "b": 60, "l": 80, "r": 50},
     )
 
-    output_path = figure_output_path(f"figure_8_{_utils.region_mode_suffix(use_h12)}.png")
+    country_suffix = "_countries" if mfa_regions == "iso249" else ""
+    output_path = figure_output_path(f"figure_8_{_utils.region_mode_suffix(use_h12)}{country_suffix}.png")
     fig.write_image(
         output_path,
         width=fig.layout.width,
@@ -368,8 +425,4 @@ def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--h12", action="store_true")
-    parser.add_argument("--no-show", action="store_true")
-    args = parser.parse_args()
-    main(use_h12=args.h12, show=not args.no_show)
+    main(use_h12=False, mfa_regions="iso249", show=False)

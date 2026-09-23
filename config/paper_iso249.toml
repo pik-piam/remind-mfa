@@ -1,3 +1,6 @@
 [base]
     [base.input]
         region_mapping = "iso249"
+
+    [base.export]
+        iamc.do_export = false
