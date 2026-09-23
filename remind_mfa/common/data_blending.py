@@ -189,7 +189,7 @@ class CriticallyDampedBlender:
     ) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
-        approach to ensure a C2-continuous transition.
+        approach (PDA-controller logic) to ensure a C2-continuous transition.
 
         The transition is modeled as a third-order critically damped tracking system:
 
@@ -200,14 +200,17 @@ class CriticallyDampedBlender:
         last historical value; the initial velocity and acceleration are estimated from
         local polynomial fits to the recent historical trend, so position, slope, and
         curvature are all continuous at the transition point. The ODE is integrated with
-        a semi-implicit Euler method; P'(t) and P''(t) are estimated with a look-ahead so
-        the controller reacts to upcoming changes in P (e.g. saturation) before they occur.
+        a semi-implicit Euler method; P''(t) is estimated with a look-ahead so the
+        controller reacts to upcoming changes in P (e.g. saturation) before they occur,
+        while P'(t) uses the plain local slope.
 
         Args:
             approaching_time (float): Characteristic timescale in years. Sets the damping
                 parameter ``k = 6.30 / approaching_time`` (95% step-response convergence
-                within ``approaching_time`` years). Must satisfy ``k * dt <= 0.5`` for
-                numerical stability, i.e. ``approaching_time >= 12.6 * dt``. Defaults to 50.
+                within ``approaching_time`` years), derived from solving
+                ``e^{-x}(1 + x + x**2/2) = 0.05`` for ``x = k * approaching_time``.
+                Must satisfy ``k * dt <= 0.5`` for
+                numerical stability, i.e. ``approaching_time >= 12.6 years``. Defaults to 50.
 
         Returns:
             np.ndarray: Stock array with exact historical values preserved up to the last
@@ -309,7 +312,7 @@ class CriticallyDampedBlender:
                 f"Use approaching_time >= {12.6 * dt:.1f}."
             )
 
-        # --- Precompute look-ahead predictor velocity and acceleration ---
+        # --- Precompute predictor velocity and look-ahead acceleration ---
         vp_array, ap_array = self._calculate_derivatives(p_array, dt, n_steps, approaching_time)
 
         # --- Initialize state ---
@@ -321,16 +324,14 @@ class CriticallyDampedBlender:
 
         # --- Integrate ---
         for i in range(1, n_steps):
-            # 1. Compute jerk. The target is sampled at the old step (i-1), consistent
-            # with the state (y, v, a) it is compared against; sampling at i makes the
-            # converged trajectory systematically lead the target by one time step.
-            jerk = (
+            # 1. Compute jerk.
+            da_dt = (
                 k**3 * (p_array[i - 1] - y_curr)
                 + 3 * k**2 * (vp_array[i - 1] - v_curr)
                 + 3 * k * (ap_array[i - 1] - a_curr)
             )
             # 2. Update acceleration, velocity, and position.
-            a_curr = a_curr + jerk * dt
+            a_curr = a_curr + da_dt * dt
             v_curr = v_curr + a_curr * dt
             y_curr = y_curr + v_curr * dt
             # Store results.
@@ -380,8 +381,8 @@ class CriticallyDampedBlender:
         lo = look_pos.astype(int)
         hi = np.minimum(lo + 1, n_steps - 1)
         w = (look_pos - lo).reshape((-1,) + (1,) * (p_array.ndim - 1))
-        ap = (1 - w) * ap_raw[lo] + w * ap_raw[hi]
-        return vp_raw, ap
+        ap_lookahead = (1 - w) * ap_raw[lo] + w * ap_raw[hi]
+        return vp_raw, ap_lookahead
 
     def _lifetime_dependent_n(
         self,
@@ -409,8 +410,6 @@ class CriticallyDampedBlender:
         Returns:
             np.ndarray: Array of integer window sizes (number of time steps minus one) shaped
             according to the spatial dimensions of the output stock array.
-        Raises:
-            ValueError: If more than one independent fit dimension is set.
         """
 
         if self.lifetime is None:
