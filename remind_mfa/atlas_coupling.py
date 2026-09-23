@@ -22,6 +22,7 @@ H12_REGION_SET = "REMIND"
 
 from enum import Enum
 
+
 class AtlasShareMode(Enum):
     SINGLE_FOSSIL = "single-fossil"
     EQUAL = "equal"

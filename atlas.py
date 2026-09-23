@@ -42,7 +42,9 @@ ScenarioPkBudgOption = Annotated[
 ]
 
 
-def _warn_if_scenario_pkbudg_ignored(model: ModelNames, scenario_pkbudg: AtlasScenarioPkBudg) -> None:
+def _warn_if_scenario_pkbudg_ignored(
+    model: ModelNames, scenario_pkbudg: AtlasScenarioPkBudg
+) -> None:
     if not scenario_pkbudg_is_effective(model) and scenario_pkbudg != AtlasScenarioPkBudg.BUDG_1000:
         typer.echo(
             f"[WARN] --scenario-pkbudg={scenario_pkbudg.value} has no effect for model={model}: "
@@ -129,25 +131,39 @@ def preprocess() -> None:
 
 
 @app.command()
-def calibrate(
-    model: ModelOption
-) -> None:
+def calibrate(model: ModelOption) -> None:
     """Calibrate the ATLAS trade model."""
 
     execute_command(
-        ["pixi", "run", "python", "run/run_history_calibration.py", "--good", model, "--region-set", "REMIND"],
+        [
+            "pixi",
+            "run",
+            "python",
+            "run/run_history_calibration.py",
+            "--good",
+            model,
+            "--region-set",
+            "REMIND",
+        ],
         ATLAS_TRADE_ROOT,
     )
 
 
 @app.command()
-def validate(
-    model: ModelOption
-) -> None:
+def validate(model: ModelOption) -> None:
     """Validate the ATLAS trade model against historical data."""
 
     execute_command(
-        ["pixi", "run", "python", "run/run_history_validation.py", "--good", model, "--region-set", "REMIND"],
+        [
+            "pixi",
+            "run",
+            "python",
+            "run/run_history_validation.py",
+            "--good",
+            model,
+            "--region-set",
+            "REMIND",
+        ],
         ATLAS_TRADE_ROOT,
     )
 
