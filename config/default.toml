@@ -9,10 +9,7 @@
     [base.model_switches]
         scenario = "SSP2"
         stock_extrapolation_class_name = "LogisticExtrapolation"
-        regress_over = "loggdppc"
         lifetime_model_name = "LogNormalLifetime"
-        do_stock_extrapolation_by_category = false
-        do_stock_extrapolation_with_time_factor = false
 
     [base.transience]
         transience_run = true
@@ -59,10 +56,6 @@
     [plastics.input]
         region_mapping = '2c0a4149' # EU27+3 TRANSIENCE region mapping
 
-    [plastics.model_switches]
-        do_stock_extrapolation_by_category = true
-        do_stock_extrapolation_with_time_factor = true
-
     [plastics.transience]
         baseline_pickle_path = '' #'2026-09-15--17-08-25_plastics_SSP2_2c0a4149_CE-PET_fd_plastics_S0_default'
         transience_scenario = 'CE-PET_fd_plastics_S0' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
@@ -75,13 +68,7 @@
         flows.do_visualize = false
         scenario_params.do_visualize = false
 
-    [plastics.export]
-        docs.path = "docs/plastics"
-
 [steel]
-    [steel.model_switches]
-        do_stock_extrapolation_by_category = true
-
     [steel.transience]
         baseline_pickle_path = '' #'2026-09-15--17-01-13_steel_SSP2_h12_Baseline_Steel_01_06_2026_default'
         transience_scenario = 'Baseline_Steel_01_06_2026' # 'Baseline_Steel_01_06_2026', 'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel'
@@ -90,15 +77,11 @@
     [steel.visualization]
         scrap_demand_supply.do_visualize = false
 
-    [steel.export]
-        docs.path = "docs/steel"
-
 [cement]
     [cement.model_switches]
         carbonation = false
         parameter_reconciliation.do_reconcile = false
         parameter_reconciliation.do_combine_mfas = true
-        do_stock_extrapolation_by_category = false
 
     [cement.visualization]
         eol_stock.do_visualize = false
@@ -111,6 +94,3 @@
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
         carbonation.do_visualize = false
-
-    [cement.export]
-        docs.path = "docs/cement"
