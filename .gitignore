@@ -18,3 +18,4 @@ config/*.toml
 !config/default.toml
 !config/ci.toml
 !config/mrindustry.toml
+data_out_compare
