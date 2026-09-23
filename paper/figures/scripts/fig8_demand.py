@@ -44,14 +44,15 @@ def _get_region_color(region: str, region_colors: dict, aggregate_regions: bool)
     return _utils.get_region_color(region, region_colors, aggregate_regions=aggregate_regions)
 
 
-def _aggregate_region_timeseries_with_map(df, time_col: str, region_col: str, value_col: str, region_map: dict):
+def _aggregate_region_timeseries_with_map(
+    df, time_col: str, region_col: str, value_col: str, region_map: dict
+):
     aggregated = df.copy()
     aggregated[region_col] = aggregated[region_col].map(
         lambda region: region_map.get(str(region), str(region))
     )
     group_cols = [time_col, region_col]
     return aggregated.groupby(group_cols, as_index=False)[value_col].sum().sort_values(group_cols)
-
 
 
 def _load_run_data(config, aggregate_regions: bool, mfa_regions: str):
@@ -210,7 +211,9 @@ def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
     region_colors = {}
 
     for col, config in enumerate(run_configs, start=1):
-        run_data = _load_run_data(config, aggregate_regions=aggregate_regions, mfa_regions=mfa_regions)
+        run_data = _load_run_data(
+            config, aggregate_regions=aggregate_regions, mfa_regions=mfa_regions
+        )
 
         stock_regions = _utils.ordered_regions(
             run_data["stock_pc"][run_data["region_col_stock"]].unique(),
@@ -412,7 +415,9 @@ def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
     )
 
     country_suffix = "_countries" if mfa_regions == "iso249" else ""
-    output_path = figure_output_path(f"figure_8_{_utils.region_mode_suffix(use_h12)}{country_suffix}.png")
+    output_path = figure_output_path(
+        f"figure_8_{_utils.region_mode_suffix(use_h12)}{country_suffix}.png"
+    )
     fig.write_image(
         output_path,
         width=fig.layout.width,

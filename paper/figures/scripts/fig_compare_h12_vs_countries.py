@@ -43,10 +43,18 @@ def _load_country_to_h12_region_map() -> dict[str, str]:
 COUNTRY_TO_H12_REGION = _load_country_to_h12_region_map()
 
 
-def _aggregate_region_timeseries_with_map(df, time_col: str, region_col: str, value_col: str, region_map: dict[str, str]):
+def _aggregate_region_timeseries_with_map(
+    df, time_col: str, region_col: str, value_col: str, region_map: dict[str, str]
+):
     aggregated = df.copy()
-    aggregated[region_col] = aggregated[region_col].map(lambda region: region_map.get(str(region), str(region)))
-    return aggregated.groupby([time_col, region_col], as_index=False)[value_col].sum().sort_values([time_col, region_col])
+    aggregated[region_col] = aggregated[region_col].map(
+        lambda region: region_map.get(str(region), str(region))
+    )
+    return (
+        aggregated.groupby([time_col, region_col], as_index=False)[value_col]
+        .sum()
+        .sort_values([time_col, region_col])
+    )
 
 
 def _load_production_df(config, region_mapping: str):
@@ -65,7 +73,11 @@ def _load_production_df(config, region_mapping: str):
             COUNTRY_TO_H12_REGION,
         )
 
-    flow = flow.groupby([time_col, region_col], as_index=False)[value_col].sum().sort_values([time_col, region_col])
+    flow = (
+        flow.groupby([time_col, region_col], as_index=False)[value_col]
+        .sum()
+        .sort_values([time_col, region_col])
+    )
     return flow, time_col, region_col, value_col
 
 
@@ -88,8 +100,7 @@ def _build_figure(config) -> go.Figure:
     n_cols = 3 if n_panels <= 6 else 4
     n_rows = math.ceil(n_panels / n_cols)
     subplot_titles = [
-        _utils.get_region_label(region, aggregate_regions=False)
-        for region in region_panels
+        _utils.get_region_label(region, aggregate_regions=False) for region in region_panels
     ]
 
     fig = make_subplots(
@@ -102,8 +113,12 @@ def _build_figure(config) -> go.Figure:
 
     for panel_index, region_code in enumerate(region_panels):
         row, col = _panel_position(panel_index, n_cols)
-        h12_region_df = h12_data[h12_data[region_col].astype(str) == str(region_code)].sort_values(time_col)
-        iso249_region_df = iso249_data[iso249_data[region_col].astype(str) == str(region_code)].sort_values(time_col)
+        h12_region_df = h12_data[h12_data[region_col].astype(str) == str(region_code)].sort_values(
+            time_col
+        )
+        iso249_region_df = iso249_data[
+            iso249_data[region_col].astype(str) == str(region_code)
+        ].sort_values(time_col)
 
         if not h12_region_df.empty:
             fig.add_trace(
