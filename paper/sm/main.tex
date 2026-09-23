@@ -1,0 +1,48 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{anyfontsize}
+\usepackage[margin=1in]{geometry}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{csquotes}
+\usepackage{pdflscape}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage[hidelinks]{hyperref}
+% \usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage[backend=biber,style=authoryear,maxbibnames=99]{biblatex}
+
+\addbibresource{../../docs/all_refs.bib}
+
+\setlength{\LTpre}{0.75em}
+\setlength{\LTpost}{0.75em}
+\renewcommand{\arraystretch}{1.08}
+\fontsize{9}{11}\selectfont
+
+\newcommand{\InputGeneratedTable}[1]{%
+	\IfFileExists{#1}{\input{#1}}{%
+		\par\noindent\textit{Missing generated table: #1. Run generate\_tables.py.}\par
+	}%
+}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{Supplementary Materials}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\clearpage
+
+\input{equations.tex}
+
+\input{definitions.tex}
+
+\input{additional_figures.tex}
+
+\end{document}
