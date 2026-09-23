@@ -49,7 +49,7 @@ def test_collect_figures_directly_under_root(tmp_path: Path):
 
 def test_write_figure_index_links_all_figures(tmp_path: Path):
     make_figure(tmp_path / "ci_steel_SSP2_h12" / "figures" / "production_Steel production.html")
-    make_figure(tmp_path / "ci_cement_SSP2_h12" / "figures" / "a<b>.html")
+    make_figure(tmp_path / "ci_cement_SSP2_h12" / "figures" / "a&b.html")
 
     index_path = write_figure_index(tmp_path, title="Test <figures>")
     content = index_path.read_text(encoding="utf-8")
@@ -57,8 +57,8 @@ def test_write_figure_index_links_all_figures(tmp_path: Path):
     assert index_path == tmp_path / "index.html"
     assert "<title>Test &lt;figures&gt;</title>" in content
     assert 'data-src="ci_steel_SSP2_h12/figures/production_Steel%20production.html"' in content
-    assert 'data-src="ci_cement_SSP2_h12/figures/a%3Cb%3E.html"' in content
-    assert ">a&lt;b&gt;</a>" in content
+    assert 'data-src="ci_cement_SSP2_h12/figures/a%26b.html"' in content
+    assert ">a&amp;b</a>" in content
     assert "<summary>ci_steel_SSP2_h12" in content
     assert "<summary>ci_cement_SSP2_h12" in content
     # Regenerating must not pick up the index itself.
