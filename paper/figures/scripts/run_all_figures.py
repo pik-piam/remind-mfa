@@ -4,7 +4,9 @@ from dotenv import load_dotenv
 
 from _constants import MATERIAL_ORDER, MFA_REGION_MAPPINGS
 from fig_gdppc_population import main as render_gdppc_population
-from paper.figures.scripts.fig_compare_h12_vs_countries import main as render_production_h12_vs_countries
+from paper.figures.scripts.fig_compare_h12_vs_countries import (
+    main as render_production_h12_vs_countries,
+)
 from fig1_fig7_regions import main as render_regions
 from fig8_demand import main as render_demand
 from fig10_trade import main as render_trade
