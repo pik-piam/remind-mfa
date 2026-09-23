@@ -489,7 +489,6 @@ class CriticallyDampedBlender:
                     f"Shape of window_size {window_sizes.shape} must match spatial shape of y {dim_shape}."
                 )
 
-        # TODO can this be vectorized?
         for spatial_idx in np.ndindex(dim_shape):
             start_idx = max(0, idx - window_sizes[spatial_idx])
 
