@@ -124,7 +124,9 @@ def _load_pcstocks_df(config, region_mapping: str):
         )
 
     stock = stock.groupby([time_col_stock, region_col_stock], as_index=False)[value_col_stock].sum()
-    population = population.groupby([time_col_pop, region_col_pop], as_index=False)[value_col_pop].sum()
+    population = population.groupby([time_col_pop, region_col_pop], as_index=False)[
+        value_col_pop
+    ].sum()
 
     stock_pc = stock.merge(
         population,
