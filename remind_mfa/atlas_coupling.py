@@ -22,6 +22,13 @@ H12_REGION_SET = "REMIND"
 
 from enum import Enum
 
+class AtlasShareMode(Enum):
+    SINGLE_FOSSIL = "single-fossil"
+    EQUAL = "equal"
+    SHARES = "shares"
+    SINGLE_RES = "single-res"
+    SINGLE_SCRAP = "single-scrap"
+
 
 class AtlasVariant(Enum):
     SINGLE_RES = "single-res"
@@ -54,13 +61,14 @@ class ModelSpec:
     mfa_pipeline_mapping: dict[str, str]
     trade_market: str | None
     parameter_prefix: str | None
+    atlas_scenario_tag: str | None = None
 
 
 MATERIAL_SPECS = {
     "steel": ModelSpec(
         name="steel",
         model=ModelNames.STEEL,
-        mfa_pipeline_mapping={"steel_demand.csv": "ip_market__fabrication.csv"},
+        mfa_pipeline_mapping={"steel_demand.csv": "steel/ip_market__fabrication.csv"},
         trade_market="steel",
         parameter_prefix="st",
     ),
@@ -68,11 +76,16 @@ MATERIAL_SPECS = {
         name="plastics",
         model=ModelNames.PLASTICS,
         mfa_pipeline_mapping={
-            "plastics_demand.csv": "primary_market__fabrication.csv",
-            "plastics_production.csv": "production_by_region_year.csv",
+            "plastics_demand.csv": "plastics/primary_market__fabrication.csv",
+            "plastics_production.csv": "plastics/production_by_region_year.csv",
         },
         trade_market="primary",
         parameter_prefix="pl",
+        # ATLAS_Trade has no REMIND carbon-budget scenarios for plastics (only steel's
+        # technology split depends on them), so it always runs a single "Baseline" future
+        # scenario and writes the trade projection under a "Baseline_q_ij" sheet regardless
+        # of --scenario-pkbudg (see ATLAS_Trade/config/model_settings.py GOOD_SETTINGS).
+        atlas_scenario_tag="Baseline",
     ),
 }
 
@@ -97,6 +110,11 @@ def get_model_spec(model: ModelNames) -> ModelSpec:
         choices = ", ".join([*MATERIAL_SPECS, "cement"])
         raise AtlasCouplingError(f"Unknown model {model!r}. Choose one of: {choices}.")
     return spec
+
+
+def scenario_pkbudg_is_effective(model: ModelNames) -> bool:
+    """True if `scenario_pkbudg` selects the ATLAS future scenario for `model`."""
+    return get_model_spec(model).atlas_scenario_tag is None
 
 
 def _resolve_path(value: str, root: Path) -> Path:
@@ -207,15 +225,24 @@ def _load_dimension_items(path: Path, dimension_name: str) -> list[str]:
     return values
 
 
+def _atlas_scenario_sheet_name(spec: ModelSpec, scenario_pkbudg: AtlasScenarioPkBudg) -> str:
+    tag = spec.atlas_scenario_tag or f"PkBudg{scenario_pkbudg.value}"
+    return f"{tag}_q_ij"
+
+
 def load_atlas_trade_projection(
-    source: Path, scenario_pkbudg: AtlasScenarioPkBudg, region_dimension_path: Path
+    model: ModelNames,
+    source: Path,
+    scenario_pkbudg: AtlasScenarioPkBudg,
+    region_dimension_path: Path,
 ) -> pd.DataFrame:
     """Load one ATLAS scenario through the ATLAS Pixi environment."""
 
     if not source.is_file():
         raise AtlasCouplingError(f"ATLAS result file was not found: {source}")
 
-    data = pd.read_excel(source, sheet_name=f"PkBudg{scenario_pkbudg.value}_q_ij")
+    spec = get_model_spec(model)
+    data = pd.read_excel(source, sheet_name=_atlas_scenario_sheet_name(spec, scenario_pkbudg))
 
     required_columns = {"i", "j", "year", "quantity"}
     missing_columns = sorted(required_columns - set(data.columns))
@@ -362,7 +389,7 @@ def copy_trade_to_mfa(
     spec = get_model_spec(model)
     if spec.parameter_prefix is None or spec.trade_market is None:
         raise AtlasCouplingError(f"Model '{spec.name}' has no MFA trade parameter mapping.")
-    data = load_atlas_trade_projection(source, scenario_pkbudg, region_dimension_path)
+    data = load_atlas_trade_projection(model, source, scenario_pkbudg, region_dimension_path)
     imports, exports = aggregate_bilateral_trade(data)
 
     _validate_global_balance(imports, exports)
