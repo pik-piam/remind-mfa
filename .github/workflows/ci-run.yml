@@ -10,67 +10,34 @@ on:
 permissions:
   contents: read
 
-# The model run is split into three jobs so that code from the pull request never
-# executes in a job that holds secrets (see https://gh.io/securely-using-pull_request_target):
-#
-#   fetch  - fetches the private inputs from HPC and stores them in the Actions cache
-#   run    - executes the model run (no secrets required)
-#   deploy - publishes the figures
 jobs:
-  fetch:
-    name: Fetch model inputs
+  run-model:
+    name: Run model
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     concurrency:
       group: run-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     env:
       MADRAT_OUTPUTFOLDER: ${{ github.workspace }}/madrat_output
-    outputs:
-      madrat-cache-key: ${{ steps.keys.outputs.madrat-cache-key }}
-      legacy-cache-key: ${{ steps.keys.outputs.legacy-cache-key }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    # Guard: Only run this job on PRs only for trusted contributors (since we are using secrets and accessing the HPC)
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
-    - name: Checkout trusted code (base branch)
-      uses: actions/checkout@v7
-      with:
-        submodules: false
-        persist-credentials: false
-
-    - name: Checkout PR head (data only, never executed)
+    - name: Checkout
       uses: actions/checkout@v7
       with:
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
-        path: pr-head
         submodules: false
-        persist-credentials: false
         allow-unsafe-pr-checkout: true
 
-    - name: Compute cache keys
-      id: keys
-      run: |
-        set -eu
-        # The archive only changes when `input.input_data_revision` or
-        # `input.region_mapping` in config/default.toml change.
-        config_hash=$(sha256sum "pr-head/config/default.toml" | cut -d' ' -f1)
-        legacy_sha=$(git -C "pr-head" rev-parse HEAD:data_in/legacy)
-        echo "madrat-cache-key=madrat-mfa-${config_hash}" >> "$GITHUB_OUTPUT"
-        echo "legacy-cache-key=legacy-${legacy_sha}" >> "$GITHUB_OUTPUT"
-        echo "legacy-sha=${legacy_sha}" >> "$GITHUB_OUTPUT"
-
-    - name: Cache data_in/legacy submodule
-      id: legacy-cache
-      uses: actions/cache@v4
-      with:
-        path: data_in/legacy
-        key: ${{ steps.keys.outputs.legacy-cache-key }}
-
     - name: Check out the data_in/legacy submodule
-      if: steps.legacy-cache.outputs.cache-hit != 'true'
       # The submodule lives on gitlab.pik-potsdam.de and is declared with an SSH
       # remote, which actions/checkout cannot authenticate against on its own.
-      # The remote URL is taken from the trusted .gitmodules, the commit from the PR.
       env:
         GITLAB_TOKEN: ${{ secrets.PIK_GITLAB_TOKEN }}
-        LEGACY_SHA: ${{ steps.keys.outputs.legacy-sha }}
       run: |
         set -eu
         if [ -z "${GITLAB_TOKEN:-}" ]; then
@@ -80,22 +47,9 @@ jobs:
         git config --global \
           url."https://oauth2:${GITLAB_TOKEN}@gitlab.pik-potsdam.de/".insteadOf \
           "git@gitlab.pik-potsdam.de:"
-        legacy_url=$(git config --file .gitmodules --get submodule.data_in/legacy.url)
-        rm -rf data_in/legacy
-        git init -q data_in/legacy
-        git -C data_in/legacy fetch -q --depth 1 "$legacy_url" "$LEGACY_SHA"
-        git -C data_in/legacy checkout -q FETCH_HEAD
-        rm -rf data_in/legacy/.git
-
-    - name: Cache MFA input archive
-      id: madrat-cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.MADRAT_OUTPUTFOLDER }}
-        key: ${{ steps.keys.outputs.madrat-cache-key }}
+        git submodule update --init --depth 1 data_in/legacy
 
     - name: Install uv
-      if: steps.madrat-cache.outputs.cache-hit != 'true'
       uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       with:
         enable-cache: true
@@ -103,8 +57,16 @@ jobs:
         python-version: "3.14"
 
     - name: Install
-      if: steps.madrat-cache.outputs.cache-hit != 'true'
       run: uv sync --locked
+
+    - name: Cache MFA input archive
+      id: madrat-cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.MADRAT_OUTPUTFOLDER }}
+        # The archive only changes when `input.input_data_revision` or
+        # `input.region_mapping` in config/default.toml change.
+        key: madrat-mfa-${{ hashFiles('config/default.toml') }}
 
     - name: Configure SSH access to the HPC
       if: steps.madrat-cache.outputs.cache-hit != 'true'
@@ -131,56 +93,7 @@ jobs:
 
     - name: Download MFA input archive
       if: steps.madrat-cache.outputs.cache-hit != 'true'
-      # Note: The script comes from the trusted base checkout and only the config files are taken from the PR.
-      run: >-
-        uv run scripts/fetch_from_hpc.py mfa-archive hpc
-        --config "$PR_HEAD_DIR/config/default.toml"
-        --config "$PR_HEAD_DIR/config/ci.toml"
-
-  run:
-    name: Run model
-    needs: fetch
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    concurrency:
-      group: run-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: true
-    env:
-      MADRAT_OUTPUTFOLDER: ${{ github.workspace }}/madrat_output
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v7
-      with:
-        ref: ${{ github.event.pull_request.head.sha || github.sha }}
-        submodules: false
-        persist-credentials: false
-        # No secrets are used in this 'run' job, so it is safe to allow unsafe PR checkouts.
-        allow-unsafe-pr-checkout: true
-
-    - name: Restore data_in/legacy submodule
-      uses: actions/cache/restore@v4
-      with:
-        path: data_in/legacy
-        key: ${{ needs.fetch.outputs.legacy-cache-key }}
-        fail-on-cache-miss: true
-
-    - name: Restore MFA input archive
-      uses: actions/cache/restore@v4
-      with:
-        path: ${{ env.MADRAT_OUTPUTFOLDER }}
-        key: ${{ needs.fetch.outputs.madrat-cache-key }}
-        fail-on-cache-miss: true
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-      with:
-        enable-cache: true
-        version: "0.11.28"
-        python-version: "3.14"
-
-    - name: Install
-      run: uv sync --locked
+      run: uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
 
     - name: Run model
       run: uv run remind_mfa.py --config default --config ci --model all
@@ -196,36 +109,9 @@ jobs:
         test -f site/index.html
         du -sh site
 
-    - name: Upload figures
-      uses: actions/upload-artifact@v4
-      with:
-        name: site
-        path: site
-        if-no-files-found: error
-        retention-days: 3
-
-  deploy:
-    name: Deploy figures
-    needs: run
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    concurrency:
-      group: run-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: true
-    env:
-      CLOUDFLARE_CONFIGURED: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
-    steps:
-    - name: Download figures
-      uses: actions/download-artifact@v4
-      with:
-        name: site
-        path: site
-
     - name: Deploy figures to Cloudflare Pages
       id: deploy
-      if: env.CLOUDFLARE_CONFIGURED == 'true'
+      if: env.CLOUDFLARE_API_TOKEN != ''
       uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
       with:
         apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -234,7 +120,6 @@ jobs:
           pages deploy site
           --project-name=remind-mfa-test
           --branch=${{ github.head_ref || github.ref_name }}
-          --commit-hash=${{ github.event.pull_request.head.sha || github.sha }}
           --commit-dirty=true
 
     - name: Add URL to summary
