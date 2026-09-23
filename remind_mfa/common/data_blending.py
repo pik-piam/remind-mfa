@@ -225,13 +225,14 @@ class CriticallyDampedBlender:
         v0, _ = self._trend_derivatives(
             self.time,
             self.historical,
-            trend_window, # short term velocity trend
-            last_history_idx, deg=1
+            trend_window,  # short term velocity trend
+            last_history_idx,
+            deg=1,
         )
         _, a0 = self._trend_derivatives(
             self.time,
             self.historical,
-            2 * (trend_window + 1), # long term acceleration trend (+1 due to higher deg)
+            2 * (trend_window + 1),  # long term acceleration trend (+1 due to higher deg)
             last_history_idx,
             deg=2,
         )
