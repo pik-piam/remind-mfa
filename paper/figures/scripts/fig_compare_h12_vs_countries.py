@@ -1,4 +1,3 @@
-import argparse
 import csv
 import math
 import pathlib
@@ -19,6 +18,17 @@ MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 H12_COLOR = CMAP_5[1]
 ISO249_COLOR = CMAP_5[3]
 REGION_MAPPING_PATH = pathlib.Path(__file__).resolve().with_name("regionmapping.csv")
+METRICS = ("production", "pcstocks")
+METRIC_METADATA = {
+    "production": {
+        "ylabel": "Production (Mt)",
+        "filename_prefix": "production",
+    },
+    "pcstocks": {
+        "ylabel": "In-use stock per capita (t)",
+        "filename_prefix": "pcstocks",
+    },
+}
 
 
 def _legend_name(label: str, color: str) -> str:
@@ -69,15 +79,75 @@ def _load_production_df(config, region_mapping: str):
     return flow, time_col, region_col, value_col
 
 
+def _load_pcstocks_df(config, region_mapping: str):
+    mfa = _utils.load_future_mfa(config.material, region_mapping=region_mapping)
+
+    stock = mfa.stocks["in_use"].stock
+    if config.stock_index is not None:
+        stock = stock[config.stock_index]
+    stock = stock.sum_to(("t", "r")).to_df().reset_index()
+    population = mfa.parameters["population"].sum_to(("t", "r")).to_df().reset_index()
+
+    time_col_stock = _utils.get_column_name(stock, "Time")
+    region_col_stock = _utils.get_column_name(stock, "Region")
+    value_col_stock = _utils.get_column_name(stock, "value")
+    time_col_pop = _utils.get_column_name(population, "Time")
+    region_col_pop = _utils.get_column_name(population, "Region")
+    value_col_pop = _utils.get_column_name(population, "value")
+
+    if region_mapping == "iso249":
+        stock = _aggregate_region_timeseries_with_map(
+            stock,
+            time_col_stock,
+            region_col_stock,
+            value_col_stock,
+            COUNTRY_TO_H12_REGION,
+        )
+        population = _aggregate_region_timeseries_with_map(
+            population,
+            time_col_pop,
+            region_col_pop,
+            value_col_pop,
+            COUNTRY_TO_H12_REGION,
+        )
+
+    stock = stock.groupby([time_col_stock, region_col_stock], as_index=False)[value_col_stock].sum()
+    population = population.groupby([time_col_pop, region_col_pop], as_index=False)[value_col_pop].sum()
+
+    stock_pc = stock.merge(
+        population,
+        left_on=[time_col_stock, region_col_stock],
+        right_on=[time_col_pop, region_col_pop],
+        suffixes=("_stock", "_population"),
+    )
+    stock_pc[value_col_stock] = (
+        stock_pc[f"{value_col_stock}_stock"] / stock_pc[f"{value_col_pop}_population"]
+    )
+    stock_pc = stock_pc[[time_col_stock, region_col_stock, value_col_stock]].sort_values(
+        [time_col_stock, region_col_stock]
+    )
+    return stock_pc, time_col_stock, region_col_stock, value_col_stock
+
+
+def _load_metric_df(config, region_mapping: str, metric: str):
+    if metric == "production":
+        return _load_production_df(config, region_mapping=region_mapping)
+    if metric == "pcstocks":
+        return _load_pcstocks_df(config, region_mapping=region_mapping)
+    raise ValueError(f"Unsupported metric '{metric}'")
+
+
 def _panel_position(index: int, n_cols: int):
     row = index // n_cols + 1
     col = index % n_cols + 1
     return row, col
 
 
-def _build_figure(config) -> go.Figure:
-    h12_data, time_col, region_col, value_col = _load_production_df(config, region_mapping="h12")
-    iso249_data, _, _, _ = _load_production_df(config, region_mapping="iso249")
+def _build_figure(config, metric: str) -> go.Figure:
+    h12_data, time_col, region_col, value_col = _load_metric_df(
+        config, region_mapping="h12", metric=metric
+    )
+    iso249_data, _, _, _ = _load_metric_df(config, region_mapping="iso249", metric=metric)
 
     region_panels = _utils.ordered_regions(
         sorted(set(h12_data[region_col].astype(str))),
@@ -164,7 +234,7 @@ def _build_figure(config) -> go.Figure:
             y=0.5 * (y0 + y1),
             xref="paper",
             yref="paper",
-            text="Production (Gt)",
+            text=METRIC_METADATA[metric]["ylabel"],
             font={"size": AXIS_LABEL_FONT_SIZE},
             textangle=-90,
             showarrow=False,
@@ -191,19 +261,27 @@ def _build_figure(config) -> go.Figure:
     return fig
 
 
+def _write_png(fig: go.Figure, output_path: pathlib.Path):
+    png_bytes = fig.to_image(
+        format="png",
+        width=fig.layout.width,
+        height=fig.layout.height,
+        scale=3,
+    )
+    output_path.write_bytes(png_bytes)
+
+
 def main(show: bool = True):
-    for material in MATERIAL_ORDER:
-        config = get_material_config(material)
-        fig = _build_figure(config)
-        output_path = figure_output_path(f"production_{material}_h12_vs_iso249.png")
-        fig.write_image(
-            output_path,
-            width=fig.layout.width,
-            height=fig.layout.height,
-            scale=3,
-        )
-        if show:
-            fig.show()
+    for metric in METRICS:
+        for material in MATERIAL_ORDER:
+            config = get_material_config(material)
+            fig = _build_figure(config, metric=metric)
+            output_path = figure_output_path(
+                f"{METRIC_METADATA[metric]['filename_prefix']}_{material}_h12_vs_iso249.png"
+            )
+            _write_png(fig, output_path)
+            if show:
+                fig.show()
 
 
 if __name__ == "__main__":
