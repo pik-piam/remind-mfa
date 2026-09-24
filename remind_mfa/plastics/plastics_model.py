@@ -31,6 +31,10 @@ class PlasticsModel(CommonModel):
     end_use_good_letter: str = "g"
     historic_stock_name: str = "in_use_historic"
 
+    do_stock_extrapolation_with_time_factor: bool = True
+    time_factor_prms = {"horizontal_shift_base": 1980, "growth_rate": 0.01}
+    # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
+
     def modify_parameters(self):
         # cast lifetime mean to correct dimensions for use in common model
         self.parameters["lifetime_mean"] = fd.Parameter(

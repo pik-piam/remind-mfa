@@ -10,13 +10,22 @@ import flodym as fd
 import flodym.export as fde
 import pyam
 from pydantic import PrivateAttr
+import pandas as pd
+
+from remind_mfa.common.docs_export_helpers import merge_parameters_sources
+from remind_mfa.common.docs_export_helpers import merge_bib_files
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.helpers import RemindMFABaseModel, series_export_path, export_dir_prefix
+from remind_mfa.common.helpers import (
+    DOCS_PATH,
+    RemindMFABaseModel,
+    series_export_path,
+    export_dir_prefix,
+)
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
@@ -66,9 +75,11 @@ class CommonDataExporter(RemindMFABaseModel):
     _run_path: Optional[str] = PrivateAttr(default=None)
 
     def export(self, model: "CommonModel"):
+        # Always set the model as the visualizer needs it to determine the run folder
+        # even when data export is disabled.
+        self._model = model
         if not self.cfg.do_export:
             return
-        self._model = model
         self.export_common()
         self.export_custom()
 
@@ -90,28 +101,16 @@ class CommonDataExporter(RemindMFABaseModel):
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
         if self.cfg.docs.do_export:
-            self.definition_to_markdown(self._model.definition_future)
+            parameters_df = self.definition_to_markdown(self._model.definition_future)
+            self.merge_bibtex_files()
             self.assumptions_to_markdown()
+            self.merge_parameters_sources(params_df=parameters_df)
             self.cfg_to_markdown(cfg=self._model.cfg)
         if self.cfg.iamc.do_export:
             self.write_iamc()
 
     def export_custom(self):
         pass
-
-    def run_path(self) -> str:
-        """Per-model-run export folder, created once and shared by exporter and visualizer."""
-        if self._run_path is None:
-            if self.cfg.bundle_export:
-                self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
-            name = (
-                f"{export_dir_prefix(self._model.cfg.export.prefix)}_{self._model.cfg.model.value}_"
-                f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}_"
-                f"{self._model.cfg.transience.transience_scenario}_{self._model.cfg.transience.trade_scenario}"
-            )
-            self._run_path = os.path.join(self.cfg.path, name)
-            Path(self._run_path).mkdir(parents=True, exist_ok=True)
-        return self._run_path
 
     def _clear_recomputable_caches(self):
         """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
@@ -364,10 +363,31 @@ class CommonDataExporter(RemindMFABaseModel):
             df.columns = [self.display_names[col] for col in df.columns]
             df = df.map(convert_cell)
             if name == "parameters":
-                # Export parameters as CSV to merge with their source info later
-                df.to_csv(self.export_path("docs", f"definitions/{name}.csv"), index=False)
+                parameters_df = df
             else:
-                df.to_markdown(self.export_path("docs", f"definitions/{name}.md"), index=False)
+                df.to_markdown(self.model_docs_path / f"definitions/{name}.md", index=False)
+        return parameters_df
+
+    def merge_bibtex_files(self):
+        """Compatibility wrapper used previously; merges two default files."""
+        src1 = self._model.data_reader.parameters_path / "mrmfa_sources.bib"
+        src2 = DOCS_PATH / "custom_refs.bib"
+        out = DOCS_PATH / "all_refs.bib"
+        merge_bib_files([src1, src2], out)
+
+    def merge_parameters_sources(self, params_df: pd.DataFrame):
+
+        sources_df = pd.read_csv(self._model.data_reader.parameters_path / "mrmfa_sources.csv")
+
+        merged_df = merge_parameters_sources(
+            sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
+        )
+
+        output_file = self.model_docs_path / "definitions/parameters.md"
+        # Generate markdown
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(merged_df.to_markdown(index=False))
+            f.write("\n")
 
     def assumptions_to_markdown(self):
 
@@ -375,7 +395,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         df = assumptions_df()
-        df.to_markdown(self.export_path("docs", "assumptions.md"), index=False)
+        df.to_markdown(self.model_docs_path / "assumptions.md", index=False)
 
     def cfg_to_markdown(self, cfg: "CommonCfg"):
 
@@ -384,16 +404,33 @@ class CommonDataExporter(RemindMFABaseModel):
 
         schema_df = type(cfg).to_schema_df()
         schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
-        schema_df.to_markdown(self.export_path("docs", "config_schema.md"), index=False)
+        schema_df.to_markdown(self.model_docs_path / "config_schema.md", index=False)
+
+    def to_iamc_df(self, array: fd.FlodymArray):
+        time_out = fd.Dimension(name="Time Out", letter="O", items=self.cfg.iamc.time_items)
+        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
+        df = df.rename(columns={"Region": "region"})
+        return df
+
+    def run_path(self) -> str:
+        """Per-model-run export folder, created once and shared by exporter and visualizer."""
+        if self._run_path is None:
+            if self.cfg.bundle_export:
+                self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
+            name = (
+                f"{export_dir_prefix(self._model.cfg.export.prefix)}_{self._model.name}_"
+                f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}_"
+                f"{self._model.cfg.transience.transience_scenario}_{self._model.cfg.transience.trade_scenario}"
+            )
+            self._run_path = os.path.join(self.cfg.path, name)
+            Path(self._run_path).mkdir(parents=True, exist_ok=True)
+        return self._run_path
 
     def export_path(self, dataset: str, filename: str | None = None) -> str:
         if not hasattr(self.cfg, dataset):
             raise ValueError(f"Dataset {dataset} not found in config")
-        cfg_path = getattr(self.cfg, dataset).path
 
-        if cfg_path is not None:
-            base_dir = cfg_path
-        elif dataset in self.FLAT_DATASETS:
+        if dataset in self.FLAT_DATASETS:
             base_dir = self.run_path()
         else:
             base_dir = os.path.join(self.run_path(), dataset)
@@ -405,8 +442,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return base_dir
         return os.path.join(base_dir, filename)
 
-    def to_iamc_df(self, array: fd.FlodymArray):
-        time_out = fd.Dimension(name="Time Out", letter="O", items=self.cfg.iamc.time_items)
-        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
-        df = df.rename(columns={"Region": "region"})
-        return df
+    @property
+    def model_docs_path(self) -> str:
+        """Per-model-run export folder for docs, created once and shared by exporter and visualizer."""
+        return DOCS_PATH / self._model.name

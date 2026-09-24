@@ -7,7 +7,7 @@ import pandas as pd
 from pydantic import model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
-from remind_mfa.common.helpers import ModelNames, RegressOverModes, RemindMFABaseModel
+from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
 
 def choose_subclass_by_name(name: str, parent: type) -> type:
@@ -33,12 +33,6 @@ class ModelSwitches(RemindMFABaseModel):
     """Class name of the extrapolation subclass to use for stock extrapolation."""
     lifetime_model_name: str
     """Class name of the lifetime model subclass to use for the in-use stock."""
-    do_stock_extrapolation_by_category: bool = False
-    """Whether to perform stock extrapolation by good category."""
-    regress_over: RegressOverModes
-    """Variable to use as a predictor for stock extrapolation."""
-    do_stock_extrapolation_with_time_factor: bool = False
-    """Whether to include a time factor in stock extrapolation to account for innovation and associated changes in material applications over time."""
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
@@ -53,8 +47,6 @@ class ModelSwitches(RemindMFABaseModel):
 class BaseExportCfg(RemindMFABaseModel):
     do_export: bool = True
     """Whether to export this entity"""
-    path: str = None
-    """Path to export folder for this entity"""
 
 
 class IamcExportCfg(BaseExportCfg):
@@ -85,6 +77,8 @@ class IamcExportCfg(BaseExportCfg):
 
 
 class ExportCfg(BaseExportCfg):
+    path: str = None
+    """Path to export base folder where a subdirectory is created for each run"""
     bundle_export: bool = False
     """Whether to group all model outputs from one run into a shared <prefix>_series folder."""
     prefix: str | None = None
@@ -138,7 +132,9 @@ class VisualizationCfg(BaseVisualizationCfg):
     do_show_figs: bool = True
     """Whether to show figures."""
     do_save_figs: bool = False
-    """Whether to save figures."""
+    """Whether to save figures as static png files."""
+    do_save_figs_html: bool = False
+    """Whether to save figures as standalone HTML files."""
     plotting_engine: str = "plotly"
     """Plotting engine to use for visualizations."""
     plotly_renderer: str = "browser"
@@ -170,6 +166,12 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Visualization configuration for extrapolation."""
     sector_splits: BaseVisualizationCfg
     """Visualization configuration for sector splits."""
+
+    @model_validator(mode="after")
+    def validate(self):
+        if self.do_save_figs_html and self.plotting_engine != "plotly":
+            raise ValueError("do_save_figs_html requires plotting_engine = 'plotly'.")
+        return self
 
 
 class InputCfg(RemindMFABaseModel):
