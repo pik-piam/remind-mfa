@@ -112,7 +112,7 @@ Here, $\Delta t$ is the time step width, one year in this case. The value $y_p(t
 \begin{equation}
     y(t+\Delta t) = \theta(t)\, s(t+\Delta t) + (1-\theta(t))\, y_p(t+\Delta t)
 \end{equation}
-with the nudging factor $\theta(t)$. It is increased over time to accelerate the complete convergence of the smoothed function to the target function.
+with the nudging factor $\theta(t)$. It is increased over time to accelerate the complete convergence of the smoothed function to the target function. In control theory, an integration term is often added to the PD-controller to achieve complete convergence, making it a PID controller. In the present case, this led to oscillations in the smoothed function, which is why a nudging procedure was used instead.
 
 Since the set point $s(t)$ is known a priori for all years (it is the output of Step 2), its future development over time can be used by the algorithm. In particular, the derivative $\dot{s}$ in Eq. \eqref{eq:pd_acc} is evaluated at a later time than $t$, i.e. at $t^*=t+c(t)$, where $c(t)$ is varied between one and five years.
 This lessens overshoots of the smoothed function if the logistic target function nears saturation.
