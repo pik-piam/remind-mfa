@@ -1,7 +1,8 @@
-parameter,models,value,extra:year,index:Region,description
-stock_factor,all,0.8,,,
-lifetime_mean,"steel,plastics",1.3,,,
-lifetime_std,"steel,plastics",1.3,,,
-concrete_building_mi_target_factor,cement,1.0,,,
-lifetime_min_factor,cement,1.3,,,
-min_timber_share,cement,0.1,,,Wooden buildings reach at least 10% of floor area
+parameter,models,value,extra:year,extra:type,index:Region,description
+stock_factor,all,0.8,,,,
+lifetime_mean,"steel,plastics",1.3,,,,
+lifetime_std,"steel,plastics",1.3,,,,
+concrete_building_mi_target_factor,cement,1.0,,,,
+lifetime_min_factor,cement,1.3,,,,
+min_timber_share,cement,0.1,,,,Wooden buildings reach at least 10% of floor area
+clinker_ratio,cement,0.5,2060,target,,Clinker ratio converges to 0.5 (GCCA NZ)

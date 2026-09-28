@@ -1,7 +1,8 @@
-parameter,models,value,extra:year,index:Region,description
-driver_scen,all,SSP1,,,
-stock_factor,all,0.9,,,
-lifetime_mean,"steel,plastics",1.2,,,
-lifetime_std,"steel,plastics",1.2,,,
-concrete_building_mi_target_factor,cement,0.5,,,
-lifetime_min_factor,cement,1.2,,,
+parameter,models,value,extra:year,extra:type,index:Region,description
+driver_scen,all,SSP1,,,,
+stock_factor,all,0.9,,,,
+lifetime_mean,"steel,plastics",1.2,,,,
+lifetime_std,"steel,plastics",1.2,,,,
+concrete_building_mi_target_factor,cement,0.5,,,,
+lifetime_min_factor,cement,1.2,,,,
+clinker_ratio,cement,0.6,2060,target,,Clinker ratio converges to 0.6 (Chatham/IEA)
