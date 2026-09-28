@@ -4,6 +4,7 @@ data/
 .idea
 .vscode
 remind_mfa.egg-info
+.wrangler/cache/
 site/
 .github/copilot-instructions.md
 .claude/
