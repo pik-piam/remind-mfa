@@ -46,7 +46,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
 
         # distribute the good_market => use flow among the good & material categories
         flw["good_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
-            "final_his", flw["fabrication => good_market"], prm["sector_polymer_split"], ("g", "m")
+            "final_his", flw["fabrication => good_market"], prm["sector_polymer_split"], ("u", "m")
         )
 
         flw["primary_market => sysenv"][...] = trd["primary_his"].exports
@@ -69,7 +69,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         # sum to 1 across all polymer types and materials.
         with np.errstate(divide="ignore"):
             self.parameters["material_shares_use_inflow"] = fd.Parameter(
-                dims=self.dims["h", "r", "p", "m", "g"],
+                dims=self.dims["h", "r", "p", "m", "u"],
                 values=(self.flows["good_market => use"].maximum(0))
                 .get_shares_over(("m", "p"))
                 .values,
@@ -78,9 +78,9 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
         # get global good split from historic stock inflow
         self.parameters["global_good_shares_use_inflow"] = fd.Parameter(
-            dims=self.dims["h", "g"],
+            dims=self.dims["h", "u"],
             values=(self.flows["good_market => use"].maximum(0))
             .sum_over(("m", "r", "p"))
-            .get_shares_over(("g",))
+            .get_shares_over(("u",))
             .values,
         )

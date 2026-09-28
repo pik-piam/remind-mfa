@@ -96,7 +96,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics",  # PRISMA nomenclature
                 calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
-                    ("t", "r", "g")
+                    ("t", "r", "u")
                 ),
                 unit="t/yr",
                 split_name="Good",
@@ -140,7 +140,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Import|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
                 calculation_function=lambda mfa: mfa.flows["imports => good_market"].sum_to(
-                    ("t", "r", "g")
+                    ("t", "r", "u")
                 ),
                 unit="t/yr",
                 split_name="Good",
@@ -148,7 +148,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
                 calculation_function=lambda mfa: mfa.flows["good_market => exports"].sum_to(
-                    ("t", "r", "g")
+                    ("t", "r", "u")
                 ),
                 unit="t/yr",
                 split_name="Good",

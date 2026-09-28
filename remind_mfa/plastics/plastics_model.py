@@ -26,7 +26,6 @@ class PlasticsModel(CommonModel):
     custom_scn_prm_def = plastics_scn_prm_def
 
     # TODO: unify, then delete
-    end_use_good_letter: str = "g"
     historic_stock_name: str = "in_use_historic"
 
     do_stock_extrapolation_with_time_factor: bool = True
@@ -36,12 +35,12 @@ class PlasticsModel(CommonModel):
     def modify_parameters(self):
         # cast lifetime mean to correct dimensions for use in common model
         self.parameters["lifetime_mean"] = fd.Parameter(
-            dims=self.dims["t", "r", "g"],
-            values=self.parameters["lifetime_mean"].cast_to(self.dims["t", "r", "g"]).values,
+            dims=self.dims["t", "r", "u"],
+            values=self.parameters["lifetime_mean"].cast_to(self.dims["t", "r", "u"]).values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
-            dims=self.dims["t", "r", "g"],
-            values=self.parameters["lifetime_std"].cast_to(self.dims["t", "r", "g"]).values,
+            dims=self.dims["t", "r", "u"],
+            values=self.parameters["lifetime_std"].cast_to(self.dims["t", "r", "u"]).values,
         )
         # cast rates that are globally historically zero to the region dimension to allow for future extrapolation
         # differentiated by region
@@ -81,7 +80,7 @@ class PlasticsModel(CommonModel):
         ]
         # get global good split of stock inflow from historic MFA to be used as sector split limit in the stock extrapolation
         self.parameters["sector_split_limit"] = fd.Parameter(
-            dims=self.dims["g",],
+            dims=self.dims["u",],
             values=self.historic_mfa.parameters["global_good_shares_use_inflow"][
                 self.dims["h"].items[-1]
             ].values,

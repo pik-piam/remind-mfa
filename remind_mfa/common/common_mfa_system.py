@@ -224,8 +224,8 @@ class CommonMFASystem(fd.MFASystem):
         flow for a single split category. The other categories' inflow to the in-use stock
         must be reduced by these excess imports.
 
-        ``split_dims`` are the category dimensions the split distributes over (e.g. ``("g",)``
-        for steel, ``("g", "m")`` for plastics). Only called by the historic MFA systems.
+        ``split_dims`` are the category dimensions the split distributes over (e.g. ``("u",)``
+        for steel, ``("u", "m")`` for plastics). Only called by the historic MFA systems.
         """
         # fmt: off
         net_imports = self.trade_set[trade_name].net_imports

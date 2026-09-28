@@ -60,7 +60,7 @@ class SteelMFASystemHistoric(CommonMFASystem):
             "indirect",
             aux["fabrication_to_good_market_total"],
             prm["sector_split"][{"t": self.dims["h"]}],
-            ("g",),
+            ("u",),
         )
 
         # now we can get the good distribution

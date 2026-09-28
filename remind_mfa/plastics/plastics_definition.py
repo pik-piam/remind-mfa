@@ -15,7 +15,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Type", dim_letter="p", dtype=str),
-        fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="Good", dim_letter="u", dtype=str),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
@@ -72,10 +72,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="primary_market", to_process="sysenv", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="sysenv", to_process="primary_market", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h", "r", "p")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "p", "m", "g")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "p", "m", "u")),
             fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h", "r", "p")),
-            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
+            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
         ]
     else:
         flows = [
@@ -104,12 +104,12 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.FlowDefinition(from_process="primary_market", to_process="exports", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="imports", to_process="primary_market", dim_letters=("t","e","r","p","m")),
             # fabrication stages
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","p","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","p","m","g")),
-            fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t","e","r","p","m","g")),
-            fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t","e","r","p","m","g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","p","m","u")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","p","m","u")),
+            fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t","e","r","p","m","u")),
+            fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t","e","r","p","m","u")),
             # use stage
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","p","m","g")),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","p","m","u")),
             # end-of-life stages
             fd.FlowDefinition(from_process="eol", to_process="collected", dim_letters=("t","e","r","p","m")),
             fd.FlowDefinition(from_process="eol", to_process="mismanaged", dim_letters=("t","e","r","p","m")),
@@ -149,7 +149,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
             fd.StockDefinition(
                 name="in_use_historic",
                 process="use",
-                dim_letters=("h", "r", "g"),
+                dim_letters=("h", "r", "u"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
                 time_letter="h",
@@ -159,14 +159,14 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         stocks = [
             fd.StockDefinition(
                 name="in_use_dsm",
-                dim_letters=("t", "r", "g"),
+                dim_letters=("t", "r", "u"),
                 subclass=fd.StockDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
                 name="in_use",
                 process="use",
-                dim_letters=("t", "e", "r", "p", "m", "g"),
+                dim_letters=("t", "e", "r", "p", "m", "u"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
@@ -205,9 +205,9 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Historic primary plastics imports",),
         RemindMFAParameterDefinition(name="primary_his_exports", dim_letters=("h", "r", "p", "m"),
                                      description="Historic primary plastics exports",),
-        RemindMFAParameterDefinition(name="final_his_imports", dim_letters=("h", "r", "p", "m", "g"),
+        RemindMFAParameterDefinition(name="final_his_imports", dim_letters=("h", "r", "p", "m", "u"),
                                      description="Historic final goods imports",),
-        RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r", "p", "m", "g"),
+        RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r", "p", "m", "u"),
                                      description="Historic final goods exports",),
         RemindMFAParameterDefinition(name="waste_his_imports", dim_letters=("h", "r", "p", "m"),
                                      description="Historic plastic waste imports",),
@@ -240,11 +240,11 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         # for in-use stock
         RemindMFAParameterDefinition(name="production", dim_letters=("h", "r", "p"),
                                      description="Historic plastic production, differentiated by polymer type (Fibre/Rubber/Plastics)",),
-        RemindMFAParameterDefinition(name="sector_polymer_split", dim_letters=("h", "r", "p", "m", "g"),
+        RemindMFAParameterDefinition(name="sector_polymer_split", dim_letters=("h", "r", "p", "m", "u"),
                                      description="Share of each polymer and end-use sector within total Fibre/Rubber/Plastics apparent consumption per region",),
-        RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("g",),
+        RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("u",),
                                      description="Mean lifetime of goods",),
-        RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("g",),
+        RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("u",),
                                      description="Standard deviation of lifetime",),
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r", "S"),
                                      description="Population",),
@@ -256,12 +256,12 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     if historic:
         trades = [
             TradeDefinition(name="primary_his", dim_letters=("h", "r", "p", "m")),
-            TradeDefinition(name="final_his", dim_letters=("h", "r", "p", "m", "g")),
+            TradeDefinition(name="final_his", dim_letters=("h", "r", "p", "m", "u")),
         ]
     else:
         trades = [
             TradeDefinition(name="primary", dim_letters=("t", "r", "p", "m")),
-            TradeDefinition(name="final", dim_letters=("t", "r", "p", "m", "g")),
+            TradeDefinition(name="final", dim_letters=("t", "r", "p", "m", "u")),
             TradeDefinition(name="waste", dim_letters=("t", "e", "r", "p", "m")),
             TradeDefinition(name="aux_recyclate_trade", dim_letters=("t", "e", "r", "p", "m")),
             TradeDefinition(name="aux_recl_feedstock_trade", dim_letters=("t", "e", "r")),

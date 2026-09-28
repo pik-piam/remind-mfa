@@ -212,7 +212,7 @@ class PlasticsVisualizer(CommonVisualizer):
         fig = px.line(df, x="year", y="value", color="source", markers=True)
 
         ap = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r", "p", "m", "e", "g")),
+            array=mfa.stocks["in_use"].inflow.sum_over(("r", "p", "m", "e", "u")),
             intra_line_dim="Time",
             title="Demand [t]",
             line_label="REMIND-MFA",
