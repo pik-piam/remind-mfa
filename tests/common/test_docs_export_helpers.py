@@ -17,4 +17,3 @@ def test_write_docs_file_adds_missing_final_newline(tmp_path: Path):
     write_docs_file(path, "@article{key,\n  year = {2023}, \n}")
 
     assert path.read_bytes() == b"@article{key,\n  year = {2023},\n}\n"
-
