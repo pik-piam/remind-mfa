@@ -2,6 +2,7 @@ from inspect import stack, getframeinfo
 from pydantic import field_validator
 from typing import ClassVar, Any, Optional
 import os
+from pathlib import Path
 import pandas as pd
 
 from remind_mfa.common.helpers import RemindMFABaseModel
@@ -10,7 +11,7 @@ _assumptions = []
 
 
 def add_assumption_doc(
-    type: str, name: str, description: str, value: str = None, source: str = None
+    type: str, name: str, description: str, value: str | None = None, source: str | None = None
 ):
     """
     Add an assumption to the list of assumptions. The assumption is stored in a global list
@@ -30,7 +31,7 @@ def add_assumption_doc(
         name=name,
         value=value,
         description=description,
-        filename=caller.filename,
+        file=Path(caller.filename),
         line_number=caller.lineno,
         source=source,
     )
@@ -41,7 +42,7 @@ class Assumption(RemindMFABaseModel):
     type: str
     name: str
     description: str
-    filename: str
+    file: Path
     line_number: int
     value: Optional[Any] = None
     source: Optional[str] = None
@@ -61,6 +62,10 @@ class Assumption(RemindMFABaseModel):
             raise ValueError("assumption type must be one of: " + str(cls._allowed_types))
         return v
 
+    @property
+    def file_relative(self) -> Path:
+        return self.file.relative_to(os.path.abspath(os.curdir))
+
     def __str__(self):
         str_out = "Assumption:\n"
         str_out += f"  Type: {self.type}\n"
@@ -70,9 +75,7 @@ class Assumption(RemindMFABaseModel):
         str_out += f"  Description: {self.description}\n"
         if self.source is not None:
             str_out += f"  Source: {self.source}\n"
-        root_dir = os.path.abspath(os.curdir)
-        filename_rel = os.path.relpath(self.filename, root_dir)
-        str_out += f"  File: {filename_rel}, Line: {self.line_number}"
+        str_out += f"  File: {self.file_relative.as_posix()}, Line: {self.line_number}"
         return str_out
 
 
@@ -85,6 +88,5 @@ def assumptions_df() -> pd.DataFrame:
     if not _assumptions:
         return pd.DataFrame()
 
-    df = pd.DataFrame([a.model_dump() for a in _assumptions])
-    df["filename"] = df["filename"].apply(lambda x: os.path.relpath(x, os.path.abspath(os.curdir)))
+    df = pd.DataFrame([a.model_dump() | {"file": a.file_relative.as_posix()} for a in _assumptions])
     return df

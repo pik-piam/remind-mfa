@@ -6,6 +6,7 @@ This module deduplicates by BibTeX key. It first reads entries from
 """
 
 from typing import List, Tuple, Dict, Optional
+from pathlib import Path
 import re
 
 
@@ -48,11 +49,18 @@ def merge_bib_files(src_paths: List[str], out_path: str) -> Tuple[int, int, int]
                 seen_keys[key] = entry
 
     # Write merged file with entries separated by a blank line
-    with open(out_path, "w", encoding="utf-8") as fh:
-        fh.write("\n\n".join(all_entries))
+    write_docs_file(out_path, "\n\n".join(all_entries))
 
     written = len(all_entries)
     return total_read, duplicates, written
+
+
+def write_docs_file(path: Path, text: str):
+    """Write a generated docs file in a standardized form (compatible with pre-commit).
+    """
+    content = "\n".join(line.rstrip() for line in text.split("\n")).rstrip("\n")
+    with open(path, "w", encoding="utf-8", newline="\n") as file:
+        file.write(content + "\n" if content else "")
 
 
 def merge_parameters_sources(
