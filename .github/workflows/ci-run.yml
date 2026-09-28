@@ -23,7 +23,7 @@ jobs:
       MADRAT_OUTPUTFOLDER: ${{ github.workspace }}/madrat_output
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     # Guard: Only run this job on PRs only for trusted contributors (since we are using secrets and accessing the HPC)
-    if: github.event_name != 'pull_request_target' || github.event.pull_request.author_association == 'COLLABORATOR'
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.author_association == 'COLLABORATOR' || github.event.pull_request.author_association == 'OWNER'
     steps:
     - name: Checkout
       uses: actions/checkout@v7
