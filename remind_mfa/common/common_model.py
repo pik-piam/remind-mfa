@@ -276,7 +276,7 @@ class CommonModel:
         if self.do_stock_extrapolation_with_time_factor:
             time_factor = fd.FlodymArray.full(dims=self.dims["t", "r", "u"], fill_value=1.0)
             time = np.array(self.dims["t"].items)
-            lifetime = self.lifetime_limit()  # shape (g, r)
+            lifetime = self.lifetime_limit()  # shape (u, r)
             h_base = self.time_factor_prms["horizontal_shift_base"]
             growth = self.time_factor_prms["growth_rate"]
             if h_base is None or growth is None:
@@ -284,13 +284,13 @@ class CommonModel:
                     "time_factor_prms must be set with 'horizontal_shift_base' and 'growth_rate' when do_stock_extrapolation_with_time_factor is True."
                 )
             for r in self.dims["r"].items:
-                for g in self.dims["u"].items:
+                for u in self.dims["u"].items:
                     # the horizontal shift base is shifted by the lifetimes,
                     # so goods with longer lifetimes reach saturation later
-                    lt = lifetime[{"r": r, "u": g}].values.item()
+                    lt = lifetime[{"r": r, "u": u}].values.item()
                     prms = [1, h_base + lt, growth]
                     ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class
-                    time_factor[{"r": r, "u": g}] = ExtrapolationClass.func(
+                    time_factor[{"r": r, "u": u}] = ExtrapolationClass.func(
                         ExtrapolationClass, time, prms
                     )
         else:
