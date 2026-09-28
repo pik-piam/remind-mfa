@@ -32,6 +32,8 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
         submodules: false
         allow-unsafe-pr-checkout: true
+        # Otherwise the read-only GITHUB_TOKEN would override the app token when pushing the docs
+        persist-credentials: false
 
     - name: Check out the data_in/legacy submodule
       # The submodule lives on gitlab.pik-potsdam.de and is declared with an SSH
@@ -135,3 +137,49 @@ jobs:
         header: preview
         message: |
           Interactive preview at ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+
+    - name: Regenerate docs
+      id: docs
+      if: github.event_name == 'pull_request_target'
+      run: |
+        set -eu
+        uv run remind_mfa.py --config default --config update_docs --model all
+        git add --all docs
+        if ! git diff --cached --quiet; then
+          git diff --cached --stat
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Create GitHub App token
+      id: app-token
+      if: steps.docs.outputs.changed == 'true'
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ vars.REMIND_BOT_APP_CLIENT_ID }}
+        private-key: ${{ secrets.REMIND_BOT_APP_PRIVATE_KEY }}
+        permission-contents: write
+
+    - name: Commit and push docs
+      if: steps.app-token.outcome == 'success'
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -eu
+        user_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+        git config user.name "${APP_SLUG}[bot]"
+        git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+        git commit -m "docs: update auto-generated docs"
+        remote="https://x-access-token:${GH_TOKEN}@github.com/${HEAD_REPO}.git"
+        if ! git push "$remote" "HEAD:refs/heads/${HEAD_REF}"; then
+          if [ "$(git ls-remote "$remote" "refs/heads/${HEAD_REF}" | cut -f1)" != "$HEAD_SHA" ]; then
+            echo "::notice::Updated docs have been pushed to the PR branch."
+            exit 0
+          fi
+          echo "::error::Could not push the updated docs. Allow edits by maintainers on the PR," \
+            "or run 'uv run remind_mfa.py --config default --config update_docs --model all' and commit docs/."
+          exit 1
+        fi
