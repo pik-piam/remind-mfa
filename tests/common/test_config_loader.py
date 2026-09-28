@@ -43,6 +43,14 @@ def test_absolute_scenarios_path_is_unchanged(tmp_path: Path):
     assert config["input"]["scenarios_path"] == str(scenarios_path)
 
 
+def test_input_data_path_is_relative_to_root_dir(tmp_path: Path):
+    target_path = tmp_path / "data_in"
+    target_path.mkdir()
+    config = load_config([CONFIG_DIR / "default.toml"], ModelNames.STEEL, root_dir=tmp_path)
+
+    assert config["input"]["input_data_path"] == str(target_path)
+
+
 def test_model_overrides_all_base_layers(tmp_path):
     copy_default_config(tmp_path)
     (tmp_path / "first.toml").write_text(
