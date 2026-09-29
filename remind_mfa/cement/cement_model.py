@@ -36,7 +36,6 @@ class CementModel(CommonModel):
     get_definition = staticmethod(get_cement_definition)
 
     # TODO: unify, then delete
-    end_use_good_letter: str = "u"
     historic_stock_name: str = "in_use"
 
     def modify_parameters(self):
