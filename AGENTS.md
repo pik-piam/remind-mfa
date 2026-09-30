@@ -42,7 +42,7 @@
 # Conventions
 
 - The different material models are referred to as `models` and not `materials` in the code.
-- Target Python 3.12: `X | Y` annotations, PEP 695 `type` aliases and generic syntax (`def f[T](...)`) are desired.
+- Target Python 3.14: `X | Y` annotations, PEP 695 `type` aliases and generic syntax (`def f[T](...)`) are desired.
 - Use type hints. Currently, `pyproject.toml` disables a number of `ty` rules globally under `[tool.ty.rules]`. Code you add or touch should not need new entries in that ignore list.
 - Use descriptive variable names, not single-letter.
 - Use google-style docstrings (https://google.github.io/styleguide/pyguide.html).
