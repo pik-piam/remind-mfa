@@ -90,7 +90,7 @@ class _TolerantUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         try:
             return super().find_class(module, name)
-        except (AttributeError, ModuleNotFoundError):
+        except AttributeError, ModuleNotFoundError:
             mod = importlib.import_module(module)
             stub = type(name, (RemindMFABaseModel,), {"model_config": ConfigDict(extra="allow")})
             setattr(mod, name, stub)
