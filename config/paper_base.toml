@@ -1,0 +1,21 @@
+[base]
+    [base.input]
+        region_mapping = "h12"
+
+    [base.model_switches]
+        scenario = "SSP2"
+
+    [base.visualization]
+        do_visualize = false
+
+    [base.export]
+        do_export = true
+        path = "data_out/paper"
+        prefix = "paper"
+        pickle.do_export = true
+        csv.do_export = false
+        iamc.do_export = true
+        iamc.t = "2025:2100"
+        mrindustry.do_export = false
+        assumptions.do_export = false
+        docs.do_export = false
