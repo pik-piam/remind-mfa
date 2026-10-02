@@ -117,7 +117,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["good_market => use"][...] = stk["in_use"].inflow
 
         # the historic trade still resolves the polymer type 'p'; the future MFA does not, so it is
-        # summed away 
+        # summed away
         extrapolator = TradeExtrapolator(
             historic_trade=historic_trade["final_his"].sum_over("p"),
             future_trade=self.trade_set["final"],

@@ -66,7 +66,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.flows["use => sysenv"][...] += self.stocks["in_use_historic"].outflow
 
         # get material split from historic stock inflow for use in the future MFA, which does not
-        # carry the polymer type dimension 'p' (each material belongs to exactly one type). 
+        # carry the polymer type dimension 'p' (each material belongs to exactly one type).
         # Shares sum to 1 across all materials.
         with np.errstate(divide="ignore"):
             self.parameters["material_shares_use_inflow"] = fd.Parameter(
