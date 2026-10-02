@@ -104,11 +104,14 @@ class PlasticsDataExporter(CommonDataExporter):
             # demand by polymer type
             # Same parent as the "by Good" split above (orthogonal breakdown), so opt out of
             # summing these children back into the parent to avoid double-counting the total.
+            # The MFA system does not resolve the type dimension, so the material-resolved demand
+            # is re-expanded to it via the type mapping.
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics",
-                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
-                    ("t", "r", "p")
-                ),
+                calculation_function=lambda mfa: (
+                    mfa.stocks["in_use"].inflow.sum_to(("t", "r", "m"))
+                    * mfa.parameters["material_type_mapping"]
+                ).sum_to(("t", "r", "p")),
                 unit="t/yr",
                 split_name="Type",
                 aggregate_parent=False,

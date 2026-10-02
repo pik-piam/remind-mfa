@@ -61,6 +61,15 @@ class PlasticsModel(CommonModel):
             values=self.parameters["emission_capture_rate"].cast_to(self.dims["r",]).values,
         )
 
+        # the future MFA does not carry the Type dimension 'p' (it is redundant with the material
+        # dimension 'm'), and the waste trade is only used there, so collapse 'p' away
+        for name in ("waste_his_imports", "waste_his_exports"):
+            self.parameters[name] = fd.Parameter(
+                name=name,
+                dims=self.dims["h", "r", "m"],
+                values=self.parameters[name].sum_values_over("p"),
+            )
+
         # calculate landfill rate from historic eol rates (1 - sum of other eol rates)
         self.parameters["landfill_rate"] = fd.Parameter(
             name="landfill_rate",
@@ -72,6 +81,25 @@ class PlasticsModel(CommonModel):
                 - self.parameters["chemical_recycling_rate"].cast_to(self.dims["h", "r"])
             ).values,
         )
+
+        # 0/1 membership of each material in its polymer type, derived from the (p, m) sparsity of
+        # the sector split. The future MFA drops the Type dimension 'p', since each material
+        # belongs to exactly one type; multiply an m-resolved array by this mapping to re-expand
+        # it to 'p' where the Type resolution is needed (e.g. the IAMC export by type).
+        membership = self.parameters["sector_polymer_split"].sum_over(("h", "r", "u"))  # (p, m)
+        mapping = fd.Parameter(
+            name="material_type_mapping",
+            dims=self.dims["p", "m"],
+            values=(membership.values > 0).astype(float),
+        )
+        unmapped = mapping.sum_over("p").items_where(lambda x: x != 1)
+        if unmapped.size:
+            raise ValueError(
+                "Each material must belong to exactly one Type in 'sector_polymer_split', but "
+                f"{[row[0] for row in unmapped]} do(es) not. Check the Type/Material combinations "
+                "in the input data and the plastics Type and Material dimension files."
+            )
+        self.parameters["material_type_mapping"] = mapping
 
     def transfer_historic_parameters(self):
         # get material split of stock inflow from historic MFA to be extrapolated by ParameterExtrapolation for use in future MFA
