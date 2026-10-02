@@ -6,7 +6,7 @@ REMIND-MFA runs at h12 by default, where the EU region is EUR (= EU28). EU-MFA d
 (= EU28), which only needs renaming to EUR, but plastics for EU27+3. The h12 and TRANSIENCE EU27+3
 region mappings differ in exactly two countries, CHE and NOR, so EUR is a strict subset of EU27+3
 and the conversion is a single population-weighted factor per year (see eu_region_scaling_factors).
-REMIND-MFA can also run at EU27+3 resolution, if the ATLAS-Trade coupling is not used, in which case 
+REMIND-MFA can also run at EU27+3 resolution, if the ATLAS-Trade coupling is not used, in which case
 the plastics flows are written out unchanged.
 
 The target region is TARGET_EU_REGION, imported from the model.
