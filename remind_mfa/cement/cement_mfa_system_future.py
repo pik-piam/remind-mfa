@@ -70,8 +70,14 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
         trd = self.trade_set
 
-        # product production
-        flw["prod_product => use"][...] = stk["in_use"].inflow
+        # reuse: a share of the in-use outflow re-enters the stock, capped by the stock inflow
+        flw["use => reuse"][...] = (stk["in_use"].outflow * prm["reuse_share"]).minimum(
+            stk["in_use"].inflow
+        )
+        flw["reuse => use"][...] = flw["use => reuse"]
+
+        # product production: covers the stock inflow not met by reuse
+        flw["prod_product => use"][...] = stk["in_use"].inflow - flw["reuse => use"]
         flw["market_cement => prod_product"][...] = flw["prod_product => use"][{"k": "cement"}]
         flw["sysenv => prod_product"][...] = flw["prod_product => use"][{"k": "non-cement"}]
         flw["market_cement => sysenv"][...] = (
@@ -80,9 +86,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
-        # use phase: the in-use outflow leaves the system boundary. When carbonation is active,
-        # CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = stk["in_use"].outflow
+        # use phase: the non-reused in-use outflow leaves the system boundary. When carbonation is
+        # active, CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
+        flw["use => sysenv"][...] = stk["in_use"].outflow - flw["use => reuse"]
 
         # cement trade
         total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]

@@ -112,9 +112,10 @@ class CementCarbonUptakeModel(BaseModel):
             )
         )
 
-        # reroute the in-use outflow: use => sysenv (baseline sink) becomes use => eol => sysenv
+        # reroute the non-reused in-use outflow: use => sysenv (baseline sink) becomes
+        # use => eol => sysenv
+        mfa.flows["use => eol"][...] = mfa.flows["use => sysenv"]
         del mfa.flows["use => sysenv"]
-        mfa.flows["use => eol"][...] = mfa.stocks["in_use"].outflow
         mfa.stocks["eol"].inflow[...] = mfa.flows["use => eol"]
         mfa.stocks["eol"].lifetime_model.set_prms(mean=np.inf)
         mfa.stocks["eol"].compute()
@@ -207,9 +208,23 @@ class CementCarbonUptakeModel(BaseModel):
             ),
         )
 
+        add_assumption_doc(
+            type="model assumption",
+            name="In-use carbonation of reused products",
+            description=(
+                "Reused products are assumed not to carbonate further during their second life,"
+                " as their surface is already mostly carbonated from the first life."
+            ),
+        )
+
         stk = self.stocks["in_use"]
         stk_dims = stk.dims.drop("k")
         cement_k_idx = list(stk.dims["k"].items).index("cement")
+
+        # share of each cohort's inflow that is newly produced (not reused)
+        inflow = stk.inflow.values[..., cement_k_idx]
+        new_inflow = self.flows["prod_product => use"].values[..., cement_k_idx]
+        new_share = np.divide(new_inflow, inflow, out=np.zeros_like(inflow), where=inflow != 0)
 
         # create age dimension
         ages = [i for i in range(stk._n_t)][::-1]
@@ -258,6 +273,7 @@ class CementCarbonUptakeModel(BaseModel):
             # get age cohort of cement mass at time t
             _, mass_values = get_age_distribution(stk, t)
             mass_values = mass_values[..., cement_k_idx]  # select cement constituent only
+            mass_values = mass_values * new_share[: t + 1]  # exclude reused mass (cohorts 0..t)
             mass_dims = sliced_agedimset.union_with(stk_dims).drop("t")
             mass = fd.FlodymArray(dims=mass_dims, values=mass_values)
             # expand mass over carbonation applications
@@ -373,6 +389,13 @@ class CementCarbonUptakeModel(BaseModel):
 
             # (I4) sum over all age cohorts, convert to flodym array
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
+
+        # (I5) only the non-reused outflow enters eol: rescale from in-use outflow to eol inflow
+        outflow = stk_in_use.outflow.values[..., cement_k_idx]
+        eol_inflow = self.stocks["eol"].inflow.values[..., cement_k_idx]
+        uncarbonated_inflow *= np.divide(
+            eol_inflow, outflow, out=np.zeros_like(outflow), where=outflow != 0
+        )
 
         uncarbonated_inflow = fd.FlodymArray(dims=stk_dims_no_k, values=uncarbonated_inflow)
 

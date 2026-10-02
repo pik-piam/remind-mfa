@@ -84,7 +84,7 @@ class CementDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Scrap|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=lambda mfa: _sum_to_end_use_split(
-                    mfa.stocks["in_use"].outflow[{"k": "cement"}]
+                    (mfa.stocks["in_use"].outflow - mfa.flows["use => reuse"])[{"k": "cement"}]
                 ),
                 unit="t/yr",
                 split_name="End Use",

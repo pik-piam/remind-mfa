@@ -25,6 +25,7 @@ class CementDisplayNames(CommonDisplayNames):
         "prod_cement": "Production: Cement",
         "prod_product": "Production: Product",
         "use": "Use phase",
+        "reuse": "Reuse",
         "eol": "End of life",
         "atmosphere": "Atmosphere",
         "carbonation": "Carbonation",

@@ -47,6 +47,9 @@ class CementModel(CommonModel):
         # development weight for gdp-dependent parameters/scenarios
         self.parameters["development_weight"] = self.calc_development_weight()
 
+        # scenario parameters
+        self.parameters["reuse_share"] = fd.Parameter(dims=self.dims['t', 'u', 'm'])
+
     def calc_development_weight(self) -> fd.Parameter:
         """Development weight per region from GDP per capita at the last historic year:
         Blends log(GDP per capita) from 1 at low GDP to 0 at high GDP, with the transition range
@@ -106,20 +109,20 @@ class CementModel(CommonModel):
     def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
         """Construct the future bottom-up MFA.
 
-        Lifetime parameter is broadcasted to extended-end-use dimension for bottom-up MFA.
+        Intensive end-use-resolved parameters (`intensive_end_use_prms`) are broadcasted to the
+        extended-end-use dimension for the bottom-up MFA.
         """
+        intensive_end_use_prms = ("lifetime_mean", "lifetime_std", "reuse_share")
         bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,
         )
         bu_mfa.parameters = {
             **bu_mfa.parameters,
-            "lifetime_mean": extend_end_use_intensive(
-                self.parameters["lifetime_mean"], self.dims["e"]
-            ),
-            "lifetime_std": extend_end_use_intensive(
-                self.parameters["lifetime_std"], self.dims["e"]
-            ),
+            **{
+                name: extend_end_use_intensive(self.parameters[name], self.dims["e"])
+                for name in intensive_end_use_prms
+            },
         }
         return bu_mfa
 

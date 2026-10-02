@@ -60,6 +60,7 @@ def get_cement_definition(
             "market_cement",
             "prod_product",
             "use",
+            "reuse",
             "imports",
             "exports",
         ]
@@ -108,6 +109,9 @@ def get_cement_definition(
             # use phase: the in-use outflow leaves the system boundary. When the carbonation model
             # is active it reroutes this outflow through the eol stock (which it injects at runtime).
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=full_flow_letters + ("k",)),
+            # reuse: part of the in-use outflow re-enters the in-use stock
+            fd.FlowDefinition(from_process="use", to_process="reuse", dim_letters=full_flow_letters + ("k",)),
+            fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=full_flow_letters + ("k",)),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
