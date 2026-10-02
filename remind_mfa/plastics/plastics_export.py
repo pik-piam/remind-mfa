@@ -46,15 +46,6 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_eol_data_by_region_and_year(mfa=self._model.future_mfa)
             self.export_use_data_by_region_and_year(mfa=self._model.future_mfa)
             self.export_recycling_data_by_region_and_year(mfa=self._model.future_mfa)
-            self.export_stock_extrapolation()
-
-    def export_stock_extrapolation(self):
-        self._model.stock_handler.pure_parameters.to_df().to_csv(
-            self.export_path("csv", "stock_extrapolation_parameters.csv")
-        )
-        self._model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
-            self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
-        )
 
     def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem):
         eol_data = (

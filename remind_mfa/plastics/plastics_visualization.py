@@ -200,27 +200,6 @@ class PlasticsVisualizer(CommonVisualizer):
             do_plot=False,
         )
 
-    def compare_demand(self, mfa: fd.MFASystem):
-        df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
-
-        # Convert year to numeric
-        df["year"] = pd.to_numeric(df["year"], errors="coerce")
-        # Convert Mt to t
-        df["value"] = df["value"] * 1000 * 1000
-
-        # Plotly line plot
-        fig = px.line(df, x="year", y="value", color="source", markers=True)
-
-        ap = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r", "m", "e", "u")),
-            intra_line_dim="Time",
-            title="Demand [t]",
-            line_label="REMIND-MFA",
-            fig=fig,
-        )
-        ap.plot()
-        self.plot_and_save_figure(ap, "demand_validation", do_plot=False)
-
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
