@@ -53,8 +53,8 @@
         docs.do_export = false
 
 [plastics]
-    [plastics.input]
-        region_mapping = '2c0a4149' # EU27+3 TRANSIENCE region mapping
+    # region_mapping is inherited from [base.input] ('h12'). The EU-MFA plastics inputs are
+    # converted from EU27+3 to the h12 EUR region by scripts/map_EU-MFA_flows.py.
 
     [plastics.transience]
         baseline_pickle_path = '' #'2026-09-15--17-08-25_plastics_SSP2_2c0a4149_CE-PET_fd_plastics_S0_default'
@@ -62,7 +62,7 @@
         trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
 
     [plastics.visualization]
-        sankey.plotter_args.slice_dict = { "t" = 2019, "r" = "EU27+3", "m" = "PET" }
+        sankey.plotter_args.slice_dict = { "t" = 2019, "r" = "EUR", "m" = "PET" }
         sankey.plotter_args.exclude_processes = ["sysenv", "atmosphere", "feedfoss", "feedbio", "feeddaccu", "feedccu", "HVC_input", "C4_input", "other_reactants", "emission", "uncontrolled", "incineration", "losses", "reclchem", "mismanaged", "landfill"]
         material_splits.do_visualize = true
         flows.do_visualize = false
