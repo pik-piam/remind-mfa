@@ -4,6 +4,7 @@ import logging
 from copy import deepcopy
 import sys
 
+from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator, FixedSupplyTradeExtrapolator
@@ -71,7 +72,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         if self.cfg.transience.transience_run == True:
             # store original inflow for comparison
             self.demand_REMIND_MFA = self.stocks["in_use"].inflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
             ]
             # Replace with EU-MFA data
             # TODO extrapolate EU-MFA data or run MFA only until 2060
@@ -79,21 +80,21 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 self.parameters["stock_inflow_EU-MFA"]
                 * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
             )
-            self.demand_EU_MFA = demand_EU_MFA[{"r": "EU27+3"}]
+            self.demand_EU_MFA = demand_EU_MFA[{"r": EU_MFA_REGION}]
             self.stocks["in_use"].inflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].compute()
             # store original outflow (generated from EU-MFA inflow and REMIND-MFA lifetime model) for comparison
             self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
             ]
             # Replace with EU-MFA data
             stock_outflow_EU_MFA = (
                 self.parameters["stock_outflow_EU-MFA"]
                 * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
             )
-            self.stock_outflow_EU_MFA = stock_outflow_EU_MFA[{"r": "EU27+3"}]
+            self.stock_outflow_EU_MFA = stock_outflow_EU_MFA[{"r": EU_MFA_REGION}]
             inflow = self.stocks["in_use"].inflow
             outflow = self.stocks["in_use"].outflow
             self.stocks["in_use"] = fd.SimpleFlowDrivenStock(
@@ -104,15 +105,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             )
             self.stocks["in_use"].inflow[...] = inflow
             self.stocks["in_use"].inflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].outflow[...] = outflow
             self.stocks["in_use"].outflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
             ] = self.stock_outflow_EU_MFA
             self.stocks["in_use"].compute()
             logging.warning(
-                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for EU27+3 region are not computed from stock projection, but taken from EU-MFA. "
+                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for {EU_MFA_REGION} region are not computed from stock projection, but taken from EU-MFA. "
                 f"The stock is calculated as a simple flow-driven stock. "
             )
 
@@ -227,7 +228,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 future_trade = self.trade_set["primary"],
                 baseline_dom_demand = baseline_flows["primary_market => fabrication"],
                 future_dom_demand = flw["primary_market => fabrication"],
-                fixed_supply_region = "EU27+3",
+                fixed_supply_region = EU_MFA_REGION,
                 import_adjustment_share = alpha,
             )
         else:

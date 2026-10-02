@@ -10,6 +10,14 @@ from remind_mfa.common.helpers import (
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.trade import TradeDefinition
 
+EU_MFA_REGION = "EUR"
+"""Region of the model's Region dimension that the TRANSIENCE EU-MFA data is mapped to.
+
+EU-MFA delivers steel for EU27+1 and plastics for EU27+3. ``scripts/map_EU-MFA_flows.py`` brings
+both onto this region: steel by renaming (EU27+1 is EU28, i.e. the h12 EUR region) and plastics by
+a population-weighted conversion, since EU27+3 is EU28 plus CHE and NOR. If no ATLAS-Trade coupling
+is used, the plastics model can also run in EU27+3 resolution."""
+
 
 class RemindMFAParameterDefinition(fd.ParameterDefinition):
 
