@@ -15,6 +15,7 @@ import pandas as pd
 
 from remind_mfa.common.docs_export_helpers import merge_parameters_sources
 from remind_mfa.common.docs_export_helpers import merge_bib_files
+from remind_mfa.common.docs_export_helpers import write_docs_file
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
@@ -512,7 +513,9 @@ class CommonDataExporter(RemindMFABaseModel):
             if name == "parameters":
                 parameters_df = df
             else:
-                df.to_markdown(self.model_docs_path / f"definitions/{name}.md", index=False)
+                write_docs_file(
+                    self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
+                )
         return parameters_df
 
     def merge_bibtex_files(self):
@@ -531,10 +534,7 @@ class CommonDataExporter(RemindMFABaseModel):
         )
 
         output_file = self.model_docs_path / "definitions/parameters.md"
-        # Generate markdown
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write(merged_df.to_markdown(index=False))
-            f.write("\n")
+        write_docs_file(output_file, merged_df.to_markdown(index=False))
 
     def assumptions_to_markdown(self):
 
@@ -542,7 +542,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         df = assumptions_df()
-        df.to_markdown(self.model_docs_path / "assumptions.md", index=False)
+        write_docs_file(self.model_docs_path / "assumptions.md", df.to_markdown(index=False))
 
     def cfg_to_markdown(self, cfg: "CommonCfg"):
 
@@ -551,7 +551,9 @@ class CommonDataExporter(RemindMFABaseModel):
 
         schema_df = type(cfg).to_schema_df()
         schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
-        schema_df.to_markdown(self.model_docs_path / "config_schema.md", index=False)
+        write_docs_file(
+            self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
+        )
 
     def to_iamc_df(self, array: fd.FlodymArray, time_items: list):
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
