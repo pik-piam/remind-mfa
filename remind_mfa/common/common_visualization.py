@@ -344,7 +344,7 @@ class CommonVisualizer(RemindMFABaseModel):
             intra_line_dim="Time",
             title="Stock regression function",
             x_array=x_array,
-            linecolor_dim=self._model.end_use_good_letter,
+            linecolor_dim="u",
         )
         fig = ap.plot()
 
@@ -425,20 +425,19 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_sector_splits(self, regional: bool = True):
 
-        end_use_good_letter = self._model.end_use_good_letter
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", end_use_good_letter))
+            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", "u"))
         )
-        sector_splits = consumption.get_shares_over(end_use_good_letter)
-        sector_splits = sector_splits.cumsum(dim_letter=end_use_good_letter)
+        sector_splits = consumption.get_shares_over("u")
+        sector_splits = sector_splits.cumsum(dim_letter="u")
 
         ap_sector_splits = self.plotter_class(
             array=sector_splits,
             intra_line_dim="Time",
             **subplot_dim,
-            linecolor_dim=self._model.dims[end_use_good_letter].name,
+            linecolor_dim=self._model.dims["u"].name,
             xlabel="Year",
             ylabel="Sector Splits [%]",
             display_names=self.display_names.dct,

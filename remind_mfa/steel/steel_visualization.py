@@ -137,7 +137,7 @@ class SteelVisualizer(CommonVisualizer):
         flw = mfa.flows
         production = flw["bof_production => forming"] + flw["eaf_production => forming"]
         fabrication = flw["ip_market => fabrication"]
-        consumption = mfa.stocks["in_use"].inflow.sum_over("g")
+        consumption = mfa.stocks["in_use"].inflow.sum_over("u")
         array_dict = {
             "Production": production,
             "Fabrication": fabrication,

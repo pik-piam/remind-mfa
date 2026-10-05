@@ -14,7 +14,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
         fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
-        fd.DimensionDefinition(name="Good", dim_letter="g", dtype=str),
+        fd.DimensionDefinition(name="Good", dim_letter="u", dtype=str),
         fd.DimensionDefinition(name="EU-MFA_Good", dim_letter="f", dtype=str),
         fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="u", dtype=int),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
@@ -59,12 +59,12 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="ip_market", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="ip_market", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h", "r", "g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="fabrication", to_process="sysenv", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h", "r", "g")),
-            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h", "r", "g")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "g")),
-            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "g")),
+            fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
         ]
     else:
         flows = [
@@ -82,13 +82,13 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="ip_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="ip_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t", "r", "g")),
+            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="fabrication", to_process="scrap_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="use", to_process="obsolete", dim_letters=("t", "r", "g")),
-            fd.FlowDefinition(from_process="use", to_process="eol_market", dim_letters=("t", "r", "g")),
+            fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="use", to_process="obsolete", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="use", to_process="eol_market", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="eol_market", to_process="recycling", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="eol_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="eol_market", dim_letters=("t", "r")),
@@ -106,7 +106,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             fd.StockDefinition(
                 name="historic_in_use",
                 process="use",
-                dim_letters=("h", "r", "g"),
+                dim_letters=("h", "r", "u"),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
                 time_letter="h",
@@ -118,14 +118,14 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             fd.StockDefinition(
                 name="in_use",
                 process="use",
-                dim_letters=("t", "r", "g"),
+                dim_letters=("t", "r", "u"),
                 subclass=use_stock_class,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
                 name="obsolete",
                 process="obsolete",
-                dim_letters=("t", "r", "g"),
+                dim_letters=("t", "r", "u"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
             fd.StockDefinition(
@@ -143,11 +143,11 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Yield of steel forming process"
         ),
         RemindMFAParameterDefinition(
-            name="fabrication_yield", dim_letters=("g",),
+            name="fabrication_yield", dim_letters=("u",),
             description="Yield during fabrication of steel-containing final goods"
         ),
         RemindMFAParameterDefinition(
-            name="recovery_rate", dim_letters=("g",),
+            name="recovery_rate", dim_letters=("u",),
             description="Combined collection and recovery rate at end-of-life - share of all end-of life material that is recycled"
         ),
         RemindMFAParameterDefinition(
@@ -159,23 +159,23 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="GDP per capita"
         ),
         RemindMFAParameterDefinition(
-            name="lifetime_mean", dim_letters=("g",),
+            name="lifetime_mean", dim_letters=("u",),
             description="Mean lifetime of goods"
         ),
         RemindMFAParameterDefinition(
-            name="lifetime_std", dim_letters=("g",),
+            name="lifetime_std", dim_letters=("u",),
             description="Absolute standard deviation of good lifetime",
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_low", dim_letters=("g",),
+            name="sector_split_low", dim_letters=("u",),
             description="Final good category shares in consumption for low gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_medium", dim_letters=("g",),
+            name="sector_split_medium", dim_letters=("u",),
             description="Final good category shares in consumption for medium gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_high", dim_letters=("g",),
+            name="sector_split_high", dim_letters=("u",),
             description="Final good category shares in consumption for high gdp per capita"
         ),
         RemindMFAParameterDefinition(
@@ -224,11 +224,11 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
             description="Historic steel exports",
         ),
         RemindMFAParameterDefinition(
-            name="indirect_imports", dim_letters=("h", "r", "g"),
+            name="indirect_imports", dim_letters=("h", "r", "u"),
             description="Historic indirect trade imports, i.e. contained in final goods",
         ),
         RemindMFAParameterDefinition(
-            name="indirect_exports", dim_letters=("h", "r", "g"),
+            name="indirect_exports", dim_letters=("h", "r", "u"),
             description="Historic indirect trade exports, i.e. contained in final goods",
         ),
         RemindMFAParameterDefinition(
@@ -266,13 +266,13 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
     if historic:
         trades = [
             TradeDefinition(name="steel", dim_letters=("h", "r")),
-            TradeDefinition(name="indirect", dim_letters=("h", "r", "g")),
+            TradeDefinition(name="indirect", dim_letters=("h", "r", "u")),
             TradeDefinition(name="scrap", dim_letters=("h", "r")),
         ]
     else:
         trades = [
             TradeDefinition(name="steel", dim_letters=("t", "r")),
-            TradeDefinition(name="indirect", dim_letters=("t", "r", "g")),
+            TradeDefinition(name="indirect", dim_letters=("t", "r", "u")),
             TradeDefinition(name="scrap", dim_letters=("t", "r")),
         ]
         parameters += trade_parameters_read_from_data(cfg, trades)

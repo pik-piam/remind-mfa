@@ -29,7 +29,7 @@ class SteelDataExporter(CommonDataExporter):
     @staticmethod
     def _eol_scrap_potential(mfa: fd.MFASystem) -> fd.FlodymArray:
         """End-of-life scrap available before collection and trade."""
-        return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "g"))
+        return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "u"))
 
     @staticmethod
     def _steel_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -84,13 +84,13 @@ class SteelDataExporter(CommonDataExporter):
                 variable_name="Material Demand|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
                     mfa.flows["fabrication => good_market"] / mfa.parameters["fabrication_yield"]
-                ).sum_to(("t", "r", "g")),
+                ).sum_to(("t", "r", "u")),
                 unit="t/yr",
                 split_name="Good",
             ),
             IamcVariable(
                 variable_name="Material Stock|Iron and Steel|Steel",  # PRISMA nomenclature
-                calculation_function=lambda mfa: mfa.stocks["in_use"].stock.sum_to(("t", "r", "g")),
+                calculation_function=lambda mfa: mfa.stocks["in_use"].stock.sum_to(("t", "r", "u")),
                 unit="t",
                 split_name="Good",
             ),

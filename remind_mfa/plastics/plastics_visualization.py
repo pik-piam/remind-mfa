@@ -174,7 +174,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         per_capita = self.cfg.consumption.per_capita
-        demand = mfa.stocks["in_use"].inflow.sum_over(("p", "m", "e"))
+        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
         self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=demand,
@@ -250,27 +250,6 @@ class PlasticsVisualizer(CommonVisualizer):
             f"production_trade_consumption_by_region{'_per_capita' if per_capita else ''}",
             do_plot=False,
         )
-
-    def compare_demand(self, mfa: fd.MFASystem):
-        df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
-
-        # Convert year to numeric
-        df["year"] = pd.to_numeric(df["year"], errors="coerce")
-        # Convert Mt to t
-        df["value"] = df["value"] * 1000 * 1000
-
-        # Plotly line plot
-        fig = px.line(df, x="year", y="value", color="source", markers=True)
-
-        ap = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r", "p", "m", "e", "g")),
-            intra_line_dim="Time",
-            title="Demand [t]",
-            line_label="REMIND-MFA",
-            fig=fig,
-        )
-        ap.plot()
-        self.plot_and_save_figure(ap, "demand_validation", do_plot=False)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
@@ -432,7 +411,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
         # material shares are extrapolated by keeping the last historic value constant in the future, so we visualize the last historic year
-        material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}].sum_over(("p",))
+        material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}]
         material_shares = material_shares.cumsum(dim_letter="m")
 
         ap_sector_splits = self.plotter_class(
