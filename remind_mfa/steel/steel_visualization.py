@@ -30,7 +30,7 @@ class SteelVisualizer(CommonVisualizer):
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["recovery_rate"][
-                    {"r": EU_MFA_REGION, "t": self._model.dims["u"], "g": self._model.dims["f"]}
+                    {"r": EU_MFA_REGION, "t": self._model.dims["v"], "u": self._model.dims["f"]}
                 ],
                 parameter_EU_MFA=self._model.parameters["recovery_rate_EU-MFA"]
                 * self._model.parameters["collection_rate_EU-MFA"],
@@ -40,7 +40,7 @@ class SteelVisualizer(CommonVisualizer):
                 self._model,
                 parameter_REMIND_MFA=self._model.future_mfa.flows["use => eol_market"].sum_to(
                     ("t", "r")
-                )[{"r": EU_MFA_REGION, "t": self._model.dims["u"]}],
+                )[{"r": EU_MFA_REGION, "t": self._model.dims["v"]}],
                 parameter_EU_MFA=self._model.parameters["available_scrap_EU-MFA"][
                     {"r": EU_MFA_REGION}
                 ],

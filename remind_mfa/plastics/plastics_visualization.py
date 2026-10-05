@@ -125,8 +125,8 @@ class PlasticsVisualizer(CommonVisualizer):
                     {
                         "r": EU_MFA_REGION,
                         "m": self._model.dims["n"],
-                        "g": self._model.dims["f"],
-                        "t": self._model.dims["u"],
+                        "u": self._model.dims["f"],
+                        "t": self._model.dims["v"],
                     }
                 ].sum_over(("p")),
                 parameter_EU_MFA=self._model.parameters["collection_rate_EU-MFA"].sum_over(("p")),
@@ -136,7 +136,7 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_rate"][
-                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["u"]}
+                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
                 ].sum_over(("p")),
                 parameter_EU_MFA=self._model.parameters[
                     "mechanical_recycling_rate_EU-MFA"
@@ -146,7 +146,7 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_yield"][
-                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["u"]}
+                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
                 ].sum_over(("p")),
                 parameter_EU_MFA=self._model.parameters[
                     "mechanical_recycling_yield_EU-MFA"
@@ -158,10 +158,10 @@ class PlasticsVisualizer(CommonVisualizer):
                 parameter_REMIND_MFA=self._model.future_mfa.flows[
                     "reclmech => aux_recyclate_trade"
                 ].sum_to(("t", "r", "m"))[
-                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["u"]}
+                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
                 ],
                 parameter_EU_MFA=self._model.parameters["recycled_eol_EU-MFA"].sum_to(
-                    ("u", "r", "n")
+                    ("v", "r", "n")
                 )[{"r": EU_MFA_REGION}],
                 linecolor_dim="EU-MFA_Material",
             )
@@ -431,7 +431,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_transience_inflow(self, model: "PlasticsModel", subplot_dim: str = None):
         EU_region = EU_MFA_REGION
         inflow = model.future_mfa.stocks["in_use"].inflow[
-            {"r": EU_MFA_REGION, "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}
+            {"r": EU_MFA_REGION, "m": model.dims["n"], "u": model.dims["f"], "t": model.dims["v"]}
         ]
         super().visualize_transience_inflow(
             model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow
@@ -440,7 +440,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None):
         EU_region = EU_MFA_REGION
         inflow = model.future_mfa.stocks["in_use"].inflow[
-            {"r": EU_MFA_REGION, "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}
+            {"r": EU_MFA_REGION, "m": model.dims["n"], "u": model.dims["f"], "t": model.dims["v"]}
         ]
         super().visualize_transience_outflow(
             model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow

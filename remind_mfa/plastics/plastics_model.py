@@ -122,55 +122,55 @@ class PlasticsModel(CommonModel):
             f"TRANSIENCE mode is on. Collection rate, mechanical recycling rate and mechanical recycling yield for {EU_MFA_REGION} region are computed from EU-MFA. "
         )
         self.parameters["collection_rate_EU-MFA"] = fd.Parameter(
-            dims=self.dims["u", "p", "n", "f"],
+            dims=self.dims["v", "p", "n", "f"],
             values=(
                 self.parameters["collected_eol_EU-MFA"] / self.parameters["stock_outflow_EU-MFA"]
             )[{"r": EU_MFA_REGION}].values,
         )
         self.parameters["mechanical_recycling_rate_EU-MFA"] = fd.Parameter(
-            dims=self.dims["u", "p", "n"],
+            dims=self.dims["v", "p", "n"],
             values=(
-                self.parameters["sorted_eol_EU-MFA"].sum_to(("u", "r", "p", "n"))
-                / self.parameters["collected_eol_EU-MFA"].sum_to(("u", "r", "p", "n"))
+                self.parameters["sorted_eol_EU-MFA"].sum_to(("v", "r", "p", "n"))
+                / self.parameters["collected_eol_EU-MFA"].sum_to(("v", "r", "p", "n"))
             )[{"r": EU_MFA_REGION}].values,
         )
         self.parameters["mechanical_recycling_yield_EU-MFA"] = fd.Parameter(
-            dims=self.dims["u", "p", "n"],
+            dims=self.dims["v", "p", "n"],
             values=(
-                self.parameters["recycled_eol_EU-MFA"].sum_to(("u", "r", "p", "n"))
-                / self.parameters["sorted_eol_EU-MFA"].sum_to(("u", "r", "p", "n"))
+                self.parameters["recycled_eol_EU-MFA"].sum_to(("v", "r", "p", "n"))
+                / self.parameters["sorted_eol_EU-MFA"].sum_to(("v", "r", "p", "n"))
             )[{"r": EU_MFA_REGION}].values,
         )
         # adjust dimensions of REMIND-MFA rates and replace EU region with EU-MFA rates
         self.parameters["collection_rate"] = fd.Parameter(
             name="collection_rate",
-            dims=self.dims["t", "r", "p", "m", "g"],
+            dims=self.dims["t", "r", "p", "m", "u"],
             values=self.parameters["collection_rate"]
-            .cast_to(self.dims["t", "r", "p", "m", "g"])
+            .cast_to(self.dims["t", "r", "p", "m", "u"])
             .values,
         )
         eu_mfa_collection_rate = self.parameters["collection_rate_EU-MFA"].values
         nan_mask = ~np.isfinite(eu_mfa_collection_rate)
         if nan_mask.any():
             nan_indices = np.argwhere(nan_mask)
-            u_items, n_items, f_items = (
-                self.dims["u"].items,
+            v_items, n_items, f_items = (
+                self.dims["v"].items,
                 self.dims["n"].items,
                 self.dims["f"].items,
             )
-            nan_combos = [(u_items[i[0]], n_items[i[1]], f_items[i[2]]) for i in nan_indices[:20]]
+            nan_combos = [(v_items[i[0]], n_items[i[1]], f_items[i[2]]) for i in nan_indices[:20]]
             logging.warning(
                 f"NaN/Inf values in collection_rate_EU-MFA for {nan_mask.sum()} combinations "
                 f"(EU-MFA_Time, EU-MFA_Material, EU-MFA_Good) — keeping existing REMIND-MFA values. "
                 f"First occurrences: {nan_combos}"
             )
             existing = self.parameters["collection_rate"][
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ].values
             eu_mfa_collection_rate = np.where(nan_mask, existing, eu_mfa_collection_rate)
         self.parameters["collection_rate"][
-            {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
-        ] = fd.Parameter(dims=self.dims["u", "p", "n", "f"], values=eu_mfa_collection_rate)
+            {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
+        ] = fd.Parameter(dims=self.dims["v", "p", "n", "f"], values=eu_mfa_collection_rate)
         self.parameters["mechanical_recycling_rate"] = fd.Parameter(
             name="mechanical_recycling_rate",
             dims=self.dims["t", "r", "p", "m"],
@@ -182,20 +182,20 @@ class PlasticsModel(CommonModel):
         nan_mask = ~np.isfinite(eu_mfa_mech_rate)
         if nan_mask.any():
             nan_indices = np.argwhere(nan_mask)
-            u_items, n_items = self.dims["u"].items, self.dims["n"].items
-            nan_combos = [(u_items[i[0]], n_items[i[1]]) for i in nan_indices[:20]]
+            v_items, n_items = self.dims["v"].items, self.dims["n"].items
+            nan_combos = [(v_items[i[0]], n_items[i[1]]) for i in nan_indices[:20]]
             logging.warning(
                 f"NaN/Inf values in mechanical_recycling_rate_EU-MFA for {nan_mask.sum()} combinations "
                 f"(EU-MFA_Time, EU-MFA_Material) — keeping existing REMIND-MFA values. "
                 f"First occurrences: {nan_combos}"
             )
             existing = self.parameters["mechanical_recycling_rate"][
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["v"]}
             ].values
             eu_mfa_mech_rate = np.where(nan_mask, existing, eu_mfa_mech_rate)
         self.parameters["mechanical_recycling_rate"][
-            {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["u"]}
-        ] = fd.Parameter(dims=self.dims["u", "p", "n"], values=eu_mfa_mech_rate)
+            {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["v"]}
+        ] = fd.Parameter(dims=self.dims["v", "p", "n"], values=eu_mfa_mech_rate)
         self.parameters["mechanical_recycling_yield"] = fd.Parameter(
             name="mechanical_recycling_yield",
             dims=self.dims["t", "r", "p", "m"],
@@ -214,9 +214,9 @@ class PlasticsModel(CommonModel):
                 f"First occurrences: {nan_combos}"
             )
             existing = self.parameters["mechanical_recycling_yield"][
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["v"]}
             ].values
             eu_mfa_mech_yield = np.where(nan_mask, existing, eu_mfa_mech_yield)
         self.parameters["mechanical_recycling_yield"][
-            {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["u"]}
-        ] = fd.Parameter(dims=self.dims["u", "p", "n"], values=eu_mfa_mech_yield)
+            {"r": EU_MFA_REGION, "m": self.dims["n"], "t": self.dims["v"]}
+        ] = fd.Parameter(dims=self.dims["v", "p", "n"], values=eu_mfa_mech_yield)

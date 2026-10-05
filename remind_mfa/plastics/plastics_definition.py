@@ -22,7 +22,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         fd.DimensionDefinition(name="Good", dim_letter="u", dtype=str),
         fd.DimensionDefinition(name="EU-MFA_Good", dim_letter="f", dtype=str),
         fd.DimensionDefinition(name="EU-MFA_Material", dim_letter="n", dtype=str),
-        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="u", dtype=int),
+        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="v", dtype=int),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
@@ -259,19 +259,19 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         RemindMFAParameterDefinition(name="gdppc", dim_letters=("t", "r", "S"),
                                      description="GDP per capita",),
         # for TRANSIENCE: output parameters from other MIC3 models
-        RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+        RemindMFAParameterDefinition(name="stock_inflow_EU-MFA", dim_letters=("v", "r", "p", "n", "f"),
                                      description="Stock inflow from EU-MFA",
                                      scenario_folder="transience",),
-        RemindMFAParameterDefinition(name="stock_outflow_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+        RemindMFAParameterDefinition(name="stock_outflow_EU-MFA", dim_letters=("v", "r", "p", "n", "f"),
                                      description="Stock outflow from EU-MFA",
                                      scenario_folder="transience",),
-        RemindMFAParameterDefinition(name="collected_eol_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+        RemindMFAParameterDefinition(name="collected_eol_EU-MFA", dim_letters=("v", "r", "p", "n", "f"),
                                      description="Collected EOL plastics from EU-MFA",
                                      scenario_folder="transience",),
-        RemindMFAParameterDefinition(name="sorted_eol_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+        RemindMFAParameterDefinition(name="sorted_eol_EU-MFA", dim_letters=("v", "r", "p", "n", "f"),
                                      description="Sorted EOL plastics from EU-MFA",
                                      scenario_folder="transience",),
-        RemindMFAParameterDefinition(name="recycled_eol_EU-MFA", dim_letters=("u", "r", "p", "n", "f"),
+        RemindMFAParameterDefinition(name="recycled_eol_EU-MFA", dim_letters=("v", "r", "p", "n", "f"),
                                      description="Recycled EOL plastics from EU-MFA",
                                      scenario_folder="transience",),
     ]

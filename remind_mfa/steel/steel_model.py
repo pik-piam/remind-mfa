@@ -185,30 +185,30 @@ class SteelModel(CommonModel):
             f"TRANSIENCE mode is on. Recovery rate for EUR region is computed from EU-MFA. "
         )
         self.parameters["stock_outflow_EU-MFA"] = fd.Parameter(
-            dims=self.dims["u", "f"],
+            dims=self.dims["v", "f"],
             values=(self.parameters["collected_eol_EU-MFA"] + self.parameters["lost_eol_EU-MFA"])[
                 {"r": EU_MFA_REGION}
             ].values,
         )
         self.parameters["collection_rate_EU-MFA"] = fd.Parameter(
-            dims=self.dims["u", "f"],
+            dims=self.dims["v", "f"],
             values=(
                 self.parameters["collected_eol_EU-MFA"][{"r": EU_MFA_REGION}]
                 / self.parameters["stock_outflow_EU-MFA"]
             ).values,
         )
         self.parameters["recovery_rate_EU-MFA"] = fd.Parameter(
-            dims=self.dims["u",],
+            dims=self.dims["v",],
             values=(
                 self.parameters["available_scrap_EU-MFA"][{"r": EU_MFA_REGION}]
-                / self.parameters["collected_eol_EU-MFA"][{"r": EU_MFA_REGION}].sum_to("u")
+                / self.parameters["collected_eol_EU-MFA"][{"r": EU_MFA_REGION}].sum_to("v")
             ).values,
         )
         self.parameters["recovery_rate"] = fd.Parameter(
             name="recovery_rate",
-            dims=self.dims["t", "r", "g"],
-            values=self.parameters["recovery_rate"].cast_to(self.dims["t", "r", "g"]).values,
+            dims=self.dims["t", "r", "u"],
+            values=self.parameters["recovery_rate"].cast_to(self.dims["t", "r", "u"]).values,
         )
         self.parameters["recovery_rate"][
-            {"r": EU_MFA_REGION, "t": self.dims["u"], "g": self.dims["f"]}
+            {"r": EU_MFA_REGION, "t": self.dims["v"], "u": self.dims["f"]}
         ] = (self.parameters["recovery_rate_EU-MFA"] * self.parameters["collection_rate_EU-MFA"])

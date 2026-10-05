@@ -72,7 +72,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         if self.cfg.transience.transience_run == True:
             # store original inflow for comparison
             self.demand_REMIND_MFA = self.stocks["in_use"].inflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ]
             # Replace with EU-MFA data
             # TODO extrapolate EU-MFA data or run MFA only until 2060
@@ -82,12 +82,12 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             )
             self.demand_EU_MFA = demand_EU_MFA[{"r": EU_MFA_REGION}]
             self.stocks["in_use"].inflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].compute()
             # store original outflow (generated from EU-MFA inflow and REMIND-MFA lifetime model) for comparison
             self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ]
             # Replace with EU-MFA data
             stock_outflow_EU_MFA = (
@@ -105,11 +105,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             )
             self.stocks["in_use"].inflow[...] = inflow
             self.stocks["in_use"].inflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].outflow[...] = outflow
             self.stocks["in_use"].outflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.stock_outflow_EU_MFA
             self.stocks["in_use"].compute()
             logging.warning(

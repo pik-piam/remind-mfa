@@ -16,7 +16,7 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Good", dim_letter="u", dtype=str),
         fd.DimensionDefinition(name="EU-MFA_Good", dim_letter="f", dtype=str),
-        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="u", dtype=int),
+        fd.DimensionDefinition(name="EU-MFA_Time", dim_letter="v", dtype=int),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
@@ -241,22 +241,22 @@ def get_steel_definition(cfg: SteelCfg, historic: bool) -> RemindMFADefinition:
         ),
         # for TRANSIENCE: output parameters from other MIC3 models
         RemindMFAParameterDefinition(
-            name="stock_inflow_EU-MFA", dim_letters=("u", "r", "f"),
+            name="stock_inflow_EU-MFA", dim_letters=("v", "r", "f"),
             description="Stock inflow for EU28",
             scenario_folder="transience",
         ),
         RemindMFAParameterDefinition(
-            name="collected_eol_EU-MFA", dim_letters=("u", "r", "f"),
+            name="collected_eol_EU-MFA", dim_letters=("v", "r", "f"),
             description="Collected EOL steel goods for EU28",
             scenario_folder="transience",
         ),
         RemindMFAParameterDefinition(
-            name="lost_eol_EU-MFA", dim_letters=("u", "r", "f"),
+            name="lost_eol_EU-MFA", dim_letters=("v", "r", "f"),
             description="Lost EOL steel goods for EU28",
             scenario_folder="transience",
         ),
         RemindMFAParameterDefinition(
-            name="available_scrap_EU-MFA", dim_letters=("u", "r"),
+            name="available_scrap_EU-MFA", dim_letters=("v", "r"),
             description="Available scrap for EU28",
             scenario_folder="transience",
         ),
