@@ -48,7 +48,7 @@ class CementModel(CommonModel):
         self.parameters["development_weight"] = self.calc_development_weight()
 
         # scenario parameters
-        self.parameters["reuse_share"] = fd.Parameter(dims=self.dims['t', 'u', 'm'])
+        self.parameters["reuse_share"] = fd.Parameter(dims=self.dims["t", "u", "m"])
 
     def calc_development_weight(self) -> fd.Parameter:
         """Development weight per region from GDP per capita at the last historic year:
