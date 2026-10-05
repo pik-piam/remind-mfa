@@ -218,15 +218,21 @@ class CriticallyDampedBlender:
 
         # 2. Set the initial conditions at the transition point
         y0 = self.historical[last_history_idx, :]
-        v0 = self._trend_slope(
-            self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
-        )
+        trend_window = self._lifetime_dependent_n()
+        v0 = self._trend_slope(self.time, self.historical, trend_window, last_history_idx)
+
+        # 2b. Slope of the prediction P(t) itself, computed over the full historic+future
+        # timeline so the transition point is an interior point.
+        dt = self.time[1] - self.time[0]
+        vp_future = np.gradient(self.prediction, dt, axis=0, edge_order=2)[last_history_idx:]
+
         # 3. Integrate to find the blended future path Y(t)
         y_future = self._integrate_transition(
             y0,
             v0,
             t_future,
             p_future,
+            vp_future,
             approaching_time,
         )
 
@@ -245,6 +251,7 @@ class CriticallyDampedBlender:
         v0: np.ndarray,
         t_array: np.ndarray,
         p_array: np.ndarray,
+        vp_array: np.ndarray,
         approaching_time: float,
     ) -> np.ndarray:
         """
@@ -253,7 +260,7 @@ class CriticallyDampedBlender:
 
         The controller drives Y toward P via:
             Y'' + 2k·Y' + k²Y = k²P(t) + 2k·P'(t),   k = 4.74 / approaching_time
-        integrated with a semi-implicit Euler method. P'(t) is estimated with a look-ahead
+        integrated with a semi-implicit Euler method. P'(t) is shifted with a look-ahead
         to prevent overshoot during saturation phases. A quadratic nudge applied after each
         step guarantees convergence to P over the long run.
 
@@ -263,6 +270,8 @@ class CriticallyDampedBlender:
             t_array (np.ndarray): 1D array of time values starting at the transition point.
             p_array (np.ndarray): Target prediction array with time as the first axis,
                 shape ``(len(t_array), spatial...)``. Must be uniformly spaced in time.
+            vp_array (np.ndarray): P'(t), the raw (not yet look-ahead-shifted) slope of the
+                prediction, same shape as ``p_array``.
             approaching_time (float): Characteristic timescale in years. Sets the damping
                 parameter ``k = 4.74 / approaching_time`` and the nudge timescale
                 ``10 * approaching_time``.
@@ -270,7 +279,6 @@ class CriticallyDampedBlender:
         Returns:
             np.ndarray: Integrated trajectory array of shape ``(len(t_array), spatial...)``.
         """
-        n_steps = len(t_array)
         dt = t_array[1] - t_array[0]
 
         # --- Precompute k and nudge schedule ---
@@ -282,8 +290,8 @@ class CriticallyDampedBlender:
         dt_elapsed = t_array - t_array[0]
         nudge_arr = np.minimum(1.0, (dt_elapsed / nudge_timescale) ** 2)
 
-        # --- Precompute look-ahead predictor velocity for each timestep ---
-        vp_array = self._lookahead_velocity(p_array, dt, n_steps, approaching_time)
+        # --- Apply the look-ahead shift to the precomputed predictor velocity ---
+        vp_array = self._lookahead_shift(vp_array, dt, approaching_time)
 
         # --- Initialize state ---
         y = np.zeros_like(p_array, dtype=float)
@@ -292,7 +300,7 @@ class CriticallyDampedBlender:
         y_curr, v_curr = y[0].copy(), v[0].copy()
 
         # --- Integrate ---
-        for i in range(1, n_steps):
+        for i in range(1, len(t_array)):
             # 1. Compute acceleration
             dv_dt = k**2 * (p_array[i] - y_curr) + 2 * k * (vp_array[i] - v_curr)
             # 2. Update velocity and position
@@ -307,40 +315,48 @@ class CriticallyDampedBlender:
 
         return y
 
-    def _lookahead_velocity(
+    def _lookahead_shift(
         self,
-        p_array: np.ndarray,
+        arr: np.ndarray,
         dt: float,
-        n_steps: int,
         approaching_time: float,
     ) -> np.ndarray:
         """
-        Estimate P'(t + n_fwd(t)*dt) for each timestep — the slope of the prediction
-        looked up n_fwd steps ahead. This anticipates future changes in P (e.g. saturation),
-        allowing the D-term of the controller to begin reacting before P actually flattens,
-        preventing overshoot.
+        Shift a time-indexed array by a continuously decreasing look-ahead.
 
+        The time axis must be axis 0; all trailing dimensions are adjusted independently.
+        Looking ahead lets the controller's D-term anticipate future changes in P
+        (e.g. saturation) and begin reacting before P actually flattens, preventing overshoot.
+
+        This function shifts arr(t) to ``arr(t + n_fwd(t) * dt)``.
         n_fwd ramps continuously from n_fwd_max down to 0 over the first half of
         approaching_time, then stays at 0 (plain local slope). The continuous ramp avoids
         the discrete jumps that arise from integer look-ahead steps.
+
+        Args:
+            arr (np.ndarray): Array to shift, with shape ``(n_steps, ...)`` and time on
+                axis 0, starting at the transition point.
+            dt (float): Spacing between consecutive time steps.
+            approaching_time (float): Duration over which the look-ahead ramps to zero.
+
+        Returns:
+            np.ndarray: Look-ahead-shifted array, with the same shape as ``arr``.
         """
+        n_steps = arr.shape[0]
         n_fwd_max = 5
         n_ramp_steps = max(1, int((approaching_time / 2) / dt))
 
         # Continuous look-ahead amount for each step: 5 → 0 over n_ramp_steps, then 0
         n_fwd_cont = n_fwd_max * np.maximum(0.0, 1.0 - np.arange(n_steps) / n_ramp_steps)
 
-        # Slope of p at every step (central differences; second-order one-sided at boundaries)
-        vp_raw = np.gradient(p_array, dt, axis=0)
-
-        # For each step i, look n_fwd_cont[i] steps forward in the slope array
+        # For each step i, look n_fwd_cont[i] steps forward in the array
         look_pos = np.clip(np.arange(n_steps, dtype=float) + n_fwd_cont, 0, n_steps - 1)
 
         # Fractional interpolation between the two bracketing integer positions
         lo = look_pos.astype(int)
         hi = np.minimum(lo + 1, n_steps - 1)
-        w = (look_pos - lo).reshape((-1,) + (1,) * (p_array.ndim - 1))
-        return (1 - w) * vp_raw[lo] + w * vp_raw[hi]
+        w = (look_pos - lo).reshape((-1,) + (1,) * (arr.ndim - 1))
+        return (1 - w) * arr[lo] + w * arr[hi]
 
     def _lifetime_dependent_n(
         self,
@@ -368,8 +384,6 @@ class CriticallyDampedBlender:
         Returns:
             np.ndarray: Array of integer window sizes (number of time steps minus one) shaped
             according to the spatial dimensions of the output stock array.
-        Raises:
-            ValueError: If more than one independent fit dimension is set.
         """
 
         if self.lifetime is None:
@@ -395,69 +409,65 @@ class CriticallyDampedBlender:
         return np.round(n_float).astype(int)
 
     def _trend_slope(
-        self, t: np.ndarray, y: np.ndarray, n: Union[int, np.ndarray], idx: int, deg: int = 1
+        self,
+        t: np.ndarray,
+        y: np.ndarray,
+        window_size: Union[int, np.ndarray],
+        idx: int,
+        deg: int = 1,
     ) -> np.ndarray:
         """
         Calculate the slope of ``y`` at a given time index across all spatial dimensions.
 
-        For each dimension element combination a polynomial of degree ``deg`` (at most) is fitted to the
-        ``n`` most recent time steps ending at ``idx``, and the analytical derivative of that
-        polynomial is evaluated at ``t[idx]``. When fewer than two points are available
-        (``current_deg == 0``), a simple  backward finite-difference fallback is used.
+        For each dimension element combination a polynomial of degree ``deg`` is fitted to
+        the ``window_size + 1`` most recent time steps ending at ``idx``, and the analytical
+        derivative of that polynomial is evaluated at ``t[idx]``.
 
         Args:
             t (np.ndarray): 1-D array of time values.
             y (np.ndarray): Data array with time as the first axis, arbitrary spatial shape thereafter.
-            n (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
-                positions or an array matching the spatial shape of ``y``.
+            window_size (int or np.ndarray): Smoothing window size. Either a scalar applied to all spatial
+                positions or an array matching the spatial shape of ``y``. Must be at least ``deg``
+                everywhere so the fit is well-determined.
             idx (int): Time index at which to evaluate the slope (typically the last historical index).
-            deg (int): Maximum polynomial degree for the local fit. Defaults to 1.
+            deg (int): Polynomial degree for the local fit. Defaults to 1.
 
         Returns:
             np.ndarray: Array of slopes with the same shape as ``y.shape[1:]``.
 
         Raises:
-            ValueError: If ``n`` is an array whose shape does not match the spatial shape of ``y``.
-            ValueError: If ``deg`` is not 1 or 2.
+            ValueError: If any entry of ``window_size`` is smaller than ``deg``.
+            ValueError: If ``window_size`` is an array whose shape does not match the spatial shape of ``y``.
         """
+
+        if not np.all(window_size >= deg):
+            raise ValueError(
+                f"Window size {window_size} must be at least {deg} to fit a polynomial of degree {deg}."
+            )
+
         dim_shape = y.shape[1:]  # assuming time is the first dimension
         deriv_array = np.zeros(dim_shape, dtype=float)
 
-        # Standardize n into an array so we can index it easily
-        if isinstance(n, (int, np.integer)):
-            n_array = np.full(dim_shape, n, dtype=int)
+        # Standardize window_size into an array so we can index it easily
+        if isinstance(window_size, (int, np.integer)):
+            window_sizes = np.full(dim_shape, window_size, dtype=int)
         else:
-            n_array = np.asarray(n)
-            if n_array.shape != dim_shape:
+            window_sizes = np.asarray(window_size)
+            if window_sizes.shape != dim_shape:
                 raise ValueError(
-                    f"Shape of n {n_array.shape} must match spatial shape of y {dim_shape}."
+                    f"Shape of window_size {window_sizes.shape} must match spatial shape of y {dim_shape}."
                 )
 
         for spatial_idx in np.ndindex(dim_shape):
-            current_n = n_array[spatial_idx]
-            start_idx = max(0, idx - current_n)
+            start_idx = max(0, idx - window_sizes[spatial_idx])
 
             time_slice = slice(start_idx, idx + 1)
             t_window = t[time_slice]
             y_window = y[(time_slice,) + spatial_idx]
 
-            # Set degree based on available points, not exceeding specified deg
-            current_deg = min(deg, current_n - 1)
-            if current_deg == 0:
-                # fall back to finite difference
-                deriv_array[spatial_idx] = (y_window[-1] - y_window[-2]) / (
-                    t_window[-1] - t_window[-2]
-                )
-                continue
-
             # Fit polynomial to this single 1D array
-            coeffs = np.polyfit(t_window, y_window, deg=current_deg)
+            polynomial = np.polynomial.Polynomial.fit(t_window, y_window, deg=deg)
 
-            if current_deg == 1:
-                deriv_array[spatial_idx] = coeffs[0]
-            elif current_deg == 2:
-                deriv_array[spatial_idx] = 2 * coeffs[0] * t_window[-1] + coeffs[1]
-            else:
-                raise ValueError("Only polynomial degrees 1 or 2 are supported.")
+            deriv_array[spatial_idx] = polynomial.deriv(1)(t[idx])
 
         return deriv_array
