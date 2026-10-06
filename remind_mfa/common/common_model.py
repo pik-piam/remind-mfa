@@ -18,7 +18,6 @@ from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-from remind_mfa.common.helpers import RegressOverModes, series_export_path
 
 
 class CommonModel:
@@ -34,8 +33,12 @@ class CommonModel:
     get_definition = staticmethod(get_definition)
 
     # TODO: unify, then delete
-    end_use_good_letter: str = None
     historic_stock_name: str = None
+
+    do_stock_extrapolation_with_time_factor: bool = False
+    # parameters for a static time-dependent penetration curve if desired.
+    # Needed in `calculate_time_factor` if do_stock_extrapolation_with_time_factor is True.
+    time_factor_prms = {"horizontal_shift_base": None, "growth_rate": None}
 
     def __init__(self, cfg: dict):
         self.cfg = self.ConfigCls(**cfg)
@@ -69,6 +72,10 @@ class CommonModel:
         logging.info("Running future MFA system...")
         self.future_mfa = self.make_mfa(historic=False)
         self.future_mfa.compute(stock_projection, historic_trade)
+
+    @property
+    def name(self) -> str:
+        return self.cfg.model.value
 
     def export(self):
         self.data_writer.export(model=self)
@@ -214,7 +221,7 @@ class CommonModel:
     def get_stock_sector_split_limit(self):
         prm = self.parameters
         stock_sector_split = (self.lifetime_limit() * prm["sector_split_limit"]).get_shares_over(
-            self.end_use_good_letter
+            "u"
         )
         return stock_sector_split
 
@@ -222,30 +229,11 @@ class CommonModel:
         saturation_level = self.scenario_parameters["saturation_level"]
         sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
 
-        # add static time-dependent penetration curve if desired.
-        if self.cfg.model_switches.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray.full(dims=self.dims["t", "r", "g"], fill_value=1.0)
-            time = np.array(self.dims["t"].items)
-            lifetime = self.lifetime_limit()  # shape (g, r)
-            for r in self.dims["r"].items:
-                for g in self.dims[self.end_use_good_letter].items:
-                    # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
-                    # shifted by the lifetimes, so goods with longer lifetimes reach saturation later
-                    lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
-                    b = 1980 + lt
-                    prms = [1, b, 0.01]
-                    ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class
-                    time_factor[{"r": r, self.end_use_good_letter: g}] = ExtrapolationClass.func(
-                        ExtrapolationClass, time, prms
-                    )
-        else:
-            time_factor = fd.FlodymArray.full(
-                dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1
-            )
+        time_factor = self.calculate_time_factor()
 
         historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = (
-            historic_stocks / sector_specific_sat_level / time_factor[{"t": self.dims["h"]}]
+        normalized_historic_stock = historic_stocks / (
+            sector_specific_sat_level * time_factor[{"t": self.dims["h"]}]
         )
 
         # after normalization, target saturation level is 1 across all regions and sectors.
@@ -260,25 +248,9 @@ class CommonModel:
             upper_bound=np.inf,
         )
         bound_list_obj = BoundList(
-            target_dims=self.dims[self.end_use_good_letter,],
+            target_dims=self.dims["u",],
             bound_list=[sat_level_bound, growth_rate_bound],
         )
-
-        if self.cfg.model_switches.regress_over == RegressOverModes.LOGGDPPC_TIME:
-            growth_rate_bound_gdp = Bound(
-                var_name="x1_growth_rate",
-                lower_bound=0,
-                upper_bound=np.inf,
-            )
-            growth_rate_bound_time = Bound(
-                var_name="x2_growth_rate",
-                lower_bound=0,
-                upper_bound=np.inf,
-            )
-            bound_list_obj = BoundList(
-                target_dims=self.dims[self.end_use_good_letter,],
-                bound_list=[sat_level_bound, growth_rate_bound_gdp, growth_rate_bound_time],
-            )
 
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
@@ -286,7 +258,6 @@ class CommonModel:
             dims=self.dims,
             parameters=self.parameters,
             target_dim_letters="all",
-            indep_fit_dim_letters=(self.end_use_good_letter,),
             bound_list=bound_list_obj,
             lifetime=self.lifetime_limit(),
         )
@@ -299,6 +270,34 @@ class CommonModel:
         long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
 
         return long_term_stock
+
+    def calculate_time_factor(self):
+        # add static time-dependent penetration curve if desired.
+        if self.do_stock_extrapolation_with_time_factor:
+            time_factor = fd.FlodymArray.full(dims=self.dims["t", "r", "u"], fill_value=1.0)
+            time = np.array(self.dims["t"].items)
+            lifetime = self.lifetime_limit()  # shape (u, r)
+            h_base = self.time_factor_prms["horizontal_shift_base"]
+            growth = self.time_factor_prms["growth_rate"]
+            if h_base is None or growth is None:
+                raise ValueError(
+                    "time_factor_prms must be set with 'horizontal_shift_base' and 'growth_rate' when do_stock_extrapolation_with_time_factor is True."
+                )
+            for r in self.dims["r"].items:
+                for u in self.dims["u"].items:
+                    # the horizontal shift base is shifted by the lifetimes,
+                    # so goods with longer lifetimes reach saturation later
+                    lt = lifetime[{"r": r, "u": u}].values.item()
+                    prms = [1, h_base + lt, growth]
+                    ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class
+                    time_factor[{"r": r, "u": u}] = ExtrapolationClass.func(
+                        ExtrapolationClass, time, prms
+                    )
+        else:
+            time_factor = fd.FlodymArray.full(
+                dims=fd.DimensionSet(dim_list=[self.dims["t"]]), fill_value=1
+            )
+        return time_factor
 
     def lifetime_limit(self):
         """Effective lifetime when saturation level is reached.

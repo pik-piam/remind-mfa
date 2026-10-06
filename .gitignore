@@ -4,10 +4,13 @@ data/
 .idea
 .vscode
 remind_mfa.egg-info
+.wrangler/cache/
 site/
-.github/copilot-instructions.md
-.claude/
-CLAUDE.md
+.agents/skills-local/*
+!.agents/skills-local/.gitkeep
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
 madrat_output/
 data_in/parameters/
 data_in/validation/
@@ -17,3 +20,4 @@ config/*.toml
 !config/default.toml
 !config/ci.toml
 !config/mrindustry.toml
+notebooks/__marimo__/session/*

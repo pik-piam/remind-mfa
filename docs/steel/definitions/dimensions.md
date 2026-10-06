@@ -3,5 +3,5 @@
 | Time            | t        |
 | Historic Time   | h        |
 | Region          | r        |
-| Good            | g        |
+| Good            | u        |
 | Driver Scenario | S        |

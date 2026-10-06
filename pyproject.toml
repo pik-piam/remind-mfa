@@ -15,7 +15,7 @@ authors = [
     { name = "Merlin Hosak" },
 ]
 
-requires-python = ">= 3.12"
+requires-python = ">= 3.14"
 dependencies = [
     "matplotlib>=3.7.1,!=3.9.1",
     "numpy>=1.25.0",
@@ -63,3 +63,20 @@ module-root = ""
 
 [tool.black]
 line-length = 100
+
+[tool.ty.rules]
+invalid-argument-type = "ignore"
+not-subscriptable = "ignore"
+missing-argument = "ignore"
+unresolved-attribute = "ignore"
+unsupported-operator = "ignore"
+invalid-assignment = "ignore"
+pydantic-discarded-extra-argument = "ignore"
+too-many-positional-arguments = "ignore"
+invalid-method-override = "ignore"
+invalid-return-type = "ignore"
+unknown-argument = "ignore"
+invalid-parameter-default = "ignore"
+unresolved-import = "ignore"
+redundant-condition = "ignore"
+invalid-type-form = "ignore"

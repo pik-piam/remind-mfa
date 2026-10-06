@@ -37,31 +37,24 @@ def _validate_config(config: dict, path: Path) -> None:
             raise ValueError(f"Top-level configuration key {root!r} in {path} must be a table.")
 
 
-def _resolve_scenarios_path(config: dict, config_path: Path) -> None:
-    """Resolve a relative scenario directory against its declaring configuration file."""
-    for section in config.values():
-        input_config = section.get("input")
-        if not input_config or "scenarios_path" not in input_config:
+def _resolve_paths(config: dict, root_dir: Path) -> None:
+    """Resolve all relative paths in the configuration against the given root directory."""
+    CONFIG_PATHS = [
+        ("input", "input_data_path", True),
+        ("input", "scenarios_path", True),
+        ("input", "madrat_output_path", False),
+        ("export", "path", False),
+    ]
+    for section_name, key, must_exist in CONFIG_PATHS:
+        section = config.get(section_name)
+        if not section or section.get(key) is None:
             continue
-        scenarios_path = _resolve_relative_path(input_config["scenarios_path"], config_path.parent)
-        if not scenarios_path.exists():
+        path = _resolve_relative_path(section[key], root_dir)
+        if must_exist and not path.exists():
             raise FileNotFoundError(
-                f"Scenarios path {scenarios_path} does not exist (declared in {config_path})."
+                f"Path {path} for {section_name}.{key} does not exist (resolved against {root_dir})."
             )
-        input_config["scenarios_path"] = str(scenarios_path)
-
-
-def _resolve_input_data_path(config: dict, root_dir: Path) -> None:
-    """Resolve a relative input data directory against the given root directory."""
-    input_config = config.get("input")
-    if not input_config or "input_data_path" not in input_config:
-        return
-    input_data_path = _resolve_relative_path(input_config["input_data_path"], root_dir)
-    if not input_data_path.exists():
-        raise FileNotFoundError(
-            f"Input data path {input_data_path} does not exist (resolved against {root_dir})."
-        )
-    input_config["input_data_path"] = str(input_data_path)
+        section[key] = str(path)
 
 
 def _resolve_relative_path(path: str, root_dir: Path) -> Path:
@@ -88,7 +81,6 @@ def _load_config_file(name: str | Path, config_dir: Path = CONFIG_DIR) -> dict:
         data = tomllib.load(stream)
 
     _validate_config(data, path)
-    _resolve_scenarios_path(data, path)
     return data
 
 
@@ -98,7 +90,10 @@ def load_config(
     config_dir: Path = CONFIG_DIR,
     root_dir: Path | None = None,
 ) -> dict:
-    """Load and merge the specified configuration, and return the resulting, validated model configuration."""
+    """Load and merge the specified configuration, and return the resulting, validated model configuration.
+
+    Relative paths in the configuration are resolved against `root_dir` (default: current working directory).
+    """
     layers = [_load_config_file(name, config_dir) for name in config_names]
 
     # Merge the base and model-specific configurations from all layers
@@ -111,7 +106,7 @@ def load_config(
 
     # Merge the model-specific configuration into the base configuration
     config = _deep_merge(base_config, model_config)
-    _resolve_input_data_path(config, root_dir if root_dir is not None else Path.cwd())
+    _resolve_paths(config, root_dir if root_dir is not None else Path.cwd())
     if model is not None:
         config["model"] = model.value
         get_model_class(model).ConfigCls.model_validate(config)
