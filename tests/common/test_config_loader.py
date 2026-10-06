@@ -24,7 +24,9 @@ def test_paths_are_relative_to_root_dir(tmp_path: Path):
     (tmp_path / "data_in").mkdir()
     (tmp_path / "config" / "scenarios").mkdir(parents=True)
     config_path = tmp_path / "custom.toml"
-    config_path.write_text('[base.input]\nmadrat_output_path = "madrat_overwrite"\n', encoding="utf-8")
+    config_path.write_text(
+        '[base.input]\nmadrat_output_path = "madrat_overwrite"\n', encoding="utf-8"
+    )
 
     config = load_config(
         [CONFIG_DIR / "default.toml", config_path], ModelNames.STEEL, root_dir=tmp_path
