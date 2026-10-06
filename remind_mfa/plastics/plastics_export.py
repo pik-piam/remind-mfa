@@ -26,9 +26,7 @@ class PlasticsDataExporter(CommonDataExporter):
     @staticmethod
     def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Demand for primary plastics."""
-        return (
-            mfa.flows["primary_market => fabrication"]
-        ).sum_to(("t", "r", "m"))
+        return (mfa.flows["primary_market => fabrication"]).sum_to(("t", "r", "m"))
 
     @staticmethod
     def _plastics_primary_production(mfa: fd.MFASystem) -> fd.FlodymArray:

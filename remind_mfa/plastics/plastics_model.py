@@ -150,9 +150,7 @@ class PlasticsModel(CommonModel):
         self.parameters["collection_rate"] = fd.Parameter(
             name="collection_rate",
             dims=self.dims["t", "r", "m", "u"],
-            values=self.parameters["collection_rate"]
-            .cast_to(self.dims["t", "r", "m", "u"])
-            .values,
+            values=self.parameters["collection_rate"].cast_to(self.dims["t", "r", "m", "u"]).values,
         )
         eu_mfa_collection_rate = self.parameters["collection_rate_EU-MFA"].values
         nan_mask = ~np.isfinite(eu_mfa_collection_rate)
