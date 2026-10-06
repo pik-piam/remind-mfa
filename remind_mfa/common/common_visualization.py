@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
@@ -19,6 +20,8 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
+
+_INVALID_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*]')
 
 
 class CommonVisualizer(RemindMFABaseModel):
@@ -121,7 +124,10 @@ class CommonVisualizer(RemindMFABaseModel):
     def figure_path(self, base_name: str, extension: str = "png") -> str:
         figures_dir = os.path.join(self._model.data_writer.run_path(), "figures")
         os.makedirs(figures_dir, exist_ok=True)
-        return os.path.join(figures_dir, f"{base_name}.{extension}")
+        # base_name may carry a flow or parameter name such as "reclmech => aux_recyclate_trade",
+        # which is not a valid file name on all platforms.
+        safe_name = _INVALID_FILENAME_CHARS.sub("_", base_name.replace(" => ", "_to_")).strip()
+        return os.path.join(figures_dir, f"{safe_name}.{extension}")
 
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
@@ -723,7 +729,7 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(
             fig,
-            base_name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+            base_name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}",
         )
 
     def visualize_transience_outflow(
@@ -788,7 +794,7 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(
             fig,
-            base_name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+            base_name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}",
         )
 
     def visualize_transience_eol_parameters(
@@ -828,5 +834,5 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap_2.plot()
         self._show_and_save_plotly(
-            fig, base_name=f"transience_comparison_{parameter_REMIND_MFA.name}.png"
+            fig, base_name=f"transience_comparison_{parameter_REMIND_MFA.name}"
         )

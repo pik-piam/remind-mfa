@@ -39,14 +39,22 @@ with ``--custom``. These are *not* parsed into the scenario group/ambition/trade
 structure; they are simply drawn as plain solid lines labelled by their pickle
 stem (in a distinct colour palette), on top of the scenario figures.
 
+Runs are read from the export directory (``export.path`` in the config, by default
+``data_out/transience``), where each run has its own folder holding a ``model.pickle``.
+A run is named by that folder, e.g.
+``2026-10-06--10-03-42_plastics_SSP2_h12_CE-PET_fd_plastics_S1_default``.
+
 Usage
 -----
-    python scripts/compare_runs_EU.py --model steel  [run_stem ...]
-    python scripts/compare_runs_EU.py --model plastics [run_stem ...]
-    python scripts/compare_runs_EU.py --model plastics S1 S2 --custom my_run other_run
+    python scripts/compare_runs_EU.py --model steel  [run_folder ...]
+    python scripts/compare_runs_EU.py --model plastics [run_folder ...]
+    python scripts/compare_runs_EU.py --model plastics run_a run_b --custom run_c
+    python scripts/compare_runs_EU.py --model steel --dir data_out/my_experiment
 
-With no run stems given, an interactive checkbox picker is shown (and, after the
+With no run folders given, an interactive checkbox picker is shown (and, after the
 scenario runs are chosen, a second picker for optional custom runs).
+
+Comparison figures and CSVs are written to ``<export dir>/comparison/<model>/``.
 """
 
 import pickle
@@ -67,10 +75,19 @@ from plotly.subplots import make_subplots
 
 # ── CLI / paths ──────────────────────────────────────────────────────────────
 
-DIRECTORIES = {
-    "plastics": "data/plastics/output/transience/pickle",
-    "steel": "data/steel/output/transience/pickle",
-}
+# Every run gets its own folder under the export base (``export.path`` in config/default.toml),
+# named ``<timestamp>_<model>_<scenario>_<region>_<transience_scenario>_<trade_scenario>``, and the
+# pickle inside it is always called ``model.pickle``. A run is therefore identified by its folder
+# name, and runs of all models share one directory.
+EXPORT_DIR = "data_out/transience"
+PICKLE_NAME = "model.pickle"
+# flat runs, and runs nested in a ``<prefix>_series`` folder (export.bundle_export = true)
+RUN_GLOBS = (f"*/{PICKLE_NAME}", f"*/*/{PICKLE_NAME}")
+
+MODELS = ("steel", "plastics")
+
+# comparison figures and CSVs go here, next to the runs they are built from
+COMPARISON_SUBDIR = "comparison"
 
 RUN_DIM_LETTER = "X"
 RUN_DIM_NAME = "Run"
@@ -78,12 +95,17 @@ RUN_DIM_NAME = "Run"
 
 def _parse_args():
     p = argparse.ArgumentParser(description="Compare multiple model runs visually.")
-    p.add_argument("runs", nargs="*", help="Scenario run stems (no .pickle extension)")
+    p.add_argument("runs", nargs="*", help="Scenario run folder names (under the export directory)")
     p.add_argument(
         "--model",
         default="steel",
-        choices=list(DIRECTORIES),
+        choices=list(MODELS),
         help="Which model type to compare (default: steel)",
+    )
+    p.add_argument(
+        "--dir",
+        default=EXPORT_DIR,
+        help=f"Export base directory holding the run folders (default: {EXPORT_DIR})",
     )
     p.add_argument(
         "--custom",
@@ -363,7 +385,7 @@ PLASTICS_CONFIG = ModelConfig(
             market="primary",
             label="Traded recyclate",
             filename="pl_traded_recyclate_EU-MFA.cs4r",
-            base_dir="../remind_mfa_data/transience",
+            base_dir="data_in/legacy/transience",
             scenarios={
                 "S0": "CE-PET_fd_plastics_S0",
                 "S1": "CE-PET_fd_plastics_S1",
@@ -384,40 +406,66 @@ MODEL_CONFIGS = {"steel": STEEL_CONFIG, "plastics": PLASTICS_CONFIG}
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 
-def pick_files(directory: pathlib.Path, runs: Optional[list[str]]) -> list[pathlib.Path]:
-    available = sorted(directory.glob("model_*.pickle"))
+def available_runs(directory: pathlib.Path, model: str) -> list[pathlib.Path]:
+    """Pickle paths of all runs of ``model`` under ``directory``, oldest first.
+
+    Runs of every model share the export directory, so they are told apart by the
+    ``_<model>_`` segment of the run folder name. Folder names start with a sortable
+    timestamp, so sorting by name sorts by run time.
+    """
+    found = {p for glob in RUN_GLOBS for p in directory.glob(glob)}
+    return sorted((p for p in found if f"_{model}_" in p.parent.name), key=lambda p: p.parent.name)
+
+
+def run_id(path: pathlib.Path, directory: pathlib.Path) -> str:
+    """Identifier of a run pickle: its folder name, as accepted on the command line."""
+    try:
+        return str(path.parent.relative_to(directory))
+    except ValueError:  # a pickle from outside the export directory
+        return path.parent.name
+
+
+def pick_files(
+    directory: pathlib.Path, model: str, runs: Optional[list[str]]
+) -> list[pathlib.Path]:
+    available = available_runs(directory, model)
     if not available:
-        raise FileNotFoundError(f"No model_*.pickle files found in {directory}")
+        raise FileNotFoundError(
+            f"No {model} run folders containing {PICKLE_NAME} found in {directory}"
+        )
     if runs:
-        return [directory / f"{r}.pickle" for r in runs]
+        return [_resolve_path(r, directory) for r in runs]
     chosen = questionary.checkbox(
         "Select runs to compare:",
-        choices=[f.name for f in available],
+        choices=[run_id(p, directory) for p in available],
         validate=lambda s: True if s else "Select at least one file.",
     ).ask()
     if not chosen:
         raise ValueError("No files selected.")
-    return [directory / name for name in chosen]
+    return [_resolve_path(name, directory) for name in chosen]
 
 
 def _resolve_path(run: str, directory: pathlib.Path) -> pathlib.Path:
-    """Turn a stem or path into a concrete pickle path under ``directory``."""
+    """Turn a run folder name (or a path to a pickle) into a concrete pickle path."""
     p = pathlib.Path(run)
-    if not p.suffix:
-        p = p.with_suffix(".pickle")
+    if p.suffix != ".pickle":
+        p = p / PICKLE_NAME
     if not p.is_absolute():
         p = directory / p
     return p
 
 
 def pick_custom_files(
-    directory: pathlib.Path, custom_args: Optional[list[str]], exclude: list[pathlib.Path]
+    directory: pathlib.Path,
+    model: str,
+    custom_args: Optional[list[str]],
+    exclude: list[pathlib.Path],
 ) -> list[pathlib.Path]:
     """Resolve custom run paths.
 
-    * ``custom_args`` given (``--custom a b``) → resolve those stems/paths.
+    * ``custom_args`` given (``--custom a b``) → resolve those folder names/paths.
     * ``custom_args is None`` (flag omitted) and we are interactive (no scenario
-      stems on the CLI) → offer a second checkbox of the remaining pickles.
+      folder names on the CLI) → offer a second checkbox of the remaining runs.
     * otherwise → no custom runs.
     """
     if custom_args:
@@ -425,48 +473,75 @@ def pick_custom_files(
     if custom_args is not None:
         return []  # --custom passed with no values
     # interactive fallback: only when the scenario picker was interactive
-    available = sorted(directory.glob("model_*.pickle"))
     excluded = {p.resolve() for p in exclude}
-    remaining = [f for f in available if f.resolve() not in excluded]
+    remaining = [p for p in available_runs(directory, model) if p.resolve() not in excluded]
     if not remaining:
         return []
     chosen = questionary.checkbox(
-        "Select optional custom runs (plain lines, labelled by file name):",
-        choices=[f.name for f in remaining],
+        "Select optional custom runs (plain lines, labelled by run name):",
+        choices=[run_id(p, directory) for p in remaining],
     ).ask()
-    return [directory / name for name in (chosen or [])]
+    return [_resolve_path(name, directory) for name in (chosen or [])]
 
 
-def custom_label(stem: str, model: str) -> str:
-    """Short label for a custom run: the pickle stem minus ``model_<model>_``."""
-    parts = [p for p in stem.split("_") if p not in ("model", model)]
-    return "_".join(parts) or stem
+def custom_label(run_name: str, model: str) -> str:
+    """Short label for a custom run: the run folder name minus timestamp and model."""
+    parts = run_name.split("_")
+    if parts and parts[0][:2].isdigit():  # leading export timestamp
+        parts = parts[1:]
+    if parts and parts[0] == model:
+        parts = parts[1:]
+    return "_".join(parts) or run_name
+
+
+def _cs4r_columns(path: pathlib.Path, ncol: int) -> list[str]:
+    """Column names of a cs4r file, read from its ``dimensions:`` header comment.
+
+    The header looks like ``* note: dimensions: (EU-MFA_Time,Region,EU-MFA_Material,value)``.
+    Dimension names are normalised to the short names used for filtering below
+    (``Time``, ``Region``, ``Material``, ``Good``), so an extra dimension such as
+    ``Type`` simply keeps its own name and is summed over.
+    """
+    with path.open() as fh:
+        header = [line for line in fh if line.startswith("*")]
+    for line in header:
+        if "dimensions:" in line:
+            names = line.split("dimensions:", 1)[1].strip().strip("()").split(",")
+            names = [n.strip().replace("EU-MFA_", "") for n in names]
+            if len(names) == ncol:
+                return names
+            break
+    # fall back to the common layouts when the header is missing or disagrees
+    fallback = {
+        3: ["Time", "Region", "value"],
+        4: ["Time", "Region", "Good", "value"],
+        5: ["Time", "Region", "Material", "Good", "value"],
+    }
+    if ncol not in fallback:
+        raise ValueError(f"Cannot determine the {ncol} column names of {path}")
+    return fallback[ncol]
 
 
 def load_cs4r_series(path: pathlib.Path, region=None, material=None, good=None, sign: float = 1.0):
     """Read a cs4r flow file and return ``(years, values)`` summed over Time.
 
-    cs4r layout: comment lines start with ``*``; the data is comma-separated with
-    no header. The value is always the last column; the leading columns are
-    ``Time, Region, [Material], [Good]`` (column count varies by flow).
+    cs4r layout: comment lines start with ``*``; the data is comma-separated with no
+    header row. The value is always the last column; the dimensions of the leading
+    columns are named in the header (see :func:`_cs4r_columns`). Any dimension not
+    filtered on is summed over.
     """
     raw = pd.read_csv(path, comment="*", header=None)
-    ncol = raw.shape[1]
-    if ncol == 5:
-        raw.columns = ["Time", "Region", "Material", "Good", "value"]
-    elif ncol == 4:
-        raw.columns = ["Time", "Region", "Good", "value"]
-    elif ncol == 3:
-        raw.columns = ["Time", "Region", "value"]
-    else:
-        raise ValueError(f"Unexpected cs4r column count {ncol} in {path}")
+    raw.columns = _cs4r_columns(path, raw.shape[1])
 
-    if region is not None and "Region" in raw:
-        raw = raw[raw["Region"] == region]
-    if material is not None and "Material" in raw:
-        raw = raw[raw["Material"] == material]
-    if good is not None and "Good" in raw:
-        raw = raw[raw["Good"] == good]
+    for column, value in (("Region", region), ("Material", material), ("Good", good)):
+        if value is None or column not in raw:
+            continue
+        present = sorted(raw[column].unique())
+        if value not in present:
+            # Not silently tolerated: it usually means the file is from a different
+            # processing stage than the model's input (e.g. still at EU27+3 resolution).
+            raise ValueError(f"{column} {value!r} not in {path}; it has {present}")
+        raw = raw[raw[column] == value]
 
     series = raw.groupby("Time")["value"].sum().sort_index()
     return series.index.to_numpy(), sign * series.to_numpy()
@@ -657,6 +732,9 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 
         # ── entry point ────────────────────────────────────────────────────
         def visualize(self, model):
+            # bound here rather than by the base class, whose visualize() we replace;
+            # figure_path() resolves the output folder through it
+            self._model = model
             mfa = model.future_mfa
             run_letter = mfa.dims[RUN].letter
             run_labels = list(mfa.dims[RUN].items)
@@ -706,14 +784,14 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         def _net_imports(self, mfa, spec: MarketSpec, run_letter) -> np.ndarray:
             """Net imports (imports − exports) for one market, shape (n_t, n_run)."""
             trade = mfa.trade_set.markets[spec.name]
-            sel = self._sel(trade.imports, {"r": cfg.region, "g": spec.good, "m": spec.material})
+            sel = self._sel(trade.imports, {"r": cfg.region, "u": spec.good, "m": spec.material})
             sel = {k: v for k, v in sel.items() if v is not None}
             return (trade.imports - trade.exports)[sel].sum_to(["t", run_letter]).values
 
         def _demand_matrix(self, mfa, source, run_letter, good=None, material=None) -> np.ndarray:
             """Summed demand series over (t, run), filtered to good/material."""
             arr = self._resolve(mfa, source)
-            sel = self._sel(arr, {"r": cfg.region, "g": good, "m": material})
+            sel = self._sel(arr, {"r": cfg.region, "u": good, "m": material})
             sel = {k: v for k, v in sel.items() if v is not None}
             return arr[sel].sum_to(["t", run_letter]).values
 
@@ -965,8 +1043,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 exports = trade.exports[{"r": region}] if region is not None else trade.exports
 
                 mkt_good = (good_filters or {}).get(name)
-                if mkt_good is not None and "g" in imports.dims.letters:
-                    imports, exports = imports[{"g": mkt_good}], exports[{"g": mkt_good}]
+                if mkt_good is not None and "u" in imports.dims.letters:
+                    imports, exports = imports[{"u": mkt_good}], exports[{"u": mkt_good}]
                 mkt_mat = (material_filters or {}).get(name)
                 if mkt_mat is not None and "m" in imports.dims.letters:
                     imports, exports = imports[{"m": mkt_mat}], exports[{"m": mkt_mat}]
@@ -1014,7 +1092,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 fig.update_xaxes(range=[cfg.x_start_year, cfg.x_end_year])
                 self._add_hist_line(fig)
                 self._draw_trade_overlays(fig, name)
-                self.plot_and_save_figure(ap_exports, f"trade_{name}.png", do_plot=False)
+                self.plot_and_save_figure(ap_exports, f"trade_{name}", do_plot=False)
 
         # ── external cs4r overlays on a trade figure ────────────────────────
         def _draw_trade_overlays(self, fig, market_name):
@@ -1049,7 +1127,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 if not self._has_source(mfa, spec.source):
                     continue
                 arr = self._resolve(mfa, spec.source)
-                sel = self._sel(arr, {"m": spec.material, "g": spec.good})
+                sel = self._sel(arr, {"m": spec.material, "u": spec.good})
                 sel = {k: v for k, v in sel.items() if v is not None}
                 self.visualize_flow(
                     mfa,
@@ -1082,7 +1160,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             )
             fig.update_xaxes(range=[cfg.x_start_year, cfg.x_end_year])
             self._add_hist_line(fig)
-            self.plot_and_save_figure(ap_flow, f"{name}.png", do_plot=False)
+            self.plot_and_save_figure(ap_flow, name, do_plot=False)
 
         # ── Δ net imports vs baseline ───────────────────────────────────────
         def visualize_delta_net_imports(self, mfa, run_labels, run_letter):
@@ -1238,7 +1316,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         # ── gross trade ──────────────────────────────────────────────────────
         def _gross_matrices(self, mfa, spec: MarketSpec, run_letter):
             trade = mfa.trade_set.markets[spec.name]
-            sel = self._sel(trade.imports, {"r": cfg.region, "g": spec.good, "m": spec.material})
+            sel = self._sel(trade.imports, {"r": cfg.region, "u": spec.good, "m": spec.material})
             sel = {k: v for k, v in sel.items() if v is not None}
             return (
                 trade.imports[sel].sum_to(["t", run_letter]).values,
@@ -1542,7 +1620,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 spec = dp.market
                 trade = mfa.trade_set.markets[spec.name]
                 sel = self._sel(
-                    trade.imports, {run_letter: baseline_label, "g": spec.good, "m": spec.material}
+                    trade.imports, {run_letter: baseline_label, "u": spec.good, "m": spec.material}
                 )
                 sel = {k: v for k, v in sel.items() if v is not None}
                 imp = trade.imports[sel].sum_to(["t", "r"]).values / 1e6
@@ -1607,7 +1685,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 if not self._has_source(mfa, dp.demand):
                     continue
                 spec = dp.market
-                base_sel = {run_letter: baseline_label, "g": spec.good, "m": spec.material}
+                base_sel = {run_letter: baseline_label, "u": spec.good, "m": spec.material}
 
                 demand_arr = self._resolve(mfa, dp.demand)
                 demand = (
@@ -1682,7 +1760,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
 def export_trade_csv(models, labels, directory: pathlib.Path, output_dir=None):
     """One CSV per (run, market): [dims…, imports_t, exports_t, net_imports_t]."""
     if output_dir is None:
-        output_dir = directory.parent / "trade_csv"
+        output_dir = directory / COMPARISON_SUBDIR / "trade_csv"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for model, label in zip(models, labels):
@@ -1705,7 +1783,7 @@ def export_trade_csv(models, labels, directory: pathlib.Path, output_dir=None):
 def export_flows_csv(models, labels, cfg: ModelConfig, directory: pathlib.Path, output_dir=None):
     """One CSV per (run, flow) for the model's configured demand/supply flows."""
     if output_dir is None:
-        output_dir = directory.parent / "flows_csv"
+        output_dir = directory / COMPARISON_SUBDIR / "flows_csv"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     def resolve(mfa, source):
@@ -1736,13 +1814,13 @@ def export_flows_csv(models, labels, cfg: ModelConfig, directory: pathlib.Path, 
 def main():
     args = _parse_args()
     cfg = MODEL_CONFIGS[args.model]
-    directory = pathlib.Path(DIRECTORIES[args.model])
+    directory = pathlib.Path(args.dir)
 
-    scenario_paths = pick_files(directory, args.runs or None)
-    scenario_labels = [make_short_label(p.stem, args.model) for p in scenario_paths]
+    scenario_paths = pick_files(directory, args.model, args.runs or None)
+    scenario_labels = [make_short_label(run_id(p, directory), args.model) for p in scenario_paths]
 
-    custom_paths = pick_custom_files(directory, args.custom, exclude=scenario_paths)
-    custom_labels = [custom_label(p.stem, args.model) for p in custom_paths]
+    custom_paths = pick_custom_files(directory, args.model, args.custom, exclude=scenario_paths)
+    custom_labels = [custom_label(run_id(p, directory), args.model) for p in custom_paths]
 
     # Scenario runs first, then custom runs; custom indices are the trailing ones.
     paths = scenario_paths + custom_paths
@@ -1756,10 +1834,11 @@ def main():
         print(f"  [{tag}] {label}: {path}")
     models = load_models(paths)
 
+    output_root = directory / COMPARISON_SUBDIR / args.model
     print("Exporting trade CSVs…")
-    export_trade_csv(models, labels, directory)
+    export_trade_csv(models, labels, directory, output_root / "trade_csv")
     print("Exporting flow CSVs…")
-    export_flows_csv(models, labels, cfg, directory)
+    export_flows_csv(models, labels, cfg, directory, output_root / "flows_csv")
 
     run_dim = fd.Dimension(letter=RUN_DIM_LETTER, name=RUN_DIM_NAME, items=labels)
     combined_mfa = build_combined_mfa(models, run_dim)
@@ -1769,6 +1848,13 @@ def main():
     base_model = models[0]
     fake_model = copy.copy(base_model)
     fake_model.future_mfa = combined_mfa
+
+    # The unpickled exporter still points at the first run's own export folder, so the
+    # comparison figures would land inside one scenario's results. Send them to a folder
+    # of their own instead (figure_path() creates the "figures" subfolder below it).
+    fake_model.data_writer = base_model.data_writer.model_copy()
+    fake_model.data_writer._run_path = str(output_root)
+    print(f"Figures will be written to {output_root / 'figures'}")
 
     base_vis = base_model.visualizer
     vis = VisualizerCls(cfg=base_vis.cfg, display_names=base_vis.display_names)
