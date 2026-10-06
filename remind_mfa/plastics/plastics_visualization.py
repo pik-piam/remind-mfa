@@ -276,12 +276,16 @@ class PlasticsVisualizer(CommonVisualizer):
                 "primary": "Material",
                 "final": "Material",
                 "waste": "Material",
+                "aux_recyclate_trade": "Material",
+                "aux_recl_feedstock_trade": None,
             }
         else:
             linecolor_dims = {
                 "primary": None,
                 "final": None,
                 "waste": None,
+                "aux_recyclate_trade": None,
+                "aux_recl_feedstock_trade": None,
             }
         super().visualize_net_trade(mfa, linecolor_dims=linecolor_dims)
 
