@@ -33,7 +33,6 @@ class CommonModel:
     get_definition = staticmethod(get_definition)
 
     # TODO: unify, then delete
-    end_use_good_letter: str = None
     historic_stock_name: str = None
 
     do_stock_extrapolation_with_time_factor: bool = False
@@ -222,7 +221,7 @@ class CommonModel:
     def get_stock_sector_split_limit(self):
         prm = self.parameters
         stock_sector_split = (self.lifetime_limit() * prm["sector_split_limit"]).get_shares_over(
-            self.end_use_good_letter
+            "u"
         )
         return stock_sector_split
 
@@ -249,7 +248,7 @@ class CommonModel:
             upper_bound=np.inf,
         )
         bound_list_obj = BoundList(
-            target_dims=self.dims[self.end_use_good_letter,],
+            target_dims=self.dims["u",],
             bound_list=[sat_level_bound, growth_rate_bound],
         )
 
@@ -259,7 +258,6 @@ class CommonModel:
             dims=self.dims,
             parameters=self.parameters,
             target_dim_letters="all",
-            end_use_good_letter=self.end_use_good_letter,
             bound_list=bound_list_obj,
             lifetime=self.lifetime_limit(),
         )
@@ -276,11 +274,9 @@ class CommonModel:
     def calculate_time_factor(self):
         # add static time-dependent penetration curve if desired.
         if self.do_stock_extrapolation_with_time_factor:
-            time_factor = fd.FlodymArray.full(
-                dims=self.dims["t", "r", self.end_use_good_letter], fill_value=1.0
-            )
+            time_factor = fd.FlodymArray.full(dims=self.dims["t", "r", "u"], fill_value=1.0)
             time = np.array(self.dims["t"].items)
-            lifetime = self.lifetime_limit()  # shape (g, r)
+            lifetime = self.lifetime_limit()  # shape (u, r)
             h_base = self.time_factor_prms["horizontal_shift_base"]
             growth = self.time_factor_prms["growth_rate"]
             if h_base is None or growth is None:
@@ -288,13 +284,13 @@ class CommonModel:
                     "time_factor_prms must be set with 'horizontal_shift_base' and 'growth_rate' when do_stock_extrapolation_with_time_factor is True."
                 )
             for r in self.dims["r"].items:
-                for g in self.dims[self.end_use_good_letter].items:
+                for u in self.dims["u"].items:
                     # the horizontal shift base is shifted by the lifetimes,
                     # so goods with longer lifetimes reach saturation later
-                    lt = lifetime[{"r": r, self.end_use_good_letter: g}].values.item()
+                    lt = lifetime[{"r": r, "u": u}].values.item()
                     prms = [1, h_base + lt, growth]
                     ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class
-                    time_factor[{"r": r, self.end_use_good_letter: g}] = ExtrapolationClass.func(
+                    time_factor[{"r": r, "u": u}] = ExtrapolationClass.func(
                         ExtrapolationClass, time, prms
                     )
         else:

@@ -37,6 +37,19 @@ class Trade(RemindMFABaseModel):
     def net_exports(self):
         return self.exports - self.imports
 
+    def sum_over(self, dim_letters: str | tuple) -> "Trade":
+        """Return a copy of this trade with the given dimension(s) summed away.
+
+        Used to hand a trade over to a system that resolves fewer dimensions, e.g. the historic
+        plastics trade (which carries the polymer type 'p') to the future MFA system (which does
+        not, since 'p' is redundant with the material dimension 'm').
+        """
+        return Trade(
+            name=self.name,
+            imports=self.imports.sum_over(dim_letters),
+            exports=self.exports.sum_over(dim_letters),
+        )
+
     def balance(self, to: str = "hmean", mask_scaled: EllipsisType | np.ndarray = Ellipsis):
         """
         Balances the trade data to ensure that the global imports and exports are consistent.

@@ -46,15 +46,6 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_eol_data_by_region_and_year(mfa=self._model.future_mfa)
             self.export_use_data_by_region_and_year(mfa=self._model.future_mfa)
             self.export_recycling_data_by_region_and_year(mfa=self._model.future_mfa)
-            self.export_stock_extrapolation()
-
-    def export_stock_extrapolation(self):
-        self._model.stock_handler.pure_parameters.to_df().to_csv(
-            self.export_path("csv", "stock_extrapolation_parameters.csv")
-        )
-        self._model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
-            self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
-        )
 
     def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem):
         eol_data = (
@@ -96,7 +87,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics",  # PRISMA nomenclature
                 calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
-                    ("t", "r", "g")
+                    ("t", "r", "u")
                 ),
                 unit="t/yr",
                 split_name="Good",
@@ -104,11 +95,14 @@ class PlasticsDataExporter(CommonDataExporter):
             # demand by polymer type
             # Same parent as the "by Good" split above (orthogonal breakdown), so opt out of
             # summing these children back into the parent to avoid double-counting the total.
+            # The MFA system does not resolve the type dimension, so the material-resolved demand
+            # is re-expanded to it via the type mapping.
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics",
-                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
-                    ("t", "r", "p")
-                ),
+                calculation_function=lambda mfa: (
+                    mfa.stocks["in_use"].inflow.sum_to(("t", "r", "m"))
+                    * mfa.parameters["material_type_mapping"]
+                ).sum_to(("t", "r", "p")),
                 unit="t/yr",
                 split_name="Type",
                 aggregate_parent=False,
@@ -140,7 +134,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Import|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
                 calculation_function=lambda mfa: mfa.flows["imports => good_market"].sum_to(
-                    ("t", "r", "g")
+                    ("t", "r", "u")
                 ),
                 unit="t/yr",
                 split_name="Good",
@@ -148,7 +142,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
                 calculation_function=lambda mfa: mfa.flows["good_market => exports"].sum_to(
-                    ("t", "r", "g")
+                    ("t", "r", "u")
                 ),
                 unit="t/yr",
                 split_name="Good",
