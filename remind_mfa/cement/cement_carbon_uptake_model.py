@@ -222,9 +222,9 @@ class CementCarbonUptakeModel(BaseModel):
         cement_k_idx = list(stk.dims["k"].items).index("cement")
 
         # share of each cohort's inflow that is newly produced (not reused)
-        inflow = stk.inflow.values[..., cement_k_idx]
-        new_inflow = self.flows["prod_product => use"].values[..., cement_k_idx]
-        new_share = np.divide(new_inflow, inflow, out=np.zeros_like(inflow), where=inflow != 0)
+        new_share = safe_share(
+            self.flows["prod_product => use"][{"k": "cement"}], stk.inflow[{"k": "cement"}]
+        )
 
         # create age dimension
         ages = [i for i in range(stk._n_t)][::-1]
@@ -391,10 +391,8 @@ class CementCarbonUptakeModel(BaseModel):
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
 
         # (I5) only the non-reused outflow enters eol: rescale from in-use outflow to eol inflow
-        outflow = stk_in_use.outflow.values[..., cement_k_idx]
-        eol_inflow = self.stocks["eol"].inflow.values[..., cement_k_idx]
-        uncarbonated_inflow *= np.divide(
-            eol_inflow, outflow, out=np.zeros_like(outflow), where=outflow != 0
+        uncarbonated_inflow *= safe_share(
+            self.stocks["eol"].inflow[{"k": "cement"}], stk_in_use.outflow[{"k": "cement"}]
         )
 
         uncarbonated_inflow = fd.FlodymArray(dims=stk_dims_no_k, values=uncarbonated_inflow)
@@ -570,6 +568,15 @@ def get_volume_sphere(a: fd.FlodymArray, b: fd.FlodymArray) -> fd.FlodymArray:
 
     factor = np.pi / (3 * (rmax - rmin))
     return factor * (rmax**4 - rmin**4)
+
+
+def safe_share(part: fd.FlodymArray, total: fd.FlodymArray) -> np.ndarray:
+    """
+    Share part / total in the dimensions of total, set to zero where total is zero.
+    """
+    part = part.cast_to(total.dims).values
+    total = total.values
+    return np.divide(part, total, out=np.zeros_like(total), where=total != 0)
 
 
 def windowed_sum(arr: np.ndarray, window: int):
