@@ -6,5 +6,5 @@
 | Element         | e        |
 | Material        | m        |
 | Type            | p        |
-| Good            | g        |
+| Good            | u        |
 | Driver Scenario | S        |
