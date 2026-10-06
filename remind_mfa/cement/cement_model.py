@@ -47,9 +47,6 @@ class CementModel(CommonModel):
         # development weight for gdp-dependent parameters/scenarios
         self.parameters["development_weight"] = self.calc_development_weight()
 
-        # scenario parameters
-        self.parameters["concrete_reuse_share"] = fd.Parameter(dims=self.dims[("t",)])
-
     def calc_development_weight(self) -> fd.Parameter:
         """Development weight per region from GDP per capita at the last historic year:
         Blends log(GDP per capita) from 1 at low GDP to 0 at high GDP, with the transition range

@@ -302,6 +302,10 @@ scenario_parameters = [
         split_dimension_letter="s",
         split_balancing_item="C",
     ),
+    ExtrapolationDefinition(
+        name="concrete_reuse_share",
+        create_new=True,
+    ),
 ]
 
 # fmt: on
