@@ -4,6 +4,7 @@ import logging
 from copy import deepcopy
 import sys
 
+from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator, FixedSupplyTradeExtrapolator
@@ -71,29 +72,28 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         if self.cfg.transience.transience_run == True:
             # store original inflow for comparison
             self.demand_REMIND_MFA = self.stocks["in_use"].inflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ]
             # Replace with EU-MFA data
-            # TODO extrapolate EU-MFA data or run MFA only until 2060
             demand_EU_MFA = (
                 self.parameters["stock_inflow_EU-MFA"]
                 * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
             )
-            self.demand_EU_MFA = demand_EU_MFA[{"r": "EU27+3"}]
+            self.demand_EU_MFA = demand_EU_MFA[{"r": EU_MFA_REGION}]
             self.stocks["in_use"].inflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].compute()
             # store original outflow (generated from EU-MFA inflow and REMIND-MFA lifetime model) for comparison
             self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ]
             # Replace with EU-MFA data
             stock_outflow_EU_MFA = (
                 self.parameters["stock_outflow_EU-MFA"]
                 * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
             )
-            self.stock_outflow_EU_MFA = stock_outflow_EU_MFA[{"r": "EU27+3"}]
+            self.stock_outflow_EU_MFA = stock_outflow_EU_MFA[{"r": EU_MFA_REGION}]
             inflow = self.stocks["in_use"].inflow
             outflow = self.stocks["in_use"].outflow
             self.stocks["in_use"] = fd.SimpleFlowDrivenStock(
@@ -104,15 +104,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             )
             self.stocks["in_use"].inflow[...] = inflow
             self.stocks["in_use"].inflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].outflow[...] = outflow
             self.stocks["in_use"].outflow[
-                {"r": "EU27+3", "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.stock_outflow_EU_MFA
             self.stocks["in_use"].compute()
             logging.warning(
-                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for EU27+3 region are not computed from stock projection, but taken from EU-MFA. "
+                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for {EU_MFA_REGION} region are not computed from stock projection, but taken from EU-MFA. "
                 f"The stock is calculated as a simple flow-driven stock. "
             )
 
@@ -131,8 +131,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "total_primary_HVC": self.get_new_array(dim_letters=("t", "e", "r")),
-            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
-            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
+            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "HVC_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "HVC_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
@@ -178,13 +178,16 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow
 
-        flw["good_market => use"][...] = stk["in_use"].inflow
-        # imports of final goods cannot exceed plastics demand
-        historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}])
-        historic_trade["final_his"].balance(to="minimum")
+        if self.cfg.transience.transience_run == True:
+            # imports of final goods cannot exceed plastics demand
+            # in non-TRANSIENCE runs, this is already ensured in the historic MFA system, but in TRANSIENCE runs, the demand is replaced with EU-MFA data, which can be lower than the historic trade's imports
+            historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}] * self.parameters["material_type_mapping"])
+            historic_trade["final_his"].balance(to="minimum")
 
+        # the historic trade still resolves the polymer type 'p'; the future MFA does not, so it is
+        # summed away
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["final_his"],
+            historic_trade=historic_trade["final_his"].sum_over("p"),
             future_trade=self.trade_set["final"],
             future_dom_demand=stk["in_use"].inflow,
         )
@@ -202,9 +205,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # negative; reassign that excess to the other materials of the same polymer type (headroom),
         # keeping the trade's material split
         flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
+        # the historic trade resolves the polymer type 'p', the demand does not; expanding the
+        # demand with the type mapping keeps the excess reassignment within each polymer type
         self.cap_historical_net_imports_to_demand(
             trade=historic_trade["primary_his"],
-            demand=flw["primary_market => fabrication"],
+            demand=flw["primary_market => fabrication"] * prm["material_type_mapping"],
             category_dim="m",
         )
 
@@ -216,23 +221,23 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             # exceeds baseline and fixing supply is not defensible
             default_trade = deepcopy(self.trade_set["primary"])
             TradeExtrapolator(
-                historic_trade=historic_trade["primary_his"],
+                historic_trade=historic_trade["primary_his"].sum_over("p"),
                 future_trade=default_trade,
                 future_dom_demand=flw["primary_market => fabrication"],
             ).run()
             extrapolator = FixedSupplyTradeExtrapolator(
-                historic_trade = historic_trade["primary_his"],
+                historic_trade = historic_trade["primary_his"].sum_over("p"),
                 baseline_future_trade = baseline_trade["primary"],
                 default_future_trade = default_trade,
                 future_trade = self.trade_set["primary"],
                 baseline_dom_demand = baseline_flows["primary_market => fabrication"],
                 future_dom_demand = flw["primary_market => fabrication"],
-                fixed_supply_region = "EU27+3",
+                fixed_supply_region = EU_MFA_REGION,
                 import_adjustment_share = alpha,
             )
         else:
             extrapolator = TradeExtrapolator(
-                historic_trade=historic_trade["primary_his"],
+                historic_trade=historic_trade["primary_his"].sum_over("p"),
                 future_trade=self.trade_set["primary"],
                 future_dom_demand=flw["primary_market => fabrication"],
             )

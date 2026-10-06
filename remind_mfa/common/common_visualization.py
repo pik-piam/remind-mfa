@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
@@ -19,6 +20,8 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
+
+_INVALID_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*]')
 
 
 class CommonVisualizer(RemindMFABaseModel):
@@ -121,7 +124,10 @@ class CommonVisualizer(RemindMFABaseModel):
     def figure_path(self, base_name: str, extension: str = "png") -> str:
         figures_dir = os.path.join(self._model.data_writer.run_path(), "figures")
         os.makedirs(figures_dir, exist_ok=True)
-        return os.path.join(figures_dir, f"{base_name}.{extension}")
+        # base_name may carry a flow or parameter name such as "reclmech => aux_recyclate_trade",
+        # which is not a valid file name on all platforms.
+        safe_name = _INVALID_FILENAME_CHARS.sub("_", base_name.replace(" => ", "_to_")).strip()
+        return os.path.join(figures_dir, f"{safe_name}.{extension}")
 
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
@@ -344,7 +350,7 @@ class CommonVisualizer(RemindMFABaseModel):
             intra_line_dim="Time",
             title="Stock regression function",
             x_array=x_array,
-            linecolor_dim=self._model.end_use_good_letter,
+            linecolor_dim="u",
         )
         fig = ap.plot()
 
@@ -425,20 +431,19 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_sector_splits(self, regional: bool = True):
 
-        end_use_good_letter = self._model.end_use_good_letter
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", end_use_good_letter))
+            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", "u"))
         )
-        sector_splits = consumption.get_shares_over(end_use_good_letter)
-        sector_splits = sector_splits.cumsum(dim_letter=end_use_good_letter)
+        sector_splits = consumption.get_shares_over("u")
+        sector_splits = sector_splits.cumsum(dim_letter="u")
 
         ap_sector_splits = self.plotter_class(
             array=sector_splits,
             intra_line_dim="Time",
             **subplot_dim,
-            linecolor_dim=self._model.dims[end_use_good_letter].name,
+            linecolor_dim=self._model.dims["u"].name,
             xlabel="Year",
             ylabel="Sector Splits [%]",
             display_names=self.display_names.dct,
@@ -672,11 +677,11 @@ class CommonVisualizer(RemindMFABaseModel):
         # visualize comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data
         if inflow is None:
             inflow = model.future_mfa.stocks["in_use"].inflow[
-                {"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}
+                {"r": EU_region, "u": model.dims["f"], "t": model.dims["v"]}
             ]
         demand_REMIND_MFA = model.future_mfa.demand_REMIND_MFA
         demand_EU_MFA = model.future_mfa.demand_EU_MFA
-        dimlist = ["u"]
+        dimlist = ["v"]
         if subplot_dim is not None:
             subplot_dimletter = next(
                 dimlist.letter for dimlist in model.dims.dim_list if dimlist.name == subplot_dim
@@ -724,7 +729,7 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(
             fig,
-            base_name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+            base_name=f"transience_comparison_total_demand{'_by_' + subplot_dim if subplot_dim is not None else ''}",
         )
 
     def visualize_transience_outflow(
@@ -737,11 +742,11 @@ class CommonVisualizer(RemindMFABaseModel):
         # visualize comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data
         if inflow is None:
             inflow = model.future_mfa.stocks["in_use"].inflow[
-                {"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}
+                {"r": EU_region, "u": model.dims["f"], "t": model.dims["v"]}
             ]
         outflow_REMIND_MFA = model.future_mfa.stock_outflow_REMIND_MFA
         outflow_EU_MFA = model.future_mfa.stock_outflow_EU_MFA
-        dimlist = ["u"]
+        dimlist = ["v"]
         if subplot_dim is not None:
             subplot_dimletter = next(
                 dimlist.letter for dimlist in model.dims.dim_list if dimlist.name == subplot_dim
@@ -789,7 +794,7 @@ class CommonVisualizer(RemindMFABaseModel):
         fig = ap_3.plot()
         self._show_and_save_plotly(
             fig,
-            base_name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}.png",
+            base_name=f"transience_comparison_stock_outflow{'_by_' + subplot_dim if subplot_dim is not None else ''}",
         )
 
     def visualize_transience_eol_parameters(
@@ -829,5 +834,5 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap_2.plot()
         self._show_and_save_plotly(
-            fig, base_name=f"transience_comparison_{parameter_REMIND_MFA.name}.png"
+            fig, base_name=f"transience_comparison_{parameter_REMIND_MFA.name}"
         )

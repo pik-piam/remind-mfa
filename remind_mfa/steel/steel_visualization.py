@@ -5,6 +5,7 @@ import flodym as fd
 from typing import TYPE_CHECKING, Optional
 import flodym.export as fde
 
+from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.steel.steel_config import SteelVisualizationCfg
 
@@ -29,7 +30,7 @@ class SteelVisualizer(CommonVisualizer):
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["recovery_rate"][
-                    {"r": "EUR", "t": self._model.dims["u"], "g": self._model.dims["f"]}
+                    {"r": EU_MFA_REGION, "t": self._model.dims["v"], "u": self._model.dims["f"]}
                 ],
                 parameter_EU_MFA=self._model.parameters["recovery_rate_EU-MFA"]
                 * self._model.parameters["collection_rate_EU-MFA"],
@@ -39,8 +40,10 @@ class SteelVisualizer(CommonVisualizer):
                 self._model,
                 parameter_REMIND_MFA=self._model.future_mfa.flows["use => eol_market"].sum_to(
                     ("t", "r")
-                )[{"r": "EUR", "t": self._model.dims["u"]}],
-                parameter_EU_MFA=self._model.parameters["available_scrap_EU-MFA"][{"r": "EUR"}],
+                )[{"r": EU_MFA_REGION, "t": self._model.dims["v"]}],
+                parameter_EU_MFA=self._model.parameters["available_scrap_EU-MFA"][
+                    {"r": EU_MFA_REGION}
+                ],
             )
         self.stop_and_show()
 
@@ -134,7 +137,7 @@ class SteelVisualizer(CommonVisualizer):
         flw = mfa.flows
         production = flw["bof_production => forming"] + flw["eaf_production => forming"]
         fabrication = flw["ip_market => fabrication"]
-        consumption = mfa.stocks["in_use"].inflow.sum_over("g")
+        consumption = mfa.stocks["in_use"].inflow.sum_over("u")
         array_dict = {
             "Production": production,
             "Fabrication": fabrication,

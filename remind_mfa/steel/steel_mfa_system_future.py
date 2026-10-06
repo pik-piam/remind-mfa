@@ -6,6 +6,7 @@ from copy import deepcopy
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator, FixedSupplyTradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
+from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.steel.steel_config import SteelCfg
 
@@ -77,10 +78,10 @@ class SteelMFASystem(CommonMFASystem):
 
         if self.cfg.transience.transience_run == True:
             # TODO extrapolate EU-MFA data or run MFA only until 2050
-            self.demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"][{"r": "EUR"}]
+            self.demand_EU_MFA = self.parameters["stock_inflow_EU-MFA"][{"r": EU_MFA_REGION}]
             # store original inflow for comparison
             self.demand_REMIND_MFA = self.stocks["in_use"].inflow[
-                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "u": self.dims["f"], "t": self.dims["v"]}
             ]
             # Replace with EU-MFA data
             inflow = self.stocks["in_use"].inflow
@@ -92,12 +93,12 @@ class SteelMFASystem(CommonMFASystem):
             )
             self.stocks["in_use"].inflow[...] = inflow
             self.stocks["in_use"].inflow[
-                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].compute()
             # store original outflow (generated from EU-MFA inflow and REMIND-MFA lifetime model) for comparison
             self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[
-                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "u": self.dims["f"], "t": self.dims["v"]}
             ]
             # Replace with EU-MFA data
             self.stock_outflow_EU_MFA = self.parameters["stock_outflow_EU-MFA"]
@@ -111,11 +112,11 @@ class SteelMFASystem(CommonMFASystem):
             )
             self.stocks["in_use"].inflow[...] = inflow
             self.stocks["in_use"].inflow[
-                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.demand_EU_MFA
             self.stocks["in_use"].outflow[...] = outflow
             self.stocks["in_use"].outflow[
-                {"r": "EUR", "g": self.dims["f"], "t": self.dims["u"]}
+                {"r": EU_MFA_REGION, "u": self.dims["f"], "t": self.dims["v"]}
             ] = self.stock_outflow_EU_MFA
             self.stocks["in_use"].compute()
             logging.warning(

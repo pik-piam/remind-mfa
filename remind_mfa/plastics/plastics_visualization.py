@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 import flodym.export as fde
 import plotly.express as px
 
+from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.common_visualization import CommonVisualizer
 
 if TYPE_CHECKING:
@@ -122,34 +123,30 @@ class PlasticsVisualizer(CommonVisualizer):
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["collection_rate"][
                     {
-                        "r": "EU27+3",
+                        "r": EU_MFA_REGION,
                         "m": self._model.dims["n"],
-                        "g": self._model.dims["f"],
-                        "t": self._model.dims["u"],
+                        "u": self._model.dims["f"],
+                        "t": self._model.dims["v"],
                     }
-                ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters["collection_rate_EU-MFA"].sum_over(("p")),
+                ],
+                parameter_EU_MFA=self._model.parameters["collection_rate_EU-MFA"],
                 subplot_dim="EU-MFA_Good",
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_rate"][
-                    {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
-                ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters[
-                    "mechanical_recycling_rate_EU-MFA"
-                ].sum_over(("p")),
+                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
+                ],
+                parameter_EU_MFA=self._model.parameters["mechanical_recycling_rate_EU-MFA"],
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_yield"][
-                    {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
-                ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters[
-                    "mechanical_recycling_yield_EU-MFA"
-                ].sum_over(("p")),
+                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
+                ],
+                parameter_EU_MFA=self._model.parameters["mechanical_recycling_yield_EU-MFA"],
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
@@ -157,11 +154,11 @@ class PlasticsVisualizer(CommonVisualizer):
                 parameter_REMIND_MFA=self._model.future_mfa.flows[
                     "reclmech => aux_recyclate_trade"
                 ].sum_to(("t", "r", "m"))[
-                    {"r": "EU27+3", "m": self._model.dims["n"], "t": self._model.dims["u"]}
+                    {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
                 ],
                 parameter_EU_MFA=self._model.parameters["recycled_eol_EU-MFA"].sum_to(
-                    ("u", "r", "n")
-                )[{"r": "EU27+3"}],
+                    ("v", "r", "n")
+                )[{"r": EU_MFA_REGION}],
                 linecolor_dim="EU-MFA_Material",
             )
             # these flows are not totally equal because REMIND-MFA includes trade while for EU-MFA recycling rate we currently assume that no waste is traded (TODO get sorted_waste_market__recycling flow to be sure that this is correct)
@@ -173,7 +170,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         per_capita = self.cfg.consumption.per_capita
-        demand = mfa.stocks["in_use"].inflow.sum_over(("p", "m", "e"))
+        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
         self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=demand,
@@ -250,27 +247,6 @@ class PlasticsVisualizer(CommonVisualizer):
             do_plot=False,
         )
 
-    def compare_demand(self, mfa: fd.MFASystem):
-        df = pd.read_csv("data/plastics/input/validation.csv", sep=";")
-
-        # Convert year to numeric
-        df["year"] = pd.to_numeric(df["year"], errors="coerce")
-        # Convert Mt to t
-        df["value"] = df["value"] * 1000 * 1000
-
-        # Plotly line plot
-        fig = px.line(df, x="year", y="value", color="source", markers=True)
-
-        ap = self.plotter_class(
-            array=mfa.stocks["in_use"].inflow.sum_over(("r", "p", "m", "e", "g")),
-            intra_line_dim="Time",
-            title="Demand [t]",
-            line_label="REMIND-MFA",
-            fig=fig,
-        )
-        ap.plot()
-        self.plot_and_save_figure(ap, "demand_validation", do_plot=False)
-
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
         subplot_dim = "Good" if subplots_by_good else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
@@ -300,12 +276,16 @@ class PlasticsVisualizer(CommonVisualizer):
                 "primary": "Material",
                 "final": "Material",
                 "waste": "Material",
+                "aux_recyclate_trade": "Material",
+                "aux_recl_feedstock_trade": None,
             }
         else:
             linecolor_dims = {
                 "primary": None,
                 "final": None,
                 "waste": None,
+                "aux_recyclate_trade": None,
+                "aux_recl_feedstock_trade": None,
             }
         super().visualize_net_trade(mfa, linecolor_dims=linecolor_dims)
 
@@ -431,7 +411,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
         # material shares are extrapolated by keeping the last historic value constant in the future, so we visualize the last historic year
-        material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}].sum_over(("p",))
+        material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}]
         material_shares = material_shares.cumsum(dim_letter="m")
 
         ap_sector_splits = self.plotter_class(
@@ -449,18 +429,18 @@ class PlasticsVisualizer(CommonVisualizer):
         self.plot_and_save_figure(ap_sector_splits, f"material_splits")
 
     def visualize_transience_inflow(self, model: "PlasticsModel", subplot_dim: str = None):
-        EU_region = "EU27+3"
+        EU_region = EU_MFA_REGION
         inflow = model.future_mfa.stocks["in_use"].inflow[
-            {"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}
+            {"r": EU_MFA_REGION, "m": model.dims["n"], "u": model.dims["f"], "t": model.dims["v"]}
         ]
         super().visualize_transience_inflow(
             model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow
         )
 
     def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None):
-        EU_region = "EU27+3"
+        EU_region = EU_MFA_REGION
         inflow = model.future_mfa.stocks["in_use"].inflow[
-            {"r": "EU27+3", "m": model.dims["n"], "g": model.dims["f"], "t": model.dims["u"]}
+            {"r": EU_MFA_REGION, "m": model.dims["n"], "u": model.dims["f"], "t": model.dims["v"]}
         ]
         super().visualize_transience_outflow(
             model, EU_region=EU_region, subplot_dim=subplot_dim, inflow=inflow
