@@ -128,8 +128,8 @@ class PlasticsVisualizer(CommonVisualizer):
                         "u": self._model.dims["f"],
                         "t": self._model.dims["v"],
                     }
-                ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters["collection_rate_EU-MFA"].sum_over(("p")),
+                ],
+                parameter_EU_MFA=self._model.parameters["collection_rate_EU-MFA"],
                 subplot_dim="EU-MFA_Good",
                 linecolor_dim="EU-MFA_Material",
             )
@@ -137,20 +137,16 @@ class PlasticsVisualizer(CommonVisualizer):
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_rate"][
                     {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
-                ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters[
-                    "mechanical_recycling_rate_EU-MFA"
-                ].sum_over(("p")),
+                ],
+                parameter_EU_MFA=self._model.parameters["mechanical_recycling_rate_EU-MFA"],
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.parameters["mechanical_recycling_yield"][
                     {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
-                ].sum_over(("p")),
-                parameter_EU_MFA=self._model.parameters[
-                    "mechanical_recycling_yield_EU-MFA"
-                ].sum_over(("p")),
+                ],
+                parameter_EU_MFA=self._model.parameters["mechanical_recycling_yield_EU-MFA"],
                 linecolor_dim="EU-MFA_Material",
             )
             self.visualize_transience_eol_parameters(

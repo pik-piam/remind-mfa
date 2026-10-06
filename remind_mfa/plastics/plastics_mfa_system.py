@@ -75,7 +75,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
             ]
             # Replace with EU-MFA data
-            # TODO extrapolate EU-MFA data or run MFA only until 2060
             demand_EU_MFA = (
                 self.parameters["stock_inflow_EU-MFA"]
                 * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
@@ -179,6 +178,12 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow
 
+        if self.cfg.transience.transience_run == True:
+            # imports of final goods cannot exceed plastics demand
+            # in non-TRANSIENCE runs, this is already ensured in the historic MFA system, but in TRANSIENCE runs, the demand is replaced with EU-MFA data, which can be lower than the historic trade's imports
+            historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}] * self.parameters["material_type_mapping"])
+            historic_trade["final_his"].balance(to="minimum")
+
         # the historic trade still resolves the polymer type 'p'; the future MFA does not, so it is
         # summed away
         extrapolator = TradeExtrapolator(
@@ -216,7 +221,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             # exceeds baseline and fixing supply is not defensible
             default_trade = deepcopy(self.trade_set["primary"])
             TradeExtrapolator(
-                historic_trade=historic_trade["primary_his"],
+                historic_trade=historic_trade["primary_his"].sum_over("p"),
                 future_trade=default_trade,
                 future_dom_demand=flw["primary_market => fabrication"],
             ).run()

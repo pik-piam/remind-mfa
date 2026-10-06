@@ -25,8 +25,13 @@ class PlasticsDataExporter(CommonDataExporter):
 
     @staticmethod
     def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
-        """Demand for primary plastics."""
-        return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
+        """Demand for primary plastics.
+        ATLAS expects the demand resolved by polymer type, which the MFA system does not carry,
+        so the material-resolved demand is re-expanded to it via the type mapping.
+        """
+        return (
+            mfa.flows["primary_market => fabrication"]* mfa.parameters["material_type_mapping"]
+        ).sum_to(("t", "r", "p", "m"))
 
     @staticmethod
     def _plastics_primary_production(mfa: fd.MFASystem) -> fd.FlodymArray:

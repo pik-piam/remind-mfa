@@ -671,11 +671,11 @@ class CommonVisualizer(RemindMFABaseModel):
         # visualize comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data
         if inflow is None:
             inflow = model.future_mfa.stocks["in_use"].inflow[
-                {"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}
+                {"r": EU_region, "u": model.dims["f"], "t": model.dims["v"]}
             ]
         demand_REMIND_MFA = model.future_mfa.demand_REMIND_MFA
         demand_EU_MFA = model.future_mfa.demand_EU_MFA
-        dimlist = ["u"]
+        dimlist = ["v"]
         if subplot_dim is not None:
             subplot_dimletter = next(
                 dimlist.letter for dimlist in model.dims.dim_list if dimlist.name == subplot_dim
@@ -736,11 +736,11 @@ class CommonVisualizer(RemindMFABaseModel):
         # visualize comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data
         if inflow is None:
             inflow = model.future_mfa.stocks["in_use"].inflow[
-                {"r": EU_region, "g": model.dims["f"], "t": model.dims["u"]}
+                {"r": EU_region, "u": model.dims["f"], "t": model.dims["v"]}
             ]
         outflow_REMIND_MFA = model.future_mfa.stock_outflow_REMIND_MFA
         outflow_EU_MFA = model.future_mfa.stock_outflow_EU_MFA
-        dimlist = ["u"]
+        dimlist = ["v"]
         if subplot_dim is not None:
             subplot_dimletter = next(
                 dimlist.letter for dimlist in model.dims.dim_list if dimlist.name == subplot_dim
