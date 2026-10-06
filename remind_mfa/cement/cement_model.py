@@ -48,7 +48,7 @@ class CementModel(CommonModel):
         self.parameters["development_weight"] = self.calc_development_weight()
 
         # scenario parameters
-        self.parameters["reuse_share"] = fd.Parameter(dims=self.dims["t", "u", "m"])
+        self.parameters["concrete_reuse_share"] = fd.Parameter(dims=self.dims[("t",)])
 
     def calc_development_weight(self) -> fd.Parameter:
         """Development weight per region from GDP per capita at the last historic year:
@@ -112,7 +112,7 @@ class CementModel(CommonModel):
         Intensive end-use-resolved parameters (`intensive_end_use_prms`) are broadcasted to the
         extended-end-use dimension for the bottom-up MFA.
         """
-        intensive_end_use_prms = ("lifetime_mean", "lifetime_std", "reuse_share")
+        intensive_end_use_prms = ("lifetime_mean", "lifetime_std")
         bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,

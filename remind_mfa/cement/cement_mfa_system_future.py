@@ -70,10 +70,11 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
         trd = self.trade_set
 
-        # reuse: a share of the in-use outflow re-enters the stock, capped by the stock inflow
-        flw["use => reuse"][...] = (stk["in_use"].outflow * prm["reuse_share"]).minimum(
-            stk["in_use"].inflow
-        )
+        # concrete reuse: a share of the in-use concrete outflow re-enters the stock,
+        # capped by the concrete stock inflow; mortar not reused
+        flw["use => reuse"][{"m": "concrete"}] = (
+            stk["in_use"].outflow[{"m": "concrete"}] * prm["concrete_reuse_share"]
+        ).minimum(stk["in_use"].inflow[{"m": "concrete"}])
         flw["reuse => use"][...] = flw["use => reuse"]
 
         # product production: covers the stock inflow not met by reuse
