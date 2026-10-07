@@ -6,7 +6,9 @@ one linestyle per scenario.
 
 Usage::
 
-    uv run python scripts/plot_iamc_vs_validation.py                      # plastics, defaults
+    uv run python scripts/plot_iamc_vs_validation.py                      # newest plastics run
+    uv run python scripts/plot_iamc_vs_validation.py --material steel
+    uv run python scripts/plot_iamc_vs_validation.py --run data_out/<run folder>
     uv run python scripts/plot_iamc_vs_validation.py --regions EUR,World  # subset of regions
 
 NOTE: This script is un-reviewed vibe-coding.
@@ -22,6 +24,12 @@ from matplotlib.lines import Line2D
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+# Defaults of config/default.toml: [base.export] path / [base.input] input_data_path.
+EXPORT_ROOT = REPO_ROOT / "data_out"
+VALIDATION_FILE = REPO_ROOT / "data_in" / "validation" / "validation.mif"
+# "iamc" is a flat dataset, so the exporter writes this file directly into the run folder.
+IAMC_FILENAME = "output_iamc.xlsx"
+
 # ID columns of the (wide) IAMC format; everything else is a year column.
 ID_COLUMNS = ["model", "scenario", "region", "variable", "unit"]
 
@@ -36,22 +44,34 @@ def _is_model_output(model: str) -> bool:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--material", default="plastics", help="Material model (default: plastics)."
+        "--material",
+        default="plastics",
+        help="Material model, used to select the run folder (default: plastics).",
     )
     parser.add_argument(
         "--iamc",
         default=None,
-        help="Model IAMC .xlsx (default: data/<material>/output/export/iamc/output_iamc.xlsx).",
+        help=f"Model IAMC .xlsx (default: newest {IAMC_FILENAME} below --export-root).",
+    )
+    parser.add_argument(
+        "--run",
+        default=None,
+        help="Single run folder to plot, instead of searching --export-root for the newest run.",
+    )
+    parser.add_argument(
+        "--export-root",
+        default=str(EXPORT_ROOT),
+        help="Export base folder to search recursively (default: data_out, i.e. export.path).",
     )
     parser.add_argument(
         "--validation",
-        default=str(REPO_ROOT.parent / "remind_mfa_data" / "validation" / "validation.mif"),
-        help="Validation .mif file.",
+        default=str(VALIDATION_FILE),
+        help="Validation .mif file (default: data_in/validation/validation.mif).",
     )
     parser.add_argument(
         "--outdir",
         default=None,
-        help="Output folder (default: data/<material>/output/export/iamc/validation_plots).",
+        help="Output folder (default: <run folder>/validation_plots).",
     )
     parser.add_argument("--regions", default=None, help="Comma-separated regions to keep.")
     parser.add_argument("--scenarios", default=None, help="Comma-separated scenarios to keep.")
@@ -59,6 +79,37 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--ncols", type=int, default=4, help="Subplot columns (default: 4).")
     parser.add_argument("--show", action="store_true", help="Also display the figures.")
     return parser.parse_args()
+
+
+def _display(path: Path) -> str:
+    """Repo-relative path where possible, absolute otherwise."""
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def find_latest_iamc(material: str, search_root: Path) -> Path:
+    """Newest IAMC export below ``search_root`` whose run folder belongs to ``material``.
+
+    The search is recursive, so nested export roots (``data_out/transience/<run>/``) and the
+    series folders of a bundled export are covered as well. Run folders are named
+    ``<prefix>_<model>_<scenario>_<region_mapping>``, which is what the material is matched
+    against.
+    """
+    candidates = [
+        path
+        for path in search_root.rglob(IAMC_FILENAME)
+        if f"_{material}_" in f"_{path.parent.name}_"
+    ]
+    if not candidates:
+        raise SystemExit(
+            f"No {IAMC_FILENAME} for material {material!r} found below {_display(search_root)}.\n"
+            "Note that config/default.toml sets iamc.do_export = false, so a run only writes the "
+            "file when IAMC export is switched on.\n"
+            "Alternatively pass --run <run folder>, --export-root <folder> or --iamc <file>."
+        )
+    return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
 def _melt_to_long(df: pd.DataFrame) -> pd.DataFrame:
@@ -196,7 +247,7 @@ def plot_variable(
     outdir.mkdir(parents=True, exist_ok=True)
     out_path = outdir / f"{_sanitize(display_name)}.png"
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    print(f"  saved {out_path.relative_to(REPO_ROOT)}")
+    print(f"  saved {_display(out_path)}")
     if show:
         plt.show()
     plt.close(fig)
@@ -205,17 +256,19 @@ def plot_variable(
 def main() -> None:
     args = _parse_args()
 
-    iamc_path = Path(
-        args.iamc
-        or REPO_ROOT / "data" / args.material / "output" / "export" / "iamc" / "output_iamc.xlsx"
-    )
-    outdir = Path(
-        args.outdir
-        or REPO_ROOT / "data" / args.material / "output" / "export" / "iamc" / "validation_plots"
-    )
+    if args.iamc:
+        iamc_path = Path(args.iamc)
+    else:
+        search_root = Path(args.run) if args.run else Path(args.export_root)
+        iamc_path = find_latest_iamc(args.material, search_root)
+    outdir = Path(args.outdir) if args.outdir else iamc_path.parent / "validation_plots"
+
+    validation_path = Path(args.validation)
+    print(f"Using run:  {_display(iamc_path.parent)}")
+    print(f"Validation: {_display(validation_path)}")
 
     model_df = load_model_iamc(iamc_path)
-    validation_df = load_validation(Path(args.validation))
+    validation_df = load_validation(validation_path)
 
     # Overlapping variables, matched case-insensitively; keep model's original casing for display.
     model_keys = {v.lower(): v for v in model_df["variable"].unique()}
@@ -250,7 +303,7 @@ def main() -> None:
         pad = 0.05 * (vmax - vmin) if vmax > vmin else abs(vmax) or 1.0
         per_capita_ylim = (min(vmin, 0.0), vmax + pad)
 
-    print(f"Plotting {len(overlap_keys)} variable(s) to {outdir.relative_to(REPO_ROOT)}:")
+    print(f"Plotting {len(overlap_keys)} variable(s) to {_display(outdir)}:")
     for key in overlap_keys:
         sub = combined[combined["_vkey"] == key]
         if sub.empty:

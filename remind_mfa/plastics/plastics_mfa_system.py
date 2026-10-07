@@ -69,8 +69,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "total_primary_HVC": self.get_new_array(dim_letters=("t", "e", "r")),
-            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
-            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
+            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "HVC_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "HVC_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
@@ -116,8 +116,10 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow
 
+        # the historic trade still resolves the polymer type 'p'; the future MFA does not, so it is
+        # summed away
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["final_his"],
+            historic_trade=historic_trade["final_his"].sum_over("p"),
             future_trade=self.trade_set["final"],
             future_dom_demand=stk["in_use"].inflow,
         )
@@ -135,14 +137,16 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # negative; reassign that excess to the other materials of the same polymer type (headroom),
         # keeping the trade's material split
         flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
+        # the historic trade resolves the polymer type 'p', the demand does not; expanding the
+        # demand with the type mapping keeps the excess reassignment within each polymer type
         self.cap_historical_net_imports_to_demand(
             trade=historic_trade["primary_his"],
-            demand=flw["primary_market => fabrication"],
+            demand=flw["primary_market => fabrication"] * prm["material_type_mapping"],
             category_dim="m",
         )
 
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["primary_his"],
+            historic_trade=historic_trade["primary_his"].sum_over("p"),
             future_trade=self.trade_set["primary"],
             future_dom_demand=flw["primary_market => fabrication"],
         )
