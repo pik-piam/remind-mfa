@@ -1,4 +1,4 @@
-from inspect import stack, getframeinfo
+import sys
 from pydantic import field_validator
 from typing import ClassVar, Any, Optional
 import os
@@ -25,14 +25,14 @@ def add_assumption_doc(
         value (str, optional): The value of the assumption, if applicable. Defaults to None.
         source (str, optional): The source for literature data. Defaults to None.
     """
-    caller = getframeinfo(stack()[1][0])
+    caller = sys._getframe(1)
     assumption = Assumption(
         type=type,
         name=name,
         value=value,
         description=description,
-        file=Path(caller.filename),
-        line_number=caller.lineno,
+        file=Path(caller.f_code.co_filename),
+        line_number=caller.f_lineno,
         source=source,
     )
     _assumptions.append(assumption)
