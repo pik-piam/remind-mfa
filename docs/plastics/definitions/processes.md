@@ -1,21 +1,21 @@
 | Name                               |
 |:-----------------------------------|
 | System environment                 |
-| Feedstock(fossil)                  |
-| Feedstock(biomass)                 |
-| Feedstock(daccu)                   |
-| Feedstock(ccu)                     |
-| High Value Chemical input          |
+| Feedstock (fossil)                 |
+| Feedstock (biomass)                |
+| Feedstock (DACCU)                  |
+| Feedstock (CCU)                    |
+| HVC input                          |
 | C4 input                           |
 | Polymerization                     |
-| Primary Market                     |
+| Primary market                     |
 | Fabrication                        |
-| Good Market                        |
-| Use Phase                          |
-| EoL                                |
-| Waste Market                       |
-| Mechanical Recycling               |
-| Chemical Recycling                 |
+| Good market                        |
+| Use phase                          |
+| End of life                        |
+| Waste market                       |
+| Mechanical recycling               |
+| Chemical recycling                 |
 | Incineration                       |
 | Landfilled                         |
 | Collected                          |
@@ -24,7 +24,7 @@
 | Emissions                          |
 | Captured                           |
 | Atmosphere                         |
-| Other Reactants                    |
+| Other reactants                    |
 | Losses                             |
 | Auxiliary Recyclate Trade          |
 | Auxiliary Recycled Feedstock Trade |
