@@ -1,5 +1,7 @@
+import numpy as np
 import flodym as fd
 
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
@@ -132,6 +134,13 @@ class SteelMFASystem(CommonMFASystem):
         )
         extrapolator.run()
 
+        aux["production_inflow"][...] = aux["production"] / (1 - prm["production_loss_rate"])
+        aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
+        self.cap_scrap_imports_to_usable_scrap(
+            max_scrap_production=aux["max_scrap_production"],
+            domestic_scrap=flw["use => eol_market"].sum_over("u") + flw["forming => scrap_market"] + flw["fabrication => scrap_market"],
+        )
+
         flw["imports => eol_market"][...] = trd["scrap"].imports
         flw["eol_market => exports"][...] = trd["scrap"].exports
 
@@ -140,8 +149,6 @@ class SteelMFASystem(CommonMFASystem):
 
         # PRODUCTION
 
-        aux["production_inflow"][...] = aux["production"] / (1 - prm["production_loss_rate"])
-        aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
         aux["available_scrap"][...] = (
             flw["recycling => scrap_market"]
             + flw["forming => scrap_market"]
@@ -171,6 +178,36 @@ class SteelMFASystem(CommonMFASystem):
         flw["losses => sysenv"][...] = flw["forming => losses"] + flw["fabrication => losses"] + flw["bof_production => losses"] + flw["eaf_production => losses"]
         flw["sysenv => extraction"][...] = flw["extraction => bof_production"]
         # fmt: on
+
+    def cap_scrap_imports_to_usable_scrap(
+        self, max_scrap_production: fd.FlodymArray, domestic_scrap: fd.FlodymArray
+    ):
+        """Limit future scrap net imports to the amount a region can use in steel production.
+
+        The extrapolated scrap trade follows historic trade patterns and does not know how much
+        scrap a region can absorb. Without this cap, regions that already have more domestic
+        scrap than their steel production can take would import scrap only to divert it to
+        excess scrap, while the exporting regions lack it for their own secondary production.
+        The cap removes such imports and the exporting regions keep the scrap instead.
+        Historic years keep the historic trade data.
+
+        Args:
+            max_scrap_production: Maximum scrap input to steel production.
+            domestic_scrap: Scrap generated in the region (home, new and collected end-of-life
+                scrap) before trade.
+        """
+        add_assumption_doc(
+            type="model assumption",
+            name="No scrap imports beyond usable scrap",
+            description=(
+                "Future scrap net imports of a region are limited to the difference between "
+                "the maximum scrap input to its steel production and its domestic scrap. "
+                "Scrap that is not imported remains in the exporting regions."
+            ),
+        )
+        capacity = (max_scrap_production - domestic_scrap).maximum(0)
+        capacity[{"t": self.dims["h"]}] = np.inf
+        self.cap_net_imports_to_capacity(self.trade_set["scrap"], capacity=capacity)
 
     def compute_other_stocks(self):
         stk = self.stocks
