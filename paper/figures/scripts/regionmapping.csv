@@ -1,0 +1,250 @@
+X;CountryCode;RegionCode
+1;Aruba;ABW;LAM
+2;Afghanistan;AFG;OAS
+3;Angola;AGO;SSA
+4;Anguilla;AIA;LAM
+5;Aland Islands;ALA;EUR
+6;Albania;ALB;NEU
+7;Andorra;AND;NEU
+8;United Arab Emirates;ARE;MEA
+9;Argentina;ARG;LAM
+10;Armenia;ARM;REF
+11;American Samoa;ASM;OAS
+12;Antarctica;ATA;LAM
+13;French Southern Territories;ATF;OAS
+14;Antigua and Barbuda;ATG;LAM
+15;Australia;AUS;CAZ
+16;Austria;AUT;EUR
+17;Azerbaijan;AZE;REF
+18;Burundi;BDI;SSA
+19;Belgium;BEL;EUR
+20;Benin;BEN;SSA
+21;Bonaire, Sint Eustatius and Saba;BES;LAM
+22;Burkina Faso;BFA;SSA
+23;Bangladesh;BGD;OAS
+24;Bulgaria;BGR;EUR
+25;Bahrain;BHR;MEA
+26;Bahamas;BHS;LAM
+27;Bosnia and Herzegovina;BIH;NEU
+28;Saint Barthelemy;BLM;LAM
+29;Belarus;BLR;REF
+30;Belize;BLZ;LAM
+31;Bermuda;BMU;LAM
+32;Bolivia, Plurinational State of;BOL;LAM
+33;Brazil;BRA;LAM
+34;Barbados;BRB;LAM
+35;Brunei Darussalam;BRN;OAS
+36;Bhutan;BTN;OAS
+37;Bouvet Island;BVT;LAM
+38;Botswana;BWA;SSA
+39;Central African Republic;CAF;SSA
+40;Canada;CAN;CAZ
+41;Cocos (Keeling) Islands;CCK;OAS
+42;China;CHN;CHA
+43;Switzerland;CHE;NEU
+44;Chile;CHL;LAM
+45;Cote d Ivoire;CIV;SSA
+46;Cameroon;CMR;SSA
+47;Congo, the Democratic Republic of the;COD;SSA
+48;Congo;COG;SSA
+49;Cook Islands;COK;OAS
+50;Colombia;COL;LAM
+51;Comoros;COM;SSA
+52;Cape Verde;CPV;SSA
+53;Costa Rica;CRI;LAM
+54;Cuba;CUB;LAM
+55;Curacao;CUW;LAM
+56;Christmas Island;CXR;OAS
+57;Cayman Islands;CYM;LAM
+58;Cyprus;CYP;EUR
+59;Czech Republic;CZE;EUR
+60;Germany;DEU;EUR
+61;Djibouti;DJI;SSA
+62;Dominica;DMA;LAM
+63;Denmark;DNK;EUR
+64;Dominican Republic;DOM;LAM
+65;Algeria;DZA;MEA
+66;Ecuador;ECU;LAM
+67;Egypt;EGY;MEA
+68;Eritrea;ERI;SSA
+69;Western Sahara;ESH;MEA
+70;Spain;ESP;EUR
+71;Estonia;EST;EUR
+72;Ethiopia;ETH;SSA
+73;Finland;FIN;EUR
+74;Fiji;FJI;OAS
+75;Falkland Islands (Malvinas);FLK;LAM
+76;France;FRA;EUR
+77;Faroe Islands;FRO;EUR
+78;Micronesia, Federated States of;FSM;OAS
+79;Gabon;GAB;SSA
+80;United Kingdom;GBR;EUR
+81;Georgia;GEO;REF
+82;Guernsey;GGY;EUR
+83;Ghana;GHA;SSA
+84;Gibraltar;GIB;EUR
+85;Guinea;GIN;SSA
+86;Guadeloupe;GLP;LAM
+87;Gambia;GMB;SSA
+88;Guinea-Bissau;GNB;SSA
+89;Equatorial Guinea;GNQ;SSA
+90;Greece;GRC;EUR
+91;Grenada;GRD;LAM
+92;Greenland;GRL;NEU
+93;Guatemala;GTM;LAM
+94;French Guiana;GUF;LAM
+95;Guam;GUM;OAS
+96;Guyana;GUY;LAM
+97;Hong Kong;HKG;CHA
+98;Heard Island and McDonald Islands;HMD;CAZ
+99;Honduras;HND;LAM
+100;Croatia;HRV;EUR
+101;Haiti;HTI;LAM
+102;Hungary;HUN;EUR
+103;Indonesia;IDN;OAS
+104;Isle of Man;IMN;EUR
+105;India;IND;IND
+106;British Indian Ocean Territory;IOT;OAS
+107;Ireland;IRL;EUR
+108;Iran, Islamic Republic of;IRN;MEA
+109;Iraq;IRQ;MEA
+110;Iceland;ISL;NEU
+111;Israel;ISR;MEA
+112;Italy;ITA;EUR
+113;Jamaica;JAM;LAM
+114;Jersey;JEY;EUR
+115;Jordan;JOR;MEA
+116;Japan;JPN;JPN
+117;Kazakhstan;KAZ;REF
+118;Kenya;KEN;SSA
+119;Kyrgyzstan;KGZ;REF
+120;Cambodia;KHM;OAS
+121;Kiribati;KIR;OAS
+122;Saint Kitts and Nevis;KNA;LAM
+123;Korea, Republic of;KOR;OAS
+124;Kuwait;KWT;MEA
+125;Lao People's Democratic Republic;LAO;OAS
+126;Lebanon;LBN;MEA
+127;Liberia;LBR;SSA
+128;Libya;LBY;MEA
+129;Saint Lucia;LCA;LAM
+130;Liechtenstein;LIE;NEU
+131;Sri Lanka;LKA;OAS
+132;Lesotho;LSO;SSA
+133;Lithuania;LTU;EUR
+134;Luxembourg;LUX;EUR
+135;Latvia;LVA;EUR
+136;Macao;MAC;CHA
+137;Saint Martin (French part);MAF;LAM
+138;Morocco;MAR;MEA
+139;Monaco;MCO;NEU
+140;Moldova, Republic of;MDA;REF
+141;Madagascar;MDG;SSA
+142;Maldives;MDV;OAS
+143;Mexico;MEX;LAM
+144;Marshall Islands;MHL;OAS
+145;Macedonia, the former Yugoslav Republic of;MKD;NEU
+146;Mali;MLI;SSA
+147;Malta;MLT;EUR
+148;Myanmar;MMR;OAS
+149;Montenegro;MNE;NEU
+150;Mongolia;MNG;OAS
+151;Northern Mariana Islands;MNP;OAS
+152;Mozambique;MOZ;SSA
+153;Mauritania;MRT;SSA
+154;Montserrat;MSR;LAM
+155;Martinique;MTQ;LAM
+156;Mauritius;MUS;SSA
+157;Malawi;MWI;SSA
+158;Malaysia;MYS;OAS
+159;Mayotte;MYT;SSA
+160;Namibia;NAM;SSA
+161;New Caledonia;NCL;OAS
+162;Niger;NER;SSA
+163;Norfolk Island;NFK;OAS
+164;Nigeria;NGA;SSA
+165;Nicaragua;NIC;LAM
+166;Niue;NIU;OAS
+167;Netherlands;NLD;EUR
+168;Norway;NOR;NEU
+169;Nepal;NPL;OAS
+170;Nauru;NRU;OAS
+171;New Zealand;NZL;CAZ
+172;Oman;OMN;MEA
+173;Pakistan;PAK;OAS
+174;Panama;PAN;LAM
+175;Pitcairn;PCN;OAS
+176;Peru;PER;LAM
+177;Philippines;PHL;OAS
+178;Palau;PLW;OAS
+179;Papua New Guinea;PNG;OAS
+180;Poland;POL;EUR
+181;Puerto Rico;PRI;LAM
+182;Korea, Democratic People's Republic of;PRK;OAS
+183;Portugal;PRT;EUR
+184;Paraguay;PRY;LAM
+185;Palestine, State of;PSE;MEA
+186;French Polynesia;PYF;OAS
+187;Qatar;QAT;MEA
+188;Reunion;REU;SSA
+189;Romania;ROU;EUR
+190;Russian Federation;RUS;REF
+191;Rwanda;RWA;SSA
+192;Saudi Arabia;SAU;MEA
+193;Sudan;SDN;MEA
+194;Senegal;SEN;SSA
+195;Singapore;SGP;OAS
+196;South Georgia and the South Sandwich Islands;SGS;LAM
+197;Saint Helena, Ascension and Tristan da Cunha;SHN;SSA
+198;Svalbard and Jan Mayen;SJM;NEU
+199;Solomon Islands;SLB;OAS
+200;Sierra Leone;SLE;SSA
+201;El Salvador;SLV;LAM
+202;San Marino;SMR;NEU
+203;Somalia;SOM;SSA
+204;Saint Pierre and Miquelon;SPM;CAZ
+205;Serbia;SRB;NEU
+206;South Sudan;SSD;SSA
+207;Sao Tome and Principe;STP;SSA
+208;Suriname;SUR;LAM
+209;Slovakia;SVK;EUR
+210;Slovenia;SVN;EUR
+211;Sweden;SWE;EUR
+212;Swaziland;SWZ;SSA
+213;Sint Maarten (Dutch part);SXM;LAM
+214;Seychelles;SYC;SSA
+215;Syrian Arab Republic;SYR;MEA
+216;Turks and Caicos Islands;TCA;LAM
+217;Chad;TCD;SSA
+218;Togo;TGO;SSA
+219;Thailand;THA;OAS
+220;Tajikistan;TJK;REF
+221;Tokelau;TKL;OAS
+222;Turkmenistan;TKM;REF
+223;Timor-Leste;TLS;OAS
+224;Tonga;TON;OAS
+225;Trinidad and Tobago;TTO;LAM
+226;Tunisia;TUN;MEA
+227;Turkey;TUR;NEU
+228;Tuvalu;TUV;OAS
+229;Taiwan, Province of China;TWN;CHA
+230;Tanzania, United Republic of;TZA;SSA
+231;Uganda;UGA;SSA
+232;Ukraine;UKR;REF
+233;United States Minor Outlying Islands;UMI;OAS
+234;Uruguay;URY;LAM
+235;United States;USA;USA
+236;Uzbekistan;UZB;REF
+237;Holy See (Vatican City State);VAT;NEU
+238;Saint Vincent and the Grenadines;VCT;LAM
+239;Venezuela, Bolivarian Republic of;VEN;LAM
+240;Virgin Islands, British;VGB;LAM
+241;Virgin Islands, U.S.;VIR;LAM
+242;Viet Nam;VNM;OAS
+243;Vanuatu;VUT;OAS
+244;Wallis and Futuna;WLF;OAS
+245;Samoa;WSM;OAS
+246;Yemen;YEM;MEA
+247;South Africa;ZAF;SSA
+248;Zambia;ZMB;SSA
+249;Zimbabwe;ZWE;SSA
