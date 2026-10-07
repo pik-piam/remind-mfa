@@ -14,13 +14,13 @@
 | t, r         | Intermediate products | Fabrication           |
 | t, r         | Intermediate products | Exports               |
 | t, r         | Imports               | Intermediate products |
-| t, r, g      | Fabrication           | Good Market           |
+| t, r, u      | Fabrication           | Good Market           |
 | t, r         | Fabrication           | Scrap market          |
-| t, r, g      | Good Market           | Exports               |
-| t, r, g      | Imports               | Good Market           |
-| t, r, g      | Good Market           | Use phase             |
-| t, r, g      | Use phase             | Obsolete stocks       |
-| t, r, g      | Use phase             | End of life products  |
+| t, r, u      | Good Market           | Exports               |
+| t, r, u      | Imports               | Good Market           |
+| t, r, u      | Good Market           | Use phase             |
+| t, r, u      | Use phase             | Obsolete stocks       |
+| t, r, u      | Use phase             | End of life products  |
 | t, r         | End of life products  | Recycling             |
 | t, r         | End of life products  | Exports               |
 | t, r         | Imports               | End of life products  |
