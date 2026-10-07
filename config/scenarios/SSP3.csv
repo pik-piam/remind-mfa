@@ -1,2 +1,3 @@
 parameter,models,value,extra:year,index:Region,description
 driver_scen,all,SSP3,,,
+trade_factor,all,0.5,,,Trade reduced by 50% (regional rivalry)

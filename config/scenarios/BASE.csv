@@ -7,6 +7,7 @@ saturation_level,cement,24,,,,,,,
 
 # --- Scenario defaults ---
 stock_factor,all,1.0,2100,factor,,,,,
+trade_factor,all,1.0,2040,factor,,,,,
 lifetime_mean,"steel,plastics",1.0,2060,factor,,,,,
 lifetime_std,"steel,plastics",1.0,2060,factor,,,,,
 lifetime_mean,cement,lifetime_mean_factor,2100,factor,,,,,Lifetime mean is scaled by factor
