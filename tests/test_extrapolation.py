@@ -382,9 +382,7 @@ def test_phase_in_acceleration():
     v0 = np.array([0.1, 0.0])
     dt_elapsed = np.array([0.0, 25.0, 50.0])
 
-    target = CriticallyDampedBlender._phase_in_acceleration(
-        vp, v0, dt_elapsed, approaching_time=50
-    )
+    target = CriticallyDampedBlender._phase_in_acceleration(vp, v0, dt_elapsed, approaching_time=50)
 
     # steeper prediction: starts at v0, adopts half the excess slope midway, all of it at the end
     np.testing.assert_allclose(target[:, 0], [0.1, 0.3, 0.5])
