@@ -11,12 +11,12 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
     cfg: CementCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet, **kwargs):
+    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet, **kwargs):
         """
         Perform all computations for the MFA system.
         """
         self.compute_in_use_stock(stock_projection, **kwargs)
-        self.compute_flows(historic_trade)
+        self.compute_flows(historical_trade)
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
@@ -64,7 +64,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         constituent_stock[{"k": "non-cement"}] = product_stock * (1 - prm["cement_ratio"])
         return constituent_stock
 
-    def compute_flows(self, historic_trade: TradeSet):
+    def compute_flows(self, historical_trade: TradeSet):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
@@ -87,7 +87,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         # cement trade
         total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["cement"],
+            historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
             future_dom_demand=total_cement_demand,
         )
@@ -110,11 +110,11 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # clinker trade
         self.cap_historical_net_imports_to_demand(
-            trade=historic_trade["clinker"],
+            trade=historical_trade["clinker"],
             demand=flw["market_clinker => prod_cement"],
         )
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["clinker"],
+            historical_trade=historical_trade["clinker"],
             future_trade=trd["clinker"],
             future_dom_demand=flw["market_clinker => prod_cement"],
         )

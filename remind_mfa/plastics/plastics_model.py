@@ -2,11 +2,11 @@ import flodym as fd
 import numpy as np
 
 from .plastics_mfa_system import PlasticsMFASystemFuture
-from .plastics_mfa_system_historic import PlasticsMFASystemHistoric
+from .plastics_mfa_system_historical import PlasticsMFASystemHistorical
 from .plastics_export import PlasticsDataExporter
 from .plastics_visualization import PlasticsVisualizer
 from .plastics_definition import get_plastics_definition
-from .plastics_mappings import PlasticsDimensionFiles, PlasticsDisplayNames
+from .plastics_mappings import PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_model import CommonModel
@@ -16,17 +16,16 @@ from remind_mfa.common.data_blending import blend
 class PlasticsModel(CommonModel):
 
     ConfigCls = PlasticsCfg
-    DimensionFilesCls = PlasticsDimensionFiles
     DataExporterCls = PlasticsDataExporter
     VisualizerCls = PlasticsVisualizer
     DisplayNamesCls = PlasticsDisplayNames
-    HistoricMFASystemCls = PlasticsMFASystemHistoric
+    HistoricalMFASystemCls = PlasticsMFASystemHistorical
     FutureMFASystemCls = PlasticsMFASystemFuture
     get_definition = staticmethod(get_plastics_definition)
     custom_scn_prm_def = plastics_scn_prm_def
 
     # TODO: unify, then delete
-    historic_stock_name: str = "in_use_historic"
+    historical_stock_name: str = "in_use_historical"
 
     do_stock_extrapolation_with_time_factor: bool = True
     time_factor_prms = {"horizontal_shift_base": 1980, "growth_rate": 0.01}
@@ -70,7 +69,7 @@ class PlasticsModel(CommonModel):
                 values=self.parameters[name].sum_values_over("p"),
             )
 
-        # calculate landfill rate from historic eol rates (1 - sum of other eol rates)
+        # calculate landfill rate from historical eol rates (1 - sum of other eol rates)
         self.parameters["landfill_rate"] = fd.Parameter(
             name="landfill_rate",
             dims=self.dims["h", "r"],
@@ -101,15 +100,15 @@ class PlasticsModel(CommonModel):
             )
         self.parameters["material_type_mapping"] = mapping
 
-    def transfer_historic_parameters(self):
-        # get material split of stock inflow from historic MFA to be extrapolated by ParameterExtrapolation for use in future MFA
-        self.parameters["material_shares_use_inflow"] = self.historic_mfa.parameters[
+    def transfer_historical_parameters(self):
+        # get material split of stock inflow from historical MFA to be extrapolated by ParameterExtrapolation for use in future MFA
+        self.parameters["material_shares_use_inflow"] = self.historical_mfa.parameters[
             "material_shares_use_inflow"
         ]
-        # get global good split of stock inflow from historic MFA to be used as sector split limit in the stock extrapolation
+        # get global good split of stock inflow from historical MFA to be used as sector split limit in the stock extrapolation
         self.parameters["sector_split_limit"] = fd.Parameter(
             dims=self.dims["u",],
-            values=self.historic_mfa.parameters["global_good_shares_use_inflow"][
+            values=self.historical_mfa.parameters["global_good_shares_use_inflow"][
                 self.dims["h"].items[-1]
             ].values,
         )

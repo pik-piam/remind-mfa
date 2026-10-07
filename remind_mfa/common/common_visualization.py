@@ -233,14 +233,14 @@ class CommonVisualizer(RemindMFABaseModel):
 
         colors = (
             colors[:n_linecolor_dim]  # future (dotted) color
-            + colors[:n_linecolor_dim]  # historic (solid) color
+            + colors[:n_linecolor_dim]  # historical (solid) color
             + ["black" for _ in range(n_linecolor_dim)]  # dot color
         )
 
         # data preparation
         hist = data_to_plot[{"t": mfa.dims["h"]}]
         last_year_dim = fd.Dimension(
-            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
+            name="Last Historical Year", letter="l", items=[mfa.dims["h"].items[-1]]
         )
         scatter = hist[{"h": last_year_dim}]
         if x_array is None:
@@ -265,10 +265,10 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap.plot()
 
-        # Historic stock (solid)
+        # Historical stock (solid)
         ap = self.plotter_class(
             array=hist,
-            intra_line_dim="Historic Time",
+            intra_line_dim="Historical Time",
             linecolor_dim=linecolor_dim,
             subplot_dim=subplot_dim,
             x_array=hist_x_array,
@@ -282,10 +282,10 @@ class CommonVisualizer(RemindMFABaseModel):
             # Hack to remove future line from the plot, but keep the axis range
             colors = ["rgba(0,0,0,0)"] * len(colors)
 
-        # Last historic year (dot)
+        # Last historical year (dot)
         ap = self.plotter_class(
             array=scatter,
-            intra_line_dim="Last Historic Year",
+            intra_line_dim="Last Historical Year",
             linecolor_dim=linecolor_dim,
             subplot_dim=subplot_dim,
             x_array=scatter_x_array,
@@ -523,7 +523,7 @@ class CommonVisualizer(RemindMFABaseModel):
         pc_str = "pC" if per_capita else ""
         x_label = "Year"
         y_label = f"Stock{pc_str} [t]"
-        title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
+        title = f"Stock Extrapolation: Historical and Projected vs Pure Prediction"
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
@@ -561,7 +561,7 @@ class CommonVisualizer(RemindMFABaseModel):
             x_label=x_label,
             y_label=y_label,
             title=title,
-            line_label="Historic + Modelled Future" if linecolor_dim is None else None,
+            line_label="Historical + Modelled Future" if linecolor_dim is None else None,
             future_stock=show_future,
         )
 
@@ -593,7 +593,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 ax.set_xlabel(x_label)
 
         extrapolation_name = "_extrapolation" if show_extrapolation else ""
-        future_name = "_projection" if show_future else "_historic"
+        future_name = "_projection" if show_future else "_historical"
         linecolor_str = f"_by_{linecolor_dim}" if linecolor_dim is not None else ""
         subplot_str = f"_by_{subplot_dim}" if subplot_dim is not None else ""
         over_str = "_overGDP" if self.cfg.use_stock.over_gdp else "_overTime"

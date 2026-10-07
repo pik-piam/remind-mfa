@@ -11,12 +11,12 @@ class SteelMFASystem(CommonMFASystem):
 
     cfg: SteelCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
+    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
         self.compute_in_use_stock(stock_projection)
-        self.compute_flows(historic_trade)
+        self.compute_flows(historical_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
@@ -66,7 +66,7 @@ class SteelMFASystem(CommonMFASystem):
         self.stocks["in_use"].compute()
         self.correct_negative_inflow("in_use")
 
-    def compute_flows(self, historic_trade: TradeSet):
+    def compute_flows(self, historical_trade: TradeSet):
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
@@ -86,27 +86,27 @@ class SteelMFASystem(CommonMFASystem):
 
         # fmt: off
 
-        flw["good_market => use"][...] = stk["in_use"].inflow
+        flw["final_product_market => use"][...] = stk["in_use"].inflow
         # Pre-use
 
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["indirect"],
-            future_trade=trd["indirect"],
-            future_dom_demand=flw["good_market => use"],
+            historical_trade=historical_trade["final_product"],
+            future_trade=trd["final_product"],
+            future_dom_demand=flw["final_product_market => use"],
         )
         extrapolator.run()
 
-        flw["imports => good_market"][...] = trd["indirect"].imports
-        flw["good_market => exports"][...] = trd["indirect"].exports
+        flw["imports => final_product_market"][...] = trd["final_product"].imports
+        flw["final_product_market => exports"][...] = trd["final_product"].exports
 
-        flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["indirect"].net_imports
+        flw["fabrication => final_product_market"][...] = flw["final_product_market => use"][...] - trd["final_product"].net_imports
 
-        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["aggregate_fabrication_yield"]
-        flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
-        flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
+        flw["ip_market => fabrication"][...] = flw["fabrication => final_product_market"] / prm["aggregate_fabrication_yield"]
+        flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => final_product_market"]) * (1. - prm["fabrication_losses"])
+        flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => final_product_market"]) * prm["fabrication_losses"]
 
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["steel"],
+            historical_trade=historical_trade["steel"],
             future_trade=trd["steel"],
             future_dom_demand=flw["ip_market => fabrication"],
         )
@@ -126,7 +126,7 @@ class SteelMFASystem(CommonMFASystem):
         flw["use => obsolete"][...] = stk["in_use"].outflow - flw["use => eol_market"]
 
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["scrap"],
+            historical_trade=historical_trade["scrap"],
             future_trade=trd["scrap"],
             future_dom_supply=flw["use => eol_market"],
         )
@@ -166,8 +166,8 @@ class SteelMFASystem(CommonMFASystem):
         flw["eaf_production => losses"][...] = flw["scrap_market => eaf_production"] - flw["eaf_production => forming"]
 
         # buffers to sysenv for plotting
-        flw["sysenv => imports"][...] = flw["imports => good_market"] + flw["imports => ip_market"] + flw["imports => eol_market"]
-        flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["ip_market => exports"] + flw["eol_market => exports"]
+        flw["sysenv => imports"][...] = flw["imports => final_product_market"] + flw["imports => ip_market"] + flw["imports => eol_market"]
+        flw["exports => sysenv"][...] = flw["final_product_market => exports"] + flw["ip_market => exports"] + flw["eol_market => exports"]
         flw["losses => sysenv"][...] = flw["forming => losses"] + flw["fabrication => losses"] + flw["bof_production => losses"] + flw["eaf_production => losses"]
         flw["sysenv => extraction"][...] = flw["extraction => bof_production"]
         # fmt: on

@@ -6,11 +6,11 @@ from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
 
 
-def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefinition:
+def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefinition:
 
     dimensions = [
         fd.DimensionDefinition(name="Time", dim_letter="t", dtype=int),
-        fd.DimensionDefinition(name="Historic Time", dim_letter="h", dtype=int),
+        fd.DimensionDefinition(name="Historical Time", dim_letter="h", dtype=int),
         fd.DimensionDefinition(name="Region", dim_letter="r", dtype=str),
         fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
@@ -19,7 +19,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
-    if historic:
+    if historical:
         processes = [
             "sysenv",
             "polymerization",
@@ -63,7 +63,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ]
 
     # fmt: off
-    if historic:
+    if historical:
         # names are auto-generated, see Flow class documentation
         flows = [
             fd.FlowDefinition(from_process="sysenv", to_process="polymerization", dim_letters=("h", "r", "p")),
@@ -144,10 +144,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
         ]
     # fmt: on
 
-    if historic:
+    if historical:
         stocks = [
             fd.StockDefinition(
-                name="in_use_historic",
+                name="in_use_historical",
                 process="use",
                 dim_letters=("h", "r", "u"),
                 subclass=fd.InflowDrivenDSM,
@@ -202,17 +202,17 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Incineration rate of collected waste",),
         # trade
         RemindMFAParameterDefinition(name="primary_his_imports", dim_letters=("h", "r", "p", "m"),
-                                     description="Historic primary plastics imports",),
+                                     description="Historical primary plastics imports",),
         RemindMFAParameterDefinition(name="primary_his_exports", dim_letters=("h", "r", "p", "m"),
-                                     description="Historic primary plastics exports",),
+                                     description="Historical primary plastics exports",),
         RemindMFAParameterDefinition(name="final_his_imports", dim_letters=("h", "r", "p", "m", "u"),
-                                     description="Historic final goods imports",),
+                                     description="Historical final goods imports",),
         RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r", "p", "m", "u"),
-                                     description="Historic final goods exports",),
+                                     description="Historical final goods exports",),
         RemindMFAParameterDefinition(name="waste_his_imports", dim_letters=("h", "r", "p", "m"),
-                                     description="Historic plastic waste imports",),
+                                     description="Historical plastic waste imports",),
         RemindMFAParameterDefinition(name="waste_his_exports", dim_letters=("h", "r", "p", "m"),
-                                     description="Historic plastic waste exports",),
+                                     description="Historical plastic waste exports",),
         # renewable production rates
         RemindMFAParameterDefinition(name="bio_production_rate", dim_letters=(),
                                      description="Share of bio-based HVC production",),
@@ -239,7 +239,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
                                      description="Carbon content of materials",),
         # for in-use stock
         RemindMFAParameterDefinition(name="production", dim_letters=("h", "r", "p"),
-                                     description="Historic plastic production, differentiated by polymer type (Fibre/Rubber/Plastics)",),
+                                     description="Historical plastic production, differentiated by polymer type (Fibre/Rubber/Plastics)",),
         RemindMFAParameterDefinition(name="sector_polymer_split", dim_letters=("h", "r", "p", "m", "u"),
                                      description="Share of each polymer and end-use sector within total Fibre/Rubber/Plastics apparent consumption per region",),
         RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("u",),
@@ -253,7 +253,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historic: bool) -> RemindMFADefini
     ]
     # fmt: on
 
-    if historic:
+    if historical:
         trades = [
             TradeDefinition(name="primary_his", dim_letters=("h", "r", "p", "m")),
             TradeDefinition(name="final_his", dim_letters=("h", "r", "p", "m", "u")),

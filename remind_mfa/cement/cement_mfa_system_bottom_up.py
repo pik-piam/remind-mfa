@@ -59,7 +59,7 @@ def extend_end_use_intensive[T: fd.FlodymArray](arr: T, extended_end_use_dim: fd
 
 class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
-    def compute(self, td_in_use: fd.Stock, historic_trade: TradeSet):
+    def compute(self, td_in_use: fd.Stock, historical_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         The building split and MI parameters for the bottom-up MFA should ultimately set the inflow,
@@ -74,16 +74,16 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
            calculate the inflow-driven DSM to get the bottom-up concrete stock (b, s).
         3. Extend the td inflow (from `td_in_use`, end uses u) to extended end uses and
            structures (e, s) and calculate the inflow-driven DSM to get the extended td stock.
-        4. Blend historic td into future bu stock for the end uses the bottom-up model
+        4. Blend historical td into future bu stock for the end uses the bottom-up model
            resolves (b); Ind, Civ and mortar stay td.
-        5. Compute the complete MFA with the blended stock and historic trade.
+        5. Compute the complete MFA with the blended stock and historical trade.
         """
 
         self.compute_floorspace_stock()
         self.compute_bottom_up_stock()
         self.extend_top_down_stock(td_in_use)
         combined_stock = self.blend_stocks()
-        super().compute(combined_stock, historic_trade, stock_is_cement=False)
+        super().compute(combined_stock, historical_trade, stock_is_cement=False)
 
     def compute_floorspace_stock(self):
         """Calculate the floorspace inflow from stock change + lifetime (stock-driven)."""
@@ -180,7 +180,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
     def blend_stocks(self) -> fd.FlodymArray:
         """Combine the bu and td stocks into one:
-        Blend smoothly between historic td and future bu concrete stock for the end uses
+        Blend smoothly between historical td and future bu concrete stock for the end uses
         the bottom-up model resolves (b: RS/RM/Com); Ind, Civ and all mortar stay td.
         """
         stk = self.stocks

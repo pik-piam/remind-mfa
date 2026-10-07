@@ -2,7 +2,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_config import CementCfg
 
 
-class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
+class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
     """Top-down historical cement MFA system, driven by inflows."""
 
     cfg: CementCfg

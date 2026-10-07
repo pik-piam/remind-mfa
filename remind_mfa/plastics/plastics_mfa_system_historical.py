@@ -5,7 +5,7 @@ from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 
 
-class PlasticsMFASystemHistoric(CommonMFASystem):
+class PlasticsMFASystemHistorical(CommonMFASystem):
 
     cfg: PlasticsCfg
 
@@ -16,7 +16,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         self.fill_trade()
         self.trade_set.balance(to="maximum")
         self.compute_flows()
-        self.compute_historic_stock()
+        self.compute_historical_stock()
         self.check_mass_balance(raise_error=True)
         self.check_flows(raise_error=False)
 
@@ -54,18 +54,18 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
         flw["good_market => sysenv"][...] = trd["final_his"].exports
         flw["sysenv => good_market"][...] = trd["final_his"].imports
 
-    def compute_historic_stock(self):
-        self.stocks["in_use_historic"].inflow[...] = self.flows["good_market => use"]
-        self.stocks["in_use_historic"].lifetime_model.set_prms(
+    def compute_historical_stock(self):
+        self.stocks["in_use_historical"].inflow[...] = self.flows["good_market => use"]
+        self.stocks["in_use_historical"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}],
             std=self.parameters["lifetime_std"][{"t": self.dims["h"]}],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
-        self.stocks["in_use_historic"].lifetime_model.n_pts_per_interval = 10
-        self.stocks["in_use_historic"].compute()
-        self.flows["use => sysenv"][...] += self.stocks["in_use_historic"].outflow
+        self.stocks["in_use_historical"].lifetime_model.n_pts_per_interval = 10
+        self.stocks["in_use_historical"].compute()
+        self.flows["use => sysenv"][...] += self.stocks["in_use_historical"].outflow
 
-        # get material split from historic stock inflow for use in the future MFA, which does not
+        # get material split from historical stock inflow for use in the future MFA, which does not
         # carry the polymer type dimension 'p' (each material belongs to exactly one type).
         # Shares sum to 1 across all materials.
         with np.errstate(divide="ignore"):
@@ -78,7 +78,7 @@ class PlasticsMFASystemHistoric(CommonMFASystem):
             )
         # country-level (iso249) runs have (r, u) cells with zero inflow -> 0/0 = NaN shares; zero them
         self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
-        # get global good split from historic stock inflow
+        # get global good split from historical stock inflow
         self.parameters["global_good_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "u"],
             values=(self.flows["good_market => use"].maximum(0))

@@ -12,9 +12,9 @@ from remind_mfa.cement.cement_mfa_system_bottom_up import (
     extend_end_use_intensive,
 )
 from remind_mfa.common.data_blending import blend
-from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
+from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistoricalCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
-from remind_mfa.cement.cement_mappings import CementDimensionFiles, CementDisplayNames
+from remind_mfa.cement.cement_mappings import CementDisplayNames
 from remind_mfa.cement.cement_export import CementDataExporter
 from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
@@ -25,18 +25,17 @@ from remind_mfa.cement.cement_parameter_reconciliation import CementParameterRec
 class CementModel(CommonModel):
 
     ConfigCls = CementCfg
-    DimensionFilesCls = CementDimensionFiles
     DataExporterCls = CementDataExporter
     VisualizerCls = CementVisualizer
     DisplayNamesCls = CementDisplayNames
-    HistoricMFASystemCls = InflowDrivenHistoricCementMFASystem
+    HistoricalMFASystemCls = InflowDrivenHistoricalCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
     BottomUpMFASystemCls = StockDrivenBottomUpCementMFASystem
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
     # TODO: unify, then delete
-    historic_stock_name: str = "in_use"
+    historical_stock_name: str = "in_use"
 
     def modify_parameters(self):
         # construct lifetime std from mean and relative std
@@ -48,7 +47,7 @@ class CementModel(CommonModel):
         self.parameters["development_weight"] = self.calc_development_weight()
 
     def calc_development_weight(self) -> fd.Parameter:
-        """Development weight per region from GDP per capita at the last historic year:
+        """Development weight per region from GDP per capita at the last historical year:
         Blends log(GDP per capita) from 1 at low GDP to 0 at high GDP, with the transition range
         defined by the scenario parameters `development_gdppc_low` and `development_gdppc_high`."""
         # TODO this could be merged with steel's approach
@@ -109,7 +108,7 @@ class CementModel(CommonModel):
         Lifetime parameter is broadcasted to extended-end-use dimension for bottom-up MFA.
         """
         bu_mfa = self.make_mfa(
-            definition=self.get_definition(self.cfg, historic=False, bottom_up=True),
+            definition=self.get_definition(self.cfg, historical=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,
         )
         bu_mfa.parameters = {
@@ -127,7 +126,7 @@ class CementModel(CommonModel):
         """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
 
         Called by `run()` when `do_reconcile` is enabled. Extends the base model run with a
-        parameter reconciliation loop that aligns historic top-down and bottom-up stocks, then
+        parameter reconciliation loop that aligns historical top-down and bottom-up stocks, then
         propagates reconciled parameters into the future projection.
 
         Saves the full set of MFAs as attributes:
@@ -142,7 +141,7 @@ class CementModel(CommonModel):
         """
 
         # collect non-reconciled mfas
-        self.td_hist_mfa = self.historic_mfa
+        self.td_hist_mfa = self.historical_mfa
         self.td_mfa = self.future_mfa
 
         # TODO zero trade was a cheat to use top-down mfa system for bottom-up - not done currently
@@ -156,23 +155,23 @@ class CementModel(CommonModel):
         self.bu_stock = bu_mfa.compute_bottom_up_stock()
 
         # reconcile parameters, then re-derive dependent parameters from the result
-        self.parameters = self.historic_parameters
+        self.parameters = self.historical_parameters
         self.reconcile_parameters()
         self.calculate_derived_parameters()
 
-        # compute reconciled historic top-down mfa
-        self.td_hist_mfa_reconciled = self.make_mfa(historic=True)
+        # compute reconciled historical top-down mfa
+        self.td_hist_mfa_reconciled = self.make_mfa(historical=True)
         self.td_hist_mfa_reconciled.compute()
 
-        # save reconciled top-down historic mfa for reconciled stock extrapolation
-        self.historic_mfa = self.td_hist_mfa_reconciled
+        # save reconciled top-down historical mfa for reconciled stock extrapolation
+        self.historical_mfa = self.td_hist_mfa_reconciled
 
         # apply scenarios to parameters for future mfa (as in common model)
         self.extrapolate_parameters()
 
         # compute reconciled future top-down mfa
         self.td_stock_reconciled = self.get_long_term_stock()  # cement stock
-        self.td_mfa_reconciled = self.make_mfa(historic=False)
+        self.td_mfa_reconciled = self.make_mfa(historical=False)
         self.td_mfa_reconciled.compute(
             self.td_stock_reconciled, self.td_hist_mfa_reconciled.trade_set
         )
@@ -200,10 +199,10 @@ class CementModel(CommonModel):
         """
         logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
 
-        ref_mfa = self.make_mfa(historic=True)
+        ref_mfa = self.make_mfa(historical=True)
         ref_mfa.trade_set = (
-            self.historic_mfa.trade_set
-        )  # trade is not altered during reconciliation, so we can just take it from the already computed historic MFA
+            self.historical_mfa.trade_set
+        )  # trade is not altered during reconciliation, so we can just take it from the already computed historical MFA
 
         self.parameter_reconciliation = CementParameterReconciliation(
             ref_mfa=ref_mfa,

@@ -14,16 +14,16 @@ class TradeExtrapolator(RemindMFABaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    historic_trade: Trade
-    """historic_trade (Trade): Historic trade data."""
+    historical_trade: Trade
+    """historical_trade (Trade): Historical trade data."""
     future_trade: Trade
     """future_trade (Trade): Future trade data, which is written to."""
     future_dom_supply: fd.FlodymArray = None
-    """future_dom_supply (FlodymArray): The domestic supply values to scale the historic exports by.
+    """future_dom_supply (FlodymArray): The domestic supply values to scale the historical exports by.
     Setting this means calculating trade in forward mode
     """
     future_dom_demand: fd.FlodymArray = None
-    """future_dom_demand (FlodymArray): The domestic demand values to scale the historic imports by.
+    """future_dom_demand (FlodymArray): The domestic demand values to scale the historical imports by.
     Setting this means calculating trade in backward mode
     """
     _eps: float = 1e-6
@@ -35,14 +35,14 @@ class TradeExtrapolator(RemindMFABaseModel):
             raise ValueError("Exactly one of future_dom_supply or future_dom_demand must be set.")
         if "t" not in (self.future_dom_demand or self.future_dom_supply).dims.letters:
             raise ValueError("Future domestic demand or supply must have a (full) time dimension.")
-        if "h" not in self.historic_trade.imports.dims:
-            raise ValueError("Historic trade data must have a historic time dimension.")
+        if "h" not in self.historical_trade.imports.dims:
+            raise ValueError("Historical trade data must have a historical time dimension.")
         if "t" not in self.future_trade.imports.dims:
             raise ValueError("Future trade data must have a time dimension.")
         # all other dims must be the same
-        if self.historic_trade.imports.dims.drop("h") != self.future_trade.imports.dims.drop("t"):
+        if self.historical_trade.imports.dims.drop("h") != self.future_trade.imports.dims.drop("t"):
             raise ValueError(
-                "Apart from time, historic and future trade data must have the same dimensions."
+                "Apart from time, historical and future trade data must have the same dimensions."
             )
         return self
 
@@ -84,8 +84,8 @@ class TradeExtrapolator(RemindMFABaseModel):
         """Get flodym arrays for imports and exports depending on the direction set in
         set_direction.
         """
-        self.historic_first = getattr(self.historic_trade, self.scaled_first)
-        self.historic_second = getattr(self.historic_trade, self.scaled_second)
+        self.historical_first = getattr(self.historical_trade, self.scaled_first)
+        self.historical_second = getattr(self.historical_trade, self.scaled_second)
         self.future_first = getattr(self.future_trade, self.scaled_first)
         self.future_second = getattr(self.future_trade, self.scaled_second)
 
@@ -99,7 +99,7 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         if self.future_first.dims - self.dims_out:
             raise ValueError(
-                "All future trade dimensions must be contained either in scaler or in historic trade."
+                "All future trade dimensions must be contained either in scaler or in historical trade."
             )
 
     def get_recent_averages(self):
@@ -107,26 +107,26 @@ class TradeExtrapolator(RemindMFABaseModel):
         and for the scaler. These are used as starting points/reference for the extrapolation, to
         avoid extrapolating from a single year which might be an outlier.
         """
-        averager = RecentHistoricalAverage(dims=self.historic_first.dims)
+        averager = RecentHistoricalAverage(dims=self.historical_first.dims)
 
-        self.historic_first_0 = averager.apply(self.historic_first).cast_to(
+        self.historical_first_0 = averager.apply(self.historical_first).cast_to(
             self.dims_out
         )  # * (1 - self.eps)
-        self.historic_second_0 = averager.apply(self.historic_second).cast_to(
+        self.historical_second_0 = averager.apply(self.historical_second).cast_to(
             self.dims_out
         )  # * (1 - self.eps)
         self.scaler_first_0 = averager.apply(self.scaler_first).cast_to(self.dims_out)
         scaler_second_hist = (
-            self.scaler_first[{"t": self.historic_first.dims["h"]}]
-            - self.historic_first
-            + self.historic_second
+            self.scaler_first[{"t": self.historical_first.dims["h"]}]
+            - self.historical_first
+            + self.historical_second
         )
         self.scaler_second_0 = averager.apply(scaler_second_hist).cast_to(self.dims_out)
 
     def calc_trade(self):
         """The actual trade calculations"""
 
-        self.id_hist = {"t": self.historic_first.dims["h"]}
+        self.id_hist = {"t": self.historical_first.dims["h"]}
         self.remove_stopover()
         self.scale_first()
         stopover_trade = self.add_stopover()
@@ -136,12 +136,12 @@ class TradeExtrapolator(RemindMFABaseModel):
     def scale_first(self):
         # scale "first" trade flow (imports in demand-driven mode)
         self.future_first[...] = self.scaling(
-            trd_0=self.historic_first_0,
+            trd_0=self.historical_first_0,
             dom_0=self.scaler_first_0,
             dom=self.scaler_first,
         )
         # make sure historical years equal historical data
-        self.future_first[self.id_hist] = self.historic_first
+        self.future_first[self.id_hist] = self.historical_first
 
     def remove_stopover(self):
         """Split off "stopover" (re-export) trade before scaling.
@@ -162,9 +162,9 @@ class TradeExtrapolator(RemindMFABaseModel):
         making it over-grow relative to its domestic driver (which drives domestic supply/demand
         negative for heavy importers/re-exporters).
         """
-        self.stopover_0 = (self.historic_second_0 - self.scaler_second_0).maximum(0)
-        self.historic_first_0[...] -= self.stopover_0
-        self.historic_second_0[...] -= self.stopover_0
+        self.stopover_0 = (self.historical_second_0 - self.scaler_second_0).maximum(0)
+        self.historical_first_0[...] -= self.stopover_0
+        self.historical_second_0[...] -= self.stopover_0
 
     def add_stopover(self) -> fd.FlodymArray:
         """Scale the stopover (re-export) trade and add it to the (already scaled) future first
@@ -179,7 +179,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         global_scaler_0 = self.scaler_first_0.sum_over("r").maximum(self._eps)
         stopover_trade = self.stopover_0 * (global_scaler / global_scaler_0)
         self.future_first[...] += stopover_trade
-        self.future_first[self.id_hist] = self.historic_first
+        self.future_first[self.id_hist] = self.historical_first
         return stopover_trade
 
     def scale_second(self, stopover_trade: fd.FlodymArray):
@@ -188,24 +188,24 @@ class TradeExtrapolator(RemindMFABaseModel):
         (exports with dom_supply, imports with dom_demand).
         But this depends on the second trade itself, via the mass balance, which results in
         a 2x2 equation system. We solve it with a fixed-point iteration starting from
-        historic_second_0.
+        historical_second_0.
         """
-        self.future_second[...] = self.historic_second_0
-        self.future_second[self.id_hist] = self.historic_second
+        self.future_second[...] = self.historical_second_0
+        self.future_second[self.id_hist] = self.historical_second
         for _ in range(3):
             self.scaler_second = (
                 self.scaler_first - self.future_first + self.future_second + stopover_trade
             )
             self.future_second[...] = self.scaling(
-                trd_0=self.historic_second_0,
+                trd_0=self.historical_second_0,
                 dom_0=self.scaler_second_0,
                 dom=self.scaler_second,
                 reduced_linear=False,
             )
-            self.future_second[self.id_hist] = self.historic_second
+            self.future_second[self.id_hist] = self.historical_second
 
         self.future_second[...] += stopover_trade
-        self.future_second[self.id_hist] = self.historic_second
+        self.future_second[self.id_hist] = self.historical_second
 
     def balance(self):
         """We balance global imports and exports to their hmean
@@ -303,7 +303,7 @@ class RecentHistoricalAverage(RemindMFABaseModel):
     @model_validator(mode="after")
     def validate_dims(self):
         if self.dims.letters[0] != "h":
-            raise ValueError("First dimension of dims must be historic time 'h'.")
+            raise ValueError("First dimension of dims must be historical time 'h'.")
         return self
 
     @property

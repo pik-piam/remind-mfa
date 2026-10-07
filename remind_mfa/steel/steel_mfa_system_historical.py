@@ -7,7 +7,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.steel.steel_config import SteelCfg
 
 
-class SteelMFASystemHistoric(CommonMFASystem):
+class SteelMFASystemHistorical(CommonMFASystem):
 
     cfg: SteelCfg
 
@@ -28,7 +28,7 @@ class SteelMFASystemHistoric(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "fabrication_to_good_market_total": fd.Parameter(dims=self.dims["h", "r"]),
+            "fabrication_to_final_product_market_total": fd.Parameter(dims=self.dims["h", "r"]),
             "recovered_scrap": fd.Parameter(dims=self.dims["h", "r"]),
         }
 
@@ -45,37 +45,37 @@ class SteelMFASystemHistoric(CommonMFASystem):
         flw["ip_market => fabrication"][...] = flw["forming => ip_market"] + trd["steel"].net_imports
 
         # get approximate fabrication yield with consumption sector split
-        # We don't know the good distribution yet, so we just calculate the total, and the flow later
-        aux["fabrication_to_good_market_total"][...] = flw["ip_market => fabrication"] * prm["aggregate_fabrication_yield"][{'t': self.dims['h']}]
-        flw["fabrication => sysenv"][...] = flw["ip_market => fabrication"] - aux["fabrication_to_good_market_total"]
+        # We don't know the end use distribution yet, so we just calculate the total, and the flow later
+        aux["fabrication_to_final_product_market_total"][...] = flw["ip_market => fabrication"] * prm["aggregate_fabrication_yield"][{'t': self.dims['h']}]
+        flw["fabrication => sysenv"][...] = flw["ip_market => fabrication"] - aux["fabrication_to_final_product_market_total"]
 
-        # indirect net exports are capped to not exceed available fabrication inflow, else use inflow goes negative
-        self.cap_historical_net_exports_to_supply(trd["indirect"], aux["fabrication_to_good_market_total"])
+        # final_product net exports are capped to not exceed available fabrication inflow, else use inflow goes negative
+        self.cap_historical_net_exports_to_supply(trd["final_product"], aux["fabrication_to_final_product_market_total"])
 
         # Transfer to flows
-        flw["sysenv => good_market"][...] = trd["indirect"].imports
-        flw["good_market => sysenv"][...] = trd["indirect"].exports
+        flw["sysenv => final_product_market"][...] = trd["final_product"].imports
+        flw["final_product_market => sysenv"][...] = trd["final_product"].exports
 
-        flw["good_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
-            "indirect",
-            aux["fabrication_to_good_market_total"],
+        flw["final_product_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
+            "final_product",
+            aux["fabrication_to_final_product_market_total"],
             prm["sector_split"][{"t": self.dims["h"]}],
             ("u",),
         )
 
-        # now we can get the good distribution
-        flw["fabrication => good_market"][...] = flw["good_market => use"] - trd["indirect"].net_imports
+        # now we can get the end use distribution
+        flw["fabrication => final_product_market"][...] = flw["final_product_market => use"] - trd["final_product"].net_imports
 
-        stk["historic_in_use"].inflow[...] = flw["good_market => use"]
+        stk["historical_in_use"].inflow[...] = flw["final_product_market => use"]
 
-        stk["historic_in_use"].lifetime_model.set_prms(
+        stk["historical_in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"][{"t": self.dims["h"]}],
             std=prm["lifetime_std"][{"t": self.dims["h"]}],
         )
 
-        stk["historic_in_use"].compute()  # gives stocks and outflows corresponding to inflow
+        stk["historical_in_use"].compute()  # gives stocks and outflows corresponding to inflow
 
-        flw["use => sysenv"][...] = stk["historic_in_use"].outflow
+        flw["use => sysenv"][...] = stk["historical_in_use"].outflow
         aux["recovered_scrap"] = flw["use => sysenv"] * prm["recovery_rate"]
         trd["scrap"].exports[...] = trd["scrap"].exports.minimum(aux["recovered_scrap"])
         trd["scrap"].balance(to="minimum")

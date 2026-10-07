@@ -1,16 +1,6 @@
 from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDisplayNames
 
 
-class PlasticsDimensionFiles(CommonDimensionFiles):
-    _own_mapping = {
-        "Element": "elements",
-        "Material": "materials",
-        "Good": "goods_in_use",
-        "Scenario": "scenarios",
-        "Type": "type",
-    }
-
-
 class PlasticsDisplayNames(CommonDisplayNames):
     _own_mapping = {
         "sysenv": "System environment",

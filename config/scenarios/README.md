@@ -139,12 +139,12 @@ This creates a parameter initialized to `None`, set to a plain numeric value by 
 This reads in whole arrays of data, which are converted into a flodym array and stored as a structured extrapolation instruction under `scenario_parameters[<name>]`. During parameter extrapolation, the instruction is applied to the model parameter of the same name. Let's walk through the settings:
 
 1. You provide a `name`. If the `name` mirrors a name of a parameter that - at the time of extrapolation - already exists in your MFA parameters, the extrapolator knows you want to use it to extrapolate this parameter. This means you can even extrapolate parameters that are not part of the read-in. If the `name` doesn't match anything but you instead want to create a new parameter and extrapolate it directly, you can specify ...
-2. `create_new`. This defaults to `False`, but it can be useful to initiate a new parameter here directly, which you can then use anywhere in your MFA. This is currently used to create `parameters["stock_factor"]`, which scales the stock after stock extrapolation. Since there is no historic data, the parameter is initialized with 1 (type `factor`) or 0 (type `target`) before extrapolation.
+2. `create_new`. This defaults to `False`, but it can be useful to initiate a new parameter here directly, which you can then use anywhere in your MFA. This is currently used to create `parameters["stock_factor"]`, which scales the stock after stock extrapolation. Since there is no historical data, the parameter is initialized with 1 (type `factor`) or 0 (type `target`) before extrapolation.
 Then, the extrapolation is applied on this baseline, using the ...
 3. `blending_function`. It determines the shape of the transition from the old parameter to the scenario endpoint, defaulting to a linear transition. All available functions are listed in `remind_mfa/common/data_blending.py`.
 4. `split_dimension_letter` and `split_balancing_item` may be niche applications. With the first, you can provide a dimension letter along which a split is supposed to sum up to one. Then, the extrapolation renormalizes. E.g., if you increase your share of reinforced concrete buildings, it will proportionally decrease your share of other building structures, i.e., wood, steel and masonry. If you want the whole shift to reinforced concrete to happen through another coordinate, you can provide a balancing item. For instance, you could specify `M` (masonry) here, and all the growth in reinforced concrete buildings will be accompanied by a corresponding drop in masonry buildings.
 
-If you just want a constant extrapolation (hold the last historic value constant), you can simply omit all entries except for `name`, see e.g. `ExtrapolationDefinition(name="material_shares_use_inflow")`.
+If you just want a constant extrapolation (hold the last historical value constant), you can simply omit all entries except for `name`, see e.g. `ExtrapolationDefinition(name="material_shares_use_inflow")`.
 
 The extrapolation type (`factor` or `target`) is not part of the definition — it is declared in the scenario CSV via `extra:type`, see below.
 
@@ -169,16 +169,16 @@ These model-specific definitions are merged with `common_scn_prm_def` from `remi
 
 The `ExtrapolationDefinition` in the model definition holds the modelling decisions (blending, split handling), while the scenario decisions are stored in the scenario CSVs. REMIND-MFA connects the two through the parameter name.
 
-A CSV row for an extrapolated parameter provides the endpoint of a blend: the parameter transitions from its historic values towards the endpoint given in the `value` column. Two `extra:` columns control how:
+A CSV row for an extrapolated parameter provides the endpoint of a blend: the parameter transitions from its historical values towards the endpoint given in the `value` column. Two `extra:` columns control how:
 
 | Extra        | Description |
 |--------------|-------------|
-| `extra:year` | The year by which the endpoint is reached. Must lie after the last historic year (earlier years raise an error). A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
-| `extra:type` | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `extra:year`. Target means that the parameter blends from the last historic value to the scenario value. |
+| `extra:year` | The year by which the endpoint is reached. Must lie after the last historical year (earlier years raise an error). A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
+| `extra:type` | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `extra:year`. Target means that the parameter blends from the last historical value to the scenario value. |
 
 Only one type per parameter is supported: declaring it on a single row (e.g. in the base scenario) is enough and also covers inherited rows, while mixed declarations raise an error. A row with `extra:year` but no type declared anywhere for that parameter raises an error as well.
 
-For a constant extrapolation (hold the last historic value constant), you don't have to provide anything in the scenario CSV - a simple `ExtrapolationDefinition` is enough.
+For a constant extrapolation (hold the last historical value constant), you don't have to provide anything in the scenario CSV - a simple `ExtrapolationDefinition` is enough.
 
 The `value` column of extrapolation parameter can not only handle numbers, but you can mix-and-match them with a parameter name in the form of a string. During extrapolation, data from that parameter will be used as extrapolation target or factor. You could e.g. prepare a world-average structure split parameter in mrmfa, read it in as a normal parameter and then provide its name in the scenario CSV such that the structure split is converged towards the world-average split. This can be combined with any settings in the `ExtrapolationDefinition`. The referenced parameter can even itself be a parameter that is extrapolated — in that case it is automatically extrapolated before it is applied. Circular references raise an error.
 

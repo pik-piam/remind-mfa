@@ -13,19 +13,19 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
     cfg: PlasticsCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
+    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
         self.compute_stock(stock_projection)
         self.compute_waste_trade()
-        self.compute_flows(historic_trade)
+        self.compute_flows(historical_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
     def compute_waste_trade(self):
-        # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historic MFA system
+        # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historical MFA system
 
         self.trade_set["waste"].imports[...] = (
             self.parameters[f"waste_his_imports"] * self.parameters["carbon_content_materials"]
@@ -56,7 +56,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
         self.stocks["in_use"].outflow[...] = self.stocks["in_use_dsm"].outflow * split
 
-    def compute_flows(self, historic_trade: TradeSet):
+    def compute_flows(self, historical_trade: TradeSet):
 
         # abbreviations for better readability
         prm = self.parameters
@@ -116,10 +116,10 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # now trades and production flows are computed starting from the stock inflow
         flw["good_market => use"][...] = stk["in_use"].inflow
 
-        # the historic trade still resolves the polymer type 'p'; the future MFA does not, so it is
+        # the historical trade still resolves the polymer type 'p'; the future MFA does not, so it is
         # summed away
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["final_his"].sum_over("p"),
+            historical_trade=historical_trade["final_his"].sum_over("p"),
             future_trade=self.trade_set["final"],
             future_dom_demand=stk["in_use"].inflow,
         )
@@ -137,16 +137,16 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # negative; reassign that excess to the other materials of the same polymer type (headroom),
         # keeping the trade's material split
         flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
-        # the historic trade resolves the polymer type 'p', the demand does not; expanding the
+        # the historical trade resolves the polymer type 'p', the demand does not; expanding the
         # demand with the type mapping keeps the excess reassignment within each polymer type
         self.cap_historical_net_imports_to_demand(
-            trade=historic_trade["primary_his"],
+            trade=historical_trade["primary_his"],
             demand=flw["primary_market => fabrication"] * prm["material_type_mapping"],
             category_dim="m",
         )
 
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["primary_his"].sum_over("p"),
+            historical_trade=historical_trade["primary_his"].sum_over("p"),
             future_trade=self.trade_set["primary"],
             future_dom_demand=flw["primary_market => fabrication"],
         )

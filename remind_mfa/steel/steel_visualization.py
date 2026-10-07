@@ -32,12 +32,12 @@ class SteelVisualizer(CommonVisualizer):
             mfa=mfa,
             flow=mfa.stocks["in_use"].inflow,
             name="Consumption",
-            linecolor_dim="Good",
+            linecolor_dim="End Use",
             regional=True,
         )
 
     def visualize_sankey(self, mfa: fd.MFASystem):
-        good_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]
+        end_use_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]
         production_color = "hsl(50,40,70)"
         scrap_color = "hsl(120,40,70)"
         losses_color = "hsl(20,40,70)"
@@ -45,7 +45,7 @@ class SteelVisualizer(CommonVisualizer):
 
         flow_color_dict = {"default": production_color}
         flow_color_dict.update(
-            {fn: ("Good", good_colors) for fn, f in mfa.flows.items() if "Good" in f.dims}
+            {fn: ("End Use", end_use_colors) for fn, f in mfa.flows.items() if "End Use" in f.dims}
         )
         flow_color_dict.update(
             {
@@ -85,9 +85,9 @@ class SteelVisualizer(CommonVisualizer):
             ["white", ""],
             ["white", "Product Phase"],
         ]
-        for good, color in zip(mfa.dims["Good"].items, good_colors):
-            # legend_entries.append([color, f"Product Phase ({good})"])
-            legend_entries.append([color, good])
+        for end_use, color in zip(mfa.dims["End Use"].items, end_use_colors):
+            # legend_entries.append([color, f"Product Phase ({end_use})"])
+            legend_entries.append([color, end_use])
 
         for entry in legend_entries:
             fig.add_trace(
@@ -147,21 +147,21 @@ class SteelVisualizer(CommonVisualizer):
         production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
         self.visualize_fdarr(mfa=mfa, flow=production, name="Steel production", regional=regional)
 
-    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-        subplot_dim = "Good" if subplots_by_good else None
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_end_use=False):
+        subplot_dim = "End Use" if subplots_by_end_use else None
         super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
 
     def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=False):
         if linecolor_dims is True:
             linecolor_dims = {
                 "steel": None,
-                "indirect": "Good",
+                "final_product": "End Use",
                 "scrap": None,
             }
         else:
             linecolor_dims = {
                 "steel": None,
-                "indirect": None,
+                "final_product": None,
                 "scrap": None,
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
@@ -185,7 +185,7 @@ class SteelVisualizer(CommonVisualizer):
 
         ap = self.plotter_class(
             array=summing_func(scrap_supply),
-            intra_line_dim="Historic Time",
+            intra_line_dim="Historical Time",
             **subplot_dim,
             line_label="Model",
             # fig=fig,
@@ -195,7 +195,7 @@ class SteelVisualizer(CommonVisualizer):
 
         ap = self.plotter_class(
             array=summing_func(mfa.parameters["scrap_consumption"]),
-            intra_line_dim="Historic Time",
+            intra_line_dim="Historical Time",
             **subplot_dim,
             line_label="Real World" + (" - Reconstructed" if regional else ""),
             fig=fig,
@@ -212,7 +212,7 @@ class SteelVisualizer(CommonVisualizer):
             v[v == 0] = np.nan
             ap = self.plotter_class(
                 array=summing_func(mfa.parameters["scrap_consumption_no_assumptions"]),
-                intra_line_dim="Historic Time",
+                intra_line_dim="Historical Time",
                 **subplot_dim,
                 line_label="Real World",
                 fig=fig,
@@ -225,7 +225,7 @@ class SteelVisualizer(CommonVisualizer):
 
         ap = self.plotter_class(
             array=summing_func(total_production.sum_to(("h", "r"))),
-            intra_line_dim="Historic Time",
+            intra_line_dim="Historical Time",
             **subplot_dim,
             line_label="Total Production",
             line_type="dash",
@@ -237,7 +237,7 @@ class SteelVisualizer(CommonVisualizer):
 
         #     ap = self.plotter_class(
         #         array=summing_func(trade.net_imports[{"t": mfa.dims["h"]}].sum_to(("h", "r"))),
-        #         intra_line_dim="Historic Time",
+        #         intra_line_dim="Historical Time",
         #         **subplot_dim,
         #         line_label=f"Net imports ({trade_name})",
         #         line_type="dot",

@@ -9,7 +9,7 @@ from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
 from remind_mfa.common.common_data_reader import CommonDataReader
-from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDisplayNames
+from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -23,17 +23,16 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 class CommonModel:
 
     ConfigCls = CommonCfg
-    DimensionFilesCls = CommonDimensionFiles
     DataExporterCls = CommonDataExporter
     VisualizerCls = CommonVisualizer
     DisplayNamesCls = CommonDisplayNames
-    HistoricMFASystemCls = CommonMFASystem
+    HistoricalMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
     get_definition = staticmethod(get_definition)
 
     # TODO: unify, then delete
-    historic_stock_name: str = None
+    historical_stock_name: str = None
 
     do_stock_extrapolation_with_time_factor: bool = False
     # parameters for a static time-dependent penetration curve if desired.
@@ -53,16 +52,16 @@ class CommonModel:
 
     def run(self):
         logging.info("Running historical MFA system...")
-        self.historic_mfa = self.make_mfa(historic=True)
-        self.historic_mfa.compute()
+        self.historical_mfa = self.make_mfa(historical=True)
+        self.historical_mfa.compute()
 
         logging.info("Extrapolating parameters...")
-        self.transfer_historic_parameters()
+        self.transfer_historical_parameters()
 
-        historic_trade = self.historic_mfa.trade_set
+        historical_trade = self.historical_mfa.trade_set
 
         # snapshot parameters before extrapolation, then extend them into the future
-        self.historic_parameters = copy.deepcopy(self.parameters)
+        self.historical_parameters = copy.deepcopy(self.parameters)
         self.extrapolate_parameters()
         self.check_parameters()
 
@@ -70,8 +69,8 @@ class CommonModel:
         stock_projection = self.get_long_term_stock()
 
         logging.info("Running future MFA system...")
-        self.future_mfa = self.make_mfa(historic=False)
-        self.future_mfa.compute(stock_projection, historic_trade)
+        self.future_mfa = self.make_mfa(historical=False)
+        self.future_mfa.compute(stock_projection, historical_trade)
 
     @property
     def name(self) -> str:
@@ -84,14 +83,13 @@ class CommonModel:
         self.visualizer.visualize(model=self)
 
     def set_definition(self):
-        self.definition_historic = self.get_definition(self.cfg, historic=True)
-        self.definition_future = self.get_definition(self.cfg, historic=False)
+        self.definition_historical = self.get_definition(self.cfg, historical=True)
+        self.definition_future = self.get_definition(self.cfg, historical=False)
 
     def read_data(self):
         self.data_reader = CommonDataReader(
             cfg=self.cfg,
             definition=self.definition_future,
-            dimension_file_mapping=self.DimensionFilesCls(),
             allow_missing_values=True,  # needed for at least steel scrap data and for bottom-up (cement)
             allow_extra_values=False,
         )
@@ -164,8 +162,8 @@ class CommonModel:
             self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
 
-    def transfer_historic_parameters(self):
-        """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""
+    def transfer_historical_parameters(self):
+        """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
 
     def init_export_and_visualization(self):
@@ -181,16 +179,16 @@ class CommonModel:
 
     def make_mfa(
         self,
-        historic: bool = True,
+        historical: bool = True,
         definition: Optional[RemindMFADefinition] = None,
         mfasystem_class: Optional[type[CommonMFASystem]] = None,
     ) -> CommonMFASystem:
         """Build an MFA system. `definition` and `mfasystem_class` default to the
-        historic/future ones selected by `historic` when not given explicitly."""
+        historical/future ones selected by `historical` when not given explicitly."""
         if definition is None:
-            definition = self.definition_historic if historic else self.definition_future
+            definition = self.definition_historical if historical else self.definition_future
         if mfasystem_class is None:
-            mfasystem_class = self.HistoricMFASystemCls if historic else self.FutureMFASystemCls
+            mfasystem_class = self.HistoricalMFASystemCls if historical else self.FutureMFASystemCls
 
         processes = fd.make_processes(definition.processes)
         flows = fd.make_empty_flows(
@@ -231,8 +229,8 @@ class CommonModel:
 
         time_factor = self.calculate_time_factor()
 
-        historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = historic_stocks / (
+        historical_stocks = self.historical_mfa.stocks[self.historical_stock_name].stock
+        normalized_historical_stock = historical_stocks / (
             sector_specific_sat_level * time_factor[{"t": self.dims["h"]}]
         )
 
@@ -254,7 +252,7 @@ class CommonModel:
 
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
-            historic_stocks=normalized_historic_stock,
+            historical_stocks=normalized_historical_stock,
             dims=self.dims,
             parameters=self.parameters,
             target_dim_letters="all",

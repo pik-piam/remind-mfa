@@ -112,7 +112,7 @@ class CommonDataExporter(RemindMFABaseModel):
         pass
 
     def _clear_recomputable_caches(self):
-        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
+        """Drop lifetime-model sf/pdf caches from the historical and future MFA stocks before pickling
         to save memory.
 
         These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
@@ -120,7 +120,7 @@ class CommonDataExporter(RemindMFABaseModel):
         them here is transparent: the next access (including any later ``stock.compute()``)
         rebuilds them from the stored lifetime parameters.
         """
-        for mfa in (self._model.historic_mfa, self._model.future_mfa):
+        for mfa in (self._model.historical_mfa, self._model.future_mfa):
             for stock in mfa.stocks.values():
                 lifetime_model: fd.LifetimeModel | None = getattr(stock, "lifetime_model", None)
                 if lifetime_model is not None:
@@ -178,7 +178,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        self._warn_if_iamc_includes_historic()
+        self._warn_if_iamc_includes_historical()
 
         mfa = self._model.future_mfa
         constants = {"model": self.model_name, "scenario": self._model.cfg.model_switches.scenario}
@@ -193,18 +193,18 @@ class CommonDataExporter(RemindMFABaseModel):
 
         iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 
-    def _warn_if_iamc_includes_historic(self):
-        """Warn if the configured IAMC export range covers historic years.
+    def _warn_if_iamc_includes_historical(self):
+        """Warn if the configured IAMC export range covers historical years.
 
-        Historic years derive partly from proprietary input data (e.g. WorldSteel), so
-        including them in a shared output risks leaking that data. The last historic year is
-        taken per-material from the model's historic time dimension.
+        Historical years derive partly from proprietary input data (e.g. WorldSteel), so
+        including them in a shared output risks leaking that data. The last historical year is
+        taken per-material from the model's historical time dimension.
         """
-        last_historic_year = self._model.dims["h"].items[-1]
-        historic = [y for y in self.cfg.iamc.time_items if y <= last_historic_year]
-        if historic:
+        last_historical_year = self._model.dims["h"].items[-1]
+        historical = [y for y in self.cfg.iamc.time_items if y <= last_historical_year]
+        if historical:
             logging.warning(
-                f"IAMC export range includes historic years ({historic[0]}-{last_historic_year}), "
+                f"IAMC export range includes historical years ({historical[0]}-{last_historical_year}), "
                 "which may derive from proprietary input data (e.g. WorldSteel). "
                 "Verify you are permitted to share these years before distributing the output."
             )
