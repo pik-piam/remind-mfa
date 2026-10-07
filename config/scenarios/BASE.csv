@@ -30,5 +30,4 @@ structure_split,cement,structure_split_target,2060,target,,,,,Low-GDP regions co
 min_timber_share,cement,0.0,,,,,,,Minimum timber share the structure split target is lifted to
 dwelling_split,cement,dwelling_split_mean,2060,target,,,,,Low-GDP regions converge their dwelling split to the global mean
 hibernating_stock_share,cement,0.10,2060,target,CHA,,,,Chinas hibernating stock share reduces to 10% by 2060
-concrete_building_mi,cement,concrete_building_mi_target,2060,target,,,,,MI converges to a target value informed by p25 MI
-concrete_building_mi_target_factor,cement,0,,,,,,,Factor by which the MI 25 percentile should be reached. 0 means no change - 1 means reaching the 25 percentile of MI.
+concrete_building_mi,cement,1.0,2060,factor,,,,,Concrete MI of buildings is scaled by factor

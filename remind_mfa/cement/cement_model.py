@@ -140,15 +140,6 @@ class CementModel(CommonModel):
         )
         prm["structure_split_target"] = self.apply_timber_floor(prm["structure_split_mean"])
 
-        # MI: close the gap between p50 and p25 MI by a factor
-        # TODO add p25 as lower_mi in mrmfa
-        lower_mi = prm["concrete_building_mi"] * 0.8
-        prm["concrete_building_mi_target"] = (
-            prm["concrete_building_mi"]
-            + self.scenario_parameters["concrete_building_mi_target_factor"]
-            * (lower_mi - prm["concrete_building_mi"])
-        ).to_class(fd.Parameter)
-
         # Lifetime
         # TODO move lifetime_max to mrmfa
         lifetime_max = fd.FlodymArray(dims=self.dims["u",])
