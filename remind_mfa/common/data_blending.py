@@ -198,6 +198,9 @@ class CriticallyDampedBlender:
         where Y is the blended trajectory, P the extrapolation target, and
         k = 4.74 / approaching_time the damping parameter. The ODE is solved using a
         semi-implicit Euler method with an anticipatory D-term to prevent overshoot.
+        Where P grows faster than the historic trend, the D-term targets the historic trend
+        slope at first and phases in P' over ``approaching_time`` years, so the trajectory
+        accelerates gradually instead of adopting P' within a few years.
         A quadratic nudge applied after each step guarantees convergence to P over the long run.
 
         Args:
@@ -254,8 +257,9 @@ class CriticallyDampedBlender:
         The controller drives Y toward P via:
             Y'' + 2k·Y' + k²Y = k²P(t) + 2k·P'(t),   k = 4.74 / approaching_time
         integrated with a semi-implicit Euler method. P'(t) is estimated with a look-ahead
-        to prevent overshoot during saturation phases. A quadratic nudge applied after each
-        step guarantees convergence to P over the long run.
+        to prevent overshoot during saturation phases. Where it exceeds the initial slope v0,
+        it is phased in over ``approaching_time`` (see :meth:`_phase_in_acceleration`).
+        A quadratic nudge applied after each step guarantees convergence to P over the long run.
 
         Args:
             y0 (np.ndarray): Initial position at the transition point. Shape ``(spatial...)``.
@@ -284,6 +288,7 @@ class CriticallyDampedBlender:
 
         # --- Precompute look-ahead predictor velocity for each timestep ---
         vp_array = self._lookahead_velocity(p_array, dt, n_steps, approaching_time)
+        vp_array = self._phase_in_acceleration(vp_array, v0, dt_elapsed, approaching_time)
 
         # --- Initialize state ---
         y = np.zeros_like(p_array, dtype=float)
@@ -306,6 +311,37 @@ class CriticallyDampedBlender:
             y[i], v[i] = y_curr, v_curr
 
         return y
+
+    @staticmethod
+    def _phase_in_acceleration(
+        vp_array: np.ndarray,
+        v0: np.ndarray,
+        dt_elapsed: np.ndarray,
+        approaching_time: float,
+    ) -> np.ndarray:
+        """
+        Limit the target velocity of the D-term to the initial slope v0 at first and phase in
+        the part of the prediction slope P' that exceeds v0 over ``approaching_time`` years.
+
+        Without this, the D-term pulls the slope to P' within roughly ``1 / k`` years.
+        Where P' is much steeper than the historic trend, e.g. in regions whose stock grew
+        slower than the common regression suggests for their GDP, this causes a jump in the
+        stock's growth and an even larger one in its inflow. Where P' is below v0, e.g. when
+        approaching saturation, P' is kept so the trajectory does not overshoot.
+
+        Args:
+            vp_array (np.ndarray): Prediction slope for each timestep, time as first axis.
+            v0 (np.ndarray): Initial slope at the transition point, spatial shape.
+            dt_elapsed (np.ndarray): 1D array of years since the transition point.
+            approaching_time (float): Years over which the excess slope is phased in.
+
+        Returns:
+            np.ndarray: Target velocity for the D-term, same shape as ``vp_array``.
+        """
+        phase_in = blending_factor(dt_elapsed / approaching_time, "hermite")
+        phase_in = phase_in.reshape((-1,) + (1,) * (vp_array.ndim - 1))
+        excess_slope = np.maximum(vp_array - v0, 0.0)
+        return vp_array - (1 - phase_in) * excess_slope
 
     def _lookahead_velocity(
         self,

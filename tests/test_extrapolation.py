@@ -360,3 +360,33 @@ def test_critically_damped_blender():
 
     np.testing.assert_allclose(blended[:6], historical)  # history preserved exactly
     assert abs(blended[-1, 0] - 50.0) < 0.5  # converges to the prediction long-term
+
+
+def test_critically_damped_blender_accelerates_gradually():
+    """A prediction much steeper than the historic trend is adopted gradually, not at once."""
+    time = np.arange(2000, 2201)
+    historical = (1.0 + 0.01 * np.arange(11)).reshape(-1, 1)  # slope 0.01 up to 2010
+    prediction = (1.1 + 0.1 * (time - 2010)).reshape(-1, 1)  # same level in 2010, slope 0.1
+    blended = CriticallyDampedBlender(
+        time=time, historical=historical, prediction=prediction
+    ).blend(approaching_time=50)
+
+    slopes = np.diff(blended[:, 0])
+    assert slopes[10] < 0.015  # first future step stays close to the historic slope
+    assert np.all(np.diff(slopes[10:40]) > 0)  # then accelerates steadily
+    np.testing.assert_allclose(blended[-1], prediction[-1], rtol=0.01)
+
+
+def test_phase_in_acceleration():
+    vp = np.tile([0.5, -0.2], (3, 1))  # prediction slope over (t, spatial)
+    v0 = np.array([0.1, 0.0])
+    dt_elapsed = np.array([0.0, 25.0, 50.0])
+
+    target = CriticallyDampedBlender._phase_in_acceleration(
+        vp, v0, dt_elapsed, approaching_time=50
+    )
+
+    # steeper prediction: starts at v0, adopts half the excess slope midway, all of it at the end
+    np.testing.assert_allclose(target[:, 0], [0.1, 0.3, 0.5])
+    # flatter prediction (e.g. saturation) is followed directly
+    np.testing.assert_allclose(target[:, 1], [-0.2, -0.2, -0.2])
