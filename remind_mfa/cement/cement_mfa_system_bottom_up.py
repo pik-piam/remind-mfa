@@ -83,7 +83,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         self.compute_bottom_up_stock()
         self.extend_top_down_stock(td_in_use)
         combined_stock = self.blend_stocks()
-        super().compute(combined_stock, historic_trade, stock_is_cement=False)
+        super().compute(combined_stock, historic_trade)
 
     def compute_floorspace_stock(self):
         """Calculate the floorspace inflow from stock change + lifetime (stock-driven)."""

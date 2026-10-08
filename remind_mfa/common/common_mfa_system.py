@@ -6,6 +6,7 @@ from typing import Literal, Optional
 
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.common_config import CommonCfg
+from remind_mfa.common.helpers import clip_negative_arr
 
 
 class CommonMFASystem(fd.MFASystem):
@@ -20,17 +21,9 @@ class CommonMFASystem(fd.MFASystem):
         the corresponding warning can be suppressed with warn_small_negative=False.
         """
         stock = self.stocks[stock_name]
-        min_inflow = stock.inflow.values.min()
-        if min_inflow >= 0:
+        if stock.inflow.values.min() >= 0:
             return
-        negative_regions = [r for r in self.dims["r"].items if stock.inflow[r].values.min() < 0]
-        small_negative_threshold = 1e-6
-        is_small = abs(min_inflow) <= small_negative_threshold
-        if not is_small or warn_small_negative:
-            logging.warning(
-                f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
-            )
-        corrected_inflow = stock.inflow.maximum(0)
+        corrected_inflow = clip_negative_arr(stock.inflow, warn_small_negative)
         self.stocks[stock_name] = fd.InflowDrivenDSM(
             dims=stock.dims,
             lifetime_model=stock.lifetime_model,

@@ -47,6 +47,7 @@ def get_cement_definition(
             "sysenv",
             "prod_cement",
             "market_cement",
+            "prod_product",
             "use",
             "imports",
             "exports",
@@ -73,8 +74,10 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="imports", to_process="market_cement", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="market_cement", to_process="use", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="market_cement", to_process="sysenv", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="market_cement", to_process="prod_product", dim_letters=("h", "r", "u", "m")),
+            fd.FlowDefinition(from_process="sysenv", to_process="prod_product", dim_letters=("h", "r", "u", "m")),
+            fd.FlowDefinition(from_process="prod_product", to_process="use", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
         ]
     else:
@@ -131,7 +134,7 @@ def get_cement_definition(
                 name="in_use",
                 process="use",
                 dim_letters=full_flow_letters + ("k",),
-                subclass=fd.StockDrivenDSM,
+                subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             # The eol, atmosphere and carbonated_co2 stocks are injected at runtime by
@@ -196,9 +199,9 @@ def get_cement_definition(
         RemindMFAParameterDefinition(name="clinker_losses", dim_letters=(),
                                      description="Share of clinker lost during clinker production."),
         RemindMFAParameterDefinition(name="cement_ratio", dim_letters=("r", "m",),
-                                     description="Share of product mass that is cement for each product material."),
+                                     description="Mass share of cement in newly produced product, for each product material."),
         RemindMFAParameterDefinition(name="product_material_split", dim_letters=("r", "m"),
-                                     description="Share of product output allocated to each material by region."),
+                                     description="Share of cement used in each product material by region."),
         # carbonation parameters
         RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=(),
                                      description="Mass fraction of CaO contained in clinker."),

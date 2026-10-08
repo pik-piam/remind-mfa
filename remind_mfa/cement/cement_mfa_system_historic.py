@@ -15,7 +15,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         self.balance_trade()
         prm, trd, flw, stk = self.mfa_stats()
         self.cap_historical_net_exports_to_supply(trd["cement"], prm["cement_production"])
-        self.compute_cement_stock(prm, trd, flw, stk)
+        self.compute_stock(prm, trd, flw, stk)
         self.compute_other_flows(prm, trd, flw, stk)
         self.check_mass_balance()
         self.check_flows()
@@ -37,21 +37,27 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         return prm, trd, flw, stk
 
     @staticmethod
-    def compute_cement_stock(prm, trd, flw, stk):
-        """Compute relevant flows for stock build-up and compute the stock.
+    def compute_stock(prm, trd, flw, stk):
+        """Compute relevant flows for stock build-up and compute the in-use stock.
         For reconciliation, returns in use stock."""
 
         # production
         flw["prod_cement => market_cement"][...] = prm["cement_production"]
 
-        # use
-        flw["market_cement => use"][...] = (
+        # product production
+        cement_use = (
             (flw["prod_cement => market_cement"] + trd["cement"].net_imports)
             * (1 - prm["cement_losses"])
             * prm["end_use_split"]
         )
+        flw["market_cement => prod_product"][...] = cement_use * prm["product_material_split"]
+        product_by_material = flw["market_cement => prod_product"] / prm["cement_ratio"]
+        flw["sysenv => prod_product"][...] = (
+            product_by_material - flw["market_cement => prod_product"]
+        )
+        flw["prod_product => use"][...] = product_by_material.sum_over("m")
 
-        stk["in_use"].inflow[...] = flw["market_cement => use"]
+        stk["in_use"].inflow[...] = flw["prod_product => use"]
         stk["in_use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
             std=prm["lifetime_std"],
@@ -69,7 +75,9 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
 
         # cement losses during construction
         flw["market_cement => sysenv"][...] = (
-            flw["market_cement => use"] * prm["cement_losses"] / (1 - prm["cement_losses"])
+            flw["market_cement => prod_product"]
+            * prm["cement_losses"]
+            / (1 - prm["cement_losses"])
         )
 
         # trade

@@ -3,7 +3,7 @@ parameter,models,value,extra:year,extra:type,index:Region,index:End Use,index:St
 # --- Model defaults ---
 saturation_level,steel,10,,,,,,,
 saturation_level,plastics,3,,,,,,,
-saturation_level,cement,24,,,,,,,
+saturation_level,cement,180,,,,,,,Corresponds to about 24 t cement at historic cement ratios
 
 # --- Scenario defaults ---
 stock_factor,all,1.0,2100,factor,,,,,
