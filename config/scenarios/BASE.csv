@@ -2,7 +2,7 @@ parameter,models,value,extra:year,extra:type,index:Region,index:End Use,index:St
 
 # --- Model defaults ---
 saturation_level,steel,10,,,,,,,
-saturation_level,plastics,3,,,,,,,
+saturation_level,plastics,2.5,,,,,,,
 saturation_level,cement,24,,,,,,,
 
 # --- Scenario defaults ---
