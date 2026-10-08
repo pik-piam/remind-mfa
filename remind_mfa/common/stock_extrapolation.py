@@ -205,6 +205,16 @@ class StockExtrapolation(RemindMFABaseModel):
                         "Critically damped blending is used to smoothly transition from historic trends to the extrapolation."
                     ),
                 )
+                add_assumption_doc(
+                    type="model assumption",
+                    name="Gradual acceleration of stock growth",
+                    description=(
+                        "Where the extrapolation grows faster than the historic stock trend, the "
+                        "blended stock starts with the historic trend slope and adopts the faster "
+                        "growth gradually over the blending years. Slower growth of the "
+                        "extrapolation, e.g. towards saturation, is followed directly."
+                    ),
+                )
             case "shift_zeroth_order":
                 # match last point by adding the difference between the last historic point and the
                 # corresponding prediction

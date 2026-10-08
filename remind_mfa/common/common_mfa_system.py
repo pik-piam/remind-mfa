@@ -64,43 +64,74 @@ class CommonMFASystem(fd.MFASystem):
 
         Only called by the historic MFA systems.
         """
+        self._cap_net_trade(trade, limit=supply, direction="exports", warn=True)
+
+    def cap_net_imports_to_capacity(self, trade: Trade, capacity: fd.FlodymArray):
+        """Cap a trade's *net* imports at the domestic capacity to absorb them, then re-balance
+        globally by reducing the exports of the other regions, which keep that material.
+
+        Mirrors :meth:`cap_historical_net_exports_to_supply` with imports and exports swapped,
+        but is meant for future trade, where the capping is a model mechanism and not a data
+        correction, so it does not warn. Pass an infinite capacity for items that must not be
+        capped, e.g. historic years.
+        """
+        self._cap_net_trade(trade, limit=capacity, direction="imports", warn=False)
+
+    def _cap_net_trade(
+        self,
+        trade: Trade,
+        limit: fd.FlodymArray,
+        direction: Literal["imports", "exports"],
+        warn: bool,
+    ):
+        """Cap a trade's positive net flow in ``direction`` at ``limit`` and re-balance globally.
+
+        The capped side is reduced; ``balance`` then scales down the opposite side of the
+        regions that were not capped. This re-inflates the net flow of some regions and thereby
+        partially reintroduces the violation, so the cap and balance are iterated to
+        convergence.
+        """
         trade_name = trade.name or "trade"
         eps = sys.float_info.epsilon
         tolerance = 10 * self._absolute_float_precision
-        # Compare net exports and supply on the dimensions they share. The trade may be more
-        # granular than the supply (e.g. per-good indirect exports vs. total fabrication supply)
+        if direction == "exports":
+            capped_flow, opposite_flow = trade.exports, trade.imports
+        else:
+            capped_flow, opposite_flow = trade.imports, trade.exports
+        # Compare net trade and limit on the dimensions they share. The trade may be more
+        # granular than the limit (e.g. per-good indirect exports vs. total fabrication supply)
         # or coarser (e.g. aggregate scrap exports vs. per-good recovered scrap), so both are
         # summed to their common dimensions before capping.
         common_dims = tuple(
-            letter for letter in trade.exports.dims.letters if letter in supply.dims.letters
+            letter for letter in capped_flow.dims.letters if letter in limit.dims.letters
         )
-        supply_total = supply.sum_to(common_dims).maximum(0)
+        limit_total = limit.sum_to(common_dims).maximum(0)
         for iteration in range(50):
-            net_exports = (trade.exports - trade.imports).maximum(0)
-            net_exports_total = net_exports.sum_to(common_dims)
-            # sum of positive per-good net exports may not exceed domestic supply
-            net_export_excess = (net_exports_total - supply_total).maximum(0)
-            if not (net_export_excess.values > tolerance).any():
+            net_flow = (capped_flow - opposite_flow).maximum(0)
+            net_flow_total = net_flow.sum_to(common_dims)
+            # sum of positive per-good net trade may not exceed the limit
+            net_flow_excess = (net_flow_total - limit_total).maximum(0)
+            if not (net_flow_excess.values > tolerance).any():
                 break
-            if iteration == 0:
+            if warn and iteration == 0:
                 self._warn_historical_net_trade_cap(
                     trade_name,
-                    net_export_excess,
-                    net_exports_total,
+                    net_flow_excess,
+                    net_flow_total,
                     tolerance,
                     eps,
-                    direction="exports",
+                    direction=direction,
                 )
-            # reduce exports of net-export goods to bring positive net exports down to supply,
-            # keeping their imports (same-good stop-over) untouched; factor in [0, 1]
-            export_factor = (net_exports_total - net_export_excess) / net_exports_total.maximum(eps)
-            trade.exports[...] = trade.exports - net_exports * (1 - export_factor)
+            # reduce the capped flow of net-trade goods to bring positive net trade down to the
+            # limit, keeping the opposite flow (same-good stop-over) untouched; factor in [0, 1]
+            factor = (net_flow_total - net_flow_excess) / net_flow_total.maximum(eps)
+            capped_flow[...] = capped_flow - net_flow * (1 - factor)
 
-            scaled = net_export_excess.cast_values_to(trade.exports.dims) == 0
+            scaled = net_flow_excess.cast_values_to(capped_flow.dims) == 0
             trade.balance(to="minimum", mask_scaled=scaled)
         else:
             logging.warning(
-                f"'{trade_name}': positive-net-export cap did not converge after 50 iterations."
+                f"'{trade_name}': positive-net-{direction} cap did not converge after 50 iterations."
             )
 
     def cap_historical_net_imports_to_demand(
