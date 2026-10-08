@@ -315,8 +315,8 @@ class CriticallyDampedBlender:
 
         return y
 
+    @staticmethod
     def _lookahead_shift(
-        self,
         arr: np.ndarray,
         dt: float,
         approaching_time: float,
@@ -408,8 +408,8 @@ class CriticallyDampedBlender:
         # 4. Round to nearest integer for array indexing/window sizing
         return np.round(n_float).astype(int)
 
+    @staticmethod
     def _trend_slope(
-        self,
         t: np.ndarray,
         y: np.ndarray,
         window_size: Union[int, np.ndarray],
