@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
 
 import flodym as fd
 import flodym.export as fde
-import pyam
 from pydantic import PrivateAttr
 import pandas as pd
 
@@ -29,6 +28,8 @@ from remind_mfa.common.helpers import (
 )
 
 if TYPE_CHECKING:
+    import pyam
+
     from remind_mfa.common.common_model import CommonModel
 
 
@@ -224,6 +225,8 @@ class CommonDataExporter(RemindMFABaseModel):
         instead of a plain sum (e.g. per-capita variables weighted by Population),
         mapping variable -> weight variable.
         """
+        import pyam  # deferred: slow to import
+
         iamc_dataframes = []
         split_parent_components: dict[str, list[str]] = {}
         region_weights: dict[str, str] = {}
@@ -288,6 +291,8 @@ class CommonDataExporter(RemindMFABaseModel):
         self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
     ) -> tuple[pyam.IamDataFrame, list[str]]:
         """Build the IamDataFrame for a iamc variable and return it with the variable names it produced."""
+        import pyam  # deferred: slow to import
+
         df = self.to_iamc_df(iamc_var.calculation_function(mfa))
         df["variable"] = iamc_var.variable_name
         if iamc_var.split_name is not None:
