@@ -5,6 +5,14 @@ app = marimo.App()
 
 
 @app.cell
+def _(mo):
+    mo.md(r"""
+    To use `GraphvizProcessGraphPlotter` you need to have `graphviz` installed on your system. Go to https://graphviz.org/download/ to download and install.
+    """)
+    return
+
+
+@app.cell
 def _():
     from remind_mfa.common.helpers import ModelNames
     import dotenv
@@ -31,7 +39,7 @@ def _():
             graphs.append(dot)
 
     mo.vstack(graphs)
-    return
+    return (mo,)
 
 
 if __name__ == "__main__":
