@@ -80,9 +80,7 @@ class CementModel(CommonModel):
         global_weighted_mean = (regional_parameter * global_weights).sum_over(
             "r"
         ) / global_weights.sum_over("r")
-        development_blended_mean = fd.Parameter(
-            dims=regional_parameter.dims, name=output_name
-        )
+        development_blended_mean = fd.Parameter(dims=regional_parameter.dims, name=output_name)
         development_blended_mean[...] = (
             self.parameters["development_weight"] * global_weighted_mean
             + (1.0 - self.parameters["development_weight"]) * regional_parameter

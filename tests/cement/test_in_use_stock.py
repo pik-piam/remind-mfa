@@ -124,6 +124,4 @@ def test_keeps_fully_resolved_stock():
     product_stock = growing_stock(("t", "r", "u", "m", "k"))
     mfa.compute_in_use_stock(product_stock)
 
-    np.testing.assert_allclose(
-        mfa.stocks["in_use"].stock.values, product_stock.values, rtol=1e-10
-    )
+    np.testing.assert_allclose(mfa.stocks["in_use"].stock.values, product_stock.values, rtol=1e-10)
