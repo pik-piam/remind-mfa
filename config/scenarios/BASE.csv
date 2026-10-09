@@ -11,8 +11,8 @@ lifetime_mean,all,1.0,2060,factor,,,,,
 lifetime_std,all,1.0,2060,factor,,,,,
 
 # --- Plastics ---
-waste_his_imports,plastics,0,2030,target,,,,,
-waste_his_exports,plastics,0,2030,target,,,,,
+waste_imports,plastics,0,2030,target,,,,,
+waste_exports,plastics,0,2030,target,,,,,
 collection_rate,plastics,0.99,2100,target,,,,,
 landfill_rate,plastics,0.0,2100,target,,,,,
 mechanical_recycling_rate,plastics,0.4,2100,target,,,,,

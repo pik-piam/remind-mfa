@@ -1,4 +1,4 @@
-from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDisplayNames
+from remind_mfa.common.common_mappings import CommonDisplayNames
 
 
 class PlasticsDisplayNames(CommonDisplayNames):

@@ -147,7 +147,6 @@ class SteelMFASystem(CommonMFASystem):
         flw["scrap_pool => excess_scrap"][...] = aux["available_scrap"] - flw["scrap_pool => steel_production_scrap_based"]
 
         flw["extraction => steel_production_ore_based"][...] = aux["production_inflow"] - flw["scrap_pool => steel_production_scrap_based"]
-        flw["extraction => steel_production_ore_based"][...] = flw["extraction => steel_production_ore_based"] - flw["scrap_pool => steel_production_ore_based"]
         flw["steel_production_ore_based => forming"][...] = flw["extraction => steel_production_ore_based"] * (1 - prm["steel_production_loss_rate"])
         flw["steel_production_ore_based => losses"][...] = flw["extraction => steel_production_ore_based"] - flw["steel_production_ore_based => forming"]
         flw["steel_production_scrap_based => forming"][...] = flw["scrap_pool => steel_production_scrap_based"] * (1 - prm["steel_production_loss_rate"])

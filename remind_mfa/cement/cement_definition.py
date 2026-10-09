@@ -117,7 +117,7 @@ def get_cement_definition(
     if historical:
         stocks = [
             fd.StockDefinition(
-                name="in_use",
+                name="use",
                 process="use",
                 dim_letters=("h", "r", "u"),
                 subclass=fd.InflowDrivenDSM,
@@ -128,7 +128,7 @@ def get_cement_definition(
     else:
         stocks = [
             fd.StockDefinition(
-                name="in_use",
+                name="use",
                 process="use",
                 dim_letters=full_flow_letters + ("k",),
                 subclass=fd.StockDrivenDSM,
@@ -148,14 +148,14 @@ def get_cement_definition(
                         lifetime_model_class=cfg.model_switches.lifetime_model,
                     ),
                     fd.StockDefinition(
-                        name="bu_in_use",
+                        name="bu_use",
                         process=None,  # no associated process
                         dim_letters=("t", "r", "b", "s"),
                         subclass=fd.InflowDrivenDSM,
                         lifetime_model_class=cfg.model_switches.lifetime_model,
                     ),
                     fd.StockDefinition(
-                        name="td_in_use",
+                        name="td_use",
                         process=None,  # no associated process
                         dim_letters=full_flow_letters,
                         subclass=fd.InflowDrivenDSM,
