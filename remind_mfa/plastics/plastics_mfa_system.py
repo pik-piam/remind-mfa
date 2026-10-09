@@ -122,6 +122,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historic_trade=historic_trade["final_his"].sum_over("p"),
             future_trade=self.trade_set["final"],
             future_dom_demand=stk["in_use"].inflow,
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
 
@@ -149,6 +150,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historic_trade=historic_trade["primary_his"].sum_over("p"),
             future_trade=self.trade_set["primary"],
             future_dom_demand=flw["primary_market => fabrication"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
 

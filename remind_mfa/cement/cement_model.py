@@ -11,6 +11,7 @@ from remind_mfa.cement.cement_mfa_system_bottom_up import (
     expand_common_to_bu,
     extend_end_use_intensive,
 )
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.data_blending import blend
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
@@ -65,6 +66,56 @@ class CementModel(CommonModel):
         )
         return weight
 
+    def calculate_weighted_mean(
+        self,
+        regional_parameter: fd.Parameter,
+        global_weights: fd.FlodymArray,
+        output_name: str,
+    ) -> fd.Parameter:
+        """Calculate a global weighted mean, then blend it with regional values.
+
+        The development weight controls the blend: a weight of one selects the
+        global weighted mean, while a weight of zero preserves the regional value.
+        """
+        global_weighted_mean = (regional_parameter * global_weights).sum_over(
+            "r"
+        ) / global_weights.sum_over("r")
+        development_blended_mean = fd.Parameter(dims=regional_parameter.dims, name=output_name)
+        development_blended_mean[...] = (
+            self.parameters["development_weight"] * global_weighted_mean
+            + (1.0 - self.parameters["development_weight"]) * regional_parameter
+        )
+        return development_blended_mean
+
+    def apply_timber_floor(self, structure_split: fd.Parameter) -> fd.Parameter:
+        """Raise the timber share of a structure split to the scenario minimum.
+
+        Shares already at or above `min_timber_share` are left untouched. The share gained
+        by timber is taken from all other structure types in proportion to their size, so
+        the split still sums to one.
+        """
+        timber = structure_split[{"s": "T"}]
+        floor = self.scenario_parameters["min_timber_share"].cast_to(timber.dims)
+        new_timber = timber.maximum(floor)
+        # scaling of the non-timber shares, which have to make room for the added timber
+        others_scaling = (1.0 - new_timber) / (1.0 - timber).maximum(1e-9)
+
+        target = fd.Parameter(dims=structure_split.dims, name="structure_split_target")
+        target[...] = structure_split * others_scaling
+        target[{"s": "T"}] = new_timber
+
+        add_assumption_doc(
+            type="model switch",
+            name="Minimum timber share of buildings",
+            value=str(np.unique(floor.values)),
+            description=(
+                "The structure split converges to a target in which the timber share is at "
+                "least the scenario value given here. Regions above it keep their share. The "
+                "added timber share is taken from the other structure types proportionally."
+            ),
+        )
+        return target
+
     def calculate_derived_parameters(self):
 
         # copy/rename for use in common model
@@ -72,35 +123,39 @@ class CementModel(CommonModel):
 
         # derive mean dwelling and structure splits from global weighted average
         prm = self.parameters
-        w = prm["development_weight"]
         floorspace = prm["floorspace"][{"t": self.dims["h"].items[-1]}]
 
         # dwelling split target
         res_floorspace = floorspace[{"c": "Res"}]
-        global_dwelling_split = (prm["dwelling_split"] * res_floorspace).sum_over(
-            "r"
-        ) / res_floorspace.sum_over("r")
-        dwelling_split_mean = fd.Parameter(
-            dims=prm["dwelling_split"].dims, name="dwelling_split_mean"
+        prm["dwelling_split_mean"] = self.calculate_weighted_mean(
+            prm["dwelling_split"], res_floorspace, "dwelling_split_mean"
         )
-        dwelling_split_mean[...] = w * global_dwelling_split + (1.0 - w) * prm["dwelling_split"]
-        prm["dwelling_split_mean"] = dwelling_split_mean
 
-        # structure split target
+        # structure split target: global weighted mean, with a floor on the timber share
         bu_floorspace = expand_common_to_bu(floorspace, prm)
-        global_structure_split = (prm["structure_split"] * bu_floorspace).sum_over(
-            "r"
-        ) / bu_floorspace.sum_over("r")
-        structure_split_mean = fd.Parameter(
-            dims=prm["structure_split"].dims, name="structure_split_mean"
+        prm["structure_split_mean"] = self.calculate_weighted_mean(
+            prm["structure_split"], bu_floorspace, "structure_split_mean"
         )
-        structure_split_mean[...] = w * global_structure_split + (1.0 - w) * prm["structure_split"]
-        prm["structure_split_mean"] = structure_split_mean
+        prm["structure_split_target"] = self.apply_timber_floor(prm["structure_split_mean"])
+
+        # Lifetime
+        # TODO move lifetime_max to mrmfa
+        lifetime_max = fd.FlodymArray(dims=self.dims["u",])
+        lifetime_max["Res"] = 100
+        lifetime_max["Com"] = 80
+        lifetime_max["Ind"] = 75
+        lifetime_max["Civ"] = 75
+        lifetime_current = self.parameters["lifetime_mean"][{"h": self.dims["h"].items[-1]}]
+        multiplier = (1 / lifetime_current * lifetime_max - 1).maximum(0)
+
+        alpha = self.scenario_parameters["lifetime_min_factor"]
+        prm["lifetime_mean_factor"] = (alpha + (alpha - 1) * multiplier).to_class(fd.Parameter)
+        prm["lifetime_std_factor"] = prm["lifetime_mean_factor"]
 
     def run(self):
         super().run()
 
-        if self.cfg.model_switches.parameter_reconciliation.do_reconcile:
+        if self.cfg.model_switches.parameter_reconciliation:
             return self.run_with_reconciliation()
 
     def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
@@ -126,7 +181,7 @@ class CementModel(CommonModel):
     def run_with_reconciliation(self):
         """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
 
-        Called by `run()` when `do_reconcile` is enabled. Extends the base model run with a
+        Called by `run()` when `parameter_reconciliation` is enabled. Extends the base model run with a
         parameter reconciliation loop that aligns historic top-down and bottom-up stocks, then
         propagates reconciled parameters into the future projection.
 

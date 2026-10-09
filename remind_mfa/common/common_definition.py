@@ -102,6 +102,12 @@ scenario_parameters = [
         create_new=True,
     ),
     ExtrapolationDefinition(
+        name="trade_factor",
+        dim_letters=("r",),
+        create_new=True,
+        blending_function="poly_mix",
+    ),
+    ExtrapolationDefinition(
         name="lifetime_mean",
         dim_letters=("r",),
         blending_function="poly_mix",

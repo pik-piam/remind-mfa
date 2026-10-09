@@ -26,6 +26,10 @@ class TradeExtrapolator(RemindMFABaseModel):
     """future_dom_demand (FlodymArray): The domestic demand values to scale the historic imports by.
     Setting this means calculating trade in backward mode
     """
+    trade_factor: fd.FlodymArray | float = 1.0
+    """trade_factor (FlodymArray | float): Scenario factor applied to the extrapolated trade. Must
+    only contain dimensions of the future trade. Defaults to no scaling.
+    """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
 
@@ -173,11 +177,11 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         Stopover is pass-through trade, decoupled from the transit region's own domestic driver,
         so - unlike :meth:`scale_first` - it is scaled by *global* scaler growth (region-
-        independent, per good).
+        independent, per good). Stopover is further scaled with a scenario trade factor.
         """
         global_scaler = self.scaler_first.sum_over("r")
         global_scaler_0 = self.scaler_first_0.sum_over("r").maximum(self._eps)
-        stopover_trade = self.stopover_0 * (global_scaler / global_scaler_0)
+        stopover_trade = self.stopover_0 * (global_scaler / global_scaler_0) * self.trade_factor
         self.future_first[...] += stopover_trade
         self.future_first[self.id_hist] = self.historic_first
         return stopover_trade
@@ -261,6 +265,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         - for large relative increases of the scaler, global trade shares (e/p an i/d) slowly
           replace local ones, as such large changes diminish the predictive power of local
           historical trade patterns. Phase-in of global shares is governed by the alpha parameter
+        - the trade base is scaled by the scenario trade factor
         - no scaling for decreasing scaler in future_second
           Rationale:
           - if domestic demand decreases, the standing production might export more
@@ -268,7 +273,9 @@ class TradeExtrapolator(RemindMFABaseModel):
         """
         assert np.min(dom.values) >= -1e-6 * np.max(np.abs(dom.values))
         assert np.min(dom_0.values) >= -1e-6 * np.max(np.abs(dom_0.values))
-        trd_0 = trd_0.maximum(0)
+        # scale the trade base
+        # if we instead scaled the final result, the trd_0 floor would make low trades impossible.
+        trd_0 = trd_0.maximum(0) * self.trade_factor
         dom = dom.maximum(0)
         dom_0 = dom_0.maximum(1)
         dom_ratio = (dom / dom_0).maximum(1).apply(np.log) / np.log(50)
