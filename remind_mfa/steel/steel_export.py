@@ -69,7 +69,8 @@ class SteelDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Material Demand|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["manufacturing => manufactured_products_market"] / mfa.parameters["manufacturing_yield"]
+                    mfa.flows["manufacturing => manufactured_products_market"]
+                    / mfa.parameters["manufacturing_yield"]
                 ).sum_to(("t", "r", "u")),
                 unit="t/yr",
                 split_name="End Use",

@@ -114,7 +114,10 @@ class SteelVisualizer(CommonVisualizer):
 
     def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
-        production = flw["steel_production_ore_based => forming"] + flw["steel_production_scrap_based => forming"]
+        production = (
+            flw["steel_production_ore_based => forming"]
+            + flw["steel_production_scrap_based => forming"]
+        )
         manufacturing = flw["steel_market => manufacturing"]
         consumption = mfa.stocks["use"].inflow.sum_over("u")
         array_dict = {
@@ -144,7 +147,10 @@ class SteelVisualizer(CommonVisualizer):
         self.plot_and_save_figure(plotter, f"production_{name_str}", do_plot=False)
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
-        production = mfa.flows["steel_production_ore_based => forming"] + mfa.flows["steel_production_scrap_based => forming"]
+        production = (
+            mfa.flows["steel_production_ore_based => forming"]
+            + mfa.flows["steel_production_scrap_based => forming"]
+        )
         self.visualize_fdarr(mfa=mfa, flow=production, name="Steel production", regional=regional)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_end_use=False):
@@ -174,7 +180,8 @@ class SteelVisualizer(CommonVisualizer):
         prm = mfa.parameters
 
         total_production = (
-            flw["forming => steel_market"] / (prm["forming_yield"] * (1 - prm["steel_production_loss_rate"]))
+            flw["forming => steel_market"]
+            / (prm["forming_yield"] * (1 - prm["steel_production_loss_rate"]))
         )[{"t": mfa.dims["h"]}]
         scrap_supply = (
             flw["recycling => scrap_pool"]

@@ -28,7 +28,9 @@ class SteelMFASystemHistorical(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "manufacturing_to_manufactured_products_market_total": fd.Parameter(dims=self.dims["h", "r"]),
+            "manufacturing_to_manufactured_products_market_total": fd.Parameter(
+                dims=self.dims["h", "r"]
+            ),
             "recovered_scrap": fd.Parameter(dims=self.dims["h", "r"]),
         }
 

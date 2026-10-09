@@ -55,9 +55,7 @@ class StockFitter(RemindMFABaseModel):
         loop over end use and regions, call single fitting function for each of them
         """
         hdims = self.historical_stocks_pc.dims
-        prms = np.ndarray(
-            shape=(hdims["r"].len, hdims["u"].len, self.extrapolation.n_prms)
-        )
+        prms = np.ndarray(shape=(hdims["r"].len, hdims["u"].len, self.extrapolation.n_prms))
         self._n_hist = hdims["h"].len
         ids_failed = []
         n_r = hdims["r"].len
