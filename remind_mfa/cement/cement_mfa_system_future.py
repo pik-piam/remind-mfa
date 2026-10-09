@@ -103,9 +103,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         if "m" in arr.dims:
             return arr
         # product_material_split is a split of cement mass; convert to product mass shares
-        product_mass_split = (
-            prm["product_material_split"] / prm["cement_ratio"]
-        ).get_shares_over("m")
+        product_mass_split = (prm["product_material_split"] / prm["cement_ratio"]).get_shares_over(
+            "m"
+        )
         return arr * product_mass_split
 
     def add_constituent_split(self, arr: fd.FlodymArray) -> fd.FlodymArray:

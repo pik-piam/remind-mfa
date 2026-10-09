@@ -75,9 +75,7 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
 
         # cement losses during construction
         flw["market_cement => sysenv"][...] = (
-            flw["market_cement => prod_product"]
-            * prm["cement_losses"]
-            / (1 - prm["cement_losses"])
+            flw["market_cement => prod_product"] * prm["cement_losses"] / (1 - prm["cement_losses"])
         )
 
         # trade
