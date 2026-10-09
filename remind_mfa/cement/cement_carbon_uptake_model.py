@@ -574,9 +574,9 @@ def safe_share(part: fd.FlodymArray, total: fd.FlodymArray) -> np.ndarray:
     """
     Share part / total in the dimensions of total, set to zero where total is zero.
     """
-    part = part.cast_to(total.dims).values
-    total = total.values
-    return np.divide(part, total, out=np.zeros_like(total), where=total != 0)
+    part_val = part.cast_to(total.dims).values
+    total_val = total.values
+    return np.divide(part_val, total_val, out=np.zeros_like(total_val), where=total_val != 0)
 
 
 def windowed_sum(arr: np.ndarray, window: int):
