@@ -27,7 +27,7 @@ from remind_mfa.common.parameter_extrapolation import (
 )
 from remind_mfa.common.scenarios import ExtrapolationScenarioParameter
 
-H = fd.Dimension(name="Historic Time", letter="h", items=list(range(2000, 2006)))
+H = fd.Dimension(name="Historical Time", letter="h", items=list(range(2000, 2006)))
 T = fd.Dimension(name="Time", letter="t", items=list(range(2000, 2011)))
 R = fd.Dimension(name="Region", letter="r", items=["A", "B"])
 S = fd.Dimension(name="Structure", letter="s", items=["X", "Y", "Z"])
@@ -60,7 +60,7 @@ def make_scn(definition: ExtrapolationDefinition, scn_dims, rows) -> Extrapolati
 
 def extrapolate(parameter, scn, parameters=None) -> fd.Parameter:
     extra = ParameterExtrapolation(
-        scenario_parameter=scn, historic_time=H, extended_time=T, parameters=parameters
+        scenario_parameter=scn, historical_time=H, extended_time=T, parameters=parameters
     )
     return extra.extrapolate(parameter, scn.definition.name)
 
@@ -107,7 +107,7 @@ def test_blend_endpoint_exact(blend_type):
 
 @pytest.mark.parametrize("blend_type", CLAMPED_BLEND_TYPES)
 def test_blend_clamps_outside_range(blend_type):
-    # extrapolate() relies on this: historic years must evaluate to y_lower, and
+    # extrapolate() relies on this: historical years must evaluate to y_lower, and
     # years after the endpoint must hold y_upper (trajectory-following).
     result = blend(
         target_dims=dimset(T),
@@ -134,7 +134,7 @@ def test_baseline_preparation():
     definition = ExtrapolationDefinition(name="p", dim_letters=("r",))
     scn = make_scn(definition, dimset(R), rows=[])  # no scenario data: constant continuation
 
-    # h-param: history preserved, future filled with last historic value
+    # h-param: history preserved, future filled with last historical value
     result = extrapolate(h_param(), scn)
     assert result.dims.letters == ("t", "r")
     np.testing.assert_allclose(result[{"t": H}].values, h_param().values)
@@ -182,9 +182,9 @@ def test_factor_scales_existing_trajectory():
     np.testing.assert_allclose(result[{"r": "B"}].values, t_param()[{"r": "B"}].values)
 
 
-def test_target_anchors_at_last_historic():
+def test_target_anchors_at_last_historical():
     # for a t-param, a target ignores the pre-existing future trajectory: the blend
-    # starts at the last historic value, not at the baseline of the blend year
+    # starts at the last historical value, not at the baseline of the blend year
     definition = ExtrapolationDefinition(name="p", dim_letters=("r",))
     scn = make_scn(
         definition, dimset(R), rows=[(30.0, {"Region": "A"}, {"year": 2008, "type": "target"})]
@@ -213,7 +213,7 @@ def test_year_in_history_raises():
     scn = make_scn(
         definition, dimset(R), rows=[(4.0, {"Region": "A"}, {"year": 2005, "type": "target"})]
     )
-    with pytest.raises(ValueError, match="last historic year"):
+    with pytest.raises(ValueError, match="last historical year"):
         extrapolate(h_param(), scn)
 
 
@@ -262,7 +262,7 @@ def manager_scn(name, value, ext_type="target"):
 
 
 def test_manager_dependency_order():
-    manager = ParameterExtrapolationManager(historic_time=H, extended_time=T)
+    manager = ParameterExtrapolationManager(historical_time=H, extended_time=T)
     parameters = {"p_a": h_param("p_a"), "p_b": h_param("p_b"), "p_c": h_param("p_c")}
     # p_a references p_b although p_b is defined later; p_b must be extrapolated first
     # (extrapolating p_a against the raw h-dim p_b would raise)
@@ -275,7 +275,7 @@ def test_manager_dependency_order():
 
 
 def test_manager_circular_reference_raises():
-    manager = ParameterExtrapolationManager(historic_time=H, extended_time=T)
+    manager = ParameterExtrapolationManager(historical_time=H, extended_time=T)
     parameters = {"p_a": h_param("p_a"), "p_b": h_param("p_b")}
     scenario_parameters = {"p_a": manager_scn("p_a", "p_b"), "p_b": manager_scn("p_b", "p_a")}
     with pytest.raises(ValueError, match="Circular reference"):
@@ -283,7 +283,7 @@ def test_manager_circular_reference_raises():
 
 
 def test_manager_create_new():
-    manager = ParameterExtrapolationManager(historic_time=H, extended_time=T)
+    manager = ParameterExtrapolationManager(historical_time=H, extended_time=T)
 
     # the stock_factor pattern: no input data, created with baseline 1 for type factor
     definition = ExtrapolationDefinition(name="new_factor", dim_letters=("r",), create_new=True)

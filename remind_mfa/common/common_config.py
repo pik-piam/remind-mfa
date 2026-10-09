@@ -151,8 +151,8 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Visualization configuration for sankey."""
     extrapolation: BaseVisualizationCfg
     """Visualization configuration for extrapolation."""
-    sector_splits: BaseVisualizationCfg
-    """Visualization configuration for sector splits."""
+    end_use_split: BaseVisualizationCfg
+    """Visualization configuration for end-use splits."""
 
     @model_validator(mode="after")
     def validate(self):

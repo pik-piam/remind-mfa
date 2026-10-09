@@ -9,7 +9,7 @@
 | C4 input                           |
 | Polymerization                     |
 | Primary Market                     |
-| Fabrication                        |
+| Manufacturing                        |
 | Good Market                        |
 | Use Phase                          |
 | EoL                                |

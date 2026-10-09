@@ -9,7 +9,7 @@ from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
 from remind_mfa.common.common_data_reader import CommonDataReader
-from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDisplayNames
+from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -23,17 +23,13 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 class CommonModel:
 
     ConfigCls = CommonCfg
-    DimensionFilesCls = CommonDimensionFiles
     DataExporterCls = CommonDataExporter
     VisualizerCls = CommonVisualizer
     DisplayNamesCls = CommonDisplayNames
-    HistoricMFASystemCls = CommonMFASystem
+    HistoricalMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
     get_definition = staticmethod(get_definition)
-
-    # TODO: unify, then delete
-    historic_stock_name: str = None
 
     do_stock_extrapolation_with_time_factor: bool = False
     # parameters for a static time-dependent penetration curve if desired.
@@ -53,16 +49,16 @@ class CommonModel:
 
     def run(self):
         logging.info("Running historical MFA system...")
-        self.historic_mfa = self.make_mfa(historic=True)
-        self.historic_mfa.compute()
+        self.historical_mfa = self.make_mfa(historical=True)
+        self.historical_mfa.compute()
 
         logging.info("Extrapolating parameters...")
-        self.transfer_historic_parameters()
+        self.transfer_historical_parameters()
 
-        historic_trade = self.historic_mfa.trade_set
+        historical_trade = self.historical_mfa.trade_set
 
         # snapshot parameters before extrapolation, then extend them into the future
-        self.historic_parameters = copy.deepcopy(self.parameters)
+        self.historical_parameters = copy.deepcopy(self.parameters)
         self.extrapolate_parameters()
         self.check_parameters()
 
@@ -70,8 +66,8 @@ class CommonModel:
         stock_projection = self.get_long_term_stock()
 
         logging.info("Running future MFA system...")
-        self.future_mfa = self.make_mfa(historic=False)
-        self.future_mfa.compute(stock_projection, historic_trade)
+        self.future_mfa = self.make_mfa(historical=False)
+        self.future_mfa.compute(stock_projection, historical_trade)
 
     @property
     def name(self) -> str:
@@ -84,14 +80,13 @@ class CommonModel:
         self.visualizer.visualize(model=self)
 
     def set_definition(self):
-        self.definition_historic = self.get_definition(self.cfg, historic=True)
-        self.definition_future = self.get_definition(self.cfg, historic=False)
+        self.definition_historical = self.get_definition(self.cfg, historical=True)
+        self.definition_future = self.get_definition(self.cfg, historical=False)
 
     def read_data(self):
         self.data_reader = CommonDataReader(
             cfg=self.cfg,
             definition=self.definition_future,
-            dimension_file_mapping=self.DimensionFilesCls(),
             allow_missing_values=True,  # needed for at least steel scrap data and for bottom-up (cement)
             allow_extra_values=False,
         )
@@ -105,7 +100,7 @@ class CommonModel:
         logging.info("Checking parameters for NaN and negative values...")
         exceptions = exceptions or []
 
-        all_good = True
+        all_ok = True
         for name, prm in self.parameters.items():
             if name in exceptions:
                 continue
@@ -114,15 +109,15 @@ class CommonModel:
                 if raise_error:
                     raise ValueError(msg)
                 logging.warning(msg)
-                all_good = False
+                all_ok = False
             if np.any(prm.values < 0):
                 msg = f"Negative values found in parameter '{name}'!"
                 if raise_error:
                     raise ValueError(msg)
                 logging.warning(msg)
-                all_good = False
+                all_ok = False
 
-        if all_good:
+        if all_ok:
             logging.info("Success - No NaN or negative values found in parameters.")
 
     def select_driver_scen(self):
@@ -164,8 +159,8 @@ class CommonModel:
             self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
 
-    def transfer_historic_parameters(self):
-        """Transfer parameters from historic to future MFA system if needed, e.g. material splits of plastics stock."""
+    def transfer_historical_parameters(self):
+        """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
 
     def init_export_and_visualization(self):
@@ -181,16 +176,16 @@ class CommonModel:
 
     def make_mfa(
         self,
-        historic: bool = True,
+        historical: bool = True,
         definition: Optional[RemindMFADefinition] = None,
         mfasystem_class: Optional[type[CommonMFASystem]] = None,
     ) -> CommonMFASystem:
         """Build an MFA system. `definition` and `mfasystem_class` default to the
-        historic/future ones selected by `historic` when not given explicitly."""
+        historical/future ones selected by `historical` when not given explicitly."""
         if definition is None:
-            definition = self.definition_historic if historic else self.definition_future
+            definition = self.definition_historical if historical else self.definition_future
         if mfasystem_class is None:
-            mfasystem_class = self.HistoricMFASystemCls if historic else self.FutureMFASystemCls
+            mfasystem_class = self.HistoricalMFASystemCls if historical else self.FutureMFASystemCls
 
         processes = fd.make_processes(definition.processes)
         flows = fd.make_empty_flows(
@@ -218,25 +213,25 @@ class CommonModel:
             trade_set=trade_set,
         )
 
-    def get_stock_sector_split_limit(self):
+    def get_stock_end_use_split_limit(self):
         prm = self.parameters
-        stock_sector_split = (self.lifetime_limit() * prm["sector_split_limit"]).get_shares_over(
+        stock_end_use_split = (self.lifetime_limit() * prm["end_use_split_limit"]).get_shares_over(
             "u"
         )
-        return stock_sector_split
+        return stock_end_use_split
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         saturation_level = self.scenario_parameters["saturation_level"]
-        sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
+        end_use_specific_sat_level = self.get_stock_end_use_split_limit() * saturation_level
 
         time_factor = self.calculate_time_factor()
 
-        historic_stocks = self.historic_mfa.stocks[self.historic_stock_name].stock
-        normalized_historic_stock = historic_stocks / (
-            sector_specific_sat_level * time_factor[{"t": self.dims["h"]}]
+        historical_stocks = self.historical_mfa.stocks["use"].stock
+        normalized_historical_stock = historical_stocks / (
+            end_use_specific_sat_level * time_factor[{"t": self.dims["h"]}]
         )
 
-        # after normalization, target saturation level is 1 across all regions and sectors.
+        # after normalization, target saturation level is 1 across all regions and end-uses.
         sat_level_bound = Bound(
             var_name="saturation_level",
             lower_bound=1,
@@ -254,7 +249,7 @@ class CommonModel:
 
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
-            historic_stocks=normalized_historic_stock,
+            historical_stocks=normalized_historical_stock,
             dims=self.dims,
             parameters=self.parameters,
             target_dim_letters="all",
@@ -264,10 +259,10 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
-        self.sector_specific_sat_level = (
-            sector_specific_sat_level * time_factor
+        self.end_use_specific_sat_level = (
+            end_use_specific_sat_level * time_factor
         )  # to be used in visualization of extrapolation functions
-        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
+        long_term_stock = self.stock_handler.stocks * self.end_use_specific_sat_level
 
         return long_term_stock
 
@@ -286,7 +281,7 @@ class CommonModel:
             for r in self.dims["r"].items:
                 for u in self.dims["u"].items:
                     # the horizontal shift base is shifted by the lifetimes,
-                    # so goods with longer lifetimes reach saturation later
+                    # so end use products with longer lifetimes reach saturation later
                     lt = lifetime[{"r": r, "u": u}].values.item()
                     prms = [1, h_base + lt, growth]
                     ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class

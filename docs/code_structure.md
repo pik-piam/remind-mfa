@@ -8,7 +8,7 @@ The basic structure of the source code is as follows:
 * For each material and the common routines, responsibilities are divided to separate files as follows:
     - Definitions of the dimensionalities of flows, stocks, and parameters, as well as the connections of flows and processes (*material*_definition.py)
     - Computing routines for the future MFA system (*material*_mfa_system_future.py)
-    - A similar file for the historical system (*material*_mfa_system_historic.py)
+    - A similar file for the historical system (*material*_mfa_system_historical.py)
     - Model management: Initialisation of the MFA systems, calls to their compute routines, and to visualisation and export routines (*material*_model.py)
     - Visualisation routines (*material*_visualization.py)
     - Export routines for model outputs (*material*_export.py)

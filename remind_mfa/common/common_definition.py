@@ -40,7 +40,7 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 
 
 class ExtrapolationDefinition(RemindMFAParameterDefinition):
-    """Declares a parameter whose values are extrapolated from historic to full time.
+    """Declares a parameter whose values are extrapolated from historical to full time.
 
     Scenario CSV rows supply the endpoint in the `value` column, either as a number
     or as the name of a model parameter whose values serve as the endpoint at the

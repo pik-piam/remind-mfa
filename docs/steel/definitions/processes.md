@@ -5,7 +5,7 @@
 | Production (EAF)      |
 | Forming               |
 | Intermediate products |
-| Fabrication           |
+| Manufacturing           |
 | Good Market           |
 | Use phase             |
 | Obsolete stocks       |

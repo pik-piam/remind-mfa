@@ -59,7 +59,7 @@ def extend_end_use_intensive[T: fd.FlodymArray](arr: T, extended_end_use_dim: fd
 
 class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
-    def compute(self, td_in_use: fd.Stock, historic_trade: TradeSet):
+    def compute(self, td_use: fd.Stock, historical_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         The building split and MI parameters for the bottom-up MFA should ultimately set the inflow,
@@ -72,18 +72,18 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
            stock (common end uses c).
         2. Apply the dwelling split, structure split and MI to the floorspace inflow and
            calculate the inflow-driven DSM to get the bottom-up concrete stock (b, s).
-        3. Extend the td inflow (from `td_in_use`, end uses u) to extended end uses and
+        3. Extend the td inflow (from `td_use`, end uses u) to extended end uses and
            structures (e, s) and calculate the inflow-driven DSM to get the extended td stock.
-        4. Blend historic td into future bu stock for the end uses the bottom-up model
+        4. Blend historical td into future bu stock for the end uses the bottom-up model
            resolves (b); Ind, Civ and mortar stay td.
-        5. Compute the complete MFA with the blended stock and historic trade.
+        5. Compute the complete MFA with the blended stock and historical trade.
         """
 
         self.compute_floorspace_stock()
         self.compute_bottom_up_stock()
-        self.extend_top_down_stock(td_in_use)
+        self.extend_top_down_stock(td_use)
         combined_stock = self.blend_stocks()
-        super().compute(combined_stock, historic_trade, stock_is_cement=False)
+        super().compute(combined_stock, historical_trade, stock_is_cement=False)
 
     def compute_floorspace_stock(self):
         """Calculate the floorspace inflow from stock change + lifetime (stock-driven)."""
@@ -104,14 +104,14 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         """
         stk = self.stocks
 
-        stk["bu_in_use"].inflow[...] = self.concrete_from_floorspace(
+        stk["bu_use"].inflow[...] = self.concrete_from_floorspace(
             stk["floorspace"].inflow, self.parameters
         )
-        self._set_lifetime("bu_in_use")
-        stk["bu_in_use"].compute()
-        return stk["bu_in_use"].stock
+        self._set_lifetime("bu_use")
+        stk["bu_use"].compute()
+        return stk["bu_use"].stock
 
-    def extend_top_down_stock(self, td_in_use: fd.Stock):
+    def extend_top_down_stock(self, td_use: fd.Stock):
         """Resolve the top-down in-use stock (end uses u) into extended end uses (e) and
         structures (s): extend the td inflow and recalculate the td stock
         (inflow-driven). Equivalent to floorspace approach. Necessary to translate
@@ -123,9 +123,9 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         into dwelling types by floor area.
         """
         stk = self.stocks
-        inflow = stk["td_in_use"].inflow
+        inflow = stk["td_use"].inflow
 
-        td_inflow = td_in_use.inflow.sum_over("k")
+        td_inflow = td_use.inflow.sum_over("k")
         concrete = td_inflow[{"m": "concrete"}]
         mortar = td_inflow[{"m": "mortar"}]
 
@@ -149,8 +149,8 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         for item in ("Com", "Ind", "Civ"):
             inflow[{"m": "mortar", "e": item, "s": "U"}] = mortar[{"u": item}]
 
-        self._set_lifetime("td_in_use")
-        stk["td_in_use"].compute()
+        self._set_lifetime("td_use")
+        stk["td_use"].compute()
 
     def _concrete_mass_shares(self) -> fd.FlodymArray:
         """Distributes the concrete mass of each top-down end use (u) over bottom-up end uses
@@ -180,11 +180,11 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
     def blend_stocks(self) -> fd.FlodymArray:
         """Combine the bu and td stocks into one:
-        Blend smoothly between historic td and future bu concrete stock for the end uses
+        Blend smoothly between historical td and future bu concrete stock for the end uses
         the bottom-up model resolves (b: RS/RM/Com); Ind, Civ and all mortar stay td.
         """
         stk = self.stocks
-        td_stock_expanded = stk["td_in_use"].stock
+        td_stock_expanded = stk["td_use"].stock
 
         # restrict the td stock to the bottom-up-resolved end uses
         bu_mask = {"e": self.dims["b"]}
@@ -200,10 +200,10 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         blender = CriticallyDampedBlender(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
-            prediction=stk["bu_in_use"].stock.values,
+            prediction=stk["bu_use"].stock.values,
         )
         blended_stock = fd.FlodymArray.full_like(
-            other=stk["bu_in_use"].stock,
+            other=stk["bu_use"].stock,
             fill_value=blender.blend(),
         )
 

@@ -23,7 +23,7 @@ class StockExtrapolation(RemindMFABaseModel):
 
     cfg: ModelSwitches
     """Configuration for the model."""
-    historic_stocks: fd.FlodymArray
+    historical_stocks: fd.FlodymArray
     """Historical stock data."""
     dims: fd.DimensionSet
     """Dimension set for the data."""
@@ -52,22 +52,22 @@ class StockExtrapolation(RemindMFABaseModel):
         return self
 
     def set_dims(self):
-        self.historic_dim_letters = self.historic_stocks.dims.letters
-        target_dim_letters = ("t",) + self.historic_dim_letters[1:]
+        self.historical_dim_letters = self.historical_stocks.dims.letters
+        target_dim_letters = ("t",) + self.historical_dim_letters[1:]
         self.dims_out = self.dims[target_dim_letters]
 
     def calc_needed_arrays(self):
         """Calc drivers (GDP and population) and various variations of it"""
-        self.historic_pop = fd.Parameter(dims=self.dims[("h", "r")])
-        self.historic_stocks_pc = fd.StockArray(dims=self.dims[self.historic_dim_letters])
+        self.historical_pop = fd.Parameter(dims=self.dims[("h", "r")])
+        self.historical_stocks_pc = fd.StockArray(dims=self.dims[self.historical_dim_letters])
         self.stocks_pc = fd.StockArray(dims=self.dims_out)
         self.stocks = fd.StockArray(dims=self.dims_out)
 
         self.pop = self.parameters["population"]
         self.gdppc = self.parameters["gdppc"]
         self.adapt_gdppc()
-        self.historic_pop[...] = self.pop[{"t": self.dims["h"]}]
-        self.historic_stocks_pc[...] = self.historic_stocks / self.historic_pop
+        self.historical_pop[...] = self.pop[{"t": self.dims["h"]}]
+        self.historical_stocks_pc[...] = self.historical_stocks / self.historical_pop
 
         self.predictor = self.get_predictor(self.gdppc.values)
 
@@ -108,23 +108,23 @@ class StockExtrapolation(RemindMFABaseModel):
     def common_regression(self):
         """Regress over the chosen predictor, common for all regions.
         The extrapolation object contains the pure regression result without any correction or
-        fitting to the historic stocks.
+        fitting to the historical stocks.
         """
         all_weights = (self.gdppc * self.pop).get_shares_over(("r",))
-        historic_weights = all_weights[{"t": self.dims["h"]}]
-        independent_dims = (self.historic_stocks_pc.dims.index("u"),)
+        historical_weights = all_weights[{"t": self.dims["h"]}]
+        independent_dims = (self.historical_stocks_pc.dims.index("u"),)
         self.extrapolation = self.cfg.stock_extrapolation_class(
-            data_to_extrapolate=self.historic_stocks_pc.values,
+            data_to_extrapolate=self.historical_stocks_pc.values,
             predictor_values=self.predictor,
             independent_dims=independent_dims,
             bound_list=self.bound_list,
-            weights=historic_weights.values,
+            weights=historical_weights.values,
         )
         self.extrapolation.regress()
 
     def regional_adaptation(self):
         """Makes region-specific alterations to the common regression parameters to better fit
-        historic stock trends.
+        historical stock trends.
         Minimization of a penalty function is used to find a good compromise between fitting the
         historical data and keeping the regression parameters close to the pure regression.
         Details on the penalty function and the optimization can be found in the StockFitter class.
@@ -161,7 +161,7 @@ class StockExtrapolation(RemindMFABaseModel):
             k: penalty_weights[k] / StockFitter.norm(order_of_magnitude[k]) for k in penalty_weights
         }
         stock_fitter = StockFitter(
-            historic_stocks_pc=self.historic_stocks_pc,
+            historical_stocks_pc=self.historical_stocks_pc,
             extrapolation=self.extrapolation,
             predictor=self.predictor,
             dims_out=self.dims_out,
@@ -171,8 +171,8 @@ class StockExtrapolation(RemindMFABaseModel):
         self.fitted_regression = stock_fitter.fit()
 
     def smooth_transition(self):
-        """The fit function returns a regression which only approximately continues historic trends.
-        Here we create a smooth transition between the historic stocks and the fitted regression,
+        """The fit function returns a regression which only approximately continues historical trends.
+        Here we create a smooth transition between the historical stocks and the fitted regression,
         which is then used as the final extrapolation result.
         """
         stocks_pc_out = np.zeros_like(self.stocks_pc.values)
@@ -183,7 +183,7 @@ class StockExtrapolation(RemindMFABaseModel):
             case "critically_damped":
                 blender = CriticallyDampedBlender(
                     time=self.dims["t"].items,
-                    historical=self.historic_stocks_pc.values,
+                    historical=self.historical_stocks_pc.values,
                     prediction=self.fitted_regression.values,
                     lifetime=self._prepare_lifetime_for_blender(),
                 )
@@ -202,32 +202,32 @@ class StockExtrapolation(RemindMFABaseModel):
                     type="model assumption",
                     name="Usage of critically damped blend",
                     description=(
-                        "Critically damped blending is used to smoothly transition from historic trends to the extrapolation."
+                        "Critically damped blending is used to smoothly transition from historical trends to the extrapolation."
                     ),
                 )
             case "shift_zeroth_order":
-                # match last point by adding the difference between the last historic point and the
+                # match last point by adding the difference between the last historical point and the
                 # corresponding prediction
                 stocks_pc_out[...] = self.fitted_regression.values - (
-                    self.fitted_regression.values[self.n_historic - 1, :]
-                    - self.historic_stocks_pc.values[self.n_historic - 1, :]
+                    self.fitted_regression.values[self.n_historical - 1, :]
+                    - self.historical_stocks_pc.values[self.n_historical - 1, :]
                 )
                 add_assumption_doc(
                     type="model assumption",
                     name="Usage of zeroth order correction",
                     description=(
-                        "Zeroth order correction is used to match the last historic point with the "
+                        "Zeroth order correction is used to match the last historical point with the "
                         "extrapolated stock."
                     ),
                 )
             case _:
                 raise ValueError(f"Unknown stock_correction method: {self.smooth_transition}")
 
-        stocks_pc_out[: self.n_historic, ...] = self.historic_stocks_pc.values
+        stocks_pc_out[: self.n_historical, ...] = self.historical_stocks_pc.values
         self.stocks_pc.set_values(stocks_pc_out)
 
     @property
-    def n_historic(self):
+    def n_historical(self):
         return self.dims["h"].len
 
     def _prepare_lifetime_for_blender(self):

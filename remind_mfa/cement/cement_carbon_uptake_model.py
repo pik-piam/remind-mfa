@@ -58,7 +58,7 @@ class CementCarbonUptakeModel(BaseModel):
         allocated only when carbonation is active.
         """
         mfa = self.mfa
-        in_use_letters = mfa.stocks["in_use"].dims.letters
+        use_letters = mfa.stocks["use"].dims.letters
 
         # processes (ids continue after the ones already defined)
         next_id = max(process.id for process in mfa.processes.values()) + 1
@@ -71,7 +71,7 @@ class CementCarbonUptakeModel(BaseModel):
             fd.StockDefinition(
                 name="eol",
                 process="eol",
-                dim_letters=in_use_letters,
+                dim_letters=use_letters,
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=fd.FixedLifetime,
             ),
@@ -97,8 +97,8 @@ class CementCarbonUptakeModel(BaseModel):
 
         # flows
         flow_definitions = [
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=in_use_letters),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=in_use_letters),
+            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=use_letters),
+            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=use_letters),
             fd.FlowDefinition(
                 from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r")
             ),
@@ -114,7 +114,7 @@ class CementCarbonUptakeModel(BaseModel):
 
         # reroute the in-use outflow: use => sysenv (baseline sink) becomes use => eol => sysenv
         del mfa.flows["use => sysenv"]
-        mfa.flows["use => eol"][...] = mfa.stocks["in_use"].outflow
+        mfa.flows["use => eol"][...] = mfa.stocks["use"].outflow
         mfa.stocks["eol"].inflow[...] = mfa.flows["use => eol"]
         mfa.stocks["eol"].lifetime_model.set_prms(mean=np.inf)
         mfa.stocks["eol"].compute()
@@ -134,7 +134,7 @@ class CementCarbonUptakeModel(BaseModel):
         uptake = fd.FlodymArray(dims=self.stocks["carbonated_co2"].dims)
         uptake["CKD"] = self.uptake_CKD()
         uptake["Construction Waste"] = self.uptake_construction_waste()
-        uptake["In-Use Stock"] = self.uptake_in_use(f_in=f, k_free_in=k_free)
+        uptake["In-Use Stock"] = self.uptake_use(f_in=f, k_free_in=k_free)
         uptake["End-of-Life Stock"] = self.uptake_eol(
             f_in=f, k_free_in=k_free, k_buried_in=k_buried
         )
@@ -191,7 +191,7 @@ class CementCarbonUptakeModel(BaseModel):
 
         return uptake_five_years
 
-    def uptake_in_use(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray) -> fd.FlodymArray:
+    def uptake_use(self, f_in: fd.FlodymArray, k_free_in: fd.FlodymArray) -> fd.FlodymArray:
         """
         Uptake of CO2 by the in-use stock.
         Product mass is assumed to be distributed over thickness, leaving a free surface for carbonation.
@@ -207,7 +207,7 @@ class CementCarbonUptakeModel(BaseModel):
             ),
         )
 
-        stk = self.stocks["in_use"]
+        stk = self.stocks["use"]
         stk_dims = stk.dims.drop("k")
         cement_k_idx = list(stk.dims["k"].items).index("cement")
 
@@ -338,11 +338,11 @@ class CementCarbonUptakeModel(BaseModel):
         )
 
         prm = self.parameters
-        stk_in_use = self.stocks["in_use"]
+        stk_use = self.stocks["use"]
         eol_dims = self.stocks["eol"].dims
-        stk_dims_no_k = stk_in_use.dims.drop("k")
+        stk_dims_no_k = stk_use.dims.drop("k")
         eol_dims_no_k = eol_dims.drop("k")
-        cement_k_idx = list(stk_in_use.dims["k"].items).index("cement")
+        cement_k_idx = list(stk_use.dims["k"].items).index("cement")
         # use application-weighted averages for EOL (EOL stock has no application dimension)
         k_free_in_mean = self._application_weighted_average(k_free_in)  # (r, m)
         thickness_mean = self._application_weighted_average(
@@ -353,10 +353,10 @@ class CementCarbonUptakeModel(BaseModel):
 
         uncarbonated_inflow = np.zeros(stk_dims_no_k.shape)
 
-        for t in range(1, stk_in_use._n_t):
+        for t in range(1, stk_use._n_t):
 
             # (I1) get outflow by cohort (cement mass)
-            ages, inflow = get_age_distribution(stk_in_use, t, data_type="outflow")
+            ages, inflow = get_age_distribution(stk_use, t, data_type="outflow")
             inflow = inflow[..., cement_k_idx]  # select cement constituent only
             ages = ages.reshape(
                 (-1,) + (1,) * (inflow.ndim - 1)
@@ -364,11 +364,11 @@ class CementCarbonUptakeModel(BaseModel):
 
             # (I2) get carbonation depth by cohort
             k_free = k_free_arr[: t + 1, ...]
-            d_in_use = np.sqrt(np.maximum(ages - 1, 0)) * k_free
+            d_use = np.sqrt(np.maximum(ages - 1, 0)) * k_free
 
             # (I3) calculate uncarbonated mass by cohort
             thickness = thickness_in[: t + 1, ...]
-            d_available = np.maximum(thickness - d_in_use, 0)
+            d_available = np.maximum(thickness - d_use, 0)
             uncarbonated_fraction = d_available / thickness
 
             # (I4) sum over all age cohorts, convert to flodym array
@@ -389,7 +389,7 @@ class CementCarbonUptakeModel(BaseModel):
         # Context for why list comprehension is used instead of np.arange():
         # time fd.DimensionSet fails as it doesn't accept it as "normal" int
         # when dtype = np.int64 selcted, the printing agedim becomes very ugly
-        ages = [i for i in range(self.stocks["in_use"]._n_t)][::-1]
+        ages = [i for i in range(self.stocks["use"]._n_t)][::-1]
         ageletter = self.get_unused_dimletter(exclude_letters=eol_dims.letters)
         agedim = fd.Dimension(name="age", letter=ageletter, items=ages, dtype=int)
         agedimset = fd.DimensionSet(dim_list=[agedim])

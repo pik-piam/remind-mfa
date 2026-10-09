@@ -10,7 +10,6 @@ import pandas as pd
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.common.common_mappings import CommonDimensionFiles
 from remind_mfa.common.helpers import prefix_from_module
 
 
@@ -25,12 +24,10 @@ class CommonDataReader(fd.CompoundDataReader):
         self,
         cfg: CommonCfg,
         definition: RemindMFADefinition,
-        dimension_file_mapping: CommonDimensionFiles,
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):
         self._input_cfg = cfg.input
-        self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
         self.input_data_path = Path(cfg.input.input_data_path)
         self.input_data_revision = cfg.input.input_data_revision
@@ -256,7 +253,7 @@ class CommonDataReader(fd.CompoundDataReader):
                 # Special case for Region: it is read from the parameters folder, not the dimensions folder
                 dimension_path = self.parameters_path / "regionmapping.csv"
             else:
-                dimension_filename = self.dimension_file_mapping[dimension.name]
+                dimension_filename = dimension.name.lower().replace(" ", "_").replace("-", "_")
                 dimension_path = self.dimensions_path / f"{dimension_filename}.csv"
 
             dimension_files[dimension.name] = dimension_path
