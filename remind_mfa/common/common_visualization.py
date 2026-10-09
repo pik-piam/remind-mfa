@@ -56,9 +56,9 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_sankey(self._model.future_mfa)
         if self.cfg.consumption.do_visualize:
             self.visualize_consumption(mfa=self._model.future_mfa)
-        if self.cfg.sector_splits.do_visualize:
-            self.visualize_sector_splits(regional=True)
-            self.visualize_sector_splits(regional=False)
+        if self.cfg.end_use_split.do_visualize:
+            self.visualize_end_use_split(regional=True)
+            self.visualize_end_use_split(regional=False)
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation()
             self.visualize_extrapolation_functions(stock_handler=self._model.stock_handler)
@@ -402,29 +402,29 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}", do_plot=False)
 
-    def visualize_sector_splits(self, regional: bool = True):
+    def visualize_end_use_split(self, regional: bool = True):
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
             self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", "u"))
         )
-        sector_splits = consumption.get_shares_over("u")
-        sector_splits = sector_splits.cumsum(dim_letter="u")
+        end_use_split = consumption.get_shares_over("u")
+        end_use_split = end_use_split.cumsum(dim_letter="u")
 
-        ap_sector_splits = self.plotter_class(
-            array=sector_splits,
+        ap_end_use_split = self.plotter_class(
+            array=end_use_split,
             intra_line_dim="Time",
             **subplot_dim,
             linecolor_dim=self._model.dims["u"].name,
             xlabel="Year",
-            ylabel="Sector Splits [%]",
+            ylabel="End-Use Split [%]",
             display_names=self.display_names.dct,
-            title=f"Product demand sector splits ({name_str})",
+            title=f"Product demand end-use splits ({name_str})",
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}")
+        self.plot_and_save_figure(ap_end_use_split, f"end_use_split_{name_str}")
 
     def visualize_fdarr(
         self,
@@ -514,9 +514,9 @@ class CommonVisualizer(RemindMFABaseModel):
         mfa = self._model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         population = self._model.parameters["population"]
-        stock = self._model.stock_handler.stocks * self._model.sector_specific_sat_level
+        stock = self._model.stock_handler.stocks * self._model.end_use_specific_sat_level
         extrapolation = (
-            self._model.stock_handler.fitted_regression * self._model.sector_specific_sat_level
+            self._model.stock_handler.fitted_regression * self._model.end_use_specific_sat_level
         )
         x_array = None
 

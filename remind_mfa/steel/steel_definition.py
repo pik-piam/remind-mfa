@@ -161,24 +161,24 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             description="Absolute standard deviation of final product lifetime",
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_low", dim_letters=("u",),
+            name="end_use_split_low_inco", dim_letters=("u",),
             description="End use shares in consumption for low gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_medium", dim_letters=("u",),
+            name="end_use_split_medium_inco", dim_letters=("u",),
             description="End use shares in consumption for medium gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="sector_split_high", dim_letters=("u",),
+            name="end_use_split_high_inco", dim_letters=("u",),
             description="End use shares in consumption for high gdp per capita"
         ),
         RemindMFAParameterDefinition(
-            name="secsplit_gdppc_low", dim_letters=(),
-            description="Upper GDP per capita threshold for sector_split_low",
+            name="end_use_split_gdppc_low", dim_letters=(),
+            description="Upper GDP per capita threshold for end_use_split_low_inco",
         ),
         RemindMFAParameterDefinition(
-            name="secsplit_gdppc_high", dim_letters=(),
-            description="Lower GDP per capita threshold for sector_split_high",
+            name="end_use_split_gdppc_high", dim_letters=(),
+            description="Lower GDP per capita threshold for end_use_split_high_inco",
         ),
         RemindMFAParameterDefinition(
             name="forming_loss_rate", dim_letters=(),

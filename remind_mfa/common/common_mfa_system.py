@@ -219,7 +219,7 @@ class CommonMFASystem(fd.MFASystem):
     ) -> fd.FlodymArray:
         """Distribute the ``manufactured_products_market => use`` flow among the split categories (end use, and
         for plastics also materials).
-        Where possible, this is done by the sector split parameter ``split`` (already indexed
+        Where possible, this is done by the end-use split parameter ``split`` (already indexed
         to the historical time axis by the caller). However, the trade may be larger than the
         flow for a single split category. The other categories' inflow to the in-use stock
         must be reduced by these excess imports.
@@ -232,7 +232,7 @@ class CommonMFASystem(fd.MFASystem):
         total_use_inflow = supply + net_imports
         use_inflow_target = total_use_inflow * split
         min_imports = net_imports.maximum(0)
-        # imports exceeding the target values determined by the sector split for each category
+        # imports exceeding the target values determined by the end-use split for each category
         imports_excess_total = (min_imports - use_inflow_target).maximum(0).sum_over(split_dims)
         # remainder of the target values not covered by imports, which should be covered by domestic manufacturing
         manufacturing_domestic_excess = (use_inflow_target - min_imports).maximum(0)

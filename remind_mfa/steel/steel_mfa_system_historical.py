@@ -46,7 +46,7 @@ class SteelMFASystemHistorical(CommonMFASystem):
 
         flw["steel_market => manufacturing"][...] = flw["forming => steel_market"] + trd["steel"].net_imports
 
-        # get approximate manufacturing yield with consumption sector split
+        # get approximate manufacturing yield with consumption end-use split
         # We don't know the end use distribution yet, so we just calculate the total, and the flow later
         aux["manufacturing_to_manufactured_products_market_total"][...] = flw["steel_market => manufacturing"] * prm["aggregate_manufacturing_yield"][{'t': self.dims['h']}]
         flw["manufacturing => sysenv"][...] = flw["steel_market => manufacturing"] - aux["manufacturing_to_manufactured_products_market_total"]
@@ -61,7 +61,7 @@ class SteelMFASystemHistorical(CommonMFASystem):
         flw["manufactured_products_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
             "manufactured_products",
             aux["manufacturing_to_manufactured_products_market_total"],
-            prm["sector_split"][{"t": self.dims["h"]}],
+            prm["end_use_split"][{"t": self.dims["h"]}],
             ("u",),
         )
 

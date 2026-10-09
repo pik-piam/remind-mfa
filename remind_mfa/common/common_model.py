@@ -213,25 +213,25 @@ class CommonModel:
             trade_set=trade_set,
         )
 
-    def get_stock_sector_split_limit(self):
+    def get_stock_end_use_split_limit(self):
         prm = self.parameters
-        stock_sector_split = (self.lifetime_limit() * prm["sector_split_limit"]).get_shares_over(
+        stock_end_use_split = (self.lifetime_limit() * prm["end_use_split_limit"]).get_shares_over(
             "u"
         )
-        return stock_sector_split
+        return stock_end_use_split
 
     def get_long_term_stock(self) -> fd.FlodymArray:
         saturation_level = self.scenario_parameters["saturation_level"]
-        sector_specific_sat_level = self.get_stock_sector_split_limit() * saturation_level
+        end_use_specific_sat_level = self.get_stock_end_use_split_limit() * saturation_level
 
         time_factor = self.calculate_time_factor()
 
         historical_stocks = self.historical_mfa.stocks["use"].stock
         normalized_historical_stock = historical_stocks / (
-            sector_specific_sat_level * time_factor[{"t": self.dims["h"]}]
+            end_use_specific_sat_level * time_factor[{"t": self.dims["h"]}]
         )
 
-        # after normalization, target saturation level is 1 across all regions and sectors.
+        # after normalization, target saturation level is 1 across all regions and end-uses.
         sat_level_bound = Bound(
             var_name="saturation_level",
             lower_bound=1,
@@ -259,10 +259,10 @@ class CommonModel:
         self.stock_handler.extrapolate()
 
         # denormalize
-        self.sector_specific_sat_level = (
-            sector_specific_sat_level * time_factor
+        self.end_use_specific_sat_level = (
+            end_use_specific_sat_level * time_factor
         )  # to be used in visualization of extrapolation functions
-        long_term_stock = self.stock_handler.stocks * self.sector_specific_sat_level
+        long_term_stock = self.stock_handler.stocks * self.end_use_specific_sat_level
 
         return long_term_stock
 

@@ -240,8 +240,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
         # for in-use stock
         RemindMFAParameterDefinition(name="production", dim_letters=("h", "r", "p"),
                                      description="Historical plastic production, differentiated by polymer type (Fibre/Rubber/Plastics)",),
-        RemindMFAParameterDefinition(name="sector_polymer_split", dim_letters=("h", "r", "p", "m", "u"),
-                                     description="Share of each polymer and end-use sector within total Fibre/Rubber/Plastics apparent consumption per region",),
+        RemindMFAParameterDefinition(name="end_use_polymer_split", dim_letters=("h", "r", "p", "m", "u"),
+                                     description="Share of each polymer and end-use within total Fibre/Rubber/Plastics apparent consumption per region",),
         RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("u",),
                                      description="Mean lifetime of final products",),
         RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("u",),

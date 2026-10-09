@@ -119,7 +119,7 @@ class Trade(RemindMFABaseModel):
 
 
 class TradeSet(RemindMFABaseModel):
-    """A trade model for the steel sector storing the data and defining how trade is processed."""
+    """A trade model storing the data and defining how trade is processed."""
 
     markets: dict[str, Trade]
 

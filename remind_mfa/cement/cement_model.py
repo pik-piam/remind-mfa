@@ -64,7 +64,7 @@ class CementModel(CommonModel):
     def calculate_derived_parameters(self):
 
         # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["end_use_split"]
+        self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
 
         # derive mean dwelling and structure splits from global weighted average
         prm = self.parameters

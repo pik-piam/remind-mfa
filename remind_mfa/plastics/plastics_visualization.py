@@ -338,7 +338,7 @@ class PlasticsVisualizer(CommonVisualizer):
         material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}]
         material_shares = material_shares.cumsum(dim_letter="m")
 
-        ap_sector_splits = self.plotter_class(
+        ap_end_use_split = self.plotter_class(
             array=material_shares,
             intra_line_dim="Region",
             subplot_dim="End Use",
@@ -350,7 +350,7 @@ class PlasticsVisualizer(CommonVisualizer):
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"material_splits")
+        self.plot_and_save_figure(ap_end_use_split, f"material_splits")
 
     def visualize_scenario_params(self, mfa: fd.MFASystem):
         rates = [

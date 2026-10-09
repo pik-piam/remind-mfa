@@ -51,7 +51,7 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
             self.get_historical_use_inflow_by_trade_adjusted_split(
                 "manufactured_products",
                 flw["manufacturing => manufactured_products_market"],
-                prm["sector_polymer_split"],
+                prm["end_use_polymer_split"],
                 ("u", "m"),
             )
         )

@@ -31,7 +31,7 @@
         sankey.plotter_args.exclude_processes = ["sysenv"]
         sankey.plotter_args.exclude_flows = []
         extrapolation.do_visualize = true
-        sector_splits.do_visualize = false
+        end_use_split.do_visualize = false
 
     [base.export]
         do_export = true
