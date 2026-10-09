@@ -36,7 +36,9 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
         flw["primary_market => manufacturing"][...] = (
             flw["polymerization => primary_market"] + trd["primary"].net_imports
         )
-        flw["manufacturing => manufactured_products_market"][...] = flw["primary_market => manufacturing"]
+        flw["manufacturing => manufactured_products_market"][...] = flw[
+            "primary_market => manufacturing"
+        ]
 
         # manufactured products net exports (per end use and material) are capped to not exceed manufacturing supply
         # stop-over trade is allowed, but positive net imports of one end use cannot be balanced by re-exporting a different end use
@@ -45,8 +47,13 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
         )
 
         # distribute the manufactured_products_market => use flow among the end use & material categories
-        flw["manufactured_products_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
-            "manufactured_products", flw["manufacturing => manufactured_products_market"], prm["sector_polymer_split"], ("u", "m")
+        flw["manufactured_products_market => use"][...] = (
+            self.get_historical_use_inflow_by_trade_adjusted_split(
+                "manufactured_products",
+                flw["manufacturing => manufactured_products_market"],
+                prm["sector_polymer_split"],
+                ("u", "m"),
+            )
         )
 
         flw["primary_market => sysenv"][...] = trd["primary"].exports

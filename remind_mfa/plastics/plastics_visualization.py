@@ -155,7 +155,8 @@ class PlasticsVisualizer(CommonVisualizer):
             mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]
         ).sum_to(("t", "r"))
         manufactured_net_imports = (
-            mfa.flows["imports => manufactured_products_market"] - mfa.flows["manufactured_products_market => exports"]
+            mfa.flows["imports => manufactured_products_market"]
+            - mfa.flows["manufactured_products_market => exports"]
         ).sum_to(("t", "r"))
         consumption = mfa.stocks["use"].inflow.sum_to(("t", "r"))
 
