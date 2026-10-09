@@ -171,7 +171,7 @@ class CementModel(CommonModel):
         self.extrapolate_parameters()
 
         # compute reconciled future top-down mfa
-        self.td_stock_reconciled = self.get_long_term_stock()  # cement stock
+        self.td_stock_reconciled = self.get_long_term_stock()
         self.td_mfa_reconciled = self.make_mfa(historic=False)
         self.td_mfa_reconciled.compute(
             self.td_stock_reconciled, self.td_hist_mfa_reconciled.trade_set

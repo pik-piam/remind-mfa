@@ -9,6 +9,7 @@ from copy import deepcopy
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
+from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
     StockDrivenBottomUpCementMFASystem,
     aggregate_bu_to_common,
@@ -281,18 +282,17 @@ class CementParameterReconciliation:
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]):
         """Top-down stock calculation for reconciliaton."""
 
-        # 1. Compute product stock from hisoric MFA
-        cement_stock = InflowDrivenHistoricCementMFASystem.compute_cement_stock(
+        # 1. Compute product stock (summed over product materials) from historic MFA
+        product_stock = InflowDrivenHistoricCementMFASystem.compute_stock(
             prm, self.trds, self.flws, self.stks
         )
-        product_stock = cement_stock * prm["product_material_split"] / prm["cement_ratio"]
 
         # 2. Reduce dimensions to match bottom-up stock dimensions
         # 2.1 Use only reconciliation year
         product_stock = product_stock[{"h": self._year_of_reconciliation}]
 
         # 2.2 Use only the reconciled material (concrete) [no mortar]
-        concrete_stock = product_stock[
+        concrete_stock = StockDrivenCementMFASystem.add_product_material_split(product_stock, prm)[
             {"m": self._reconciled_split_items["product_material_split"][0]}
         ]
 
