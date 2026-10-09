@@ -131,7 +131,9 @@ class SteelModel(CommonModel):
         end_use_split_1 = fd.Parameter(dims=target_dims)
         end_use_split_2 = fd.Parameter(dims=target_dims)
         log_gdppc = (
-            self.parameters["gdppc"].maximum(self.parameters["end_use_split_gdppc_low"]).apply(np.log)
+            self.parameters["gdppc"]
+            .maximum(self.parameters["end_use_split_gdppc_low"])
+            .apply(np.log)
         )
         log_gdppc_low = self.parameters["end_use_split_gdppc_low"].apply(np.log)
         log_gdppc_high = self.parameters["end_use_split_gdppc_high"].apply(np.log)
