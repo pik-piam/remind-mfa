@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "data_in"
-        input_data_revision = "2.2.3rename1"
+        input_data_revision = "2.3.0"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
