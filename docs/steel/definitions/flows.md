@@ -10,12 +10,12 @@
 | t, r         | Forming               | Intermediate products |
 | t, r         | Forming               | Scrap market          |
 | t, r         | Forming               | Losses                |
-| t, r         | Fabrication           | Losses                |
-| t, r         | Intermediate products | Fabrication           |
+| t, r         | Manufacturing           | Losses                |
+| t, r         | Intermediate products | Manufacturing           |
 | t, r         | Intermediate products | Exports               |
 | t, r         | Imports               | Intermediate products |
-| t, r, u      | Fabrication           | Good Market           |
-| t, r         | Fabrication           | Scrap market          |
+| t, r, u      | Manufacturing           | Good Market           |
+| t, r         | Manufacturing           | Scrap market          |
 | t, r, u      | Good Market           | Exports               |
 | t, r, u      | Imports               | Good Market           |
 | t, r, u      | Good Market           | Use phase             |

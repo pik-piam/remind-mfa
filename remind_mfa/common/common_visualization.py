@@ -48,8 +48,8 @@ class CommonVisualizer(RemindMFABaseModel):
                 self._model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita
             )
         if self.cfg.use_stock.do_visualize:
-            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=True)
-            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=False)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_end_use=True)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_end_use=False)
         if self.cfg.trade.do_visualize:
             self.visualize_trade(self._model.future_mfa)
         if self.cfg.sankey.do_visualize:
@@ -407,7 +407,7 @@ class CommonVisualizer(RemindMFABaseModel):
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", "u"))
+            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", "u"))
         )
         sector_splits = consumption.get_shares_over("u")
         sector_splits = sector_splits.cumsum(dim_letter="u")

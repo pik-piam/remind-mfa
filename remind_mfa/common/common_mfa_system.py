@@ -52,9 +52,9 @@ class CommonMFASystem(fd.MFASystem):
         """Cap a historical trade's *net* exports at the available domestic supply so downstream
         flows cannot go negative when historical net exports exceed domestic production, then
         re-balance globally. Gross exports may still exceed supply where they are covered by
-        imports (stop-over / re-export trade), since fabrication inflow = supply + imports -
+        imports (stop-over / re-export trade), since manufacturing inflow = supply + imports -
         exports only requires exports - imports <= supply.
-        Net exports are calculated per dimension (type/material/good) and then summed up,
+        Net exports are calculated per dimension (type/material/end use) and then summed up,
         because positive net imports (imports > exports) of one good cannot be balanced by
         re-exporting a different good, so that net amount is not stop-over trade and must be consumed.
 
@@ -68,8 +68,8 @@ class CommonMFASystem(fd.MFASystem):
         eps = sys.float_info.epsilon
         tolerance = 10 * self._absolute_float_precision
         # Compare net exports and supply on the dimensions they share. The trade may be more
-        # granular than the supply (e.g. per-good indirect exports vs. total fabrication supply)
-        # or coarser (e.g. aggregate scrap exports vs. per-good recovered scrap), so both are
+        # granular than the supply (e.g. per-end use indirect exports vs. total manufacturing supply)
+        # or coarser (e.g. aggregate scrap exports vs. per-end use recovered scrap), so both are
         # summed to their common dimensions before capping.
         common_dims = tuple(
             letter for letter in trade.exports.dims.letters if letter in supply.dims.letters
@@ -78,7 +78,7 @@ class CommonMFASystem(fd.MFASystem):
         for iteration in range(50):
             net_exports = (trade.exports - trade.imports).maximum(0)
             net_exports_total = net_exports.sum_to(common_dims)
-            # sum of positive per-good net exports may not exceed domestic supply
+            # sum of positive per-end use net exports may not exceed domestic supply
             net_export_excess = (net_exports_total - supply_total).maximum(0)
             if not (net_export_excess.values > tolerance).any():
                 break
@@ -109,7 +109,7 @@ class CommonMFASystem(fd.MFASystem):
         demand: fd.FlodymArray,
         category_dim: Optional[str] = None,
     ):
-        """Cap a trade's net imports at domestic demand so downstream production / fabrication
+        """Cap a trade's net imports at domestic demand so downstream production / manufacturing
         flows cannot go negative.
 
         Where an item's net imports exceed its demand, the excess is removed from its imports.
@@ -217,7 +217,7 @@ class CommonMFASystem(fd.MFASystem):
         split: fd.FlodymArray,
         split_dims: tuple,
     ) -> fd.FlodymArray:
-        """Distribute the ``good_market => use`` flow among the split categories (goods, and
+        """Distribute the ``manufactured_products_market => use`` flow among the split categories (end use, and
         for plastics also materials).
         Where possible, this is done by the sector split parameter ``split`` (already indexed
         to the historical time axis by the caller). However, the trade may be larger than the
@@ -234,12 +234,12 @@ class CommonMFASystem(fd.MFASystem):
         min_imports = net_imports.maximum(0)
         # imports exceeding the target values determined by the sector split for each category
         imports_excess_total = (min_imports - use_inflow_target).maximum(0).sum_over(split_dims)
-        # remainder of the target values not covered by imports, which should be covered by domestic fabrication
-        fabrication_domestic_excess = (use_inflow_target - min_imports).maximum(0)
-        fabrication_domestic_excess_total = fabrication_domestic_excess.sum_over(split_dims)
-        # scale down such that the sum of the domestic fabrication is reduced by the sum of the excess imports
-        # i.e. domestic fabrication for those categories where the target consumption exceeds imports
+        # remainder of the target values not covered by imports, which should be covered by domestic manufacturing
+        manufacturing_domestic_excess = (use_inflow_target - min_imports).maximum(0)
+        manufacturing_domestic_excess_total = manufacturing_domestic_excess.sum_over(split_dims)
+        # scale down such that the sum of the domestic manufacturing is reduced by the sum of the excess imports
+        # i.e. domestic manufacturing for those categories where the target consumption exceeds imports
         # is reduced by the factor that imports exceed the target consumption for the other categories
-        fabrication_domestic = fabrication_domestic_excess * (fabrication_domestic_excess_total - imports_excess_total) / fabrication_domestic_excess_total.maximum(sys.float_info.epsilon)
+        manufacturing_domestic = manufacturing_domestic_excess * (manufacturing_domestic_excess_total - imports_excess_total) / manufacturing_domestic_excess_total.maximum(sys.float_info.epsilon)
         # fmt: on
-        return min_imports + fabrication_domestic
+        return min_imports + manufacturing_domestic

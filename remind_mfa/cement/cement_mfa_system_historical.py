@@ -51,14 +51,14 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
             * prm["end_use_split"]
         )
 
-        stk["in_use"].inflow[...] = flw["market_cement => use"]
-        stk["in_use"].lifetime_model.set_prms(
+        stk["use"].inflow[...] = flw["market_cement => use"]
+        stk["use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
             std=prm["lifetime_std"],
         )
-        stk["in_use"].compute()
+        stk["use"].compute()
 
-        return stk["in_use"].stock
+        return stk["use"].stock
 
     @staticmethod
     def compute_other_flows(prm, trd, flw, stk):
@@ -78,4 +78,4 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         flw["exports => sysenv"][...] = flw["market_cement => exports"]
         flw["sysenv => imports"][...] = flw["imports => market_cement"]
 
-        flw["use => sysenv"][...] = stk["in_use"].outflow
+        flw["use => sysenv"][...] = stk["use"].outflow

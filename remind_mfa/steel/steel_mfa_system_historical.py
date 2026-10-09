@@ -28,54 +28,54 @@ class SteelMFASystemHistorical(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "fabrication_to_final_product_market_total": fd.Parameter(dims=self.dims["h", "r"]),
+            "manufacturing_to_manufactured_products_market_total": fd.Parameter(dims=self.dims["h", "r"]),
             "recovered_scrap": fd.Parameter(dims=self.dims["h", "r"]),
         }
 
         # fmt: off
-        flw["sysenv => forming"][...] = prm["production"]
-        flw["forming => ip_market"][...] = prm["production"] * prm["forming_yield"][{'t': self.dims['h']}]
-        flw["forming => sysenv"][...] = flw["sysenv => forming"] - flw["forming => ip_market"]
+        flw["sysenv => forming"][...] = prm["steel_production"]
+        flw["forming => steel_market"][...] = prm["steel_production"] * prm["forming_yield"][{'t': self.dims['h']}]
+        flw["forming => sysenv"][...] = flw["sysenv => forming"] - flw["forming => steel_market"]
 
-        self.cap_historical_net_exports_to_supply(trd["steel"], flw["forming => ip_market"])
+        self.cap_historical_net_exports_to_supply(trd["steel"], flw["forming => steel_market"])
 
-        flw["ip_market => sysenv"][...] = trd["steel"].exports
-        flw["sysenv => ip_market"][...] = trd["steel"].imports
+        flw["steel_market => sysenv"][...] = trd["steel"].exports
+        flw["sysenv => steel_market"][...] = trd["steel"].imports
 
-        flw["ip_market => fabrication"][...] = flw["forming => ip_market"] + trd["steel"].net_imports
+        flw["steel_market => manufacturing"][...] = flw["forming => steel_market"] + trd["steel"].net_imports
 
-        # get approximate fabrication yield with consumption sector split
+        # get approximate manufacturing yield with consumption sector split
         # We don't know the end use distribution yet, so we just calculate the total, and the flow later
-        aux["fabrication_to_final_product_market_total"][...] = flw["ip_market => fabrication"] * prm["aggregate_fabrication_yield"][{'t': self.dims['h']}]
-        flw["fabrication => sysenv"][...] = flw["ip_market => fabrication"] - aux["fabrication_to_final_product_market_total"]
+        aux["manufacturing_to_manufactured_products_market_total"][...] = flw["steel_market => manufacturing"] * prm["aggregate_manufacturing_yield"][{'t': self.dims['h']}]
+        flw["manufacturing => sysenv"][...] = flw["steel_market => manufacturing"] - aux["manufacturing_to_manufactured_products_market_total"]
 
-        # final_product net exports are capped to not exceed available fabrication inflow, else use inflow goes negative
-        self.cap_historical_net_exports_to_supply(trd["final_product"], aux["fabrication_to_final_product_market_total"])
+        # manufactured_products net exports are capped to not exceed available manufacturing inflow, else use inflow goes negative
+        self.cap_historical_net_exports_to_supply(trd["manufactured_products"], aux["manufacturing_to_manufactured_products_market_total"])
 
         # Transfer to flows
-        flw["sysenv => final_product_market"][...] = trd["final_product"].imports
-        flw["final_product_market => sysenv"][...] = trd["final_product"].exports
+        flw["sysenv => manufactured_products_market"][...] = trd["manufactured_products"].imports
+        flw["manufactured_products_market => sysenv"][...] = trd["manufactured_products"].exports
 
-        flw["final_product_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
-            "final_product",
-            aux["fabrication_to_final_product_market_total"],
+        flw["manufactured_products_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
+            "manufactured_products",
+            aux["manufacturing_to_manufactured_products_market_total"],
             prm["sector_split"][{"t": self.dims["h"]}],
             ("u",),
         )
 
         # now we can get the end use distribution
-        flw["fabrication => final_product_market"][...] = flw["final_product_market => use"] - trd["final_product"].net_imports
+        flw["manufacturing => manufactured_products_market"][...] = flw["manufactured_products_market => use"] - trd["manufactured_products"].net_imports
 
-        stk["historical_in_use"].inflow[...] = flw["final_product_market => use"]
+        stk["use"].inflow[...] = flw["manufactured_products_market => use"]
 
-        stk["historical_in_use"].lifetime_model.set_prms(
+        stk["use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"][{"t": self.dims["h"]}],
             std=prm["lifetime_std"][{"t": self.dims["h"]}],
         )
 
-        stk["historical_in_use"].compute()  # gives stocks and outflows corresponding to inflow
+        stk["use"].compute()  # gives stocks and outflows corresponding to inflow
 
-        flw["use => sysenv"][...] = stk["historical_in_use"].outflow
+        flw["use => sysenv"][...] = stk["use"].outflow
         aux["recovered_scrap"] = flw["use => sysenv"] * prm["recovery_rate"]
         trd["scrap"].exports[...] = trd["scrap"].exports.minimum(aux["recovered_scrap"])
         trd["scrap"].balance(to="minimum")

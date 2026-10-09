@@ -19,25 +19,25 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
         processes = [
             "sysenv",
             "forming",
-            "ip_market",
-            "final_product_market",
-            "fabrication",
+            "steel_market",
+            "manufactured_products_market",
+            "manufacturing",
             "use",
         ]
     else:
         processes = [
             "sysenv",
-            "bof_production",
-            "eaf_production",
+            "steel_production_ore_based",
+            "steel_production_scrap_based",
             "forming",
-            "ip_market",
-            "fabrication",
-            "final_product_market",
+            "steel_market",
+            "manufacturing",
+            "manufactured_products_market",
             "use",
             "obsolete",
-            "eol_market",
-            "recycling",
             "scrap_market",
+            "recycling",
+            "scrap_pool",
             "excess_scrap",
             "imports",
             "exports",
@@ -49,46 +49,45 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
     if historical:
         flows = [
             fd.FlowDefinition(from_process="sysenv", to_process="forming", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="forming", to_process="ip_market", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="forming", to_process="steel_market", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="forming", to_process="sysenv", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="ip_market", to_process="sysenv", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="sysenv", to_process="ip_market", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="fabrication", to_process="final_product_market", dim_letters=("h", "r", "u")),
-            fd.FlowDefinition(from_process="fabrication", to_process="sysenv", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="final_product_market", to_process="sysenv", dim_letters=("h", "r", "u")),
-            fd.FlowDefinition(from_process="sysenv", to_process="final_product_market", dim_letters=("h", "r", "u")),
-            fd.FlowDefinition(from_process="final_product_market", to_process="use", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="steel_market", to_process="manufacturing", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="steel_market", to_process="sysenv", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="steel_market", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="manufacturing", to_process="manufactured_products_market", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="manufacturing", to_process="sysenv", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="sysenv", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="sysenv", to_process="manufactured_products_market", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="use", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
         ]
     else:
         flows = [
-            fd.FlowDefinition(from_process="extraction", to_process="bof_production", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="scrap_market", to_process="bof_production", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="bof_production", to_process="forming", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="bof_production", to_process="losses", dim_letters=("t", "r",)),
-            fd.FlowDefinition(from_process="scrap_market", to_process="eaf_production", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="eaf_production", to_process="forming", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="eaf_production", to_process="losses", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="forming", to_process="ip_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="forming", to_process="scrap_market", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="extraction", to_process="steel_production_ore_based", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="steel_production_ore_based", to_process="forming", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="steel_production_ore_based", to_process="losses", dim_letters=("t", "r",)),
+            fd.FlowDefinition(from_process="scrap_pool", to_process="steel_production_scrap_based", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="steel_production_scrap_based", to_process="forming", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="steel_production_scrap_based", to_process="losses", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="forming", to_process="steel_market", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="forming", to_process="scrap_pool", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="forming", to_process="losses", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="fabrication", to_process="losses", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="ip_market", to_process="fabrication", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="ip_market", to_process="exports", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="imports", to_process="ip_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="fabrication", to_process="final_product_market", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="fabrication", to_process="scrap_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="final_product_market", to_process="exports", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="imports", to_process="final_product_market", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="final_product_market", to_process="use", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="manufacturing", to_process="losses", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="steel_market", to_process="manufacturing", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="steel_market", to_process="exports", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="imports", to_process="steel_market", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="manufacturing", to_process="manufactured_products_market", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="manufacturing", to_process="scrap_pool", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="exports", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="imports", to_process="manufactured_products_market", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="use", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="use", to_process="obsolete", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="use", to_process="eol_market", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="eol_market", to_process="recycling", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="eol_market", to_process="exports", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="imports", to_process="eol_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="recycling", to_process="scrap_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="scrap_market", to_process="excess_scrap", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="use", to_process="scrap_market", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="scrap_market", to_process="recycling", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="scrap_market", to_process="exports", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="imports", to_process="scrap_market", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="recycling", to_process="scrap_pool", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="scrap_pool", to_process="excess_scrap", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="losses", to_process="sysenv", dim_letters=("t", "r",)),
@@ -99,7 +98,7 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
     if historical:
         stocks = [
             fd.StockDefinition(
-                name="historical_in_use",
+                name="use",
                 process="use",
                 dim_letters=("h", "r", "u"),
                 subclass=fd.InflowDrivenDSM,
@@ -111,7 +110,7 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
         use_stock_class = fd.StockDrivenDSM
         stocks = [
             fd.StockDefinition(
-                name="in_use",
+                name="use",
                 process="use",
                 dim_letters=("t", "r", "u"),
                 subclass=use_stock_class,
@@ -138,8 +137,8 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             description="Yield of steel forming process"
         ),
         RemindMFAParameterDefinition(
-            name="fabrication_yield", dim_letters=("u",),
-            description="Yield during fabrication of steel-containing final products"
+            name="manufacturing_yield", dim_letters=("u",),
+            description="Yield during manufacturing of steel-containing final products"
         ),
         RemindMFAParameterDefinition(
             name="recovery_rate", dim_letters=("u",),
@@ -182,20 +181,16 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             description="Lower GDP per capita threshold for sector_split_high",
         ),
         RemindMFAParameterDefinition(
-            name="scrap_in_bof_rate", dim_letters=(),
-            description="Share of scrap-based steel from BF-BOF production"
-        ),
-        RemindMFAParameterDefinition(
             name="forming_loss_rate", dim_letters=(),
             description="Loss rate in forming process. Contrary to (1-forming_yield), this material is completely lost and not recycled as home scrap"
         ),
         RemindMFAParameterDefinition(
-            name="fabrication_losses", dim_letters=(),
-            description="Loss rate during fabrication of final products. Contrary to (1-fabrication_yield), this material is completely lost and not recycled as new scrap",
+            name="manufacturing_losses", dim_letters=(),
+            description="Loss rate during manufacturing of final products. Contrary to (1-manufacturing_yield), this material is completely lost and not recycled as new scrap",
         ),
         RemindMFAParameterDefinition(
-            name="production_loss_rate", dim_letters=(),
-            description="Loss rate of raw steel production in BF-BOF and (DRI-)EAF processes",
+            name="steel_production_loss_rate", dim_letters=(),
+            description="Loss rate of iron and raw steel production in BF-BOF and (DRI-)EAF processes",
         ),
         RemindMFAParameterDefinition(
             name="scrap_consumption", dim_letters=("h", "r"),
@@ -207,7 +202,7 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
         ),
         # WSA
         RemindMFAParameterDefinition(
-            name="production", dim_letters=("h", "r"),
+            name="steel_production", dim_letters=("h", "r"),
             description="Historical steel production",
         ),
         RemindMFAParameterDefinition(
@@ -219,12 +214,12 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             description="Historical steel exports",
         ),
         RemindMFAParameterDefinition(
-            name="final_product_imports", dim_letters=("h", "r", "u"),
-            description="Historical imports of steel contained in final products",
+            name="manufactured_products_imports", dim_letters=("h", "r", "u"),
+            description="Historical imports of steel contained in manufactured products",
         ),
         RemindMFAParameterDefinition(
-            name="final_product_exports", dim_letters=("h", "r", "u"),
-            description="Historical exports of steel contained in final products",
+            name="manufactured_products_exports", dim_letters=("h", "r", "u"),
+            description="Historical exports of steel contained in manufactured products",
         ),
         RemindMFAParameterDefinition(
             name="scrap_imports", dim_letters=("h", "r"),
@@ -240,13 +235,13 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
     if historical:
         trades = [
             TradeDefinition(name="steel", dim_letters=("h", "r")),
-            TradeDefinition(name="final_product", dim_letters=("h", "r", "u")),
+            TradeDefinition(name="manufactured_products", dim_letters=("h", "r", "u")),
             TradeDefinition(name="scrap", dim_letters=("h", "r")),
         ]
     else:
         trades = [
             TradeDefinition(name="steel", dim_letters=("t", "r")),
-            TradeDefinition(name="final_product", dim_letters=("t", "r", "u")),
+            TradeDefinition(name="manufactured_products", dim_letters=("t", "r", "u")),
             TradeDefinition(name="scrap", dim_letters=("t", "r")),
         ]
 

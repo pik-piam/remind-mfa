@@ -42,7 +42,7 @@ class IamcVariable(RemindMFABaseModel):
     unit: str
     """Base unit of the array, e.g. "t/yr" or "t"."""
     split_name: Optional[str] = None
-    """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
+    """Display-column name to split into child variables (e.g. "End Use"). None = single variable."""
     aggregate_parent: bool = True
     """When this variable is split (``split_name`` set), whether its children are summed back
     into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent

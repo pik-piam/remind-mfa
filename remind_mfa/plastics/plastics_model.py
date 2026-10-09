@@ -10,7 +10,6 @@ from .plastics_mappings import PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_model import CommonModel
-from remind_mfa.common.data_blending import blend
 
 
 class PlasticsModel(CommonModel):
@@ -23,9 +22,6 @@ class PlasticsModel(CommonModel):
     FutureMFASystemCls = PlasticsMFASystemFuture
     get_definition = staticmethod(get_plastics_definition)
     custom_scn_prm_def = plastics_scn_prm_def
-
-    # TODO: unify, then delete
-    historical_stock_name: str = "in_use_historical"
 
     do_stock_extrapolation_with_time_factor: bool = True
     time_factor_prms = {"horizontal_shift_base": 1980, "growth_rate": 0.01}
@@ -62,7 +58,7 @@ class PlasticsModel(CommonModel):
 
         # the future MFA does not carry the Type dimension 'p' (it is redundant with the material
         # dimension 'm'), and the waste trade is only used there, so collapse 'p' away
-        for name in ("waste_his_imports", "waste_his_exports"):
+        for name in ("waste_imports", "waste_exports"):
             self.parameters[name] = fd.Parameter(
                 name=name,
                 dims=self.dims["h", "r", "m"],
@@ -105,10 +101,10 @@ class PlasticsModel(CommonModel):
         self.parameters["material_shares_use_inflow"] = self.historical_mfa.parameters[
             "material_shares_use_inflow"
         ]
-        # get global good split of stock inflow from historical MFA to be used as sector split limit in the stock extrapolation
+        # get global end use split of stock inflow from historical MFA to be used as sector split limit in the stock extrapolation
         self.parameters["sector_split_limit"] = fd.Parameter(
             dims=self.dims["u",],
-            values=self.historical_mfa.parameters["global_good_shares_use_inflow"][
+            values=self.historical_mfa.parameters["global_end_use_shares_use_inflow"][
                 self.dims["h"].items[-1]
             ].values,
         )

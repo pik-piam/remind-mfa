@@ -28,42 +28,42 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
         flw["sysenv => polymerization"][...] = prm["production"]
         flw["polymerization => primary_market"][...] = flw["sysenv => polymerization"]
 
-        # primary net exports are capped to not exceed domestic production, else fabrication inflow goes negative
+        # primary net exports are capped to not exceed domestic production, else manufacturing inflow goes negative
         self.cap_historical_net_exports_to_supply(
-            trd["primary_his"], flw["polymerization => primary_market"]
+            trd["primary"], flw["polymerization => primary_market"]
         )
 
-        flw["primary_market => fabrication"][...] = (
-            flw["polymerization => primary_market"] + trd["primary_his"].net_imports
+        flw["primary_market => manufacturing"][...] = (
+            flw["polymerization => primary_market"] + trd["primary"].net_imports
         )
-        flw["fabrication => good_market"][...] = flw["primary_market => fabrication"]
+        flw["manufacturing => manufactured_products_market"][...] = flw["primary_market => manufacturing"]
 
-        # final net exports (per good and material) are capped to not exceed fabrication supply
-        # stop-over trade is allowed, but positive net imports of one good cannot be balanced by re-exporting a different good
+        # manufactured products net exports (per end use and material) are capped to not exceed manufacturing supply
+        # stop-over trade is allowed, but positive net imports of one end use cannot be balanced by re-exporting a different end use
         self.cap_historical_net_exports_to_supply(
-            trd["final_his"], flw["fabrication => good_market"]
+            trd["manufactured_products"], flw["manufacturing => manufactured_products_market"]
         )
 
-        # distribute the good_market => use flow among the good & material categories
-        flw["good_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
-            "final_his", flw["fabrication => good_market"], prm["sector_polymer_split"], ("u", "m")
+        # distribute the manufactured_products_market => use flow among the end use & material categories
+        flw["manufactured_products_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
+            "manufactured_products", flw["manufacturing => manufactured_products_market"], prm["sector_polymer_split"], ("u", "m")
         )
 
-        flw["primary_market => sysenv"][...] = trd["primary_his"].exports
-        flw["sysenv => primary_market"][...] = trd["primary_his"].imports
-        flw["good_market => sysenv"][...] = trd["final_his"].exports
-        flw["sysenv => good_market"][...] = trd["final_his"].imports
+        flw["primary_market => sysenv"][...] = trd["primary"].exports
+        flw["sysenv => primary_market"][...] = trd["primary"].imports
+        flw["manufactured_products_market => sysenv"][...] = trd["manufactured_products"].exports
+        flw["sysenv => manufactured_products_market"][...] = trd["manufactured_products"].imports
 
     def compute_historical_stock(self):
-        self.stocks["in_use_historical"].inflow[...] = self.flows["good_market => use"]
-        self.stocks["in_use_historical"].lifetime_model.set_prms(
+        self.stocks["use"].inflow[...] = self.flows["manufactured_products_market => use"]
+        self.stocks["use"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"][{"t": self.dims["h"]}],
             std=self.parameters["lifetime_std"][{"t": self.dims["h"]}],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
-        self.stocks["in_use_historical"].lifetime_model.n_pts_per_interval = 10
-        self.stocks["in_use_historical"].compute()
-        self.flows["use => sysenv"][...] += self.stocks["in_use_historical"].outflow
+        self.stocks["use"].lifetime_model.n_pts_per_interval = 10
+        self.stocks["use"].compute()
+        self.flows["use => sysenv"][...] += self.stocks["use"].outflow
 
         # get material split from historical stock inflow for use in the future MFA, which does not
         # carry the polymer type dimension 'p' (each material belongs to exactly one type).
@@ -71,17 +71,17 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
         with np.errstate(divide="ignore"):
             self.parameters["material_shares_use_inflow"] = fd.Parameter(
                 dims=self.dims["h", "r", "m", "u"],
-                values=(self.flows["good_market => use"].maximum(0))
+                values=(self.flows["manufactured_products_market => use"].maximum(0))
                 .sum_over("p")
                 .get_shares_over(("m",))
                 .values,
             )
         # country-level (iso249) runs have (r, u) cells with zero inflow -> 0/0 = NaN shares; zero them
         self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
-        # get global good split from historical stock inflow
-        self.parameters["global_good_shares_use_inflow"] = fd.Parameter(
+        # get global end use split from historical stock inflow
+        self.parameters["global_end_use_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "u"],
-            values=(self.flows["good_market => use"].maximum(0))
+            values=(self.flows["manufactured_products_market => use"].maximum(0))
             .sum_over(("m", "r", "p"))
             .get_shares_over(("u",))
             .values,

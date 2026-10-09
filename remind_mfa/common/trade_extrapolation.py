@@ -148,7 +148,7 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         Sometimes trade exceeds domestic supply and demand. For example, a country could have
         zero production (i.e. all supply through imports), but still have some exports, because
-        we bundle together trade across several stages along the fabrication process. So it
+        we bundle together trade across several stages along the manufacturing process. So it
         imports semi-finished products and exports finished products. In this case, it makes no
         sense to scale that pass-through trade with domestic supply/demand, as it might grow from
         zero to a finite value, which is an infinite relative growth.
@@ -173,7 +173,7 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         Stopover is pass-through trade, decoupled from the transit region's own domestic driver,
         so - unlike :meth:`scale_first` - it is scaled by *global* scaler growth (region-
-        independent, per good).
+        independent, per end use).
         """
         global_scaler = self.scaler_first.sum_over("r")
         global_scaler_0 = self.scaler_first_0.sum_over("r").maximum(self._eps)

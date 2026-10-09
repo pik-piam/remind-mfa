@@ -15,7 +15,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
         fd.DimensionDefinition(name="Element", dim_letter="e", dtype=str),
         fd.DimensionDefinition(name="Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Type", dim_letter="p", dtype=str),
-        fd.DimensionDefinition(name="Good", dim_letter="u", dtype=str),
+        fd.DimensionDefinition(name="End Use", dim_letter="u", dtype=str),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
     ]
 
@@ -24,8 +24,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             "sysenv",
             "polymerization",
             "primary_market",
-            "fabrication",
-            "good_market",
+            "manufacturing",
+            "manufactured_products_market",
             "use",
         ]
     else:
@@ -39,8 +39,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             "C4_input",
             "polymerization",
             "primary_market",
-            "fabrication",
-            "good_market",
+            "manufacturing",
+            "manufactured_products_market",
             "use",
             "eol",
             "waste_market",
@@ -56,8 +56,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             "atmosphere",
             "other_reactants",
             "losses",
-            "aux_recyclate_trade",
-            "aux_recl_feedstock_trade",
+            "aux_recyclate",
+            "aux_recl_feedstock",
             "imports",
             "exports",
         ]
@@ -68,13 +68,13 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
         flows = [
             fd.FlowDefinition(from_process="sysenv", to_process="polymerization", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="polymerization", to_process="primary_market", dim_letters=("h", "r", "p")),
-            fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("h", "r", "p")),
+            fd.FlowDefinition(from_process="primary_market", to_process="manufacturing", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="primary_market", to_process="sysenv", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="sysenv", to_process="primary_market", dim_letters=("h", "r", "p")),
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("h", "r", "p")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("h", "r", "p", "m", "u")),
-            fd.FlowDefinition(from_process="good_market", to_process="sysenv", dim_letters=("h", "r", "p")),
-            fd.FlowDefinition(from_process="sysenv", to_process="good_market", dim_letters=("h", "r", "p")),
+            fd.FlowDefinition(from_process="manufacturing", to_process="manufactured_products_market", dim_letters=("h", "r", "p")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="use", dim_letters=("h", "r", "p", "m", "u")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="sysenv", dim_letters=("h", "r", "p")),
+            fd.FlowDefinition(from_process="sysenv", to_process="manufactured_products_market", dim_letters=("h", "r", "p")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
         ]
     else:
@@ -100,14 +100,14 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             # primary stages
             fd.FlowDefinition(from_process="polymerization", to_process="primary_market", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="polymerization", to_process="losses", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="primary_market", to_process="fabrication", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="primary_market", to_process="manufacturing", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="primary_market", to_process="exports", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="imports", to_process="primary_market", dim_letters=("t","e","r","m")),
-            # fabrication stages
-            fd.FlowDefinition(from_process="fabrication", to_process="good_market", dim_letters=("t","e","r","m","u")),
-            fd.FlowDefinition(from_process="good_market", to_process="use", dim_letters=("t","e","r","m","u")),
-            fd.FlowDefinition(from_process="good_market", to_process="exports", dim_letters=("t","e","r","m","u")),
-            fd.FlowDefinition(from_process="imports", to_process="good_market", dim_letters=("t","e","r","m","u")),
+            # manufacturing stages
+            fd.FlowDefinition(from_process="manufacturing", to_process="manufactured_products_market", dim_letters=("t","e","r","m","u")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="use", dim_letters=("t","e","r","m","u")),
+            fd.FlowDefinition(from_process="manufactured_products_market", to_process="exports", dim_letters=("t","e","r","m","u")),
+            fd.FlowDefinition(from_process="imports", to_process="manufactured_products_market", dim_letters=("t","e","r","m","u")),
             # use stage
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=("t","e","r","m","u")),
             # end-of-life stages
@@ -118,10 +118,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             fd.FlowDefinition(from_process="collected", to_process="landfill", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="aux_recyclate_trade", dim_letters=("t","e","r", "m")),
-            fd.FlowDefinition(from_process="aux_recyclate_trade", to_process="primary_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclchem", to_process="aux_recl_feedstock_trade", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="aux_recl_feedstock_trade", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="reclmech", to_process="aux_recyclate", dim_letters=("t","e","r", "m")),
+            fd.FlowDefinition(from_process="aux_recyclate", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="reclchem", to_process="aux_recl_feedstock", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="aux_recl_feedstock", to_process="HVC_input", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
@@ -135,11 +135,11 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             fd.FlowDefinition(from_process="waste_market", to_process="exports", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="imports", to_process="waste_market", dim_letters=("t","e","r","m")),
             # recyclate trade (redistributes mechanical-recycling surplus between regions)
-            fd.FlowDefinition(from_process="aux_recyclate_trade", to_process="exports", dim_letters=("t","e","r", "m")),
-            fd.FlowDefinition(from_process="imports", to_process="aux_recyclate_trade", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="aux_recyclate", to_process="exports", dim_letters=("t","e","r", "m")),
+            fd.FlowDefinition(from_process="imports", to_process="aux_recyclate", dim_letters=("t","e","r","m")),
             # recycled-feedstock trade (redistributes chemical-recycling surplus between regions)
-            fd.FlowDefinition(from_process="aux_recl_feedstock_trade", to_process="exports", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="imports", to_process="aux_recl_feedstock_trade", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="aux_recl_feedstock", to_process="exports", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="imports", to_process="aux_recl_feedstock", dim_letters=("t","e","r")),
 
         ]
     # fmt: on
@@ -147,7 +147,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
     if historical:
         stocks = [
             fd.StockDefinition(
-                name="in_use_historical",
+                name="use",
                 process="use",
                 dim_letters=("h", "r", "u"),
                 subclass=fd.InflowDrivenDSM,
@@ -158,13 +158,13 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
     else:
         stocks = [
             fd.StockDefinition(
-                name="in_use_dsm",
+                name="use_dsm",
                 dim_letters=("t", "r", "u"),
                 subclass=fd.StockDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
-                name="in_use",
+                name="use",
                 process="use",
                 dim_letters=("t", "e", "r", "m", "u"),
                 subclass=fd.SimpleFlowDrivenStock,
@@ -201,17 +201,17 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
         RemindMFAParameterDefinition(name="incineration_rate", dim_letters=("h", "r"),
                                      description="Incineration rate of collected waste",),
         # trade
-        RemindMFAParameterDefinition(name="primary_his_imports", dim_letters=("h", "r", "p", "m"),
+        RemindMFAParameterDefinition(name="primary_imports", dim_letters=("h", "r", "p", "m"),
                                      description="Historical primary plastics imports",),
-        RemindMFAParameterDefinition(name="primary_his_exports", dim_letters=("h", "r", "p", "m"),
+        RemindMFAParameterDefinition(name="primary_exports", dim_letters=("h", "r", "p", "m"),
                                      description="Historical primary plastics exports",),
-        RemindMFAParameterDefinition(name="final_his_imports", dim_letters=("h", "r", "p", "m", "u"),
-                                     description="Historical final goods imports",),
-        RemindMFAParameterDefinition(name="final_his_exports", dim_letters=("h", "r", "p", "m", "u"),
-                                     description="Historical final goods exports",),
-        RemindMFAParameterDefinition(name="waste_his_imports", dim_letters=("h", "r", "p", "m"),
+        RemindMFAParameterDefinition(name="manufactured_products_imports", dim_letters=("h", "r", "p", "m", "u"),
+                                     description="Historical manufactured products imports",),
+        RemindMFAParameterDefinition(name="manufactured_products_exports", dim_letters=("h", "r", "p", "m", "u"),
+                                     description="Historical manufactured products exports",),
+        RemindMFAParameterDefinition(name="waste_imports", dim_letters=("h", "r", "p", "m"),
                                      description="Historical plastic waste imports",),
-        RemindMFAParameterDefinition(name="waste_his_exports", dim_letters=("h", "r", "p", "m"),
+        RemindMFAParameterDefinition(name="waste_exports", dim_letters=("h", "r", "p", "m"),
                                      description="Historical plastic waste exports",),
         # renewable production rates
         RemindMFAParameterDefinition(name="bio_production_rate", dim_letters=(),
@@ -243,7 +243,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
         RemindMFAParameterDefinition(name="sector_polymer_split", dim_letters=("h", "r", "p", "m", "u"),
                                      description="Share of each polymer and end-use sector within total Fibre/Rubber/Plastics apparent consumption per region",),
         RemindMFAParameterDefinition(name="lifetime_mean", dim_letters=("u",),
-                                     description="Mean lifetime of goods",),
+                                     description="Mean lifetime of final products",),
         RemindMFAParameterDefinition(name="lifetime_std", dim_letters=("u",),
                                      description="Standard deviation of lifetime",),
         RemindMFAParameterDefinition(name="population", dim_letters=("t", "r", "S"),
@@ -255,16 +255,16 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
 
     if historical:
         trades = [
-            TradeDefinition(name="primary_his", dim_letters=("h", "r", "p", "m")),
-            TradeDefinition(name="final_his", dim_letters=("h", "r", "p", "m", "u")),
+            TradeDefinition(name="primary", dim_letters=("h", "r", "p", "m")),
+            TradeDefinition(name="manufactured_products", dim_letters=("h", "r", "p", "m", "u")),
         ]
     else:
         trades = [
             TradeDefinition(name="primary", dim_letters=("t", "r", "m")),
-            TradeDefinition(name="final", dim_letters=("t", "r", "m", "u")),
+            TradeDefinition(name="manufactured_products", dim_letters=("t", "r", "m", "u")),
             TradeDefinition(name="waste", dim_letters=("t", "e", "r", "m")),
-            TradeDefinition(name="aux_recyclate_trade", dim_letters=("t", "e", "r", "m")),
-            TradeDefinition(name="aux_recl_feedstock_trade", dim_letters=("t", "e", "r")),
+            TradeDefinition(name="aux_recyclate", dim_letters=("t", "e", "r", "m")),
+            TradeDefinition(name="aux_recl_feedstock", dim_letters=("t", "e", "r")),
         ]
 
     return RemindMFADefinition(
@@ -279,8 +279,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
 
 # fmt: off
 scenario_parameters = [
-    ExtrapolationDefinition(name="waste_his_imports", dim_letters=("r",)),
-    ExtrapolationDefinition(name="waste_his_exports", dim_letters=("r",)),
+    ExtrapolationDefinition(name="waste_imports", dim_letters=("r",)),
+    ExtrapolationDefinition(name="waste_exports", dim_letters=("r",)),
     ExtrapolationDefinition(name="collection_rate", dim_letters=("r",), blending_function="converge_quadratic"),
     ExtrapolationDefinition(name="landfill_rate", dim_letters=("r",), blending_function="converge_quadratic"),
     ExtrapolationDefinition(name="mechanical_recycling_rate", dim_letters=("r",), blending_function="converge_quadratic"),

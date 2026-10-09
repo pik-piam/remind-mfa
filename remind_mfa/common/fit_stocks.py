@@ -33,7 +33,7 @@ class StockFitter(RemindMFABaseModel):
             raise ValueError("The first dimension of regression must be 't'.")
         if self.dims_out.letters[1:] != self.historical_stocks_pc.dims.letters[1:]:
             raise ValueError(
-                "The regression array must have the same 'r' and goods dimensions as historical_in."
+                "The regression array must have the same 'r' and end use dimensions as historical_in."
             )
         return self
 
@@ -50,22 +50,18 @@ class StockFitter(RemindMFABaseModel):
             raise ValueError("growth_rate not in prm_names.")
         return self
 
-    @property
-    def goods_dim_letter(self):
-        return self.historical_stocks_pc.dims.letters[2]
-
     def fit(self):
         """prepare parameters for single fitting function
-        loop over good and regions, call single fitting function for each of them
+        loop over end use and regions, call single fitting function for each of them
         """
         hdims = self.historical_stocks_pc.dims
         prms = np.ndarray(
-            shape=(hdims["r"].len, hdims[self.goods_dim_letter].len, self.extrapolation.n_prms)
+            shape=(hdims["r"].len, hdims["u"].len, self.extrapolation.n_prms)
         )
         self._n_hist = hdims["h"].len
         ids_failed = []
         n_r = hdims["r"].len
-        n_g = hdims[self.goods_dim_letter].len
+        n_g = hdims["u"].len
         for ir, ig in np.ndindex((n_r, n_g)):
             try:
                 prms[ir, ig, :] = self.fit_single(
@@ -88,7 +84,7 @@ class StockFitter(RemindMFABaseModel):
     def fit_single(
         self, historical: np.ndarray, predictor: np.ndarray, prms_0: np.ndarray
     ) -> np.ndarray:
-        """Carry out the fitting for a single good and region by minimizing the penalty function.
+        """Carry out the fitting for a single end use and region by minimizing the penalty function.
         Wraps/uses scipy's minimize function.
         Passes a transformed penalty function and its jacobian to scipy, which only depend on prms.
 
@@ -98,7 +94,7 @@ class StockFitter(RemindMFABaseModel):
             prms_0 (np.ndarray): initial guess for the parameters
 
         Returns:
-            np.ndarray: fitted parameters fot that good and region
+            np.ndarray: fitted parameters fot that end use and region
         """
         # for Regions with very low gdppc, the optimizer does not know which direction to go for minimizing the 0th order penalties since we are in a region where the Gompertz function is very flat
         # we therefore vary the offset parameter to find a better starting point for the optimization.
@@ -133,7 +129,7 @@ class StockFitter(RemindMFABaseModel):
         failed_stocks = current_stocks[ids_failed]
         share_failed_stocks = failed_stocks.sum() / current_stocks.sum()
         warning(
-            f"Optimization failed for {len(ids_failed)} good-region combinations in "
+            f"Optimization failed for {len(ids_failed)} end use-region combinations in "
             f"{n_failed_regions} regions, affecting {share_failed_stocks:.2%} of total "
             "stocks. Using initial parameters for those."
         )

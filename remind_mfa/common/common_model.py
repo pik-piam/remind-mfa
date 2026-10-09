@@ -31,9 +31,6 @@ class CommonModel:
     custom_scn_prm_def = []
     get_definition = staticmethod(get_definition)
 
-    # TODO: unify, then delete
-    historical_stock_name: str = None
-
     do_stock_extrapolation_with_time_factor: bool = False
     # parameters for a static time-dependent penetration curve if desired.
     # Needed in `calculate_time_factor` if do_stock_extrapolation_with_time_factor is True.
@@ -103,7 +100,7 @@ class CommonModel:
         logging.info("Checking parameters for NaN and negative values...")
         exceptions = exceptions or []
 
-        all_good = True
+        all_ok = True
         for name, prm in self.parameters.items():
             if name in exceptions:
                 continue
@@ -112,15 +109,15 @@ class CommonModel:
                 if raise_error:
                     raise ValueError(msg)
                 logging.warning(msg)
-                all_good = False
+                all_ok = False
             if np.any(prm.values < 0):
                 msg = f"Negative values found in parameter '{name}'!"
                 if raise_error:
                     raise ValueError(msg)
                 logging.warning(msg)
-                all_good = False
+                all_ok = False
 
-        if all_good:
+        if all_ok:
             logging.info("Success - No NaN or negative values found in parameters.")
 
     def select_driver_scen(self):
@@ -229,7 +226,7 @@ class CommonModel:
 
         time_factor = self.calculate_time_factor()
 
-        historical_stocks = self.historical_mfa.stocks[self.historical_stock_name].stock
+        historical_stocks = self.historical_mfa.stocks["use"].stock
         normalized_historical_stock = historical_stocks / (
             sector_specific_sat_level * time_factor[{"t": self.dims["h"]}]
         )
@@ -284,7 +281,7 @@ class CommonModel:
             for r in self.dims["r"].items:
                 for u in self.dims["u"].items:
                     # the horizontal shift base is shifted by the lifetimes,
-                    # so goods with longer lifetimes reach saturation later
+                    # so end use products with longer lifetimes reach saturation later
                     lt = lifetime[{"r": r, "u": u}].values.item()
                     prms = [1, h_base + lt, growth]
                     ExtrapolationClass = self.cfg.model_switches.stock_extrapolation_class

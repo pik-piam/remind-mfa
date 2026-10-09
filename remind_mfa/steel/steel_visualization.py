@@ -30,7 +30,7 @@ class SteelVisualizer(CommonVisualizer):
     def visualize_consumption(self, mfa: fd.MFASystem):
         self.visualize_fdarr_stacked(
             mfa=mfa,
-            flow=mfa.stocks["in_use"].inflow,
+            flow=mfa.stocks["use"].inflow,
             name="Consumption",
             linecolor_dim="End Use",
             regional=True,
@@ -51,7 +51,7 @@ class SteelVisualizer(CommonVisualizer):
             {
                 fn: scrap_color
                 for fn, f in mfa.flows.items()
-                if f.from_process.name == "scrap_market" or f.to_process.name == "scrap_market"
+                if f.from_process.name == "scrap_pool" or f.to_process.name == "scrap_pool"
             }
         )
         flow_color_dict.update(
@@ -114,12 +114,12 @@ class SteelVisualizer(CommonVisualizer):
 
     def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
-        production = flw["bof_production => forming"] + flw["eaf_production => forming"]
-        fabrication = flw["ip_market => fabrication"]
-        consumption = mfa.stocks["in_use"].inflow.sum_over("u")
+        production = flw["steel_production_ore_based => forming"] + flw["steel_production_scrap_based => forming"]
+        manufacturing = flw["steel_market => manufacturing"]
+        consumption = mfa.stocks["use"].inflow.sum_over("u")
         array_dict = {
             "Production": production,
-            "Fabrication": fabrication,
+            "Manufacturing": manufacturing,
             "Consumption": consumption,
         }
 
@@ -144,24 +144,24 @@ class SteelVisualizer(CommonVisualizer):
         self.plot_and_save_figure(plotter, f"production_{name_str}", do_plot=False)
 
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
-        production = mfa.flows["bof_production => forming"] + mfa.flows["eaf_production => forming"]
+        production = mfa.flows["steel_production_ore_based => forming"] + mfa.flows["steel_production_scrap_based => forming"]
         self.visualize_fdarr(mfa=mfa, flow=production, name="Steel production", regional=regional)
 
     def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_end_use=False):
         subplot_dim = "End Use" if subplots_by_end_use else None
-        super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
+        super().visualize_use_stock(mfa, stock=mfa.stocks["use"].stock, subplot_dim=subplot_dim)
 
     def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=False):
         if linecolor_dims is True:
             linecolor_dims = {
                 "steel": None,
-                "final_product": "End Use",
+                "manufactured_products": "End Use",
                 "scrap": None,
             }
         else:
             linecolor_dims = {
                 "steel": None,
-                "final_product": None,
+                "manufactured_products": None,
                 "scrap": None,
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
@@ -174,12 +174,12 @@ class SteelVisualizer(CommonVisualizer):
         prm = mfa.parameters
 
         total_production = (
-            flw["forming => ip_market"] / (prm["forming_yield"] * (1 - prm["production_loss_rate"]))
+            flw["forming => steel_market"] / (prm["forming_yield"] * (1 - prm["steel_production_loss_rate"]))
         )[{"t": mfa.dims["h"]}]
         scrap_supply = (
-            flw["recycling => scrap_market"]
-            + flw["forming => scrap_market"]
-            + flw["fabrication => scrap_market"]
+            flw["recycling => scrap_pool"]
+            + flw["forming => scrap_pool"]
+            + flw["manufacturing => scrap_pool"]
         )
         scrap_supply = scrap_supply[{"t": mfa.dims["h"]}]
 

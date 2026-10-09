@@ -15,14 +15,14 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_in_use_stock(stock_projection, **kwargs)
+        self.compute_use_stock(stock_projection, **kwargs)
         self.compute_flows(historical_trade)
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows()
 
-    def compute_in_use_stock(
+    def compute_use_stock(
         self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True, **kwargs
     ):
         prm = self.parameters
@@ -34,15 +34,15 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         else:
             # Input is already product mass (t, r, u, m): just add k dim.
             product_stock = stock_projection
-        stk["in_use"].stock = self.add_constituent_split(product_stock, prm)
+        stk["use"].stock = self.add_constituent_split(product_stock, prm)
 
-        stk["in_use"].lifetime_model.set_prms(
+        stk["use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
             std=prm["lifetime_std"],
         )
-        stk["in_use"].compute()
+        stk["use"].compute()
 
-        self.correct_negative_inflow("in_use", warn_small_negative=False)
+        self.correct_negative_inflow("use", warn_small_negative=False)
 
     def add_constituent_split(
         self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
@@ -71,7 +71,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         trd = self.trade_set
 
         # product production
-        flw["prod_product => use"][...] = stk["in_use"].inflow
+        flw["prod_product => use"][...] = stk["use"].inflow
         flw["market_cement => prod_product"][...] = flw["prod_product => use"][{"k": "cement"}]
         flw["sysenv => prod_product"][...] = flw["prod_product => use"][{"k": "non-cement"}]
         flw["market_cement => sysenv"][...] = (
@@ -82,7 +82,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # use phase: the in-use outflow leaves the system boundary. When carbonation is active,
         # CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = stk["in_use"].outflow
+        flw["use => sysenv"][...] = stk["use"].outflow
 
         # cement trade
         total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]

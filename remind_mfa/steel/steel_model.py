@@ -25,9 +25,6 @@ class SteelModel(CommonModel):
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
 
-    # TODO: unify, then delete
-    historical_stock_name: str = "historical_in_use"
-
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
 
@@ -93,7 +90,7 @@ class SteelModel(CommonModel):
             type="ad-hoc fix",
             name="scrap rate factor",
             description=(
-                "Time-dependent factor multiplied to forming and fabrication losses to match "
+                "Time-dependent factor multiplied to forming and manufacturing losses to match "
                 "historical scrap consumption."
             ),
         )
@@ -112,9 +109,9 @@ class SteelModel(CommonModel):
                 1 - scrap_rate_factor * (1 - self.parameters["forming_yield"].values.mean())
             ).values,
         )
-        self.parameters["fabrication_yield"] = fd.Parameter(
+        self.parameters["manufacturing_yield"] = fd.Parameter(
             dims=self.dims["t", "u"],
-            values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
+            values=(1 - scrap_rate_factor * (1 - self.parameters["manufacturing_yield"])).values,
         )
         self.parameters["sector_split_high"]["Products"] *= 1.5
         self.parameters["sector_split_high"][...] = self.parameters[
@@ -122,9 +119,9 @@ class SteelModel(CommonModel):
         ].get_shares_over("u")
 
         self.calc_sector_split()
-        self.parameters["aggregate_fabrication_yield"] = fd.Parameter(dims=self.dims["t", "r"])
-        self.parameters["aggregate_fabrication_yield"][...] = (
-            self.parameters["fabrication_yield"] * self.parameters["sector_split"]
+        self.parameters["aggregate_manufacturing_yield"] = fd.Parameter(dims=self.dims["t", "r"])
+        self.parameters["aggregate_manufacturing_yield"][...] = (
+            self.parameters["manufacturing_yield"] * self.parameters["sector_split"]
         ).sum_over("u")
 
     def calc_sector_split(self) -> fd.FlodymArray:

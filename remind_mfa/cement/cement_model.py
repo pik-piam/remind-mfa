@@ -34,9 +34,6 @@ class CementModel(CommonModel):
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
-    # TODO: unify, then delete
-    historical_stock_name: str = "in_use"
-
     def modify_parameters(self):
         # construct lifetime std from mean and relative std
         lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
@@ -179,7 +176,7 @@ class CementModel(CommonModel):
         # compute reconciled future bottom-up mfa
         self.bu_mfa_reconciled = self.make_bottom_up_mfa()
         self.bu_mfa_reconciled.compute(
-            self.td_mfa_reconciled.stocks["in_use"], self.td_hist_mfa_reconciled.trade_set
+            self.td_mfa_reconciled.stocks["use"], self.td_hist_mfa_reconciled.trade_set
         )
 
         # overwrite future_mfa with update
