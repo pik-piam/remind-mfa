@@ -144,10 +144,6 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
     return array
 
 
-N_TREND_YEARS = 10
-"""Number of most recent historical years used to determine the initial slope of the critically
-damped blend."""
-
 DEFAULT_APPROACHING_TIME = 50
 """Default characteristic timescale in years of the critically damped blend."""
 
@@ -159,6 +155,7 @@ and trade."""
 def critically_damped_blend(
     array: fd.FlodymArray,
     n_historic: int,
+    n_trend_years: fd.FlodymArray,
     time_letter: str = "t",
     approaching_time: float = DEFAULT_APPROACHING_TIME,
 ) -> fd.FlodymArray:
@@ -171,6 +168,9 @@ def critically_damped_blend(
     Args:
         array (fd.FlodymArray): Array covering both the historical and the future period.
         n_historic (int): Number of historical time steps at the beginning of the time dimension.
+        n_trend_years (fd.FlodymArray): Number of most recent historical years used in the
+            weighted linear regression for the initial slope. Must not have the time dimension;
+            is broadcast to the other dimensions of ``array``.
         time_letter (str): Letter of the time dimension. Defaults to "t".
         approaching_time (float): Characteristic timescale in years of the blend.
             Defaults to ``DEFAULT_APPROACHING_TIME``.
@@ -180,11 +180,14 @@ def critically_damped_blend(
     """
     time_axis = array.dims.index(time_letter)
     values = np.moveaxis(array.values, time_axis, 0)
+    # the other dims keep their order when moving the time axis to the front
+    trend_years = n_trend_years.cast_to(array.dims.drop(time_letter)).values
     blender = CriticallyDampedBlender(
         time=array.dims[time_letter].items,
         historical=values[:n_historic],
         prediction=values,
         initial_slope="weighted_regression",
+        n_trend_years=np.round(trend_years).astype(int),
     )
     blended_values = np.moveaxis(blender.blend(approaching_time), 0, time_axis)
     return fd.FlodymArray(dims=array.dims, values=blended_values)
@@ -199,7 +202,7 @@ class CriticallyDampedBlender:
         prediction: np.ndarray,
         lifetime: Optional[np.ndarray] = None,
         initial_slope: Literal["lifetime_dependent", "weighted_regression"] = "lifetime_dependent",
-        n_trend_years: int = N_TREND_YEARS,
+        n_trend_years: int | np.ndarray | None = None,
     ):
         """
         Args:
@@ -216,8 +219,10 @@ class CriticallyDampedBlender:
                 (finite difference of the last two points if no lifetime is given).
                 "weighted_regression": weighted linear regression over the ``n_trend_years``
                 most recent years. Defaults to "lifetime_dependent".
-            n_trend_years (int): Number of most recent historical years used in the weighted
-                linear regression for the initial slope. Defaults to ``N_TREND_YEARS``.
+            n_trend_years (int | np.ndarray | None): Number of most recent historical years used
+                in the weighted linear regression for the initial slope. Either a scalar or an
+                array matching the shape of prediction/historical, except time (0th axis).
+                Required if ``initial_slope`` is "weighted_regression".
         """
         self.time = np.array(time)
         self.historical = historical
@@ -234,6 +239,9 @@ class CriticallyDampedBlender:
         assert (
             self.historical.shape[0] <= self.prediction.shape[0]
         ), "Historical data cannot be longer than prediction."
+        if self.initial_slope == "weighted_regression":
+            assert n_trend_years is not None, "n_trend_years is required for weighted_regression."
+            assert np.all(np.asarray(n_trend_years) >= 1), "n_trend_years must be at least 1."
 
         self.lifetime = lifetime
         if self.lifetime is not None:
@@ -427,26 +435,30 @@ class CriticallyDampedBlender:
         Returns:
             np.ndarray: Array of slopes with the same shape as ``historical.shape[1:]``.
         """
-        n_points = min(self.n_trend_years, idx + 1)
-        if n_points < 2:
-            return np.zeros(self.historical.shape[1:], dtype=float)
+        spatial_shape = self.historical.shape[1:]
+        n_points = np.minimum(np.broadcast_to(self.n_trend_years, spatial_shape), idx + 1)
+        n_window = int(n_points.max())
+        if n_window < 2:
+            return np.zeros(spatial_shape, dtype=float)
 
-        time_window = self.time[idx - n_points + 1 : idx + 1].astype(float)
-        values_window = self.historical[idx - n_points + 1 : idx + 1]
+        time_window = self.time[idx - n_window + 1 : idx + 1].astype(float)
+        values_window = self.historical[idx - n_window + 1 : idx + 1]
 
-        # linearly increasing weights: the most recent year has the highest weight
-        weights = np.arange(1, n_points + 1, dtype=float)
-        weights /= weights.sum()
+        # linearly increasing weights over the last n_points years of each element (most recent
+        # year has the highest weight), zero before
+        broadcast_shape = (-1,) + (1,) * len(spatial_shape)
+        steps_before_last = np.arange(n_window - 1, -1, -1).reshape(broadcast_shape)
+        weights = np.maximum(0.0, n_points - steps_before_last)
+        weights /= weights.sum(axis=0)
 
-        time_deviation = time_window - np.sum(weights * time_window)
-        values_mean = np.tensordot(weights, values_window, axes=1)
-        broadcast_shape = (-1,) + (1,) * (values_window.ndim - 1)
-        covariance = np.sum(
-            (weights * time_deviation).reshape(broadcast_shape) * (values_window - values_mean),
-            axis=0,
-        )
-        variance = np.sum(weights * time_deviation**2)
-        return covariance / variance
+        time_window = time_window.reshape(broadcast_shape)
+        time_deviation = time_window - np.sum(weights * time_window, axis=0)
+        values_mean = np.sum(weights * values_window, axis=0)
+        covariance = np.sum(weights * time_deviation * (values_window - values_mean), axis=0)
+        variance = np.sum(weights * time_deviation**2, axis=0)
+        slope = np.zeros(spatial_shape, dtype=float)
+        np.divide(covariance, variance, out=slope, where=n_points >= 2)
+        return slope
 
     def _lifetime_dependent_n(
         self,

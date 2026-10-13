@@ -26,6 +26,7 @@ class CommonMFASystem(fd.MFASystem):
         blended_inflow = critically_damped_blend(
             stock.inflow,
             n_historic=self.dims["h"].len,
+            n_trend_years=self.parameters["n_trend_years"],
             approaching_time=FLOW_APPROACHING_TIME,
         )
         add_assumption_doc(

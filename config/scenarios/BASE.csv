@@ -9,6 +9,8 @@ saturation_level,cement,24,,,,,,,
 stock_factor,all,1.0,2100,factor,,,,,
 lifetime_mean,all,1.0,2060,factor,,,,,
 lifetime_std,all,1.0,2060,factor,,,,,
+n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
+n_trend_years,all,2,,,CHA,,,,
 
 # --- Plastics ---
 waste_his_imports,plastics,0,2030,target,,,,,

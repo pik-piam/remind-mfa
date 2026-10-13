@@ -31,6 +31,10 @@ class TradeExtrapolator(RemindMFABaseModel):
     """future_dom_demand (FlodymArray): The domestic demand values to scale the historic imports by.
     Setting this means calculating trade in backward mode
     """
+    n_trend_years: fd.FlodymArray
+    """n_trend_years (FlodymArray): Number of most recent historical years used for the initial
+    slope of the critically damped blend of the extrapolated trade.
+    """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
 
@@ -220,7 +224,10 @@ class TradeExtrapolator(RemindMFABaseModel):
         n_historic = self.historic_first.dims["h"].len
         for future_flow in (self.future_first, self.future_second):
             future_flow[...] = critically_damped_blend(
-                future_flow, n_historic=n_historic, approaching_time=FLOW_APPROACHING_TIME
+                future_flow,
+                n_historic=n_historic,
+                n_trend_years=self.n_trend_years,
+                approaching_time=FLOW_APPROACHING_TIME,
             ).maximum(0)
         add_assumption_doc(
             type="model assumption",
