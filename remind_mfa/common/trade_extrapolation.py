@@ -6,7 +6,11 @@ from pydantic import model_validator, ConfigDict
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
 from remind_mfa.common.helpers import RemindMFABaseModel
-from remind_mfa.common.data_blending import blend, critically_damped_blend
+from remind_mfa.common.data_blending import (
+    blend,
+    critically_damped_blend,
+    FLOW_APPROACHING_TIME,
+)
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
@@ -215,13 +219,17 @@ class TradeExtrapolator(RemindMFABaseModel):
         """
         n_historic = self.historic_first.dims["h"].len
         for future_flow in (self.future_first, self.future_second):
-            future_flow[...] = critically_damped_blend(future_flow, n_historic=n_historic).maximum(0)
+            future_flow[...] = critically_damped_blend(
+                future_flow, n_historic=n_historic, approaching_time=FLOW_APPROACHING_TIME
+            ).maximum(0)
         add_assumption_doc(
             type="model assumption",
             name="Critically damped blend of extrapolated trade",
+            value=FLOW_APPROACHING_TIME,
             description=(
                 "Extrapolated imports and exports are blended smoothly from historic trends to the "
-                "extrapolated values with a critically damped blend, before they are balanced."
+                "extrapolated values with a critically damped blend, before they are balanced. "
+                "The value is the approaching time in years."
             ),
         )
 

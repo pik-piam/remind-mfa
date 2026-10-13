@@ -151,6 +151,10 @@ damped blend."""
 DEFAULT_APPROACHING_TIME = 50
 """Default characteristic timescale in years of the critically damped blend."""
 
+FLOW_APPROACHING_TIME = 75
+"""Characteristic timescale in years of the critically damped blend of in-use stock inflows
+and trade."""
+
 
 def critically_damped_blend(
     array: fd.FlodymArray,
@@ -257,8 +261,9 @@ class CriticallyDampedBlender:
         Args:
             approaching_time (float): Characteristic timescale in years. Sets the damping
                 parameter ``k = 4.74 / approaching_time`` (95% step-response convergence
-                within ``approaching_time`` years) and the nudge timescale
-                ``10 * approaching_time``. Defaults to ``DEFAULT_APPROACHING_TIME``.
+                within ``approaching_time`` years) and the nudge rate (95% convergence of the
+                nudge alone within ``approaching_time`` years).
+                Defaults to ``DEFAULT_APPROACHING_TIME``.
 
         Returns:
             np.ndarray: Array with exact historical values preserved up to the last
@@ -324,8 +329,9 @@ class CriticallyDampedBlender:
             p_array (np.ndarray): Target prediction array with time as the first axis,
                 shape ``(len(t_array), spatial...)``. Must be uniformly spaced in time.
             approaching_time (float): Characteristic timescale in years. Sets the damping
-                parameter ``k = 4.74 / approaching_time`` and the nudge timescale
-                ``10 * approaching_time``.
+                parameter ``k = 4.74 / approaching_time`` and the nudge rate, such that both
+                the PD-controller and the nudge alone yield 95% convergence of a step response
+                within ``approaching_time`` years.
 
         Returns:
             np.ndarray: Integrated trajectory array of shape ``(len(t_array), spatial...)``.
@@ -337,10 +343,14 @@ class CriticallyDampedBlender:
         # 4.74 is the solution to (1+x)*exp(-x) = 0.05: the critically damped step response
         # k = 4.74 / approaching_time means 95% convergence within approaching_time years.
         k = 4.74 / approaching_time
-        # Nudge alpha grows quadratically from 0 to 1 over nudge_timescale
-        nudge_timescale = 10 * approaching_time
+        # Nudge relaxation rate grows quadratically with elapsed time. Its integral over
+        # approaching_time is ln(20), so the nudge alone (without P- and D-terms) reduces the gap
+        # of a unit step to 5% within approaching_time, consistent with the definition of k.
+        # The exponential converts the rate to a per-step fraction.
+        nudge_coefficient = 3 * np.log(20)
         dt_elapsed = t_array - t_array[0]
-        nudge_arr = np.minimum(1.0, (dt_elapsed / nudge_timescale) ** 2)
+        nudge_rate = nudge_coefficient / approaching_time * (dt_elapsed / approaching_time) ** 2
+        nudge_arr = 1 - np.exp(-nudge_rate * dt)
 
         # --- Precompute look-ahead predictor velocity for each timestep ---
         vp_array = self._lookahead_velocity(p_array, dt, n_steps, approaching_time)
@@ -358,10 +368,10 @@ class CriticallyDampedBlender:
             # 2. Update velocity and position
             v_curr = v_curr + dv_dt * dt
             y_curr = y_curr + v_curr * dt
-            # 3. Nudge y toward p by the current alpha
+            # 3. Nudge y toward p by the current alpha. The velocity is not re-synced to the
+            # nudge-corrected position, as the nudge displacement would otherwise act as
+            # momentum in the following steps and cause overshoot.
             y_curr = (1 - nudge_arr[i]) * y_curr + nudge_arr[i] * p_array[i]
-            # 4. Re-sync velocity to the nudge-corrected position so the D-term stays consistent
-            v_curr = (y_curr - y[i - 1]) / dt
             # Store results
             y[i], v[i] = y_curr, v_curr
 

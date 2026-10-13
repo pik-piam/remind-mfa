@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.common_config import CommonCfg
-from remind_mfa.common.data_blending import critically_damped_blend
+from remind_mfa.common.data_blending import critically_damped_blend, FLOW_APPROACHING_TIME
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
@@ -23,14 +23,20 @@ class CommonMFASystem(fd.MFASystem):
         the corresponding warning can be suppressed with warn_small_negative=False.
         """
         stock = self.stocks[stock_name]
-        blended_inflow = critically_damped_blend(stock.inflow, n_historic=self.dims["h"].len)
+        blended_inflow = critically_damped_blend(
+            stock.inflow,
+            n_historic=self.dims["h"].len,
+            approaching_time=FLOW_APPROACHING_TIME,
+        )
         add_assumption_doc(
             type="model assumption",
             name="Critically damped blend of in-use stock inflow",
+            value=FLOW_APPROACHING_TIME,
             description=(
                 "The in-use stock inflow resulting from the stock-driven model is blended smoothly "
                 "from historic trends to the future values with a critically damped blend. "
-                "The in-use stock is then recomputed from the blended inflow."
+                "The in-use stock is then recomputed from the blended inflow. "
+                "The value is the approaching time in years."
             ),
         )
         min_inflow = blended_inflow.values.min()
