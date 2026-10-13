@@ -64,7 +64,7 @@ class SteelMFASystem(CommonMFASystem):
             mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
         )
         self.stocks["in_use"].compute()
-        self.correct_negative_inflow("in_use")
+        self.blend_and_correct_inflow("in_use")
 
     def compute_flows(self, historic_trade: TradeSet):
         # abbreviations for better readability

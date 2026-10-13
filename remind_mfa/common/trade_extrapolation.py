@@ -6,7 +6,8 @@ from pydantic import model_validator, ConfigDict
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
 from remind_mfa.common.helpers import RemindMFABaseModel
-from remind_mfa.common.data_blending import blend
+from remind_mfa.common.data_blending import blend, critically_damped_blend
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class TradeExtrapolator(RemindMFABaseModel):
@@ -131,6 +132,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.scale_first()
         stopover_trade = self.add_stopover()
         self.scale_second(stopover_trade)
+        self.blend_transition()
         self.balance()
 
     def scale_first(self):
@@ -206,6 +208,22 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         self.future_second[...] += stopover_trade
         self.future_second[self.id_hist] = self.historic_second
+
+    def blend_transition(self):
+        """Smooth the transition of both trade flows from historic to future years with a
+        critically damped blend, before balancing. Negative values are set to zero.
+        """
+        n_historic = self.historic_first.dims["h"].len
+        for future_flow in (self.future_first, self.future_second):
+            future_flow[...] = critically_damped_blend(future_flow, n_historic=n_historic).maximum(0)
+        add_assumption_doc(
+            type="model assumption",
+            name="Critically damped blend of extrapolated trade",
+            description=(
+                "Extrapolated imports and exports are blended smoothly from historic trends to the "
+                "extrapolated values with a critically damped blend, before they are balanced."
+            ),
+        )
 
     def balance(self):
         """We balance global imports and exports to their hmean

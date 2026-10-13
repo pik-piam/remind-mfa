@@ -44,7 +44,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["in_use_dsm"].lifetime_model.n_pts_per_interval = 10
         self.stocks["in_use_dsm"].compute()
-        self.correct_negative_inflow("in_use_dsm")
+        self.blend_and_correct_inflow("in_use_dsm")
 
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system

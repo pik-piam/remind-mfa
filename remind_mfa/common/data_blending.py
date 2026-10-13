@@ -1,4 +1,4 @@
-from typing import Optional, Union, Any
+from typing import Literal, Optional, Union, Any
 
 import flodym as fd
 import numpy as np
@@ -144,6 +144,48 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
     return array
 
 
+N_TREND_YEARS = 10
+"""Number of most recent historical years used to determine the initial slope of the critically
+damped blend."""
+
+DEFAULT_APPROACHING_TIME = 50
+"""Default characteristic timescale in years of the critically damped blend."""
+
+
+def critically_damped_blend(
+    array: fd.FlodymArray,
+    n_historic: int,
+    time_letter: str = "t",
+    approaching_time: float = DEFAULT_APPROACHING_TIME,
+) -> fd.FlodymArray:
+    """Smooth the transition from historical to future values of an array with a critically
+    damped blend (see `CriticallyDampedBlender`).
+
+    The first ``n_historic`` entries along the time dimension are taken as historical data and
+    are preserved. The full array is the prediction the blended trajectory converges to.
+
+    Args:
+        array (fd.FlodymArray): Array covering both the historical and the future period.
+        n_historic (int): Number of historical time steps at the beginning of the time dimension.
+        time_letter (str): Letter of the time dimension. Defaults to "t".
+        approaching_time (float): Characteristic timescale in years of the blend.
+            Defaults to ``DEFAULT_APPROACHING_TIME``.
+
+    Returns:
+        fd.FlodymArray: Blended array with the same dimensions as ``array``.
+    """
+    time_axis = array.dims.index(time_letter)
+    values = np.moveaxis(array.values, time_axis, 0)
+    blender = CriticallyDampedBlender(
+        time=array.dims[time_letter].items,
+        historical=values[:n_historic],
+        prediction=values,
+        initial_slope="weighted_regression",
+    )
+    blended_values = np.moveaxis(blender.blend(approaching_time), 0, time_axis)
+    return fd.FlodymArray(dims=array.dims, values=blended_values)
+
+
 class CriticallyDampedBlender:
 
     def __init__(
@@ -152,20 +194,32 @@ class CriticallyDampedBlender:
         historical: np.ndarray,
         prediction: np.ndarray,
         lifetime: Optional[np.ndarray] = None,
+        initial_slope: Literal["lifetime_dependent", "weighted_regression"] = "lifetime_dependent",
+        n_trend_years: int = N_TREND_YEARS,
     ):
         """
         Args:
             time (Union[np.ndarray, list]): Time values including historical and future periods.
             Same length as prediction
-            historical (np.ndarray): Historical stock data with time as the first axis.
-            prediction (np.ndarray): Extrapolated stock data from the regression, same shape
+            historical (np.ndarray): Historical data with time as the first axis.
+            prediction (np.ndarray): Extrapolated data, same shape
                 as the full output (covering both historical and future period in first axis).
-            lifetime (Optional[np.ndarray]): Lifetime used to dynamically determine trend window size.
-            Should have the same shape as prediction/historical, except time (0th axis)
+            lifetime (Optional[np.ndarray]): Lifetime used to dynamically determine trend window size
+                if ``initial_slope`` is "lifetime_dependent".
+                Should have the same shape as prediction/historical, except time (0th axis)
+            initial_slope (str): Method to determine the initial slope at the transition point.
+                "lifetime_dependent": polynomial fit over a lifetime-dependent window
+                (finite difference of the last two points if no lifetime is given).
+                "weighted_regression": weighted linear regression over the ``n_trend_years``
+                most recent years. Defaults to "lifetime_dependent".
+            n_trend_years (int): Number of most recent historical years used in the weighted
+                linear regression for the initial slope. Defaults to ``N_TREND_YEARS``.
         """
         self.time = np.array(time)
         self.historical = historical
         self.prediction = prediction
+        self.initial_slope = initial_slope
+        self.n_trend_years = n_trend_years
 
         assert (
             self.time.shape[0] == self.prediction.shape[0]
@@ -185,7 +239,7 @@ class CriticallyDampedBlender:
 
     def blend(
         self,
-        approaching_time: float = 50,
+        approaching_time: float = DEFAULT_APPROACHING_TIME,
     ) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
@@ -204,10 +258,10 @@ class CriticallyDampedBlender:
             approaching_time (float): Characteristic timescale in years. Sets the damping
                 parameter ``k = 4.74 / approaching_time`` (95% step-response convergence
                 within ``approaching_time`` years) and the nudge timescale
-                ``10 * approaching_time``. Defaults to 50.
+                ``10 * approaching_time``. Defaults to ``DEFAULT_APPROACHING_TIME``.
 
         Returns:
-            np.ndarray: Stock array with exact historical values preserved up to the last
+            np.ndarray: Array with exact historical values preserved up to the last
             historical index and a smooth blended trajectory thereafter.
         """
         last_history_idx = len(self.historical) - 1
@@ -218,9 +272,15 @@ class CriticallyDampedBlender:
 
         # 2. Set the initial conditions at the transition point
         y0 = self.historical[last_history_idx, :]
-        v0 = self._trend_slope(
-            self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
-        )
+        match self.initial_slope:
+            case "lifetime_dependent":
+                v0 = self._trend_slope(
+                    self.time, self.historical, self._lifetime_dependent_n(), last_history_idx
+                )
+            case "weighted_regression":
+                v0 = self._weighted_trend_slope(last_history_idx)
+            case _:
+                raise ValueError(f"Unknown initial_slope method: {self.initial_slope}")
         # 3. Integrate to find the blended future path Y(t)
         y_future = self._integrate_transition(
             y0,
@@ -341,6 +401,42 @@ class CriticallyDampedBlender:
         hi = np.minimum(lo + 1, n_steps - 1)
         w = (look_pos - lo).reshape((-1,) + (1,) * (p_array.ndim - 1))
         return (1 - w) * vp_raw[lo] + w * vp_raw[hi]
+
+    def _weighted_trend_slope(self, idx: int) -> np.ndarray:
+        """
+        Calculate the recent trend slope of the historical data at a given time index.
+
+        A weighted linear regression is fitted to the ``n_trend_years`` most recent time steps
+        ending at ``idx``, separately for each element combination of the non-time dimensions.
+        The weights increase linearly towards the most recent year, so recent years are
+        weighted more. If fewer than two points are available, the slope is zero.
+
+        Args:
+            idx (int): Time index at which to evaluate the slope (typically the last historical index).
+
+        Returns:
+            np.ndarray: Array of slopes with the same shape as ``historical.shape[1:]``.
+        """
+        n_points = min(self.n_trend_years, idx + 1)
+        if n_points < 2:
+            return np.zeros(self.historical.shape[1:], dtype=float)
+
+        time_window = self.time[idx - n_points + 1 : idx + 1].astype(float)
+        values_window = self.historical[idx - n_points + 1 : idx + 1]
+
+        # linearly increasing weights: the most recent year has the highest weight
+        weights = np.arange(1, n_points + 1, dtype=float)
+        weights /= weights.sum()
+
+        time_deviation = time_window - np.sum(weights * time_window)
+        values_mean = np.tensordot(weights, values_window, axes=1)
+        broadcast_shape = (-1,) + (1,) * (values_window.ndim - 1)
+        covariance = np.sum(
+            (weights * time_deviation).reshape(broadcast_shape) * (values_window - values_mean),
+            axis=0,
+        )
+        variance = np.sum(weights * time_deviation**2)
+        return covariance / variance
 
     def _lifetime_dependent_n(
         self,

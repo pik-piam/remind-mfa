@@ -42,7 +42,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
         stk["in_use"].compute()
 
-        self.correct_negative_inflow("in_use", warn_small_negative=False)
+        self.blend_and_correct_inflow("in_use", warn_small_negative=False)
 
     def add_constituent_split(
         self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]

@@ -17,9 +17,11 @@ import pytest
 from remind_mfa.common.common_definition import ExtrapolationDefinition
 from remind_mfa.common.data_blending import (
     BLEND_TYPES,
+    N_TREND_YEARS,
     CriticallyDampedBlender,
     blend,
     blending_factor,
+    critically_damped_blend,
 )
 from remind_mfa.common.parameter_extrapolation import (
     ParameterExtrapolation,
@@ -360,3 +362,54 @@ def test_critically_damped_blender():
 
     np.testing.assert_allclose(blended[:6], historical)  # history preserved exactly
     assert abs(blended[-1, 0] - 50.0) < 0.5  # converges to the prediction long-term
+
+
+def test_critically_damped_blender_initial_slope_is_weighted_trend():
+    time = np.arange(2000, 2101)
+    # linear trend with slope 2 over the last N_TREND_YEARS, preceded by an outlier
+    historical = 2.0 * np.arange(N_TREND_YEARS + 1, dtype=float).reshape(-1, 1)
+    historical[0] = 100.0
+    blender = CriticallyDampedBlender(
+        time=time,
+        historical=historical,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+    )
+    np.testing.assert_allclose(blender._weighted_trend_slope(len(historical) - 1), [2.0])
+
+    # recent years are weighted more: a jump in the last year pulls the slope up more
+    # than the same jump in the first year of the window pulls it down
+    jump_last = 2.0 * np.arange(N_TREND_YEARS, dtype=float).reshape(-1, 1)
+    jump_last[-1] += 10.0
+    jump_first = 2.0 * np.arange(N_TREND_YEARS, dtype=float).reshape(-1, 1)
+    jump_first[0] += 10.0
+    slope_last = CriticallyDampedBlender(
+        time=time,
+        historical=jump_last,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+    )._weighted_trend_slope(N_TREND_YEARS - 1)
+    slope_first = CriticallyDampedBlender(
+        time=time,
+        historical=jump_first,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+    )._weighted_trend_slope(N_TREND_YEARS - 1)
+    assert slope_last[0] - 2.0 > 2.0 - slope_first[0] > 0
+
+
+def test_critically_damped_blend_flodym_array():
+    dims = fd.DimensionSet(
+        dim_list=[
+            fd.Dimension(name="Region", letter="r", items=["A", "B"]),
+            fd.Dimension(name="Time", letter="t", items=list(range(2000, 2101))),
+        ]
+    )
+    values = np.full(dims.shape, 50.0)
+    values[:, :6] = np.arange(6, dtype=float)
+    array = fd.FlodymArray(dims=dims, values=values)
+    blended = critically_damped_blend(array, n_historic=6, approaching_time=10)
+
+    assert blended.dims.letters == ("r", "t")
+    np.testing.assert_allclose(blended.values[:, :6], values[:, :6])
+    np.testing.assert_allclose(blended.values[:, -1], 50.0, atol=0.5)
