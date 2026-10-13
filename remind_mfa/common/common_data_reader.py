@@ -243,7 +243,7 @@ class CommonDataReader(fd.CompoundDataReader):
         if missing:
             raise FileNotFoundError(
                 f"Missing {kind} files for model "
-                f"'{self.model_class}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
+                f"'{self.model_class.value}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
             )
 
     def get_dimension_files(self) -> dict[str, str | os.PathLike[str]]:
