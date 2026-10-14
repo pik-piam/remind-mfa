@@ -18,13 +18,13 @@
 | t, e, r       | Other Reactants                    | Polymerization                     |
 | t, e, r, m    | Polymerization                     | Primary Market                     |
 | t, e, r       | Polymerization                     | Losses                             |
-| t, e, r, m    | Primary Market                     | Manufacturing                        |
+| t, e, r, m    | Primary Market                     | Manufacturing                      |
 | t, e, r, m    | Primary Market                     | Exports                            |
 | t, e, r, m    | Imports                            | Primary Market                     |
-| t, e, r, m, u | Manufacturing                        | Good Market                        |
-| t, e, r, m, u | Good Market                        | Use Phase                          |
-| t, e, r, m, u | Good Market                        | Exports                            |
-| t, e, r, m, u | Imports                            | Good Market                        |
+| t, e, r, m, u | Manufacturing                      | Manufactured Products Market       |
+| t, e, r, m, u | Manufactured Products Market       | Use Phase                          |
+| t, e, r, m, u | Manufactured Products Market       | Exports                            |
+| t, e, r, m, u | Imports                            | Manufactured Products Market       |
 | t, e, r, m, u | Use Phase                          | EoL                                |
 | t, e, r, m    | EoL                                | Collected                          |
 | t, e, r, m    | EoL                                | Uncollected                        |

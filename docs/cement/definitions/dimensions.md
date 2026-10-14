@@ -1,7 +1,7 @@
 | Name                 | Letter   |
 |:---------------------|:---------|
 | Time                 | t        |
-| Historical Time        | h        |
+| Historical Time      | h        |
 | Region               | r        |
 | End Use              | u        |
 | Product Material     | m        |
