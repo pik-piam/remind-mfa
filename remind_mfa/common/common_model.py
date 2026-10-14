@@ -13,14 +13,14 @@ from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_export import CommonDataExporter
 from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.common_definition import get_definition, RemindMFADefinition
+from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 
-class CommonModel:
+class CommonModel[CfgT: CommonCfg]:
 
     ConfigCls = CommonCfg
     DataExporterCls = CommonDataExporter
@@ -29,7 +29,14 @@ class CommonModel:
     HistoricalMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
-    get_definition = staticmethod(get_definition)
+    cfg: CfgT
+
+    @staticmethod
+    def get_definition(cfg: CfgT, historical: bool) -> RemindMFADefinition:
+        """Build the MFA definition. Overridden by each model."""
+        return RemindMFADefinition(
+            dimensions=[], processes=[], flows=[], stocks=[], parameters=[], trades=[]
+        )
 
     do_stock_extrapolation_with_time_factor: bool = False
     # parameters for a static time-dependent penetration curve if desired.

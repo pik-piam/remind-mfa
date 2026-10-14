@@ -155,7 +155,7 @@ class VisualizationCfg(BaseVisualizationCfg):
     """Visualization configuration for end-use splits."""
 
     @model_validator(mode="after")
-    def validate(self):
+    def validate_html_export(self):
         if self.do_save_figs_html and self.plotting_engine != "plotly":
             raise ValueError("do_save_figs_html requires plotting_engine = 'plotly'.")
         return self

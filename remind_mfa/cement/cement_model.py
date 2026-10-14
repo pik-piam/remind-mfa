@@ -22,7 +22,7 @@ from remind_mfa.cement.cement_definition import scenario_parameters as cement_sc
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
 
 
-class CementModel(CommonModel):
+class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
     DataExporterCls = CementDataExporter
