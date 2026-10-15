@@ -1,17 +1,18 @@
 import logging
 import sys
-import numpy as np
-import flodym as fd
-from typing import Literal, Optional
+from typing import Literal
 
-from remind_mfa.common.trade import TradeSet, Trade
+import flodym as fd
+import numpy as np
+
 from remind_mfa.common.common_config import CommonCfg
+from remind_mfa.common.trade import Trade, TradeSet, set_trade_from_data
 
 
 class CommonMFASystem(fd.MFASystem):
 
     cfg: CommonCfg
-    trade_set: Optional[TradeSet] = None
+    trade_set: TradeSet | None = None
 
     def correct_negative_inflow(self, stock_name: str, warn_small_negative: bool = True):
         """After a StockDrivenDSM computation, correct any negative inflows.
@@ -47,6 +48,23 @@ class CommonMFASystem(fd.MFASystem):
         for name, trade in self.trade_set.markets.items():
             trade.imports[...] = self.parameters[f"{name}_imports"]
             trade.exports[...] = self.parameters[f"{name}_exports"]
+
+    def get_trade_markets_from_data(self) -> list[str]:
+        """Names of the trade markets that are read from data instead of being extrapolated."""
+        return self.cfg.trade.markets_from_data(self.cfg.model)
+
+    def set_trade_from_data(self, market: str, historic_trade: Trade):
+        """Set the future trade of the given market from the parameters
+        ``trade_[market]_imports`` and ``trade_[market]_exports``.
+        """
+        set_trade_from_data(
+            future_trade=self.trade_set[market],
+            imports=self.parameters[f"trade_{market}_imports"],
+            exports=self.parameters[f"trade_{market}_exports"],
+            historic_trade=historic_trade,
+            balance_to=self.cfg.trade.balance,
+            market_name=market,
+        )
 
     def cap_historical_net_exports_to_supply(self, trade: Trade, supply: fd.FlodymArray):
         """Cap a historic trade's *net* exports at the available domestic supply so downstream
@@ -107,7 +125,7 @@ class CommonMFASystem(fd.MFASystem):
         self,
         trade: Trade,
         demand: fd.FlodymArray,
-        category_dim: Optional[str] = None,
+        category_dim: str | None = None,
     ):
         """Cap a trade's net imports at domestic demand so downstream production / fabrication
         flows cannot go negative.
