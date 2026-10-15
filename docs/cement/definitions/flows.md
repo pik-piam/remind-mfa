@@ -15,5 +15,7 @@
 | t, r, u, m    | System environment  | Production: Product   |
 | t, r, u, m, k | Production: Product | Use phase             |
 | t, r, u, m, k | Use phase           | System environment    |
+| t, r, u, m, k | Use phase           | Reuse                 |
+| t, r, u, m, k | Reuse               | Use phase             |
 | t, r          | exports             | System environment    |
 | t, r          | System environment  | imports               |
