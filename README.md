@@ -65,7 +65,8 @@ uv run scripts/fetch_from_hpc.py mfa-archive --config default <hpc>
 where `<hpc>` is the ssh address/alias of the PIK cluster, e.g., `username@hpc.pik-potsdam.de` (with your PIK user name).
 Alternatively, you can also use `uv run scripts/fetch_from_hpc.py mrmfa-sources <hpc>` to copy the input data for `mrmfa` from the cluster to your local machine, and then run `mrmfa` locally to generate the madrat output data.
 
-To update the auto-generated documentation markdown files, run
+The auto-generated documentation markdown files are updated automatically in each pull request.
+To update them locally, run
 ```
 uv run remind_mfa.py --config default --config update_docs --model all
 ```

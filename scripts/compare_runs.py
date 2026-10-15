@@ -5,7 +5,7 @@ import pathlib
 import questionary
 
 DIRECTORY = "data/plastics/output/transience/pickle"
-FLOW_NAME = "good_market => use"
+FLOW_NAME = "manufactured_products_market => use"
 IS_STOCK = False
 # RUNS = ["model_steel_SSP1_h12_2026-03-17--16-24-26", "model_steel_SSP2_h12_2026-03-17--16-25-51"]
 RUNS = None

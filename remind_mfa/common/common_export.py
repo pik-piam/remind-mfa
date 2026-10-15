@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
 
 import flodym as fd
 import flodym.export as fde
-import pyam
 from pydantic import PrivateAttr
 import pandas as pd
 
 from remind_mfa.common.docs_export_helpers import merge_parameters_sources
 from remind_mfa.common.docs_export_helpers import merge_bib_files
+from remind_mfa.common.docs_export_helpers import write_docs_file
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
@@ -28,6 +28,8 @@ from remind_mfa.common.helpers import (
 )
 
 if TYPE_CHECKING:
+    import pyam
+
     from remind_mfa.common.common_model import CommonModel
 
 
@@ -41,7 +43,7 @@ class IamcVariable(RemindMFABaseModel):
     unit: str
     """Base unit of the array, e.g. "t/yr" or "t"."""
     split_name: Optional[str] = None
-    """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
+    """Display-column name to split into child variables (e.g. "End Use"). None = single variable."""
     aggregate_parent: bool = True
     """When this variable is split (``split_name`` set), whether its children are summed back
     into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent
@@ -113,7 +115,7 @@ class CommonDataExporter(RemindMFABaseModel):
         pass
 
     def _clear_recomputable_caches(self):
-        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
+        """Drop lifetime-model sf/pdf caches from the historical and future MFA stocks before pickling
         to save memory.
 
         These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
@@ -121,7 +123,7 @@ class CommonDataExporter(RemindMFABaseModel):
         them here is transparent: the next access (including any later ``stock.compute()``)
         rebuilds them from the stored lifetime parameters.
         """
-        for mfa in (self._model.historic_mfa, self._model.future_mfa):
+        for mfa in (self._model.historical_mfa, self._model.future_mfa):
             for stock in mfa.stocks.values():
                 lifetime_model: fd.LifetimeModel | None = getattr(stock, "lifetime_model", None)
                 if lifetime_model is not None:
@@ -179,7 +181,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        self._warn_if_iamc_includes_historic()
+        self._warn_if_iamc_includes_historical()
 
         mfa = self._model.future_mfa
         constants = {"model": self.model_name, "scenario": self._model.cfg.model_switches.scenario}
@@ -194,18 +196,18 @@ class CommonDataExporter(RemindMFABaseModel):
 
         iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 
-    def _warn_if_iamc_includes_historic(self):
-        """Warn if the configured IAMC export range covers historic years.
+    def _warn_if_iamc_includes_historical(self):
+        """Warn if the configured IAMC export range covers historical years.
 
-        Historic years derive partly from proprietary input data (e.g. WorldSteel), so
-        including them in a shared output risks leaking that data. The last historic year is
-        taken per-material from the model's historic time dimension.
+        Historical years derive partly from proprietary input data (e.g. WorldSteel), so
+        including them in a shared output risks leaking that data. The last historical year is
+        taken per-material from the model's historical time dimension.
         """
-        last_historic_year = self._model.dims["h"].items[-1]
-        historic = [y for y in self.cfg.iamc.time_items if y <= last_historic_year]
-        if historic:
+        last_historical_year = self._model.dims["h"].items[-1]
+        historical = [y for y in self.cfg.iamc.time_items if y <= last_historical_year]
+        if historical:
             logging.warning(
-                f"IAMC export range includes historic years ({historic[0]}-{last_historic_year}), "
+                f"IAMC export range includes historical years ({historical[0]}-{last_historical_year}), "
                 "which may derive from proprietary input data (e.g. WorldSteel). "
                 "Verify you are permitted to share these years before distributing the output."
             )
@@ -225,6 +227,8 @@ class CommonDataExporter(RemindMFABaseModel):
         instead of a plain sum (e.g. per-capita variables weighted by Population),
         mapping variable -> weight variable.
         """
+        import pyam  # deferred: slow to import
+
         iamc_dataframes = []
         split_parent_components: dict[str, list[str]] = {}
         region_weights: dict[str, str] = {}
@@ -289,6 +293,8 @@ class CommonDataExporter(RemindMFABaseModel):
         self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
     ) -> tuple[pyam.IamDataFrame, list[str]]:
         """Build the IamDataFrame for a iamc variable and return it with the variable names it produced."""
+        import pyam  # deferred: slow to import
+
         df = self.to_iamc_df(iamc_var.calculation_function(mfa))
         df["variable"] = iamc_var.variable_name
         if iamc_var.split_name is not None:
@@ -365,7 +371,9 @@ class CommonDataExporter(RemindMFABaseModel):
             if name == "parameters":
                 parameters_df = df
             else:
-                df.to_markdown(self.model_docs_path / f"definitions/{name}.md", index=False)
+                write_docs_file(
+                    self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
+                )
         return parameters_df
 
     def merge_bibtex_files(self):
@@ -384,10 +392,7 @@ class CommonDataExporter(RemindMFABaseModel):
         )
 
         output_file = self.model_docs_path / "definitions/parameters.md"
-        # Generate markdown
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.write(merged_df.to_markdown(index=False))
-            f.write("\n")
+        write_docs_file(output_file, merged_df.to_markdown(index=False))
 
     def assumptions_to_markdown(self):
 
@@ -395,7 +400,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         df = assumptions_df()
-        df.to_markdown(self.model_docs_path / "assumptions.md", index=False)
+        write_docs_file(self.model_docs_path / "assumptions.md", df.to_markdown(index=False))
 
     def cfg_to_markdown(self, cfg: "CommonCfg"):
 
@@ -404,7 +409,9 @@ class CommonDataExporter(RemindMFABaseModel):
 
         schema_df = type(cfg).to_schema_df()
         schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
-        schema_df.to_markdown(self.model_docs_path / "config_schema.md", index=False)
+        write_docs_file(
+            self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
+        )
 
     def to_iamc_df(self, array: fd.FlodymArray):
         time_out = fd.Dimension(name="Time Out", letter="O", items=self.cfg.iamc.time_items)

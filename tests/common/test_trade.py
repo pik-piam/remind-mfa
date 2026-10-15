@@ -15,7 +15,7 @@ import pytest
 
 from remind_mfa.common.trade import Trade, set_trade_from_data
 
-H = fd.Dimension(name="Historic Time", letter="h", items=[2000, 2001, 2002])
+H = fd.Dimension(name="Historical Time", letter="h", items=[2000, 2001, 2002])
 T = fd.Dimension(name="Time", letter="t", items=[2000, 2001, 2002, 2003, 2004])
 R = fd.Dimension(name="Region", letter="r", items=["A", "B"])
 
@@ -30,7 +30,7 @@ def make_trade(dims: fd.DimensionSet, imports: list, exports: list) -> Trade:
     )
 
 
-def make_historic_trade() -> Trade:
+def make_historical_trade() -> Trade:
     # globally balanced: region A imports what region B exports
     return make_trade(
         HISTORIC_DIMS,
@@ -55,19 +55,19 @@ def global_values(array: fd.FlodymArray) -> np.ndarray:
     return values(array.sum_to(("t",)))
 
 
-def test_data_is_used_for_future_and_historic_trade_for_historic_years():
+def test_data_is_used_for_future_and_historical_trade_for_historical_years():
     future_trade = Trade(
         imports=fd.FlodymArray(dims=FUTURE_DIMS), exports=fd.FlodymArray(dims=FUTURE_DIMS)
     )
-    # the data deviates from the historic trade also in the historic years, and is balanced throughout
+    # the data deviates from the historical trade also in the historical years, and is balanced throughout
     imports, exports = make_data(
         imports=[[9.0, 0.0], [9.0, 0.0], [9.0, 0.0], [4.0, 0.0], [5.0, 0.0]],
         exports=[[0.0, 9.0], [0.0, 9.0], [0.0, 9.0], [0.0, 4.0], [0.0, 5.0]],
     )
 
-    set_trade_from_data(future_trade, imports, exports, make_historic_trade())
+    set_trade_from_data(future_trade, imports, exports, make_historical_trade())
 
-    # historic years come from the historic trade, future years from the data
+    # historical years come from the historical trade, future years from the data
     np.testing.assert_allclose(values(future_trade.imports[{"r": "A"}]), [1.0, 2.0, 3.0, 4.0, 5.0])
     np.testing.assert_allclose(values(future_trade.exports[{"r": "B"}]), [1.0, 2.0, 3.0, 4.0, 5.0])
     # the other region trades nothing in this market
@@ -86,7 +86,7 @@ def test_unbalanced_data_is_balanced_and_warned_about(caplog):
     )
 
     with caplog.at_level(logging.WARNING):
-        set_trade_from_data(future_trade, imports, exports, make_historic_trade())
+        set_trade_from_data(future_trade, imports, exports, make_historical_trade())
 
     assert any("differ by up to" in record.message for record in caplog.records)
     global_imports = global_values(future_trade.imports)
@@ -105,7 +105,7 @@ def test_balancing_can_be_disabled():
         exports=[[0.0, 1.0], [0.0, 2.0], [0.0, 3.0], [0.0, 4.0], [0.0, 2.0]],
     )
 
-    set_trade_from_data(future_trade, imports, exports, make_historic_trade(), balance_to=None)
+    set_trade_from_data(future_trade, imports, exports, make_historical_trade(), balance_to=None)
 
     assert values(future_trade.imports[{"r": "A"}])[-1] == pytest.approx(6.0)
     assert values(future_trade.exports[{"r": "B"}])[-1] == pytest.approx(2.0)
@@ -122,22 +122,22 @@ def test_years_not_covered_by_the_data_are_warned_about(caplog):
     )
 
     with caplog.at_level(logging.WARNING):
-        set_trade_from_data(future_trade, imports, exports, make_historic_trade())
+        set_trade_from_data(future_trade, imports, exports, make_historical_trade())
 
     assert any("2004" in record.message for record in caplog.records)
 
 
-def test_historic_years_without_data_are_not_warned_about(caplog):
+def test_historical_years_without_data_are_not_warned_about(caplog):
     future_trade = Trade(
         imports=fd.FlodymArray(dims=FUTURE_DIMS), exports=fd.FlodymArray(dims=FUTURE_DIMS)
     )
-    # data covers future years only, historic years are taken from the historic trade anyway
+    # data covers future years only, historical years are taken from the historical trade anyway
     imports, exports = make_data(
         imports=[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [4.0, 0.0], [5.0, 0.0]],
         exports=[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 4.0], [0.0, 5.0]],
     )
 
     with caplog.at_level(logging.WARNING):
-        set_trade_from_data(future_trade, imports, exports, make_historic_trade())
+        set_trade_from_data(future_trade, imports, exports, make_historical_trade())
 
     assert not caplog.records

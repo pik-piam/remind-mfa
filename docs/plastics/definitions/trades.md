@@ -1,7 +1,7 @@
-| Dimensions    | Name                               |
-|:--------------|:-----------------------------------|
-| t, r, p, m    | primary                            |
-| t, r, p, m, g | final                              |
-| t, e, r, p, m | waste                              |
-| t, e, r, p, m | Auxiliary Recyclate Trade          |
-| t, e, r       | Auxiliary Recycled Feedstock Trade |
+| Dimensions   | Name                  |
+|:-------------|:----------------------|
+| t, r, m      | primary               |
+| t, r, m, u   | manufactured_products |
+| t, e, r, m   | waste                 |
+| t, e, r, m   | aux_recyclate         |
+| t, e, r      | aux_recl_feedstock    |

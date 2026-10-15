@@ -21,7 +21,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
     def compute(
         self,
         stock_projection: fd.FlodymArray,
-        historic_trade: TradeSet,
+        historical_trade: TradeSet,
         baseline_trade: TradeSet,
         baseline_flows: dict,
     ):
@@ -30,32 +30,32 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         """
         self.compute_stock(stock_projection)
         self.compute_waste_trade()
-        self.compute_flows(historic_trade, baseline_trade, baseline_flows)
+        self.compute_flows(historical_trade, baseline_trade, baseline_flows)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
 
     def compute_waste_trade(self):
-        # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historic MFA system
+        # waste trade is extrapolated as a scenario parameter, therefore it is not filled in the historical MFA system
 
         self.trade_set["waste"].imports[...] = (
-            self.parameters["waste_his_imports"] * self.parameters["carbon_content_materials"]
+            self.parameters[f"waste_imports"] * self.parameters["carbon_content_materials"]
         )
         self.trade_set["waste"].exports[...] = (
-            self.parameters["waste_his_exports"] * self.parameters["carbon_content_materials"]
+            self.parameters[f"waste_exports"] * self.parameters["carbon_content_materials"]
         )
         self.trade_set.balance(to="maximum")
 
     def compute_stock(self, stock_projection: fd.FlodymArray):
-        self.stocks["in_use_dsm"].stock[...] = stock_projection
-        self.stocks["in_use_dsm"].lifetime_model.set_prms(
+        self.stocks["use_dsm"].stock[...] = stock_projection
+        self.stocks["use_dsm"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"],
             std=self.parameters["lifetime_std"],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
-        self.stocks["in_use_dsm"].lifetime_model.n_pts_per_interval = 10
-        self.stocks["in_use_dsm"].compute()
-        self.correct_negative_inflow("in_use_dsm")
+        self.stocks["use_dsm"].lifetime_model.n_pts_per_interval = 10
+        self.stocks["use_dsm"].compute()
+        self.correct_negative_inflow("use_dsm")
 
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
@@ -63,19 +63,19 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             self.parameters["material_shares_use_inflow"]
             * self.parameters["carbon_content_materials"]
         )
-        self.stocks["in_use"].inflow[...] = self.stocks["in_use_dsm"].inflow * split
-        self.stocks["in_use"].lifetime_model.set_prms(
+        self.stocks["use"].inflow[...] = self.stocks["use_dsm"].inflow * split
+        self.stocks["use"].lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"],
             std=self.parameters["lifetime_std"],
         )
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
-        self.stocks["in_use"].lifetime_model.n_pts_per_interval = 10
-        self.stocks["in_use"].compute()
+        self.stocks["use"].lifetime_model.n_pts_per_interval = 10
+        self.stocks["use"].compute()
 
         if self.cfg.transience.transience_run == True:
             # store original inflow for comparison
-            self.demand_REMIND_MFA = self.stocks["in_use"].inflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+            self.demand_REMIND_MFA = self.stocks["use"].inflow[
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["y"]}
             ]
             # Replace with EU-MFA data
             # TODO extrapolate EU-MFA data or run MFA only until 2060
@@ -84,13 +84,13 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
             )
             self.demand_EU_MFA = demand_EU_MFA[{"r": EU_MFA_REGION}]
-            self.stocks["in_use"].inflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+            self.stocks["use"].inflow[
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["y"]}
             ] = self.demand_EU_MFA
-            self.stocks["in_use"].compute()
+            self.stocks["use"].compute()
             # store original outflow (generated from EU-MFA inflow and REMIND-MFA lifetime model) for comparison
-            self.stock_outflow_REMIND_MFA = self.stocks["in_use"].outflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+            self.stock_outflow_REMIND_MFA = self.stocks["use"].outflow[
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["y"]}
             ]
             # Replace with EU-MFA data
             stock_outflow_EU_MFA = (
@@ -98,30 +98,30 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 * self.parameters["carbon_content_materials"][{"m": self.dims["n"]}]
             )
             self.stock_outflow_EU_MFA = stock_outflow_EU_MFA[{"r": EU_MFA_REGION}]
-            inflow = self.stocks["in_use"].inflow
-            outflow = self.stocks["in_use"].outflow
-            self.stocks["in_use"] = fd.SimpleFlowDrivenStock(
-                dims=self.stocks["in_use"].dims,
-                lifetime_model=self.stocks["in_use"].lifetime_model,
-                name=self.stocks["in_use"].name,
-                process=self.stocks["in_use"].process,
+            inflow = self.stocks["use"].inflow
+            outflow = self.stocks["use"].outflow
+            self.stocks["use"] = fd.SimpleFlowDrivenStock(
+                dims=self.stocks["use"].dims,
+                lifetime_model=self.stocks["use"].lifetime_model,
+                name=self.stocks["use"].name,
+                process=self.stocks["use"].process,
             )
-            self.stocks["in_use"].inflow[...] = inflow
-            self.stocks["in_use"].inflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+            self.stocks["use"].inflow[...] = inflow
+            self.stocks["use"].inflow[
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["y"]}
             ] = self.demand_EU_MFA
-            self.stocks["in_use"].outflow[...] = outflow
-            self.stocks["in_use"].outflow[
-                {"r": EU_MFA_REGION, "m": self.dims["n"], "g": self.dims["f"], "t": self.dims["u"]}
+            self.stocks["use"].outflow[...] = outflow
+            self.stocks["use"].outflow[
+                {"r": EU_MFA_REGION, "m": self.dims["n"], "u": self.dims["f"], "t": self.dims["y"]}
             ] = self.stock_outflow_EU_MFA
-            self.stocks["in_use"].compute()
+            self.stocks["use"].compute()
             logging.warning(
                 f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for {EU_MFA_REGION} region are not computed from stock projection, but taken from EU-MFA. "
                 f"The stock is calculated as a simple flow-driven stock. "
             )
 
     def compute_flows(
-        self, historic_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict
+        self, historical_trade: TradeSet, baseline_trade: TradeSet, baseline_flows: dict
     ):
 
         # abbreviations for better readability
@@ -135,8 +135,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "upstream_losses": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "total_primary_HVC": self.get_new_array(dim_letters=("t", "e", "r")),
-            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
-            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p", "m")),
+            "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "m")),
+            "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "m")),
             "HVC_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "HVC_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
@@ -144,7 +144,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # fmt: off
 
         # EoL flows are computed first, starting from the stock outflow, since recycling flows are needed for the trade extrapolation
-        flw["use => eol"][...] = stk["in_use"].outflow
+        flw["use => eol"][...] = stk["use"].outflow
         flw["eol => collected"][...] = flw["use => eol"] * prm["collection_rate"]
 
         # exports of plastic waste cannot exceed collected eol plastics
@@ -159,8 +159,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
         #flw["collected => reclmech"][{"m": ("Rubbers","PET fibre", "Polyamide fibre", "Other fibre")}] = 0.0 # TODO remove once recycling rates are resolved by material
-        flw["reclmech => aux_recyclate_trade"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
-        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => aux_recyclate_trade"]
+        flw["reclmech => aux_recyclate_market"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => aux_recyclate_market"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
@@ -180,43 +180,48 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["mismanaged => uncontrolled"][...] = flw["eol => mismanaged"]
 
         # now trades and production flows are computed starting from the stock inflow
-        flw["good_market => use"][...] = stk["in_use"].inflow
+        flw["manufactured_products_market => use"][...] = stk["use"].inflow
 
-        flw["good_market => use"][...] = stk["in_use"].inflow
-        # imports of final goods cannot exceed plastics demand
-        historic_trade["final_his"].imports[...] = historic_trade["final_his"].imports.minimum(flw["good_market => use"][{"t": self.dims["h"]}])
-        historic_trade["final_his"].balance(to="minimum")
+        # imports of manufactured products cannot exceed plastics demand.
+        # the historical trade still resolves the polymer type 'p'; the future MFA does not, so it is
+        # summed away
+        historical_manufactured_products = historical_trade["manufactured_products"].sum_over("p")
+        historical_manufactured_products.imports[...] = historical_manufactured_products.imports.minimum(flw["manufactured_products_market => use"][{"t": self.dims["h"]}])
+        historical_manufactured_products.balance(to="minimum")
 
-        if "final" in self.get_trade_markets_from_data():
-            self.set_trade_from_data("final", historic_trade["final_his"])
+        if "manufactured_products" in self.get_trade_markets_from_data():
+            self.set_trade_from_data("manufactured_products", historical_manufactured_products)
         else:
             extrapolator = TradeExtrapolator(
-                historic_trade=historic_trade["final_his"],
-                future_trade=self.trade_set["final"],
-                future_dom_demand=stk["in_use"].inflow,
+                historical_trade=historical_manufactured_products,
+                future_trade=self.trade_set["manufactured_products"],
+                future_dom_demand=stk["use"].inflow,
             )
             extrapolator.run()
 
-        flw["good_market => exports"][...] = (
-            trd["final"].exports * self.parameters["carbon_content_materials"]
+        flw["manufactured_products_market => exports"][...] = (
+            trd["manufactured_products"].exports * self.parameters["carbon_content_materials"]
         )
-        flw["imports => good_market"][...] = (
-            trd["final"].imports * self.parameters["carbon_content_materials"]
+        flw["imports => manufactured_products_market"][...] = (
+            trd["manufactured_products"].imports * self.parameters["carbon_content_materials"]
         )
-        flw["fabrication => good_market"][...] = flw["good_market => use"] - flw["imports => good_market"] + flw["good_market => exports"]
+        flw["manufacturing => manufactured_products_market"][...] = flw["manufactured_products_market => use"] - flw["imports => manufactured_products_market"] + flw["manufactured_products_market => exports"]
 
-        # a material's net imports above its fabrication demand would make its primary production
+        # a material's net imports above its manufacturing demand would make its primary production
         # negative; reassign that excess to the other materials of the same polymer type (headroom),
         # keeping the trade's material split
-        flw["primary_market => fabrication"][...] = flw["fabrication => good_market"]
+        flw["primary_market => manufacturing"][...] = flw["manufacturing => manufactured_products_market"]
+        # the historical trade resolves the polymer type 'p', the demand does not; expanding the
+        # demand with the type mapping keeps the excess reassignment within each polymer type
         self.cap_historical_net_imports_to_demand(
-            trade=historic_trade["primary_his"],
-            demand=flw["primary_market => fabrication"],
+            trade=historical_trade["primary"],
+            demand=flw["primary_market => manufacturing"] * prm["material_type_mapping"],
             category_dim="m",
         )
 
+        historical_primary = historical_trade["primary"].sum_over("p")
         if "primary" in self.get_trade_markets_from_data():
-            self.set_trade_from_data("primary", historic_trade["primary_his"])
+            self.set_trade_from_data("primary", historical_primary)
         elif self.cfg.transience.trade_scenario in ("fix_supply_alpha0", "fix_supply_alpha1"):
             if self.cfg.transience.baseline_pickle_path is None:
                 raise ValueError("TRANSIENCE trade extrapolation scenario 'fix_supply' requires a baseline_pickle_path to be provided in the config. Please provide a valid path or choose a different trade extrapolation scenario.")
@@ -225,26 +230,26 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             # exceeds baseline and fixing supply is not defensible
             default_trade = deepcopy(self.trade_set["primary"])
             TradeExtrapolator(
-                historic_trade=historic_trade["primary_his"],
+                historical_trade=historical_primary,
                 future_trade=default_trade,
-                future_dom_demand=flw["primary_market => fabrication"],
+                future_dom_demand=flw["primary_market => manufacturing"],
             ).run()
             extrapolator = FixedSupplyTradeExtrapolator(
-                historic_trade = historic_trade["primary_his"],
+                historical_trade=historical_primary,
                 baseline_future_trade = baseline_trade["primary"],
                 default_future_trade = default_trade,
                 future_trade = self.trade_set["primary"],
-                baseline_dom_demand = baseline_flows["primary_market => fabrication"],
-                future_dom_demand = flw["primary_market => fabrication"],
+                baseline_dom_demand = baseline_flows["primary_market => manufacturing"],
+                future_dom_demand = flw["primary_market => manufacturing"],
                 fixed_supply_region = EU_MFA_REGION,
                 import_adjustment_share = alpha,
             )
             extrapolator.run()
         else:
             extrapolator = TradeExtrapolator(
-                historic_trade=historic_trade["primary_his"],
+                historical_trade=historical_primary,
                 future_trade=self.trade_set["primary"],
-                future_dom_demand=flw["primary_market => fabrication"],
+                future_dom_demand=flw["primary_market => manufacturing"],
             )
             extrapolator.run()
 
@@ -262,18 +267,18 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # instead of forcing local virgin production negative (which happens for net-importer /
         # high-recycling countries, especially at fine spatial resolution).
         dom_supply = (
-            flw["primary_market => fabrication"]
+            flw["primary_market => manufacturing"]
             - flw["imports => primary_market"]
             + flw["primary_market => exports"]
         )
         self._redistribute_recyclate_surplus(
-            market="aux_recyclate_trade",
-            recyclate=flw["reclmech => aux_recyclate_trade"],
+            market="aux_recyclate",
+            recyclate=flw["reclmech => aux_recyclate_market"],
             demand=dom_supply,
         )
-        flw["aux_recyclate_trade => primary_market"][...] = flw["reclmech => aux_recyclate_trade"] - trd["aux_recyclate_trade"].exports + trd["aux_recyclate_trade"].imports
+        flw["aux_recyclate_market => primary_market"][...] = flw["reclmech => aux_recyclate_market"] - trd["aux_recyclate"].exports + trd["aux_recyclate"].imports
         flw["polymerization => primary_market"][...] = (
-            dom_supply - flw["aux_recyclate_trade => primary_market"]
+            dom_supply - flw["aux_recyclate_market => primary_market"]
         )
 
         aux["total_polymerization_feed"][...] = flw["polymerization => primary_market"] / prm["polymerization_yield"]
@@ -291,15 +296,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # chemical recycling: chem-recycled HVC is redistributed between regions the same way as
         # mechanical recyclate, so a region's chemical recycling above its virgin HVC demand feeds
         # other regions instead of driving its primary (feedstock) HVC negative.
-        flw["reclchem => aux_recl_feedstock_trade"][...] = flw["collected => reclchem"].sum_to(("t", "r")) * aux["HVC_c_content"] * prm["chemical_recycling_yield"] # TODO: differentiate yield by element instead of using C content of HVC!
-        flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => aux_recl_feedstock_trade"]
+        flw["reclchem => aux_recl_feedstock_market"][...] = flw["collected => reclchem"].sum_to(("t", "r")) * aux["HVC_c_content"] * prm["chemical_recycling_yield"] # TODO: differentiate yield by element instead of using C content of HVC!
+        flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => aux_recl_feedstock_market"]
         self._redistribute_recyclate_surplus(
-            market="aux_recl_feedstock_trade",
-            recyclate=flw["reclchem => aux_recl_feedstock_trade"],
+            market="aux_recl_feedstock",
+            recyclate=flw["reclchem => aux_recl_feedstock_market"],
             demand=flw["HVC_input => polymerization"],
         )
-        flw["aux_recl_feedstock_trade => HVC_input"][...] = flw["reclchem => aux_recl_feedstock_trade"] - trd["aux_recl_feedstock_trade"].exports + trd["aux_recl_feedstock_trade"].imports
-        aux["total_primary_HVC"][...] = flw["HVC_input => polymerization"] - flw["aux_recl_feedstock_trade => HVC_input"]
+        flw["aux_recl_feedstock_market => HVC_input"][...] = flw["reclchem => aux_recl_feedstock_market"] - trd["aux_recl_feedstock"].exports + trd["aux_recl_feedstock"].imports
+        aux["total_primary_HVC"][...] = flw["HVC_input => polymerization"] - flw["aux_recl_feedstock_market => HVC_input"]
 
         # carbon cycles via bio daccu feedstocks
         flw["feeddaccu => HVC_input"][...] = aux["total_primary_HVC"] * prm["daccu_production_rate"]
@@ -327,8 +332,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["atmosphere => feedbio"][...] = flw["feedbio => HVC_input"]
         flw["atmosphere => feeddaccu"][...] = flw["feeddaccu => HVC_input"]
         flw["sysenv => feedccu"][...] = flw["feedccu => HVC_input"] - flw["captured => feedccu"]
-        flw["sysenv => imports"][...] = flw["imports => good_market"] + flw["imports => primary_market"] + flw["imports => waste_market"] + flw["imports => aux_recyclate_trade"] + flw["imports => aux_recl_feedstock_trade"]
-        flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"] + flw["aux_recyclate_trade => exports"] + flw["aux_recl_feedstock_trade => exports"]
+        flw["sysenv => imports"][...] = flw["imports => manufactured_products_market"] + flw["imports => primary_market"] + flw["imports => waste_market"] + flw["imports => aux_recyclate_market"] + flw["imports => aux_recl_feedstock_market"]
+        flw["exports => sysenv"][...] = flw["manufactured_products_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"] + flw["aux_recyclate_market => exports"] + flw["aux_recl_feedstock_market => exports"]
 
         # fmt: on
 
@@ -360,15 +365,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd[market].exports[...] = surplus
         trd[market].imports[...] = headroom / headroom.sum_over("r").maximum(sys.float_info.epsilon)
         trd[market].balance(to="maximum", mask_scaled=(trd[market].exports.values == 0))
-        flw[f"imports => {market}"][...] = trd[market].imports
-        flw[f"{market} => exports"][...] = trd[market].exports
+        flw[f"imports => {market}_market"][...] = trd[market].imports
+        flw[f"{market}_market => exports"][...] = trd[market].exports
 
     def compute_other_stocks(self):
 
         stk = self.stocks
         flw = self.flows
 
-        # in-use stock is already computed in compute_in_use_stock
+        # in-use stock is already computed in compute_use_stock
 
         stk["landfill"].inflow[...] = flw["collected => landfill"]
         stk["landfill"].compute()
