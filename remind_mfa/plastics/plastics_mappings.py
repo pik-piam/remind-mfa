@@ -32,6 +32,6 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "manufactured_products_market": "Manufactured Products Market",
         "imports": "Imports",
         "exports": "Exports",
-        "aux_recyclate": "Auxiliary Recyclate Trade",
-        "aux_recl_feedstock": "Auxiliary Recycled Feedstock Trade",
+        "aux_recyclate_market": "Auxiliary Recyclate Trade",
+        "aux_recl_feedstock_market": "Auxiliary Recycled Feedstock Trade",
     }

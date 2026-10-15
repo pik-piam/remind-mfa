@@ -1,7 +1,7 @@
 import flodym as fd
 import numpy as np
 
-from .plastics_mfa_system import PlasticsMFASystemFuture
+from .plastics_mfa_system_future import PlasticsMFASystemFuture
 from .plastics_mfa_system_historical import PlasticsMFASystemHistorical
 from .plastics_export import PlasticsDataExporter
 from .plastics_visualization import PlasticsVisualizer

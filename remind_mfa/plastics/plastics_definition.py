@@ -56,8 +56,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             "atmosphere",
             "other_reactants",
             "losses",
-            "aux_recyclate",
-            "aux_recl_feedstock",
+            "aux_recyclate_market",
+            "aux_recl_feedstock_market",
             "imports",
             "exports",
         ]
@@ -118,10 +118,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             fd.FlowDefinition(from_process="collected", to_process="landfill", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="collected", to_process="incineration", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="mismanaged", to_process="uncontrolled", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclmech", to_process="aux_recyclate", dim_letters=("t","e","r", "m")),
-            fd.FlowDefinition(from_process="aux_recyclate", to_process="primary_market", dim_letters=("t","e","r","m")),
-            fd.FlowDefinition(from_process="reclchem", to_process="aux_recl_feedstock", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="aux_recl_feedstock", to_process="HVC_input", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="reclmech", to_process="aux_recyclate_market", dim_letters=("t","e","r", "m")),
+            fd.FlowDefinition(from_process="aux_recyclate_market", to_process="primary_market", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="reclchem", to_process="aux_recl_feedstock_market", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="aux_recl_feedstock_market", to_process="HVC_input", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclchem", to_process="emission", dim_letters=("t","e","r")),
             fd.FlowDefinition(from_process="reclmech", to_process="uncontrolled", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="reclmech", to_process="incineration", dim_letters=("t","e","r","m")),
@@ -135,11 +135,11 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             fd.FlowDefinition(from_process="waste_market", to_process="exports", dim_letters=("t","e","r","m")),
             fd.FlowDefinition(from_process="imports", to_process="waste_market", dim_letters=("t","e","r","m")),
             # recyclate trade (redistributes mechanical-recycling surplus between regions)
-            fd.FlowDefinition(from_process="aux_recyclate", to_process="exports", dim_letters=("t","e","r", "m")),
-            fd.FlowDefinition(from_process="imports", to_process="aux_recyclate", dim_letters=("t","e","r","m")),
+            fd.FlowDefinition(from_process="aux_recyclate_market", to_process="exports", dim_letters=("t","e","r", "m")),
+            fd.FlowDefinition(from_process="imports", to_process="aux_recyclate_market", dim_letters=("t","e","r","m")),
             # recycled-feedstock trade (redistributes chemical-recycling surplus between regions)
-            fd.FlowDefinition(from_process="aux_recl_feedstock", to_process="exports", dim_letters=("t","e","r")),
-            fd.FlowDefinition(from_process="imports", to_process="aux_recl_feedstock", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="aux_recl_feedstock_market", to_process="exports", dim_letters=("t","e","r")),
+            fd.FlowDefinition(from_process="imports", to_process="aux_recl_feedstock_market", dim_letters=("t","e","r")),
 
         ]
     # fmt: on

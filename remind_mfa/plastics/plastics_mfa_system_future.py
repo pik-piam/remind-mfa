@@ -93,8 +93,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         aux["total_waste_collected"][...] = flw["eol => collected"] + flw["waste_market => collected"] - flw["collected => waste_market"]
         flw["collected => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
         flw["collected => reclmech"][{"m": ("Rubbers","PET fibre", "Polyamide fibre", "Other fibre")}] = 0.0 # TODO remove once recycling rates are resolved by material
-        flw["reclmech => aux_recyclate"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
-        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => aux_recyclate"]
+        flw["reclmech => aux_recyclate_market"][...] = flw["collected => reclmech"] * prm["mechanical_recycling_yield"]
+        aux["reclmech_loss"][...] = flw["collected => reclmech"] - flw["reclmech => aux_recyclate_market"]
         flw["reclmech => uncontrolled"][...] = aux["reclmech_loss"] * prm["reclmech_loss_uncontrolled_rate"]
         flw["reclmech => incineration"][...] = aux["reclmech_loss"] - flw["reclmech => uncontrolled"]
 
@@ -172,12 +172,12 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         self._redistribute_recyclate_surplus(
             market="aux_recyclate",
-            recyclate=flw["reclmech => aux_recyclate"],
+            recyclate=flw["reclmech => aux_recyclate_market"],
             demand=dom_supply,
         )
-        flw["aux_recyclate => primary_market"][...] = flw["reclmech => aux_recyclate"] - trd["aux_recyclate"].exports + trd["aux_recyclate"].imports
+        flw["aux_recyclate_market => primary_market"][...] = flw["reclmech => aux_recyclate_market"] - trd["aux_recyclate"].exports + trd["aux_recyclate"].imports
         flw["polymerization => primary_market"][...] = (
-            dom_supply - flw["aux_recyclate => primary_market"]
+            dom_supply - flw["aux_recyclate_market => primary_market"]
         )
 
         aux["total_polymerization_feed"][...] = flw["polymerization => primary_market"] / prm["polymerization_yield"]
@@ -195,15 +195,15 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # chemical recycling: chem-recycled HVC is redistributed between regions the same way as
         # mechanical recyclate, so a region's chemical recycling above its virgin HVC demand feeds
         # other regions instead of driving its primary (feedstock) HVC negative.
-        flw["reclchem => aux_recl_feedstock"][...] = flw["collected => reclchem"].sum_to(("t", "r")) * aux["HVC_c_content"] * prm["chemical_recycling_yield"] # TODO: differentiate yield by element instead of using C content of HVC!
-        flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => aux_recl_feedstock"]
+        flw["reclchem => aux_recl_feedstock_market"][...] = flw["collected => reclchem"].sum_to(("t", "r")) * aux["HVC_c_content"] * prm["chemical_recycling_yield"] # TODO: differentiate yield by element instead of using C content of HVC!
+        flw["reclchem => emission"][...] = flw["collected => reclchem"] - flw["reclchem => aux_recl_feedstock_market"]
         self._redistribute_recyclate_surplus(
             market="aux_recl_feedstock",
-            recyclate=flw["reclchem => aux_recl_feedstock"],
+            recyclate=flw["reclchem => aux_recl_feedstock_market"],
             demand=flw["HVC_input => polymerization"],
         )
-        flw["aux_recl_feedstock => HVC_input"][...] = flw["reclchem => aux_recl_feedstock"] - trd["aux_recl_feedstock"].exports + trd["aux_recl_feedstock"].imports
-        aux["total_primary_HVC"][...] = flw["HVC_input => polymerization"] - flw["aux_recl_feedstock => HVC_input"]
+        flw["aux_recl_feedstock_market => HVC_input"][...] = flw["reclchem => aux_recl_feedstock_market"] - trd["aux_recl_feedstock"].exports + trd["aux_recl_feedstock"].imports
+        aux["total_primary_HVC"][...] = flw["HVC_input => polymerization"] - flw["aux_recl_feedstock_market => HVC_input"]
 
         # carbon cycles via bio daccu feedstocks
         flw["feeddaccu => HVC_input"][...] = aux["total_primary_HVC"] * prm["daccu_production_rate"]
@@ -231,8 +231,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["atmosphere => feedbio"][...] = flw["feedbio => HVC_input"]
         flw["atmosphere => feeddaccu"][...] = flw["feeddaccu => HVC_input"]
         flw["sysenv => feedccu"][...] = flw["feedccu => HVC_input"] - flw["captured => feedccu"]
-        flw["sysenv => imports"][...] = flw["imports => manufactured_products_market"] + flw["imports => primary_market"] + flw["imports => waste_market"] + flw["imports => aux_recyclate"] + flw["imports => aux_recl_feedstock"]
-        flw["exports => sysenv"][...] = flw["manufactured_products_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"] + flw["aux_recyclate => exports"] + flw["aux_recl_feedstock => exports"]
+        flw["sysenv => imports"][...] = flw["imports => manufactured_products_market"] + flw["imports => primary_market"] + flw["imports => waste_market"] + flw["imports => aux_recyclate_market"] + flw["imports => aux_recl_feedstock_market"]
+        flw["exports => sysenv"][...] = flw["manufactured_products_market => exports"] + flw["primary_market => exports"] + flw["waste_market => exports"] + flw["aux_recyclate_market => exports"] + flw["aux_recl_feedstock_market => exports"]
 
         # fmt: on
 
@@ -264,8 +264,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         trd[market].exports[...] = surplus
         trd[market].imports[...] = headroom / headroom.sum_over("r").maximum(sys.float_info.epsilon)
         trd[market].balance(to="maximum", mask_scaled=(trd[market].exports.values == 0))
-        flw[f"imports => {market}"][...] = trd[market].imports
-        flw[f"{market} => exports"][...] = trd[market].exports
+        flw[f"imports => {market}_market"][...] = trd[market].imports
+        flw[f"{market}_market => exports"][...] = trd[market].exports
 
     def compute_other_stocks(self):
 

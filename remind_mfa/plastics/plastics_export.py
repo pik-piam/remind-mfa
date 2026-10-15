@@ -71,15 +71,15 @@ class PlasticsDataExporter(CommonDataExporter):
                 variable_name="Production|Chemicals|Plastics|Primary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
                     mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
-                    - mfa.flows["aux_recl_feedstock => HVC_input"]
+                    - mfa.flows["aux_recl_feedstock_market => HVC_input"]
                 ),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Production|Chemicals|Plastics|Secondary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["aux_recyclate => primary_market"]
-                    + mfa.flows["aux_recl_feedstock => HVC_input"]
+                    mfa.flows["aux_recyclate_market => primary_market"]
+                    + mfa.flows["aux_recl_feedstock_market => HVC_input"]
                 ).sum_to(("t", "r")),
                 unit="t/yr",
             ),
