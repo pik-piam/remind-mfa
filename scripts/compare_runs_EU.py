@@ -297,7 +297,7 @@ _PL_DISPLAY = {"Baseline": "baseline (R1)", "S0": "baseline (R1)", "S1": "R2", "
 
 PLASTICS_CONFIG = ModelConfig(
     name="plastics",
-    region="EU27+3",
+    region="EUR",
     x_start_year=2000,
     x_end_year=2050,
     delta_start_year=2018,
@@ -369,7 +369,7 @@ PLASTICS_CONFIG = ModelConfig(
                 "S1": "CE-PET_fd_plastics_S1",
                 "S2": "CE-PET_fd_plastics_S2",
             },
-            region="EU27+3",
+            region="EUR",
             material="PET",
             good="Packaging",
         ),

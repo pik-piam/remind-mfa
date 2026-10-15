@@ -1,12 +1,41 @@
+"""Map EU-MFA (TRANSIENCE partner model) flows onto REMIND-MFA dimensions and write .cs4r files.
+
+Region handling
+---------------
+REMIND-MFA runs at h12 by default, where the EU region is EUR (= EU28). EU-MFA delivers steel for EU27+1
+(= EU28), which only needs renaming to EUR, but plastics for EU27+3. The h12 and TRANSIENCE EU27+3
+region mappings differ in exactly two countries, CHE and NOR, so EUR is a strict subset of EU27+3
+and the conversion is a single population-weighted factor per year (see eu_region_scaling_factors).
+REMIND-MFA can also run at EU27+3 resolution, if the ATLAS-Trade coupling is not used, in which case
+the plastics flows are written out unchanged.
+
+The target region is TARGET_EU_REGION, imported from the model.
+"""
+
 import sys
 import pandas as pd
+from functools import lru_cache
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from backcast_by_reference import backcast_by_reference
+from remind_mfa.common.common_data_reader import MadratParameterReader
+from remind_mfa.common.common_definition import EU_MFA_REGION as TARGET_EU_REGION
 import argparse
 
 MATERIALS = ["plastics", "steel"]
+# The two EU regions the EU-MFA data can be written out as: EUR (h12, EU28) and EU27+3.
+EUR = "EUR"
+EU27P3 = "EU27+3"
+# The population weight is near-identical across SSPs (0.0012 spread in 2050), so SSP2 is safe.
+DRIVER_SCENARIO = "SSP2"
+# Extracted madrat archive: supplies both the backcasting references and the live population.
+PARAMETERS_DIR = Path("data_in/parameters")
+REFERENCE_DIR = Path("data_in/legacy/transience/reference")
+# Regions that are identical in the h12 and TRANSIENCE EU27+3 mappings; used to detect a stale
+# frozen population snapshot.
+UNAFFECTED_REGIONS = ["CAZ", "CHA", "IND", "JPN", "LAM", "MEA", "OAS", "REF", "SSA", "USA"]
 FLOWS_BY_MATERIAL = {
     "plastics": [
         "demand",
@@ -69,6 +98,131 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+def read_cs4r(path: Path) -> pd.DataFrame:
+    """Read a .cs4r file, taking the column names from its 'dimensions:' header comment."""
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} not found. The madrat input data must be extracted to "
+            f"{PARAMETERS_DIR}/ before running this script: run scripts/fetch_from_hpc.py to "
+            f"download the archive, or run the model once to extract it."
+        )
+    names, skiprows = MadratParameterReader.extract_cs4r_info(path)
+    return pd.read_csv(path, names=names, skiprows=skiprows)
+
+
+def assert_target_region_supported(material: str) -> None:
+    """Check the model's EU region against what EU-MFA can deliver for this material.
+
+    Plastics works for both: EU27+3 is what EU-MFA delivers, and EU28 (EUR) is a population-
+    weighted conversion of it. Steel is EUR only -- EU-MFA delivers EU27+1 (= EU28).
+    """
+    supported = (EUR, EU27P3) if material == "plastics" else (EUR,)
+    if TARGET_EU_REGION not in supported:
+        raise ValueError(
+            f"EU-MFA {material} cannot be mapped onto region '{TARGET_EU_REGION}'; supported: "
+            f"{', '.join(supported)}. Set EU_MFA_REGION in remind_mfa/common/common_definition.py "
+            f"and input.region_mapping in the config consistently."
+        )
+
+
+def load_production_reference(material_prefix: str) -> pd.DataFrame:
+    """Load the production parameter used as the backcasting reference, from data_in/parameters.
+
+    Read live from the extracted madrat archive so the current input data revision is always
+    used. Asserts that the target EU region is present, because backcast_by_reference silently
+    fills NaN for regions missing from the reference, which would hide a resolution mismatch.
+    """
+    path = PARAMETERS_DIR / f"{material_prefix}_production.cs4r"
+    ref = read_cs4r(path)
+    # the time column is named "Time" for plastics and "Historic Time" for steel
+    ref = ref.rename(columns={ref.columns[0]: "Time"})
+    if TARGET_EU_REGION not in set(ref["Region"]):
+        raise ValueError(
+            f"Backcasting reference {path} has no region '{TARGET_EU_REGION}'. It contains "
+            f"{sorted(set(ref['Region']))}, so the extracted input data is at a different "
+            f"regional aggregation than the model expects."
+        )
+    return ref
+
+
+@lru_cache(maxsize=None)
+def eu_region_scaling_factors(driver_scenario: str = DRIVER_SCENARIO) -> pd.Series | None:
+    """Population-weighted factors converting EU-MFA plastics flows from EU27+3 to EU28.
+
+    Returns None when the model's EU region is already EU27+3, which is what EU-MFA plastics is
+    delivered for: no conversion is needed and the flows are written out unchanged.
+
+    The h12 and TRANSIENCE EU27+3 region mappings differ in exactly two countries, CHE and NOR,
+    so EUR is a strict subset of EU27+3 and the conversion is a single factor per year:
+
+        factor(t) = population_h12[EUR](t) / population_2c0a4149[EU27+3](t)
+
+    The EUR numerator is read live from the extracted madrat archive; the EU27+3 denominator comes
+    from a frozen snapshot in the reference folder, because only one region mapping is ever
+    extracted at a time. Returns a Series indexed by Time.
+    """
+    if TARGET_EU_REGION == EU27P3:
+        return None
+
+    live = read_cs4r(PARAMETERS_DIR / "pl_population.cs4r")
+    frozen = read_cs4r(REFERENCE_DIR / "pl_population_2c0a4149.cs4r")
+
+    def by_year(df: pd.DataFrame, region: str) -> pd.Series:
+        selected = df[(df["Driver Scenario"] == driver_scenario) & (df["Region"] == region)]
+        if selected.empty:
+            raise ValueError(
+                f"No population for region '{region}' and scenario '{driver_scenario}'. "
+                f"Available regions: {sorted(set(df['Region']))}."
+            )
+        return selected.set_index("Time")["value"].sort_index()
+
+    # Guard against a stale frozen snapshot: the regions that are identical in both mappings must
+    # agree between the frozen and the live file. The tolerance absorbs the last-digit round-off
+    # from writing the two .cs4r files, which is of order 1e-14 relative.
+    for region in UNAFFECTED_REGIONS:
+        frozen_pop, live_pop = by_year(frozen, region), by_year(live, region)
+        deviation = (live_pop / frozen_pop - 1.0).abs().max()
+        if deviation > 1e-9:
+            raise ValueError(
+                f"Population for '{region}' differs by up to {deviation:.2e} (relative) between "
+                f"{REFERENCE_DIR / 'pl_population_2c0a4149.cs4r'} and "
+                f"{PARAMETERS_DIR / 'pl_population.cs4r'}, but that region is identical in the "
+                f"h12 and EU27+3 region mappings. The frozen 2c0a4149 snapshot is out of date; "
+                f"re-copy it from a current 2c0a4149 input data archive."
+            )
+
+    factors = by_year(live, TARGET_EU_REGION) / by_year(frozen, EU27P3)
+    # EU28 is a strict subset of EU27+3, differing only by CHE and NOR, so the factor is strictly
+    # below 1. Anything else means the wrong pair of files was read.
+    if not factors.between(0.9, 1.0, inclusive="left").all():
+        raise ValueError(
+            f"{EU27P3}->{TARGET_EU_REGION} population factors outside [0.9, 1.0): "
+            f"min {factors.min():.5f}, max {factors.max():.5f}. Check that the two population "
+            f"files are at h12 and 2c0a4149 resolution respectively."
+        )
+    return factors
+
+
+def scale_to_target_eu_region(df: pd.DataFrame, factors: pd.Series | None) -> pd.DataFrame:
+    """Relabel the EU region to the model's one, scaling by that year's weight if needed.
+
+    A None factor means the model's EU region already matches what EU-MFA delivers, so the values
+    pass through unchanged and only the region label is set.
+    """
+    if factors is None:
+        return df.assign(Region=TARGET_EU_REGION)
+    missing = set(df["Time"]) - set(factors.index)
+    if missing:
+        raise ValueError(
+            f"No population weight for years {sorted(missing)}; the population parameter covers "
+            f"{factors.index.min()}-{factors.index.max()}."
+        )
+    df = df.copy()
+    df["value"] = df["value"] * df["Time"].map(factors)
+    df["Region"] = TARGET_EU_REGION
+    return df
+
+
 def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
     """Load and aggregate baseline plastics data into (Time, Region, Material, Good, value)."""
     BASELINE_DIR = Path("data_in/legacy/transience_input/plastics/baseline")
@@ -93,7 +247,7 @@ def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
         df = df[df.waste_category == "Mechanical recycling"].copy()
     if flow == "recycled_eol":
         df = df[df.secondary_raw_material == "Granulate"].copy()
-    df["Region"] = "EU27+3"
+    df = scale_to_target_eu_region(df, eu_region_scaling_factors())
     df["value"] = df["value"] * 1000
 
     polymer_map = mapping[mapping.original_dimension == "polymers"][
@@ -150,8 +304,10 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
 
 
 def run_combination(material: str, flow: str, scenario: str):
+    # Fail before writing anything if EU-MFA cannot supply the model's EU region for this material.
+    assert_target_region_supported(material)
+
     OUTPUT_DIR = Path("data_in/legacy/transience") / scenario
-    REF_DIR = Path("data_in/legacy/transience/reference")
     if material == "plastics":
         DATA_DIR = Path("data_in/legacy/transience_input/plastics") / scenario
         MAPPING_FILE = Path("data_in/legacy/transience_input/plastics/EU_MFA_mapping_plastics.csv")
@@ -179,7 +335,7 @@ def run_combination(material: str, flow: str, scenario: str):
         elif flow == "traded_recyclate":
             INPUT_FILE = DATA_DIR / "polymer_market__recyclate_sysenv.csv"
             OUTPUT_FILE = OUTPUT_DIR / "pl_traded_recyclate_EU-MFA.cs4r"
-        DIMENSION_DIR = Path("../remind_mfa_data/dimensions/plastics")
+        DIMENSION_DIR = Path("data_in/dimensions/plastics")
     elif material == "steel":
         DATA_DIR = Path("data_in/legacy/transience_input/steel") / scenario
         MAPPING_FILE = Path("data_in/legacy/transience_input/steel/EU_MFA_mapping_steel.csv")
@@ -195,7 +351,7 @@ def run_combination(material: str, flow: str, scenario: str):
         elif flow == "scrap":
             INPUT_FILE = DATA_DIR / "waste_management__available_scrap_sysenv_combined.csv"
             OUTPUT_FILE = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
-        DIMENSION_DIR = Path("../remind_mfa_data/dimensions/steel")
+        DIMENSION_DIR = Path("data_in/dimensions/steel")
 
     print(f"\n=== {material} / {flow} / {scenario} ===")
 
@@ -230,10 +386,24 @@ def run_combination(material: str, flow: str, scenario: str):
             df1["value"] = df1["value"] * full_quarters / quarters_per_year
             df1["Time"] = year
             scenario_last_year = int(year.max())  # used later to cap the output
-        df1["Region"] = "EU27+3"
+        # EU-MFA plastics covers EU27+3; convert it down to EU28 if that is what the model runs
+        # at, otherwise write it out unchanged (see module docstring)
+        factors = eu_region_scaling_factors()
+        df1 = scale_to_target_eu_region(df1, factors)
+        years = sorted(df1["Time"].unique())
+        if factors is None:
+            print(f"Model region is {EU27P3}; EU-MFA plastics used unchanged as {TARGET_EU_REGION}")
+        else:
+            print(
+                f"Converted {EU27P3} -> {TARGET_EU_REGION} with population factors "
+                f"{factors[years[0]]:.5f} ({years[0]}) to {factors[years[-1]]:.5f} ({years[-1]})"
+            )
     elif material == "steel":
+        # EU-MFA steel covers EU27+1, which is EU28, so this is a pure relabelling with no
+        # conversion. Valid only because assert_target_region_supported has established that
+        # TARGET_EU_REGION is EUR.
         df1 = df1[df1.Region == "EU27+1"].copy()
-        df1.loc[:, "Region"] = "EUR"
+        df1.loc[:, "Region"] = TARGET_EU_REGION
     df1["value"] = df1["value"] * 1000  # kt -> t
 
     # --- load mapping ---
@@ -310,13 +480,8 @@ def run_combination(material: str, flow: str, scenario: str):
             ].drop(columns="_merge")
             df_EU_MFA = pd.concat([df_EU_MFA, df_baseline_others], ignore_index=True)
 
-        # --- load reference (Historic Time, Region, Type, value) ---
-        ref = pd.read_csv(
-            REF_DIR / "pl_production.cs4r",
-            comment="*",
-            header=None,
-            names=["Time", "Region", "Type", "value"],
-        )
+        # --- load reference (Time, Region, Type, value) ---
+        ref = load_production_reference("pl")
         # EU-MFA plastics flows are all Type="Plastics", so filter the reference to match
         ref = ref[ref.Type == "Plastics"].copy()
 
@@ -352,12 +517,7 @@ def run_combination(material: str, flow: str, scenario: str):
             dimensions = "(EU-MFA_Time,Region,EU-MFA_Good,value)"
 
         # --- load reference (Historic Time, Region, value) ---
-        ref = pd.read_csv(
-            REF_DIR / "st_production.cs4r",
-            comment="*",
-            header=None,
-            names=["Time", "Region", "value"],
-        )
+        ref = load_production_reference("st")
 
     # --- backcast: extend df_EU_MFA into historic years using ref ---
     if material == "plastics" and scenario != "baseline" and flow not in FLOWS_WITHOUT_BASELINE:
@@ -406,8 +566,22 @@ def run_combination(material: str, flow: str, scenario: str):
 
     # --- save ---
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if material == "plastics":
+        years = sorted(df_backcasted["Time"].unique())
+        factors = eu_region_scaling_factors()
+        if factors is None:
+            region_note = f"EU-MFA region {EU27P3} kept as {TARGET_EU_REGION}, values unchanged"
+        else:
+            region_note = (
+                f"converted from {EU27P3} to {TARGET_EU_REGION} by population factor "
+                f"{factors[years[0]]:.5f} ({years[0]}) to {factors[years[-1]]:.5f} ({years[-1]})"
+            )
+    else:
+        region_note = f"EU-MFA region EU27+1 relabelled to {TARGET_EU_REGION} (both are EU28)"
     with open(OUTPUT_FILE, "w") as f:
-        f.write(f"* description: {INPUT_FILE.name} mapped to REMIND MFA dimensions\n")
+        f.write(
+            f"* description: {INPUT_FILE.name} mapped to REMIND MFA dimensions; {region_note}\n"
+        )
         f.write(f"* unit: t\n")
         f.write(f"* note: dimensions: {dimensions}\n")
     df_backcasted.to_csv(OUTPUT_FILE, mode="a", index=False, header=False)
