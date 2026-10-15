@@ -87,39 +87,39 @@ class CementModel(CommonModel):
         )
         return development_blended_mean
 
-    def apply_timber_floor(self, structure_split: fd.Parameter) -> fd.Parameter:
-        """Raise the timber share of a structure split to the scenario minimum.
+    def set_structure_share(
+        self,
+        structure_split: fd.Parameter,
+        structure: str,
+        new_share: fd.FlodymArray | float,
+    ) -> fd.Parameter:
+        """Set the share of one structure type and rescale the others proportionally.
 
-        Shares already at or above `min_timber_share` are left untouched. The share gained
-        by timber is taken from all other structure types in proportion to their size, so
-        the split still sums to one.
+        Args:
+            structure_split: Split over the structure dimension, summing to one.
+            structure: Item of the structure dimension whose share is set.
+            new_share: New share of `structure`.
+
+        Returns:
+            Structure split with the new share, still summing to one.
         """
-        timber = structure_split[{"s": "T"}]
-        floor = self.scenario_parameters["min_timber_share"].cast_to(timber.dims)
-        new_timber = timber.maximum(floor)
-        # scaling of the non-timber shares, which have to make room for the added timber
-        others_scaling = (1.0 - new_timber) / (1.0 - timber).maximum(1e-9)
+        old_share = structure_split[{"s": structure}]
+        # scaling of the other shares, which absorb the change of the set share
+        others_scaling = (1.0 - new_share) / (1.0 - old_share).maximum(1e-9)
 
-        target = fd.Parameter(dims=structure_split.dims, name="structure_split_target")
-        target[...] = structure_split * others_scaling
-        target[{"s": "T"}] = new_timber
-
-        add_assumption_doc(
-            type="model switch",
-            name="Minimum timber share of buildings",
-            value=str(np.unique(floor.values)),
-            description=(
-                "The structure split converges to a target in which the timber share is at "
-                "least the scenario value given here. Regions above it keep their share. The "
-                "added timber share is taken from the other structure types proportionally."
-            ),
-        )
-        return target
+        adjusted_split = fd.Parameter(dims=structure_split.dims, name=structure_split.name)
+        adjusted_split[...] = structure_split * others_scaling
+        adjusted_split[{"s": structure}] = new_share
+        return adjusted_split
 
     def calculate_derived_parameters(self):
 
         # copy/rename for use in common model
         self.parameters["sector_split_limit"] = self.parameters["end_use_split"]
+
+        self.calculate_scenario_parameters()
+
+    def calculate_scenario_parameters(self):
 
         # derive mean dwelling and structure splits from global weighted average
         prm = self.parameters
@@ -131,12 +131,38 @@ class CementModel(CommonModel):
             prm["dwelling_split"], res_floorspace, "dwelling_split_mean"
         )
 
-        # structure split target: global weighted mean, with a floor on the timber share
+        # structure split target: global weighted mean without unknown structures,
+        # with a floor on the timber share
         bu_floorspace = expand_common_to_bu(floorspace, prm)
-        prm["structure_split_mean"] = self.calculate_weighted_mean(
+        structure_split_mean = self.calculate_weighted_mean(
             prm["structure_split"], bu_floorspace, "structure_split_mean"
         )
-        prm["structure_split_target"] = self.apply_timber_floor(prm["structure_split_mean"])
+        prm["structure_split_mean"] = self.set_structure_share(structure_split_mean, "U", 0.0)
+        add_assumption_doc(
+            type="model switch",
+            name="No unknown structure type in target",
+            value="0",
+            description=(
+                "The structure split converges to a target without the unknown structure type. "
+                "Its share is redistributed to the other structure types proportionally."
+            ),
+        )
+
+        timber = prm["structure_split_mean"][{"s": "T"}]
+        floor = self.scenario_parameters["min_timber_share"].cast_to(timber.dims)
+        prm["structure_split_target"] = self.set_structure_share(
+            prm["structure_split_mean"], "T", timber.maximum(floor)
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="Minimum timber share of buildings",
+            value=str(np.unique(floor.values)),
+            description=(
+                "The structure split converges to a target in which the timber share is at "
+                "least the scenario value given here. Regions above it keep their share. The "
+                "added timber share is taken from the other structure types proportionally."
+            ),
+        )
 
         # Lifetime
         # TODO move lifetime_max to mrmfa
