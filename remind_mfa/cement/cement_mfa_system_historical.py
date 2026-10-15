@@ -2,7 +2,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_config import CementCfg
 
 
-class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
+class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
     """Top-down historical cement MFA system, driven by inflows."""
 
     cfg: CementCfg
@@ -57,14 +57,14 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         )
         flw["prod_product => use"][...] = product_by_material.sum_over("m")
 
-        stk["in_use"].inflow[...] = flw["prod_product => use"]
-        stk["in_use"].lifetime_model.set_prms(
+        stk["use"].inflow[...] = flw["prod_product => use"]
+        stk["use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
             std=prm["lifetime_std"],
         )
-        stk["in_use"].compute()
+        stk["use"].compute()
 
-        return stk["in_use"].stock
+        return stk["use"].stock
 
     @staticmethod
     def compute_other_flows(prm, trd, flw, stk):
@@ -84,4 +84,4 @@ class InflowDrivenHistoricCementMFASystem(CommonMFASystem):
         flw["exports => sysenv"][...] = flw["market_cement => exports"]
         flw["sysenv => imports"][...] = flw["imports => market_cement"]
 
-        flw["use => sysenv"][...] = stk["in_use"].outflow
+        flw["use => sysenv"][...] = stk["use"].outflow

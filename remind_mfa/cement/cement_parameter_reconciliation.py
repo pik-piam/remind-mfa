@@ -8,7 +8,7 @@ import random
 from copy import deepcopy
 
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.cement.cement_mfa_system_historic import InflowDrivenHistoricCementMFASystem
+from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistoricalCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
     StockDrivenBottomUpCementMFASystem,
@@ -20,7 +20,7 @@ class CementParameterReconciliation:
     """Reconcile parameters of the top-down (td) and bottom-up (bu) cement stock models.
 
     Both models predict the in-use concrete stock in residential and commercial buildings
-    in the last historic year, but they disagree. This class nudges the uncertain input
+    in the last historical year, but they disagree. This class nudges the uncertain input
     parameters just enough to make them agree, moving each parameter as little as its
     uncertainty allows.
 
@@ -282,8 +282,8 @@ class CementParameterReconciliation:
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]):
         """Top-down stock calculation for reconciliaton."""
 
-        # 1. Compute product stock (summed over product materials) from historic MFA
-        product_stock = InflowDrivenHistoricCementMFASystem.compute_stock(
+        # 1. Compute product stock (summed over product materials) from historical MFA
+        product_stock = InflowDrivenHistoricalCementMFASystem.compute_stock(
             prm, self.trds, self.flws, self.stks
         )
 

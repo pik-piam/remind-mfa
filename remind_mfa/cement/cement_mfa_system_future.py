@@ -13,23 +13,23 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
     cfg: CementCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
+    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet):
         """
         Perform all computations for the MFA system.
 
         Args:
             stock_projection: In-use product stock (concrete and mortar mass), with or without
                 the product material (m) and constituent (k) dimensions.
-            historic_trade: Trade of the historic MFA, used for trade extrapolation.
+            historical_trade: Trade of the historical MFA, used for trade extrapolation.
         """
-        self.compute_in_use_stock(stock_projection)
-        self.compute_flows(historic_trade)
+        self.compute_use_stock(stock_projection)
+        self.compute_flows(historical_trade)
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows()
 
-    def compute_in_use_stock(self, product_stock: fd.FlodymArray):
+    def compute_use_stock(self, product_stock: fd.FlodymArray):
         """Compute the composition-resolved in-use stock from a product stock.
 
         The product stock is run through a stock-driven DSM to obtain the product inflow. The
@@ -46,23 +46,23 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         product_inflow = self.calculate_product_inflow(product_stock)
         product_inflow = clip_negative_arr(product_inflow, warn_small_negative=False)
-        in_use_inflow = self.add_product_material_split(product_inflow, prm)
-        in_use_inflow = self.add_constituent_split(in_use_inflow)
+        use_inflow = self.add_product_material_split(product_inflow, prm)
+        use_inflow = self.add_constituent_split(use_inflow)
 
-        if set(in_use_inflow.dims.letters) != set(stk["in_use"].dims.letters):
+        if set(use_inflow.dims.letters) != set(stk["use"].dims.letters):
             raise ValueError(
                 f"Product stock dims {product_stock.dims.letters} with added splits "
-                f"{(in_use_inflow.dims - product_stock.dims).letters} do not match in-use "
-                f"stock dims {stk['in_use'].dims.letters}."
+                f"{(use_inflow.dims - product_stock.dims).letters} do not match in-use "
+                f"stock dims {stk['use'].dims.letters}."
             )
-        stk["in_use"].inflow[...] = in_use_inflow
+        stk["use"].inflow[...] = use_inflow
 
         # inflow-driven in-use stock
-        stk["in_use"].lifetime_model.set_prms(mean=prm["lifetime_mean"], std=prm["lifetime_std"])
-        stk["in_use"].compute()
+        stk["use"].lifetime_model.set_prms(mean=prm["lifetime_mean"], std=prm["lifetime_std"])
+        stk["use"].compute()
 
         # sanity check
-        summed_inflow = stk["in_use"].inflow.sum_to(product_inflow.dims.letters)
+        summed_inflow = stk["use"].inflow.sum_to(product_inflow.dims.letters)
         assert np.allclose(
             summed_inflow.values, product_inflow.values, rtol=1e-6, atol=1e-3
         ), "Composition-resolved in-use inflow does not sum up to the product inflow."
@@ -79,8 +79,8 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         prm = self.parameters
         product_dsm = fd.StockDrivenDSM(
             dims=product_stock.dims,
-            lifetime_model=type(self.stocks["in_use"].lifetime_model),
-            name="in_use_product",
+            lifetime_model=type(self.stocks["use"].lifetime_model),
+            name="use_product",
         )
         product_dsm.stock[...] = product_stock
         product_dsm.lifetime_model.set_prms(mean=prm["lifetime_mean"], std=prm["lifetime_std"])
@@ -123,20 +123,20 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             return arr
         cement_ratio = self.parameters["cement_ratio"]
         constituent_split = fd.FlodymArray(
-            dims=cement_ratio.dims.append(self.stocks["in_use"].dims["k"])
+            dims=cement_ratio.dims.append(self.stocks["use"].dims["k"])
         )
         constituent_split[{"k": "cement"}] = cement_ratio
         constituent_split[{"k": "non-cement"}] = 1 - cement_ratio
         return arr * constituent_split
 
-    def compute_flows(self, historic_trade: TradeSet):
+    def compute_flows(self, historical_trade: TradeSet):
         prm = self.parameters
         flw = self.flows
         stk = self.stocks
         trd = self.trade_set
 
         # product production
-        flw["prod_product => use"][...] = stk["in_use"].inflow
+        flw["prod_product => use"][...] = stk["use"].inflow
         flw["market_cement => prod_product"][...] = flw["prod_product => use"][{"k": "cement"}]
         flw["sysenv => prod_product"][...] = flw["prod_product => use"][{"k": "non-cement"}]
         flw["market_cement => sysenv"][...] = (
@@ -147,12 +147,12 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # use phase: the in-use outflow leaves the system boundary. When carbonation is active,
         # CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = stk["in_use"].outflow
+        flw["use => sysenv"][...] = stk["use"].outflow
 
         # cement trade
         total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["cement"],
+            historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
             future_dom_demand=total_cement_demand,
         )
@@ -175,11 +175,11 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # clinker trade
         self.cap_historical_net_imports_to_demand(
-            trade=historic_trade["clinker"],
+            trade=historical_trade["clinker"],
             demand=flw["market_clinker => prod_cement"],
         )
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["clinker"],
+            historical_trade=historical_trade["clinker"],
             future_trade=trd["clinker"],
             future_dom_demand=flw["market_clinker => prod_cement"],
         )
