@@ -2,9 +2,9 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "data_in"
-        input_data_revision = "2.2.2"
+        input_data_revision = "2.4.1"
         region_mapping = "h12"
-        scenarios_path = "./scenarios"
+        scenarios_path = "config/scenarios"
 
     [base.model_switches]
         scenario = "SSP2"
@@ -15,7 +15,7 @@
         transience_run = true
 
     [base.trade]
-        source = "extrapolate" # extrapolate from historic trade
+        source = "extrapolate" # extrapolate from historical trade
 
     [base.visualization]
         do_visualize = true
@@ -37,7 +37,7 @@
         sankey.plotter_args.exclude_processes = ["sysenv"]
         sankey.plotter_args.exclude_flows = []
         extrapolation.do_visualize = true
-        sector_splits.do_visualize = false
+        end_use_split.do_visualize = false
 
     [base.export]
         do_export = true

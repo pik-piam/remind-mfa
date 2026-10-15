@@ -22,7 +22,7 @@ The trade flows of REMIND-MFA are delivered especially to the [EU-MFA](https://t
 
 ## Coupling with the ATLAS trade model
 
-Trade is normally extrapolated from historic trade (`TradeExtrapolator`). Alternatively, it can be
+Trade is normally extrapolated from historical trade (`TradeExtrapolator`). Alternatively, it can be
 calculated by the ATLAS trade model, which needs the material demand of REMIND-MFA as input.
 
 Make sure you have `pixi` installed (e.g., `curl -fsSL https://pixi.sh/install.sh | sh`).
@@ -74,9 +74,9 @@ A few more details on the coupling:
     `* note: dimensions: (Time,Region,Type,Material,value)` for plastics.
 
 3. `uv run remind_mfa.py --config default --config atlas_run2 --model steel` reads those files
-   instead of extrapolating trade (`trade.source = "data"`). Historic years still use the trade of
-   the historic MFA, so only future years come from ATLAS. Global imports and exports of the data
+   instead of extrapolating trade (`trade.source = "data"`). Historical years still use the trade of
+   the historical MFA, so only future years come from ATLAS. Global imports and exports of the data
    are balanced (`trade.balance`).
 
 By default, only the primary market of each material is read from data. Other markets (e.g. steel
-scrap or indirect trade) can be added with `trade.data_markets`.
+scrap or manufactured products trade) can be added with `trade.data_markets`.

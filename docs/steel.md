@@ -4,7 +4,7 @@
 In the following, methods specific to the steel model are described. For the common methodology of the REMIND-MFA, refer to the [Methodology](methodology.md) chapter.
 
 ### Stock extrapolation
-In-use stocks are regressed separately in different product categories, which then add up to the total in-use stock. For each product category, we regress a common set of parameters for all regions. However, since historic data in single regions deviates from these curves, we apply region-dependent correction terms, which form a smooth transition from historic trends to the common regression.
+In-use stocks are regressed separately in different product categories, which then add up to the total in-use stock. For each product category, we regress a common set of parameters for all regions. However, since historical data in single regions deviates from these curves, we apply region-dependent correction terms, which form a smooth transition from historical trends to the common regression.
 In the regression, we apply region-specific saturation levels based on expert judgement.
 In some regions, we also vary the speed of convergence towards this saturation level based on expert judgement, to continue historical trends and be in accordance with literature values.
 

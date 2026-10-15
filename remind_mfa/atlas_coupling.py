@@ -167,8 +167,9 @@ def get_coupling_paths(
     return CouplingPaths(
         mfa_pipeline_mapping=mfa_pipeline_mapping,
         input_data_path=input_data_path,
-        region_dimension_path=dimensions_path / "regions.csv",
-        time_dimension_path=dimensions_path / "time_in_years.csv",
+        # the Region dimension is read from the region mapping, not from the dimensions folder
+        region_dimension_path=input_data_path / "parameters" / "regionmapping.csv",
+        time_dimension_path=dimensions_path / "time.csv",
     )
 
 
@@ -218,9 +219,12 @@ def copy_demand_to_atlas(
 def _load_dimension_items(path: Path, dimension_name: str) -> list[str]:
     if not path.is_file():
         raise AtlasCouplingError(f"MFA {dimension_name} dimension file was not found: {path}")
-    values = [
-        line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
-    ]
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if lines and "RegionCode" in lines[0].split(";"):
+        # region mapping file (as used for the Region dimension of the MFA)
+        values = pd.read_csv(path, sep=";")["RegionCode"].drop_duplicates().tolist()
+    else:
+        values = lines
     if not values:
         raise AtlasCouplingError(f"MFA {dimension_name} dimension file is empty: {path}")
     return values
@@ -315,7 +319,6 @@ def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
             "year": "Time",
             "region": "Region",
             "quantity": "value",
-            "type": "Type",
             "material": "Material",
         }
     )
@@ -330,37 +333,38 @@ def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
 def _adjust_plastics_trade(
     imports: pd.DataFrame, exports: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split future plastics trade with the latest historic material shares."""
+    """Split future plastics trade with the latest historical material shares."""
 
     adjusted_flows = []
     for flow, future_trade in (("imports", imports), ("exports", exports)):
-        historic_path = PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_his_{flow}.cs4r"
-        if not historic_path.is_file():
+        historical_path = PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_{flow}.cs4r"
+        if not historical_path.is_file():
             raise AtlasCouplingError(
-                f"Historic plastics {flow} trade parameter was not found: {historic_path}"
+                f"Historical plastics {flow} trade parameter was not found: {historical_path}"
             )
 
-        historic_trade = pd.read_csv(
-            historic_path,
+        historical_trade = pd.read_csv(
+            historical_path,
             comment="*",
             header=None,
-            names=["historic_year", "region", "type", "material", "quantity"],
+            names=["historical_year", "region", "type", "material", "quantity"],
         )
-        if historic_trade.empty:
-            raise AtlasCouplingError(f"Historic plastics {flow} trade parameter is empty.")
+        if historical_trade.empty:
+            raise AtlasCouplingError(f"Historical plastics {flow} trade parameter is empty.")
 
-        historic_trade["historic_year"] = pd.to_numeric(
-            historic_trade["historic_year"], errors="coerce"
+        historical_trade["historical_year"] = pd.to_numeric(
+            historical_trade["historical_year"], errors="coerce"
         )
-        historic_trade["quantity"] = pd.to_numeric(historic_trade["quantity"], errors="coerce")
-        if historic_trade[["historic_year", "quantity"]].isna().any().any():
+        historical_trade["quantity"] = pd.to_numeric(historical_trade["quantity"], errors="coerce")
+        if historical_trade[["historical_year", "quantity"]].isna().any().any():
             raise AtlasCouplingError(
-                f"Historic plastics {flow} trade parameter contains invalid values."
+                f"Historical plastics {flow} trade parameter contains invalid values."
             )
 
-        latest_year = historic_trade["historic_year"].max()
-        latest_trade = historic_trade.loc[historic_trade["historic_year"] == latest_year]
-        material_shares = latest_trade.groupby(["region", "type", "material"], as_index=False)[
+        latest_year = historical_trade["historical_year"].max()
+        latest_trade = historical_trade.loc[historical_trade["historical_year"] == latest_year]
+        # the future primary trade does not resolve the polymer type, so it is summed away
+        material_shares = latest_trade.groupby(["region", "material"], as_index=False)[
             "quantity"
         ].sum()
         material_shares["share"] = material_shares["quantity"] / material_shares.groupby("region")[
@@ -368,13 +372,13 @@ def _adjust_plastics_trade(
         ].transform("sum")
 
         adjusted = future_trade.merge(
-            material_shares.loc[:, ["region", "type", "material", "share"]],
+            material_shares.loc[:, ["region", "material", "share"]],
             how="outer",
             on=["region"],
         )
         print(adjusted)
         adjusted["quantity"] = adjusted["quantity"] * adjusted.pop("share")
-        adjusted_flows.append(adjusted.loc[:, ["year", "region", "type", "material", "quantity"]])
+        adjusted_flows.append(adjusted.loc[:, ["year", "region", "material", "quantity"]])
 
     return tuple(adjusted_flows)
 

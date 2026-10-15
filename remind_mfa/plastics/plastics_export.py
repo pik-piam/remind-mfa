@@ -24,16 +24,16 @@ class PlasticsDataExporter(CommonDataExporter):
         )
 
     @staticmethod
-    def _plastics_fabrication_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+    def _plastics_manufacturing_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Demand for primary plastics."""
-        return mfa.flows["primary_market => fabrication"].sum_to(("t", "r", "p", "m"))
+        return mfa.flows["primary_market => manufacturing"].sum_to(("t", "r", "m"))
 
     @staticmethod
     def _plastics_primary_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Production of primary plastics."""
         return (
             mfa.flows["polymerization => primary_market"]
-            + mfa.flows["aux_recyclate_trade => primary_market"]
+            + mfa.flows["aux_recyclate_market => primary_market"]
         ).sum_to(("t", "r", "m"))
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
@@ -58,7 +58,7 @@ class PlasticsDataExporter(CommonDataExporter):
         return [
             RemindInputVariable(
                 name="plastics_demand",
-                calculation_function=PlasticsDataExporter._plastics_fabrication_demand,
+                calculation_function=PlasticsDataExporter._plastics_manufacturing_demand,
                 unit="t/yr",
             ),
             RemindInputVariable(
@@ -73,15 +73,6 @@ class PlasticsDataExporter(CommonDataExporter):
             self.export_eol_data_by_region_and_year(mfa=self._model.future_mfa)
             self.export_use_data_by_region_and_year(mfa=self._model.future_mfa)
             self.export_recycling_data_by_region_and_year(mfa=self._model.future_mfa)
-            self.export_stock_extrapolation()
-
-    def export_stock_extrapolation(self):
-        self._model.stock_handler.pure_parameters.to_df().to_csv(
-            self.export_path("csv", "stock_extrapolation_parameters.csv")
-        )
-        self._model.stock_handler.bound_list.bound_list[0].upper_bound.to_df().to_csv(
-            self.export_path("csv", "stock_extrapolation_saturationLevel.csv")
-        )
 
     def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem):
         eol_data = (
@@ -93,7 +84,7 @@ class PlasticsDataExporter(CommonDataExporter):
         df.to_csv(self.export_path("csv", "eol_by_region_year.csv"), index=True)
 
     def export_use_data_by_region_and_year(self, mfa: fd.MFASystem):
-        df = mfa.stocks["in_use"].inflow.sum_to(("t", "r")).to_df(index=True)
+        df = mfa.stocks["use"].inflow.sum_to(("t", "r")).to_df(index=True)
         df.to_csv(self.export_path("csv", "use_by_region_year.csv"), index=True)
 
     def export_recycling_data_by_region_and_year(self, mfa: fd.MFASystem):
@@ -107,35 +98,36 @@ class PlasticsDataExporter(CommonDataExporter):
                 variable_name="Production|Chemicals|Plastics|Primary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
                     mfa.flows["polymerization => primary_market"].sum_to(("t", "r"))
-                    - mfa.flows["aux_recl_feedstock_trade => HVC_input"]
+                    - mfa.flows["aux_recl_feedstock_market => HVC_input"]
                 ),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Production|Chemicals|Plastics|Secondary",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["aux_recyclate_trade => primary_market"]
-                    + mfa.flows["aux_recl_feedstock_trade => HVC_input"]
+                    mfa.flows["aux_recyclate_market => primary_market"]
+                    + mfa.flows["aux_recl_feedstock_market => HVC_input"]
                 ).sum_to(("t", "r")),
                 unit="t/yr",
             ),
-            # demand by good
+            # demand by end use
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics",  # PRISMA nomenclature
-                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
-                    ("t", "r", "g")
-                ),
+                calculation_function=lambda mfa: mfa.stocks["use"].inflow.sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="Good",
+                split_name="End Use",
             ),
             # demand by polymer type
-            # Same parent as the "by Good" split above (orthogonal breakdown), so opt out of
+            # Same parent as the "by end use" split above (orthogonal breakdown), so opt out of
             # summing these children back into the parent to avoid double-counting the total.
+            # The MFA system does not resolve the type dimension, so the material-resolved demand
+            # is re-expanded to it via the type mapping.
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics",
-                calculation_function=lambda mfa: mfa.stocks["in_use"].inflow.sum_to(
-                    ("t", "r", "p")
-                ),
+                calculation_function=lambda mfa: (
+                    mfa.stocks["use"].inflow.sum_to(("t", "r", "m"))
+                    * mfa.parameters["material_type_mapping"]
+                ).sum_to(("t", "r", "p")),
                 unit="t/yr",
                 split_name="Type",
                 aggregate_parent=False,
@@ -144,7 +136,7 @@ class PlasticsDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Material Demand|Chemicals|Plastics|Per Capita",
                 calculation_function=lambda mfa: (
-                    mfa.stocks["in_use"].inflow / mfa.parameters["population"]
+                    mfa.stocks["use"].inflow / mfa.parameters["population"]
                 ).sum_to(("t", "r")),
                 unit="t/cap/yr",
                 region_weight="Population",
@@ -166,25 +158,25 @@ class PlasticsDataExporter(CommonDataExporter):
             ),
             IamcVariable(
                 variable_name="Import|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
-                calculation_function=lambda mfa: mfa.flows["imports => good_market"].sum_to(
-                    ("t", "r", "g")
-                ),
+                calculation_function=lambda mfa: mfa.flows[
+                    "imports => manufactured_products_market"
+                ].sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="Good",
+                split_name="End Use",
             ),
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
-                calculation_function=lambda mfa: mfa.flows["good_market => exports"].sum_to(
-                    ("t", "r", "g")
-                ),
+                calculation_function=lambda mfa: mfa.flows[
+                    "manufactured_products_market => exports"
+                ].sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="Good",
+                split_name="End Use",
             ),
         ]
 
     def iamc_aggregates(self) -> list[str]:
         # Primary + Secondary are separate specs (no `per`), so their parent must be
         # aggregated explicitly. "Material Demand|Chemicals|Plastics" is handled
-        # automatically via its "by Good" split, which owns the parent total; the
+        # automatically via its "by end use" split, which owns the parent total; the
         # orthogonal "by Type" split opts out via aggregate_parent=False.
         return ["Production|Chemicals|Plastics"]

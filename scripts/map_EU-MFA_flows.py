@@ -134,7 +134,7 @@ def load_production_reference(material_prefix: str) -> pd.DataFrame:
     """
     path = PARAMETERS_DIR / f"{material_prefix}_production.cs4r"
     ref = read_cs4r(path)
-    # the time column is named "Time" for plastics and "Historic Time" for steel
+    # the time column is named "Time" for plastics and "Historical Time" for steel
     ref = ref.rename(columns={ref.columns[0]: "Time"})
     if TARGET_EU_REGION not in set(ref["Region"]):
         raise ValueError(
@@ -277,7 +277,7 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
     """Load the already-processed baseline output flow to use as the backcasting
     reference for non-baseline scenarios.
 
-    Unlike the raw baseline input, the baseline output covers the full historic
+    Unlike the raw baseline input, the baseline output covers the full historical
     period (1950-2060), so it provides a complete trajectory for extending the
     shorter non-baseline scenario series into the past.
     """
@@ -516,10 +516,10 @@ def run_combination(material: str, flow: str, scenario: str):
             df_EU_MFA = df2.groupby(["Time", "Region", "Good"], as_index=False)["value"].sum()
             dimensions = "(EU-MFA_Time,Region,EU-MFA_Good,value)"
 
-        # --- load reference (Historic Time, Region, value) ---
+        # --- load reference (Historical Time, Region, value) ---
         ref = load_production_reference("st")
 
-    # --- backcast: extend df_EU_MFA into historic years using ref ---
+    # --- backcast: extend df_EU_MFA into historical years using ref ---
     if material == "plastics" and scenario != "baseline" and flow not in FLOWS_WITHOUT_BASELINE:
         # Non-baseline scenarios only cover the scenario period (e.g. 2018-2050) and would
         # otherwise drop abruptly to zero before their start year. Use the already-processed

@@ -39,6 +39,19 @@ class Trade(RemindMFABaseModel):
     def net_exports(self):
         return self.exports - self.imports
 
+    def sum_over(self, dim_letters: str | tuple) -> "Trade":
+        """Return a copy of this trade with the given dimension(s) summed away.
+
+        Used to hand a trade over to a system that resolves fewer dimensions, e.g. the historical
+        plastics trade (which carries the polymer type 'p') to the future MFA system (which does
+        not, since 'p' is redundant with the material dimension 'm').
+        """
+        return Trade(
+            name=self.name,
+            imports=self.imports.sum_over(dim_letters),
+            exports=self.exports.sum_over(dim_letters),
+        )
+
     def balance(self, to: str = "hmean", mask_scaled: EllipsisType | np.ndarray = Ellipsis):
         """
         Balances the trade data to ensure that the global imports and exports are consistent.
@@ -108,7 +121,7 @@ class Trade(RemindMFABaseModel):
 
 
 class TradeSet(RemindMFABaseModel):
-    """A trade model for the steel sector storing the data and defining how trade is processed."""
+    """A trade model storing the data and defining how trade is processed."""
 
     markets: dict[str, Trade]
 
@@ -152,22 +165,22 @@ def set_trade_from_data(
     future_trade: Trade,
     imports: fd.FlodymArray,
     exports: fd.FlodymArray,
-    historic_trade: Trade,
+    historical_trade: Trade,
     balance_to: str | None = "hmean",
     market_name: str = "trade",
 ):
     """Set future trade from given data (e.g. the output of the ATLAS trade model) instead of
-    extrapolating it from historic trade.
+    extrapolating it from historical trade.
 
-    Historic years are taken from ``historic_trade``, so the future MFA stays consistent with the
-    historic one and does not jump at the transition (the same convention as
+    Historical years are taken from ``historical_trade``, so the future MFA stays consistent with the
+    historical one and does not jump at the transition (the same convention as
     :class:`TradeExtrapolator`). The data is only used for the future years.
 
     Args:
         future_trade: Future trade object to write into.
         imports: Import data over the full time dimension 't'.
         exports: Export data over the full time dimension 't'.
-        historic_trade: Historic trade, used for the historic years.
+        historical_trade: Historical trade, used for the historical years.
         balance_to: Method to balance global imports and exports with, see
             :meth:`Trade.get_reference_trade`. None disables balancing.
         market_name: Name of the trade market.
@@ -175,11 +188,11 @@ def set_trade_from_data(
     future_trade.imports[...] = imports
     future_trade.exports[...] = exports
 
-    historic_time = historic_trade.imports.dims["h"]
-    _warn_uncovered_years(future_trade, historic_time, market_name)
+    historical_time = historical_trade.imports.dims["h"]
+    _warn_uncovered_years(future_trade, historical_time, market_name)
 
-    future_trade.imports[{"t": historic_time}] = historic_trade.imports
-    future_trade.exports[{"t": historic_time}] = historic_trade.exports
+    future_trade.imports[{"t": historical_time}] = historical_trade.imports
+    future_trade.exports[{"t": historical_time}] = historical_trade.exports
 
     _warn_global_imbalance(future_trade, market_name)
 
@@ -187,7 +200,7 @@ def set_trade_from_data(
         future_trade.balance(to=balance_to)
 
 
-def _warn_uncovered_years(future_trade: Trade, historic_time: fd.Dimension, market_name: str):
+def _warn_uncovered_years(future_trade: Trade, historical_time: fd.Dimension, market_name: str):
     """Warn about future years in which both imports and exports of the given data are zero.
 
     Might happen if the cs4r file as output by ATLAS does not cover all future years, in which case the reader will silently set the trade to zero in those years. This is usually not intended.
@@ -196,7 +209,7 @@ def _warn_uncovered_years(future_trade: Trade, historic_time: fd.Dimension, mark
     uncovered = [
         year
         for year, value in zip(future_trade.imports.dims["t"].items, total)
-        if year not in historic_time.items and value == 0.0
+        if year not in historical_time.items and value == 0.0
     ]
     if uncovered:
         logging.warning(
