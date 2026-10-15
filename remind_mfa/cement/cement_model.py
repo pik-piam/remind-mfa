@@ -66,7 +66,7 @@ class CementModel(CommonModel):
         )
         return weight
 
-    def calculate_weighted_mean(
+    def calculate_dynamic_mean(
         self,
         regional_parameter: fd.Parameter,
         global_weights: fd.FlodymArray,
@@ -127,14 +127,14 @@ class CementModel(CommonModel):
 
         # dwelling split target
         res_floorspace = floorspace[{"c": "Res"}]
-        prm["dwelling_split_mean"] = self.calculate_weighted_mean(
+        prm["dwelling_split_mean"] = self.calculate_dynamic_mean(
             prm["dwelling_split"], res_floorspace, "dwelling_split_mean"
         )
 
         # structure split target: global weighted mean without unknown structures,
         # with a floor on the timber share
         bu_floorspace = expand_common_to_bu(floorspace, prm)
-        structure_split_mean = self.calculate_weighted_mean(
+        structure_split_mean = self.calculate_dynamic_mean(
             prm["structure_split"], bu_floorspace, "structure_split_mean"
         )
         prm["structure_split_mean"] = self.set_structure_share(structure_split_mean, "U", 0.0)
