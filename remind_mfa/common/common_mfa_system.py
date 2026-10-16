@@ -63,8 +63,7 @@ class CommonMFASystem(fd.MFASystem):
         self.stocks[use_stock_name].inflow[...] = inflow
         self.stocks[use_stock_name].compute()
 
-    def adjust_inflow(
-        self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
         """Smooth the transition of the in-use stock inflow from historical to future years
         with a critically damped blend, and correct any negative inflows to zero.
 
