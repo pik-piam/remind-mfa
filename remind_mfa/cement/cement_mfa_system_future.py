@@ -3,7 +3,6 @@ import numpy as np
 
 from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.helpers import clip_negative_arr
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
@@ -29,63 +28,35 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         self.check_mass_balance()
         self.check_flows()
 
-    def compute_use_stock(self, product_stock: fd.FlodymArray):
-        """Compute the composition-resolved in-use stock from a product stock.
-
-        The product stock is run through a stock-driven DSM to obtain the product inflow. The
-        material (m) and constituent (k) splits missing in the product stock are applied to this
-        inflow, and the in-use stock is recomputed inflow-driven. This way, time-dependent
-        splits only affect new cohorts, while existing cohorts keep their composition.
+    def adjust_inflow(
+        self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Blend and correct the product inflow (see parent class), then add the material (m)
+        and constituent (k) splits missing in the product inflow.
 
         Args:
-            product_stock: In-use product stock, with dims of the in-use stock, optionally
-                without m and/or k.
-        """
-        prm = self.parameters
-        stk = self.stocks
+            inflow: Product inflow resulting from a StockDrivenDSM computation.
 
-        product_inflow = self.calculate_product_inflow(product_stock)
-        product_inflow = clip_negative_arr(product_inflow, warn_small_negative=False)
-        use_inflow = self.add_product_material_split(product_inflow, prm)
+        Returns:
+            Composition-resolved in-use stock inflow.
+        """
+        product_inflow = super().adjust_inflow(inflow)
+        use_inflow = self.add_product_material_split(product_inflow, self.parameters)
         use_inflow = self.add_constituent_split(use_inflow)
 
-        if set(use_inflow.dims.letters) != set(stk["use"].dims.letters):
+        use_dims = self.stocks["use"].dims
+        if set(use_inflow.dims.letters) != set(use_dims.letters):
             raise ValueError(
-                f"Product stock dims {product_stock.dims.letters} with added splits "
-                f"{(use_inflow.dims - product_stock.dims).letters} do not match in-use "
-                f"stock dims {stk['use'].dims.letters}."
+                f"Product stock dims {inflow.dims.letters} with added splits "
+                f"{(use_inflow.dims - inflow.dims).letters} do not match in-use "
+                f"stock dims {use_dims.letters}."
             )
-        stk["use"].inflow[...] = use_inflow
-
-        # inflow-driven in-use stock
-        stk["use"].lifetime_model.set_prms(mean=prm["lifetime_mean"], std=prm["lifetime_std"])
-        stk["use"].compute()
 
         # sanity check
-        summed_inflow = stk["use"].inflow.sum_to(product_inflow.dims.letters)
+        summed_inflow = use_inflow.sum_to(product_inflow.dims.letters)
         assert np.allclose(
             summed_inflow.values, product_inflow.values, rtol=1e-6, atol=1e-3
         ), "Composition-resolved in-use inflow does not sum up to the product inflow."
-
-    def calculate_product_inflow(self, product_stock: fd.FlodymArray) -> fd.FlodymArray:
-        """Calculate the product inflow from the product stock with a stock-driven DSM.
-
-        Args:
-            product_stock: In-use product stock.
-
-        Returns:
-            Product inflow, with the dims of the product stock. May contain negative values.
-        """
-        prm = self.parameters
-        product_dsm = fd.StockDrivenDSM(
-            dims=product_stock.dims,
-            lifetime_model=type(self.stocks["use"].lifetime_model),
-            name="use_product",
-        )
-        product_dsm.stock[...] = product_stock
-        product_dsm.lifetime_model.set_prms(mean=prm["lifetime_mean"], std=prm["lifetime_std"])
-        product_dsm.compute()
-        return product_dsm.inflow
+        return use_inflow
 
     @staticmethod
     def add_product_material_split(
@@ -155,6 +126,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
             future_dom_demand=total_cement_demand,
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -182,6 +154,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             historical_trade=historical_trade["clinker"],
             future_trade=trd["clinker"],
             future_dom_demand=flw["market_clinker => prod_cement"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
         flw["imports => market_clinker"][...] = trd["clinker"].imports

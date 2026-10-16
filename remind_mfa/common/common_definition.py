@@ -91,6 +91,14 @@ scenario_parameters = [
         name="saturation_level",
         description="Saturation level for material use per capita (unit depends on the material, e.g. t/capita)",
     ),
+    RemindMFAParameterDefinition(
+        name="n_trend_years",
+        dim_letters=("r",),
+        description=(
+            "Number of most recent historical years used to determine the initial slope of the "
+            "critically damped blend of in-use stock inflows and trade"
+        ),
+    ),
     ExtrapolationDefinition(
         name="stock_factor",
         dim_letters=("r",),

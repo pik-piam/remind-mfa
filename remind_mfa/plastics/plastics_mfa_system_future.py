@@ -17,7 +17,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_stock(stock_projection)
+        self.compute_use_stock(stock_projection)
         self.compute_waste_trade()
         self.compute_flows(historical_trade)
         self.compute_other_stocks()
@@ -35,16 +35,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         self.trade_set.balance(to="maximum")
 
-    def compute_stock(self, stock_projection: fd.FlodymArray):
-        self.stocks["use_dsm"].stock[...] = stock_projection
-        self.stocks["use_dsm"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"],
-            std=self.parameters["lifetime_std"],
-        )
+    def compute_use_stock(self, stock_projection):
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["use_dsm"].lifetime_model.n_pts_per_interval = 10
-        self.stocks["use_dsm"].compute()
-        self.correct_negative_inflow("use_dsm")
+
+        super().compute_use_stock(stock_projection, use_stock_name="use_dsm")
 
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
@@ -122,6 +117,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historical_trade=historical_trade["manufactured_products"].sum_over("p"),
             future_trade=self.trade_set["manufactured_products"],
             future_dom_demand=stk["use"].inflow,
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
@@ -149,6 +145,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historical_trade=historical_trade["primary"].sum_over("p"),
             future_trade=self.trade_set["primary"],
             future_dom_demand=flw["primary_market => manufacturing"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
