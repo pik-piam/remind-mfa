@@ -13,8 +13,8 @@ n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope
 n_trend_years,all,2,,,CHA,,,,
 
 # --- Plastics ---
-waste_his_imports,plastics,0,2030,target,,,,,
-waste_his_exports,plastics,0,2030,target,,,,,
+waste_imports,plastics,0,2030,target,,,,,
+waste_exports,plastics,0,2030,target,,,,,
 collection_rate,plastics,0.99,2100,target,,,,,
 landfill_rate,plastics,0.0,2100,target,,,,,
 mechanical_recycling_rate,plastics,0.4,2100,target,,,,,

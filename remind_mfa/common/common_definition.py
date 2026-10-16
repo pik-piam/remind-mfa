@@ -21,14 +21,9 @@ class RemindMFADefinition(fd.MFADefinition):
     """All the information needed to define an MFA system, compiled of lists of definition objects."""
 
     trades: List[TradeDefinition] = []
-    parameters: List[RemindMFAParameterDefinition]
+    # flodym declares this as list[ParameterDefinition], so narrowing it is an unsound override
+    parameters: List[RemindMFAParameterDefinition]  # ty: ignore[invalid-attribute-override]
     """List of definitions of parameters used in the model."""
-
-
-def get_definition():
-    return RemindMFADefinition(
-        dimensions=[], processes=[], flows=[], stocks=[], parameters=[], trades=[]
-    )
 
 
 class PlainDataPointDefinition(RemindMFABaseModel):
@@ -40,7 +35,7 @@ class PlainDataPointDefinition(RemindMFABaseModel):
 
 
 class ExtrapolationDefinition(RemindMFAParameterDefinition):
-    """Declares a parameter whose values are extrapolated from historic to full time.
+    """Declares a parameter whose values are extrapolated from historical to full time.
 
     Scenario CSV rows supply the endpoint in the `value` column, either as a number
     or as the name of a model parameter whose values serve as the endpoint at the

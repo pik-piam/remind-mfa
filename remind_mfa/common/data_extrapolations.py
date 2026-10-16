@@ -54,8 +54,8 @@ class Extrapolation(RemindMFABaseModel):
         return len(self.prm_names)
 
     @property
-    def n_historic(self):
-        """Number of historic data points to use for regression."""
+    def n_historical(self):
+        """Number of historical data points to use for regression."""
         return self.data_to_extrapolate.shape[0]
 
     @property
@@ -63,15 +63,15 @@ class Extrapolation(RemindMFABaseModel):
         """Optimized parameters after regression (read-only)."""
         return self._fit_prms
 
-    def extrapolate(self, historic_from_regression: bool = False):
+    def extrapolate(self, historical_from_regression: bool = False):
         """
         Calls the regression method and returns extrapolated values.
-        Per default, historic values are kept, but this can be changed by setting `historic_from_regression` to True.
+        Per default, historical values are kept, but this can be changed by setting `historical_from_regression` to True.
         """
 
         regression = self.regress()
-        if not historic_from_regression:
-            regression[: self.n_historic, ...] = self.data_to_extrapolate
+        if not historical_from_regression:
+            regression[: self.n_historical, ...] = self.data_to_extrapolate
         return regression
 
     @abstractmethod
@@ -145,7 +145,7 @@ class Extrapolation(RemindMFABaseModel):
         Finds optimal fit of data through least squares. Weights and bounds are applied.
         """
         fitting_function = self.get_fitting_function(
-            predictor[: self.n_historic, ...],
+            predictor[: self.n_historical, ...],
             data,
             weights,
         )
@@ -200,7 +200,7 @@ class PehlExtrapolation(Extrapolation):
     def initial_guess(self, predictor_values, data_to_extrapolate):
         return np.array(
             [
-                2.0 * np.max(predictor_values[self.n_historic - 1, ...]),
+                2.0 * np.max(predictor_values[self.n_historical - 1, ...]),
                 np.max(data_to_extrapolate[-1, ...]),
             ]
         )
@@ -216,7 +216,7 @@ class ExponentialSaturationExtrapolation(Extrapolation):
 
     def initial_guess(self, predictor_values, data_to_extrapolate):
         current_level = np.max(data_to_extrapolate[-1, ...])
-        current_extrapolator = np.max(predictor_values[self.n_historic - 1, ...])
+        current_extrapolator = np.max(predictor_values[self.n_historical - 1, ...])
         initial_saturation_level = 2.0 * current_level
         initial_stretch_factor = (
             -np.log(1 - current_level / initial_saturation_level) / current_extrapolator
