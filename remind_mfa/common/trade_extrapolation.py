@@ -218,14 +218,14 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.future_second[self.id_hist] = self.historical_second
 
     def blend_transition(self):
-        """Smooth the transition of both trade flows from historic to future years with a
+        """Smooth the transition of both trade flows from historical to future years with a
         critically damped blend, before balancing. Negative values are set to zero.
         """
-        n_historic = self.historical_first.dims["h"].len
+        n_historical = self.historical_first.dims["h"].len
         for future_flow in (self.future_first, self.future_second):
             future_flow[...] = critically_damped_blend(
                 future_flow,
-                n_historic=n_historic,
+                n_historical=n_historical,
                 n_trend_years=self.n_trend_years,
                 approaching_time=FLOW_APPROACHING_TIME,
             ).maximum(0)
@@ -234,7 +234,7 @@ class TradeExtrapolator(RemindMFABaseModel):
             name="Critically damped blend of extrapolated trade",
             value=FLOW_APPROACHING_TIME,
             description=(
-                "Extrapolated imports and exports are blended smoothly from historic trends to the "
+                "Extrapolated imports and exports are blended smoothly from historical trends to the "
                 "extrapolated values with a critically damped blend, before they are balanced. "
                 "The value is the approaching time in years."
             ),

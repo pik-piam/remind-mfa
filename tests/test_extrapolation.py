@@ -415,7 +415,7 @@ def test_critically_damped_blend_flodym_array():
     array = fd.FlodymArray(dims=dims, values=values)
     n_trend_years = fd.FlodymArray(dims=dims[("r",)], values=np.array([10.0, 2.0]))
     blended = critically_damped_blend(
-        array, n_historic=6, n_trend_years=n_trend_years, approaching_time=10
+        array, n_historical=6, n_trend_years=n_trend_years, approaching_time=10
     )
 
     assert blended.dims.letters == ("r", "t")

@@ -17,7 +17,7 @@ class CommonMFASystem(fd.MFASystem):
 
     def blend_and_correct_inflow(self, stock_name: str, warn_small_negative: bool = True):
         """After a StockDrivenDSM computation, smooth the transition of the inflow from
-        historic to future years with a critically damped blend, and correct any negative
+        historical to future years with a critically damped blend, and correct any negative
         inflows. Recomputes the stock as InflowDrivenDSM with the resulting inflow.
         As some small negative inflows may have their origin in numerical issues,
         the corresponding warning can be suppressed with warn_small_negative=False.
@@ -25,7 +25,7 @@ class CommonMFASystem(fd.MFASystem):
         stock = self.stocks[stock_name]
         blended_inflow = critically_damped_blend(
             stock.inflow,
-            n_historic=self.dims["h"].len,
+            n_historical=self.dims["h"].len,
             n_trend_years=self.parameters["n_trend_years"],
             approaching_time=FLOW_APPROACHING_TIME,
         )
@@ -35,7 +35,7 @@ class CommonMFASystem(fd.MFASystem):
             value=FLOW_APPROACHING_TIME,
             description=(
                 "The in-use stock inflow resulting from the stock-driven model is blended smoothly "
-                "from historic trends to the future values with a critically damped blend. "
+                "from historical trends to the future values with a critically damped blend. "
                 "The in-use stock is then recomputed from the blended inflow. "
                 "The value is the approaching time in years."
             ),

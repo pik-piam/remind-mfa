@@ -154,7 +154,7 @@ and trade."""
 
 def critically_damped_blend(
     array: fd.FlodymArray,
-    n_historic: int,
+    n_historical: int,
     n_trend_years: fd.FlodymArray,
     time_letter: str = "t",
     approaching_time: float = DEFAULT_APPROACHING_TIME,
@@ -162,12 +162,12 @@ def critically_damped_blend(
     """Smooth the transition from historical to future values of an array with a critically
     damped blend (see `CriticallyDampedBlender`).
 
-    The first ``n_historic`` entries along the time dimension are taken as historical data and
+    The first ``n_historical`` entries along the time dimension are taken as historical data and
     are preserved. The full array is the prediction the blended trajectory converges to.
 
     Args:
         array (fd.FlodymArray): Array covering both the historical and the future period.
-        n_historic (int): Number of historical time steps at the beginning of the time dimension.
+        n_historical (int): Number of historical time steps at the beginning of the time dimension.
         n_trend_years (fd.FlodymArray): Number of most recent historical years used in the
             weighted linear regression for the initial slope. Must not have the time dimension;
             is broadcast to the other dimensions of ``array``.
@@ -184,7 +184,7 @@ def critically_damped_blend(
     trend_years = n_trend_years.cast_to(array.dims.drop(time_letter)).values
     blender = CriticallyDampedBlender(
         time=array.dims[time_letter].items,
-        historical=values[:n_historic],
+        historical=values[:n_historical],
         prediction=values,
         initial_slope="weighted_regression",
         n_trend_years=np.round(trend_years).astype(int),
@@ -200,8 +200,8 @@ class CriticallyDampedBlender:
         time: Union[np.ndarray, list],
         historical: np.ndarray,
         prediction: np.ndarray,
-        lifetime: Optional[np.ndarray] = None,
         initial_slope: Literal["lifetime_dependent", "weighted_regression"] = "lifetime_dependent",
+        lifetime: Optional[np.ndarray] = None,
         n_trend_years: int | np.ndarray | None = None,
     ):
         """
@@ -211,14 +211,14 @@ class CriticallyDampedBlender:
             historical (np.ndarray): Historical data with time as the first axis.
             prediction (np.ndarray): Extrapolated data, same shape
                 as the full output (covering both historical and future period in first axis).
-            lifetime (Optional[np.ndarray]): Lifetime used to dynamically determine trend window size
-                if ``initial_slope`` is "lifetime_dependent".
-                Should have the same shape as prediction/historical, except time (0th axis)
             initial_slope (str): Method to determine the initial slope at the transition point.
                 "lifetime_dependent": polynomial fit over a lifetime-dependent window
                 (finite difference of the last two points if no lifetime is given).
                 "weighted_regression": weighted linear regression over the ``n_trend_years``
                 most recent years. Defaults to "lifetime_dependent".
+            lifetime (Optional[np.ndarray]): Lifetime used to dynamically determine trend window size
+                if ``initial_slope`` is "lifetime_dependent".
+                Should have the same shape as prediction/historical, except time (0th axis)
             n_trend_years (int | np.ndarray | None): Number of most recent historical years used
                 in the weighted linear regression for the initial slope. Either a scalar or an
                 array matching the shape of prediction/historical, except time (0th axis).
@@ -296,7 +296,7 @@ class CriticallyDampedBlender:
             case _:
                 raise ValueError(f"Unknown initial_slope method: {self.initial_slope}")
 
-        # 2b. Slope of the prediction P(t) itself, computed over the full historic+future
+        # 2b. Slope of the prediction P(t) itself, computed over the full historical+future
         # timeline so the transition point is an interior point.
         dt = self.time[1] - self.time[0]
         vp_future = np.gradient(self.prediction, dt, axis=0, edge_order=2)[last_history_idx:]
