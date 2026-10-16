@@ -15,14 +15,14 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_stock(stock_projection, **kwargs)
+        self.compute_use_stock(stock_projection, **kwargs)
         self.compute_flows(historical_trade)
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows()
 
-    def compute_stock(self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True):
+    def compute_use_stock(self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True):
         prm = self.parameters
         if stock_is_cement:
             # Input is cement stock (t, r, u): apply material split and convert to total product mass.
@@ -32,7 +32,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             product_stock = stock_projection
         constituent_stock = self.add_constituent_split(product_stock, prm)
 
-        super().compute_stock(constituent_stock, warn_small_negative=False)
+        super().compute_use_stock(constituent_stock, warn_small_negative=False)
 
     def add_constituent_split(
         self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]

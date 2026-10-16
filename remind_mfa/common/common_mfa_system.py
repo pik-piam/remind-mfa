@@ -15,7 +15,7 @@ class CommonMFASystem(fd.MFASystem):
     cfg: CommonCfg
     trade_set: Optional[TradeSet] = None
 
-    def compute_stock(
+    def compute_use_stock(
         self,
         stock_projection: fd.FlodymArray,
         use_stock_name: str = "use",
