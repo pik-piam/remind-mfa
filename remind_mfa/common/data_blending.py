@@ -451,6 +451,7 @@ class CriticallyDampedBlender:
         Returns:
             np.ndarray: Array of slopes with the same shape as ``historical.shape[1:]``.
         """
+        assert self.n_trend_years is not None, "n_trend_years is required for weighted_regression."
         spatial_shape = self.historical.shape[1:]
         n_points = np.minimum(np.broadcast_to(self.n_trend_years, spatial_shape), idx + 1)
         n_window = int(n_points.max())
