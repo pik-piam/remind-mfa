@@ -43,14 +43,6 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         use_inflow = self.add_product_material_split(product_inflow, self.parameters)
         use_inflow = self.add_constituent_split(use_inflow)
 
-        use_dims = self.stocks["use"].dims
-        if set(use_inflow.dims.letters) != set(use_dims.letters):
-            raise ValueError(
-                f"Product stock dims {inflow.dims.letters} with added splits "
-                f"{(use_inflow.dims - inflow.dims).letters} do not match in-use "
-                f"stock dims {use_dims.letters}."
-            )
-
         # sanity check
         summed_inflow = use_inflow.sum_to(product_inflow.dims.letters)
         assert np.allclose(
@@ -94,7 +86,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             return arr
         cement_ratio = self.parameters["cement_ratio"]
         constituent_split = fd.FlodymArray(
-            dims=cement_ratio.dims.append(self.stocks["use"].dims["k"])
+            dims=cement_ratio.dims.append(self.dims["k"])
         )
         constituent_split[{"k": "cement"}] = cement_ratio
         constituent_split[{"k": "non-cement"}] = 1 - cement_ratio

@@ -33,32 +33,24 @@ class CommonMFASystem(fd.MFASystem):
             use_stock_name (str): Name of the in-use stock. Defaults to "use".
         """
         stock = self.stocks[use_stock_name]
-        if isinstance(stock, fd.StockDrivenDSM) and set(stock_projection.dims.letters) == set(
-            stock.dims.letters
-        ):
-            # reuse stock to keep lifetime model settings
-            stock_driven = stock
-        else:
-            stock_driven = fd.StockDrivenDSM(
-                dims=stock_projection.dims,
-                lifetime_model=type(stock.lifetime_model),
-                name=stock.name,
-            )
-        stock_driven.stock[...] = stock_projection
-        for lifetime_model in (stock_driven.lifetime_model, stock.lifetime_model):
-            lifetime_model.set_prms(
+        stock.stock[...] = stock_projection
+        stock.lifetime_model.set_prms(
                 mean=self.parameters["lifetime_mean"],
                 std=self.parameters["lifetime_std"],
             )
-        stock_driven.compute()
+        stock.compute()
 
-        inflow = self.adjust_inflow(stock_driven.inflow)
+        inflow = self.adjust_inflow(stock.inflow)
 
         self.stocks[use_stock_name] = fd.InflowDrivenDSM(
-            dims=stock.dims,
-            lifetime_model=stock.lifetime_model,
+            dims=inflow.dims,
+            lifetime_model=type(stock.lifetime_model),
             name=stock.name,
             process=stock.process,
+        )
+        self.stocks[use_stock_name].lifetime_model.set_prms(
+            mean=self.parameters["lifetime_mean"],
+            std=self.parameters["lifetime_std"],
         )
         self.stocks[use_stock_name].inflow[...] = inflow
         self.stocks[use_stock_name].compute()
