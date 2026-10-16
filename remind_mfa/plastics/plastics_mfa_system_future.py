@@ -35,16 +35,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         self.trade_set.balance(to="maximum")
 
-    def compute_stock(self, stock_projection: fd.FlodymArray):
-        self.stocks["use_dsm"].stock[...] = stock_projection
-        self.stocks["use_dsm"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"],
-            std=self.parameters["lifetime_std"],
-        )
+    def compute_stock(self, stock_projection):
         # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
         self.stocks["use_dsm"].lifetime_model.n_pts_per_interval = 10
-        self.stocks["use_dsm"].compute()
-        self.blend_and_correct_inflow("use_dsm")
+
+        super().compute_stock(stock_projection, use_stock_name="use_dsm")
 
         # We use an auxiliary stock for the prediction step to save dimensions and computation time
         # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
@@ -274,7 +269,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         stk = self.stocks
         flw = self.flows
 
-        # in-use stock is already computed in compute_use_stock
+        # in-use stock is already computed in compute_stock
 
         stk["landfill"].inflow[...] = flw["collected => landfill"]
         stk["landfill"].compute()

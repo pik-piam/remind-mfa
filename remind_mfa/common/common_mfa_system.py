@@ -15,16 +15,62 @@ class CommonMFASystem(fd.MFASystem):
     cfg: CommonCfg
     trade_set: Optional[TradeSet] = None
 
-    def blend_and_correct_inflow(self, stock_name: str, warn_small_negative: bool = True):
-        """After a StockDrivenDSM computation, smooth the transition of the inflow from
-        historical to future years with a critically damped blend, and correct any negative
-        inflows. Recomputes the stock as InflowDrivenDSM with the resulting inflow.
+    def compute_stock(
+        self,
+        stock_projection: fd.FlodymArray,
+        use_stock_name: str = "use",
+        warn_small_negative: bool = True,
+    ):
+        """Compute the in-use stock from the stock projection.
+
+        First, a StockDrivenDSM computation yields the inflow. Its transition from historical to
+        future years is blended and negative values are corrected (see
+        ``blend_and_correct_inflow``). The stock is then recomputed as InflowDrivenDSM with the
+        resulting inflow.
+
+        Args:
+            stock_projection (fd.FlodymArray): Projected in-use stock.
+            use_stock_name (str): Name of the in-use stock. Defaults to "use".
+            warn_small_negative (bool): Whether to warn about small negative inflows, which may
+                have their origin in numerical issues. Defaults to True.
+        """
+        stock = self.stocks[use_stock_name]
+        stock.stock[...] = stock_projection
+        stock.lifetime_model.set_prms(
+            mean=self.parameters["lifetime_mean"],
+            std=self.parameters["lifetime_std"],
+        )
+        stock.compute()
+
+        inflow = self.blend_and_correct_inflow(stock.inflow, warn_small_negative)
+
+        self.stocks[use_stock_name] = fd.InflowDrivenDSM(
+            dims=stock.dims,
+            lifetime_model=stock.lifetime_model,
+            name=stock.name,
+            process=stock.process,
+        )
+        self.stocks[use_stock_name].inflow[...] = inflow
+        self.stocks[use_stock_name].compute()
+
+    def blend_and_correct_inflow(
+        self, inflow: fd.FlodymArray, warn_small_negative: bool = True
+    ) -> fd.FlodymArray:
+        """Smooth the transition of the in-use stock inflow from historical to future years
+        with a critically damped blend, and correct any negative inflows to zero.
         As some small negative inflows may have their origin in numerical issues,
         the corresponding warning can be suppressed with warn_small_negative=False.
+
+        Args:
+            inflow (fd.FlodymArray): Inflow resulting from a StockDrivenDSM computation.
+            warn_small_negative (bool): Whether to warn about small negative inflows.
+                Defaults to True.
+
+        Returns:
+            fd.FlodymArray: Blended and non-negative inflow.
         """
-        stock = self.stocks[stock_name]
         blended_inflow = critically_damped_blend(
-            stock.inflow,
+            inflow,
             n_historical=self.dims["h"].len,
             n_trend_years=self.parameters["n_trend_years"],
             approaching_time=FLOW_APPROACHING_TIME,
@@ -51,15 +97,7 @@ class CommonMFASystem(fd.MFASystem):
                 logging.warning(
                     f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
                 )
-        corrected_inflow = blended_inflow.maximum(0)
-        self.stocks[stock_name] = fd.InflowDrivenDSM(
-            dims=stock.dims,
-            lifetime_model=stock.lifetime_model,
-            name=stock.name,
-            process=stock.process,
-        )
-        self.stocks[stock_name].inflow[...] = corrected_inflow
-        self.stocks[stock_name].compute()
+        return blended_inflow.maximum(0)
 
     def fill_trade(self):
         """

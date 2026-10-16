@@ -15,7 +15,7 @@ class SteelMFASystem(CommonMFASystem):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_use_stock(stock_projection)
+        self.compute_stock(stock_projection)
         self.compute_flows(historical_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
@@ -25,7 +25,7 @@ class SteelMFASystem(CommonMFASystem):
     def update_price_elastic(self):
         self.compute_price_elastic_trade()
         # self.compute_consumption()
-        # self.compute_use_stock() # ensure inflow-driven
+        # self.compute_stock() # ensure inflow-driven
         # self.compute_other_flows()
         # self.compute_other_stocks()
 
@@ -57,14 +57,6 @@ class SteelMFASystem(CommonMFASystem):
 
         self.flows["imports => steel_market"][...] = self.trade_set["steel"].imports
         self.flows["steel_market => exports"][...] = self.trade_set["steel"].exports
-
-    def compute_use_stock(self, stock_projection):
-        self.stocks["use"].stock[...] = stock_projection
-        self.stocks["use"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
-        )
-        self.stocks["use"].compute()
-        self.blend_and_correct_inflow("use")
 
     def compute_flows(self, historical_trade: TradeSet):
         # abbreviations for better readability
@@ -166,7 +158,7 @@ class SteelMFASystem(CommonMFASystem):
         stk = self.stocks
         flw = self.flows
 
-        # in-use stock is already computed in compute_use_stock
+        # in-use stock is already computed in compute_stock
         stk["obsolete"].inflow[...] = flw["use => obsolete"]
         stk["obsolete"].compute()
 
