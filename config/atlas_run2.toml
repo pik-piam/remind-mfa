@@ -13,3 +13,10 @@
         atlas.do_export = false
         csv.do_export = true
         pickle.do_export = true
+
+    [base.visualization]
+        do_visualize = true
+        do_show_figs = true
+        do_save_figs = false
+        plotting_engine = "plotly"
+        trade.do_visualize = true

@@ -29,8 +29,6 @@ class StockExtrapolation(RemindMFABaseModel):
     """Dimension set for the data."""
     parameters: dict[str, fd.Parameter]
     """Parameters for the extrapolation."""
-    end_use_good_letter: str = "g"
-    """Letter of the end-use good dimension"""
     bound_list: BoundList = BoundList()
     """bound_list (BoundList): List of bounds for the extrapolation. Defaults to an empty BoundList."""
     do_gdppc_accumulation: bool = True
@@ -114,7 +112,7 @@ class StockExtrapolation(RemindMFABaseModel):
         """
         all_weights = (self.gdppc * self.pop).get_shares_over(("r",))
         historic_weights = all_weights[{"t": self.dims["h"]}]
-        independent_dims = (self.historic_stocks_pc.dims.index(self.end_use_good_letter),)
+        independent_dims = (self.historic_stocks_pc.dims.index("u"),)
         self.extrapolation = self.cfg.stock_extrapolation_class(
             data_to_extrapolate=self.historic_stocks_pc.values,
             predictor_values=self.predictor,

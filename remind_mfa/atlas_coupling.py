@@ -360,7 +360,7 @@ def _adjust_plastics_trade(
 
         latest_year = historic_trade["historic_year"].max()
         latest_trade = historic_trade.loc[historic_trade["historic_year"] == latest_year]
-        material_shares = latest_trade.groupby(["region", "type", "material"], as_index=False)[
+        material_shares = latest_trade.groupby(["region", "material"], as_index=False)[
             "quantity"
         ].sum()
         material_shares["share"] = material_shares["quantity"] / material_shares.groupby("region")[
@@ -368,13 +368,13 @@ def _adjust_plastics_trade(
         ].transform("sum")
 
         adjusted = future_trade.merge(
-            material_shares.loc[:, ["region", "type", "material", "share"]],
+            material_shares.loc[:, ["region", "material", "share"]],
             how="outer",
             on=["region"],
         )
         print(adjusted)
         adjusted["quantity"] = adjusted["quantity"] * adjusted.pop("share")
-        adjusted_flows.append(adjusted.loc[:, ["year", "region", "type", "material", "quantity"]])
+        adjusted_flows.append(adjusted.loc[:, ["year", "region", "material", "quantity"]])
 
     return tuple(adjusted_flows)
 
