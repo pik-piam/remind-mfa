@@ -35,9 +35,9 @@ class CommonMFASystem(fd.MFASystem):
         stock = self.stocks[use_stock_name]
         stock.stock[...] = stock_projection
         stock.lifetime_model.set_prms(
-                mean=self.parameters["lifetime_mean"],
-                std=self.parameters["lifetime_std"],
-            )
+            mean=self.parameters["lifetime_mean"],
+            std=self.parameters["lifetime_std"],
+        )
         stock.compute()
 
         inflow = self.adjust_inflow(stock.inflow)

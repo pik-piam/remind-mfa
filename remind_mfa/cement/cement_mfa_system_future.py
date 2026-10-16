@@ -84,9 +84,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         if "k" in arr.dims:
             return arr
         cement_ratio = self.parameters["cement_ratio"]
-        constituent_split = fd.FlodymArray(
-            dims=cement_ratio.dims.append(self.dims["k"])
-        )
+        constituent_split = fd.FlodymArray(dims=cement_ratio.dims.append(self.dims["k"]))
         constituent_split[{"k": "cement"}] = cement_ratio
         constituent_split[{"k": "non-cement"}] = 1 - cement_ratio
         return arr * constituent_split
