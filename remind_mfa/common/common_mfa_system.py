@@ -6,6 +6,8 @@ from typing import Literal, Optional
 
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.common_config import CommonCfg
+from remind_mfa.common.data_blending import critically_damped_blend, FLOW_APPROACHING_TIME
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class CommonMFASystem(fd.MFASystem):
@@ -13,32 +15,89 @@ class CommonMFASystem(fd.MFASystem):
     cfg: CommonCfg
     trade_set: Optional[TradeSet] = None
 
-    def correct_negative_inflow(self, stock_name: str, warn_small_negative: bool = True):
-        """After a StockDrivenDSM computation, correct any negative inflows.
-        Recomputes the stock as InflowDrivenDSM with the corrected inflow.
-        As some small negative inflows may have their origin in numerical issues,
-        the corresponding warning can be suppressed with warn_small_negative=False.
+    def compute_use_stock(
+        self,
+        stock_projection: fd.FlodymArray,
+        use_stock_name: str = "use",
+        warn_small_negative: bool = True,
+    ):
+        """Compute the in-use stock from the stock projection.
+
+        First, a StockDrivenDSM computation yields the inflow. Its transition from historical to
+        future years is blended and negative values are corrected (see
+        ``blend_and_correct_inflow``). The stock is then recomputed as InflowDrivenDSM with the
+        resulting inflow.
+
+        Args:
+            stock_projection (fd.FlodymArray): Projected in-use stock.
+            use_stock_name (str): Name of the in-use stock. Defaults to "use".
+            warn_small_negative (bool): Whether to warn about small negative inflows, which may
+                have their origin in numerical issues. Defaults to True.
         """
-        stock = self.stocks[stock_name]
-        min_inflow = stock.inflow.values.min()
-        if min_inflow >= 0:
-            return
-        negative_regions = [r for r in self.dims["r"].items if stock.inflow[r].values.min() < 0]
-        small_negative_threshold = 1e-6
-        is_small = abs(min_inflow) <= small_negative_threshold
-        if not is_small or warn_small_negative:
-            logging.warning(
-                f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
-            )
-        corrected_inflow = stock.inflow.maximum(0)
-        self.stocks[stock_name] = fd.InflowDrivenDSM(
+        stock = self.stocks[use_stock_name]
+        stock.stock[...] = stock_projection
+        stock.lifetime_model.set_prms(
+            mean=self.parameters["lifetime_mean"],
+            std=self.parameters["lifetime_std"],
+        )
+        stock.compute()
+
+        inflow = self.blend_and_correct_inflow(stock.inflow, warn_small_negative)
+
+        self.stocks[use_stock_name] = fd.InflowDrivenDSM(
             dims=stock.dims,
             lifetime_model=stock.lifetime_model,
             name=stock.name,
             process=stock.process,
         )
-        self.stocks[stock_name].inflow[...] = corrected_inflow
-        self.stocks[stock_name].compute()
+        self.stocks[use_stock_name].inflow[...] = inflow
+        self.stocks[use_stock_name].compute()
+
+    def blend_and_correct_inflow(
+        self, inflow: fd.FlodymArray, warn_small_negative: bool = True
+    ) -> fd.FlodymArray:
+        """Smooth the transition of the in-use stock inflow from historical to future years
+        with a critically damped blend, and correct any negative inflows to zero.
+        As some small negative inflows may have their origin in numerical issues,
+        the corresponding warning can be suppressed with warn_small_negative=False.
+
+        Args:
+            inflow (fd.FlodymArray): Inflow resulting from a StockDrivenDSM computation.
+            warn_small_negative (bool): Whether to warn about small negative inflows.
+                Defaults to True.
+
+        Returns:
+            fd.FlodymArray: Blended and non-negative inflow.
+        """
+        blended_inflow = critically_damped_blend(
+            inflow,
+            n_historical=self.dims["h"].len,
+            n_trend_years=self.parameters["n_trend_years"],
+            approaching_time=FLOW_APPROACHING_TIME,
+        )
+        add_assumption_doc(
+            type="model assumption",
+            name="Critically damped blend of in-use stock inflow",
+            value=FLOW_APPROACHING_TIME,
+            description=(
+                "The in-use stock inflow resulting from the stock-driven model is blended smoothly "
+                "from historical trends to the future values with a critically damped blend. "
+                "The in-use stock is then recomputed from the blended inflow. "
+                "The value is the approaching time in years."
+            ),
+        )
+        min_inflow = blended_inflow.values.min()
+        if min_inflow < 0:
+            negative_regions = [
+                r for r in self.dims["r"].items if blended_inflow[r].values.min() < 0
+            ]
+            small_negative_threshold = 1e-6
+            is_small = abs(min_inflow) <= small_negative_threshold
+            if not is_small or warn_small_negative:
+                logging.warning(
+                    f"In-use stock inflow <0 in regions {negative_regions}! Correcting negative inflow to 0."
+                )
+        return blended_inflow.maximum(0)
 
     def fill_trade(self):
         """
