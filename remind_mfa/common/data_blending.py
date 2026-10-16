@@ -288,9 +288,7 @@ class CriticallyDampedBlender:
         match self.initial_slope:
             case "lifetime_dependent":
                 trend_window = self._lifetime_dependent_n()
-                v0 = self._trend_slope(
-                    self.time, self.historical, trend_window, last_history_idx
-                )
+                v0 = self._trend_slope(self.time, self.historical, trend_window, last_history_idx)
             case "weighted_regression":
                 v0 = self._weighted_trend_slope(last_history_idx)
             case _:
