@@ -28,8 +28,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         self.check_mass_balance()
         self.check_flows()
 
-    def adjust_inflow(
-        self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
         """Blend and correct the product inflow (see parent class), then add the material (m)
         and constituent (k) splits missing in the product inflow.
 
