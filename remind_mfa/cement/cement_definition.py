@@ -133,8 +133,8 @@ def get_cement_definition(
             fd.StockDefinition(
                 name="use",
                 process="use",
-                dim_letters=("t", "r", "u") if not bottom_up else ("t", "r", "e", "m", "s"),
-                subclass=fd.StockDrivenDSM,
+                dim_letters=full_flow_letters + ("k",),
+                subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             # The eol, atmosphere and carbonated_co2 stocks are injected at runtime by

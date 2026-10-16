@@ -160,7 +160,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             fd.StockDefinition(
                 name="use_dsm",
                 dim_letters=("t", "r", "u"),
-                subclass=fd.StockDrivenDSM,
+                subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(

@@ -2,7 +2,7 @@ import logging
 import sys
 import numpy as np
 import flodym as fd
-from typing import Literal, Optional
+from typing import ClassVar, Literal, Optional
 
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.common_config import CommonCfg
@@ -15,6 +15,8 @@ class CommonMFASystem(fd.MFASystem):
 
     cfg: CommonCfg
     trade_set: Optional[TradeSet] = None
+    lifetime_n_pts_per_interval: ClassVar[int] = 1
+    """Number of points per time interval of the in-use stock lifetime models."""
 
     def compute_use_stock(
         self,
@@ -32,28 +34,29 @@ class CommonMFASystem(fd.MFASystem):
                 in-use stock, if ``adjust_inflow`` adds them.
             use_stock_name (str): Name of the in-use stock. Defaults to "use".
         """
-        stock = self.stocks[use_stock_name]
-        stock.stock[...] = stock_projection
+        stock = fd.StockDrivenDSM(
+            dims=stock_projection.dims,
+            stock=stock_projection.to_class(fd.StockArray),
+            lifetime_model=self.cfg.model_switches.lifetime_model,
+        )
+        self.set_prms_and_compute(stock)
+
+        inflow = self.adjust_inflow(stock.inflow)
+        self.stocks[use_stock_name].inflow[...] = inflow
+        self.set_prms_and_compute(self.stocks[use_stock_name])
+
+    def set_prms_and_compute(self, stock: fd.Stock):
+        """Set the lifetime model parameters and compute the stock.
+
+        Args:
+            stock (fd.Stock): Stock to set parameters for and compute.
+        """
+        stock.lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
         stock.lifetime_model.set_prms(
             mean=self.parameters["lifetime_mean"],
             std=self.parameters["lifetime_std"],
         )
         stock.compute()
-
-        inflow = self.adjust_inflow(stock.inflow)
-
-        self.stocks[use_stock_name] = fd.InflowDrivenDSM(
-            dims=inflow.dims,
-            lifetime_model=type(stock.lifetime_model),
-            name=stock.name,
-            process=stock.process,
-        )
-        self.stocks[use_stock_name].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"],
-            std=self.parameters["lifetime_std"],
-        )
-        self.stocks[use_stock_name].inflow[...] = inflow
-        self.stocks[use_stock_name].compute()
 
     def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
         """Smooth the transition of the in-use stock inflow from historical to future years

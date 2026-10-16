@@ -107,13 +107,12 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             ),
         ]
     else:
-        use_stock_class = fd.StockDrivenDSM
         stocks = [
             fd.StockDefinition(
                 name="use",
                 process="use",
                 dim_letters=("t", "r", "u"),
-                subclass=use_stock_class,
+                subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
