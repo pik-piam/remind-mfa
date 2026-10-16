@@ -147,6 +147,8 @@ class CommonModel[CfgT: CommonCfg]:
             parameter_definitions=scn_prm_def,
         )
         self.scenario_parameters = scenario_reader.get_parameters()
+        # scenario parameters used within the MFA systems
+        self.parameters["n_trend_years"] = self.scenario_parameters["n_trend_years"]
 
     def modify_parameters(self):
         """Manual changes to parameters. Called once at initialization."""

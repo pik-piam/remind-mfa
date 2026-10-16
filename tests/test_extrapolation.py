@@ -20,6 +20,7 @@ from remind_mfa.common.data_blending import (
     CriticallyDampedBlender,
     blend,
     blending_factor,
+    critically_damped_blend,
 )
 from remind_mfa.common.parameter_extrapolation import (
     ParameterExtrapolation,
@@ -360,3 +361,89 @@ def test_critically_damped_blender():
 
     np.testing.assert_allclose(blended[:6], historical)  # history preserved exactly
     assert abs(blended[-1, 0] - 50.0) < 0.5  # converges to the prediction long-term
+
+
+N_TREND_YEARS = 10
+
+
+def test_critically_damped_blender_initial_slope_is_weighted_trend():
+    time = np.arange(2000, 2101)
+    # linear trend with slope 2 over the last N_TREND_YEARS, preceded by an outlier
+    historical = 2.0 * np.arange(N_TREND_YEARS + 1, dtype=float).reshape(-1, 1)
+    historical[0] = 100.0
+    blender = CriticallyDampedBlender(
+        time=time,
+        historical=historical,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=N_TREND_YEARS,
+    )
+    np.testing.assert_allclose(blender._weighted_trend_slope(len(historical) - 1), [2.0])
+
+    # recent years are weighted more: a jump in the last year pulls the slope up more
+    # than the same jump in the first year of the window pulls it down
+    jump_last = 2.0 * np.arange(N_TREND_YEARS, dtype=float).reshape(-1, 1)
+    jump_last[-1] += 10.0
+    jump_first = 2.0 * np.arange(N_TREND_YEARS, dtype=float).reshape(-1, 1)
+    jump_first[0] += 10.0
+    slope_last = CriticallyDampedBlender(
+        time=time,
+        historical=jump_last,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=N_TREND_YEARS,
+    )._weighted_trend_slope(N_TREND_YEARS - 1)
+    slope_first = CriticallyDampedBlender(
+        time=time,
+        historical=jump_first,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=N_TREND_YEARS,
+    )._weighted_trend_slope(N_TREND_YEARS - 1)
+    assert slope_last[0] - 2.0 > 2.0 - slope_first[0] > 0
+
+
+def test_critically_damped_blend_flodym_array():
+    dims = fd.DimensionSet(
+        dim_list=[
+            fd.Dimension(name="Region", letter="r", items=["A", "B"]),
+            fd.Dimension(name="Time", letter="t", items=list(range(2000, 2101))),
+        ]
+    )
+    values = np.full(dims.shape, 50.0)
+    values[:, :6] = np.arange(6, dtype=float)
+    array = fd.FlodymArray(dims=dims, values=values)
+    n_trend_years = fd.FlodymArray(dims=dims[("r",)], values=np.array([10.0, 2.0]))
+    blended = critically_damped_blend(
+        array, n_historical=6, n_trend_years=n_trend_years, approaching_time=10
+    )
+
+    assert blended.dims.letters == ("r", "t")
+    np.testing.assert_allclose(blended.values[:, :6], values[:, :6])
+    np.testing.assert_allclose(blended.values[:, -1], 50.0, atol=0.5)
+
+
+def test_weighted_trend_slope_element_dependent_window():
+    time = np.arange(2000, 2101)
+    # quadratic history: the slope of the regression depends on the window length
+    historical = (np.arange(10, dtype=float) ** 2).reshape(-1, 1).repeat(2, axis=1)
+    blender = CriticallyDampedBlender(
+        time=time,
+        historical=historical,
+        prediction=np.zeros((len(time), 2)),
+        initial_slope="weighted_regression",
+        n_trend_years=np.array([10, 2]),
+    )
+    slopes = blender._weighted_trend_slope(9)
+    # window of 2 years is the finite difference of the last two points
+    np.testing.assert_allclose(slopes[1], 81.0 - 64.0)
+    # each element equals the result for a scalar window of the same length
+    scalar_blender = CriticallyDampedBlender(
+        time=time,
+        historical=historical[:, :1],
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=10,
+    )
+    np.testing.assert_allclose(slopes[0], scalar_blender._weighted_trend_slope(9)[0])
+    assert slopes[0] < slopes[1]

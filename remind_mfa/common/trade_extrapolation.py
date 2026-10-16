@@ -6,7 +6,12 @@ from pydantic import model_validator, ConfigDict
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
 from remind_mfa.common.trade import Trade
 from remind_mfa.common.helpers import RemindMFABaseModel
-from remind_mfa.common.data_blending import blend
+from remind_mfa.common.data_blending import (
+    blend,
+    critically_damped_blend,
+    FLOW_APPROACHING_TIME,
+)
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class TradeExtrapolator(RemindMFABaseModel):
@@ -25,6 +30,10 @@ class TradeExtrapolator(RemindMFABaseModel):
     future_dom_demand: fd.FlodymArray = None
     """future_dom_demand (FlodymArray): The domestic demand values to scale the historical imports by.
     Setting this means calculating trade in backward mode
+    """
+    n_trend_years: fd.FlodymArray
+    """n_trend_years (FlodymArray): Number of most recent historical years used for the initial
+    slope of the critically damped blend of the extrapolated trade.
     """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
@@ -131,6 +140,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         self.scale_first()
         stopover_trade = self.add_stopover()
         self.scale_second(stopover_trade)
+        self.blend_transition()
         self.balance()
 
     def scale_first(self):
@@ -206,6 +216,29 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         self.future_second[...] += stopover_trade
         self.future_second[self.id_hist] = self.historical_second
+
+    def blend_transition(self):
+        """Smooth the transition of both trade flows from historical to future years with a
+        critically damped blend, before balancing. Negative values are set to zero.
+        """
+        n_historical = self.historical_first.dims["h"].len
+        for future_flow in (self.future_first, self.future_second):
+            future_flow[...] = critically_damped_blend(
+                future_flow,
+                n_historical=n_historical,
+                n_trend_years=self.n_trend_years,
+                approaching_time=FLOW_APPROACHING_TIME,
+            ).maximum(0)
+        add_assumption_doc(
+            type="model assumption",
+            name="Critically damped blend of extrapolated trade",
+            value=FLOW_APPROACHING_TIME,
+            description=(
+                "Extrapolated imports and exports are blended smoothly from historical trends to the "
+                "extrapolated values with a critically damped blend, before they are balanced. "
+                "The value is the approaching time in years."
+            ),
+        )
 
     def balance(self):
         """We balance global imports and exports to their hmean

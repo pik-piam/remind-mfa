@@ -58,14 +58,6 @@ class SteelMFASystem(CommonMFASystem):
         self.flows["imports => steel_market"][...] = self.trade_set["steel"].imports
         self.flows["steel_market => exports"][...] = self.trade_set["steel"].exports
 
-    def compute_use_stock(self, stock_projection):
-        self.stocks["use"].stock[...] = stock_projection
-        self.stocks["use"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
-        )
-        self.stocks["use"].compute()
-        self.correct_negative_inflow("use")
-
     def compute_flows(self, historical_trade: TradeSet):
         # abbreviations for better readability
         prm = self.parameters
@@ -89,6 +81,7 @@ class SteelMFASystem(CommonMFASystem):
             historical_trade=historical_trade["manufactured_products"],
             future_trade=trd["manufactured_products"],
             future_dom_demand=flw["manufactured_products_market => use"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
@@ -105,6 +98,7 @@ class SteelMFASystem(CommonMFASystem):
             historical_trade=historical_trade["steel"],
             future_trade=trd["steel"],
             future_dom_demand=flw["steel_market => manufacturing"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
@@ -125,6 +119,7 @@ class SteelMFASystem(CommonMFASystem):
             historical_trade=historical_trade["scrap"],
             future_trade=trd["scrap"],
             future_dom_supply=flw["use => scrap_market"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 

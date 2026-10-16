@@ -22,27 +22,17 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         self.check_mass_balance()
         self.check_flows()
 
-    def compute_use_stock(
-        self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True, **kwargs
-    ):
+    def compute_use_stock(self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True):
         prm = self.parameters
-        stk = self.stocks
-
         if stock_is_cement:
             # Input is cement stock (t, r, u): apply material split and convert to total product mass.
             product_stock = stock_projection * prm["product_material_split"] / prm["cement_ratio"]
         else:
             # Input is already product mass (t, r, u, m): just add k dim.
             product_stock = stock_projection
-        stk["use"].stock = self.add_constituent_split(product_stock, prm)
+        constituent_stock = self.add_constituent_split(product_stock, prm)
 
-        stk["use"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"],
-            std=prm["lifetime_std"],
-        )
-        stk["use"].compute()
-
-        self.correct_negative_inflow("use", warn_small_negative=False)
+        super().compute_use_stock(constituent_stock, warn_small_negative=False)
 
     def add_constituent_split(
         self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
@@ -97,6 +87,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
             future_dom_demand=total_cement_demand,
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
         flw["market_cement => exports"][...] = trd["cement"].exports
@@ -124,6 +115,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             historical_trade=historical_trade["clinker"],
             future_trade=trd["clinker"],
             future_dom_demand=flw["market_clinker => prod_cement"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
         flw["imports => market_clinker"][...] = trd["clinker"].imports
