@@ -30,7 +30,7 @@ def make_visualization_cfg() -> VisualizationCfg:
         consumption=ConsumptionVisualizationCfg(),
         sankey=SankeyVisualizationCfg(),
         extrapolation=BaseVisualizationCfg(),
-        sector_splits=BaseVisualizationCfg(),
+        end_use_split=BaseVisualizationCfg(),
     )
 
 

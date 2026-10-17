@@ -15,8 +15,8 @@ draw one figure per run and merge the figures into an overlay and a difference f
 
 *Change detection* boils the comparison down to numbers: which variables changed in which region
 (:func:`regional_changes`, :func:`change_heatmap`), whether the runs are numerically identical
-(:func:`verdict`, :func:`verdict_markdown` for the PR comment) and how much a figure changed
-(:func:`figure_change`).
+(:func:`summarize_changes`, :meth:`ChangeVerdict.as_markdown` for the PR comment) and how much a
+figure changed (:func:`figure_change`).
 
 The functions here are deliberately free of any notebook or UI code so they can be unit tested
 and reused.
@@ -168,7 +168,7 @@ class RunInfo:
     modified: datetime
     """When the file was last written, i.e. when the run finished."""
     _label: str | None = None
-    """Name to show the run under in figures, see :func:`default_label`."""
+    """Name to show the run under in figures, see :attr:`label`."""
     model: str | None = None
     scenario: str | None = None
     region_mapping: str | None = None
@@ -199,8 +199,7 @@ class RunInfo:
         Args:
             path: ``model.pickle`` of a run or the run directory holding it, or an IAMC
                 ``.xlsx`` workbook.
-            data_root: Directory the display path is relative to, if the run lies below it.
-            label: Name to show the run under; defaults to :func:`default_label`.
+            label: Name to show the run under; defaults to the name of the run directory.
 
         Raises:
             FileNotFoundError: If there is no file at ``path``.
@@ -233,7 +232,7 @@ class RunInfo:
 def discover_runs(data_root: Path) -> list[RunInfo]:
     """Find all model pickles below ``data_root``, newest first."""
     runs = [RunInfo.from_path(path) for path in data_root.glob("**/model.pickle")]
-    return sorted(runs, key=lambda run: (run.modified, run.display_path), reverse=True)
+    return sorted(runs, key=lambda run: (run.modified, run.path), reverse=True)
 
 
 def unique_labels(labels: Sequence[str]) -> list[str]:
@@ -248,7 +247,7 @@ def unique_labels(labels: Sequence[str]) -> list[str]:
 
 def load_runs(
     run_info: dict[str, RunInfo],
-) -> tuple[dict[str, LoadedRun], dict[str, str]]:
+) -> tuple[dict[str, LoadedRun], dict[str, Exception]]:
     """Load multiple runs given their RunInfo objects."""
     loaded_runs = {}
     load_failures = {}
@@ -265,7 +264,7 @@ def load_run(path: Path, label: str) -> LoadedRun:
 
     Args:
         path: ``model.pickle`` of a run, or an IAMC ``.xlsx`` workbook.
-        label: Label to show the run under; defaults to :func:`default_label`.
+        label: Label to show the run under.
 
     Raises:
         RuntimeError: If a pickle was written by an incompatible version of the model code.
@@ -1222,9 +1221,9 @@ def difference_figure(
         yaxis = group[0].yaxis | {"title_text": ylabel}
         panels.append(dataclasses.replace(group[0], traces=traces, yaxis=yaxis))
     cells = _wrap(panels)
-    fig = _grid_figure(cells, reference.layout.title.text + " - Difference" or "").update_layout(
-        barmode="group"
-    )
+    title = reference.layout.title.text
+    fig = _grid_figure(cells, f"{title} - Difference" if title else "Difference")
+    fig.update_layout(barmode="group")
     subtitle = f"{', '.join(labels[1:])} minus {labels[0]}"
     if relative:
         subtitle += f", in % of {labels[0]}"
@@ -1499,11 +1498,10 @@ def change_heatmap(
     changes: pd.DataFrame,
     clip: float = HEATMAP_CLIP_PERCENT,
 ) -> go.Figure:
-    """Scorecard of the changed variables (rows) by region (columns).
+    """Scorecard of the variables (rows) by region (columns), largest world change first.
 
     Cells show the signed change at the year of the largest absolute change, in percent of the
     region's largest reference value, on a diverging scale around zero clipped at ``±clip``.
-    Only the ``max_rows`` variables that changed most are shown.
     """
     if changes.empty:
         return go.Figure(layout={"title": "No changes"})

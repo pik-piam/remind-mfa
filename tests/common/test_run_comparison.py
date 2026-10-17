@@ -36,7 +36,6 @@ from remind_mfa.common.run_comparison import (
     change_heatmap,
     clean_title,
     common_variables,
-    default_label,
     difference_figure,
     discover_runs,
     figure_change,
@@ -48,7 +47,7 @@ from remind_mfa.common.run_comparison import (
     is_sankey,
     list_variables,
     load_run,
-    model_name,
+    load_runs,
     ordered_items,
     overlay_figures,
     peak_change,
@@ -58,7 +57,6 @@ from remind_mfa.common.run_comparison import (
     stored_fields,
     summarize_changes,
     unique_labels,
-    verdict_markdown,
     visualization_cfg,
     with_world,
 )
@@ -126,13 +124,13 @@ def tidy(runs) -> pd.DataFrame:
 # ── loading ────────────────────────────────────────────────────────────────────
 
 
-def test_default_label_is_the_run_directory():
+def test_label_defaults_to_the_run_directory():
     path = Path("data_out/2026-09-07--12-23-18_steel_SSP2_h12/model.pickle")
-    assert default_label(path) == "2026-09-07--12-23-18_steel_SSP2_h12"
+    assert RunInfo(path=path, modified=datetime.now()).label == path.parent.name
 
 
-def test_default_label_falls_back_to_the_file_name():
-    assert default_label(Path("some_run.pickle")) == "some_run"
+def test_label_falls_back_to_the_file_name():
+    assert RunInfo(path=Path("some_run.pickle"), modified=datetime.now()).label == "some_run"
 
 
 def _touch(path: Path, timestamp: float) -> Path:
@@ -152,23 +150,29 @@ def test_discover_runs_describes_the_runs_newest_first(tmp_path):
     assert [run.path for run in runs] == [newer, older]
     assert runs[0] == RunInfo(
         path=newer,
-        display_path="ci_series/ci_cement_SSP1_eu21",
-        label="ci_cement_SSP1_eu21",
         modified=datetime.fromtimestamp(2e9),
         model="cement",
         scenario="SSP1",
         region_mapping="eu21",
     )
+    assert runs[0].display_path(tmp_path) == "ci_series/ci_cement_SSP1_eu21"
+    assert runs[0].label == "ci_cement_SSP1_eu21"
     assert (runs[1].model, runs[1].scenario, runs[1].region_mapping) == ("steel", "SSP2", "h12")
     # a run directory stands for its pickle
-    assert RunInfo.from_path(older.parent, tmp_path) == runs[1]
+    assert RunInfo.from_path(older.parent) == runs[1]
+
+
+def test_discover_runs_orders_runs_written_at_the_same_time(tmp_path):
+    first = _touch(tmp_path / "a_steel_SSP2_h12" / "model.pickle", 1e9)
+    second = _touch(tmp_path / "b_steel_SSP2_h12" / "model.pickle", 1e9)
+    assert [run.path for run in discover_runs(tmp_path)] == [second, first]
 
 
 def test_run_info_of_a_run_elsewhere(tmp_path):
     workbook = _touch(tmp_path / "my_prefix_plastics_SSP2_high_h12" / "output_iamc.xlsx", 1e9)
-    run = RunInfo.from_path(workbook, data_root=tmp_path / "data_out", label="custom")
+    run = RunInfo.from_path(workbook, label="custom")
     # outside the data root the whole path is shown
-    assert run.display_path == str(workbook)
+    assert run.display_path(tmp_path / "data_out") == str(workbook)
     assert run.label == "custom"
     # prefix and scenario may contain underscores
     assert (run.model, run.scenario, run.region_mapping) == ("plastics", "SSP2_high", "h12")
@@ -188,20 +192,39 @@ def test_load_run_reads_a_model_pickle(tmp_path):
     with (run_dir / "model.pickle").open("wb") as file_handle:
         pickle.dump(_FakeModel(), file_handle)
 
-    run = load_run(run_dir / "model.pickle")
+    run = load_run(run_dir / "model.pickle", label="custom")
 
-    assert run.label == run_dir.name
+    assert run.label == "custom"
     assert run.is_model
-    assert model_name(run) == "steel"
+    assert run.model_name == "steel"
     assert list(run.mfa.flows) == ["fabrication => good_market"]
-    assert load_run(run_dir / "model.pickle", label="custom").label == "custom"
 
 
 def test_load_run_rejects_pickles_that_are_not_models(tmp_path):
     with (tmp_path / "model.pickle").open("wb") as file_handle:
         pickle.dump({"flows": {}}, file_handle)
     with pytest.raises(RuntimeError, match="does not contain"):
-        load_run(tmp_path / "model.pickle")
+        load_run(tmp_path / "model.pickle", label="dict")
+
+
+def test_load_runs_collects_the_failures(tmp_path):
+    good = tmp_path / "good_steel_SSP2_h12" / "model.pickle"
+    good.parent.mkdir()
+    with good.open("wb") as file_handle:
+        pickle.dump(_FakeModel(), file_handle)
+    bad = _touch(tmp_path / "bad" / "model.pickle", 1e9)  # empty, so it cannot be unpickled
+
+    loaded, failures = load_runs(
+        {
+            "reference": RunInfo.from_path(good, label="main"),
+            "other": RunInfo.from_path(bad),
+        }
+    )
+
+    assert list(loaded) == ["reference"]
+    assert loaded["reference"].label == "main"
+    assert list(failures) == ["other"]
+    assert isinstance(failures["other"], Exception)
 
 
 def test_with_label_keeps_the_data(runs):
@@ -397,7 +420,7 @@ def _steel_visualization_cfg() -> SteelVisualizationCfg:
         consumption=ConsumptionVisualizationCfg(),
         sankey=SankeyVisualizationCfg(do_visualize=False),
         extrapolation=BaseVisualizationCfg(),
-        sector_splits=BaseVisualizationCfg(do_visualize=False),
+        end_use_split=BaseVisualizationCfg(do_visualize=False),
         scrap_demand_supply=BaseVisualizationCfg(do_visualize=False),
     )
 
@@ -459,7 +482,7 @@ def test_plot_toggles_list_the_plot_groups():
         "consumption": True,
         "sankey": False,
         "extrapolation": True,
-        "sector_splits": False,
+        "end_use_split": False,
         "scrap_demand_supply": False,
     }
 
@@ -714,7 +737,7 @@ def test_difference_figure_is_relative_by_default():
 
     assert fig is not None
     assert list(fig.data[0].y) == pytest.approx([100.0, 100.0, 100.0])
-    assert fig.layout.title.text == "Stocks"
+    assert fig.layout.title.text == "Stocks - Difference"
     assert fig.layout.title.subtitle.text == "new minus base, in % of base"
     # axis titles only along the left edge, where they do not run into the neighbour
     assert fig.layout.yaxis.title.text == "difference [%]"
@@ -885,8 +908,7 @@ def test_verdict_identical_within_tolerance():
     assert summarize_changes(regional_changes(_run("a"), _run("b"))).identical
     noisy = summarize_changes(regional_changes(_run("a"), _run("b", factor=1 + 1e-12)))
     assert noisy.identical
-    line = verdict_markdown(noisy, "cement")
-    assert line.startswith("**cement**: numerically identical (3 variables agree")
+    assert noisy.as_markdown().startswith("**numerically identical** (3 variables agree")
 
 
 def test_verdict_names_the_largest_change():
@@ -900,9 +922,9 @@ def test_verdict_names_the_largest_change():
         largest_region=WORLD,  # ties go to the world total, which comes first
         largest_year=2050,
     )
-    assert verdict_markdown(change_verdict, "steel") == (
-        "**steel**: 1 of 3 variables changed, largest `flow: fabrication => good_market` "
-        "+200 % (World, 2050)"
+    assert change_verdict.as_markdown() == (
+        "**1 of 3 variables changed**, largest `flow: fabrication => good_market` with "
+        "**+200 %** (World, 2050)"
     )
 
 
@@ -958,7 +980,7 @@ def test_change_heatmap_ranks_clips_and_scales():
     heatmap = fig.data[0]
 
     assert list(heatmap.y)[:2] == ["flow: v3", "flow: v34"]  # new values rank first
-    assert len(heatmap.y) == 30
+    assert len(heatmap.y) == 35
     assert list(heatmap.x) == [WORLD, "EUR"]
     assert (heatmap.zmin, heatmap.zmax) == (-50.0, 50.0)
     assert np.asarray(heatmap.z)[0, 0] == 50.0  # inf clipped to the scale
@@ -967,6 +989,7 @@ def test_change_heatmap_ranks_clips_and_scales():
     assert "new (reference is zero)" in heatmap.customdata[0][0]
 
 
-def test_change_heatmap_needs_a_change():
-    with pytest.raises(ValueError, match="no variable changed"):
-        change_heatmap(_changes_frame(1))  # v0 has change 0 everywhere
+def test_change_heatmap_without_changes_is_empty():
+    fig = change_heatmap(_changes_frame(1).iloc[:0])
+    assert not fig.data
+    assert fig.layout.title.text == "No changes"

@@ -88,7 +88,7 @@ def _(Path, data_root, extra_run_picker, mo, rc, run_picker):
 
 
 @app.cell
-def _(label_inputs, mo, rc, selected_runs: "list[rc.RunInfo]"):
+def _(label_inputs, mo, rc, selected_runs):
     _runs = {
         run_label: run_info
         for run_info, run_label in zip(selected_runs, rc.unique_labels(list(label_inputs.value)))
