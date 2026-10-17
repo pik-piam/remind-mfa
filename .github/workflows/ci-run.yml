@@ -172,8 +172,8 @@ jobs:
           fi
           uv run marimo export html notebooks/compare_runs_report.py -f --no-include-code --no-sandbox \
             -o "site/comparison/$model.html" -- \
-            --reference "$baseline" --run "$run" \
-            --reference-label "$BASELINE_LABEL" --run-label "$run_label" \
+            --reference "$baseline" --other "$run" \
+            --reference-label "$BASELINE_LABEL" --other-label "$run_label" \
             --summary "$SUMMARY_DIR/$model.md" || status=1
         done
         du -sh site/comparison
