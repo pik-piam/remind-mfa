@@ -96,8 +96,8 @@ class SteelModel(CommonModel[SteelCfg]):
         )
         scrap_rate_factor = blend(
             target_dims=self.dims["t",],
-            y_lower=1.4,
-            y_upper=0.75,
+            y_lower=0.5,
+            y_upper=0.25,
             x="t",
             x_lower=1970,
             x_upper=2020,
