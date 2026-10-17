@@ -1,0 +1,73 @@
+{
+  extends: [
+    'config:best-practices',
+    ':semanticCommitTypeAll(chore)',
+    // Update lock files: https://docs.renovatebot.com/presets-default/#maintainlockfilesmonthly
+    ':maintainLockFilesMonthly',
+    // Automerge all updates once they pass tests: https://docs.renovatebot.com/presets-default/#automergeall
+    ':automergeAll',
+    // Pin Github Actions versions: https://docs.renovatebot.com/presets-helpers/#helperspingithubactiondigeststosemver
+    'helpers:pinGitHubActionDigestsToSemver',
+  ],
+  schedule: [
+    // Monthly, but give a 3-day window (due to throttling not all PRs may be created on the same day): https://docs.renovatebot.com/configuration-options/#schedule
+    'on the 2nd through 5th day of the month',
+  ],
+  // Always squash PRs: https://docs.renovatebot.com/configuration-options/#automergestrategy
+  automergeStrategy: 'squash',
+  packageRules: [
+    {
+      // Keep the lower bounds in pyproject.toml as they are, and only bump the versions in uv.lock: https://docs.renovatebot.com/configuration-options/#rangestrategy
+      matchManagers: ['pep621'],
+      rangeStrategy: 'update-lockfile',
+    },
+    {
+      matchManagers: ['github-actions'],
+      groupName: 'github-actions',
+    },
+    {
+      matchPackageNames: [
+        'numpy',
+        'scipy',
+        'pandas',
+        'statsmodels',
+        'matplotlib',
+        'plotly',
+        'kaleido',
+      ],
+      groupName: 'scientific stack',
+    },
+    {
+      matchPackageNames: ['pyam-iamc', 'ixmp4'],
+      groupName: 'iamc',
+    },
+    {
+      matchPackageNames: ['openpyxl', 'xlrd', 'xlwt'],
+      groupName: 'excel',
+    },
+    {
+      matchPackageNames: ['mkdocs', 'mkdocs-**', 'pypandoc-binary'],
+      groupName: 'docs',
+    },
+    {
+      matchPackageNames: ['pytest', 'pytest-**'],
+      groupName: 'dev',
+    },
+    {
+      matchPackageNames: ['uv', 'uv_build', 'uv-build', 'astral-sh/setup-uv'],
+      groupName: 'uv',
+    },
+  ],
+  customManagers: [
+    {
+      // Update the uv version installed via astral-sh/setup-uv in the GitHub workflows
+      customType: 'regex',
+      managerFilePatterns: ['/^\\.github/workflows/[^/]+\\.ya?ml$/'],
+      matchStrings: [
+        'uses: astral-sh/setup-uv@[^\\n]*\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+version: "(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: 'pypi',
+      depNameTemplate: 'uv',
+    },
+  ],
+}

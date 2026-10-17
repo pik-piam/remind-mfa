@@ -7,10 +7,10 @@ app = marimo.App(width="medium")
 @app.cell
 def _(mo):
     mo.md(r"""
-    # Material shares in historic primary plastics trade
+    # Material shares in historical primary plastics trade
 
     The parameters `pl_primary_his_exports.cs4r` and `pl_primary_his_imports.cs4r` resolve
-    historic primary plastics trade (1950-2024) by region and polymer. This notebook computes,
+    historical primary plastics trade (1950-2024) by region and polymer. This notebook computes,
     for every year, the share each material contributes to total trade and checks whether those
     shares are constant enough that a time-independent split could be used for future projections.
     """)
@@ -45,7 +45,7 @@ def _(Path, pd):
         )
 
     def read_trade_cs4r(flow: str) -> pd.DataFrame:
-        """Read a historic primary plastics trade parameter file.
+        """Read a historical primary plastics trade parameter file.
 
         Args:
             flow: Either `"exports"` or `"imports"`.

@@ -167,8 +167,8 @@ def get_coupling_paths(
     return CouplingPaths(
         mfa_pipeline_mapping=mfa_pipeline_mapping,
         input_data_path=input_data_path,
-        region_dimension_path=dimensions_path / "regions.csv",
-        time_dimension_path=dimensions_path / "time_in_years.csv",
+        region_dimension_path=input_data_path / "parameters" / "regionmapping.csv",
+        time_dimension_path=dimensions_path / "time.csv",
     )
 
 
@@ -215,15 +215,15 @@ def copy_demand_to_atlas(
     raise AtlasCouplingError(f"No demand converter is implemented for model '{model}'.")
 
 
-def _load_dimension_items(path: Path, dimension_name: str) -> list[str]:
+def _load_region_items(path: Path) -> list[str]:
+    """Region codes of the MFA Region dimension, read from the region mapping in the same way as
+    `CommonDimensionReader`."""
     if not path.is_file():
-        raise AtlasCouplingError(f"MFA {dimension_name} dimension file was not found: {path}")
-    values = [
-        line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
-    ]
-    if not values:
-        raise AtlasCouplingError(f"MFA {dimension_name} dimension file is empty: {path}")
-    return values
+        raise AtlasCouplingError(f"MFA region mapping file was not found: {path}")
+    regions = pd.read_csv(path, delimiter=";")["RegionCode"].unique().tolist()
+    if not regions:
+        raise AtlasCouplingError(f"MFA region mapping file is empty: {path}")
+    return regions
 
 
 def _atlas_scenario_sheet_name(spec: ModelSpec, scenario_pkbudg: AtlasScenarioPkBudg) -> str:
@@ -262,7 +262,7 @@ def load_atlas_trade_projection(
     if (data["quantity"] < 0).any():
         raise AtlasCouplingError("ATLAS bilateral trade contains negative values in 'quantity'.")
 
-    expected_regions = _load_dimension_items(region_dimension_path, "Region")
+    expected_regions = _load_region_items(region_dimension_path)
     invalid_regions = sorted(set(data["i"]) - set(expected_regions))
     if invalid_regions:
         raise AtlasCouplingError(
@@ -334,7 +334,7 @@ def _adjust_plastics_trade(
 
     adjusted_flows = []
     for flow, future_trade in (("imports", imports), ("exports", exports)):
-        historic_path = PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_his_{flow}.cs4r"
+        historic_path = PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_{flow}.cs4r"
         if not historic_path.is_file():
             raise AtlasCouplingError(
                 f"Historic plastics {flow} trade parameter was not found: {historic_path}"
