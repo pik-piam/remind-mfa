@@ -5,6 +5,11 @@ on:
     branches: [ "main" ]
   pull_request_target:
   workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: "Branch, tag or SHA whose model run the results are compared against"
+        default: main
+        type: string
 
 permissions:
   contents: read
@@ -22,6 +27,11 @@ jobs:
     env:
       MADRAT_OUTPUTFOLDER: ${{ github.workspace }}/madrat_output
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # The run is compared against the following baseline:
+        # - Manual runs against the input
+        # - Pushes to main against the previous commit
+        # - PRs against the base branch
+      BASELINE_REF: ${{ inputs.baseline_ref || (github.event_name == 'push' && github.event.before) || github.event.pull_request.base.ref || 'main' }}
     # Guard: Only run this job on PRs only for trusted contributors (since we are using secrets and accessing the HPC)
     if: github.event_name != 'pull_request_target' || github.event.pull_request.author_association == 'COLLABORATOR' || github.event.pull_request.author_association == 'OWNER'
     steps:
@@ -70,7 +80,6 @@ jobs:
         key: madrat-mfa-${{ hashFiles('config/default.toml') }}
 
     - name: Configure SSH access to the HPC
-      if: steps.madrat-cache.outputs.cache-hit != 'true'
       env:
         HPC_SSH_KEY: ${{ secrets.HPC_SSH_KEY }}
         HPC_KNOWN_HOSTS: ${{ secrets.HPC_KNOWN_HOSTS }}
@@ -99,6 +108,31 @@ jobs:
     - name: Run model
       run: uv run remind_mfa.py --config default --config ci --model all
 
+    - name: Check out baseline
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ env.BASELINE_REF }}
+        path: baseline
+        submodules: false
+
+    - name: Run baseline model
+      id: baseline
+      continue-on-error: true
+      working-directory: baseline
+      run: |
+        set -eu
+        git submodule update --init --depth 1 data_in/legacy
+        uv sync --locked
+        # Download old MFA archive if config changed
+        if ! cmp -s config/default.toml "$GITHUB_WORKSPACE/config/default.toml"; then
+          uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
+        fi
+        uv run remind_mfa.py --config default --config ci --model all
+        ref="${BASELINE_REF#refs/heads/}"
+        short_sha="$(git rev-parse --short HEAD)"
+        if [ "${#ref}" -ge 40 ]; then label="$short_sha"; else label="$ref@$short_sha"; fi
+        echo "label=$label" >> "$GITHUB_OUTPUT"
+
     - name: Stage for deployment
       # The above run exports all figures as HTML into data_out/ci_series/
       # Copy only the HTML pages and plotly.min.js; pickles etc. may exceed Cloudflare's file size limit.
@@ -110,7 +144,52 @@ jobs:
         test -f site/index.html
         du -sh site
 
-    - name: Deploy figures to Cloudflare Pages
+    - name: Compare with baseline
+      id: compare
+      if: steps.baseline.outcome == 'success'
+      continue-on-error: true
+      env:
+        BASELINE_LABEL: ${{ steps.baseline.outputs.label }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        SUMMARY_DIR: ${{ runner.temp }}/comparison_summary
+      run: |
+        set -u
+        if [ -n "$PR_NUMBER" ]; then
+          run_label="PR #$PR_NUMBER"
+        else
+          run_label="$GITHUB_REF_NAME@${HEAD_SHA:0:7}"
+        fi
+        mkdir -p site/comparison "$SUMMARY_DIR"
+        status=0
+        for model in steel cement plastics; do
+          baseline=$(ls baseline/data_out/ci_series/ci_${model}_*/model.pickle 2>/dev/null | head -n 1)
+          run=$(ls data_out/ci_series/ci_${model}_*/model.pickle 2>/dev/null | head -n 1)
+          if [ -z "$baseline" ] || [ -z "$run" ]; then
+            echo "No pickle for $model (baseline: '$baseline', run: '$run')" >&2
+            status=1
+            continue
+          fi
+          uv run marimo export html notebooks/compare_runs_report.py -f --no-include-code --no-sandbox \
+            -o "site/comparison/$model.html" -- \
+            --reference "$baseline" --run "$run" \
+            --reference-label "$BASELINE_LABEL" --run-label "$run_label" \
+            --summary "$SUMMARY_DIR/$model.md" || status=1
+        done
+        du -sh site/comparison
+        exit $status
+
+    - name: Check that only HTML and JS are deployed
+      # The input data behind the runs is private: no run output may leave the job.
+      run: |
+        set -eu
+        if find site -type f ! -name '*.html' ! -name '*.js' | grep -q .; then
+          echo "site/ contains files other than HTML and JS:" >&2
+          find site -type f ! -name '*.html' ! -name '*.js' >&2
+          exit 1
+        fi
+
+    - name: Deploy to Cloudflare Pages
       id: deploy
       if: env.CLOUDFLARE_API_TOKEN != ''
       uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
@@ -123,19 +202,59 @@ jobs:
           --branch=${{ github.head_ref || github.ref_name }}
           --commit-dirty=true
 
-    - name: Add URL to summary
+    - name: Create PR message
+      id: message
       if: steps.deploy.outcome == 'success'
       env:
         URL: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
-      run: echo "Interactive preview at $URL" >> "$GITHUB_STEP_SUMMARY"
+        COMPARE_OUTCOME: ${{ steps.compare.outcome }}
+        BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+        BASELINE_LABEL: ${{ steps.baseline.outputs.label }}
+        SUMMARY_DIR: ${{ runner.temp }}/comparison_summary
+      run: |
+        set -eu
+        baseline_comparison_summary() {
+          for model in steel cement plastics; do
+            page="$URL/comparison/$model.html"
+            summary="$SUMMARY_DIR/$model.md"
+            if [ -s "$summary" ]; then
+              printf -- '- %s — [report](%s)\n' "$(cat "$summary")" "$page"
+            elif [ -f "site/comparison/$model.html" ]; then
+              printf -- '- **%s**: summary not available — [report](%s)\n' "$model" "$page"
+            else
+              printf -- '- **%s**: comparison page could not be built, see the workflow log\n' "$model"
+            fi
+          done
+        }
+        message=$( {
+          echo "Figures: $URL"
+          echo ""
+          case "$COMPARE_OUTCOME" in
+            success|failure)
+              echo "Comparison against \`$BASELINE_LABEL\`:"
+              baseline_comparison_summary
+              if [ "$COMPARE_OUTCOME" = failure ]; then
+                echo "(some comparison pages could not be built, see the workflow log)"
+              fi
+              ;;
+            *)
+              echo "Error: baseline run did not succeed, see the workflow log."
+              ;;
+          esac
+        } )
+        {
+          echo "message<<MESSAGE_END"
+          echo "$message"
+          echo "MESSAGE_END"
+        } >> "$GITHUB_OUTPUT"
+        echo "$message" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Comment URL on PR
-      if: steps.deploy.outcome == 'success' && github.event_name == 'pull_request_target'
+      if: steps.message.outcome == 'success' && github.event_name == 'pull_request_target'
       uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
       with:
         header: preview
-        message: |
-          Interactive preview at ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+        message: ${{ steps.message.outputs.message }}
 
     - name: Regenerate docs
       id: docs
