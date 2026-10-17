@@ -33,9 +33,7 @@ def _(mo):
 @app.cell
 def _(Path):
     repo_root = next(
-        path
-        for path in (Path.cwd(), *Path.cwd().parents)
-        if (path / "pyproject.toml").exists()
+        path for path in (Path.cwd(), *Path.cwd().parents) if (path / "pyproject.toml").exists()
     )
     data_root = repo_root / "data_out"
     return (data_root,)
@@ -93,9 +91,7 @@ def _(Path, data_root, extra_run_picker, mo, rc, run_picker):
 def _(label_inputs, mo, rc, selected_runs: "list[rc.RunInfo]"):
     _runs = {
         run_label: run_info
-        for run_info, run_label in zip(
-            selected_runs, rc.unique_labels(list(label_inputs.value))
-        )
+        for run_info, run_label in zip(selected_runs, rc.unique_labels(list(label_inputs.value)))
     }
     _runs_as_dict, load_failures = rc.load_runs(_runs)
     runs = _runs_as_dict.values()
@@ -108,9 +104,7 @@ def _(label_inputs, mo, rc, selected_runs: "list[rc.RunInfo]"):
         callout = mo.callout(
             mo.md(
                 "**Could not read the runs -> Skipped**\n\n"
-                + "\n".join(
-                    f"- {key}: \n\n    {error}" for key, error in load_failures.items()
-                )
+                + "\n".join(f"- {key}: \n\n    {error}" for key, error in load_failures.items())
             ),
             kind="danger",
         )
@@ -194,9 +188,7 @@ def _(dimensions, mo, rc, runs, variables):
                 justify="start",
                 gap=2,
             ),
-            mo.hstack(
-                [shares_picker, reference_picker, difference_picker], justify="start", gap=2
-            ),
+            mo.hstack([shares_picker, reference_picker, difference_picker], justify="start", gap=2),
         ]
     )
     return (
@@ -215,14 +207,12 @@ def _(dimensions, mo, rc, runs, variables):
 def _(chart_picker, df, dimensions, mo, rc):
     is_bar = chart_picker.value in (rc.ChartType.BAR_STACKED, rc.ChartType.BAR_GROUPED)
 
-
     def default_items(column: str) -> list:
         items = rc.ordered_items(df[column])
         if not is_bar or column != "Time":
             return items
         # a bar chart with 200 year positions is unreadable, so start from a few milestones
         return [year for year in (2020, 2030, 2050, 2100) if year in items] or items[-1:]
-
 
     filter_controls = mo.ui.dictionary(
         {

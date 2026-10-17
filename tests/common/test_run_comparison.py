@@ -416,9 +416,7 @@ def test_visualization_cfg_plots_headlessly_and_keeps_the_settings():
 
 
 def test_visualization_cfg_switches_plot_groups():
-    cfg = visualization_cfg(
-        _steel_visualization_cfg(), plots={"trade": True, "use_stock": False}
-    )
+    cfg = visualization_cfg(_steel_visualization_cfg(), plots={"trade": True, "use_stock": False})
     assert cfg.trade.do_visualize
     assert not cfg.use_stock.do_visualize
     assert cfg.use_stock.per_capita  # other settings of the group are kept
@@ -475,25 +473,55 @@ def _standard_figure(factor: float = 1.0) -> go.Figure:
     fig = make_subplots(rows=1, cols=2, subplot_titles=["EUR", "USA"])
     years = [2020, 2030, 2050]
     fig.add_trace(
-        go.Scatter(x=years, y=np.array([1.0, 2.0, 4.0]) * factor, name="EUR", line=dict(color="red", dash="solid")),
-        row=1, col=1,
+        go.Scatter(
+            x=years,
+            y=np.array([1.0, 2.0, 4.0]) * factor,
+            name="EUR",
+            line=dict(color="red", dash="solid"),
+        ),
+        row=1,
+        col=1,
     )
     fig.add_trace(
-        go.Scatter(x=years, y=np.array([1.0, 2.0, 4.0]) * factor, name="EUR", line=dict(color="red", dash="dot"), showlegend=False),
-        row=1, col=1,
+        go.Scatter(
+            x=years,
+            y=np.array([1.0, 2.0, 4.0]) * factor,
+            name="EUR",
+            line=dict(color="red", dash="dot"),
+            showlegend=False,
+        ),
+        row=1,
+        col=1,
     )
     fig.add_trace(
-        go.Scatter(x=years[-1:], y=[4.0 * factor], name="EUR", mode="markers", marker=dict(color="black")),
-        row=1, col=1,
+        go.Scatter(
+            x=years[-1:], y=[4.0 * factor], name="EUR", mode="markers", marker=dict(color="black")
+        ),
+        row=1,
+        col=1,
     )
     # stacked area: cumulative values of the layers [1, 1, 1] and [1, 2, 3]
     fig.add_trace(
-        go.Scatter(x=years, y=np.array([1.0, 1.0, 1.0]) * factor, name="Construction", fill="tozeroy", line=dict(color="blue")),
-        row=1, col=2,
+        go.Scatter(
+            x=years,
+            y=np.array([1.0, 1.0, 1.0]) * factor,
+            name="Construction",
+            fill="tozeroy",
+            line=dict(color="blue"),
+        ),
+        row=1,
+        col=2,
     )
     fig.add_trace(
-        go.Scatter(x=years, y=np.array([2.0, 3.0, 4.0]) * factor, name="Machinery", fill="tonexty", line=dict(color="green")),
-        row=1, col=2,
+        go.Scatter(
+            x=years,
+            y=np.array([2.0, 3.0, 4.0]) * factor,
+            name="Machinery",
+            fill="tonexty",
+            line=dict(color="green"),
+        ),
+        row=1,
+        col=2,
     )
     fig.update_layout(title_text="Stocks")
     fig.update_yaxes(title_text="Stock [t]")
@@ -579,7 +607,9 @@ def test_overlay_keeps_stacked_areas_together():
     fig = make_subplots(rows=1, cols=1)
     for layer in range(6):
         fig.add_trace(
-            go.Scatter(x=[2020, 2050], y=[layer + 1.0, layer + 2.0], name=f"L{layer}", fill="tonexty")
+            go.Scatter(
+                x=[2020, 2050], y=[layer + 1.0, layer + 2.0], name=f"L{layer}", fill="tonexty"
+            )
         )
     overlay = overlay_figures([fig, fig], ["base", "new"])
     assert {(trace.xaxis, trace.yaxis) for trace in overlay.data} == {("x", "y")}

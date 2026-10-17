@@ -98,9 +98,7 @@ TEMPLATE = go.layout.Template(
             zerolinewidth=1,
             automargin=True,
         ),
-        legend=dict(
-            bgcolor="rgba(0,0,0,0)", tracegroupgap=0, title=dict(font=dict(color=INK))
-        ),
+        legend=dict(bgcolor="rgba(0,0,0,0)", tracegroupgap=0, title=dict(font=dict(color=INK))),
         hoverlabel=dict(bgcolor=SURFACE, bordercolor=AXIS_COLOR, font=dict(color=INK)),
         bargap=0.25,
         margin=dict(l=60, r=24, t=80, b=48),
@@ -218,8 +216,7 @@ class RunInfo:
             (
                 index
                 for index, part in enumerate(parts)
-                if part in {model.value for model in ModelNames}
-                and 0 < index < len(parts) - 2
+                if part in {model.value for model in ModelNames} and 0 < index < len(parts) - 2
             ),
             None,
         )
@@ -228,9 +225,7 @@ class RunInfo:
             _label=label,
             modified=datetime.fromtimestamp(path.stat().st_mtime),
             model=None if model_index is None else parts[model_index],
-            scenario=None
-            if model_index is None
-            else "_".join(parts[model_index + 1 : -1]),
+            scenario=None if model_index is None else "_".join(parts[model_index + 1 : -1]),
             region_mapping=None if model_index is None else parts[-1],
         )
 
@@ -276,9 +271,7 @@ def load_run(path: Path, label: str) -> LoadedRun:
         RuntimeError: If a pickle was written by an incompatible version of the model code.
     """
     path = Path(path)
-    data = (
-        _load_model(path) if path.suffix == ".pickle" else pyam.IamDataFrame(str(path))
-    )
+    data = _load_model(path) if path.suffix == ".pickle" else pyam.IamDataFrame(str(path))
     return LoadedRun(path=path, label=label, data=data)
 
 
@@ -309,9 +302,7 @@ def list_variables(run: LoadedRun) -> list[str]:
     group prefix keeps names unique across flows, stocks, parameters and trade.
     """
     if isinstance(run.data, pyam.IamDataFrame):
-        return [
-            f"{variable.split('|')[0]}: {variable}" for variable in run.data.variable
-        ]
+        return [f"{variable.split('|')[0]}: {variable}" for variable in run.data.variable]
     return list(_pickle_getters(run.mfa))
 
 
@@ -374,9 +365,9 @@ def _iamc_variable(iam_df: pyam.IamDataFrame, variable: str) -> pd.DataFrame:
     df = iam_df.filter(variable=variable).data
     if df.empty:
         raise KeyError(f"{variable!r} not found in the IAMC workbook.")
-    return df.rename(
-        columns={"year": "Time", "region": REGION_COLUMN, "unit": UNIT_COLUMN}
-    )[["Time", REGION_COLUMN, UNIT_COLUMN, VALUE_COLUMN]]
+    return df.rename(columns={"year": "Time", "region": REGION_COLUMN, "unit": UNIT_COLUMN})[
+        ["Time", REGION_COLUMN, UNIT_COLUMN, VALUE_COLUMN]
+    ]
 
 
 def build_frame(runs: Sequence[LoadedRun], variables: Sequence[str]) -> pd.DataFrame:
@@ -396,17 +387,13 @@ def build_frame(runs: Sequence[LoadedRun], variables: Sequence[str]) -> pd.DataF
     if not frames:
         return pd.DataFrame({RUN_COLUMN: [], VARIABLE_COLUMN: [], VALUE_COLUMN: []})
     tidy = pd.concat(frames, ignore_index=True)
-    tidy[RUN_COLUMN] = pd.Categorical(
-        tidy[RUN_COLUMN], categories=[run.label for run in runs]
-    )
+    tidy[RUN_COLUMN] = pd.Categorical(tidy[RUN_COLUMN], categories=[run.label for run in runs])
     return tidy
 
 
 def dimension_columns(df: pd.DataFrame) -> list[str]:
     """Columns of a tidy frame that can be mapped to a plot channel."""
-    return [
-        column for column in df.columns if column not in (VALUE_COLUMN, UNIT_COLUMN)
-    ]
+    return [column for column in df.columns if column not in (VALUE_COLUMN, UNIT_COLUMN)]
 
 
 def with_world(df: pd.DataFrame) -> pd.DataFrame:
@@ -420,15 +407,9 @@ def with_world(df: pd.DataFrame) -> pd.DataFrame:
     is_world = df[REGION_COLUMN] == WORLD
     regional, world = df[~is_world], df[is_world]
     if world.empty:
-        others = [
-            column
-            for column in df.columns
-            if column not in (REGION_COLUMN, VALUE_COLUMN)
-        ]
+        others = [column for column in df.columns if column not in (REGION_COLUMN, VALUE_COLUMN)]
         world = (
-            regional.groupby(others, as_index=False, observed=True, dropna=False)[
-                VALUE_COLUMN
-            ]
+            regional.groupby(others, as_index=False, observed=True, dropna=False)[VALUE_COLUMN]
             .sum()
             .assign(**{REGION_COLUMN: WORLD})[df.columns]
         )
@@ -441,9 +422,7 @@ def with_world(df: pd.DataFrame) -> pd.DataFrame:
     return combined
 
 
-def apply_filters(
-    df: pd.DataFrame, filters: Mapping[str, Sequence[Any]]
-) -> pd.DataFrame:
+def apply_filters(df: pd.DataFrame, filters: Mapping[str, Sequence[Any]]) -> pd.DataFrame:
     """Restrict columns to the given items. Empty or missing selections are ignored."""
     for column, items in filters.items():
         if column in df.columns and len(items):
@@ -509,17 +488,13 @@ def frame_figures(
     """
     channels = [column for column in (facet, color) if column is not None]
     if len({x, *channels}) <= len(channels):
-        raise ValueError(
-            "Each dimension can only go to one of the x axis, lines and subplots."
-        )
+        raise ValueError("Each dimension can only go to one of the x axis, lines and subplots.")
     if REGION_COLUMN in df.columns and REGION_COLUMN not in (x, *channels):
         world = df[df[REGION_COLUMN] == WORLD]
         df = df if world.empty else world
     if df.empty:
         raise ValueError("Nothing to plot: the selection is empty.")
-    items = {
-        column: [str(item) for item in ordered_items(df[column])] for column in channels
-    }
+    items = {column: [str(item) for item in ordered_items(df[column])] for column in channels}
     x_items = [item for item in ordered_items(df[x]) if not pd.isna(item)]
     # as text, items a variable lacks the dimension of (NaN) stay in the groups as "nan"
     df = df.assign(**{column: df[column].astype(str) for column in channels})
@@ -546,9 +521,7 @@ def frame_figures(
             )
             stack = np.zeros(len(x_items))
             for index, color_item in enumerate(items[color] if color else [None]):
-                key = tuple(
-                    item for item in (run, facet_item, color_item) if item is not None
-                )
+                key = tuple(item for item in (run, facet_item, color_item) if item is not None)
                 values = lines.get(key, missing)
                 item_color = COLORS[index % len(COLORS)]
                 if chart_type in (ChartType.BAR_STACKED, ChartType.BAR_GROUPED):
@@ -557,13 +530,9 @@ def frame_figures(
                         y=values,
                         name=color_item,
                         # a hairline of the surface colour separates touching bars and segments
-                        marker=dict(
-                            color=item_color, line=dict(color=SURFACE, width=1)
-                        ),
+                        marker=dict(color=item_color, line=dict(color=SURFACE, width=1)),
                         # the runs' bars of an item share their place next to the other items
-                        offsetgroup=color_item
-                        if chart_type is ChartType.BAR_GROUPED
-                        else None,
+                        offsetgroup=color_item if chart_type is ChartType.BAR_GROUPED else None,
                     )
                 else:
                     trace = go.Scatter(
@@ -630,14 +599,12 @@ def _panels(fig: go.Figure) -> list[_Panel]:
     positions: dict[tuple[str, str], tuple[float, float]] = {}
     colorway = fig.layout.template.layout.colorway or plc.qualitative.Plotly
     for index, trace in enumerate(go.Figure(fig).data):
-        if (
-            trace.type == "scatter"
-            and trace.line.color is None
-            and trace.marker.color is None
-        ):
+        if trace.type == "scatter" and trace.line.color is None and trace.marker.color is None:
             color = colorway[index % len(colorway)]
-            trace.update(marker_color=color) if _is_markers(trace) else trace.update(
-                line_color=color
+            (
+                trace.update(marker_color=color)
+                if _is_markers(trace)
+                else trace.update(line_color=color)
             )
         key = (trace.xaxis or "x", trace.yaxis or "y")
         if key not in panels:
@@ -659,9 +626,7 @@ def _axis_key(anchor: str) -> str:
 
 
 def _axis_settings(axis) -> dict[str, Any]:
-    settings = {
-        name: axis[name] for name in _CARRIED_AXIS_SETTINGS if axis[name] is not None
-    }
+    settings = {name: axis[name] for name in _CARRIED_AXIS_SETTINGS if axis[name] is not None}
     if axis.title.text:
         settings["title_text"] = axis.title.text
     return settings
@@ -700,20 +665,14 @@ def _match_panels(panel_sets: Sequence[list[_Panel]]) -> list[list[_Panel]]:
     for key in dict.fromkeys(key for panels in keyed_sets for key in panels):
         present = next(panels[key] for panels in keyed_sets if key in panels)
         matched.append(
-            [
-                panels.get(key) or dataclasses.replace(present, traces=[])
-                for panels in keyed_sets
-            ]
+            [panels.get(key) or dataclasses.replace(present, traces=[]) for panels in keyed_sets]
         )
     return matched
 
 
 def _wrap(panels: Sequence[_Panel]) -> list[list[_Panel | None]]:
     n_columns = max(1, min(MAX_FACET_COLUMNS, len(panels)))
-    return [
-        list(panels[start : start + n_columns])
-        for start in range(0, len(panels), n_columns)
-    ]
+    return [list(panels[start : start + n_columns]) for start in range(0, len(panels), n_columns)]
 
 
 def _grid_figure(cells: Sequence[Sequence[_Panel | None]], title: str) -> go.Figure:
@@ -750,9 +709,7 @@ def _grid_figure(cells: Sequence[Sequence[_Panel | None]], title: str) -> go.Fig
     }
     traces, trace_rows, trace_columns = [], [], []
     for row, cells_of_row in enumerate(grid):
-        first_column = next(
-            column for column, cell in enumerate(cells_of_row) if cell is not None
-        )
+        first_column = next(column for column, cell in enumerate(cells_of_row) if cell is not None)
         for column, panel in enumerate(cells_of_row):
             if panel is None:
                 continue
@@ -774,10 +731,7 @@ def _grid_figure(cells: Sequence[Sequence[_Panel | None]], title: str) -> go.Fig
     fig.update_xaxes(dtick="D2", selector=dict(type="log"))
     fig.update_yaxes(dtick="D2", selector=dict(type="log"))
     has_log_x = any(
-        panel.xaxis.get("type") == "log"
-        for row in grid
-        for panel in row
-        if panel is not None
+        panel.xaxis.get("type") == "log" for row in grid for panel in row if panel is not None
     )
     fig.update_layout(
         template=TEMPLATE,
@@ -865,12 +819,8 @@ def standard_figures(run: LoadedRun, cfg: VisualizationCfg) -> dict[str, go.Figu
     but nothing is shown or written. Use :func:`visualization_cfg` to derive ``cfg``.
     """
     model = run.model
-    visualizer = type(model).VisualizerCls(
-        cfg=cfg, display_names=type(model).DisplayNamesCls()
-    )
-    renderer = (
-        pio.renderers.default
-    )  # constructing a visualizer changes the global renderer
+    visualizer = type(model).VisualizerCls(cfg=cfg, display_names=type(model).DisplayNamesCls())
+    renderer = pio.renderers.default  # constructing a visualizer changes the global renderer
     try:
         visualizer.visualize(model)
     finally:
@@ -926,13 +876,15 @@ def _kind(traces: Iterable) -> str:
     """How traces are drawn, so the runs can be keyed alike: as "bar", "markers", "area" or, if
     mixed, "line"; a stack keeps its areas whatever else is drawn."""
     kinds = {
-        "bar"
-        if trace.type == "bar"
-        else "area"
-        if getattr(trace, "fill", None)
-        else "markers"
-        if _is_markers(trace)
-        else "line"
+        (
+            "bar"
+            if trace.type == "bar"
+            else (
+                "area"
+                if getattr(trace, "fill", None)
+                else "markers" if _is_markers(trace) else "line"
+            )
+        )
         for trace in traces
     }
     if "area" in kinds:
@@ -1011,17 +963,13 @@ def _run_swatch(index: int, kind: str = "line") -> dict[str, Any]:
     """Legend style of the run at ``index`` in traces of the given kind (see :func:`_kind`): the
     reference as its ghost, the others as they are drawn."""
     if kind in ("bar", "markers"):
-        symbol = (
-            "square" if kind == "bar" else _run_variant(index, RUN_SYMBOLS) or "circle"
-        )
+        symbol = "square" if kind == "bar" else _run_variant(index, RUN_SYMBOLS) or "circle"
         opacity = REFERENCE_OPACITY if index == 0 else 1.0
         marker = dict(color=SECONDARY_INK, size=10, symbol=symbol, opacity=opacity)
         return dict(mode="markers", marker=marker)
     if index > 0:
         dash = _run_variant(index, RUN_DASHES)
-        return dict(
-            mode="lines", line=dict(color=SECONDARY_INK, width=LINE_WIDTH, dash=dash)
-        )
+        return dict(mode="lines", line=dict(color=SECONDARY_INK, width=LINE_WIDTH, dash=dash))
     if kind == "area":
         faded = _faded(SECONDARY_INK, REFERENCE_OPACITY)
         return dict(mode="lines", fill="toself", fillcolor=faded, line=dict(width=0))
@@ -1066,13 +1014,9 @@ def _series_swatches(panels: Iterable[_Panel]) -> dict[str, dict[str, Any]]:
                 line=dict(color=color, width=0),
             )
         elif _is_markers(trace):
-            swatches[name] = dict(
-                mode="markers", marker=dict(color=trace.marker.color, size=8)
-            )
+            swatches[name] = dict(mode="markers", marker=dict(color=trace.marker.color, size=8))
         else:
-            swatches[name] = dict(
-                mode="lines", line=dict(color=trace.line.color, width=LINE_WIDTH)
-            )
+            swatches[name] = dict(mode="lines", line=dict(color=trace.line.color, width=LINE_WIDTH))
     return swatches
 
 
@@ -1106,9 +1050,7 @@ def _add_legends(
         for name, style in styles.items()
     ]
     if runs:
-        run_key = dict(
-            orientation="h", x=1, xanchor="right", **_top_band(fig.layout.height)
-        )
+        run_key = dict(orientation="h", x=1, xanchor="right", **_top_band(fig.layout.height))
         if series:
             run_key |= dict(itemclick=False, itemdoubleclick=False)
         fig.update_layout({run_legend: run_key})
@@ -1139,20 +1081,14 @@ def overlay_figures(figures: Sequence[go.Figure], labels: Sequence[str]) -> go.F
     ghost = len(figures) > 1
     matched = _match_panels([_panels(fig) for fig in figures])
     series_per_group = [
-        list(dict.fromkeys(name for panel in group for name in panel.series()))
-        for group in matched
+        list(dict.fromkeys(name for panel in group for name in panel.series())) for group in matched
     ]
-    kind = _kind(
-        trace for group in matched for panel in group for trace in panel.traces
-    )
+    kind = _kind(trace for group in matched for panel in group for trace in panel.traces)
     barmode = figures[0].layout.barmode
-    is_stacked = barmode == "stack" or any(
-        panel.is_stacked for group in matched for panel in group
-    )
+    is_stacked = barmode == "stack" or any(panel.is_stacked for group in matched for panel in group)
     split = (
         not is_stacked
-        and max((len(names) for names in series_per_group), default=0)
-        > MAX_OVERLAID_SERIES
+        and max((len(names) for names in series_per_group), default=0) > MAX_OVERLAID_SERIES
         and sum(len(names) for names in series_per_group) <= MAX_OVERLAY_PANELS
     )
     # the legend shows each series in the compared runs' style
@@ -1184,14 +1120,14 @@ def overlay_figures(figures: Sequence[go.Figure], labels: Sequence[str]) -> go.F
 
     cells: list[list[_Panel | None]]
     if split and 1 < len(matched) <= MAX_FACET_COLUMNS:
-        all_series = list(
-            dict.fromkeys(name for names in series_per_group for name in names)
-        )
+        all_series = list(dict.fromkeys(name for names in series_per_group for name in names))
         cells = [
             [
-                merged(group, split_title(group[0].title, series), series)
-                if series in names
-                else None
+                (
+                    merged(group, split_title(group[0].title, series), series)
+                    if series in names
+                    else None
+                )
                 for group, names in zip(matched, series_per_group)
             ]
             for series in all_series
@@ -1207,9 +1143,7 @@ def overlay_figures(figures: Sequence[go.Figure], labels: Sequence[str]) -> go.F
     else:
         cells = _wrap([merged(group, group[0].title) for group in matched])
 
-    fig = _grid_figure(cells, figures[0].layout.title.text or "").update_layout(
-        barmode=barmode
-    )
+    fig = _grid_figure(cells, figures[0].layout.title.text or "").update_layout(barmode=barmode)
     runs = {label: _run_swatch(index, kind) for index, label in enumerate(labels)}
     _add_legends(fig, cells, runs if ghost else {}, swatches if by_series else {})
     return _compact(fig)
@@ -1256,9 +1190,7 @@ def difference_figure(
     panels_per_run = []
     for other in others:
         fig = go.Figure(reference)
-        for trace, (reference_layer, other_layer) in zip(
-            fig.data, _trace_layers(reference, other)
-        ):
+        for trace, (reference_layer, other_layer) in zip(fig.data, _trace_layers(reference, other)):
             difference = other_layer - reference_layer
             if relative:
                 scale = np.where(reference_layer == 0, np.nan, reference_layer)
@@ -1283,18 +1215,16 @@ def difference_figure(
                     trace.update(offsetgroup=name or None)
                 if len(others) > 1:
                     _beside(trace, labels[index])
-                trace.update(
-                    showlegend=False, legendgroup=name if series else labels[index]
-                )
+                trace.update(showlegend=False, legendgroup=name if series else labels[index])
                 traces.append(trace)
         unit = group[0].yaxis.get("title_text", "")
         ylabel = "difference [%]" if relative else f"Δ {unit}".strip()
         yaxis = group[0].yaxis | {"title_text": ylabel}
         panels.append(dataclasses.replace(group[0], traces=traces, yaxis=yaxis))
     cells = _wrap(panels)
-    fig = _grid_figure(
-        cells, reference.layout.title.text + " - Difference" or ""
-    ).update_layout(barmode="group")
+    fig = _grid_figure(cells, reference.layout.title.text + " - Difference" or "").update_layout(
+        barmode="group"
+    )
     subtitle = f"{', '.join(labels[1:])} minus {labels[0]}"
     if relative:
         subtitle += f", in % of {labels[0]}"
@@ -1303,18 +1233,12 @@ def difference_figure(
     # zero is "no change", the line every trace is read against
     fig.update_yaxes(zeroline=True, zerolinecolor=SECONDARY_INK)
     kind = _kind(trace for panel in panels for trace in panel.traces)
-    runs = {
-        label: _run_swatch(index, kind)
-        for index, label in enumerate(labels)
-        if index > 0
-    }
+    runs = {label: _run_swatch(index, kind) for index, label in enumerate(labels) if index > 0}
     _add_legends(fig, cells, runs if len(others) > 1 else {}, series)
     return _compact(fig)
 
 
-def _trace_layers(
-    reference: go.Figure, other: go.Figure
-) -> list[tuple[np.ndarray, np.ndarray]]:
+def _trace_layers(reference: go.Figure, other: go.Figure) -> list[tuple[np.ndarray, np.ndarray]]:
     """The y values of every pair of traces of two aligned figures, as floats.
 
     Stacked areas hold cumulative values, so their traces are un-stacked into the layer each
@@ -1447,9 +1371,7 @@ def regional_changes(
         reference_summed = reference_array.sum_to(kept)
         other_summed = get_array(other, variable).sum_to(kept)
         if reference_summed.values.shape != other_summed.values.shape:
-            warnings.warn(
-                f"{variable!r} has different shapes in the two runs; skipped."
-            )
+            warnings.warn(f"{variable!r} has different shapes in the two runs; skipped.")
             continue
         years = reference_summed.dims["t"].items
         series = _regional_series(reference_summed, other_summed)
@@ -1587,15 +1509,11 @@ def change_heatmap(
         return go.Figure(layout={"title": "No changes"})
 
     values = (
-        changes.pivot(
-            index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=CHANGE_COLUMN
-        )
+        changes.pivot(index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=CHANGE_COLUMN)
         .sort_values(by="World", key=abs, ascending=False, kind="stable")
         .reindex(columns=sorted_regions(changes[REGION_COLUMN].unique()))
     )
-    years = changes.pivot(
-        index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=YEAR_COLUMN
-    ).reindex(
+    years = changes.pivot(index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=YEAR_COLUMN).reindex(
         index=values.index,
         columns=values.columns,
     )
