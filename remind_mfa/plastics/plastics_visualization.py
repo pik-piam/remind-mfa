@@ -94,7 +94,7 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.flows["collection => sorting"],
+                flow=self._model.future_mfa.flows["eol_management => sorting"],
                 name="Collected",
                 linecolor_dim="Polymer",
             )
@@ -250,7 +250,7 @@ class PlasticsVisualizer(CommonVisualizer):
             {
                 fn: eol_color
                 for fn, f in mfa.flows.items()
-                if f.from_process.name in ("collection", "sorting")
+                if f.from_process.name in ("eol_management", "sorting")
             }
         )
 

@@ -42,7 +42,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             "manufacturing",
             "manufactured_products_market",
             "use",
-            "collection",
+            "eol_management",
             "waste_market",
             "reclmech",
             "reclchem",
@@ -109,10 +109,10 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             fd.FlowDefinition(from_process="manufactured_products_market", to_process="exports", dim_letters=("t","e","r","p","u")),
             fd.FlowDefinition(from_process="imports", to_process="manufactured_products_market", dim_letters=("t","e","r","p","u")),
             # use stage
-            fd.FlowDefinition(from_process="use", to_process="collection", dim_letters=("t","e","r","p","u")),
+            fd.FlowDefinition(from_process="use", to_process="eol_management", dim_letters=("t","e","r","p","u")),
             # end-of-life stages
-            fd.FlowDefinition(from_process="collection", to_process="sorting", dim_letters=("t","e","r","p")),
-            fd.FlowDefinition(from_process="collection", to_process="mismanaged", dim_letters=("t","e","r","p")),
+            fd.FlowDefinition(from_process="eol_management", to_process="sorting", dim_letters=("t","e","r","p")),
+            fd.FlowDefinition(from_process="eol_management", to_process="mismanaged", dim_letters=("t","e","r","p")),
             fd.FlowDefinition(from_process="sorting", to_process="reclmech", dim_letters=("t","e","r","p")),
             fd.FlowDefinition(from_process="sorting", to_process="reclchem", dim_letters=("t","e","r","p")),
             fd.FlowDefinition(from_process="sorting", to_process="landfill", dim_letters=("t","e","r","p")),

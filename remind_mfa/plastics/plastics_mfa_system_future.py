@@ -73,11 +73,11 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # fmt: off
 
         # EoL flows are computed first, starting from the stock outflow, since recycling flows are needed for the trade extrapolation
-        flw["use => collection"][...] = stk["use"].outflow
-        flw["collection => sorting"][...] = flw["use => collection"] * prm["collection_rate"]
+        flw["use => eol_management"][...] = stk["use"].outflow
+        flw["eol_management => sorting"][...] = flw["use => eol_management"] * prm["collection_rate"]
 
         # exports of plastic waste cannot exceed collected eol plastics
-        trd["waste"].exports[...] = trd["waste"].exports.minimum(flw["collection => sorting"])
+        trd["waste"].exports[...] = trd["waste"].exports.minimum(flw["eol_management => sorting"])
         trd["waste"].balance(to="minimum")
 
         flw["waste_market => sorting"][...] = trd["waste"].imports
@@ -85,7 +85,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["imports => waste_market"][...] = flw["waste_market => sorting"]
         flw["waste_market => exports"][...] = flw["sorting => waste_market"]
 
-        aux["total_waste_collected"][...] = flw["collection => sorting"] + flw["waste_market => sorting"] - flw["sorting => waste_market"]
+        aux["total_waste_collected"][...] = flw["eol_management => sorting"] + flw["waste_market => sorting"] - flw["sorting => waste_market"]
         flw["sorting => reclmech"][...] = aux["total_waste_collected"] * prm["mechanical_recycling_rate"]
         flw["sorting => reclmech"][{"p": ("Rubbers","PET fibre", "Polyamide fibre", "Other fibre")}] = 0.0 # TODO remove once recycling rates are resolved by polymer
         flw["reclmech => aux_recyclate_market"][...] = flw["sorting => reclmech"] * prm["mechanical_recycling_yield"]
@@ -105,8 +105,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         flw["incineration => emission"][...] = flw["sorting => incineration"] + flw["reclmech => incineration"]
 
-        flw["collection => mismanaged"][...] = flw["use => collection"] - flw["collection => sorting"]
-        flw["mismanaged => uncontrolled"][...] = flw["collection => mismanaged"]
+        flw["eol_management => mismanaged"][...] = flw["use => eol_management"] - flw["eol_management => sorting"]
+        flw["mismanaged => uncontrolled"][...] = flw["eol_management => mismanaged"]
 
         # now trades and production flows are computed starting from the stock inflow
         flw["manufactured_products_market => use"][...] = stk["use"].inflow
@@ -275,7 +275,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         stk["landfill"].compute()
 
         stk["uncontrolled"].inflow[...] = (
-            flw["collection => mismanaged"] + flw["reclmech => uncontrolled"]
+            flw["eol_management => mismanaged"] + flw["reclmech => uncontrolled"]
         )
         stk["uncontrolled"].compute()
 

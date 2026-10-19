@@ -49,7 +49,7 @@ class PlasticsDataExporter(CommonDataExporter):
 
     def export_eol_data_by_region_and_year(self, mfa: fd.MFASystem):
         eol_data = (
-            mfa.flows["collection => sorting"]
+            mfa.flows["eol_management => sorting"]
             + mfa.flows["waste_market => sorting"]
             - mfa.flows["sorting => waste_market"]
         )

@@ -18,7 +18,7 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "reclmech": "Mechanical Recycling",
         "reclchem": "Chemical Recycling",
         "use": "Use Phase",
-        "collection": "Collection",
+        "eol_management": "End-of-Life<br>Management",
         "sorting": "Sorting",
         "mismanaged": "Uncollected",
         "incineration": "Incineration",
