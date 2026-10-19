@@ -12,6 +12,8 @@ from remind_mfa.plastics.plastics_config import PlasticsCfg
 class PlasticsMFASystemFuture(CommonMFASystem):
 
     cfg: PlasticsCfg
+    # higher number of points than the default because packaging lifetimes are < 1 year
+    lifetime_n_pts_per_interval = 10
 
     def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet):
         """
@@ -36,9 +38,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         self.trade_set.balance(to="maximum")
 
     def compute_use_stock(self, stock_projection):
-        # We use a higher number of points for the lifetime model than the default because packaging lifetimes are < 1 year
-        self.stocks["use_dsm"].lifetime_model.n_pts_per_interval = 10
-
         super().compute_use_stock(stock_projection, use_stock_name="use_dsm")
 
         # We use an auxiliary stock for the prediction step to save dimensions and computation time

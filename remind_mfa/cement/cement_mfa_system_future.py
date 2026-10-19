@@ -1,4 +1,5 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -11,48 +12,82 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
     cfg: CementCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet, **kwargs):
+    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet):
         """
         Perform all computations for the MFA system.
+
+        Args:
+            stock_projection: In-use product stock (concrete and mortar mass), with or without
+                the product material (m) and constituent (k) dimensions.
+            historical_trade: Trade of the historical MFA, used for trade extrapolation.
         """
-        self.compute_use_stock(stock_projection, **kwargs)
+        self.compute_use_stock(stock_projection)
         self.compute_flows(historical_trade)
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows()
 
-    def compute_use_stock(self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True):
-        prm = self.parameters
-        if stock_is_cement:
-            # Input is cement stock (t, r, u): apply material split and convert to total product mass.
-            product_stock = stock_projection * prm["product_material_split"] / prm["cement_ratio"]
-        else:
-            # Input is already product mass (t, r, u, m): just add k dim.
-            product_stock = stock_projection
-        constituent_stock = self.add_constituent_split(product_stock, prm)
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Blend and correct the product inflow (see parent class), then add the material (m)
+        and constituent (k) splits missing in the product inflow.
 
-        super().compute_use_stock(constituent_stock, warn_small_negative=False)
+        Args:
+            inflow: Product inflow resulting from a StockDrivenDSM computation.
 
-    def add_constituent_split(
-        self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
-    ) -> fd.FlodymArray:
-        """Add the Material Constituent (k) dimension to a product stock (t, r, u, m).
-
-        Splits into cement and non-cement using cement_ratio.
-        Returns an array with dim_letters (t, r, u, m, k).
+        Returns:
+            Composition-resolved in-use stock inflow.
         """
-        k_dim = fd.Dimension(
-            name="Material Constituent",
-            letter="k",
-            items=["cement", "non-cement"],
-            dtype=str,
+        product_inflow = super().adjust_inflow(inflow)
+        use_inflow = self.add_product_material_split(product_inflow, self.parameters)
+        use_inflow = self.add_constituent_split(use_inflow)
+
+        # sanity check
+        summed_inflow = use_inflow.sum_to(product_inflow.dims.letters)
+        assert np.allclose(
+            summed_inflow.values, product_inflow.values, rtol=1e-6, atol=1e-3
+        ), "Composition-resolved in-use inflow does not sum up to the product inflow."
+        return use_inflow
+
+    @staticmethod
+    def add_product_material_split(
+        arr: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
+    ) -> fd.FlodymArray:
+        """Split a product mass array over product materials (m), if not already resolved.
+
+        Args:
+            arr: Product mass array (e.g. stock or flow), with or without m.
+            prm: Parameters, containing product_material_split and cement_ratio.
+
+        Returns:
+            Array including the m dimension. Returned unchanged if m is already present.
+        """
+        if "m" in arr.dims:
+            return arr
+        # product_material_split is a split of cement mass; convert to product mass shares
+        product_mass_split = (prm["product_material_split"] / prm["cement_ratio"]).get_shares_over(
+            "m"
         )
-        constituent_dims = product_stock.dims.append(k_dim)
-        constituent_stock = fd.FlodymArray(dims=constituent_dims)
-        constituent_stock[{"k": "cement"}] = product_stock * prm["cement_ratio"]
-        constituent_stock[{"k": "non-cement"}] = product_stock * (1 - prm["cement_ratio"])
-        return constituent_stock
+        return arr * product_mass_split
+
+    def add_constituent_split(self, arr: fd.FlodymArray) -> fd.FlodymArray:
+        """Split a product mass array into cement and non-cement (k), if not already resolved.
+
+        The split is derived from cement_ratio.
+
+        Args:
+            arr: Product mass array (e.g. stock or flow), with or without k.
+
+        Returns:
+            Array including the k dimension. Returned unchanged if k is already present.
+        """
+        if "k" in arr.dims:
+            return arr
+        cement_ratio = self.parameters["cement_ratio"]
+        constituent_split = fd.FlodymArray(dims=cement_ratio.dims.append(self.dims["k"]))
+        constituent_split[{"k": "cement"}] = cement_ratio
+        constituent_split[{"k": "non-cement"}] = 1 - cement_ratio
+        return arr * constituent_split
 
     def compute_flows(self, historical_trade: TradeSet):
         prm = self.parameters
