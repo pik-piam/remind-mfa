@@ -274,7 +274,9 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         stk["landfill"].inflow[...] = flw["sorting => landfill"]
         stk["landfill"].compute()
 
-        stk["uncontrolled"].inflow[...] = flw["collection => mismanaged"] + flw["reclmech => uncontrolled"]
+        stk["uncontrolled"].inflow[...] = (
+            flw["collection => mismanaged"] + flw["reclmech => uncontrolled"]
+        )
         stk["uncontrolled"].compute()
 
         stk["atmospheric"].inflow[...] = flw["emission => atmosphere"]
