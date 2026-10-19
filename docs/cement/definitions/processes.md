@@ -7,5 +7,6 @@
 | Market: Cement      |
 | Production: Product |
 | Use phase           |
+| Reuse               |
 | imports             |
 | exports             |
