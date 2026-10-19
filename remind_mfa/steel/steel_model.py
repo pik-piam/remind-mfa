@@ -63,27 +63,24 @@ class SteelModel(CommonModel[SteelCfg]):
             .values
             * 1.5,
         )
-        construction_lifetime_factor = 1.2
+
+        hibernation_share_construction = 0.3
         add_assumption_doc(
-            type="ad-hoc fix",
-            name="construction lifetime factor",
-            value=construction_lifetime_factor,
+            type="expert guess",
+            name="construction hibernation share",
+            value=hibernation_share_construction,
             description=(
-                "Additional factor multiplied to construction lifetime mean and standard deviation "
-                "to match historical scrap consumption. The special treatment of construction "
-                "is motivated by literature sources suggesting longer building lifetimes than the "
-                "used source"
+                "Share of construction steel leaving the in-use stock that remains in place as "
+                "hibernating stock (no longer used, but not demolished or recovered). Hibernating "
+                "stock has no outflow. Other end uses have no hibernation."
             ),
         )
-        self.parameters["lifetime_mean"]["Construction"] = (
-            self.parameters["lifetime_mean"]["Construction"] * construction_lifetime_factor
-        )
-        self.parameters["lifetime_std"]["Construction"] = (
-            self.parameters["lifetime_std"]["Construction"] * construction_lifetime_factor
-        )
+        self.parameters["hibernation_share"] = fd.Parameter(dims=self.dims["u",])
+        self.parameters["hibernation_share"]["Construction"] = hibernation_share_construction
+
         self.parameters["recovery_rate"] = fd.Parameter(
             dims=self.dims["r", "u"],
-            values=self.parameters["recovery_rate"].cast_to(self.dims["r", "u"]).values * 0.85,
+            values=self.parameters["recovery_rate"].cast_to(self.dims["r", "u"]).values * 0.9,
         )
 
         add_assumption_doc(
@@ -97,7 +94,7 @@ class SteelModel(CommonModel[SteelCfg]):
         scrap_rate_factor = blend(
             target_dims=self.dims["t",],
             y_lower=1.4,
-            y_upper=0.75,
+            y_upper=0.8,
             x="t",
             x_lower=1970,
             x_upper=2020,

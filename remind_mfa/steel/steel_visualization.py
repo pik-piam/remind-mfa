@@ -58,7 +58,7 @@ class SteelVisualizer(CommonVisualizer):
             {
                 fn: losses_color
                 for fn, f in mfa.flows.items()
-                if f.to_process.name in ["losses", "excess_scrap", "obsolete"]
+                if f.to_process.name in ["losses", "excess_scrap", "hibernating", "obsolete"]
             }
         )
         flow_color_dict.update(

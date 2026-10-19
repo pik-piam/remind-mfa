@@ -115,8 +115,10 @@ class SteelMFASystem(CommonMFASystem):
 
         # Post-use
 
-        flw["use => scrap_market"][...] = stk["use"].outflow * prm["recovery_rate"]
-        flw["use => obsolete"][...] = stk["use"].outflow - flw["use => scrap_market"]
+        flw["use => hibernating"][...] = stk["use"].outflow * prm["hibernation_share"]
+        aux["end_of_life"] = stk["use"].outflow - flw["use => hibernating"]
+        flw["use => scrap_market"][...] = aux["end_of_life"] * prm["recovery_rate"]
+        flw["use => obsolete"][...] = aux["end_of_life"] - flw["use => scrap_market"]
 
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["scrap"],
@@ -248,6 +250,9 @@ class SteelMFASystem(CommonMFASystem):
         flw = self.flows
 
         # in-use stock is already computed in compute_use_stock
+        stk["hibernating"].inflow[...] = flw["use => hibernating"]
+        stk["hibernating"].compute()
+
         stk["obsolete"].inflow[...] = flw["use => obsolete"]
         stk["obsolete"].compute()
 
