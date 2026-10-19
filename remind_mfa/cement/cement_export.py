@@ -33,7 +33,7 @@ class CementDataExporter(CommonDataExporter):
     @staticmethod
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Cement output before trade and construction losses"""
-        return mfa.flows["prod_cement => market_cement"].sum_to(("t", "r"))
+        return mfa.flows["cement_production => cement_market"].sum_to(("t", "r"))
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         return [
@@ -52,23 +52,23 @@ class CementDataExporter(CommonDataExporter):
         return [
             IamcVariable(
                 variable_name="Production|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
-                calculation_function=lambda mfa: (mfa.flows["prod_cement => market_cement"]).sum_to(
-                    ("t", "r")
-                ),
+                calculation_function=lambda mfa: (
+                    mfa.flows["cement_production => cement_market"]
+                ).sum_to(("t", "r")),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Production|Non-Metallic Minerals|Cement Clinker",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["prod_clinker => market_clinker"]
-                    + mfa.flows["prod_clinker => sysenv"]
+                    mfa.flows["clinker_production => clinker_market"]
+                    + mfa.flows["clinker_production => sysenv"]
                 ).sum_to(("t", "r")),
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Material Demand|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=lambda mfa: _sum_to_end_use_split(
-                    mfa.flows["market_cement => prod_product"]
+                    mfa.flows["cement_market => construction"]
                 ),
                 unit="t/yr",
                 split_name="End Use",
@@ -76,7 +76,7 @@ class CementDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Material Stock|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=lambda mfa: _sum_to_end_use_split(
-                    mfa.stocks["use"].stock[{"k": "cement"}]
+                    mfa.stocks["use"].stock[{"k": "Cement"}]
                 ),
                 unit="t",
                 split_name="End Use",
@@ -84,7 +84,7 @@ class CementDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Scrap|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=lambda mfa: _sum_to_end_use_split(
-                    (mfa.stocks["use"].outflow - mfa.flows["use => reuse"])[{"k": "cement"}]
+                    (mfa.stocks["use"].outflow - mfa.flows["use => reuse"])[{"k": "Cement"}]
                 ),
                 unit="t/yr",
                 split_name="End Use",
