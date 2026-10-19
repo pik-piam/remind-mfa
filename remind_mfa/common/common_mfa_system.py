@@ -113,7 +113,7 @@ class CommonMFASystem(fd.MFASystem):
         re-balance globally. Gross exports may still exceed supply where they are covered by
         imports (stop-over / re-export trade), since manufacturing inflow = supply + imports -
         exports only requires exports - imports <= supply.
-        Net exports are calculated per dimension (type/material/end use) and then summed up,
+        Net exports are calculated per dimension (e.g. polymer type/polymer/end use) and then summed up,
         because positive net imports (imports > exports) of one good cannot be balanced by
         re-exporting a different good, so that net amount is not stop-over trade and must be consumed.
 
@@ -172,9 +172,9 @@ class CommonMFASystem(fd.MFASystem):
         flows cannot go negative.
 
         Where an item's net imports exceed its demand, the excess is removed from its imports.
-        If ``category_dim`` is given (e.g. material 'm' for plastics primary trade), the excess is
+        If ``category_dim`` is given (e.g. polymer 'p' for plastics primary trade), the excess is
         first reassigned to the sibling items that share all *other* dimensions (for plastics: the
-        materials of the same polymer type), as far as they still have headroom
+        polymers of the same polymer type), as far as they still have headroom
         (demand - net imports); only the part that cannot be reassigned is removed and warned about.
 
         If no ``category_dim`` is given, the excess is removed directly.
@@ -277,14 +277,14 @@ class CommonMFASystem(fd.MFASystem):
         split_dims: tuple,
     ) -> fd.FlodymArray:
         """Distribute the ``manufactured_products_market => use`` flow among the split categories (end use, and
-        for plastics also materials).
+        for plastics also polymers).
         Where possible, this is done by the end-use split parameter ``split`` (already indexed
         to the historical time axis by the caller). However, the trade may be larger than the
         flow for a single split category. The other categories' inflow to the in-use stock
         must be reduced by these excess imports.
 
         ``split_dims`` are the category dimensions the split distributes over (e.g. ``("u",)``
-        for steel, ``("u", "m")`` for plastics). Only called by the historical MFA systems.
+        for steel, ``("u", "p")`` for plastics). Only called by the historical MFA systems.
         """
         # fmt: off
         net_imports = self.trade_set[trade_name].net_imports

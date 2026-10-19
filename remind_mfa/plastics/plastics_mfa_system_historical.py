@@ -40,19 +40,19 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
             "primary_market => manufacturing"
         ]
 
-        # manufactured products net exports (per end use and material) are capped to not exceed manufacturing supply
+        # manufactured products net exports (per end use and polymer) are capped to not exceed manufacturing supply
         # stop-over trade is allowed, but positive net imports of one end use cannot be balanced by re-exporting a different end use
         self.cap_historical_net_exports_to_supply(
             trd["manufactured_products"], flw["manufacturing => manufactured_products_market"]
         )
 
-        # distribute the manufactured_products_market => use flow among the end use & material categories
+        # distribute the manufactured_products_market => use flow among the end use & polymer categories
         flw["manufactured_products_market => use"][...] = (
             self.get_historical_use_inflow_by_trade_adjusted_split(
                 "manufactured_products",
                 flw["manufacturing => manufactured_products_market"],
                 prm["end_use_polymer_split"],
-                ("u", "m"),
+                ("u", "p"),
             )
         )
 
@@ -72,24 +72,24 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
         self.stocks["use"].compute()
         self.flows["use => sysenv"][...] += self.stocks["use"].outflow
 
-        # get material split from historical stock inflow for use in the future MFA, which does not
-        # carry the polymer type dimension 'p' (each material belongs to exactly one type).
-        # Shares sum to 1 across all materials.
+        # get polymer split from historical stock inflow for use in the future MFA, which does not
+        # carry the polymer type dimension 'P' (each polymer belongs to exactly one polymer type).
+        # Shares sum to 1 across all polymers.
         with np.errstate(divide="ignore"):
-            self.parameters["material_shares_use_inflow"] = fd.Parameter(
-                dims=self.dims["h", "r", "m", "u"],
+            self.parameters["polymer_shares_use_inflow"] = fd.Parameter(
+                dims=self.dims["h", "r", "p", "u"],
                 values=(self.flows["manufactured_products_market => use"].maximum(0))
-                .sum_over("p")
-                .get_shares_over(("m",))
+                .sum_over("P")
+                .get_shares_over(("p",))
                 .values,
             )
         # country-level (iso249) runs have (r, u) cells with zero inflow -> 0/0 = NaN shares; zero them
-        self.parameters["material_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
+        self.parameters["polymer_shares_use_inflow"].apply(np.nan_to_num, inplace=True)
         # get global end use split from historical stock inflow
         self.parameters["global_end_use_shares_use_inflow"] = fd.Parameter(
             dims=self.dims["h", "u"],
             values=(self.flows["manufactured_products_market => use"].maximum(0))
-            .sum_over(("m", "r", "p"))
+            .sum_over(("p", "r", "P"))
             .get_shares_over(("u",))
             .values,
         )
