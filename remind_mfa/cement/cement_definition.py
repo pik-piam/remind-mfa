@@ -248,8 +248,8 @@ def get_cement_definition(
                                      description="Split of building end uses into different structure types per region."),
         RemindMFAParameterDefinition(name="concrete_building_mi", dim_letters=("r", "b", "s"),
                                      description="Material intensity of concrete (t/m2) differentiated by building end use and structure."),
-        RemindMFAParameterDefinition(name="hibernating_stock_share", dim_letters=("r",),
-                                     description="Share of building stock that is hibernating (built but unused and not demolished)."),
+        RemindMFAParameterDefinition(name="unoccupied_residential_stock_share", dim_letters=("r",),
+                                     description="Share of residential stock that is not permanently occupied (vacant dwellings and second homes)."),
     ]
 
     # 6) Trades
@@ -288,7 +288,7 @@ scenario_parameters = [
         dim_letters=("r",),
     ),
     ExtrapolationDefinition(
-        name="hibernating_stock_share",
+        name="unoccupied_residential_stock_share",
         dim_letters=("r",),
     ),
     ExtrapolationDefinition(
