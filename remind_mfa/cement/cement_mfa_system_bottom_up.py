@@ -150,9 +150,9 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             concrete[{"u": "Commercial"}] * mass_split[{"b": "Commercial"}]
         )
         for item in ("Industrial", "Civil Engineering"):
-            inflow[{"m": "Concrete", "e": item, "s": "Unspecified Structure"}] = (
-                concrete[{"u": item}]
-            )
+            inflow[{"m": "Concrete", "e": item, "s": "Unspecified Structure"}] = concrete[
+                {"u": item}
+            ]
 
         # mortar: split Residential into residential types by floor area
         # assign unspecified structure to all end uses
