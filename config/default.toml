@@ -59,8 +59,7 @@
 [cement]
     [cement.model_switches]
         carbonation = false
-        parameter_reconciliation.do_reconcile = false
-        parameter_reconciliation.do_combine_mfas = true
+        parameter_reconciliation = false
 
     [cement.visualization]
         eol_stock.do_visualize = false
