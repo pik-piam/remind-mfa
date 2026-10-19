@@ -28,6 +28,8 @@ class SteelModel(CommonModel[SteelCfg]):
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
 
+        self.parameters["max_scrap_share"] = self.scenario_parameters["max_scrap_share"]
+
         lifetime_factor = blend(
             target_dims=self.dims["t",],
             y_lower=0.9,

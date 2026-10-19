@@ -129,7 +129,7 @@ class SteelMFASystem(CommonMFASystem):
         extrapolator.run()
 
         aux["production_inflow"][...] = aux["steel_production"] / (1 - prm["steel_production_loss_rate"])
-        aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
+        aux["max_scrap_production"][...] = aux["production_inflow"] * prm["max_scrap_share"]
         aux["new_scrap"][...] = flw["forming => scrap_pool"] + flw["manufacturing => scrap_pool"]
         self.cap_scrap_imports_to_usable_scrap(
             max_scrap_production=aux["max_scrap_production"],

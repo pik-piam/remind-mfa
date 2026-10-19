@@ -263,4 +263,10 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
     )
 
 
-scenario_parameters = []
+scenario_parameters = [
+    RemindMFAParameterDefinition(
+        name="max_scrap_share",
+        dim_letters=("r",),
+        description="Maximum share of scrap in the metallic input to steel production",
+    ),
+]
