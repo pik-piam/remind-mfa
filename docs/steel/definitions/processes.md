@@ -8,6 +8,7 @@
 | Manufacturing               |
 | Manufactured Product Market |
 | Use Phase                   |
+| Hibernating stocks          |
 | Obsolete stocks             |
 | End of life products        |
 | Recycling                   |
