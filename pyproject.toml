@@ -51,6 +51,7 @@ dev = [
     "nbformat>=5.10.4",
     "pytest>=9.1.1",
     "questionary>=2.0.1",
+    "ty>=0.0.88",
     { include-group = "docs" },
 ]
 
