@@ -1,4 +1,4 @@
-"""Tests for capping net trade in `CommonMFASystem` and re-balancing global trade.
+"""Tests for capping and redistributing net trade in `CommonMFASystem`.
 
 Three regions trade in two years; values are small enough to compute the expected results by
 hand. Region A is the capped one, B and C are its trade partners.
@@ -92,3 +92,30 @@ def test_cap_net_exports_reduces_exports_and_partner_imports():
     np.testing.assert_allclose(trade.imports[2030].values, [0.0, 3.2, 0.8])
     np.testing.assert_allclose(trade.exports[2040].values, [10.0, 0.0, 0.0])
     np.testing.assert_allclose(trade.imports[2040].values, [0.0, 8.0, 2.0])
+
+
+def test_redistribute_surplus_fills_headroom_proportionally():
+    trade = make_trade(imports=[0.0, 0.0, 0.0], exports=[0.0, 0.0, 0.0])
+    # 2030: A has a surplus of 6, B and C have headroom 9 and 3
+    # 2040: A has a surplus of 6, but B and C only have a total headroom of 4
+    supply = make_limit([16.0, 1.0, 2.0], [16.0, 7.0, 3.0])
+    demand = make_limit([10.0, 10.0, 5.0], [10.0, 10.0, 4.0])
+
+    make_system().redistribute_surplus(trade, supply=supply, demand=demand)
+
+    np.testing.assert_allclose(trade.exports[2030].values, [6.0, 0.0, 0.0])
+    np.testing.assert_allclose(trade.imports[2030].values, [0.0, 4.5, 1.5])
+    # headroom is filled completely, A keeps the remaining surplus of 2
+    np.testing.assert_allclose(trade.exports[2040].values, [4.0, 0.0, 0.0])
+    np.testing.assert_allclose(trade.imports[2040].values, [0.0, 3.0, 1.0])
+
+
+def test_redistribute_surplus_without_surplus_is_empty():
+    trade = make_trade(imports=[0.0, 0.0, 0.0], exports=[0.0, 0.0, 0.0])
+    supply = make_limit([1.0, 1.0, 1.0], [1.0, 1.0, 1.0])
+    demand = make_limit([2.0, 2.0, 1.0], [1.0, 1.0, 1.0])
+
+    make_system().redistribute_surplus(trade, supply=supply, demand=demand)
+
+    np.testing.assert_allclose(trade.imports.values, 0.0)
+    np.testing.assert_allclose(trade.exports.values, 0.0)

@@ -2,7 +2,7 @@ import numpy as np
 import flodym as fd
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
-from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -72,6 +72,7 @@ class SteelMFASystem(CommonMFASystem):
             "available_scrap": fd.Parameter(dims=self.dims["t", "r"]),
             "production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
             "max_scrap_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "new_scrap": fd.Parameter(dims=self.dims["t", "r"]),
         }
 
         # fmt: off
@@ -127,9 +128,15 @@ class SteelMFASystem(CommonMFASystem):
 
         aux["production_inflow"][...] = aux["steel_production"] / (1 - prm["steel_production_loss_rate"])
         aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
+        aux["new_scrap"][...] = flw["forming => scrap_pool"] + flw["manufacturing => scrap_pool"]
         self.cap_scrap_imports_to_usable_scrap(
             max_scrap_production=aux["max_scrap_production"],
-            domestic_scrap=flw["use => scrap_market"].sum_over("u") + flw["forming => scrap_pool"] + flw["manufacturing => scrap_pool"],
+            domestic_scrap=flw["use => scrap_market"].sum_over("u") + aux["new_scrap"],
+        )
+        self.redistribute_excess_scrap(
+            max_scrap_production=aux["max_scrap_production"],
+            eol_scrap=flw["use => scrap_market"].sum_over("u"),
+            new_scrap=aux["new_scrap"],
         )
 
         flw["imports => scrap_market"][...] = trd["scrap"].imports
@@ -190,6 +197,51 @@ class SteelMFASystem(CommonMFASystem):
         capacity = (max_scrap_production - domestic_scrap).maximum(0)
         capacity[{"t": self.dims["h"]}] = np.inf
         self.cap_net_imports_to_capacity(self.trade_set["scrap"], capacity=capacity)
+
+    def redistribute_excess_scrap(
+        self,
+        max_scrap_production: fd.FlodymArray,
+        eol_scrap: fd.FlodymArray,
+        new_scrap: fd.FlodymArray,
+    ):
+        """Redistribute scrap that would become excess scrap to regions that can still use it.
+
+        An auxiliary scrap trade is computed with :meth:`redistribute_surplus` and added to the
+        scrap trade: Regions whose available scrap after the extrapolated scrap trade exceeds the
+        maximum scrap input to their steel production export the surplus; regions below that
+        maximum import it. This reduces excess scrap and increases scrap-based steel production
+        in the importing regions. Historical years keep the historical trade data.
+
+        Args:
+            max_scrap_production: Maximum scrap input to steel production.
+            eol_scrap: Collected end-of-life scrap before trade.
+            new_scrap: Home and new scrap from forming and manufacturing.
+        """
+        add_assumption_doc(
+            type="model assumption",
+            name="Redistribution of excess scrap",
+            description=(
+                "Future scrap that exceeds the maximum scrap input to a region's steel "
+                "production is exported to regions that have not reached that maximum, "
+                "in proportion to their remaining capacity."
+            ),
+        )
+        scrap_trade = self.trade_set["scrap"]
+        available_scrap = eol_scrap + scrap_trade.net_imports + new_scrap
+        # The scrap trade passes the scrap market, which holds only end-of-life scrap. Raising the
+        # demand to the new scrap keeps aux exports below the end-of-life scrap after trade, so
+        # the flow to recycling stays non-negative. This does not change any region's headroom.
+        demand = max_scrap_production.maximum(new_scrap)
+        aux_trade = Trade(
+            name="aux_scrap",
+            imports=fd.FlodymArray(dims=scrap_trade.imports.dims),
+            exports=fd.FlodymArray(dims=scrap_trade.exports.dims),
+        )
+        self.redistribute_surplus(aux_trade, supply=available_scrap, demand=demand)
+        for flow in (aux_trade.imports, aux_trade.exports):
+            flow[{"t": self.dims["h"]}] = 0.0
+        scrap_trade.imports[...] = scrap_trade.imports + aux_trade.imports
+        scrap_trade.exports[...] = scrap_trade.exports + aux_trade.exports
 
     def compute_other_stocks(self):
         stk = self.stocks

@@ -21,6 +21,9 @@ Since we only have reliable scrap use data for some world regions, we perform th
 Future scrap trade is extrapolated from historical trade patterns like the other trades.
 Since steel production can only take a limited share of scrap as input, a region's future scrap net imports are capped at the amount of scrap it can still use in addition to its domestic scrap.
 Scrap that is not imported due to this cap remains in the exporting regions.
+Scrap that a region still cannot use in its steel production is then redistributed by an auxiliary scrap trade, which is added to the extrapolated scrap trade:
+it is exported to regions that have not reached their maximum scrap input, in proportion to their remaining capacity.
+Excess scrap only remains where the global scrap supply exceeds the global maximum scrap input.
 
 ## Processes
 The following table lists the processes that are modelled in the steel MFA.

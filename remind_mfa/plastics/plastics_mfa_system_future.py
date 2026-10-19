@@ -246,21 +246,12 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         backward-computed primary input stays non-negative instead of going negative for net-importer /
         high-recycling regions.
 
-        Exports carry the surplus; imports are seeded with the headroom as a per-region
-        distribution shape (shares summing to 1 per slice) and balanced up to the surplus total
-        (``to="maximum"``), so each region imports ``surplus * headroom_share``. While a slice's
-        total surplus <= total headroom, every region's import stays <= its headroom.
-
-        Writes the market's imports and exports.
-        Used for both mechanical (``reclmech`` -> ``primary_market``) and chemical
+        See :meth:`CommonMFASystem.redistribute_surplus`; additionally writes the market's trade
+        flows. Used for both mechanical (``reclmech`` -> ``primary_market``) and chemical
         (``reclchem`` -> ``HVC_input``) recyclate.
         """
         trd, flw = self.trade_set, self.flows
-        surplus = (recyclate - demand).maximum(0)
-        headroom = (demand - recyclate).maximum(0)
-        trd[market].exports[...] = surplus
-        trd[market].imports[...] = headroom / headroom.sum_over("r").maximum(sys.float_info.epsilon)
-        trd[market].balance(to="maximum", mask_scaled=(trd[market].exports.values == 0))
+        self.redistribute_surplus(trd[market], supply=recyclate, demand=demand)
         flw[f"imports => {market}_market"][...] = trd[market].imports
         flw[f"{market}_market => exports"][...] = trd[market].exports
 

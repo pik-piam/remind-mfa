@@ -193,6 +193,22 @@ class CommonMFASystem(fd.MFASystem):
                 f"'{trade_name}': positive-net-{direction} cap did not converge after 50 iterations."
             )
 
+    def redistribute_surplus(self, trade: Trade, supply: fd.FlodymArray, demand: fd.FlodymArray):
+        """Redistribute regional surplus between regions via an auxiliary trade.
+
+        Where a region's ``supply`` exceeds the domestic ``demand`` it can feed, the surplus is
+        exported; regions with headroom (``demand`` above their ``supply``) import it.
+        Exports are seeded with the surplus and imports with the headroom, then both are balanced
+        to the smaller global total (``to="minimum"``). Each region thus imports
+        ``min(total surplus, total headroom) * headroom_share``, which never exceeds its headroom.
+        If the total surplus exceeds the total headroom, the exporting regions keep the remainder.
+
+        Overwrites the trade's imports and exports.
+        """
+        trade.exports[...] = (supply - demand).maximum(0)
+        trade.imports[...] = (demand - supply).maximum(0)
+        trade.balance(to="minimum")
+
     def cap_historical_net_imports_to_demand(
         self,
         trade: Trade,
