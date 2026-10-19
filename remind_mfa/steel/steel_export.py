@@ -37,7 +37,7 @@ class SteelDataExporter(CommonDataExporter):
         return (
             mfa.flows["forming => scrap_pool"]
             + mfa.flows["manufacturing => scrap_pool"]
-            + mfa.flows["recycling => scrap_pool"]
+            + mfa.flows["scrap_market => scrap_pool"]
         )
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
