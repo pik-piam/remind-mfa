@@ -80,9 +80,27 @@ class SteelModel(CommonModel[SteelCfg]):
         self.parameters["hibernation_share"] = fd.Parameter(dims=self.dims["u",])
         self.parameters["hibernation_share"]["Construction"] = hibernation_share_construction
 
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="GDP-dependent recovery factor",
+            description=(
+                "The ratio of recovered to unrecovered end-of-life steel is multiplied by a factor "
+                "rising from 0.5 at a GDP per capita of 1000 to 1 at 60000, to account for lower "
+                "collection in poorer regions."
+            ),
+        )
+        recovery_factor = blend(
+            target_dims=self.dims["t", "r"],
+            y_lower=0.5,
+            y_upper=1.0,
+            x=self.parameters["gdppc"],
+            x_lower=1000,
+            x_upper=60000,
+        )
+        recovery_odds = recovery_factor * self.parameters["recovery_rate"] / (1 - self.parameters["recovery_rate"])
         self.parameters["recovery_rate"] = fd.Parameter(
-            dims=self.dims["r", "u"],
-            values=self.parameters["recovery_rate"].cast_to(self.dims["r", "u"]).values * 0.9,
+            dims=self.dims["t", "r", "u"],
+            values=(recovery_odds / (1 + recovery_odds)).cast_to(self.dims["t", "r", "u"]).values,
         )
 
         add_assumption_doc(
@@ -116,6 +134,47 @@ class SteelModel(CommonModel[SteelCfg]):
         self.parameters["end_use_split_high_inco"][...] = self.parameters[
             "end_use_split_high_inco"
         ].get_shares_over("u")
+
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="GDP-dependent manufacturing losses",
+            description=(
+                "Share of manufacturing scrap that is lost instead of recycled as new scrap. "
+                "Decreases from 0.3 at a GDP per capita of 1000 to 0.05 at 60000."
+            ),
+        )
+        self.parameters["manufacturing_losses"] = fd.Parameter(
+            dims=self.dims["t", "r"],
+            values=blend(
+                target_dims=self.dims["t", "r"],
+                y_lower=0.3,
+                y_upper=0.05,
+                x=self.parameters["gdppc"],
+                x_lower=1000,
+                x_upper=60000,
+            ).values,
+        )
+
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="GDP-dependent forming loss factor",
+            description=(
+                "Factor multiplied to the forming loss rate. "
+                "Decreases from 4 at a GDP per capita of 1000 to 1 at 60000."
+            ),
+        )
+        forming_loss_factor = blend(
+            target_dims=self.dims["t", "r"],
+            y_lower=2.5,
+            y_upper=1.0,
+            x=self.parameters["gdppc"],
+            x_lower=1000,
+            x_upper=60000,
+        )
+        self.parameters["forming_loss_rate"] = fd.Parameter(
+            dims=self.dims["t", "r"],
+            values=(forming_loss_factor * self.parameters["forming_loss_rate"]).values,
+        )
 
         self.calc_end_use_split()
         self.parameters["aggregate_manufacturing_yield"] = fd.Parameter(dims=self.dims["t", "r"])

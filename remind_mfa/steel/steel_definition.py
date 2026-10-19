@@ -193,10 +193,6 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             description="Loss rate in forming process. Contrary to (1-forming_yield), this material is completely lost and not recycled as home scrap"
         ),
         RemindMFAParameterDefinition(
-            name="manufacturing_losses", dim_letters=(),
-            description="Loss rate during manufacturing of final products. Contrary to (1-manufacturing_yield), this material is completely lost and not recycled as new scrap",
-        ),
-        RemindMFAParameterDefinition(
             name="steel_production_loss_rate", dim_letters=(),
             description="Loss rate of iron and raw steel production in BF-BOF and (DRI-)EAF processes",
         ),
