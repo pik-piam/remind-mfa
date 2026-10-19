@@ -9,16 +9,21 @@ saturation_level,cement,24,,,,,,,
 stock_factor,all,1.0,2100,factor,,,,,
 lifetime_mean,all,1.0,2060,factor,,,,,
 lifetime_std,all,1.0,2060,factor,,,,,
+n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
+n_trend_years,all,2,,,CHA,,,,
 
 # --- Plastics ---
-waste_his_imports,plastics,0,2030,target,,,,,
-waste_his_exports,plastics,0,2030,target,,,,,
+waste_imports,plastics,0,2030,target,,,,,
+waste_exports,plastics,0,2030,target,,,,,
 collection_rate,plastics,0.99,2100,target,,,,,
 landfill_rate,plastics,0.0,2100,target,,,,,
 mechanical_recycling_rate,plastics,0.4,2100,target,,,,,
 chemical_recycling_rate,plastics,0.1,2100,target,,,,,
 bio_production_rate,plastics,0.1,2100,target,,,,,
 daccu_production_rate,plastics,0.01,2100,target,,,,,
+
+# --- Cement (top-down) ---
+concrete_reuse_share,cement,0.0,2100,target,,,,,Share of the in-use concrete outflow that is reused
 
 # --- Cement (bottom-up) ---
 development_gdppc_low,cement,8000,,,,,,,GDP per capita below which splits fully converge to their global means

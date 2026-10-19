@@ -20,6 +20,7 @@ from remind_mfa.common.data_blending import (
     CriticallyDampedBlender,
     blend,
     blending_factor,
+    critically_damped_blend,
 )
 from remind_mfa.common.parameter_extrapolation import (
     ParameterExtrapolation,
@@ -27,7 +28,7 @@ from remind_mfa.common.parameter_extrapolation import (
 )
 from remind_mfa.common.scenarios import ExtrapolationScenarioParameter
 
-H = fd.Dimension(name="Historic Time", letter="h", items=list(range(2000, 2006)))
+H = fd.Dimension(name="Historical Time", letter="h", items=list(range(2000, 2006)))
 T = fd.Dimension(name="Time", letter="t", items=list(range(2000, 2011)))
 R = fd.Dimension(name="Region", letter="r", items=["A", "B"])
 S = fd.Dimension(name="Structure", letter="s", items=["X", "Y", "Z"])
@@ -60,7 +61,7 @@ def make_scn(definition: ExtrapolationDefinition, scn_dims, rows) -> Extrapolati
 
 def extrapolate(parameter, scn, parameters=None) -> fd.Parameter:
     extra = ParameterExtrapolation(
-        scenario_parameter=scn, historic_time=H, extended_time=T, parameters=parameters
+        scenario_parameter=scn, historical_time=H, extended_time=T, parameters=parameters
     )
     return extra.extrapolate(parameter, scn.definition.name)
 
@@ -107,7 +108,7 @@ def test_blend_endpoint_exact(blend_type):
 
 @pytest.mark.parametrize("blend_type", CLAMPED_BLEND_TYPES)
 def test_blend_clamps_outside_range(blend_type):
-    # extrapolate() relies on this: historic years must evaluate to y_lower, and
+    # extrapolate() relies on this: historical years must evaluate to y_lower, and
     # years after the endpoint must hold y_upper (trajectory-following).
     result = blend(
         target_dims=dimset(T),
@@ -134,7 +135,7 @@ def test_baseline_preparation():
     definition = ExtrapolationDefinition(name="p", dim_letters=("r",))
     scn = make_scn(definition, dimset(R), rows=[])  # no scenario data: constant continuation
 
-    # h-param: history preserved, future filled with last historic value
+    # h-param: history preserved, future filled with last historical value
     result = extrapolate(h_param(), scn)
     assert result.dims.letters == ("t", "r")
     np.testing.assert_allclose(result[{"t": H}].values, h_param().values)
@@ -182,9 +183,9 @@ def test_factor_scales_existing_trajectory():
     np.testing.assert_allclose(result[{"r": "B"}].values, t_param()[{"r": "B"}].values)
 
 
-def test_target_anchors_at_last_historic():
+def test_target_anchors_at_last_historical():
     # for a t-param, a target ignores the pre-existing future trajectory: the blend
-    # starts at the last historic value, not at the baseline of the blend year
+    # starts at the last historical value, not at the baseline of the blend year
     definition = ExtrapolationDefinition(name="p", dim_letters=("r",))
     scn = make_scn(
         definition, dimset(R), rows=[(30.0, {"Region": "A"}, {"year": 2008, "type": "target"})]
@@ -213,7 +214,7 @@ def test_year_in_history_raises():
     scn = make_scn(
         definition, dimset(R), rows=[(4.0, {"Region": "A"}, {"year": 2005, "type": "target"})]
     )
-    with pytest.raises(ValueError, match="last historic year"):
+    with pytest.raises(ValueError, match="last historical year"):
         extrapolate(h_param(), scn)
 
 
@@ -262,7 +263,7 @@ def manager_scn(name, value, ext_type="target"):
 
 
 def test_manager_dependency_order():
-    manager = ParameterExtrapolationManager(historic_time=H, extended_time=T)
+    manager = ParameterExtrapolationManager(historical_time=H, extended_time=T)
     parameters = {"p_a": h_param("p_a"), "p_b": h_param("p_b"), "p_c": h_param("p_c")}
     # p_a references p_b although p_b is defined later; p_b must be extrapolated first
     # (extrapolating p_a against the raw h-dim p_b would raise)
@@ -275,7 +276,7 @@ def test_manager_dependency_order():
 
 
 def test_manager_circular_reference_raises():
-    manager = ParameterExtrapolationManager(historic_time=H, extended_time=T)
+    manager = ParameterExtrapolationManager(historical_time=H, extended_time=T)
     parameters = {"p_a": h_param("p_a"), "p_b": h_param("p_b")}
     scenario_parameters = {"p_a": manager_scn("p_a", "p_b"), "p_b": manager_scn("p_b", "p_a")}
     with pytest.raises(ValueError, match="Circular reference"):
@@ -283,7 +284,7 @@ def test_manager_circular_reference_raises():
 
 
 def test_manager_create_new():
-    manager = ParameterExtrapolationManager(historic_time=H, extended_time=T)
+    manager = ParameterExtrapolationManager(historical_time=H, extended_time=T)
 
     # the stock_factor pattern: no input data, created with baseline 1 for type factor
     definition = ExtrapolationDefinition(name="new_factor", dim_letters=("r",), create_new=True)
@@ -360,3 +361,89 @@ def test_critically_damped_blender():
 
     np.testing.assert_allclose(blended[:6], historical)  # history preserved exactly
     assert abs(blended[-1, 0] - 50.0) < 0.5  # converges to the prediction long-term
+
+
+N_TREND_YEARS = 10
+
+
+def test_critically_damped_blender_initial_slope_is_weighted_trend():
+    time = np.arange(2000, 2101)
+    # linear trend with slope 2 over the last N_TREND_YEARS, preceded by an outlier
+    historical = 2.0 * np.arange(N_TREND_YEARS + 1, dtype=float).reshape(-1, 1)
+    historical[0] = 100.0
+    blender = CriticallyDampedBlender(
+        time=time,
+        historical=historical,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=N_TREND_YEARS,
+    )
+    np.testing.assert_allclose(blender._weighted_trend_slope(len(historical) - 1), [2.0])
+
+    # recent years are weighted more: a jump in the last year pulls the slope up more
+    # than the same jump in the first year of the window pulls it down
+    jump_last = 2.0 * np.arange(N_TREND_YEARS, dtype=float).reshape(-1, 1)
+    jump_last[-1] += 10.0
+    jump_first = 2.0 * np.arange(N_TREND_YEARS, dtype=float).reshape(-1, 1)
+    jump_first[0] += 10.0
+    slope_last = CriticallyDampedBlender(
+        time=time,
+        historical=jump_last,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=N_TREND_YEARS,
+    )._weighted_trend_slope(N_TREND_YEARS - 1)
+    slope_first = CriticallyDampedBlender(
+        time=time,
+        historical=jump_first,
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=N_TREND_YEARS,
+    )._weighted_trend_slope(N_TREND_YEARS - 1)
+    assert slope_last[0] - 2.0 > 2.0 - slope_first[0] > 0
+
+
+def test_critically_damped_blend_flodym_array():
+    dims = fd.DimensionSet(
+        dim_list=[
+            fd.Dimension(name="Region", letter="r", items=["A", "B"]),
+            fd.Dimension(name="Time", letter="t", items=list(range(2000, 2101))),
+        ]
+    )
+    values = np.full(dims.shape, 50.0)
+    values[:, :6] = np.arange(6, dtype=float)
+    array = fd.FlodymArray(dims=dims, values=values)
+    n_trend_years = fd.FlodymArray(dims=dims[("r",)], values=np.array([10.0, 2.0]))
+    blended = critically_damped_blend(
+        array, n_historical=6, n_trend_years=n_trend_years, approaching_time=10
+    )
+
+    assert blended.dims.letters == ("r", "t")
+    np.testing.assert_allclose(blended.values[:, :6], values[:, :6])
+    np.testing.assert_allclose(blended.values[:, -1], 50.0, atol=0.5)
+
+
+def test_weighted_trend_slope_element_dependent_window():
+    time = np.arange(2000, 2101)
+    # quadratic history: the slope of the regression depends on the window length
+    historical = (np.arange(10, dtype=float) ** 2).reshape(-1, 1).repeat(2, axis=1)
+    blender = CriticallyDampedBlender(
+        time=time,
+        historical=historical,
+        prediction=np.zeros((len(time), 2)),
+        initial_slope="weighted_regression",
+        n_trend_years=np.array([10, 2]),
+    )
+    slopes = blender._weighted_trend_slope(9)
+    # window of 2 years is the finite difference of the last two points
+    np.testing.assert_allclose(slopes[1], 81.0 - 64.0)
+    # each element equals the result for a scalar window of the same length
+    scalar_blender = CriticallyDampedBlender(
+        time=time,
+        historical=historical[:, :1],
+        prediction=np.zeros((len(time), 1)),
+        initial_slope="weighted_regression",
+        n_trend_years=10,
+    )
+    np.testing.assert_allclose(slopes[0], scalar_blender._weighted_trend_slope(9)[0])
+    assert slopes[0] < slopes[1]
