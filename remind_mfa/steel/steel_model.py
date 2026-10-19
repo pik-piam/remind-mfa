@@ -97,7 +97,11 @@ class SteelModel(CommonModel[SteelCfg]):
             x_lower=1000,
             x_upper=60000,
         )
-        recovery_odds = recovery_factor * self.parameters["recovery_rate"] / (1 - self.parameters["recovery_rate"])
+        recovery_odds = (
+            recovery_factor
+            * self.parameters["recovery_rate"]
+            / (1 - self.parameters["recovery_rate"])
+        )
         self.parameters["recovery_rate"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
             values=(recovery_odds / (1 + recovery_odds)).cast_to(self.dims["t", "r", "u"]).values,
