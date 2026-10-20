@@ -96,7 +96,7 @@ class CementModel(CommonModel[CementCfg]):
     def run(self):
         super().run()
 
-        if self.cfg.model_switches.parameter_reconciliation.do_reconcile:
+        if self.cfg.model_switches.parameter_reconciliation:
             return self.run_with_reconciliation()
 
     def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
@@ -122,7 +122,7 @@ class CementModel(CommonModel[CementCfg]):
     def run_with_reconciliation(self):
         """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
 
-        Called by `run()` when `do_reconcile` is enabled. Extends the base model run with a
+        Called by `run()` when `parameter_reconciliation` is enabled. Extends the base model run with a
         parameter reconciliation loop that aligns historical top-down and bottom-up stocks, then
         propagates reconciled parameters into the future projection.
 

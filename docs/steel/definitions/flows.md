@@ -19,13 +19,13 @@
 | t, r, u      | Imports                     | Manufactured Product Market |
 | t, r, u      | Manufactured Product Market | Use Phase                   |
 | t, r, u      | Use Phase                   | Hibernating stocks          |
-| t, r, u      | Use Phase                   | End-of-Life Management      |
-| t, r, u      | End-of-Life Management      | Old Scrap Market            |
-| t, r, u      | End-of-Life Management      | Losses                      |
-| t, r         | Old Scrap Market            | Scrap Pool                  |
-| t, r         | Old Scrap Market            | Exports                     |
-| t, r         | Imports                     | Old Scrap Market            |
-| t, r         | Scrap Pool                  | Excess Scrap                |
+| t, r, u      | Use Phase                   | Obsolete stocks             |
+| t, r, u      | Use Phase                   | End of life products        |
+| t, r         | End of life products        | Recycling                   |
+| t, r         | End of life products        | Exports                     |
+| t, r         | Imports                     | End of life products        |
+| t, r         | Recycling                   | Scrap market                |
+| t, r         | Scrap market                | Excess scrap                |
 | t, r         | Exports                     | System environment          |
 | t, r         | System environment          | Imports                     |
 | t, r         | Losses                      | System environment          |
