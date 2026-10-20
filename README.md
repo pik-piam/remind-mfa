@@ -33,13 +33,13 @@ python -m pip install .
 The basic model run command is
 
 ```shell
-uv run remind_mfa --help
+uv run remind_mfa [options]
 ```
 
-or, without `uv`
+or, without `uv`,
 
 ```shell
-python -m remind_mfa --help
+python -m remind_mfa [options]
 ```
 
 For an example model execution, run
@@ -58,7 +58,7 @@ uv run remind_mfa --config default --config local --model all
 See the
 [configuration documentation](docs/config.md) for the file layout and merge rules.
 
-You can also simply run `remind-mfa` without arguments, in which case you will be prompted to select a configuration and a material.
+You can also simply run `remind_mfa` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
 
