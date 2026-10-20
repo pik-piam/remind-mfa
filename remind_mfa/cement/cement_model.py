@@ -213,7 +213,7 @@ class CementModel(CommonModel[CementCfg]):
             self.historical_mfa.trade_set
         )  # trade is not altered during reconciliation, so we can just take it from the already computed historical MFA
 
-        # always created (also when using the cache), as it is needed for analysing the result
+        # always created (also when using the cache), as it is needed to check the cached result
         self.parameter_reconciliation = CementParameterReconciliation(
             ref_mfa=ref_mfa,
             output_dims_are_independent=True,
