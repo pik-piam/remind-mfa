@@ -8,11 +8,9 @@ saturation_level,cement,180,,,,,,,Corresponds to about 24 t cement at historical
 # --- Scenario defaults ---
 stock_factor,all,1.0,2100,factor,,,,,
 trade_factor,all,1.0,2100,factor,,,,,
-lifetime_mean,"steel,plastics",1.0,2060,factor,,,,,
-lifetime_std,"steel,plastics",1.0,2060,factor,,,,,
-lifetime_mean,cement,lifetime_mean_factor,2100,factor,,,,,Lifetime mean is scaled by factor
-lifetime_std,cement,lifetime_std_factor,2100,factor,,,,,Lifetime std is scaled by factor
-lifetime_min_factor,cement,1.0,,,,,,,Minimum factor of lifetime mean/std adjustment
+lifetime_factor,"steel,plastics",1.0,2060,factor,,,,,Lifetime of all age-cohorts is scaled by factor
+lifetime_factor,cement,lifetime_factor_target,2100,factor,,,,,Lifetime of all age-cohorts is scaled by factor
+lifetime_factor_min,cement,1.0,,,,,,,Minimum lifetime factor; regions below the end-use maximum lifetime get larger factors
 n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
 n_trend_years,all,2,,,CHA,,,,
 

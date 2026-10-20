@@ -172,9 +172,12 @@ class CementModel(CommonModel[CementCfg]):
         lifetime_current = self.parameters["lifetime_mean"][{"h": self.dims["h"].items[-1]}]
         multiplier = (1 / lifetime_current * lifetime_max - 1).maximum(0)
 
-        alpha = self.scenario_parameters["lifetime_min_factor"]
-        prm["lifetime_mean_factor"] = (alpha + (alpha - 1) * multiplier).to_class(fd.Parameter)
-        prm["lifetime_std_factor"] = prm["lifetime_mean_factor"]
+        # below the maximum, all regions gain the same absolute lifetime:
+        # (factor_min - 1) * lifetime_max
+        factor_min = self.scenario_parameters["lifetime_factor_min"]
+        prm["lifetime_factor_target"] = (factor_min + (factor_min - 1) * multiplier).to_class(
+            fd.Parameter
+        )
 
     def run(self):
         super().run()
@@ -188,7 +191,7 @@ class CementModel(CommonModel[CementCfg]):
         Intensive end-use-resolved parameters (`intensive_end_use_prms`) are broadcasted to the
         extended-end-use dimension for the bottom-up MFA.
         """
-        intensive_end_use_prms = ("lifetime_mean", "lifetime_std")
+        intensive_end_use_prms = ("lifetime_mean", "lifetime_std", "lifetime_factor")
         bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historical=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,

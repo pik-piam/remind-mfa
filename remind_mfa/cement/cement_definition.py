@@ -287,6 +287,15 @@ scenario_parameters = [
         name="clinker_ratio",
         dim_letters=("r",),
     ),
+    # cement lifetime is time-dependent and therefore needs (constant) extrapolation first
+    ExtrapolationDefinition(
+        name="lifetime_mean",
+        dim_letters=("r",),
+    ),
+    ExtrapolationDefinition(
+        name="lifetime_std",
+        dim_letters=("r",),
+    ),
     ExtrapolationDefinition(
         name="hibernating_stock_share",
         dim_letters=("r",),
@@ -319,8 +328,13 @@ scenario_parameters = [
         dim_letters=("r", "b", "s"),
     ),
     PlainDataPointDefinition(
-        name="lifetime_min_factor",
-        description="Minimum factor by which the lifetime mean should be adjusted.",
+        name="lifetime_factor_min",
+        description=(
+            "Minimum lifetime factor, applied to regions at or above the end-use maximum "
+            "lifetime. Regions below it gain the same absolute lifetime of "
+            "(lifetime_factor_min - 1) * maximum lifetime in years, i.e. a factor of "
+            "1 + (lifetime_factor_min - 1) * maximum / current lifetime."
+        ),
     ),
 ]
 
