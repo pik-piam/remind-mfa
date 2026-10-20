@@ -15,7 +15,7 @@ class ParameterExtrapolation:
     Handles three input cases:
 
     1. Parameters with 'h' dimension: extended to 't', future filled with the last
-       historic value (constant continuation) as baseline
+       historical value (constant continuation) as baseline
     2. Parameters with 't' dimension: existing future values serve as baseline
     3. Parameters with no time dimension: 't' dimension is added, values constant in time
 
@@ -23,37 +23,37 @@ class ParameterExtrapolation:
         entries. Its type determines the anchor:
 
         - **Target** (``extra:type="target"``): the entry blends from the
-      *last historic value* to the absolute target by the target year. The anchor is
-      always the last historic value, independent of the baseline shape — so for a
+      *last historical value* to the absolute target by the target year. The anchor is
+      always the last historical value, independent of the baseline shape — so for a
       't' parameter this ignores any pre-existing future trajectory.
         - **Factor** (``extra:type="factor"``): the entry keeps its *baseline*
       and is multiplied by a factor blending from 1 to the given value by the factor year.
       The anchor is the baseline itself — so for a 't' parameter it scales the pre-existing
-      future trajectory, and for an 'h'/static one it scales the (constant) last historic value.
+      future trajectory, and for an 'h'/static one it scales the (constant) last historical value.
 
     Scenario values are either numbers or strings naming another model parameter, in which case
     the values of the referenced parameter at the entry's coordinates serve as the target/factor.
 
-    All other entries keep the baseline. Historic values are always preserved.
+    All other entries keep the baseline. Historical values are always preserved.
     """
 
     def __init__(
         self,
         scenario_parameter: ExtrapolationScenarioParameter,
-        historic_time: fd.Dimension,
+        historical_time: fd.Dimension,
         extended_time: fd.Dimension,
         parameters: Optional[Dict[str, fd.Parameter]] = None,
     ):
         self.scenario_parameter = scenario_parameter
         self.definition = scenario_parameter.definition
-        self.historic_time = historic_time
+        self.historical_time = historical_time
         self.extended_time = extended_time
         self.parameters = parameters or {}
 
     def extrapolate(self, parameter: fd.Parameter, name: str) -> fd.Parameter:
         """Return the extrapolated parameter with full 't' dimension."""
         prepared = self._prepare_parameter(parameter, name)
-        last_hist = prepared[{"t": self._last_historic_time}]
+        last_hist = prepared[{"t": self._last_historical_time}]
 
         endpoint_year = self.scenario_parameter.extras.get("year")
         self._warn_values_without_year(endpoint_year, name)
@@ -93,13 +93,13 @@ class ParameterExtrapolation:
 
         # preserve historical values
         new_param = fd.Parameter(values=new_values.values, dims=prepared.dims, name=name)
-        new_param[{"t": self.historic_time}] = prepared[{"t": self.historic_time}]
+        new_param[{"t": self.historical_time}] = prepared[{"t": self.historical_time}]
         return new_param
 
     def _prepare_parameter(self, parameter: fd.Parameter, name: str) -> fd.Parameter:
         """Return the baseline parameter with 't' dimension.
 
-        - h -> t: historic values kept, future filled with the last historic value
+        - h -> t: historical values kept, future filled with the last historical value
         - static -> t: values constant in time
         - t -> t: returned as-is
         """
@@ -108,11 +108,11 @@ class ParameterExtrapolation:
             return parameter
 
         if "h" in parameter.dims.letters:
-            # replace h with t, fill future with last historic value
+            # replace h with t, fill future with last historical value
             new_dims = parameter.dims.replace("h", self.extended_time)
             new_param = fd.Parameter(dims=new_dims, name=name)
-            new_param[...] = parameter[{"h": self._last_historic_time}].cast_to(new_dims)
-            new_param[{"t": self.historic_time}] = parameter
+            new_param[...] = parameter[{"h": self._last_historical_time}].cast_to(new_dims)
+            new_param[{"t": self.historical_time}] = parameter
             return new_param
 
         # static parameter: add time dimension, but keep values constant in time
@@ -120,8 +120,8 @@ class ParameterExtrapolation:
         return parameter.cast_to(new_dims)
 
     @property
-    def _last_historic_time(self) -> Number:
-        return self.historic_time.items[-1]
+    def _last_historical_time(self) -> Number:
+        return self.historical_time.items[-1]
 
     def _specified_mask(
         self, year: Optional[fd.FlodymArray], dims: fd.DimensionSet
@@ -148,22 +148,22 @@ class ParameterExtrapolation:
         )
 
     def _check_years_after_history(self, endpoint_year: Optional[fd.FlodymArray], name: str):
-        """Raise if an 'extra:year' entry lies at or before the last historic year.
+        """Raise if an 'extra:year' entry lies at or before the last historical year.
 
-        The blend anchors at the last historic year; an endpoint year at it would
+        The blend anchors at the last historical year; an endpoint year at it would
         divide by zero (yielding NaNs), an earlier one would silently reverse the
         blend so the entry keeps its baseline.
         """
         if endpoint_year is None:
             return
-        invalid = endpoint_year.items_where(lambda y: (y > 0) & (y <= self._last_historic_time))
+        invalid = endpoint_year.items_where(lambda y: (y > 0) & (y <= self._last_historical_time))
         if invalid.size == 0:
             return
         raise ValueError(
-            f"'{name}' has 'extra:year' entries at or before the last historic year "
+            f"'{name}' has 'extra:year' entries at or before the last historical year "
             f"at {len(invalid)} coordinate(s): {self._format_coordinates(invalid)}. "
-            f"Endpoint years must lie after the historic period, which ends in "
-            f"{self._last_historic_time}."
+            f"Endpoint years must lie after the historical period, which ends in "
+            f"{self._last_historical_time}."
         )
 
     @staticmethod
@@ -213,7 +213,7 @@ class ParameterExtrapolation:
         reference = self.parameters[ref_name]
         if "h" in reference.dims.letters:
             raise ValueError(
-                f"Reference '{ref_name}' for '{name}' has historic time dimension 'h'. "
+                f"Reference '{ref_name}' for '{name}' has historical time dimension 'h'. "
                 "Provide it with a full time dimension or declare it as an extrapolated "
                 "scenario parameter (it is then extrapolated first automatically)."
             )
@@ -232,13 +232,13 @@ class ParameterExtrapolation:
         target_year: fd.FlodymArray,
         target_dims: fd.DimensionSet,
     ) -> fd.FlodymArray:
-        """Blend from the last historic value to the absolute target by the target year."""
+        """Blend from the last historical value to the absolute target by the target year."""
         return blend(
             target_dims=target_dims,
             y_lower=last_hist,
             y_upper=target,
             x="t",
-            x_lower=self._last_historic_time,
+            x_lower=self._last_historical_time,
             x_upper=target_year,
             type=self.definition.blending_function,
         )
@@ -255,7 +255,7 @@ class ParameterExtrapolation:
             y_lower=1.0,
             y_upper=factor,
             x="t",
-            x_lower=self._last_historic_time,
+            x_lower=self._last_historical_time,
             x_upper=factor_year,
             type=self.definition.blending_function,
         )
@@ -420,14 +420,14 @@ class ParameterExtrapolationManager:
 
     def __init__(
         self,
-        historic_time: fd.Dimension,
+        historical_time: fd.Dimension,
         extended_time: fd.Dimension,
     ):
-        self.historic_time = historic_time
+        self.historical_time = historical_time
         self.extended_time = extended_time
 
-        if "h" != self.historic_time.letter:
-            raise ValueError(f"Historic time dimension does not have letter 'h'")
+        if "h" != self.historical_time.letter:
+            raise ValueError(f"Historical Time dimension does not have letter 'h'")
         if "t" != self.extended_time.letter:
             raise ValueError(f"New time dimension does not have letter 't'")
 
@@ -475,7 +475,7 @@ class ParameterExtrapolationManager:
 
             extrapolation = ParameterExtrapolation(
                 scenario_parameter=scenario_parameter,
-                historic_time=self.historic_time,
+                historical_time=self.historical_time,
                 extended_time=self.extended_time,
                 parameters=modified_parameters,
             )

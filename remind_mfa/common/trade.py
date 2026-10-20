@@ -40,9 +40,9 @@ class Trade(RemindMFABaseModel):
     def sum_over(self, dim_letters: str | tuple) -> "Trade":
         """Return a copy of this trade with the given dimension(s) summed away.
 
-        Used to hand a trade over to a system that resolves fewer dimensions, e.g. the historic
-        plastics trade (which carries the polymer type 'p') to the future MFA system (which does
-        not, since 'p' is redundant with the material dimension 'm').
+        Used to hand a trade over to a system that resolves fewer dimensions, e.g. the historical
+        plastics trade (which carries the polymer type 'P') to the future MFA system (which does
+        not, since 'P' is redundant with the polymer dimension 'p').
         """
         return Trade(
             name=self.name,
@@ -119,7 +119,7 @@ class Trade(RemindMFABaseModel):
 
 
 class TradeSet(RemindMFABaseModel):
-    """A trade model for the steel sector storing the data and defining how trade is processed."""
+    """A trade model storing the data and defining how trade is processed."""
 
     markets: dict[str, Trade]
 

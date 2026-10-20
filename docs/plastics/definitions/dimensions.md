@@ -1,10 +1,10 @@
 | Name            | Letter   |
 |:----------------|:---------|
 | Time            | t        |
-| Historic Time   | h        |
+| Historical Time | h        |
 | Region          | r        |
 | Element         | e        |
-| Material        | m        |
-| Type            | p        |
-| Good            | u        |
+| Polymer         | p        |
+| Polymer Type    | P        |
+| End Use         | u        |
 | Driver Scenario | S        |

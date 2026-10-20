@@ -1,35 +1,25 @@
-from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDisplayNames
-
-
-class PlasticsDimensionFiles(CommonDimensionFiles):
-    _own_mapping = {
-        "Element": "elements",
-        "Material": "materials",
-        "Good": "goods_in_use",
-        "Scenario": "scenarios",
-        "Type": "type",
-    }
+from remind_mfa.common.common_mappings import CommonDisplayNames
 
 
 class PlasticsDisplayNames(CommonDisplayNames):
     _own_mapping = {
         "sysenv": "System environment",
-        "feedfoss": "Feedstock(fossil)",
-        "feedbio": "Feedstock(biomass)",
-        "feeddaccu": "Feedstock(daccu)",
-        "feedccu": "Feedstock(ccu)",
-        "HVC_input": "High Value Chemical input",
-        "C4_input": "C4 input",
+        "feedfoss": "Feedstock supply (fossil)",
+        "feedbio": "Feedstock supply (biomass)",
+        "feeddaccu": "Feedstock supply (daccu)",
+        "feedccu": "Feedstock supply (ccu)",
+        "hvc_production": "High Value Chemical Production",
+        "c4_production": "C4 Production",
         "other_reactants": "Other Reactants",
         "polymerization": "Polymerization",
         "losses": "Losses",
         "processing": "Processing",
-        "fabrication": "Fabrication",
+        "manufacturing": "Manufacturing",
         "reclmech": "Mechanical Recycling",
         "reclchem": "Chemical Recycling",
         "use": "Use Phase",
-        "eol": "EoL",
-        "collected": "Collected",
+        "eol_management": "End-of-Life<br>Management",
+        "sorting": "Sorting",
         "mismanaged": "Uncollected",
         "incineration": "Incineration",
         "landfill": "Landfilled",
@@ -39,10 +29,9 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "atmosphere": "Atmosphere",
         "waste_market": "Waste Market",
         "primary_market": "Primary Market",
-        "intermediate_market": "Intermediate Market",
-        "good_market": "Good Market",
+        "manufactured_products_market": "Manufactured Products Market",
         "imports": "Imports",
         "exports": "Exports",
-        "aux_recyclate_trade": "Auxiliary Recyclate Trade",
-        "aux_recl_feedstock_trade": "Auxiliary Recycled Feedstock Trade",
+        "aux_recyclate_market": "Auxiliary Recyclate Trade",
+        "aux_recl_feedstock_market": "Auxiliary Recycled Feedstock Trade",
     }

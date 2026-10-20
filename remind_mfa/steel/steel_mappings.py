@@ -1,11 +1,4 @@
-from remind_mfa.common.common_mappings import CommonDimensionFiles, CommonDisplayNames
-
-
-class SteelDimensionFiles(CommonDimensionFiles):
-    _own_mapping = {
-        "Material": "materials",
-        "Good": "goods_in_use",
-    }
+from remind_mfa.common.common_mappings import CommonDisplayNames
 
 
 class SteelDisplayNames(CommonDisplayNames):
@@ -15,20 +8,18 @@ class SteelDisplayNames(CommonDisplayNames):
         "imports": "Imports",
         "exports": "Exports",
         "extraction": "Ore<br>Extraction",
-        "bof_production": "Production<br>from ores",
-        "eaf_production": "Production<br>(EAF)",
+        "steel_production_ore_based": "Production<br>from Ores",
+        "steel_production_scrap_based": "Production<br>from Scrap",
         "forming": "Forming",
-        "ip_market": "Intermediate<br>products",
-        "fabrication": "Fabrication",
-        "good_market": "Good Market",
-        "in_use": "Use phase",
-        "use": "Use phase",
-        "obsolete": "Obsolete<br>stocks",
-        "eol_market": "End of life<br>products",
-        "recycling": "Recycling",
-        "scrap_market": "Scrap<br>market",
-        "excess_scrap": "Excess<br>scrap",
-        "intermediate": "Intermediate Products",
-        "indirect": "Indirect (Goods)",
+        "steel_market": "Steel<br>Market",
+        "manufacturing": "Manufacturing",
+        "manufactured_products_market": "Manufactured<br>Product Market",
+        "use": "Use Phase",
+        "hibernating": "Hibernating<br>stocks",
+        "eol_management": "End-of-Life<br>Management",
+        "scrap_market": "Old Scrap<br>Market",
+        "scrap_pool": "Scrap<br>Pool",
+        "excess_scrap": "Excess<br>Scrap",
+        "manufactured_products": "Manufactured<br>Products",
         "scrap": "Scrap",
     }

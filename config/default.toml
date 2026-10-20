@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "data_in"
-        input_data_revision = "2.2.2"
+        input_data_revision = "2.7.0"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -31,7 +31,7 @@
         sankey.plotter_args.exclude_processes = ["sysenv"]
         sankey.plotter_args.exclude_flows = []
         extrapolation.do_visualize = true
-        sector_splits.do_visualize = false
+        end_use_split.do_visualize = false
 
     [base.export]
         do_export = true
@@ -48,7 +48,7 @@
 [plastics]
     [plastics.visualization]
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
-        material_splits.do_visualize = false
+        polymer_splits.do_visualize = false
         flows.do_visualize = false
         scenario_params.do_visualize = false
 
@@ -65,9 +65,9 @@
         eol_stock.do_visualize = false
         eol_stock.over_gdp = false
         eol_stock.per_capita = false
-        prod_clinker.do_visualize = false
-        prod_cement.do_visualize = true
-        prod_product.do_visualize = false
+        clinker_production.do_visualize = false
+        cement_production.do_visualize = true
+        construction.do_visualize = false
         sankey.plotter_args.split_flows_by = "End Use"
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
