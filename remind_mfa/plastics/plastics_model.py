@@ -56,13 +56,13 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
             values=self.parameters["emission_capture_rate"].cast_to(self.dims["r",]).values,
         )
 
-        # the future MFA does not carry the Type dimension 'p' (it is redundant with the material
-        # dimension 'm'), and the waste trade is only used there, so collapse 'p' away
+        # the future MFA does not carry the polymer type dimension 'P' (it is redundant with the
+        # polymer dimension 'p'), and the waste trade is only used there, so collapse 'P' away
         for name in ("waste_imports", "waste_exports"):
             self.parameters[name] = fd.Parameter(
                 name=name,
-                dims=self.dims["h", "r", "m"],
-                values=self.parameters[name].sum_values_over("p"),
+                dims=self.dims["h", "r", "p"],
+                values=self.parameters[name].sum_values_over("P"),
             )
 
         # calculate landfill rate from historical eol rates (1 - sum of other eol rates)
@@ -77,29 +77,30 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
             ).values,
         )
 
-        # 0/1 membership of each material in its polymer type, derived from the (p, m) sparsity of
-        # the end-use split. The future MFA drops the Type dimension 'p', since each material
-        # belongs to exactly one type; multiply an m-resolved array by this mapping to re-expand
-        # it to 'p' where the Type resolution is needed (e.g. the IAMC export by type).
-        membership = self.parameters["end_use_polymer_split"].sum_over(("h", "r", "u"))  # (p, m)
+        # 0/1 membership of each polymer in its polymer type, derived from the (P, p) sparsity of
+        # the end-use split. The future MFA drops the polymer type dimension 'P', since each polymer
+        # belongs to exactly one polymer type; multiply a p-resolved array by this mapping to
+        # re-expand it to 'P' where the polymer type resolution is needed (e.g. the IAMC export by
+        # polymer type).
+        membership = self.parameters["end_use_polymer_split"].sum_over(("h", "r", "u"))  # (P, p)
         mapping = fd.Parameter(
-            name="material_type_mapping",
-            dims=self.dims["p", "m"],
+            name="polymer_type_mapping",
+            dims=self.dims["P", "p"],
             values=(membership.values > 0).astype(float),
         )
-        unmapped = mapping.sum_over("p").items_where(lambda x: x != 1)
+        unmapped = mapping.sum_over("P").items_where(lambda x: x != 1)
         if unmapped.size:
             raise ValueError(
-                "Each material must belong to exactly one Type in 'end_use_polymer_split', but "
-                f"{[row[0] for row in unmapped]} do(es) not. Check the Type/Material combinations "
-                "in the input data and the plastics Type and Material dimension files."
+                "Each polymer must belong to exactly one polymer type in 'end_use_polymer_split', but "
+                f"{[row[0] for row in unmapped]} do(es) not. Check the polymer type/polymer "
+                "combinations in the input data and the plastics polymer type and polymer dimension files."
             )
-        self.parameters["material_type_mapping"] = mapping
+        self.parameters["polymer_type_mapping"] = mapping
 
     def transfer_historical_parameters(self):
-        # get material split of stock inflow from historical MFA to be extrapolated by ParameterExtrapolation for use in future MFA
-        self.parameters["material_shares_use_inflow"] = self.historical_mfa.parameters[
-            "material_shares_use_inflow"
+        # get polymer split of stock inflow from historical MFA to be extrapolated by ParameterExtrapolation for use in future MFA
+        self.parameters["polymer_shares_use_inflow"] = self.historical_mfa.parameters[
+            "polymer_shares_use_inflow"
         ]
         # get global end use split of stock inflow from historical MFA to be used as end-use split limit in the stock extrapolation
         self.parameters["end_use_split_limit"] = fd.Parameter(
