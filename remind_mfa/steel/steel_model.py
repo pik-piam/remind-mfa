@@ -4,33 +4,31 @@ import flodym as fd
 from remind_mfa.common.data_blending import blend
 from remind_mfa.steel.steel_export import SteelDataExporter
 from remind_mfa.steel.steel_mfa_system_future import SteelMFASystem
-from remind_mfa.steel.steel_mfa_system_historic import SteelMFASystemHistoric
+from remind_mfa.steel.steel_mfa_system_historical import SteelMFASystemHistorical
 from remind_mfa.steel.steel_definition import get_steel_definition
 from remind_mfa.steel.steel_config import SteelCfg
-from remind_mfa.steel.steel_mappings import SteelDimensionFiles, SteelDisplayNames
+from remind_mfa.steel.steel_mappings import SteelDisplayNames
 from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
 
 
-class SteelModel(CommonModel):
+class SteelModel(CommonModel[SteelCfg]):
 
     ConfigCls = SteelCfg
-    DimensionFilesCls = SteelDimensionFiles
     DataExporterCls = SteelDataExporter
     VisualizerCls = SteelVisualizer
     DisplayNamesCls = SteelDisplayNames
-    HistoricMFASystemCls = SteelMFASystemHistoric
+    HistoricalMFASystemCls = SteelMFASystemHistorical
     FutureMFASystemCls = SteelMFASystem
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
 
-    # TODO: unify, then delete
-    historic_stock_name: str = "historic_in_use"
-
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
+
+        self.parameters["max_scrap_share"] = self.scenario_parameters["max_scrap_share"]
 
         lifetime_factor = blend(
             target_dims=self.dims["t",],
@@ -67,41 +65,60 @@ class SteelModel(CommonModel):
             .values
             * 1.5,
         )
-        construction_lifetime_factor = 1.2
+
+        hibernation_share_construction = 0.3
         add_assumption_doc(
-            type="ad-hoc fix",
-            name="construction lifetime factor",
-            value=construction_lifetime_factor,
+            type="expert guess",
+            name="construction hibernation share",
+            value=hibernation_share_construction,
             description=(
-                "Additional factor multiplied to construction lifetime mean and standard deviation "
-                "to match historical scrap consumption. The special treatment of construction "
-                "is motivated by literature sources suggesting longer building lifetimes than the "
-                "used source"
+                "Share of construction steel leaving the in-use stock that remains in place as "
+                "hibernating stock (no longer used, but not demolished or recovered). Hibernating "
+                "stock has no outflow. Other end uses have no hibernation."
             ),
         )
-        self.parameters["lifetime_mean"]["Construction"] = (
-            self.parameters["lifetime_mean"]["Construction"] * construction_lifetime_factor
+        self.parameters["hibernation_share"] = fd.Parameter(dims=self.dims["u",])
+        self.parameters["hibernation_share"]["Construction"] = hibernation_share_construction
+
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="GDP-dependent recovery factor",
+            description=(
+                "The ratio of recovered to unrecovered end-of-life steel is multiplied by a factor "
+                "rising from 0.5 at a GDP per capita of 1000 to 1 at 60000, to account for lower "
+                "collection in poorer regions."
+            ),
         )
-        self.parameters["lifetime_std"]["Construction"] = (
-            self.parameters["lifetime_std"]["Construction"] * construction_lifetime_factor
+        recovery_factor = blend(
+            target_dims=self.dims["t", "r"],
+            y_lower=0.5,
+            y_upper=1.0,
+            x=self.parameters["gdppc"],
+            x_lower=1000,
+            x_upper=60000,
+        )
+        recovery_odds = (
+            recovery_factor
+            * self.parameters["recovery_rate"]
+            / (1 - self.parameters["recovery_rate"])
         )
         self.parameters["recovery_rate"] = fd.Parameter(
-            dims=self.dims["r", "u"],
-            values=self.parameters["recovery_rate"].cast_to(self.dims["r", "u"]).values * 0.85,
+            dims=self.dims["t", "r", "u"],
+            values=(recovery_odds / (1 + recovery_odds)).cast_to(self.dims["t", "r", "u"]).values,
         )
 
         add_assumption_doc(
             type="ad-hoc fix",
             name="scrap rate factor",
             description=(
-                "Time-dependent factor multiplied to forming and fabrication losses to match "
+                "Time-dependent factor multiplied to forming and manufacturing losses to match "
                 "historical scrap consumption."
             ),
         )
         scrap_rate_factor = blend(
             target_dims=self.dims["t",],
             y_lower=1.4,
-            y_upper=0.75,
+            y_upper=0.8,
             x="t",
             x_lower=1970,
             x_upper=2020,
@@ -113,67 +130,110 @@ class SteelModel(CommonModel):
                 1 - scrap_rate_factor * (1 - self.parameters["forming_yield"].values.mean())
             ).values,
         )
-        self.parameters["fabrication_yield"] = fd.Parameter(
+        self.parameters["manufacturing_yield"] = fd.Parameter(
             dims=self.dims["t", "u"],
-            values=(1 - scrap_rate_factor * (1 - self.parameters["fabrication_yield"])).values,
+            values=(1 - scrap_rate_factor * (1 - self.parameters["manufacturing_yield"])).values,
         )
-        self.parameters["sector_split_high"]["Products"] *= 1.5
-        self.parameters["sector_split_high"][...] = self.parameters[
-            "sector_split_high"
+        self.parameters["end_use_split_high_inco"]["Products"] *= 1.5
+        self.parameters["end_use_split_high_inco"][...] = self.parameters[
+            "end_use_split_high_inco"
         ].get_shares_over("u")
 
-        self.calc_sector_split()
-        self.parameters["aggregate_fabrication_yield"] = fd.Parameter(dims=self.dims["t", "r"])
-        self.parameters["aggregate_fabrication_yield"][...] = (
-            self.parameters["fabrication_yield"] * self.parameters["sector_split"]
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="GDP-dependent manufacturing losses",
+            description=(
+                "Share of manufacturing scrap that is lost instead of recycled as new scrap. "
+                "Decreases from 0.3 at a GDP per capita of 1000 to 0.05 at 60000."
+            ),
+        )
+        self.parameters["manufacturing_losses"] = fd.Parameter(
+            dims=self.dims["t", "r"],
+            values=blend(
+                target_dims=self.dims["t", "r"],
+                y_lower=0.3,
+                y_upper=0.05,
+                x=self.parameters["gdppc"],
+                x_lower=1000,
+                x_upper=60000,
+            ).values,
+        )
+
+        add_assumption_doc(
+            type="ad-hoc fix",
+            name="GDP-dependent forming loss factor",
+            description=(
+                "Factor multiplied to the forming loss rate. "
+                "Decreases from 4 at a GDP per capita of 1000 to 1 at 60000."
+            ),
+        )
+        forming_loss_factor = blend(
+            target_dims=self.dims["t", "r"],
+            y_lower=2.5,
+            y_upper=1.0,
+            x=self.parameters["gdppc"],
+            x_lower=1000,
+            x_upper=60000,
+        )
+        self.parameters["forming_loss_rate"] = fd.Parameter(
+            dims=self.dims["t", "r"],
+            values=(forming_loss_factor * self.parameters["forming_loss_rate"]).values,
+        )
+
+        self.calc_end_use_split()
+        self.parameters["aggregate_manufacturing_yield"] = fd.Parameter(dims=self.dims["t", "r"])
+        self.parameters["aggregate_manufacturing_yield"][...] = (
+            self.parameters["manufacturing_yield"] * self.parameters["end_use_split"]
         ).sum_over("u")
 
-    def calc_sector_split(self) -> fd.FlodymArray:
-        """Blend over GDP per capita between typical sector splits for low and high GDP per capita regions."""
+    def calc_end_use_split(self) -> fd.FlodymArray:
+        """Blend over GDP per capita between typical end-use splits for low and high GDP per capita regions."""
         target_dims = self.dims["t", "r", "u"]
-        self.parameters["sector_split"] = fd.Parameter(dims=target_dims, name="sector_split")
-        sector_split_1 = fd.Parameter(dims=target_dims)
-        sector_split_2 = fd.Parameter(dims=target_dims)
+        self.parameters["end_use_split"] = fd.Parameter(dims=target_dims, name="end_use_split")
+        end_use_split_1 = fd.Parameter(dims=target_dims)
+        end_use_split_2 = fd.Parameter(dims=target_dims)
         log_gdppc = (
-            self.parameters["gdppc"].maximum(self.parameters["secsplit_gdppc_low"]).apply(np.log)
+            self.parameters["gdppc"]
+            .maximum(self.parameters["end_use_split_gdppc_low"])
+            .apply(np.log)
         )
-        log_gdppc_low = self.parameters["secsplit_gdppc_low"].apply(np.log)
-        log_gdppc_high = self.parameters["secsplit_gdppc_high"].apply(np.log)
+        log_gdppc_low = self.parameters["end_use_split_gdppc_low"].apply(np.log)
+        log_gdppc_high = self.parameters["end_use_split_gdppc_high"].apply(np.log)
         add_assumption_doc(
             type="expert guess",
-            name="medium sector split",
+            name="medium end-use split",
             description=(
-                "Demand sector split for medium GDP per capita, to account for higher construction "
+                "Demand end-use split for medium GDP per capita, to account for higher construction "
                 "share in medium GDP. Roughly based on given source, but adapted."
             ),
             source="https://steel.gov.in/sites/default/files/2025-03/GSI%20Report.pdf",
         )
         log_gddpc_medium = (log_gdppc_low + log_gdppc_high) / 2
 
-        sector_split_1[...] = blend(
+        end_use_split_1[...] = blend(
             target_dims=target_dims,
-            y_lower=self.parameters["sector_split_low"],
-            y_upper=self.parameters["sector_split_medium"],
+            y_lower=self.parameters["end_use_split_low_inco"],
+            y_upper=self.parameters["end_use_split_medium_inco"],
             x=log_gdppc,
             x_lower=log_gdppc_low,
             x_upper=log_gddpc_medium,
             type="poly_mix",
         )
 
-        sector_split_2[...] = blend(
+        end_use_split_2[...] = blend(
             target_dims=target_dims,
-            y_lower=self.parameters["sector_split_medium"],
-            y_upper=self.parameters["sector_split_high"],
+            y_lower=self.parameters["end_use_split_medium_inco"],
+            y_upper=self.parameters["end_use_split_high_inco"],
             x=log_gdppc,
             x_lower=log_gddpc_medium,
             x_upper=log_gdppc_high,
             type="poly_mix",
         )
         # copy/rename for use in common model
-        self.parameters["sector_split_limit"] = self.parameters["sector_split_high"]
+        self.parameters["end_use_split_limit"] = self.parameters["end_use_split_high_inco"]
 
         mask = log_gdppc.cast_values_to(target_dims) < log_gddpc_medium.cast_values_to(target_dims)
-        self.parameters["sector_split"].values = np.where(
-            mask, sector_split_1.values, sector_split_2.values
+        self.parameters["end_use_split"].values = np.where(
+            mask, end_use_split_1.values, end_use_split_2.values
         )
         return
