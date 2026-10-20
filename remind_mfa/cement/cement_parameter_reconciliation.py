@@ -55,29 +55,32 @@ class CementParameterReconciliation:
         anchored objective would then re-request every iteration.
 
     Dimension handling:
-        - The end-use dimension ``u`` is reduced to the common end use ``c`` (Res/Com). The bottom-up
-          side is computed at the bottom-up end-use resolution ``b`` (RS/RM/Com) and aggregated
-          to ``c`` (Res = RS + RM). In ``c``, top-down and bottom-up information overlap.
+        - The end-use dimension ``u`` is reduced to the common end use ``c``
+          (Residential/Commercial). The bottom-up side is computed at the bottom-up end-use
+          resolution ``b`` (Residential Single-/Multi-Family, Commercial) and aggregated to ``c``
+          (Residential = Single-Family + Multi-Family). In ``c``, top-down and bottom-up
+          information overlap.
         - Each parameter receives one correction factor per element of its dimensions
           except time (``t``/``h``): corrections are constant across all time steps.
         - Split parameters are re-normalized to sum to 1 after each correction. Full splits
-          (every dim item is covered in the reconciliation: dwelling/structure) are scaled
+          (every dim item is covered in the reconciliation: residential type/structure) are scaled
           proportionally. Partial splits (only a subset of dim items covered: concrete for the
-          material split, Res/Com for the end-use split) keep their reconciled values and
-          let the unused complement (mortar; Civ/Ind) absorb ``1 - sum(reconciled)``.
-          Note: dwelling_split and structure_split are accessed exclusively via
+          material split, Residential/Commercial for the end-use split) keep their reconciled
+          values and let the unused complement (mortar; Civil Engineering/Industrial) absorb
+          ``1 - sum(reconciled)``.
+          Note: residential_type_split and structure_split are accessed exclusively via
           ``get_shares_over`` in the reconciled stock functions, so during the
           optimization only their relative proportions matter and their norm does not
           affect any computation. After the reconciliation, however, the model uses
-          their raw values (mortar dwelling split, concrete mass shares, derived global
+          their raw values (mortar residential type split, concrete mass shares, derived global
           split means), where the norm does matter. They are re-normalized here to keep
           the raw parameter values consistent (summing to 1) for these downstream steps.
     """
 
     _normalization_dims: dict[str, tuple[str, ...]] = {
         "structure_split": ("Structure",),
-        "dwelling_split": ("Dwelling Type",),
-        "product_material_split": ("Product Material",),
+        "residential_type_split": ("Residential Type",),
+        "construction_material_split": ("Construction Material",),
         "end_use_split": ("End Use",),
     }
 
@@ -103,7 +106,7 @@ class CementParameterReconciliation:
         self.prepare_dims()
 
         self._reconciled_split_items = {
-            "product_material_split": ("concrete",),
+            "construction_material_split": ("Concrete",),
             "end_use_split": tuple(self.reduced_end_use.items),
         }
 
@@ -124,8 +127,9 @@ class CementParameterReconciliation:
         self.reduced_end_use = self.input_dims["c"]
 
     def reduce_u_to_common(self, arr: fd.FlodymArray) -> fd.FlodymArray:
-        """Restrict an end-use-resolved (u) array to the common end uses (c: Res/Com),
-        dropping the end uses outside the reconciliation (Ind/Civ).
+        """Restrict an end-use-resolved (u) array to the common end uses
+        (c: Residential/Commercial), dropping the end uses outside the reconciliation
+        (Industrial/Civil Engineering).
 
         Relies on the items of ``c`` being a name-identical subset of the items of ``u``.
         Returns a new array; the input is left untouched.
@@ -134,8 +138,8 @@ class CementParameterReconciliation:
 
     def expand_common_to_u(self, arr: fd.FlodymArray, fill_value: float) -> fd.FlodymArray:
         """Expand a common-end-use (c) array back to the full end-use dimension (u), filling
-        the end uses outside the reconciliation (Ind/Civ) with `fill_value`. Inverse of
-        `reduce_u_to_common`."""
+        the end uses outside the reconciliation (Industrial/Civil Engineering) with
+        `fill_value`. Inverse of `reduce_u_to_common`."""
         new_dims = arr.dims.replace(self.reduced_end_use.letter, self.input_dims["u"])
         out = fd.FlodymArray.full(dims=new_dims, fill_value=fill_value)
         out[{"u": self.reduced_end_use}] = arr
@@ -156,7 +160,7 @@ class CementParameterReconciliation:
     def reduce_prm(self, prm_name: str, prm: fd.FlodymArray) -> fd.FlodymArray:
         """Reduce a parameter (or an array with the parameter's dims) to the dimensions
         used during reconciliation."""
-        # reduce end-use dimension to the common end use (Res/Com)
+        # reduce end-use dimension to the common end use (Residential/Commercial)
         if "u" in prm.dims.letters:
             prm = self.reduce_u_to_common(prm)
         # remove time dimension
@@ -282,7 +286,7 @@ class CementParameterReconciliation:
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]):
         """Top-down stock calculation for reconciliaton."""
 
-        # 1. Compute product stock (summed over product materials) from historical MFA
+        # 1. Compute product stock (summed over construction materials) from historical MFA
         product_stock = InflowDrivenHistoricalCementMFASystem.compute_stock(
             prm, self.trds, self.flws, self.stks
         )
@@ -292,9 +296,9 @@ class CementParameterReconciliation:
         product_stock = product_stock[{"h": self._year_of_reconciliation}]
 
         # 2.2 Use only the reconciled material (concrete) [no mortar]
-        concrete_stock = StockDrivenCementMFASystem.add_product_material_split(product_stock, prm)[
-            {"m": self._reconciled_split_items["product_material_split"][0]}
-        ]
+        concrete_stock = StockDrivenCementMFASystem.add_construction_material_split(
+            product_stock, prm
+        )[{"m": self._reconciled_split_items["construction_material_split"][0]}]
 
         return concrete_stock
 
@@ -462,7 +466,8 @@ class CementParameterReconciliation:
         """
         Iterate over all element combinations of a DimensionSet, yielding dict slicers.
 
-        Yields dicts like {'r': 'USA', 'c': 'Res'} for each element in the Cartesian product.
+        Yields dicts like {'r': 'USA', 'c': 'Residential'} for each element in the Cartesian
+        product.
         Order matches numpy flatten (C-order): last dimension varies fastest.
         """
         items_per_dim = [d.items for d in dims]
@@ -569,7 +574,7 @@ class CementParameterReconciliation:
             # BU parameters
             # TODO MI std could be calculated from source in mrmfa (maybe other parameters, too)
             "concrete_building_mi": 0.2 + 0.3 * self.prms["development_weight"],
-            "dwelling_split": 0.2,
+            "residential_type_split": 0.2,
             "structure_split": 0.2,
             "floorspace": 0.4,
             "hibernating_stock_share": 0.5,
@@ -577,7 +582,7 @@ class CementParameterReconciliation:
             "cement_losses": 0.2,
             "cement_production": 0.0,
             "cement_ratio": 0.1,
-            "product_material_split": 0.4,
+            "construction_material_split": 0.4,
             "end_use_split": 0.5,
             "lifetime_mean": 0.4,
             "lifetime_std": 0.0,
@@ -618,7 +623,8 @@ class CementParameterReconciliation:
         self, prm_name: str, correction_factor: fd.FlodymArray
     ) -> fd.FlodymArray:
         """Expand a common-end-use (c) correction back to the parameter's end-use dimension
-        (u), filling the end uses outside the reconciliation (Ind/Civ) with 1.0 (no correction).
+        (u), filling the end uses outside the reconciliation (Industrial/Civil Engineering) with
+        1.0 (no correction).
         Parameters natively resolved at c (e.g. floorspace) need no cast."""
         original_letters = self.output_prms[prm_name].dims.letters
         if "c" not in correction_factor.dims.letters or "u" not in original_letters:
@@ -658,11 +664,12 @@ class CementParameterReconciliation:
         without disturbing the reconciled correction.
 
         Only some items of a partial split feed the reconciliation (the "reconciled" items,
-        e.g. concrete, or Res/Com); the others are the unused "complement" (e.g. mortar, or
-        Civ/Ind). The reconciled items keep exactly the values the optimizer produced, and the
-        complement is rescaled to take up whatever is left of the budget,
-        `1 - sum(reconciled)`, keeping the complement's internal ratio fixed (so e.g.
-        mortar = 1 - concrete, and Civ:Ind stays as in the input data).
+        e.g. concrete, or Residential/Commercial); the others are the unused "complement"
+        (e.g. mortar, or Civil Engineering/Industrial). The reconciled items keep exactly the
+        values the optimizer produced, and the complement is rescaled to take up whatever is
+        left of the budget, `1 - sum(reconciled)`, keeping the complement's internal ratio
+        fixed (so e.g. mortar = 1 - concrete, and Civil Engineering:Industrial stays as in the
+        input data).
 
         If the reconciled items already use up the whole budget (`sum(reconciled) >= 1`),
         there is no room for a positive complement; those regions fall back to plain

@@ -66,21 +66,23 @@ class CementModel(CommonModel[CementCfg]):
         # copy/rename for use in common model
         self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
 
-        # derive mean dwelling and structure splits from global weighted average
+        # derive mean residential type and structure splits from global weighted average
         prm = self.parameters
         w = prm["development_weight"]
         floorspace = prm["floorspace"][{"t": self.dims["h"].items[-1]}]
 
-        # dwelling split target
-        res_floorspace = floorspace[{"c": "Res"}]
-        global_dwelling_split = (prm["dwelling_split"] * res_floorspace).sum_over(
+        # residential type split target
+        res_floorspace = floorspace[{"c": "Residential"}]
+        global_residential_type_split = (prm["residential_type_split"] * res_floorspace).sum_over(
             "r"
         ) / res_floorspace.sum_over("r")
-        dwelling_split_mean = fd.Parameter(
-            dims=prm["dwelling_split"].dims, name="dwelling_split_mean"
+        residential_type_split_mean = fd.Parameter(
+            dims=prm["residential_type_split"].dims, name="residential_type_split_mean"
         )
-        dwelling_split_mean[...] = w * global_dwelling_split + (1.0 - w) * prm["dwelling_split"]
-        prm["dwelling_split_mean"] = dwelling_split_mean
+        residential_type_split_mean[...] = (
+            w * global_residential_type_split + (1.0 - w) * prm["residential_type_split"]
+        )
+        prm["residential_type_split_mean"] = residential_type_split_mean
 
         # structure split target
         bu_floorspace = expand_common_to_bu(floorspace, prm)

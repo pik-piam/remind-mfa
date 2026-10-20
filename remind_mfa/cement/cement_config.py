@@ -18,12 +18,12 @@ class CementModelSwitches(ModelSwitches):
 
 class CementVisualizationCfg(VisualizationCfg):
 
-    prod_clinker: BaseVisualizationCfg
+    clinker_production: BaseVisualizationCfg
     """Visualization configuration for clinker production."""
-    prod_cement: BaseVisualizationCfg
+    cement_production: BaseVisualizationCfg
     """Visualization configuration for cement production."""
-    prod_product: BaseVisualizationCfg
-    """Visualization configuration for products production."""
+    construction: BaseVisualizationCfg
+    """Visualization configuration for construction (construction material production)."""
     eol_stock: StockVisualizationCfg
     """Visualization configuration for end-of-life stock."""
     carbonation: BaseVisualizationCfg

@@ -9,11 +9,10 @@
 | Manufactured Product Market |
 | Use Phase                   |
 | Hibernating stocks          |
-| Obsolete stocks             |
-| End of life products        |
-| Recycling                   |
-| Scrap market                |
-| Excess scrap                |
+| End-of-Life Management      |
+| Old Scrap Market            |
+| Scrap Pool                  |
+| Excess Scrap                |
 | Imports                     |
 | Exports                     |
 | Losses                      |

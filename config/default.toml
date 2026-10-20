@@ -65,9 +65,9 @@
         eol_stock.do_visualize = false
         eol_stock.over_gdp = false
         eol_stock.per_capita = false
-        prod_clinker.do_visualize = false
-        prod_cement.do_visualize = true
-        prod_product.do_visualize = false
+        clinker_production.do_visualize = false
+        cement_production.do_visualize = true
+        construction.do_visualize = false
         sankey.plotter_args.split_flows_by = "End Use"
         sankey.plotter_args.color_scheme = "blueish"
         sankey.plotter_args.flow_color = "hsl(230,20,70)"
