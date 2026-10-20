@@ -1,10 +1,10 @@
 | Name                        |
 |:----------------------------|
 | System environment          |
-| Production from ores        |
-| Production (EAF)            |
+| Production from Ores        |
+| Production from Scrap       |
 | Forming                     |
-| Intermediate products       |
+| Steel Market                |
 | Manufacturing               |
 | Manufactured Product Market |
 | Use Phase                   |
