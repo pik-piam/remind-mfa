@@ -30,10 +30,22 @@ python -m pip install .
 
 ## Run
 
-To run a model, run
+The basic model run command is
 
 ```shell
-uv run remind-mfa --config default --model steel
+uv run remind_mfa --help
+```
+
+or, without `uv`
+
+```shell
+python -m remind_mfa --help
+```
+
+For an example model execution, run
+
+```shell
+uv run remind_mfa --config default --model steel
 ```
 
 from the main directory. Configuration names resolve to TOML files below `config`, so
@@ -41,7 +53,7 @@ from the main directory. Configuration names resolve to TOML files below `config
 order, with later files overriding earlier files:
 
 ```shell
-uv run remind-mfa --config default --config local --model all
+uv run remind_mfa --config default --config local --model all
 ```
 See the
 [configuration documentation](docs/config.md) for the file layout and merge rules.
@@ -64,6 +76,12 @@ uv run scripts/fetch_from_hpc.py mfa-archive --config default <hpc>
 ```
 where `<hpc>` is the ssh address/alias of the PIK cluster, e.g., `username@hpc.pik-potsdam.de` (with your PIK user name).
 Alternatively, you can also use `uv run scripts/fetch_from_hpc.py mrmfa-sources <hpc>` to copy the input data for `mrmfa` from the cluster to your local machine, and then run `mrmfa` locally to generate the madrat output data.
+
+The auto-generated documentation markdown files are updated automatically in each pull request.
+To update them locally, run
+```
+uv run remind_mfa.py --config default --config update_docs --model all
+```
 
 
 ## Questions / Problems

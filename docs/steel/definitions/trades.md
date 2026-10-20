@@ -1,5 +1,5 @@
-| Dimensions   | Name             |
-|:-------------|:-----------------|
-| t, r         | steel            |
-| t, r, g      | Indirect (Goods) |
-| t, r         | Scrap            |
+| Dimensions   | Name                  |
+|:-------------|:----------------------|
+| t, r         | steel                 |
+| t, r, u      | Manufactured Products |
+| t, r         | Scrap                 |

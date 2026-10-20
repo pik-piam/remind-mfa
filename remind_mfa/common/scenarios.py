@@ -233,7 +233,7 @@ class ScenarioReader(RemindMFABaseModel):
             return None
         try:
             return ast.literal_eval(val)
-        except (ValueError, SyntaxError):
+        except ValueError, SyntaxError:
             return val
 
     def _read_parent_from_inheritance(self, name: str) -> Optional[str]:
