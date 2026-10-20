@@ -22,6 +22,7 @@ from remind_mfa.common.helpers import RegressOverModes, series_export_path
 
 
 class CommonModel:
+
     ConfigCls = CommonCfg
     DimensionFilesCls = CommonDimensionFiles
     DataExporterCls = CommonDataExporter

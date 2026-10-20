@@ -25,6 +25,7 @@ class CementModelSwitches(ModelSwitches):
 
 
 class CementVisualizationCfg(VisualizationCfg):
+
     prod_clinker: BaseVisualizationCfg
     """Visualization configuration for clinker production."""
     prod_cement: BaseVisualizationCfg
@@ -38,6 +39,7 @@ class CementVisualizationCfg(VisualizationCfg):
 
 
 class CementCfg(CommonCfg):
+
     model_switches: CementModelSwitches
     """Model customization parameters for the cement model."""
     visualization: CementVisualizationCfg

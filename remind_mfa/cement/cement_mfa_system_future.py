@@ -8,6 +8,7 @@ from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 
 
 class StockDrivenCementMFASystem(CommonMFASystem):
+
     cfg: CementCfg
 
     def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet, **kwargs):

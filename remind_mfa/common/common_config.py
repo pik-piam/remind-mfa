@@ -25,6 +25,7 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
 
 
 class ModelSwitches(RemindMFABaseModel):
+
     scenario: str
     """Name of the scenario to use."""
     stock_extrapolation_class_name: str

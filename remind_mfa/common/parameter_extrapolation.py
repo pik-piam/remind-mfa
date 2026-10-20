@@ -380,7 +380,8 @@ class ParameterExtrapolation:
         has_scenario = endpoint_year is not None and is_specified.values.any()
         if not has_scenario:
             return (
-                f"Parameter '{name}' is extended into the future; all entries keep their baseline."
+                f"Parameter '{name}' is extended into the future; "
+                "all entries keep their baseline."
             )
 
         if ext_type == "target":

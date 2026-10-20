@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 
 class SteelVisualizer(CommonVisualizer):
+
     cfg: SteelVisualizationCfg
 
     _model: Optional["SteelModel"] = PrivateAttr(default=None)
@@ -36,7 +37,7 @@ class SteelVisualizer(CommonVisualizer):
         )
 
     def visualize_sankey(self, mfa: fd.MFASystem):
-        good_colors = [f"hsl({190 + 10 * i},40,{77 - 5 * i})" for i in range(4)]
+        good_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]
         production_color = "hsl(50,40,70)"
         scrap_color = "hsl(120,40,70)"
         losses_color = "hsl(20,40,70)"
