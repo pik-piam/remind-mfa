@@ -18,6 +18,7 @@
 | t, r, u      | Manufactured Product Market | Exports                     |
 | t, r, u      | Imports                     | Manufactured Product Market |
 | t, r, u      | Manufactured Product Market | Use Phase                   |
+| t, r, u      | Use Phase                   | Hibernating stocks          |
 | t, r, u      | Use Phase                   | Obsolete stocks             |
 | t, r, u      | Use Phase                   | End of life products        |
 | t, r         | End of life products        | Recycling                   |

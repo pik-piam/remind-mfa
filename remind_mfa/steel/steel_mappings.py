@@ -16,6 +16,7 @@ class SteelDisplayNames(CommonDisplayNames):
         "manufactured_products_market": "Manufactured<br>Product Market",
         "use": "Use Phase",
         "use": "Use Phase",
+        "hibernating": "Hibernating<br>stocks",
         "obsolete": "Obsolete<br>stocks",
         "scrap_market": "End of life<br>products",
         "recycling": "Recycling",
