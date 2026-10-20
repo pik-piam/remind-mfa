@@ -133,7 +133,9 @@ class CementModel(CommonModel[CementCfg]):
         structure_split_mean = self.calculate_dynamic_mean(
             prm["structure_split"], bu_floorspace, "structure_split_mean"
         )
-        prm["structure_split_mean"] = self.set_structure_share(structure_split_mean, "Unspecified Structure", 0.0)
+        prm["structure_split_mean"] = self.set_structure_share(
+            structure_split_mean, "Unspecified Structure", 0.0
+        )
         add_assumption_doc(
             type="model switch",
             name="No unknown structure type in target",
