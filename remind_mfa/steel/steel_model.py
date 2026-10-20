@@ -54,13 +54,17 @@ class SteelModel(CommonModel[SteelCfg]):
 
         self.parameters["lifetime_mean"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_mean"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_mean"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_std"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_std"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values
             * 1.5,
