@@ -2,7 +2,6 @@ from functools import reduce
 
 
 class Mapping:
-
     _own_mapping = {}
 
     def __init__(self):
@@ -15,7 +14,6 @@ class Mapping:
 
 
 class CommonDisplayNames(Mapping):
-
     _own_mapping = {
         # for markdown export
         "name": "Name",

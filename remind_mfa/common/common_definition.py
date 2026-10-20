@@ -12,7 +12,6 @@ from remind_mfa.common.trade import TradeDefinition
 
 
 class RemindMFAParameterDefinition(fd.ParameterDefinition):
-
     description: Optional[str] = None
     """Description of the parameter."""
 
@@ -27,7 +26,6 @@ class RemindMFADefinition(fd.MFADefinition):
 
 
 class PlainDataPointDefinition(RemindMFABaseModel):
-
     name: str
     """Name of the data point."""
     description: Optional[str] = None

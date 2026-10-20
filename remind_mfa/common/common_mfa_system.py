@@ -12,7 +12,6 @@ from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class CommonMFASystem(fd.MFASystem):
-
     cfg: CommonCfg
     trade_set: Optional[TradeSet] = None
     lifetime_n_pts_per_interval: ClassVar[int] = 1

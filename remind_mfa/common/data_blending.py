@@ -194,7 +194,6 @@ def critically_damped_blend(
 
 
 class CriticallyDampedBlender:
-
     def __init__(
         self,
         time: Union[np.ndarray, list],
@@ -230,24 +229,24 @@ class CriticallyDampedBlender:
         self.initial_slope = initial_slope
         self.n_trend_years = n_trend_years
 
-        assert (
-            self.time.shape[0] == self.prediction.shape[0]
-        ), "Time and prediction must have the same length."
-        assert (
-            self.historical.shape[1:] == self.prediction.shape[1:]
-        ), "Historical and prediction must have the same shape, except along the time dimension."
-        assert (
-            self.historical.shape[0] <= self.prediction.shape[0]
-        ), "Historical data cannot be longer than prediction."
+        assert self.time.shape[0] == self.prediction.shape[0], (
+            "Time and prediction must have the same length."
+        )
+        assert self.historical.shape[1:] == self.prediction.shape[1:], (
+            "Historical and prediction must have the same shape, except along the time dimension."
+        )
+        assert self.historical.shape[0] <= self.prediction.shape[0], (
+            "Historical data cannot be longer than prediction."
+        )
         if self.initial_slope == "weighted_regression":
             assert n_trend_years is not None, "n_trend_years is required for weighted_regression."
             assert np.all(np.asarray(n_trend_years) >= 1), "n_trend_years must be at least 1."
 
         self.lifetime = lifetime
         if self.lifetime is not None:
-            assert (
-                self.lifetime.shape == self.prediction.shape[1:]
-            ), "Lifetime must match spatial shape of prediction."
+            assert self.lifetime.shape == self.prediction.shape[1:], (
+                "Lifetime must match spatial shape of prediction."
+            )
 
     def blend(
         self,
