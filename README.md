@@ -80,7 +80,7 @@ Alternatively, you can also use `uv run scripts/fetch_from_hpc.py mrmfa-sources 
 The auto-generated documentation markdown files are updated automatically in each pull request.
 To update them locally, run
 ```
-uv run remind_mfa.py --config default --config update_docs --model all
+uv run remind_mfa --config default --config update_docs --model all
 ```
 
 
