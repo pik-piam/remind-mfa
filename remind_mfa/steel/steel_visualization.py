@@ -58,7 +58,7 @@ class SteelVisualizer(CommonVisualizer):
             {
                 fn: losses_color
                 for fn, f in mfa.flows.items()
-                if f.to_process.name in ["losses", "excess_scrap", "obsolete"]
+                if f.to_process.name in ["losses", "excess_scrap", "hibernating"]
             }
         )
         flow_color_dict.update(
@@ -184,7 +184,7 @@ class SteelVisualizer(CommonVisualizer):
             / (prm["forming_yield"] * (1 - prm["steel_production_loss_rate"]))
         )[{"t": mfa.dims["h"]}]
         scrap_supply = (
-            flw["recycling => scrap_pool"]
+            flw["scrap_market => scrap_pool"]
             + flw["forming => scrap_pool"]
             + flw["manufacturing => scrap_pool"]
         )
