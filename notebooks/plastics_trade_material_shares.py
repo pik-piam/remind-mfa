@@ -303,8 +303,8 @@ def _(ERAS, mo, pd, regional_shares):
                 {
                     region: 100
                     * (
-                        group.loc[(flow, region, start):(flow, region, end)].max()
-                        - group.loc[(flow, region, start):(flow, region, end)].min()
+                        group.loc[(flow, region, start) : (flow, region, end)].max()
+                        - group.loc[(flow, region, start) : (flow, region, end)].min()
                     ).max()
                     for region in group.index.get_level_values("Region").unique()
                 },

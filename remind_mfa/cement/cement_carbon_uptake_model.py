@@ -370,7 +370,6 @@ class CementCarbonUptakeModel(BaseModel):
         uncarbonated_inflow = np.zeros(stk_dims_no_k.shape)
 
         for t in range(1, stk_use._n_t):
-
             # (I1) get outflow by cohort (cement mass)
             ages, inflow = get_age_distribution(stk_use, t, data_type="outflow")
             inflow = inflow[..., cement_k_idx]  # select cement constituent only

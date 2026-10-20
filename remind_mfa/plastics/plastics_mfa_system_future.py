@@ -10,7 +10,6 @@ from remind_mfa.plastics.plastics_config import PlasticsCfg
 
 
 class PlasticsMFASystemFuture(CommonMFASystem):
-
     cfg: PlasticsCfg
     # higher number of points than the default because packaging lifetimes are < 1 year
     lifetime_n_pts_per_interval = 10

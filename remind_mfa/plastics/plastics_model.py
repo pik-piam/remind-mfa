@@ -13,7 +13,6 @@ from remind_mfa.common.common_model import CommonModel
 
 
 class PlasticsModel(CommonModel[PlasticsCfg]):
-
     ConfigCls = PlasticsCfg
     DataExporterCls = PlasticsDataExporter
     VisualizerCls = PlasticsVisualizer

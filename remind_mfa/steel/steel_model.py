@@ -15,7 +15,6 @@ from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_p
 
 
 class SteelModel(CommonModel[SteelCfg]):
-
     ConfigCls = SteelCfg
     DataExporterCls = SteelDataExporter
     VisualizerCls = SteelVisualizer

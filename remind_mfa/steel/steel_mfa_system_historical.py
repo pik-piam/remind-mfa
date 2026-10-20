@@ -8,7 +8,6 @@ from remind_mfa.steel.steel_config import SteelCfg
 
 
 class SteelMFASystemHistorical(CommonMFASystem):
-
     cfg: SteelCfg
 
     def compute(self):

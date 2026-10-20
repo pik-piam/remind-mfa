@@ -21,7 +21,6 @@ from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 
 class CommonModel[CfgT: CommonCfg]:
-
     ConfigCls = CommonCfg
     DataExporterCls = CommonDataExporter
     VisualizerCls = CommonVisualizer

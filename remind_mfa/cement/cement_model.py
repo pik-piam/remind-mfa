@@ -23,7 +23,6 @@ from remind_mfa.cement.cement_parameter_reconciliation import CementParameterRec
 
 
 class CementModel(CommonModel[CementCfg]):
-
     ConfigCls = CementCfg
     DataExporterCls = CementDataExporter
     VisualizerCls = CementVisualizer
@@ -199,9 +198,7 @@ class CementModel(CommonModel[CementCfg]):
         logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
 
         ref_mfa = self.make_mfa(historical=True)
-        ref_mfa.trade_set = (
-            self.historical_mfa.trade_set
-        )  # trade is not altered during reconciliation, so we can just take it from the already computed historical MFA
+        ref_mfa.trade_set = self.historical_mfa.trade_set  # trade is not altered during reconciliation, so we can just take it from the already computed historical MFA
 
         self.parameter_reconciliation = CementParameterReconciliation(
             ref_mfa=ref_mfa,

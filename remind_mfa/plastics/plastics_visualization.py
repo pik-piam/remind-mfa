@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 
 class PlasticsVisualizer(CommonVisualizer):
-
     _model: Optional["PlasticsModel"] = PrivateAttr(default=None)
 
     def visualize_custom(self):

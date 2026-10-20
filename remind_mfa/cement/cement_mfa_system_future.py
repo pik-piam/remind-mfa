@@ -9,7 +9,6 @@ from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 
 
 class StockDrivenCementMFASystem(CommonMFASystem):
-
     cfg: CementCfg
 
     def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet):
@@ -44,9 +43,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # sanity check
         summed_inflow = use_inflow.sum_to(product_inflow.dims.letters)
-        assert np.allclose(
-            summed_inflow.values, product_inflow.values, rtol=1e-6, atol=1e-3
-        ), "Composition-resolved in-use inflow does not sum up to the product inflow."
+        assert np.allclose(summed_inflow.values, product_inflow.values, rtol=1e-6, atol=1e-3), (
+            "Composition-resolved in-use inflow does not sum up to the product inflow."
+        )
         return use_inflow
 
     @staticmethod
