@@ -7,8 +7,10 @@ saturation_level,cement,180,,,,,,,Corresponds to about 24 t cement at historical
 
 # --- Scenario defaults ---
 stock_factor,all,1.0,2100,factor,,,,,
-lifetime_mean,all,1.0,2060,factor,,,,,
-lifetime_std,all,1.0,2060,factor,,,,,
+trade_factor,all,1.0,2100,factor,,,,,
+lifetime_factor,"steel,plastics",1.0,2060,factor,,,,,Lifetime of all age-cohorts is scaled by factor
+lifetime_factor,cement,lifetime_factor_target,2100,factor,,,,,Lifetime of all age-cohorts is scaled by factor
+lifetime_factor_min,cement,1.0,,,,,,,Minimum lifetime factor; regions below the end-use maximum lifetime get larger factors
 n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
 n_trend_years,all,2,,,CHA,,,,
 
@@ -31,6 +33,8 @@ concrete_reuse_share,cement,0.0,2100,target,,,,,Share of the in-use concrete out
 # --- Cement (bottom-up) ---
 development_gdppc_low,cement,8000,,,,,,,GDP per capita below which splits fully converge to their global means
 development_gdppc_high,cement,30000,,,,,,,GDP per capita above which regions keep their own splits
-structure_split,cement,structure_split_mean,2060,target,,,,,Low-GDP regions converge their structure split to the global mean
+structure_split,cement,structure_split_target,2060,target,,,,,Low-GDP regions converge their structure split to the global mean
+min_timber_share,cement,0.0,,,,,,,Minimum timber share the structure split target is lifted to
 residential_type_split,cement,residential_type_split_mean,2060,target,,,,,Low-GDP regions converge their residential type split to the global mean
 hibernating_stock_share,cement,0.10,2060,target,CHA,,,,Chinas hibernating stock share reduces to 10% by 2060
+concrete_building_mi,cement,1.0,2060,factor,,,,,Concrete MI of buildings is scaled by factor

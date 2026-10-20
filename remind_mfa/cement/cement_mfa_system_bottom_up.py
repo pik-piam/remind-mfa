@@ -102,8 +102,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             0  # TODO remove once mrmfa is fixed
         )
         stk["floorspace"].stock = stock
-        self._set_lifetime("floorspace")
-        stk["floorspace"].compute()
+        self.set_prms_and_compute(stk["floorspace"])
 
     def compute_bottom_up_stock(self) -> fd.FlodymArray:
         """Resolve the floorspace inflow by bottom-up end use and structure and calculate
@@ -114,8 +113,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         stk["bu_use"].inflow[...] = self.concrete_from_floorspace(
             stk["floorspace"].inflow, self.parameters
         )
-        self._set_lifetime("bu_use")
-        stk["bu_use"].compute()
+        self.set_prms_and_compute(stk["bu_use"])
         return stk["bu_use"].stock
 
     def extend_top_down_stock(self, td_use: fd.Stock):
@@ -166,8 +164,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         for item in ("Commercial", "Industrial", "Civil Engineering"):
             inflow[{"m": "Mortar", "e": item, "s": "Unspecified Structure"}] = mortar[{"u": item}]
 
-        self._set_lifetime("td_use")
-        stk["td_use"].compute()
+        self.set_prms_and_compute(stk["td_use"])
 
     def _concrete_mass_shares(self) -> fd.FlodymArray:
         """Distributes the concrete mass of each top-down end use (u) over bottom-up end uses
@@ -229,21 +226,36 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         combined_stock[{**bu_mask, "m": "Concrete"}] = blended_stock
         return combined_stock
 
-    def _set_lifetime(self, stock_name: str):
-        """Set the stock's lifetime from the extended-end-use (e) lifetime parameters,
-        restricted to the stock's own end-use resolution (detected from its dimensions):
-        b-stocks slice e to b; c-stocks slice to b then aggregate the residential types to
-        Residential; e-stocks use the full extended end use directly."""
-        mean = self.parameters["lifetime_mean"]
-        std = self.parameters["lifetime_std"]
-        letters = self.stocks[stock_name].dims.letters
-        if "b" in letters:
-            mean = mean[{"e": self.dims["b"]}]
-            std = std[{"e": self.dims["b"]}]
-        elif "c" in letters:
-            mean = aggregate_bu_to_common_intensive(mean[{"e": self.dims["b"]}], self.dims["c"])
-            std = aggregate_bu_to_common_intensive(std[{"e": self.dims["b"]}], self.dims["c"])
-        self.stocks[stock_name].lifetime_model.set_prms(mean=mean, std=std)
+    def set_prms_and_compute(self, stock: fd.DynamicStockModel):
+        """Set the lifetime model parameters and compute the stock.
+
+        The extended-end-use (e) lifetime parameters are restricted to the stock's own
+        end-use resolution (detected from its dimensions): b-stocks slice e to b; c-stocks
+        slice to b then aggregate the residential types to Residential; e-stocks use the
+        full extended end use directly.
+
+        Note: Overrides `CommonMFASystem.set_prms_and_compute` without calling `super()`,
+        since the parent reads the parameters directly. Changes to the parent body must be
+        mirrored here.
+
+        Args:
+            stock (fd.DynamicStockModel): Stock to set parameters for and compute.
+        """
+        letters = stock.dims.letters
+        lifetime_prms = {}
+        for name in ("lifetime_mean", "lifetime_std", "lifetime_factor"):
+            prm = self.parameters[name]
+            if "b" in letters:
+                prm = prm[{"e": self.dims["b"]}]
+            elif "c" in letters:
+                prm = aggregate_bu_to_common_intensive(prm[{"e": self.dims["b"]}], self.dims["c"])
+            lifetime_prms[name] = prm
+        lifetime_model = stock.lifetime_model
+        lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
+        lifetime_model.mean = lifetime_prms["lifetime_mean"]
+        lifetime_model.std = lifetime_prms["lifetime_std"]
+        lifetime_model.lt_factor_by_year = lifetime_prms["lifetime_factor"]
+        stock.compute()
 
     @staticmethod
     def concrete_from_floorspace(

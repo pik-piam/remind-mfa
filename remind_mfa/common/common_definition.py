@@ -105,13 +105,16 @@ scenario_parameters = [
         create_new=True,
     ),
     ExtrapolationDefinition(
-        name="lifetime_mean",
+        name="trade_factor",
         dim_letters=("r",),
+        create_new=True,
         blending_function="poly_mix",
     ),
     ExtrapolationDefinition(
-        name="lifetime_std",
-        dim_letters=("r",),
+        name="lifetime_factor",
+        dim_letters=("r", "u"),  # u dimension necessary for cement
+        create_new=True,
         blending_function="poly_mix",
+        description=("Lifetime extension factor (nurture)."),
     ),
 ]

@@ -11,6 +11,7 @@ from remind_mfa.cement.cement_mfa_system_bottom_up import (
     expand_common_to_bu,
     extend_end_use_intensive,
 )
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.data_blending import blend
 from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistoricalCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
@@ -61,39 +62,122 @@ class CementModel(CommonModel[CementCfg]):
         )
         return weight
 
+    def calculate_dynamic_mean(
+        self,
+        regional_parameter: fd.Parameter,
+        global_weights: fd.FlodymArray,
+        output_name: str,
+    ) -> fd.Parameter:
+        """Calculate a global weighted mean, then blend it with regional values.
+
+        The development weight controls the blend: a weight of one selects the
+        global weighted mean, while a weight of zero preserves the regional value.
+        """
+        global_weighted_mean = (regional_parameter * global_weights).sum_over(
+            "r"
+        ) / global_weights.sum_over("r")
+        development_blended_mean = fd.Parameter(dims=regional_parameter.dims, name=output_name)
+        development_blended_mean[...] = (
+            self.parameters["development_weight"] * global_weighted_mean
+            + (1.0 - self.parameters["development_weight"]) * regional_parameter
+        )
+        return development_blended_mean
+
+    def set_structure_share(
+        self,
+        structure_split: fd.Parameter,
+        structure: str,
+        new_share: fd.FlodymArray | float,
+    ) -> fd.Parameter:
+        """Set the share of one structure type and rescale the others proportionally.
+
+        Args:
+            structure_split: Split over the structure dimension, summing to one.
+            structure: Item of the structure dimension whose share is set.
+            new_share: New share of `structure`.
+
+        Returns:
+            Structure split with the new share, still summing to one.
+        """
+        old_share = structure_split[{"s": structure}]
+        # scaling of the other shares, which absorb the change of the set share
+        others_scaling = (1.0 - new_share) / (1.0 - old_share).maximum(1e-9)
+
+        adjusted_split = fd.Parameter(dims=structure_split.dims, name=structure_split.name)
+        adjusted_split[...] = structure_split * others_scaling
+        adjusted_split[{"s": structure}] = new_share
+        return adjusted_split
+
     def calculate_derived_parameters(self):
 
         # copy/rename for use in common model
         self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
 
+        self.calculate_scenario_parameters()
+
+    def calculate_scenario_parameters(self):
+
         # derive mean residential type and structure splits from global weighted average
         prm = self.parameters
-        w = prm["development_weight"]
         floorspace = prm["floorspace"][{"t": self.dims["h"].items[-1]}]
 
         # residential type split target
         res_floorspace = floorspace[{"c": "Residential"}]
-        global_residential_type_split = (prm["residential_type_split"] * res_floorspace).sum_over(
-            "r"
-        ) / res_floorspace.sum_over("r")
-        residential_type_split_mean = fd.Parameter(
-            dims=prm["residential_type_split"].dims, name="residential_type_split_mean"
+        prm["residential_type_split_mean"] = self.calculate_dynamic_mean(
+            prm["residential_type_split"], res_floorspace, "residential_type_split_mean"
         )
-        residential_type_split_mean[...] = (
-            w * global_residential_type_split + (1.0 - w) * prm["residential_type_split"]
-        )
-        prm["residential_type_split_mean"] = residential_type_split_mean
 
-        # structure split target
+        # structure split target: global weighted mean without unknown structures,
+        # with a floor on the timber share
         bu_floorspace = expand_common_to_bu(floorspace, prm)
-        global_structure_split = (prm["structure_split"] * bu_floorspace).sum_over(
-            "r"
-        ) / bu_floorspace.sum_over("r")
-        structure_split_mean = fd.Parameter(
-            dims=prm["structure_split"].dims, name="structure_split_mean"
+        structure_split_mean = self.calculate_dynamic_mean(
+            prm["structure_split"], bu_floorspace, "structure_split_mean"
         )
-        structure_split_mean[...] = w * global_structure_split + (1.0 - w) * prm["structure_split"]
-        prm["structure_split_mean"] = structure_split_mean
+        prm["structure_split_mean"] = self.set_structure_share(
+            structure_split_mean, "Unspecified Structure", 0.0
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="No unknown structure type in target",
+            value="0",
+            description=(
+                "The structure split converges to a target without the unknown structure type. "
+                "Its share is redistributed to the other structure types proportionally."
+            ),
+        )
+
+        timber = prm["structure_split_mean"][{"s": "Timber Structure"}]
+        floor = self.scenario_parameters["min_timber_share"].cast_to(timber.dims)
+        prm["structure_split_target"] = self.set_structure_share(
+            prm["structure_split_mean"], "Timber Structure", timber.maximum(floor)
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="Minimum timber share of buildings",
+            value=str(np.unique(floor.values)),
+            description=(
+                "The structure split converges to a target in which the timber share is at "
+                "least the scenario value given here. Regions above it keep their share. The "
+                "added timber share is taken from the other structure types proportionally."
+            ),
+        )
+
+        # Lifetime
+        # TODO move lifetime_max to mrmfa
+        lifetime_max = fd.FlodymArray(dims=self.dims["u",])
+        lifetime_max["Residential"] = 100
+        lifetime_max["Commercial"] = 80
+        lifetime_max["Industrial"] = 75
+        lifetime_max["Civil Engineering"] = 75
+        lifetime_current = self.parameters["lifetime_mean"][{"h": self.dims["h"].items[-1]}]
+        multiplier = (1 / lifetime_current * lifetime_max - 1).maximum(0)
+
+        # below the maximum, all regions gain the same absolute lifetime:
+        # (factor_min - 1) * lifetime_max
+        factor_min = self.scenario_parameters["lifetime_factor_min"]
+        prm["lifetime_factor_target"] = (factor_min + (factor_min - 1) * multiplier).to_class(
+            fd.Parameter
+        )
 
     def run(self):
         super().run()
@@ -107,7 +191,7 @@ class CementModel(CommonModel[CementCfg]):
         Intensive end-use-resolved parameters (`intensive_end_use_prms`) are broadcasted to the
         extended-end-use dimension for the bottom-up MFA.
         """
-        intensive_end_use_prms = ("lifetime_mean", "lifetime_std")
+        intensive_end_use_prms = ("lifetime_mean", "lifetime_std", "lifetime_factor")
         bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historical=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,

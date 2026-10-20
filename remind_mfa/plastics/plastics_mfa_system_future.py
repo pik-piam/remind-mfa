@@ -117,6 +117,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             future_trade=self.trade_set["manufactured_products"],
             future_dom_demand=stk["use"].inflow,
             n_trend_years=self.parameters["n_trend_years"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
 
@@ -145,6 +146,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             future_trade=self.trade_set["primary"],
             future_dom_demand=flw["primary_market => manufacturing"],
             n_trend_years=self.parameters["n_trend_years"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
 
