@@ -10,15 +10,10 @@ import pandas as pd
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.common.common_mappings import CommonDimensionFiles
 from remind_mfa.common.helpers import prefix_from_module
 
 
 class CommonDataReader(fd.CompoundDataReader):
-
-    # Documentation-source files bundled in the tgz that belong in this repo's docs/
-    # folder rather than in the input-data folder.
-    DOC_SOURCE_FILES = {"mrmfa_sources.bib", "mrmfa_sources.csv"}
 
     # Suffixes (before the ".tgz") distinguishing the two archive kinds produced by madrat:
     # the main input-data archive and the (optional) validation-data archive.
@@ -29,12 +24,10 @@ class CommonDataReader(fd.CompoundDataReader):
         self,
         cfg: CommonCfg,
         definition: RemindMFADefinition,
-        dimension_file_mapping: CommonDimensionFiles,
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):
         self._input_cfg = cfg.input
-        self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
         self.input_data_path = Path(cfg.input.input_data_path)
         self.input_data_revision = cfg.input.input_data_revision
@@ -176,12 +169,7 @@ class CommonDataReader(fd.CompoundDataReader):
         return matches[0]
 
     def extract_tar_file(self, parameters_path: Path):
-        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata.
-
-        Documentation-source files (see ``DOC_SOURCE_FILES``) are routed into this repo's
-        ``docs/`` folder instead of the input-data folder, so they stay in sync with the
-        selected input-data revision.
-        """
+        """Extracts the matching tgz into the shared input_data folder and stores rev/regions metadata."""
         if not os.path.isdir(self._input_cfg.resolved_madrat_output_path):
             raise FileNotFoundError(
                 f"MADRAT output path '{self._input_cfg.resolved_madrat_output_path}' does not exist. It is required to extract the "
@@ -191,7 +179,7 @@ class CommonDataReader(fd.CompoundDataReader):
             )
 
         tgz_path = self.get_target_tgz_path(self.MFA_SUFFIX)
-        self._extract_and_record(tgz_path, parameters_path, route_docs=True)
+        self._extract_and_record(tgz_path, parameters_path)
 
     def extract_validation_tar_file(self, validation_path: Path):
         """Extracts the validation tgz matching the configured revision/region into ``validation_path``.
@@ -231,37 +219,20 @@ class CommonDataReader(fd.CompoundDataReader):
                 f"{[os.path.basename(match) for match in matches]}"
             )
 
-        self._extract_and_record(
-            matches[0], validation_path, route_docs=False, suffix=self.VALIDATION_SUFFIX
-        )
+        self._extract_and_record(matches[0], validation_path, suffix=self.VALIDATION_SUFFIX)
 
     def _extract_and_record(
         self,
         tgz_path: str,
         target_path: Path,
-        route_docs: bool,
         suffix: str = MFA_SUFFIX,
     ):
-        """Extract ``tgz_path`` into ``target_path`` and record its rev/regions metadata there.
-
-        If ``route_docs`` is set, documentation-source files (see ``DOC_SOURCE_FILES``) are
-        flattened into this repo's ``docs/`` folder instead of ``target_path``.
-        """
+        """Extract ``tgz_path`` into ``target_path`` and record its rev/regions metadata there."""
         logging.info(f"Extracting new input data from {tgz_path} into {target_path}...")
         target_path.mkdir(parents=True, exist_ok=True)
 
-        docs_path = Path(__file__).resolve().parents[2] / "docs"
-        if route_docs:
-            docs_path.mkdir(parents=True, exist_ok=True)
-
         with tarfile.open(tgz_path, "r:gz") as tar:
-            for member in tar.getmembers():
-                if route_docs and os.path.basename(member.name) in self.DOC_SOURCE_FILES:
-                    # flatten so the file lands directly as docs/<basename>
-                    member.name = os.path.basename(member.name)
-                    tar.extract(member, path=docs_path)
-                else:
-                    tar.extract(member, path=target_path)
+            tar.extractall(target_path)
 
         rev, regions = self.parse_archive_name(os.path.basename(tgz_path), suffix)
         self.write_text_file(os.path.join(target_path, self.rev_filename), rev)
@@ -272,7 +243,7 @@ class CommonDataReader(fd.CompoundDataReader):
         if missing:
             raise FileNotFoundError(
                 f"Missing {kind} files for model "
-                f"'{self.model_class}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
+                f"'{self.model_class.value}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
             )
 
     def get_dimension_files(self) -> dict[str, str | os.PathLike[str]]:
@@ -282,7 +253,7 @@ class CommonDataReader(fd.CompoundDataReader):
                 # Special case for Region: it is read from the parameters folder, not the dimensions folder
                 dimension_path = self.parameters_path / "regionmapping.csv"
             else:
-                dimension_filename = self.dimension_file_mapping[dimension.name]
+                dimension_filename = dimension.name.lower().replace(" ", "_").replace("-", "_")
                 dimension_path = self.dimensions_path / f"{dimension_filename}.csv"
 
             dimension_files[dimension.name] = dimension_path

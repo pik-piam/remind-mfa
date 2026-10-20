@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 import plotly.graph_objects as go
@@ -12,8 +13,8 @@ import flodym.export as fde
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
+from remind_mfa.common.figure_index import write_figure_index
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
-from remind_mfa.common.data_extrapolations import TwoPredictorExtrapolation
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ class CommonVisualizer(RemindMFABaseModel):
         self.visualize_common()
         self.visualize_custom()
         self.stop_and_show()
+        self.write_figure_index()
 
     def visualize_common(self):
         if self.cfg.gdp.do_visualize:
@@ -46,17 +48,17 @@ class CommonVisualizer(RemindMFABaseModel):
                 self._model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita
             )
         if self.cfg.use_stock.do_visualize:
-            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=True)
-            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=False)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_end_use=True)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_end_use=False)
         if self.cfg.trade.do_visualize:
             self.visualize_trade(self._model.future_mfa)
         if self.cfg.sankey.do_visualize:
             self.visualize_sankey(self._model.future_mfa)
         if self.cfg.consumption.do_visualize:
             self.visualize_consumption(mfa=self._model.future_mfa)
-        if self.cfg.sector_splits.do_visualize:
-            self.visualize_sector_splits(regional=True)
-            self.visualize_sector_splits(regional=False)
+        if self.cfg.end_use_split.do_visualize:
+            self.visualize_end_use_split(regional=True)
+            self.visualize_end_use_split(regional=False)
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation()
             self.visualize_extrapolation_functions(stock_handler=self._model.stock_handler)
@@ -68,8 +70,34 @@ class CommonVisualizer(RemindMFABaseModel):
     def _show_and_save_plotly(self, fig: go.Figure, base_name: str):
         if self.cfg.do_save_figs:
             fig.write_image(self.figure_path(base_name))
+        if self.cfg.do_save_figs_html:
+            self._save_figure_html(fig, base_name)
         if self.cfg.do_show_figs:
             fig.show()
+
+    def _save_figure_html(self, fig: go.Figure, base_name: str) -> None:
+        """Save a plotly figure as a standalone HTML file next to the other figure exports."""
+        fig.write_html(
+            self.figure_path(base_name, extension="html"),
+            include_plotlyjs="directory",
+            full_html=True,
+            config={"responsive": True},
+            auto_open=False,
+        )
+
+    def write_figure_index(self) -> Path | None:
+        """Write the index page listing all HTML figures of this run.
+
+        With bundled export the index covers the whole series, i.e. all models run so
+        far and thus is written into the parent series folder;
+        otherwise it is written into the run folder.
+        """
+        if not self.cfg.do_save_figs_html:
+            return None
+        data_writer = self._model.data_writer
+        run_path = Path(data_writer.run_path())
+        root = run_path.parent if data_writer.cfg.bundle_export else run_path
+        return write_figure_index(root)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
         plotter = fde.PlotlySankeyPlotter(
@@ -84,10 +112,10 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self._show_and_save_plotly(fig, base_name="sankey")
 
-    def figure_path(self, base_name: str) -> str:
+    def figure_path(self, base_name: str, extension: str = "png") -> str:
         figures_dir = os.path.join(self._model.data_writer.run_path(), "figures")
         os.makedirs(figures_dir, exist_ok=True)
-        return os.path.join(figures_dir, f"{base_name}.png")
+        return os.path.join(figures_dir, f"{base_name}.{extension}")
 
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
@@ -96,6 +124,8 @@ class CommonVisualizer(RemindMFABaseModel):
             plotter.show()
         if self.cfg.do_save_figs:
             plotter.save(self.figure_path(base_name), width=2200, height=1300, scale=3)
+        if self.cfg.do_save_figs_html:
+            self._save_figure_html(plotter.fig, base_name)
 
     def stop_and_show(self):
         if self.cfg.plotting_engine == "pyplot" and self.cfg.do_show_figs:
@@ -203,14 +233,14 @@ class CommonVisualizer(RemindMFABaseModel):
 
         colors = (
             colors[:n_linecolor_dim]  # future (dotted) color
-            + colors[:n_linecolor_dim]  # historic (solid) color
+            + colors[:n_linecolor_dim]  # historical (solid) color
             + ["black" for _ in range(n_linecolor_dim)]  # dot color
         )
 
         # data preparation
         hist = data_to_plot[{"t": mfa.dims["h"]}]
         last_year_dim = fd.Dimension(
-            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
+            name="Last Historical Year", letter="l", items=[mfa.dims["h"].items[-1]]
         )
         scatter = hist[{"h": last_year_dim}]
         if x_array is None:
@@ -235,10 +265,10 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap.plot()
 
-        # Historic stock (solid)
+        # Historical stock (solid)
         ap = self.plotter_class(
             array=hist,
-            intra_line_dim="Historic Time",
+            intra_line_dim="Historical Time",
             linecolor_dim=linecolor_dim,
             subplot_dim=subplot_dim,
             x_array=hist_x_array,
@@ -252,10 +282,10 @@ class CommonVisualizer(RemindMFABaseModel):
             # Hack to remove future line from the plot, but keep the axis range
             colors = ["rgba(0,0,0,0)"] * len(colors)
 
-        # Last historic year (dot)
+        # Last historical year (dot)
         ap = self.plotter_class(
             array=scatter,
-            intra_line_dim="Last Historic Year",
+            intra_line_dim="Last Historical Year",
             linecolor_dim=linecolor_dim,
             subplot_dim=subplot_dim,
             x_array=scatter_x_array,
@@ -283,15 +313,6 @@ class CommonVisualizer(RemindMFABaseModel):
         return subplot_dim, summing_func, name_str
 
     def visualize_extrapolation_functions(self, stock_handler: StockExtrapolation):
-        regional = "r" in stock_handler.indep_fit_dim_letters
-        subplot_dim, _, regional_str = self._get_regional_vs_global_params(regional)
-        if goods_dim_letter := set(stock_handler.indep_fit_dim_letters) - set(("r")):
-            assert (
-                len(goods_dim_letter) == 1
-            ), "Only one non-region dimension supported in extrapolation visualization"
-            linecolor_dim = self._model.dims[goods_dim_letter.pop()].name
-        else:
-            linecolor_dim = None
         extrapolation = stock_handler.extrapolation
         fit_prms = extrapolation.fit_prms
 
@@ -302,50 +323,30 @@ class CommonVisualizer(RemindMFABaseModel):
 
         def to_flodym(np_array, name=None):
             fda = fd.FlodymArray(dims=stock_handler.dims_out, values=np_array, name=name)
-            if not regional:
-                first_region = self._model.dims["r"].items[0]
-                fda = fda[first_region]
+            first_region = self._model.dims["r"].items[0]
+            fda = fda[first_region]
             return fda
 
         prms = [fit_prms[np.newaxis, ..., i] for i in range(extrapolation.n_prms)]
 
-        if isinstance(extrapolation, TwoPredictorExtrapolation):
-            # see loop below for purposes of the list entries
-            factors = [
-                ["f1", "Saturation level", "x2", "Time"],
-                ["f2", "Growth over GDP", "x1", "log10(GDPpC)"],
-                ["f3", "Growth over Time", "x2", "Time"],
-            ]
-        else:
-            factors = [
-                [None, "Growth", None, stock_handler.cfg.regress_over],
-            ]
+        values = extrapolation.func(predictor, prms)
+        array = to_flodym(values)
+        x_array = to_flodym(predictor, "GDPpC")
 
-        for factor_name, title, predictor_key, predictor_name in factors:
-            kwargs = {} if factor_name is None else {"factor": factor_name}
-            values = extrapolation.func(predictor, prms, **kwargs)
-            array = to_flodym(values, name=factor_name)
-            if predictor_key:
-                x_array = predictor[predictor_key]
-            else:
-                x_array = predictor
-            x_array = to_flodym(x_array, predictor_name)
+        ap = self.plotter_class(
+            array=array,
+            intra_line_dim="Time",
+            title="Stock regression function",
+            x_array=x_array,
+            linecolor_dim="u",
+        )
+        fig = ap.plot()
 
-            ap = self.plotter_class(
-                array=array,
-                intra_line_dim="Time",
-                title=title,
-                x_array=x_array,
-                linecolor_dim=linecolor_dim,
-                **subplot_dim,
-            )
-            fig = ap.plot()
-
-            self.plot_and_save_figure(
-                ap,
-                f"regression_function_{factor_name}_{regional_str}",
-                do_plot=False,
-            )
+        self.plot_and_save_figure(
+            ap,
+            "regression_function",
+            do_plot=False,
+        )
 
     def visualize_trade(
         self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None
@@ -401,30 +402,29 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}", do_plot=False)
 
-    def visualize_sector_splits(self, regional: bool = True):
+    def visualize_end_use_split(self, regional: bool = True):
 
-        end_use_good_letter = self._model.end_use_good_letter
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", end_use_good_letter))
+            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", "u"))
         )
-        sector_splits = consumption.get_shares_over(end_use_good_letter)
-        sector_splits = sector_splits.cumsum(dim_letter=end_use_good_letter)
+        end_use_split = consumption.get_shares_over("u")
+        end_use_split = end_use_split.cumsum(dim_letter="u")
 
-        ap_sector_splits = self.plotter_class(
-            array=sector_splits,
+        ap_end_use_split = self.plotter_class(
+            array=end_use_split,
             intra_line_dim="Time",
             **subplot_dim,
-            linecolor_dim=self._model.dims[end_use_good_letter].name,
+            linecolor_dim=self._model.dims["u"].name,
             xlabel="Year",
-            ylabel="Sector Splits [%]",
+            ylabel="End-Use Split [%]",
             display_names=self.display_names.dct,
-            title=f"Product demand sector splits ({name_str})",
+            title=f"Product demand end-use splits ({name_str})",
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}")
+        self.plot_and_save_figure(ap_end_use_split, f"end_use_split_{name_str}")
 
     def visualize_fdarr(
         self,
@@ -514,16 +514,16 @@ class CommonVisualizer(RemindMFABaseModel):
         mfa = self._model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         population = self._model.parameters["population"]
-        stock = self._model.stock_handler.stocks * self._model.sector_specific_sat_level
+        stock = self._model.stock_handler.stocks * self._model.end_use_specific_sat_level
         extrapolation = (
-            self._model.stock_handler.fitted_regression * self._model.sector_specific_sat_level
+            self._model.stock_handler.fitted_regression * self._model.end_use_specific_sat_level
         )
         x_array = None
 
         pc_str = "pC" if per_capita else ""
         x_label = "Year"
         y_label = f"Stock{pc_str} [t]"
-        title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
+        title = f"Stock Extrapolation: Historical and Projected vs Pure Prediction"
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
@@ -561,7 +561,7 @@ class CommonVisualizer(RemindMFABaseModel):
             x_label=x_label,
             y_label=y_label,
             title=title,
-            line_label="Historic + Modelled Future" if linecolor_dim is None else None,
+            line_label="Historical + Modelled Future" if linecolor_dim is None else None,
             future_stock=show_future,
         )
 
@@ -593,7 +593,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 ax.set_xlabel(x_label)
 
         extrapolation_name = "_extrapolation" if show_extrapolation else ""
-        future_name = "_projection" if show_future else "_historic"
+        future_name = "_projection" if show_future else "_historical"
         linecolor_str = f"_by_{linecolor_dim}" if linecolor_dim is not None else ""
         subplot_str = f"_by_{subplot_dim}" if subplot_dim is not None else ""
         over_str = "_overGDP" if self.cfg.use_stock.over_gdp else "_overTime"
