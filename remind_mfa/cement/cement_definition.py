@@ -61,6 +61,7 @@ def get_cement_definition(
             "cement_market",
             "construction",
             "use",
+            "hibernating",
             "reuse",
             "imports",
             "exports",
@@ -112,6 +113,8 @@ def get_cement_definition(
             # use phase: the in-use outflow leaves the system boundary. When the carbonation model
             # is active it reroutes this outflow through the eol stock (which it injects at runtime).
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=full_flow_letters + ("k",)),
+            # hibernation: part of the in-use outflow remains in place, without outflow
+            fd.FlowDefinition(from_process="use", to_process="hibernating", dim_letters=full_flow_letters + ("k",)),
             # reuse: part of the in-use outflow re-enters the in-use stock
             fd.FlowDefinition(from_process="use", to_process="reuse", dim_letters=full_flow_letters + ("k",)),
             fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=full_flow_letters + ("k",)),
@@ -140,6 +143,12 @@ def get_cement_definition(
                 dim_letters=full_flow_letters + ("k",),
                 subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
+            ),
+            fd.StockDefinition(
+                name="hibernating",
+                process="hibernating",
+                dim_letters=full_flow_letters + ("k",),
+                subclass=fd.SimpleFlowDrivenStock,
             ),
             # The eol, atmosphere and carbonated_co2 stocks are injected at runtime by
             # CementCarbonUptakeModel when carbonation is active (see cement_carbon_uptake_model.py).
@@ -308,6 +317,11 @@ scenario_parameters = [
     ExtrapolationDefinition(
         name="concrete_reuse_share",
         create_new=True,
+    ),
+    RemindMFAParameterDefinition(
+        name="hibernation_share",
+        dim_letters=(),
+        description="Share of the in-use outflow that remains in place as hibernating stock",
     ),
 ]
 

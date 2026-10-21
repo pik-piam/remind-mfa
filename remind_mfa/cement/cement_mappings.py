@@ -8,6 +8,7 @@ class CementDisplayNames(CommonDisplayNames):
         "cement_production": "Production: Cement",
         "construction": "Construction",
         "use": "Use phase",
+        "hibernating": "Hibernating stock",
         "reuse": "Reuse",
         "eol": "End of life",
         "atmosphere": "Atmosphere",

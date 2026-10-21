@@ -95,10 +95,13 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
         trd = self.trade_set
 
-        # concrete reuse: a share of the in-use concrete outflow re-enters the stock,
+        # hibernation: a share of the in-use outflow remains in place and is not demolished
+        demolished = self.compute_hibernating_stock(stk["use"].outflow)
+
+        # concrete reuse: a share of the demolished concrete re-enters the stock,
         # capped by the concrete stock inflow; mortar not reused
         flw["use => reuse"][{"m": "Concrete"}] = (
-            stk["use"].outflow[{"m": "Concrete"}] * prm["concrete_reuse_share"]
+            demolished[{"m": "Concrete"}] * prm["concrete_reuse_share"]
         ).minimum(stk["use"].inflow[{"m": "Concrete"}])
         flw["reuse => use"][...] = flw["use => reuse"]
 
@@ -112,9 +115,9 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
-        # use phase: the non-reused in-use outflow leaves the system boundary. When carbonation is
-        # active, CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = stk["use"].outflow - flw["use => reuse"]
+        # use phase: the demolished, non-reused outflow leaves the system boundary. When carbonation
+        # is active, CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
+        flw["use => sysenv"][...] = demolished - flw["use => reuse"]
 
         # cement trade
         total_cement_demand = flw["cement_market => construction"] + flw["cement_market => sysenv"]

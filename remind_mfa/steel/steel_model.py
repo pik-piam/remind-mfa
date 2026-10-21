@@ -66,19 +66,7 @@ class SteelModel(CommonModel[SteelCfg]):
             * 1.5,
         )
 
-        hibernation_share_construction = 0.3
-        add_assumption_doc(
-            type="expert guess",
-            name="construction hibernation share",
-            value=hibernation_share_construction,
-            description=(
-                "Share of construction steel leaving the in-use stock that remains in place as "
-                "hibernating stock (no longer used, but not demolished or recovered). Hibernating "
-                "stock has no outflow. Other end uses have no hibernation."
-            ),
-        )
-        self.parameters["hibernation_share"] = fd.Parameter(dims=self.dims["u",])
-        self.parameters["hibernation_share"]["Construction"] = hibernation_share_construction
+        self.parameters["hibernation_share"] = self.scenario_parameters["hibernation_share"]
 
         add_assumption_doc(
             type="ad-hoc fix",

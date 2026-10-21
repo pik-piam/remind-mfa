@@ -14,6 +14,7 @@ n_trend_years,all,2,,,CHA,,,,
 
 # --- Steel ---
 max_scrap_share,steel,0.7,,,,,,,Maximum share of scrap in the metallic input to steel production
+hibernation_share,steel,0.3,,,,Construction,,,Share of the in-use outflow that remains in place as hibernating stock
 
 # --- Plastics ---
 waste_imports,plastics,0,2030,target,,,,,
@@ -27,6 +28,7 @@ daccu_production_rate,plastics,0.01,2100,target,,,,,
 
 # --- Cement (top-down) ---
 concrete_reuse_share,cement,0.0,2100,target,,,,,Share of the in-use concrete outflow that is reused
+hibernation_share,cement,0.3,,,,,,,Share of the in-use outflow that remains in place as hibernating stock
 
 # --- Cement (bottom-up) ---
 development_gdppc_low,cement,8000,,,,,,,GDP per capita below which splits fully converge to their global means

@@ -115,8 +115,7 @@ class SteelMFASystem(CommonMFASystem):
 
         # Post-use
 
-        flw["use => hibernating"][...] = stk["use"].outflow * prm["hibernation_share"]
-        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+        flw["use => eol_management"][...] = self.compute_hibernating_stock(stk["use"].outflow)
         flw["eol_management => scrap_market"][...] = flw["use => eol_management"] * prm["recovery_rate"]
         flw["eol_management => losses"][...] = flw["use => eol_management"] - flw["eol_management => scrap_market"]
 
@@ -248,9 +247,7 @@ class SteelMFASystem(CommonMFASystem):
         stk = self.stocks
         flw = self.flows
 
-        # in-use stock is already computed in compute_use_stock
-        stk["hibernating"].inflow[...] = flw["use => hibernating"]
-        stk["hibernating"].compute()
-
+        # in-use stock is already computed in compute_use_stock,
+        # hibernating stock in compute_flows
         stk["excess_scrap"].inflow[...] = flw["scrap_pool => excess_scrap"]
         stk["excess_scrap"].compute()

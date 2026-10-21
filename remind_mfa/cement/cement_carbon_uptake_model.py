@@ -217,6 +217,15 @@ class CementCarbonUptakeModel(BaseModel):
             ),
         )
 
+        add_assumption_doc(
+            type="model assumption",
+            name="No carbonation of hibernating stock",
+            description=(
+                "Products in the hibernating stock (no longer used, but not demolished) are"
+                " assumed not to carbonate further. This underestimates total uptake."
+            ),
+        )
+
         stk = self.stocks["use"]
         stk_dims = stk.dims.drop("k")
         cement_k_idx = list(stk.dims["k"].items).index("Cement")
@@ -390,7 +399,7 @@ class CementCarbonUptakeModel(BaseModel):
             # (I4) sum over all age cohorts, convert to flodym array
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
 
-        # (I5) only the non-reused outflow enters eol: rescale from in-use outflow to eol inflow
+        # (I5) only the non-hibernated, non-reused outflow enters eol: rescale from in-use outflow to eol inflow
         uncarbonated_inflow *= safe_share(
             self.stocks["eol"].inflow[{"k": "Cement"}], stk_use.outflow[{"k": "Cement"}]
         )
