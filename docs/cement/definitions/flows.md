@@ -15,6 +15,7 @@
 | t, r, u, m    | System environment  | Construction          |
 | t, r, u, m, k | Construction        | Use phase             |
 | t, r, u, m, k | Use phase           | System environment    |
+| t, r, u, m, k | Use phase           | Hibernating stock     |
 | t, r, u, m, k | Use phase           | Reuse                 |
 | t, r, u, m, k | Reuse               | Use phase             |
 | t, r          | exports             | System environment    |
