@@ -97,7 +97,7 @@ jobs:
       run: uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
 
     - name: Run model
-      run: uv run remind_mfa.py --config default --config ci --model all
+      run: uv run remind_mfa --config default --config ci --model all
 
     - name: Stage for deployment
       # The above run exports all figures as HTML into data_out/ci_series/
@@ -142,7 +142,7 @@ jobs:
       if: github.event_name == 'pull_request_target'
       run: |
         set -eu
-        uv run remind_mfa.py --config default --config update_docs --model all
+        uv run remind_mfa --config default --config update_docs --model all
         git add --all docs
         if ! git diff --cached --quiet; then
           git diff --cached --stat
@@ -179,6 +179,6 @@ jobs:
             exit 0
           fi
           echo "::error::Could not push the updated docs. Allow edits by maintainers on the PR," \
-            "or run 'uv run remind_mfa.py --config default --config update_docs --model all' and commit docs/."
+            "or run 'uv run remind_mfa --config default --config update_docs --model all' and commit docs/."
           exit 1
         fi
