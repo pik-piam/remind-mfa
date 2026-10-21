@@ -11,7 +11,7 @@ class CementDisplayNames(CommonDisplayNames):
         "hibernating": "Hibernating stock",
         "eol_management": "End-of-Life<br>Management",
         "reuse": "Reuse",
-        "eol": "End of life",
+        "eol_waste": "End-of-Life<br>Waste",
         "atmosphere": "Atmosphere",
         "carbonation": "Carbonation",
         "clinker_market": "Market: Clinker",

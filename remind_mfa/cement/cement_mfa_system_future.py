@@ -116,11 +116,12 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
-        # disposal: the non-reused demolished material leaves the system boundary. When carbonation
-        # is active, CementCarbonUptakeModel reroutes this flow through the eol stock it injects.
-        flw["eol_management => sysenv"][...] = (
+        # disposal: the non-reused demolished material accumulates in the eol waste stock
+        flw["eol_management => eol_waste"][...] = (
             flw["use => eol_management"] - flw["eol_management => reuse"]
         )
+        stk["eol_waste"].inflow[...] = flw["eol_management => eol_waste"]
+        stk["eol_waste"].compute()
 
         # cement trade
         total_cement_demand = flw["cement_market => construction"] + flw["cement_market => sysenv"]

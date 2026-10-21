@@ -63,6 +63,7 @@ def get_cement_definition(
             "use",
             "hibernating",
             "eol_management",
+            "eol_waste",
             "reuse",
             "imports",
             "exports",
@@ -118,9 +119,8 @@ def get_cement_definition(
             # reuse: part of the demolished material re-enters the in-use stock
             fd.FlowDefinition(from_process="eol_management", to_process="reuse", dim_letters=full_flow_letters + ("k",)),
             fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=full_flow_letters + ("k",)),
-            # disposal: the non-reused material leaves the system boundary. When the carbonation model
-            # is active it reroutes this flow through the eol stock (which it injects at runtime).
-            fd.FlowDefinition(from_process="eol_management", to_process="sysenv", dim_letters=full_flow_letters + ("k",)),
+            # disposal: the non-reused material accumulates in the eol waste stock
+            fd.FlowDefinition(from_process="eol_management", to_process="eol_waste", dim_letters=full_flow_letters + ("k",)),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
@@ -153,7 +153,13 @@ def get_cement_definition(
                 dim_letters=full_flow_letters + ("k",),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
-            # The eol, atmosphere and carbonated_co2 stocks are injected at runtime by
+            fd.StockDefinition(
+                name="eol_waste",
+                process="eol_waste",
+                dim_letters=full_flow_letters + ("k",),
+                subclass=fd.SimpleFlowDrivenStock,
+            ),
+            # The atmosphere and carbonated_co2 stocks are injected at runtime by
             # CementCarbonUptakeModel when carbonation is active (see cement_carbon_uptake_model.py).
         ]
         if bottom_up:
