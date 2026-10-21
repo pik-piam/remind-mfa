@@ -402,21 +402,21 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}", do_plot=False)
 
-    def visualize_end_use_split(self, regional: bool = True):
+    def visualize_end_use_split(self, regional: bool = True, end_use_letter: str = "u"):
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", "u"))
+            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", end_use_letter))
         )
-        end_use_split = consumption.get_shares_over("u")
-        end_use_split = end_use_split.cumsum(dim_letter="u")
+        end_use_split = consumption.get_shares_over(end_use_letter)
+        end_use_split = end_use_split.cumsum(dim_letter=end_use_letter)
 
         ap_end_use_split = self.plotter_class(
             array=end_use_split,
             intra_line_dim="Time",
             **subplot_dim,
-            linecolor_dim=self._model.dims["u"].name,
+            linecolor_dim=self._model.dims[end_use_letter].name,
             xlabel="Year",
             ylabel="End-Use Split [%]",
             display_names=self.display_names.dct,
