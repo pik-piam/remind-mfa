@@ -43,6 +43,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             "manufactured_products_market",
             "use",
             "eol_management",
+            "reuse",
             "waste_market",
             "reclmech",
             "reclchem",
@@ -111,6 +112,8 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             # use stage
             fd.FlowDefinition(from_process="use", to_process="eol_management", dim_letters=("t","e","r","p","u")),
             # end-of-life stages
+            fd.FlowDefinition(from_process="eol_management", to_process="reuse", dim_letters=("t","e","r","p","u")),
+            fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=("t","e","r","p","u")),
             fd.FlowDefinition(from_process="eol_management", to_process="sorting", dim_letters=("t","e","r","p")),
             fd.FlowDefinition(from_process="eol_management", to_process="mismanaged", dim_letters=("t","e","r","p")),
             fd.FlowDefinition(from_process="sorting", to_process="reclmech", dim_letters=("t","e","r","p")),
@@ -289,5 +292,6 @@ scenario_parameters = [
     ExtrapolationDefinition(name="daccu_production_rate", dim_letters=("r",), blending_function="hermite"),
     ExtrapolationDefinition(name="emission_capture_rate", dim_letters=("r",)),
     ExtrapolationDefinition(name="polymer_shares_use_inflow"),
+    ExtrapolationDefinition(name="reuse_share", dim_letters=("r", "u"), create_new=True),
 ]
 # fmt: on

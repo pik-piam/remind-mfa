@@ -1,6 +1,6 @@
 import flodym as fd
 
-from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.common_definition import ExtrapolationDefinition, RemindMFADefinition
 from remind_mfa.steel.steel_config import SteelCfg
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.trade import TradeDefinition
@@ -36,6 +36,7 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             "use",
             "hibernating",
             "eol_management",
+            "reuse",
             "eol_waste",
             "scrap_market",
             "scrap_pool",
@@ -84,6 +85,8 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             fd.FlowDefinition(from_process="manufactured_products_market", to_process="use", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="use", to_process="hibernating", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="use", to_process="eol_management", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="eol_management", to_process="reuse", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="eol_management", to_process="scrap_market", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="eol_management", to_process="eol_waste", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="scrap_market", to_process="scrap_pool", dim_letters=("t", "r")),
@@ -263,5 +266,10 @@ scenario_parameters = [
         name="max_scrap_share",
         dim_letters=("r",),
         description="Maximum share of scrap in the metallic input to steel production",
+    ),
+    ExtrapolationDefinition(
+        name="reuse_share",
+        dim_letters=("r", "u"),
+        create_new=True,
     ),
 ]

@@ -99,11 +99,10 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
         flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
 
-        # concrete reuse: a share of the demolished concrete re-enters the stock,
-        # capped by the concrete stock inflow; mortar not reused
-        flw["eol_management => reuse"][{"m": "Concrete"}] = (
-            flw["use => eol_management"][{"m": "Concrete"}] * prm["concrete_reuse_share"]
-        ).minimum(stk["use"].inflow[{"m": "Concrete"}])
+        # reuse: a share of the demolished material re-enters the stock, capped by the stock inflow
+        flw["eol_management => reuse"][...] = (
+            flw["use => eol_management"] * prm["reuse_share"]
+        ).minimum(stk["use"].inflow)
         flw["reuse => use"][...] = flw["eol_management => reuse"]
 
         # construction: covers the stock inflow not met by reuse

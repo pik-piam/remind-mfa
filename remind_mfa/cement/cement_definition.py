@@ -324,7 +324,8 @@ scenario_parameters = [
         split_balancing_item="Reinforced Concrete Structure",
     ),
     ExtrapolationDefinition(
-        name="concrete_reuse_share",
+        name="reuse_share",
+        dim_letters=("r", "m"),
         create_new=True,
     ),
 ]

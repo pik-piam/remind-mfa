@@ -73,12 +73,21 @@ class SteelMFASystem(CommonMFASystem):
             "production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
             "max_scrap_production": fd.Parameter(dims=self.dims["t", "r"]),
             "new_scrap": fd.Parameter(dims=self.dims["t", "r"]),
+            "not_reused": fd.Parameter(dims=self.dims["t", "r", "u"]),
         }
 
         # fmt: off
 
-        flw["manufactured_products_market => use"][...] = stk["use"].inflow
+        # Hibernation and reuse first, since reuse reduces the demand for new products
+        # reuse: a share of the not hibernating in-use outflow re-enters the stock, capped by the stock inflow
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+        flw["eol_management => reuse"][...] = (flw["use => eol_management"] * prm["reuse_share"]).minimum(stk["use"].inflow)
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
+
         # Pre-use
+
+        flw["manufactured_products_market => use"][...] = stk["use"].inflow - flw["reuse => use"]
 
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["manufactured_products"],
@@ -115,10 +124,10 @@ class SteelMFASystem(CommonMFASystem):
 
         # Post-use
 
-        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
-        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
-        flw["eol_management => scrap_market"][...] = flw["use => eol_management"] * prm["recovery_rate"]
-        flw["eol_management => eol_waste"][...] = flw["use => eol_management"] - flw["eol_management => scrap_market"]
+        # recovery applies to the non-reused part of the demolished outflow
+        aux["not_reused"][...] = flw["use => eol_management"] - flw["eol_management => reuse"]
+        flw["eol_management => scrap_market"][...] = aux["not_reused"] * prm["recovery_rate"]
+        flw["eol_management => eol_waste"][...] = aux["not_reused"] - flw["eol_management => scrap_market"]
 
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["scrap"],
