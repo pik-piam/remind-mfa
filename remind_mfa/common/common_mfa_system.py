@@ -101,7 +101,9 @@ class CommonMFASystem(fd.MFASystem):
             fd.FlodymArray: Part of the outflow that hibernates.
         """
         hibernation_inflow = outflow * self.parameters["hibernation_share"]
-        self.stocks["hibernating"].inflow[...] = hibernation_inflow  # extra line in case of lower dimensionality of hibernation stock
+        self.stocks["hibernating"].inflow[
+            ...
+        ] = hibernation_inflow  # extra line in case of lower dimensionality of hibernation stock
         self.stocks["hibernating"].compute()
         return hibernation_inflow
 
