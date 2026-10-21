@@ -10,6 +10,7 @@
 | Use Phase                   |
 | Hibernating stocks          |
 | End-of-Life Management      |
+| Reuse                       |
 | End-of-Life Waste           |
 | Old Scrap Market            |
 | Scrap Pool                  |
