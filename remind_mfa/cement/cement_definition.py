@@ -318,11 +318,6 @@ scenario_parameters = [
         name="concrete_reuse_share",
         create_new=True,
     ),
-    RemindMFAParameterDefinition(
-        name="hibernation_share",
-        dim_letters=(),
-        description="Share of the in-use outflow that remains in place as hibernating stock",
-    ),
 ]
 
 # fmt: on

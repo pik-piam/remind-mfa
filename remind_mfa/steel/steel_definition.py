@@ -257,9 +257,4 @@ scenario_parameters = [
         dim_letters=("r",),
         description="Maximum share of scrap in the metallic input to steel production",
     ),
-    RemindMFAParameterDefinition(
-        name="hibernation_share",
-        dim_letters=("u",),
-        description="Share of the in-use outflow that remains in place as hibernating stock",
-    ),
 ]

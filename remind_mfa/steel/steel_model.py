@@ -66,7 +66,7 @@ class SteelModel(CommonModel[SteelCfg]):
             * 1.5,
         )
 
-        self.parameters["hibernation_share"] = self.scenario_parameters["hibernation_share"]
+        self.set_hibernation_share(0.3, dim_letter="u", items=["Construction"])
 
         add_assumption_doc(
             type="ad-hoc fix",

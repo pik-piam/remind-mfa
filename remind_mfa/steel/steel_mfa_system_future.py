@@ -115,7 +115,8 @@ class SteelMFASystem(CommonMFASystem):
 
         # Post-use
 
-        flw["use => eol_management"][...] = self.compute_hibernating_stock(stk["use"].outflow)
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
         flw["eol_management => scrap_market"][...] = flw["use => eol_management"] * prm["recovery_rate"]
         flw["eol_management => losses"][...] = flw["use => eol_management"] - flw["eol_management => scrap_market"]
 

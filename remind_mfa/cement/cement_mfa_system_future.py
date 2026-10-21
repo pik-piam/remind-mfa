@@ -96,7 +96,8 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         trd = self.trade_set
 
         # hibernation: a share of the in-use outflow remains in place and is not demolished
-        demolished = self.compute_hibernating_stock(stk["use"].outflow)
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        demolished = stk["use"].outflow - flw["use => hibernating"]
 
         # concrete reuse: a share of the demolished concrete re-enters the stock,
         # capped by the concrete stock inflow; mortar not reused
