@@ -94,7 +94,7 @@ def _load_production_df(config, region_mapping: str):
 def _load_pcstocks_df(config, region_mapping: str):
     mfa = _utils.load_future_mfa(config.material, region_mapping=region_mapping)
 
-    stock = mfa.stocks["in_use"].stock
+    stock = mfa.stocks["use"].stock
     if config.stock_index is not None:
         stock = stock[config.stock_index]
     stock = stock.sum_to(("t", "r")).to_df().reset_index()

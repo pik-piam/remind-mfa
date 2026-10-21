@@ -6,10 +6,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, List, Literal, ClassVar
 
-import pandas as pd
 import flodym as fd
 import flodym.export as fde
-import pyam
 from pydantic import PrivateAttr
 import pandas as pd
 
@@ -30,6 +28,8 @@ from remind_mfa.common.helpers import (
 )
 
 if TYPE_CHECKING:
+    import pyam
+
     from remind_mfa.common.common_model import CommonModel
 
 
@@ -45,7 +45,7 @@ class IamcVariable(RemindMFABaseModel):
     split_dims: Optional[List[str] | Literal["all"]] = None
     """Dimension names or letters to split into child variables (e.g. "Good"). None = single variable. "all" = all non-(h, t, r) dimensions."""
     aggregate_parent: bool = True
-    """When this variable is split (``split_name`` set), whether its children are summed back
+    """When this variable is split (``split_dims`` set), whether its children are summed back
     into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent
     total is already produced by another split, to avoid double-counting the parent. Exactly one
     split per parent may keep this True; a second aggregating split of the same parent raises at
@@ -131,7 +131,7 @@ class CommonDataExporter(RemindMFABaseModel):
         return CommonDataExporter._RIAMC_PRMS | self._RIAMC_PRMS
 
     def _clear_recomputable_caches(self):
-        """Drop lifetime-model sf/pdf caches from the historic and future MFA stocks before pickling
+        """Drop lifetime-model sf/pdf caches from the historical and future MFA stocks before pickling
         to save memory.
 
         These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
@@ -139,7 +139,7 @@ class CommonDataExporter(RemindMFABaseModel):
         them here is transparent: the next access (including any later ``stock.compute()``)
         rebuilds them from the stored lifetime parameters.
         """
-        for mfa in (self._model.historic_mfa, self._model.future_mfa):
+        for mfa in (self._model.historical_mfa, self._model.future_mfa):
             for stock in mfa.stocks.values():
                 lifetime_model: fd.LifetimeModel | None = getattr(stock, "lifetime_model", None)
                 if lifetime_model is not None:
@@ -197,7 +197,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        self._warn_if_iamc_includes_historic()
+        self._warn_if_iamc_includes_historical()
 
         constants = self.iamc_constants(self._model)
         mfa = self._model.future_mfa
@@ -217,6 +217,7 @@ class CommonDataExporter(RemindMFABaseModel):
         return {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
 
     def write_riamc(self, only_agg: bool = False):
+        import pyam  # deferred: slow to import
 
         mfa = self._model.future_mfa
         vname_base = self._model.cfg.model.value
@@ -298,18 +299,18 @@ class CommonDataExporter(RemindMFABaseModel):
             df["unit"] = unit
             df_list.append(df)
 
-    def _warn_if_iamc_includes_historic(self):
-        """Warn if the configured IAMC export range covers historic years.
+    def _warn_if_iamc_includes_historical(self):
+        """Warn if the configured IAMC export range covers historical years.
 
-        Historic years derive partly from proprietary input data (e.g. WorldSteel), so
-        including them in a shared output risks leaking that data. The last historic year is
-        taken per-material from the model's historic time dimension.
+        Historical years derive partly from proprietary input data (e.g. WorldSteel), so
+        including them in a shared output risks leaking that data. The last historical year is
+        taken per-material from the model's historical time dimension.
         """
-        last_historic_year = self._model.dims["h"].items[-1]
-        historic = [y for y in self.cfg.iamc.time_items if y <= last_historic_year]
-        if historic:
+        last_historical_year = self._model.dims["h"].items[-1]
+        historical = [y for y in self.cfg.iamc.time_items if y <= last_historical_year]
+        if historical:
             logging.warning(
-                f"IAMC export range includes historic years ({historic[0]}-{last_historic_year}), "
+                f"IAMC export range includes historical years ({historical[0]}-{last_historical_year}), "
                 "which may derive from proprietary input data (e.g. WorldSteel). "
                 "Verify you are permitted to share these years before distributing the output."
             )
@@ -321,7 +322,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         Also collects two side-tables consumed by the later aggregation steps:
 
-        - ``split_parent_components`` maps each ``split_name`` parent variable to the exact child
+        - ``split_parent_components`` maps each ``split_dims`` parent variable to the exact child
         variables produced by its split, so the parent is summed from those children
         only. Relying on pyam's default (all direct children of the parent path) would
         wrongly pull in sibling variables under the same path, e.g. "…|Plastics|Per Capita".
@@ -329,17 +330,19 @@ class CommonDataExporter(RemindMFABaseModel):
         instead of a plain sum (e.g. per-capita variables weighted by Population),
         mapping variable -> weight variable.
         """
+        import pyam  # deferred: slow to import
+
         iamc_dataframes = []
         split_parent_components: dict[str, list[str]] = {}
         region_weights: dict[str, str] = {}
         for iamc_var in iamc_vars:
             iamc_df, variables = self._iamc_var_to_iamc_df(mfa, iamc_var, constants)
             iamc_dataframes.append(iamc_df)
-            if iamc_var.split_name is not None and iamc_var.aggregate_parent:
+            if iamc_var.split_dims is not None and iamc_var.aggregate_parent:
                 if iamc_var.variable_name in split_parent_components:
                     raise ValueError(
                         f"'{iamc_var.variable_name}' is aggregated from more than one split "
-                        f"(latest via split_name='{iamc_var.split_name}'). Each split sums to the "
+                        f"(latest via split_dims='{iamc_var.split_dims}'). Each split sums to the "
                         f"full parent total, so aggregating from two would double-count it. Set "
                         f"aggregate_parent=False on all but one orthogonal split of this variable."
                     )
@@ -354,7 +357,7 @@ class CommonDataExporter(RemindMFABaseModel):
         """Sum child variables into their parents (variable-axis aggregation).
 
         Parents come from two sources:
-        - ``split_name`` variables were split into children on export, so each is summed back
+        - ``split_dims`` variables were split into children on export, so each is summed back
           to its parent from exactly the children it produced.
         - ``iamc_aggregates`` adds further parents whose children are separate iamc variables
           (e.g. summing sibling "…|Primary" and "…|Secondary" variables).
@@ -404,6 +407,8 @@ class CommonDataExporter(RemindMFABaseModel):
         self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
     ) -> tuple[pyam.IamDataFrame, list[str]]:
         """Build the IamDataFrame for a iamc variable and return it with the variable names it produced."""
+        import pyam  # deferred: slow to import
+
         df = self._fd_array_to_df_for_iamc(
             vname_base=iamc_var.variable_name,
             array=iamc_var.calculation_function(mfa),

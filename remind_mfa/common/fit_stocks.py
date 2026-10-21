@@ -12,7 +12,7 @@ class OptimizationError(Exception):
 
 
 class StockFitter(RemindMFABaseModel):
-    historic_stocks_pc: fd.FlodymArray
+    historical_stocks_pc: fd.FlodymArray
     extrapolation: Extrapolation
     dims_out: fd.DimensionSet
     penalty_weights: dict
@@ -22,18 +22,18 @@ class StockFitter(RemindMFABaseModel):
 
     @model_validator(mode="after")
     def check_dims(self):
-        if self.historic_stocks_pc.dims.letters[0] != "h":
-            raise ValueError("The first dimension of historic_in must be 'h'.")
-        if self.historic_stocks_pc.dims.letters[1] != "r":
-            raise ValueError("The second dimension of historic_in must be 'r'.")
-        if self.historic_stocks_pc.dims.ndim != 3:
-            raise ValueError("The historic_in array must have exactly 3 dimensions.")
+        if self.historical_stocks_pc.dims.letters[0] != "h":
+            raise ValueError("The first dimension of historical_in must be 'h'.")
+        if self.historical_stocks_pc.dims.letters[1] != "r":
+            raise ValueError("The second dimension of historical_in must be 'r'.")
+        if self.historical_stocks_pc.dims.ndim != 3:
+            raise ValueError("The historical_in array must have exactly 3 dimensions.")
 
         if self.dims_out.letters[0] != "t":
             raise ValueError("The first dimension of regression must be 't'.")
-        if self.dims_out.letters[1:] != self.historic_stocks_pc.dims.letters[1:]:
+        if self.dims_out.letters[1:] != self.historical_stocks_pc.dims.letters[1:]:
             raise ValueError(
-                "The regression array must have the same 'r' and goods dimensions as historic_in."
+                "The regression array must have the same 'r' and end use dimensions as historical_in."
             )
         return self
 
@@ -50,26 +50,20 @@ class StockFitter(RemindMFABaseModel):
             raise ValueError("growth_rate not in prm_names.")
         return self
 
-    @property
-    def goods_dim_letter(self):
-        return self.historic_stocks_pc.dims.letters[2]
-
     def fit(self):
         """prepare parameters for single fitting function
-        loop over good and regions, call single fitting function for each of them
+        loop over end use and regions, call single fitting function for each of them
         """
-        hdims = self.historic_stocks_pc.dims
-        prms = np.ndarray(
-            shape=(hdims["r"].len, hdims[self.goods_dim_letter].len, self.extrapolation.n_prms)
-        )
+        hdims = self.historical_stocks_pc.dims
+        prms = np.ndarray(shape=(hdims["r"].len, hdims["u"].len, self.extrapolation.n_prms))
         self._n_hist = hdims["h"].len
         ids_failed = []
         n_r = hdims["r"].len
-        n_g = hdims[self.goods_dim_letter].len
+        n_g = hdims["u"].len
         for ir, ig in np.ndindex((n_r, n_g)):
             try:
                 prms[ir, ig, :] = self.fit_single(
-                    historic=self.historic_stocks_pc.values[:, ir, ig],
+                    historical=self.historical_stocks_pc.values[:, ir, ig],
                     predictor=self.predictor[:, ir, ig],
                     prms_0=self.extrapolation.fit_prms[ig, :],
                 )
@@ -86,19 +80,19 @@ class StockFitter(RemindMFABaseModel):
         return stocks_pc_out
 
     def fit_single(
-        self, historic: np.ndarray, predictor: np.ndarray, prms_0: np.ndarray
+        self, historical: np.ndarray, predictor: np.ndarray, prms_0: np.ndarray
     ) -> np.ndarray:
-        """Carry out the fitting for a single good and region by minimizing the penalty function.
+        """Carry out the fitting for a single end use and region by minimizing the penalty function.
         Wraps/uses scipy's minimize function.
         Passes a transformed penalty function and its jacobian to scipy, which only depend on prms.
 
         Args:
-            historic (np.ndarray): historic data
+            historical (np.ndarray): historical data
             predictor (np.ndarray): predictor, usually log(GDPpC)
             prms_0 (np.ndarray): initial guess for the parameters
 
         Returns:
-            np.ndarray: fitted parameters fot that good and region
+            np.ndarray: fitted parameters fot that end use and region
         """
         # for Regions with very low gdppc, the optimizer does not know which direction to go for minimizing the 0th order penalties since we are in a region where the Gompertz function is very flat
         # we therefore vary the offset parameter to find a better starting point for the optimization.
@@ -109,13 +103,13 @@ class StockFitter(RemindMFABaseModel):
         offsets = np.arange(-1.1, 0, 1 / n)
         for offset in offsets:
             x0[1] = prms_0[1] + offset
-            penalties.append(self.penalty(historic, predictor, x0, prms_0))
+            penalties.append(self.penalty(historical, predictor, x0, prms_0))
         min_penalty_idx = np.argmin(penalties)
         x0[1] = prms_0[1] + offsets[min_penalty_idx]
         with np.errstate(over="ignore"):  # ignore overflow warnings during optimization
             result = minimize(
-                fun=lambda prms: self.penalty(historic, predictor, prms, prms_0),
-                jac=lambda prms: self.jacobian(historic, predictor, prms, prms_0),
+                fun=lambda prms: self.penalty(historical, predictor, prms, prms_0),
+                jac=lambda prms: self.jacobian(historical, predictor, prms, prms_0),
                 x0=x0,
                 tol=0.001,
             )
@@ -127,24 +121,24 @@ class StockFitter(RemindMFABaseModel):
     def warn_failed_optimization(self, ids_failed):
         failed_regions = set(ir for ir, ig in ids_failed)
         n_failed_regions = len(failed_regions)
-        current_year = self.historic_stocks_pc.dims["h"].items[-1]
-        current_stocks_pc = self.historic_stocks_pc[{"h": current_year}]
+        current_year = self.historical_stocks_pc.dims["h"].items[-1]
+        current_stocks_pc = self.historical_stocks_pc[{"h": current_year}]
         current_stocks = (current_stocks_pc * self.current_population).values
         failed_stocks = current_stocks[ids_failed]
         share_failed_stocks = failed_stocks.sum() / current_stocks.sum()
         warning(
-            f"Optimization failed for {len(ids_failed)} good-region combinations in "
+            f"Optimization failed for {len(ids_failed)} end use-region combinations in "
             f"{n_failed_regions} regions, affecting {share_failed_stocks:.2%} of total "
             "stocks. Using initial parameters for those."
         )
 
     def penalty(
-        self, historic: np.ndarray, predictor: np.ndarray, prms: np.ndarray, prms_0: np.ndarray
+        self, historical: np.ndarray, predictor: np.ndarray, prms: np.ndarray, prms_0: np.ndarray
     ) -> np.ndarray:
         """Absolute penalty function to be minimized in the fitting process.
 
         Args:
-            historic (np.ndarray): historic data
+            historical (np.ndarray): historical data
             predictor (np.ndarray): predictor, usually log(GDPpC)
             prms (np.ndarray): parameters for which the penalty is calculated, will be updated
               iteratively by scipy's optimization algorithm
@@ -155,15 +149,15 @@ class StockFitter(RemindMFABaseModel):
             np.ndarray: penalty value for the given parameters, to be minimized in the fitting process
         """
         return (
-            self.pen_data_0th_order(historic, predictor, prms)
-            + self.pen_data_0th_order(historic, predictor, prms, relative=True)
-            + self.pen_data_1st_order(historic, predictor, prms)
+            self.pen_data_0th_order(historical, predictor, prms)
+            + self.pen_data_0th_order(historical, predictor, prms, relative=True)
+            + self.pen_data_1st_order(historical, predictor, prms)
             + self.pen_common(prms, prms_0)
         )
 
     def jacobian(
         self: np.ndarray,
-        historic: np.ndarray,
+        historical: np.ndarray,
         predictor: np.ndarray,
         prms: np.ndarray,
         prms_0: np.ndarray,
@@ -172,7 +166,7 @@ class StockFitter(RemindMFABaseModel):
         used to helps scipy's optimization algorithm.
 
         Args:
-            historic (np.ndarray): historic data
+            historical (np.ndarray): historical data
             predictor (np.ndarray): predictor, usually log(GDPpC)
             prms (np.ndarray): parameters for which the penalty is calculated, will be updated
               iteratively by scipy's optimization algorithm
@@ -183,19 +177,19 @@ class StockFitter(RemindMFABaseModel):
             np.ndarray: penalty value for the given parameters, to be minimized in the fitting process
         """
         return (
-            self.dpen_data_0th_order(historic, predictor, prms)
-            + self.dpen_data_0th_order(historic, predictor, prms, relative=True)
-            + self.dpen_data_1st_order(historic, predictor, prms)
+            self.dpen_data_0th_order(historical, predictor, prms)
+            + self.dpen_data_0th_order(historical, predictor, prms, relative=True)
+            + self.dpen_data_1st_order(historical, predictor, prms)
             + self.dpen_common(prms, prms_0)
         )
 
-    def pen_data_0th_order(self, historic, predictor, prms, relative=False):
-        """penalty for the absolute deviation of the fitted function from the last historic data
+    def pen_data_0th_order(self, historical, predictor, prms, relative=False):
+        """penalty for the absolute deviation of the fitted function from the last historical data
         points
         """
         last_x = self.last_hist(predictor)
         fit = self.extrapolation.func(last_x, prms)
-        target = self.last_hist(historic)
+        target = self.last_hist(historical)
         diff = fit - target
         if relative:
             diff /= max(target, 1e-6)
@@ -204,20 +198,20 @@ class StockFitter(RemindMFABaseModel):
             prefix = ""
         return self.norm(diff) * self.penalty_weights[f"{prefix}data_0th_order"]
 
-    def pen_data_1st_order(self, historic, predictor, prms):
+    def pen_data_1st_order(self, historical, predictor, prms):
         """penalty for the deviation of the slope of the fitted function from the slope of the
-        historic data in the last historic data points (w.r.t. time).
+        historical data in the last historical data points (w.r.t. time).
         """
         fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
-        target_slope = self.last_hist_slope(historic)
+        target_slope = self.last_hist_slope(historical)
         return self.norm((fit_slope - target_slope)) * self.penalty_weights["data_1st_order"]
 
-    def dpen_data_0th_order(self, historic, predictor, prms, relative=False):
+    def dpen_data_0th_order(self, historical, predictor, prms, relative=False):
         """derivative of pen_data_0th_order with respect to prms"""
         last_x = self.last_hist(predictor)
         fit = self.extrapolation.func(last_x, prms)
         dfit = self.extrapolation.jacobian(last_x, prms)
-        target = self.last_hist(historic)
+        target = self.last_hist(historical)
         diff = fit - target
         if relative:
             diff /= max(target, 1e-6) ** 2
@@ -226,13 +220,13 @@ class StockFitter(RemindMFABaseModel):
             prefix = ""
         return self.dnorm(diff) * dfit * self.penalty_weights[f"{prefix}data_0th_order"]
 
-    def dpen_data_1st_order(self, historic, predictor, prms):
+    def dpen_data_1st_order(self, historical, predictor, prms):
         """derivative of pen_data_1st_order with respect to prms"""
         fit_slope = self.first_future_slope(predictor, lambda x: self.extrapolation.func(x, prms))
         dfit_slope = self.first_future_slope(
             predictor, lambda x: self.extrapolation.jacobian(x, prms)
         )
-        target_slope = self.last_hist_slope(historic)
+        target_slope = self.last_hist_slope(historical)
         return (
             self.dnorm((fit_slope - target_slope))
             * dfit_slope

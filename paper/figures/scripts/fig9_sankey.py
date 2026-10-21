@@ -23,7 +23,7 @@ from _utils import load_future_mfa
 def _exclude_processes(material: str) -> list[str]:
     base = ["sysenv", "imports", "exports"]
     if material == "plastics":
-        return base + ["C4_input", "other_reactants"]
+        return base + ["c4_production", "other_reactants"]
     return base
 
 
@@ -40,7 +40,7 @@ def _base_visualization_kwargs(
         "plotting_engine": "plotly",
         "plotly_renderer": "browser",
         "use_stock": StockVisualizationCfg(do_visualize=False),
-        "sector_splits": StockVisualizationCfg(do_visualize=False),
+        "end_use_split": BaseVisualizationCfg(do_visualize=False),
         "gdp": GDPVisualizationCfg(do_visualize=False),
         "production": BaseVisualizationCfg(do_visualize=False),
         "trade": BaseVisualizationCfg(do_visualize=False),
@@ -69,7 +69,7 @@ def _build_visualizer(material: str, do_show_figs: bool):
         cfg = PlasticsVisualizationCfg(
             **kwargs,
             flows=BaseVisualizationCfg(do_visualize=False),
-            material_splits=BaseVisualizationCfg(do_visualize=False),
+            polymer_splits=BaseVisualizationCfg(do_visualize=False),
         )
         return PlasticsVisualizer(cfg=cfg, display_names=PlasticsDisplayNames())
     if config.material == "steel":
@@ -80,9 +80,9 @@ def _build_visualizer(material: str, do_show_figs: bool):
         return SteelVisualizer(cfg=cfg, display_names=SteelDisplayNames())
     cfg = CementVisualizationCfg(
         **kwargs,
-        prod_clinker=BaseVisualizationCfg(do_visualize=False),
-        prod_cement=BaseVisualizationCfg(do_visualize=False),
-        prod_product=BaseVisualizationCfg(do_visualize=False),
+        clinker_production=BaseVisualizationCfg(do_visualize=False),
+        cement_production=BaseVisualizationCfg(do_visualize=False),
+        construction=BaseVisualizationCfg(do_visualize=False),
         eol_stock=StockVisualizationCfg(do_visualize=False),
         carbonation=BaseVisualizationCfg(do_visualize=False),
     )

@@ -1,24 +1,24 @@
 | Name                               |
 |:-----------------------------------|
 | System environment                 |
-| Feedstock (fossil)                 |
-| Feedstock (biomass)                |
-| Feedstock (DACCU)                  |
-| Feedstock (CCU)                    |
-| HVC input                          |
-| C4 input                           |
+| Feedstock supply (fossil)          |
+| Feedstock supply (biomass)         |
+| Feedstock supply (DACCU)           |
+| Feedstock supply (CCU)             |
+| HVC production                     |
+| C4 production                      |
 | Polymerization                     |
 | Primary market                     |
-| Fabrication                        |
-| Good market                        |
+| Manufacturing                      |
+| Manufactured products market       |
 | Use phase                          |
-| End of life                        |
+| End-of-life management             |
 | Waste market                       |
 | Mechanical recycling               |
 | Chemical recycling                 |
 | Incineration                       |
 | Landfilled                         |
-| Collected                          |
+| Sorting                            |
 | Uncollected                        |
 | Uncontrolled                       |
 | Emissions                          |

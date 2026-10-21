@@ -98,13 +98,13 @@ Notes:
     ```
     plastics|flows|polymerization => primary_market
     +
-    plastics|flows|aux_recyclate_trade => primary_market
+    plastics|flows|aux_recyclate_market => primary_market
     ```
   - steel:
     ```
-    steel|flows|forming => ip_market
+    steel|flows|forming => steel_market
     ```
   - cement:
     ```
-    cement|flows|prod_cement => market_cement
+    cement|flows|cement_production => cement_market
     ```

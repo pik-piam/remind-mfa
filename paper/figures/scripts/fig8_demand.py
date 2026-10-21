@@ -80,7 +80,7 @@ def _load_run_data(config, aggregate_regions: bool, mfa_regions: str):
         aggregate_regions=aggregate_regions,
     )
 
-    stock = mfa.stocks["in_use"].stock
+    stock = mfa.stocks["use"].stock
     if config.stock_index is not None:
         stock = stock[config.stock_index]
     stock = stock.sum_to(("t", "r")).to_df().reset_index()

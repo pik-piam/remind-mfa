@@ -128,8 +128,8 @@ def extract_extensive(mfa) -> pd.DataFrame:
     """
     population = tidy_tr(mfa.parameters["population"]).rename(columns={"value": "population"})
     gdppc = tidy_tr(mfa.parameters["gdppc"]).rename(columns={"value": "gdppc"})
-    stock = tidy_tr(mfa.stocks["in_use"].stock).rename(columns={"value": "stock"})
-    inflow = tidy_tr(mfa.stocks["in_use"].inflow).rename(columns={"value": "inflow"})
+    stock = tidy_tr(mfa.stocks["use"].stock).rename(columns={"value": "stock"})
+    inflow = tidy_tr(mfa.stocks["use"].inflow).rename(columns={"value": "inflow"})
     if PRODUCTION_FLOW not in mfa.flows:
         raise KeyError(f"production flow {PRODUCTION_FLOW!r} not present in run")
     production = tidy_tr(mfa.flows[PRODUCTION_FLOW]).rename(columns={"value": "production"})

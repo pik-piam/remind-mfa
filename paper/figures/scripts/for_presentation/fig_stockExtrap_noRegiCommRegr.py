@@ -66,16 +66,16 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
         model = pickle.load(file_handle)
         mfa = model.future_mfa
 
-    stock = mfa.stocks["in_use"].stock.sum_to(("t", "r"))
+    stock = mfa.stocks["use"].stock.sum_to(("t", "r"))
     stock_pc = stock / mfa.parameters["population"]
     stock_pc = stock_pc[{"t": mfa.dims["h"]}].to_df().reset_index()
     gdppc_hist = mfa.parameters["gdppc"][{"t": mfa.dims["h"]}].to_df().reset_index()
 
-    time_col_stock = _get_column_name(stock_pc, "Historic Time")
+    time_col_stock = _get_column_name(stock_pc, "Historical Time")
     region_col_stock = _get_column_name(stock_pc, "Region")
     value_col_stock = _get_column_name(stock_pc, "value")
 
-    time_col_gdppc_hist = _get_column_name(gdppc_hist, "Historic Time")
+    time_col_gdppc_hist = _get_column_name(gdppc_hist, "Historical Time")
     region_col_gdppc_hist = _get_column_name(gdppc_hist, "Region")
     value_col_gdppc_hist = _get_column_name(gdppc_hist, "value")
 
@@ -144,7 +144,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
         )
 
     stock_handler = model.stock_handler
-    sat_level = model.sector_specific_sat_level
+    sat_level = model.end_use_specific_sat_level
 
     if not hasattr(stock_handler, "pure_regression"):
         raise AttributeError(

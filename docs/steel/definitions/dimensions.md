@@ -1,7 +1,7 @@
 | Name            | Letter   |
 |:----------------|:---------|
 | Time            | t        |
-| Historic Time   | h        |
+| Historical Time | h        |
 | Region          | r        |
-| Good            | u        |
+| End Use         | u        |
 | Driver Scenario | S        |

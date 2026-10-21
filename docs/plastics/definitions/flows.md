@@ -1,54 +1,54 @@
 | Dimensions    | Origin Process                     | Destination Process                |
 |:--------------|:-----------------------------------|:-----------------------------------|
-| t, e, r       | System environment                 | Feedstock (fossil)                 |
-| t, e, r       | System environment                 | Feedstock (CCU)                    |
+| t, e, r       | System environment                 | Feedstock supply (fossil)          |
+| t, e, r       | System environment                 | Feedstock supply (CCU)             |
 | t, e, r       | Exports                            | System environment                 |
 | t, e, r       | System environment                 | Imports                            |
-| t, e, r       | System environment                 | C4 input                           |
+| t, e, r       | System environment                 | C4 production                      |
 | t, e, r       | System environment                 | Other reactants                    |
 | t, e, r       | Losses                             | System environment                 |
-| t, e, r       | Atmosphere                         | Feedstock (biomass)                |
-| t, e, r       | Atmosphere                         | Feedstock (DACCU)                  |
-| t, e, r       | Feedstock (fossil)                 | HVC input                          |
-| t, e, r       | Feedstock (biomass)                | HVC input                          |
-| t, e, r       | Feedstock (DACCU)                  | HVC input                          |
-| t, e, r       | Feedstock (CCU)                    | HVC input                          |
-| t, e, r       | HVC input                          | Polymerization                     |
-| t, e, r       | C4 input                           | Polymerization                     |
+| t, e, r       | Atmosphere                         | Feedstock supply (biomass)         |
+| t, e, r       | Atmosphere                         | Feedstock supply (DACCU)           |
+| t, e, r       | Feedstock supply (fossil)          | HVC production                     |
+| t, e, r       | Feedstock supply (biomass)         | HVC production                     |
+| t, e, r       | Feedstock supply (DACCU)           | HVC production                     |
+| t, e, r       | Feedstock supply (CCU)             | HVC production                     |
+| t, e, r       | HVC production                     | Polymerization                     |
+| t, e, r       | C4 production                      | Polymerization                     |
 | t, e, r       | Other reactants                    | Polymerization                     |
-| t, e, r, m    | Polymerization                     | Primary market                     |
+| t, e, r, p    | Polymerization                     | Primary market                     |
 | t, e, r       | Polymerization                     | Losses                             |
-| t, e, r, m    | Primary market                     | Fabrication                        |
-| t, e, r, m    | Primary market                     | Exports                            |
-| t, e, r, m    | Imports                            | Primary market                     |
-| t, e, r, m, u | Fabrication                        | Good market                        |
-| t, e, r, m, u | Good market                        | Use phase                          |
-| t, e, r, m, u | Good market                        | Exports                            |
-| t, e, r, m, u | Imports                            | Good market                        |
-| t, e, r, m, u | Use phase                          | End of life                        |
-| t, e, r, m    | End of life                        | Collected                          |
-| t, e, r, m    | End of life                        | Uncollected                        |
-| t, e, r, m    | Collected                          | Mechanical recycling               |
-| t, e, r, m    | Collected                          | Chemical recycling                 |
-| t, e, r, m    | Collected                          | Landfilled                         |
-| t, e, r, m    | Collected                          | Incineration                       |
-| t, e, r, m    | Uncollected                        | Uncontrolled                       |
-| t, e, r, m    | Mechanical recycling               | Auxiliary Recyclate Trade          |
-| t, e, r, m    | Auxiliary Recyclate Trade          | Primary market                     |
+| t, e, r, p    | Primary market                     | Manufacturing                      |
+| t, e, r, p    | Primary market                     | Exports                            |
+| t, e, r, p    | Imports                            | Primary market                     |
+| t, e, r, p, u | Manufacturing                      | Manufactured products market       |
+| t, e, r, p, u | Manufactured products market       | Use phase                          |
+| t, e, r, p, u | Manufactured products market       | Exports                            |
+| t, e, r, p, u | Imports                            | Manufactured products market       |
+| t, e, r, p, u | Use phase                          | End-of-life management             |
+| t, e, r, p    | End-of-life management             | Sorting                            |
+| t, e, r, p    | End-of-life management             | Uncollected                        |
+| t, e, r, p    | Sorting                            | Mechanical recycling               |
+| t, e, r, p    | Sorting                            | Chemical recycling                 |
+| t, e, r, p    | Sorting                            | Landfilled                         |
+| t, e, r, p    | Sorting                            | Incineration                       |
+| t, e, r, p    | Uncollected                        | Uncontrolled                       |
+| t, e, r, p    | Mechanical recycling               | Auxiliary Recyclate Trade          |
+| t, e, r, p    | Auxiliary Recyclate Trade          | Primary market                     |
 | t, e, r       | Chemical recycling                 | Auxiliary Recycled Feedstock Trade |
-| t, e, r       | Auxiliary Recycled Feedstock Trade | HVC input                          |
+| t, e, r       | Auxiliary Recycled Feedstock Trade | HVC production                     |
 | t, e, r       | Chemical recycling                 | Emissions                          |
-| t, e, r, m    | Mechanical recycling               | Uncontrolled                       |
-| t, e, r, m    | Mechanical recycling               | Incineration                       |
+| t, e, r, p    | Mechanical recycling               | Uncontrolled                       |
+| t, e, r, p    | Mechanical recycling               | Incineration                       |
 | t, e, r       | Incineration                       | Emissions                          |
 | t, e, r       | Emissions                          | Captured                           |
 | t, e, r       | Emissions                          | Atmosphere                         |
-| t, e, r       | Captured                           | Feedstock (CCU)                    |
-| t, e, r, m    | Waste market                       | Collected                          |
-| t, e, r, m    | Collected                          | Waste market                       |
-| t, e, r, m    | Waste market                       | Exports                            |
-| t, e, r, m    | Imports                            | Waste market                       |
-| t, e, r, m    | Auxiliary Recyclate Trade          | Exports                            |
-| t, e, r, m    | Imports                            | Auxiliary Recyclate Trade          |
+| t, e, r       | Captured                           | Feedstock supply (CCU)             |
+| t, e, r, p    | Waste market                       | Sorting                            |
+| t, e, r, p    | Sorting                            | Waste market                       |
+| t, e, r, p    | Waste market                       | Exports                            |
+| t, e, r, p    | Imports                            | Waste market                       |
+| t, e, r, p    | Auxiliary Recyclate Trade          | Exports                            |
+| t, e, r, p    | Imports                            | Auxiliary Recyclate Trade          |
 | t, e, r       | Auxiliary Recycled Feedstock Trade | Exports                            |
 | t, e, r       | Imports                            | Auxiliary Recycled Feedstock Trade |

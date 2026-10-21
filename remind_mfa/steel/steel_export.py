@@ -19,39 +19,39 @@ class SteelDataExporter(CommonDataExporter):
 
     _RIAMC_PRMS: ClassVar[dict[str, str]] = {
         "forming_yield": "-",
-        "fabrication_yield": "-",
+        "manufacturing_yield": "-",
         "recovery_rate": "-",
-        "scrap_in_bof_rate": "-",
+        "max_scrap_share": "-",
         "forming_loss_rate": "-",
-        "fabrication_losses": "-",
-        "production_loss_rate": "-",
-        "sector_split": "-",
-        "sector_split_limit": "-",
-        "aggregate_fabrication_yield": "-",
+        "manufacturing_losses": "-",
+        "steel_production_loss_rate": "-",
+        "end_use_split": "-",
+        "end_use_split_limit": "-",
+        "aggregate_manufacturing_yield": "-",
     }
 
     @staticmethod
     def _total_steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Total steel output after production and forming losses, before trade."""
-        return mfa.flows["forming => ip_market"].sum_to(("t", "r"))
+        return mfa.flows["forming => steel_market"].sum_to(("t", "r"))
 
     @staticmethod
     def _secondary_steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Secondary steel output. For the moment, this is steel produced from scrap in the EAF."""
-        return mfa.flows["eaf_production => forming"].sum_to(("t", "r"))
+        return mfa.flows["steel_production_scrap_based => forming"].sum_to(("t", "r"))
 
     @staticmethod
     def _eol_scrap_potential(mfa: fd.MFASystem) -> fd.FlodymArray:
         """End-of-life scrap available before collection and trade."""
-        return mfa.stocks["in_use"].outflow.sum_to(("t", "r", "u"))
+        return mfa.stocks["use"].outflow.sum_to(("t", "r", "u"))
 
     @staticmethod
     def _total_available_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Home and new scrap, plus old scrap after collection and trade, but before the model diverts any surplus to excess scrap."""
         return (
-            mfa.flows["forming => scrap_market"]
-            + mfa.flows["fabrication => scrap_market"]
-            + mfa.flows["recycling => scrap_market"]
+            mfa.flows["forming => scrap_pool"]
+            + mfa.flows["manufacturing => scrap_pool"]
+            + mfa.flows["scrap_market => scrap_pool"]
         )
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
@@ -83,21 +83,22 @@ class SteelDataExporter(CommonDataExporter):
             IamcVariable(
                 variable_name="Material Demand|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=lambda mfa: (
-                    mfa.flows["fabrication => good_market"] / mfa.parameters["fabrication_yield"]
+                    mfa.flows["manufacturing => manufactured_products_market"]
+                    / mfa.parameters["manufacturing_yield"]
                 ).sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_dims=["Good"],
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Material Stock|Iron and Steel|Steel",  # PRISMA nomenclature
-                calculation_function=lambda mfa: mfa.stocks["in_use"].stock.sum_to(("t", "r", "u")),
+                calculation_function=lambda mfa: mfa.stocks["use"].stock.sum_to(("t", "r", "u")),
                 unit="t",
-                split_dims=["Good"],
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Scrap|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=SteelDataExporter._eol_scrap_potential,
                 unit="t/yr",
-                split_dims=["Good"],
+                split_dims=["End Use"],
             ),
         ]
