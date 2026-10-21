@@ -50,9 +50,9 @@ class CementCarbonUptakeModel(BaseModel):
         stk["atmosphere"].compute()
 
     def build_subsystem(self):
-        """Create the carbonation subsystem on the MFA and reroute the in-use outflow through it.
+        """Create the carbonation subsystem on the MFA and reroute the disposed material through it.
 
-        The base cement definition doesn't include eol stocks (hence ``use => sysenv``).
+        The base cement definition doesn't include eol stocks (hence ``eol_management => sysenv``).
         This method injects the processes, stocks, and flows the carbonation model needs, so the
         memory-heavy ``eol`` cohort arrays (and the ``atmosphere``/``carbonated_co2`` stocks) are
         allocated only when carbonation is active.
@@ -97,7 +97,9 @@ class CementCarbonUptakeModel(BaseModel):
 
         # flows
         flow_definitions = [
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=use_letters),
+            fd.FlowDefinition(
+                from_process="eol_management", to_process="eol", dim_letters=use_letters
+            ),
             fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=use_letters),
             fd.FlowDefinition(
                 from_process="clinker_production", to_process="atmosphere", dim_letters=("t", "r")
@@ -112,11 +114,11 @@ class CementCarbonUptakeModel(BaseModel):
             )
         )
 
-        # reroute the non-reused in-use outflow: use => sysenv (baseline sink) becomes
-        # use => eol => sysenv
-        mfa.flows["use => eol"][...] = mfa.flows["use => sysenv"]
-        del mfa.flows["use => sysenv"]
-        mfa.stocks["eol"].inflow[...] = mfa.flows["use => eol"]
+        # reroute the disposed material: eol_management => sysenv (baseline sink) becomes
+        # eol_management => eol => sysenv
+        mfa.flows["eol_management => eol"][...] = mfa.flows["eol_management => sysenv"]
+        del mfa.flows["eol_management => sysenv"]
+        mfa.stocks["eol"].inflow[...] = mfa.flows["eol_management => eol"]
         mfa.stocks["eol"].lifetime_model.set_prms(mean=np.inf)
         mfa.stocks["eol"].compute()
         mfa.flows["eol => sysenv"][...] = mfa.stocks["eol"].outflow

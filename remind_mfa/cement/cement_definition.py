@@ -62,6 +62,7 @@ def get_cement_definition(
             "construction",
             "use",
             "hibernating",
+            "eol_management",
             "reuse",
             "imports",
             "exports",
@@ -110,14 +111,16 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="cement_market", to_process="construction", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="sysenv", to_process="construction", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="construction", to_process="use", dim_letters=full_flow_letters + ("k",)),
-            # use phase: the in-use outflow leaves the system boundary. When the carbonation model
-            # is active it reroutes this outflow through the eol stock (which it injects at runtime).
-            fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=full_flow_letters + ("k",)),
             # hibernation: part of the in-use outflow remains in place, without outflow
             fd.FlowDefinition(from_process="use", to_process="hibernating", dim_letters=full_flow_letters + ("k",)),
-            # reuse: part of the in-use outflow re-enters the in-use stock
-            fd.FlowDefinition(from_process="use", to_process="reuse", dim_letters=full_flow_letters + ("k",)),
+            # end-of-life management: the demolished in-use outflow
+            fd.FlowDefinition(from_process="use", to_process="eol_management", dim_letters=full_flow_letters + ("k",)),
+            # reuse: part of the demolished material re-enters the in-use stock
+            fd.FlowDefinition(from_process="eol_management", to_process="reuse", dim_letters=full_flow_letters + ("k",)),
             fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=full_flow_letters + ("k",)),
+            # disposal: the non-reused material leaves the system boundary. When the carbonation model
+            # is active it reroutes this flow through the eol stock (which it injects at runtime).
+            fd.FlowDefinition(from_process="eol_management", to_process="sysenv", dim_letters=full_flow_letters + ("k",)),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),

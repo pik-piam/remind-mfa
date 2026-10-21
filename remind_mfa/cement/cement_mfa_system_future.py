@@ -97,14 +97,14 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # hibernation: a share of the in-use outflow remains in place and is not demolished
         flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
-        demolished = stk["use"].outflow - flw["use => hibernating"]
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
 
         # concrete reuse: a share of the demolished concrete re-enters the stock,
         # capped by the concrete stock inflow; mortar not reused
-        flw["use => reuse"][{"m": "Concrete"}] = (
-            demolished[{"m": "Concrete"}] * prm["concrete_reuse_share"]
+        flw["eol_management => reuse"][{"m": "Concrete"}] = (
+            flw["use => eol_management"][{"m": "Concrete"}] * prm["concrete_reuse_share"]
         ).minimum(stk["use"].inflow[{"m": "Concrete"}])
-        flw["reuse => use"][...] = flw["use => reuse"]
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
 
         # construction: covers the stock inflow not met by reuse
         flw["construction => use"][...] = stk["use"].inflow - flw["reuse => use"]
@@ -116,9 +116,11 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
-        # use phase: the demolished, non-reused outflow leaves the system boundary. When carbonation
-        # is active, CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = demolished - flw["use => reuse"]
+        # disposal: the non-reused demolished material leaves the system boundary. When carbonation
+        # is active, CementCarbonUptakeModel reroutes this flow through the eol stock it injects.
+        flw["eol_management => sysenv"][...] = (
+            flw["use => eol_management"] - flw["eol_management => reuse"]
+        )
 
         # cement trade
         total_cement_demand = flw["cement_market => construction"] + flw["cement_market => sysenv"]
