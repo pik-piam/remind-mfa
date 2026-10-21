@@ -7,6 +7,7 @@
 | Market: Cement      |
 | Construction        |
 | Use phase           |
+| Hibernating stock   |
 | Reuse               |
 | imports             |
 | exports             |
