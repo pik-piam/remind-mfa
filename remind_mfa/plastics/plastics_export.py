@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 import flodym as fd
 from pydantic import PrivateAttr
@@ -15,6 +15,26 @@ if TYPE_CHECKING:
 
 class PlasticsDataExporter(CommonDataExporter):
     _model: Optional["PlasticsModel"] = PrivateAttr(default=None)
+
+    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+        "collection_rate": "-",
+        "mechanical_recycling_rate": "-",
+        "chemical_recycling_rate": "-",
+        "bio_production_rate": "-",
+        "daccu_production_rate": "-",
+        "hvc_input_shares": "-",
+        "c4_input_shares": "-",
+        "polymerization_yield": "-",
+        "mechanical_recycling_yield": "-",
+        "reclmech_loss_uncontrolled_rate": "-",
+        "chemical_recycling_yield": "-",
+        "emission_capture_rate": "-",
+        "carbon_content_polymers": "-",
+        "end_use_polymer_split": "-",
+        "landfill_rate": "-",
+        "polymer_shares_use_inflow": "-",
+        "end_use_split_limit": "-",
+    }
 
     @staticmethod
     def _plastic_waste(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -88,7 +108,7 @@ class PlasticsDataExporter(CommonDataExporter):
                 variable_name="Material Demand|Chemicals|Plastics",  # PRISMA nomenclature
                 calculation_function=lambda mfa: mfa.stocks["use"].inflow.sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             # demand by polymer type
             # Same parent as the "by end use" split above (orthogonal breakdown), so opt out of
@@ -102,7 +122,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     * mfa.parameters["polymer_type_mapping"]
                 ).sum_to(("t", "r", "P")),
                 unit="t/yr",
-                split_name="Polymer Type",
+                split_dims=["Polymer Type"],
                 aggregate_parent=False,
             ),
             # demand per capita
@@ -135,7 +155,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     "imports => manufactured_products_market"
                 ].sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
@@ -143,7 +163,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     "manufactured_products_market => exports"
                 ].sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
         ]
 

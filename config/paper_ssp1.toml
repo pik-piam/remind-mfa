@@ -1,0 +1,2 @@
+    [base.model_switches]
+        scenario = "SSP1"
