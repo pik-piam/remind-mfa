@@ -18,14 +18,12 @@ def _():
     from pathlib import Path
 
     import marimo as mo
+    import marimo._runtime.context as mo_context
 
     from remind_mfa.common import run_comparison as rc
 
     # Marimo by default has a limited output size, increase it to handle the larger outputs that occur in the comparison cell (especially for plastics)
-    mo._runtime.context.get_context().marimo_config["runtime"]["output_max_bytes"] = (
-        30_000_000
-    )
-
+    mo_context.get_context().marimo_config["runtime"]["output_max_bytes"] = 30_000_000
     return Path, mo, rc
 
 
