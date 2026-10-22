@@ -11,9 +11,11 @@
 | t, r          | Market: Cement      | exports               |
 | t, r          | imports             | Market: Cement        |
 | t, r          | Market: Cement      | System environment    |
-| t, r, u, m    | Market: Cement      | Production: Product   |
-| t, r, u, m    | System environment  | Production: Product   |
-| t, r, u, m, k | Production: Product | Use phase             |
+| t, r, u, m    | Market: Cement      | Construction          |
+| t, r, u, m    | System environment  | Construction          |
+| t, r, u, m, k | Construction        | Use phase             |
 | t, r, u, m, k | Use phase           | System environment    |
+| t, r, u, m, k | Use phase           | Reuse                 |
+| t, r, u, m, k | Reuse               | Use phase             |
 | t, r          | exports             | System environment    |
 | t, r          | System environment  | imports               |

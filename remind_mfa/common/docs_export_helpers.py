@@ -89,7 +89,7 @@ def merge_parameters_sources(
 
     # Apply custom mapping: append CUSTOM_SOURCES to the sources from the csv file
     CUSTOM_SOURCES = {
-        "carbon_content_materials": "Carbon contents of different polymers are calculated from their chemical structure. For broader categories (Other thermoplastics, other thermosets), rough assumptions and weighted averages were used.",
+        "carbon_content_polymers": "Carbon contents of different polymers are calculated from their chemical structure. For broader categories (Other thermoplastics, other thermosets), rough assumptions and weighted averages were used.",
         "mechanical_recycling_yield": "[@Uekert23]",
         "chemical_recycling_yield": "[@Yadav23]",
         "reclmech_loss_uncontrolled_rate": "[@brown_potential_2023]",
@@ -98,7 +98,7 @@ def merge_parameters_sources(
         "waste_size_max": "[@Kaufmann2024]",
         "cao_emission_factor": "Stoichiometry",
         "floorspace": "[@edgeb26]",
-        "hibernating_stock_share": "[@Zhang26]",
+        "unoccupied_residential_stock_share": "[@Zheng25]",
     }
     if CUSTOM_SOURCES:
         mapped = merged_df["Name"].map(CUSTOM_SOURCES)

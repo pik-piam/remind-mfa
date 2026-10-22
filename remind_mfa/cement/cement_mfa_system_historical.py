@@ -15,7 +15,7 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         self.balance_trade()
         prm, trd, flw, stk = self.mfa_stats()
         self.cap_historical_net_exports_to_supply(trd["cement"], prm["cement_production"])
-        self.compute_cement_stock(prm, trd, flw, stk)
+        self.compute_stock(prm, trd, flw, stk)
         self.compute_other_flows(prm, trd, flw, stk)
         self.check_mass_balance()
         self.check_flows()
@@ -37,21 +37,27 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         return prm, trd, flw, stk
 
     @staticmethod
-    def compute_cement_stock(prm, trd, flw, stk):
-        """Compute relevant flows for stock build-up and compute the stock.
+    def compute_stock(prm, trd, flw, stk):
+        """Compute relevant flows for stock build-up and compute the in-use stock.
         For reconciliation, returns in use stock."""
 
         # production
-        flw["prod_cement => market_cement"][...] = prm["cement_production"]
+        flw["cement_production => cement_market"][...] = prm["cement_production"]
 
-        # use
-        flw["market_cement => use"][...] = (
-            (flw["prod_cement => market_cement"] + trd["cement"].net_imports)
+        # product production
+        cement_use = (
+            (flw["cement_production => cement_market"] + trd["cement"].net_imports)
             * (1 - prm["cement_losses"])
             * prm["end_use_split"]
         )
+        flw["cement_market => construction"][...] = cement_use * prm["construction_material_split"]
+        product_by_material = flw["cement_market => construction"] / prm["cement_ratio"]
+        flw["sysenv => construction"][...] = (
+            product_by_material - flw["cement_market => construction"]
+        )
+        flw["construction => use"][...] = product_by_material.sum_over("m")
 
-        stk["use"].inflow[...] = flw["market_cement => use"]
+        stk["use"].inflow[...] = flw["construction => use"]
         stk["use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
             std=prm["lifetime_std"],
@@ -65,17 +71,17 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         """Compute other flows for sanity checks like mass balance or negative flows."""
 
         # production
-        flw["sysenv => prod_cement"][...] = flw["prod_cement => market_cement"]
+        flw["sysenv => cement_production"][...] = flw["cement_production => cement_market"]
 
         # cement losses during construction
-        flw["market_cement => sysenv"][...] = (
-            flw["market_cement => use"] * prm["cement_losses"] / (1 - prm["cement_losses"])
+        flw["cement_market => sysenv"][...] = (
+            flw["cement_market => construction"] * prm["cement_losses"] / (1 - prm["cement_losses"])
         )
 
         # trade
-        flw["market_cement => exports"][...] = trd["cement"].exports
-        flw["imports => market_cement"][...] = trd["cement"].imports
-        flw["exports => sysenv"][...] = flw["market_cement => exports"]
-        flw["sysenv => imports"][...] = flw["imports => market_cement"]
+        flw["cement_market => exports"][...] = trd["cement"].exports
+        flw["imports => cement_market"][...] = trd["cement"].imports
+        flw["exports => sysenv"][...] = flw["cement_market => exports"]
+        flw["sysenv => imports"][...] = flw["imports => cement_market"]
 
         flw["use => sysenv"][...] = stk["use"].outflow

@@ -4,7 +4,7 @@
 | Historical Time | h        |
 | Region          | r        |
 | Element         | e        |
-| Material        | m        |
-| Type            | p        |
+| Polymer         | p        |
+| Polymer Type    | P        |
 | End Use         | u        |
 | Driver Scenario | S        |

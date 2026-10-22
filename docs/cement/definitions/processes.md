@@ -5,7 +5,8 @@
 | Market: Clinker     |
 | Production: Cement  |
 | Market: Cement      |
-| Production: Product |
+| Construction        |
 | Use phase           |
+| Reuse               |
 | imports             |
 | exports             |

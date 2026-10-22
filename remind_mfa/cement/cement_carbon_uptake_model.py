@@ -27,16 +27,16 @@ class CementCarbonUptakeModel(BaseModel):
         prm = self.parameters
 
         # emissions (process only)
-        flw["prod_clinker => atmosphere"][...] = (
-            flw["prod_clinker => market_clinker"] * prm["clinker_cao_ratio"]  # clinker
-            + flw["prod_clinker => sysenv"] * prm["ckd_cao_ratio"]  # CKD
+        flw["clinker_production => atmosphere"][...] = (
+            flw["clinker_production => clinker_market"] * prm["clinker_cao_ratio"]  # clinker
+            + flw["clinker_production => sysenv"] * prm["ckd_cao_ratio"]  # CKD
         ) * prm["cao_emission_factor"]
-        stk["atmosphere"].inflow = flw["prod_clinker => atmosphere"]
+        stk["atmosphere"].inflow = flw["clinker_production => atmosphere"]
         # overwrite previous sysenv clinker flow to include emissions
-        flw["sysenv => prod_clinker"][...] = (
-            flw["prod_clinker => market_clinker"]
-            + flw["prod_clinker => atmosphere"]
-            + flw["prod_clinker => sysenv"]
+        flw["sysenv => clinker_production"][...] = (
+            flw["clinker_production => clinker_market"]
+            + flw["clinker_production => atmosphere"]
+            + flw["clinker_production => sysenv"]
         )
 
         # carbonation
@@ -100,7 +100,7 @@ class CementCarbonUptakeModel(BaseModel):
             fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=use_letters),
             fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=use_letters),
             fd.FlowDefinition(
-                from_process="prod_clinker", to_process="atmosphere", dim_letters=("t", "r")
+                from_process="clinker_production", to_process="atmosphere", dim_letters=("t", "r")
             ),
             fd.FlowDefinition(
                 from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "l")
@@ -112,9 +112,10 @@ class CementCarbonUptakeModel(BaseModel):
             )
         )
 
-        # reroute the in-use outflow: use => sysenv (baseline sink) becomes use => eol => sysenv
+        # reroute the non-reused in-use outflow: use => sysenv (baseline sink) becomes
+        # use => eol => sysenv
+        mfa.flows["use => eol"][...] = mfa.flows["use => sysenv"]
         del mfa.flows["use => sysenv"]
-        mfa.flows["use => eol"][...] = mfa.stocks["use"].outflow
         mfa.stocks["eol"].inflow[...] = mfa.flows["use => eol"]
         mfa.stocks["eol"].lifetime_model.set_prms(mean=np.inf)
         mfa.stocks["eol"].compute()
@@ -153,7 +154,7 @@ class CementCarbonUptakeModel(BaseModel):
         )
 
         prm = self.parameters
-        ckd_prod = self.flows["prod_clinker => sysenv"]
+        ckd_prod = self.flows["clinker_production => sysenv"]
         uptake = (
             ckd_prod * prm["ckd_landfill_share"] * prm["ckd_cao_ratio"] * prm["cao_emission_factor"]
         )
@@ -171,7 +172,7 @@ class CementCarbonUptakeModel(BaseModel):
         )
 
         prm = self.parameters
-        cwaste_prod = self.flows["market_cement => sysenv"]
+        cwaste_prod = self.flows["cement_market => sysenv"]
 
         # calculate uptake in one year
         annual_carbonation_fraction = 0.2
@@ -207,9 +208,23 @@ class CementCarbonUptakeModel(BaseModel):
             ),
         )
 
+        add_assumption_doc(
+            type="model assumption",
+            name="In-use carbonation of reused products",
+            description=(
+                "Reused products are assumed not to carbonate further during their second life,"
+                " as their surface is already mostly carbonated from the first life."
+            ),
+        )
+
         stk = self.stocks["use"]
         stk_dims = stk.dims.drop("k")
-        cement_k_idx = list(stk.dims["k"].items).index("cement")
+        cement_k_idx = list(stk.dims["k"].items).index("Cement")
+
+        # share of each cohort's inflow that is newly produced (not reused)
+        new_share = safe_share(
+            self.flows["construction => use"][{"k": "Cement"}], stk.inflow[{"k": "Cement"}]
+        )
 
         # create age dimension
         ages = [i for i in range(stk._n_t)][::-1]
@@ -258,6 +273,7 @@ class CementCarbonUptakeModel(BaseModel):
             # get age cohort of cement mass at time t
             _, mass_values = get_age_distribution(stk, t)
             mass_values = mass_values[..., cement_k_idx]  # select cement constituent only
+            mass_values = mass_values * new_share[: t + 1]  # exclude reused mass (cohorts 0..t)
             mass_dims = sliced_agedimset.union_with(stk_dims).drop("t")
             mass = fd.FlodymArray(dims=mass_dims, values=mass_values)
             # expand mass over carbonation applications
@@ -342,7 +358,7 @@ class CementCarbonUptakeModel(BaseModel):
         eol_dims = self.stocks["eol"].dims
         stk_dims_no_k = stk_use.dims.drop("k")
         eol_dims_no_k = eol_dims.drop("k")
-        cement_k_idx = list(stk_use.dims["k"].items).index("cement")
+        cement_k_idx = list(stk_use.dims["k"].items).index("Cement")
         # use application-weighted averages for EOL (EOL stock has no application dimension)
         k_free_in_mean = self._application_weighted_average(k_free_in)  # (r, m)
         thickness_mean = self._application_weighted_average(
@@ -373,6 +389,11 @@ class CementCarbonUptakeModel(BaseModel):
 
             # (I4) sum over all age cohorts, convert to flodym array
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
+
+        # (I5) only the non-reused outflow enters eol: rescale from in-use outflow to eol inflow
+        uncarbonated_inflow *= safe_share(
+            self.stocks["eol"].inflow[{"k": "Cement"}], stk_use.outflow[{"k": "Cement"}]
+        )
 
         uncarbonated_inflow = fd.FlodymArray(dims=stk_dims_no_k, values=uncarbonated_inflow)
 
@@ -418,7 +439,7 @@ class CementCarbonUptakeModel(BaseModel):
                 fd.DimensionSet(dim_list=[prm["waste_type_split"].dims["w"]])
             )
         )
-        k["new concrete"] = k_free_in
+        k["New Concrete"] = k_free_in
         d = k * age_after_demolition.apply(np.sqrt)
 
         # (II3) calculate added carbonation depth beteen two time steps
@@ -547,6 +568,15 @@ def get_volume_sphere(a: fd.FlodymArray, b: fd.FlodymArray) -> fd.FlodymArray:
 
     factor = np.pi / (3 * (rmax - rmin))
     return factor * (rmax**4 - rmin**4)
+
+
+def safe_share(part: fd.FlodymArray, total: fd.FlodymArray) -> np.ndarray:
+    """
+    Share part / total in the dimensions of total, set to zero where total is zero.
+    """
+    part_val = part.cast_to(total.dims).values
+    total_val = total.values
+    return np.divide(part_val, total_val, out=np.zeros_like(total_val), where=total_val != 0)
 
 
 def windowed_sum(arr: np.ndarray, window: int):

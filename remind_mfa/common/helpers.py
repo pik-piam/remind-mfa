@@ -1,8 +1,10 @@
+import logging
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 from pathlib import Path
 
+import flodym as fd
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
@@ -60,6 +62,29 @@ def init_model(cfg: dict) -> "CommonModel":
         raise ValueError("'model' must be given.")
     model = ModelNames(cfg["model"])
     return get_model_class(model)(cfg=cfg)
+
+
+def clip_negative_arr(arr: fd.FlodymArray) -> fd.FlodymArray:
+    """Set negative values of an array to 0, with a warning.
+
+    Args:
+        arr: Array to clip. If it has a region dimension (r), the warning lists the regions with
+            negative values.
+
+    Returns:
+        The array with negative values set to 0.
+    """
+    min_value = arr.values.min()
+    if min_value >= 0:
+        return arr
+    small_negative_threshold = -1e-6
+    if min_value < small_negative_threshold:
+        message = f"{arr.name} <0 (smallest: {min_value})"
+        if "r" in arr.dims:
+            negative_regions = [r for r in arr.dims["r"].items if arr[r].values.min() < 0]
+            message += f" in regions {negative_regions}"
+        logging.warning(f"{message}! Correcting negative values to 0.")
+    return arr.maximum(0)
 
 
 def prefix_from_module(module: str) -> str:
