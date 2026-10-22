@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import flodym as fd
 import numpy as np
@@ -115,6 +115,19 @@ SINGLE_PANEL_HEIGHT = 460
 
 # ── run discovery and loading ──────────────────────────────────────────────────
 
+class TimeHorizon(NamedTuple):
+    """First and last year of a run."""
+
+    first: int
+    last: int
+
+    def __str__(self) -> str:
+        return f"{self.first}–{self.last}"
+
+    def overlap(self, other: TimeHorizon) -> TimeHorizon:
+        """The years both horizons cover."""
+        return TimeHorizon(max(self.first, other.first), min(self.last, other.last))
+
 
 @dataclass
 class LoadedRun:
@@ -149,6 +162,12 @@ class LoadedRun:
     def mfa(self) -> CommonMFASystem:
         """The future MFA system of the pickled model, holding the results."""
         return self.model.future_mfa
+
+    @property
+    def time_horizon(self) -> TimeHorizon:
+        """First and last year of the time dimension of the pickled model."""
+        years = [int(year) for year in self.mfa.dims["t"].items]
+        return TimeHorizon(min(years), max(years))
 
     def with_label(self, label: str) -> LoadedRun:
         """The same run under another label."""
@@ -432,13 +451,20 @@ def apply_filters(df: pd.DataFrame, filters: Mapping[str, Sequence[Any]]) -> pd.
 def ordered_items(series: pd.Series) -> list:
     """Items of a column in plotting order, respecting an explicit categorical order.
 
+    Numbers such as years are sorted; other items keep the order in which they first appear.
+    Sorting matters for runs with different time horizons: in order of appearance, the years
+    only a later run covers would come after the last shared year, and its line would jump back.
+
     Returns builtin types rather than numpy scalars, so the items can be compared with and
     displayed as literals (a ``numpy.int64`` year renders as ``np.int64(2020)`` in UI controls).
     """
     if isinstance(series.dtype, pd.CategoricalDtype):
         present = set(series)
         return [item for item in series.cat.categories.tolist() if item in present]
-    return pd.unique(series).tolist()
+    items = series.drop_duplicates()
+    if pd.api.types.is_numeric_dtype(items):
+        items = items.sort_values()
+    return items.tolist()
 
 
 class ChartType(StrEnum):
@@ -1346,17 +1372,29 @@ def format_change(change: float, signed: bool = True) -> str:
     return ("−" if change < 0 else "+") + text
 
 
+@dataclass(frozen=True)
+class Changes:
+    """How the variables of a run changed against a reference run, see :func:`regional_changes`."""
+
+    table: pd.DataFrame
+    """One row per variable and region, with the signed change in percent of the region's
+    largest reference value (see :func:`peak_change`), the year of that change and the values of
+    both runs in that year, in columns named after the runs."""
+    reference_horizon: TimeHorizon
+    other_horizon: TimeHorizon
+    """Time horizons of the runs; only the years both cover are compared."""
+
+
 def regional_changes(
     reference: LoadedRun,
     other: LoadedRun,
     groups: Sequence[str] = COMPARED_GROUPS,
-) -> pd.DataFrame:
+) -> Changes:
     """The largest change of every variable in every region, when it happens and the values then.
 
-    One row per variable and region, with the signed change in percent of the
-    region's largest reference value (see :func:`peak_change`), the year of that change and the
-    values of both runs in that year, in columns named after the runs. Variables whose shapes
-    differ between the runs, e.g. because of another region mapping, are skipped with a warning.
+    Runs with different time horizons are compared in the years both cover. Variables whose
+    shapes still differ between the runs, e.g. because of another region mapping, are skipped
+    with a warning.
     """
     rows = []
     for variable in common_variables([reference, other]):
@@ -1369,11 +1407,12 @@ def regional_changes(
         kept = ("t", "r") if "r" in letters else ("t",)
         reference_summed = reference_array.sum_to(kept)
         other_summed = get_array(other, variable).sum_to(kept)
-        if reference_summed.values.shape != other_summed.values.shape:
+        years, reference_shared, other_shared = _in_shared_years(reference_summed, other_summed)
+        if not years or reference_shared.shape != other_shared.shape:
             warnings.warn(f"{variable!r} has different shapes in the two runs; skipped.")
             continue
-        years = reference_summed.dims["t"].items
-        series = _regional_series(reference_summed, other_summed)
+        regions = reference_summed.dims["r"].items if "r" in kept else None
+        series = _regional_series(reference_shared, other_shared, regions)
         for region, (reference_values, other_values) in series.items():
             change, index = peak_change(reference_values, other_values)
             rows.append(
@@ -1386,7 +1425,7 @@ def regional_changes(
                     other.label: float(other_values[index]),
                 }
             )
-    return pd.DataFrame(rows).reindex(
+    table = pd.DataFrame(rows).reindex(
         columns=[
             VARIABLE_COLUMN,
             REGION_COLUMN,
@@ -1396,20 +1435,41 @@ def regional_changes(
             other.label,
         ]
     )
+    return Changes(
+        table=table,
+        reference_horizon=reference.time_horizon,
+        other_horizon=other.time_horizon,
+    )
+
+
+def _in_shared_years(
+    reference: fd.FlodymArray, other: fd.FlodymArray
+) -> tuple[list[int], np.ndarray, np.ndarray]:
+    """The years both arrays cover, and the values of each array in these years, time first."""
+    reference_years = [int(year) for year in reference.dims["t"].items]
+    other_years = [int(year) for year in other.dims["t"].items]
+    years = [year for year in reference_years if year in other_years]
+    reference_values = np.moveaxis(reference.values, reference.dims.letters.index("t"), 0)
+    other_values = np.moveaxis(other.values, other.dims.letters.index("t"), 0)
+    return (
+        years,
+        reference_values[[reference_years.index(year) for year in years]],
+        other_values[[other_years.index(year) for year in years]],
+    )
 
 
 def _regional_series(
-    reference: fd.FlodymArray, other: fd.FlodymArray
+    reference: np.ndarray, other: np.ndarray, regions: Sequence[str] | None
 ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    """Time series per region of two arrays over (time, region), the world total first."""
-    time_axis = reference.dims.letters.index("t")
-    reference_values = np.moveaxis(reference.values, time_axis, 0)
-    other_values = np.moveaxis(other.values, time_axis, 0)
-    if reference_values.ndim == 1:
-        return {WORLD: (reference_values, other_values)}
-    series = {WORLD: (reference_values.sum(axis=1), other_values.sum(axis=1))}
-    for index, region in enumerate(reference.dims["r"].items):
-        series[str(region)] = (reference_values[:, index], other_values[:, index])
+    """Time series per region of two arrays over (time, region), the world total first.
+
+    Arrays over time only, without ``regions``, give the world total alone.
+    """
+    if regions is None:
+        return {WORLD: (reference, other)}
+    series = {WORLD: (reference.sum(axis=1), other.sum(axis=1))}
+    for index, region in enumerate(regions):
+        series[str(region)] = (reference[:, index], other[:, index])
     return series
 
 
@@ -1419,6 +1479,8 @@ class ChangeVerdict:
 
     n_variables: int
     n_changed: int
+    reference_horizon: TimeHorizon
+    other_horizon: TimeHorizon
     largest_variable: str | None = None
     largest_change: float = np.nan
     """Signed change in percent, see :func:`peak_change`."""
@@ -1427,34 +1489,56 @@ class ChangeVerdict:
 
     @property
     def identical(self) -> bool:
-        """Whether no variable changed beyond :data:`RELATIVE_TOLERANCE` in any region."""
+        """Whether no variable changed beyond :data:`RELATIVE_TOLERANCE` in any region.
+
+        Only the years both runs cover count, see :attr:`horizons_differ`.
+        """
         return self.n_changed == 0
+
+    @property
+    def horizons_differ(self) -> bool:
+        """Whether the runs cover different years, of which only the shared ones are compared."""
+        return self.reference_horizon != self.other_horizon
 
     def as_markdown(self) -> str:
         """One line of markdown for the PR comment, with relative numbers only."""
         if self.identical:
-            return (
+            text = (
                 f"**numerically identical** ({self.n_variables} variables agree "
                 f"to within {RELATIVE_TOLERANCE:g} of their largest value)"
             )
-        return (
-            f"**{self.n_changed} of {self.n_variables} variables "
-            f"changed**, largest `{self.largest_variable}` with "
-            f"**{format_change(self.largest_change)}** "
-            f"({self.largest_region}, {self.largest_year})"
-        )
+        else:
+            text = (
+                f"**{self.n_changed} of {self.n_variables} variables "
+                f"changed**, largest `{self.largest_variable}` with "
+                f"**{format_change(self.largest_change)}** "
+                f"({self.largest_region}, {self.largest_year})"
+            )
+        if self.horizons_differ:
+            shared = self.reference_horizon.overlap(self.other_horizon)
+            text += (
+                f"; **time horizon differs**: {self.other_horizon} vs "
+                f"{self.reference_horizon} in the reference, compared in {shared}"
+            )
+        return text
 
 
-def summarize_changes(changes: pd.DataFrame) -> ChangeVerdict:
+def summarize_changes(changes: Changes) -> ChangeVerdict:
     """Count the variables that changed in any region and name the largest change.
 
     Args:
         changes: Output of :func:`regional_changes`.
     """
-    n_variables = int(changes[VARIABLE_COLUMN].nunique())
-    changed = changes[changes[CHANGE_COLUMN].map(is_changed)]
+    table = changes.table
+    n_variables = int(table[VARIABLE_COLUMN].nunique())
+    changed = table[table[CHANGE_COLUMN].map(is_changed)]
     if changed.empty:
-        return ChangeVerdict(n_variables=n_variables, n_changed=0)
+        return ChangeVerdict(
+            n_variables=n_variables,
+            n_changed=0,
+            reference_horizon=changes.reference_horizon,
+            other_horizon=changes.other_horizon,
+        )
     largest = changed.loc[changed[CHANGE_COLUMN].abs().idxmax()]
     return ChangeVerdict(
         n_variables=n_variables,
@@ -1463,6 +1547,8 @@ def summarize_changes(changes: pd.DataFrame) -> ChangeVerdict:
         largest_change=float(largest[CHANGE_COLUMN]),
         largest_region=str(largest[REGION_COLUMN]),
         largest_year=int(largest[YEAR_COLUMN]),
+        reference_horizon=changes.reference_horizon,
+        other_horizon=changes.other_horizon,
     )
 
 
@@ -1495,23 +1581,23 @@ def sorted_regions(regions: list[str]) -> list[str]:
 
 
 def change_heatmap(
-    changes: pd.DataFrame,
+    table: pd.DataFrame,
     clip: float = HEATMAP_CLIP_PERCENT,
 ) -> go.Figure:
     """Scorecard of the variables (rows) by region (columns), largest world change first.
 
-    Cells show the signed change at the year of the largest absolute change, in percent of the
+    The variables and their changes are taken from :attr:`Changes.table`. Cells show the signed change at the year of the largest absolute change, in percent of the
     region's largest reference value, on a diverging scale around zero clipped at ``±clip``.
     """
-    if changes.empty:
+    if table.empty:
         return go.Figure(layout={"title": "No changes"})
 
     values = (
-        changes.pivot(index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=CHANGE_COLUMN)
+        table.pivot(index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=CHANGE_COLUMN)
         .sort_values(by="World", key=abs, ascending=False, kind="stable")
-        .reindex(columns=sorted_regions(changes[REGION_COLUMN].unique()))
+        .reindex(columns=sorted_regions(table[REGION_COLUMN].unique()))
     )
-    years = changes.pivot(index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=YEAR_COLUMN).reindex(
+    years = table.pivot(index=VARIABLE_COLUMN, columns=REGION_COLUMN, values=YEAR_COLUMN).reindex(
         index=values.index,
         columns=values.columns,
     )

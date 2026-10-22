@@ -82,6 +82,7 @@ class _FakeMFA:
     """Minimal stand-in for a `CommonMFASystem`, exposing only what the module reads."""
 
     def __init__(self, factor: float = 1.0, extra_flow: bool = False, flow_factor: float = 1.0):
+        self.dims = DIMS
         array = fd.FlodymArray(dims=DIMS, values=VALUES * factor, name="demand")
         flow = fd.FlodymArray(dims=DIMS, values=VALUES * factor * flow_factor, name="demand")
         self.flows = {"fabrication => good_market": flow}
@@ -855,7 +856,7 @@ def test_format_change():
 
 
 def test_regional_changes_has_the_world_and_every_region(runs):
-    changes = regional_changes(*runs)
+    changes = regional_changes(*runs).table
 
     assert list(changes.columns) == [
         "Variable",
@@ -874,7 +875,7 @@ def test_regional_changes_has_the_world_and_every_region(runs):
 
 
 def test_regional_changes_carry_the_values_in_the_year_of_the_change():
-    changes = regional_changes(_run("base"), _run("new", flow_factor=3.0))
+    changes = regional_changes(_run("base"), _run("new", flow_factor=3.0)).table
     flow = changes[changes["Variable"] == "flow: fabrication => good_market"]
     # 2050 holds the second half of the values (16 + 32 + 64 + 128), 16 + 32 of them in EUR
     assert flow[[REGION_COLUMN, YEAR_COLUMN, "base", "new"]].to_numpy().tolist() == [
@@ -890,7 +891,7 @@ def test_regional_changes_without_a_region_dimension():
         run.model.future_mfa.parameters["global"] = fd.FlodymArray(
             dims=fd.DimensionSet(dim_list=[T]), values=np.array([1.0, 2.0]) * scale, name="global"
         )
-    changes = regional_changes(reference, other, groups=("parameter",))
+    changes = regional_changes(reference, other, groups=("parameter",)).table
     global_rows = changes[changes["Variable"] == "parameter: global"]
     assert list(global_rows[REGION_COLUMN]) == [WORLD]
     population_rows = changes[changes["Variable"] == "parameter: population"]
@@ -898,10 +899,45 @@ def test_regional_changes_without_a_region_dimension():
 
 
 def test_regional_changes_are_signed():
-    changes = regional_changes(_run("a"), _run("b", flow_factor=0.5))
+    changes = regional_changes(_run("a"), _run("b", flow_factor=0.5)).table
     by_variable = changes.groupby("Variable")[CHANGE_COLUMN].unique()
     assert by_variable["flow: fabrication => good_market"].tolist() == pytest.approx([-50.0])
     assert by_variable["stock: in_use"].tolist() == pytest.approx([0.0])
+
+
+def _with_earlier_flow_year(run: LoadedRun, value: float) -> LoadedRun:
+    """The run with its time horizon starting in 1990, the flow being ``value`` everywhere then."""
+    mfa = run.model.future_mfa
+    years = fd.Dimension(name="Time", letter="t", items=[1990, *T.items])
+    mfa.dims = fd.DimensionSet(dim_list=[years, R, G])
+    flow = mfa.flows["fabrication => good_market"]
+    values = np.concatenate([np.full((1, *flow.values.shape[1:]), value), flow.values])
+    mfa.flows["fabrication => good_market"] = fd.FlodymArray(dims=mfa.dims, values=values)
+    return run
+
+
+def test_regional_changes_compare_the_years_both_runs_cover():
+    other = _with_earlier_flow_year(_run("new", flow_factor=3.0), value=1000.0)
+    changes = regional_changes(_run("base"), other)
+    assert (changes.reference_horizon, changes.other_horizon) == ((2020, 2050), (1990, 2050))
+    flow = changes.table[changes.table["Variable"] == "flow: fabrication => good_market"]
+    # the large values of 1990, which the reference lacks, are left out
+    assert flow[CHANGE_COLUMN].to_list() == pytest.approx([200.0] * 3)
+    assert set(flow[YEAR_COLUMN]) == {2050}
+
+
+def test_verdict_reports_different_time_horizons():
+    reference, other = _run("base"), _with_earlier_flow_year(_run("new"), value=1000.0)
+    change_verdict = summarize_changes(regional_changes(reference, other))
+    assert change_verdict.identical
+    assert change_verdict.horizons_differ
+    assert change_verdict.as_markdown().endswith(
+        "; **time horizon differs**: 1990–2050 vs 2020–2050 in the reference, "
+        "compared in 2020–2050"
+    )
+    same = summarize_changes(regional_changes(reference, _run("new")))
+    assert not same.horizons_differ
+    assert "time horizon" not in same.as_markdown()
 
 
 def test_verdict_identical_within_tolerance():
@@ -917,6 +953,8 @@ def test_verdict_names_the_largest_change():
     assert change_verdict == ChangeVerdict(
         n_variables=3,
         n_changed=1,
+        reference_horizon=(2020, 2050),
+        other_horizon=(2020, 2050),
         largest_variable="flow: fabrication => good_market",
         largest_change=200.0,
         largest_region=WORLD,  # ties go to the world total, which comes first

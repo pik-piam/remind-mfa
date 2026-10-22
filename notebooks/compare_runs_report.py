@@ -32,7 +32,6 @@ def _(mo):
     mo.md("""
     # Compare a run against a reference
     """)
-    return
 
 
 @app.cell
@@ -218,7 +217,11 @@ def _(cli_export_summary_path, mo, other_run, rc, reference_run):
                     f"region differs by more than {rc.RELATIVE_TOLERANCE:g} of its largest "
                     "reference value.</small>"
                 ),
-                kind="success" if change_verdict.identical else "warn",
+                kind=(
+                    "success"
+                    if change_verdict.identical and not change_verdict.horizons_differ
+                    else "warn"
+                ),
             ),
         ]
     )
@@ -228,7 +231,7 @@ def _(cli_export_summary_path, mo, other_run, rc, reference_run):
 @app.cell
 def _(changes, mo, other_run, rc, reference_run):
     _global_changes = (
-        changes[changes[rc.REGION_COLUMN] == rc.WORLD]
+        changes.table[changes.table[rc.REGION_COLUMN] == rc.WORLD]
         .drop(columns=rc.REGION_COLUMN)
         .sort_values(rc.CHANGE_COLUMN, key=abs, ascending=False, ignore_index=True)
     )
@@ -250,7 +253,6 @@ def _(changes, mo, other_run, rc, reference_run):
             ),
         ]
     )
-    return
 
 
 @app.cell
@@ -261,10 +263,9 @@ def _(changes, mo, rc):
                 "### Largest changes by region\n"
                 "<small>Largest change over all years relative to the largest reference value.</small>"
             ),
-            rc.change_heatmap(changes),
+            rc.change_heatmap(changes.table),
         ]
     )
-    return
 
 
 @app.cell
@@ -416,7 +417,6 @@ def _(mo, other_figures, other_run, rc, reference_figures, reference_run):
             )
         )
     mo.vstack(sections)
-    return
 
 
 if __name__ == "__main__":
