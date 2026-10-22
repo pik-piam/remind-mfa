@@ -11,7 +11,7 @@ lifetime_mean,all,1.0,2060,factor,,,,,
 lifetime_std,all,1.0,2060,factor,,,,,
 n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
 n_trend_years,all,2,,,CHA,,,,
-reuse_share,all,0.0,2100,target,,,,,Share of the demolished in-use outflow that is reused
+reuse_share,all,0.0,2100,target,,,,,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
 max_scrap_share,steel,0.7,,,,,,,Maximum share of scrap in the metallic input to steel production
