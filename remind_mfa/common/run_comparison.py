@@ -115,6 +115,7 @@ SINGLE_PANEL_HEIGHT = 460
 
 # ── run discovery and loading ──────────────────────────────────────────────────
 
+
 class TimeHorizon(NamedTuple):
     """First and last year of a run."""
 
