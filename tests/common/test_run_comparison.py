@@ -163,7 +163,7 @@ def test_discover_runs_describes_the_runs_newest_first(tmp_path):
         scenario="SSP1",
         region_mapping="eu21",
     )
-    assert runs[0].display_path(tmp_path) == "ci_series/ci_cement_SSP1_eu21"
+    assert runs[0].display_path(tmp_path) == str(Path("ci_series", "ci_cement_SSP1_eu21"))
     assert runs[0].label == "ci_cement_SSP1_eu21"
     assert (runs[1].model, runs[1].scenario, runs[1].region_mapping) == ("steel", "SSP2", "h12")
     # a run directory stands for its pickle
