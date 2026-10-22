@@ -76,6 +76,8 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["use => eol_management"][...] = stk["use"].outflow
         # reuse: a share of the in-use outflow re-enters the stock, capped by the stock inflow;
         # collection applies to the non-reused part
+        # this is a prototype-implementation; not all items that will be collected for reuse can actually be reused
+        # TODO implement reuse_yield and flow from reuse to sorting or one of the eol treatments
         flw["eol_management => reuse"][...] = (flw["use => eol_management"] * prm["reuse_share"]).minimum(stk["use"].inflow)
         flw["reuse => use"][...] = flw["eol_management => reuse"]
         aux["not_reused"][...] = flw["use => eol_management"] - flw["eol_management => reuse"]
