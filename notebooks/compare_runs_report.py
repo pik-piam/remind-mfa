@@ -23,7 +23,7 @@ def _():
     from remind_mfa.common import run_comparison as rc
 
     # Marimo by default has a limited output size, increase it to handle the larger outputs that occur in the comparison cell (especially for plastics)
-    mo_context.get_context().marimo_config["runtime"]["output_max_bytes"] = 30_000_000
+    mo_context.get_context().marimo_config["runtime"]["output_max_bytes"] = 30_000_000  # ty: ignore[invalid-key] -- ty has issues resolving the type of marimo_config correctly
     return Path, mo, rc
 
 
@@ -32,12 +32,15 @@ def _(mo):
     mo.md("""
     # Compare a run against a reference
     """)
+    return
 
 
 @app.cell
 def _(Path, mo, rc):
     repo_root = next(
-        path for path in (Path.cwd(), *Path.cwd().parents) if (path / "pyproject.toml").exists()
+        path
+        for path in (Path.cwd(), *Path.cwd().parents)
+        if (path / "pyproject.toml").exists()
     )
     data_root = repo_root / "data_out"
 
@@ -71,12 +74,18 @@ def _(cli_runs, data_root, mo, rc):
         mo.md(f"At least two runs are required in {data_root} for comparison."),
     )
 
-    _run_options = {candidate.display_path(data_root): candidate for candidate in _candidates}
+    _run_options = {
+        candidate.display_path(data_root): candidate for candidate in _candidates
+    }
 
     # By default, the newest run is compared against the newest earlier run of the same model
     _default_other = _candidates[0]
     _default_reference = next(
-        (candidate for candidate in _candidates[1:] if candidate.model == _default_other.model),
+        (
+            candidate
+            for candidate in _candidates[1:]
+            if candidate.model == _default_other.model
+        ),
         _candidates[1],
     )
     reference_picker = mo.ui.dropdown(
@@ -93,7 +102,9 @@ def _(cli_runs, data_root, mo, rc):
         mo.vstack(
             [
                 mo.md("## Runs to compare"),
-                mo.hstack([other_picker, reference_picker], justify="start", gap=2, widths="equal"),
+                mo.hstack(
+                    [other_picker, reference_picker], justify="start", gap=2, widths="equal"
+                ),
             ]
         )
         if not cli_runs
@@ -108,7 +119,9 @@ def _(cli_runs, mo, other_picker, rc, reference_picker):
         (reference_picker.value is None or other_picker.value is None) and not cli_runs,
         mo.md("**Select both runs.**"),
     )
-    _default_labels = rc.unique_labels([reference_picker.value.label, other_picker.value.label])
+    _default_labels = rc.unique_labels(
+        [reference_picker.value.label, other_picker.value.label]
+    )
     reference_label_input = mo.ui.text(
         value=_default_labels[0], label="Reference run label", full_width=True
     )
@@ -144,7 +157,9 @@ def _(
     reference_picker,
 ):
     runs = cli_runs or {
-        "reference": rc.RunInfo.from_path(reference_picker.value.path, reference_label_input.value),
+        "reference": rc.RunInfo.from_path(
+            reference_picker.value.path, reference_label_input.value
+        ),
         "other": rc.RunInfo.from_path(other_picker.value.path, other_label_input.value),
     }
     loaded_runs, load_failures = rc.load_runs(runs)
@@ -154,7 +169,9 @@ def _(
         mo.callout(
             mo.md(
                 "**Could not read the runs**\n\n"
-                + "\n".join(f"- {key}: \n\n    {error}" for key, error in load_failures.items())
+                + "\n".join(
+                    f"- {key}: \n\n    {error}" for key, error in load_failures.items()
+                )
             ),
             kind="danger",
         ),
@@ -237,6 +254,7 @@ def _(changes, mo, other_run, rc, reference_run):
             ),
         ]
     )
+    return
 
 
 @app.cell
@@ -250,6 +268,7 @@ def _(changes, mo, rc):
             rc.change_heatmap(changes.table),
         ]
     )
+    return
 
 
 @app.cell
@@ -281,6 +300,7 @@ def _(mo, other_figures, other_run, rc, reference_figures, reference_run):
     relative = True
     compare_failures = []
 
+
     def compare(reference_figure, other_figure):
         """Overlay and difference of one figure; Sankey diagrams go side by side."""
         if rc.is_sankey(reference_figure):
@@ -304,6 +324,7 @@ def _(mo, other_figures, other_run, rc, reference_figures, reference_run):
             )
         return mo.vstack([overlay, difference])
 
+
     def section(name, title, anchor=None):
         try:
             body = compare(reference_figures[name], other_figures[name])
@@ -315,6 +336,7 @@ def _(mo, other_figures, other_run, rc, reference_figures, reference_run):
             heading = mo.vstack([mo.Html(f'<span id="{anchor}"></span>'), heading])
         return mo.vstack([heading, body])
 
+
     # sorting: figures with largest change on top, unchanged ones collapsed
     measured = {
         name: rc.figure_change(reference_figures[name], other_figure)
@@ -322,7 +344,11 @@ def _(mo, other_figures, other_run, rc, reference_figures, reference_run):
         if name in reference_figures and not rc.is_sankey(other_figure)
     }
     changed_names = sorted(
-        (name for name, change in measured.items() if change is None or rc.is_changed(change)),
+        (
+            name
+            for name, change in measured.items()
+            if change is None or rc.is_changed(change)
+        ),
         key=lambda name: (measured[name] is not None, -(measured[name] or 0.0)),
     )
     unchanged_names = [name for name in measured if name not in changed_names]
@@ -352,11 +378,17 @@ def _(mo, other_figures, other_run, rc, reference_figures, reference_run):
         # lazy=False: a static export would otherwise ship the accordion empty
         sections.append(
             mo.accordion(
-                {f"{len(unchanged_sections)} unchanged figures": mo.vstack(unchanged_sections)},
+                {
+                    f"{len(unchanged_sections)} unchanged figures": mo.vstack(
+                        unchanged_sections
+                    )
+                },
                 lazy=False,
             )
         )
-    sections += [built for name in sankey_names if (built := section(name, name)) is not None]
+    sections += [
+        built for name in sankey_names if (built := section(name, name)) is not None
+    ]
     for name in other_figures.keys() - reference_figures.keys():
         sections.append(
             mo.vstack(
@@ -380,11 +412,15 @@ def _(mo, other_figures, other_run, rc, reference_figures, reference_run):
     if compare_failures:
         sections.append(
             mo.callout(
-                mo.md("**Some figures could not be compared:**\n" + "\n".join(compare_failures)),
+                mo.md(
+                    "**Some figures could not be compared:**\n"
+                    + "\n".join(compare_failures)
+                ),
                 kind="warn",
             )
         )
     mo.vstack(sections)
+    return
 
 
 if __name__ == "__main__":
