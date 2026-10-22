@@ -134,6 +134,13 @@ def test_label_falls_back_to_the_file_name():
     assert RunInfo(path=Path("some_run.pickle"), modified=datetime.now()).label == "some_run"
 
 
+def test_with_label_replaces_the_default_label():
+    path = Path("data_out/2026-09-07--12-23-18_steel_SSP2_h12/model.pickle")
+    relabelled = RunInfo(path=path, modified=datetime.now()).with_label("base")
+    assert relabelled.label == "base"
+    assert relabelled.path == path
+
+
 def _touch(path: Path, timestamp: float) -> Path:
     path.parent.mkdir(parents=True)
     path.touch()

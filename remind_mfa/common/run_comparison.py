@@ -212,6 +212,10 @@ class RunInfo:
         run_dir = self.path if self.path.is_dir() else self.path.parent
         return run_dir.name or self.path.stem
 
+    def with_label(self, label: str) -> RunInfo:
+        """The same run under another label."""
+        return dataclasses.replace(self, _label=label)
+
     @classmethod
     def from_path(cls, path: Path, label: str | None = None) -> RunInfo:
         """Describe the run at ``path``.

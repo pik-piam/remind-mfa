@@ -90,11 +90,11 @@ def _(Path, data_root, extra_run_picker, mo, rc, run_picker):
 @app.cell
 def _(label_inputs, mo, rc, selected_runs):
     _runs = {
-        run_label: run_info
+        run_label: run_info.with_label(run_label)
         for run_info, run_label in zip(selected_runs, rc.unique_labels(list(label_inputs.value)))
     }
     _runs_as_dict, load_failures = rc.load_runs(_runs)
-    runs = _runs_as_dict.values()
+    runs = list(_runs_as_dict.values())
 
     mo.stop(
         not runs,
