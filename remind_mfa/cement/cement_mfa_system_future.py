@@ -95,12 +95,15 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
         trd = self.trade_set
 
-        # concrete reuse: a share of the in-use concrete outflow re-enters the stock,
-        # capped by the concrete stock inflow; mortar not reused
-        flw["use => reuse"][{"m": "Concrete"}] = (
-            stk["use"].outflow[{"m": "Concrete"}] * prm["concrete_reuse_share"]
-        ).minimum(stk["use"].inflow[{"m": "Concrete"}])
-        flw["reuse => use"][...] = flw["use => reuse"]
+        # hibernation: a share of the in-use outflow remains in place and is not demolished
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+
+        # reuse: a share of the demolished material re-enters the stock, capped by the stock inflow
+        flw["eol_management => reuse"][...] = (
+            flw["use => eol_management"] * prm["reuse_share"]
+        ).minimum(stk["use"].inflow)
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
 
         # construction: covers the stock inflow not met by reuse
         flw["construction => use"][...] = stk["use"].inflow - flw["reuse => use"]
@@ -112,9 +115,12 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
-        # use phase: the non-reused in-use outflow leaves the system boundary. When carbonation is
-        # active, CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = stk["use"].outflow - flw["use => reuse"]
+        # disposal: the non-reused demolished material accumulates in the eol waste stock
+        flw["eol_management => eol_waste"][...] = (
+            flw["use => eol_management"] - flw["eol_management => reuse"]
+        )
+        stk["eol_waste"].inflow[...] = flw["eol_management => eol_waste"]
+        stk["eol_waste"].compute()
 
         # cement trade
         total_cement_demand = flw["cement_market => construction"] + flw["cement_market => sysenv"]

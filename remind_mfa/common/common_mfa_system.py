@@ -88,6 +88,25 @@ class CommonMFASystem(fd.MFASystem):
         )
         return clip_negative_arr(blended_inflow)
 
+    def compute_hibernation(self, outflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Compute the hibernating share of the in-use outflow and the hibernating stock.
+
+        Computes the stock ``hibernating``, which has no outflow, from the parameter
+        ``hibernation_share``. The flow ``use => hibernating`` is left to the caller.
+
+        Args:
+            outflow (fd.FlodymArray): Outflow of the in-use stock.
+
+        Returns:
+            fd.FlodymArray: Part of the outflow that hibernates.
+        """
+        hibernation_inflow = outflow * self.parameters["hibernation_share"]
+        self.stocks["hibernating"].inflow[
+            ...
+        ] = hibernation_inflow  # extra line in case of lower dimensionality of hibernation stock
+        self.stocks["hibernating"].compute()
+        return hibernation_inflow
+
     def fill_trade(self):
         """
         Fill trade from parameters named after the scheme [market_name]_imports and [market_name]_exports.

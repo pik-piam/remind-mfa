@@ -609,7 +609,8 @@ class CommonVisualizer(RemindMFABaseModel):
             gdppc = gdppc * mfa.parameters["population"]
         if change:
             gdppc = gdppc.apply(np.diff, kwargs={"axis": 0, "prepend": 0})
-            gdppc[1900] = gdppc[1901]
+            first_year, second_year = gdppc.dims["t"].items[:2]
+            gdppc[first_year] = gdppc[second_year]
         ap = self.plotter_class(
             array=gdppc,
             intra_line_dim="Time",

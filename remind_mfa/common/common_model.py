@@ -5,6 +5,7 @@ from typing import Optional
 import flodym as fd
 import numpy as np
 
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
@@ -153,6 +154,40 @@ class CommonModel[CfgT: CommonCfg]:
     def modify_parameters(self):
         """Manual changes to parameters. Called once at initialization."""
         pass
+
+    def set_hibernation_share(
+        self, value: float, dim_letter: str | None = None, items: list[str] | None = None
+    ):
+        """Set the parameter ``hibernation_share`` and document it as an assumption.
+
+        Args:
+            value (float): Share of the in-use outflow that remains in place as hibernating stock.
+            dim_letter (str, optional): Letter of the dimension along which the share is set.
+                Defaults to None, giving a scalar share for the whole in-use outflow.
+            items (list[str], optional): Items of ``dim_letter`` that hibernate. All other items
+                have no hibernation. Required if ``dim_letter`` is given.
+        """
+        description = (
+            "Share of the in-use outflow that remains in place as hibernating stock (no longer "
+            "used, but not demolished or recovered). Hibernating stock has no outflow."
+        )
+        if dim_letter is None:
+            hibernation_share = fd.Parameter(dims=fd.DimensionSet(dim_list=[]))
+            hibernation_share[...] = value
+        else:
+            assert items is not None, "items are required if dim_letter is given."
+            dim = self.dims[dim_letter]
+            hibernation_share = fd.Parameter(dims=self.dims[dim_letter,])
+            for item in items:
+                hibernation_share[item] = value
+            description += (
+                f" Applies only to the {dim.name} items {', '.join(items)}. "
+                "Other items have no hibernation."
+            )
+        add_assumption_doc(
+            type="expert guess", name="hibernation share", value=value, description=description
+        )
+        self.parameters["hibernation_share"] = hibernation_share
 
     def calculate_derived_parameters(self):
         """Derive parameters from other parameters. Called once at initialization, after

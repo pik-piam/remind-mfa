@@ -577,7 +577,7 @@ class CementParameterReconciliation:
             "residential_type_split": 0.2,
             "structure_split": 0.2,
             "floorspace": 0.4,
-            "hibernating_stock_share": 0.5,
+            "unoccupied_residential_stock_share": 0.5,
             # TD parameters
             "cement_losses": 0.2,
             "cement_production": 0.0,
