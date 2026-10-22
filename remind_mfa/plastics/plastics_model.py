@@ -27,7 +27,7 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
     time_factor_prms = {"horizontal_shift_base": 1970, "growth_rate": 0.02}
     # penetration of plastics at constant income (stock extrapolation function, shifted by the end-use
     # lifetime): 50% in 1970 and ~95% in 2005, when per-capita demand in mature economies plateaued
-    # while GDP kept growing. 
+    # while GDP kept growing.
 
     def modify_parameters(self):
         # cast lifetime mean to correct dimensions for use in common model
