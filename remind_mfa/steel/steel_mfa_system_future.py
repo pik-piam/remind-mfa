@@ -73,12 +73,21 @@ class SteelMFASystem(CommonMFASystem):
             "production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
             "max_scrap_production": fd.Parameter(dims=self.dims["t", "r"]),
             "new_scrap": fd.Parameter(dims=self.dims["t", "r"]),
+            "not_reused": fd.Parameter(dims=self.dims["t", "r", "u"]),
         }
 
         # fmt: off
 
-        flw["manufactured_products_market => use"][...] = stk["use"].inflow
+        # Hibernation and reuse first, since reuse reduces the demand for new products
+        # reuse: a share of the not hibernating in-use outflow re-enters the stock, capped by the stock inflow
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+        flw["eol_management => reuse"][...] = (flw["use => eol_management"] * prm["reuse_share"]).minimum(stk["use"].inflow)
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
+
         # Pre-use
+
+        flw["manufactured_products_market => use"][...] = stk["use"].inflow - flw["reuse => use"]
 
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["manufactured_products"],
@@ -115,10 +124,10 @@ class SteelMFASystem(CommonMFASystem):
 
         # Post-use
 
-        flw["use => hibernating"][...] = stk["use"].outflow * prm["hibernation_share"]
-        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
-        flw["eol_management => scrap_market"][...] = flw["use => eol_management"] * prm["recovery_rate"]
-        flw["eol_management => losses"][...] = flw["use => eol_management"] - flw["eol_management => scrap_market"]
+        # recovery applies to the non-reused part of the demolished outflow
+        aux["not_reused"][...] = flw["use => eol_management"] - flw["eol_management => reuse"]
+        flw["eol_management => scrap_market"][...] = aux["not_reused"] * prm["recovery_rate"]
+        flw["eol_management => eol_waste"][...] = aux["not_reused"] - flw["eol_management => scrap_market"]
 
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["scrap"],
@@ -165,7 +174,7 @@ class SteelMFASystem(CommonMFASystem):
         # buffers to sysenv for plotting
         flw["sysenv => imports"][...] = flw["imports => manufactured_products_market"] + flw["imports => steel_market"] + flw["imports => scrap_market"]
         flw["exports => sysenv"][...] = flw["manufactured_products_market => exports"] + flw["steel_market => exports"] + flw["scrap_market => exports"]
-        flw["losses => sysenv"][...] = flw["forming => losses"] + flw["manufacturing => losses"] + flw["steel_production_ore_based => losses"] + flw["steel_production_scrap_based => losses"] + flw["eol_management => losses"]
+        flw["losses => sysenv"][...] = flw["forming => losses"] + flw["manufacturing => losses"] + flw["steel_production_ore_based => losses"] + flw["steel_production_scrap_based => losses"]
         flw["sysenv => extraction"][...] = flw["extraction => steel_production_ore_based"]
         # fmt: on
 
@@ -248,9 +257,10 @@ class SteelMFASystem(CommonMFASystem):
         stk = self.stocks
         flw = self.flows
 
-        # in-use stock is already computed in compute_use_stock
-        stk["hibernating"].inflow[...] = flw["use => hibernating"]
-        stk["hibernating"].compute()
+        # in-use stock is already computed in compute_use_stock,
+        # hibernating stock in compute_flows
+        stk["eol_waste"].inflow[...] = flw["eol_management => eol_waste"]
+        stk["eol_waste"].compute()
 
         stk["excess_scrap"].inflow[...] = flw["scrap_pool => excess_scrap"]
         stk["excess_scrap"].compute()

@@ -26,6 +26,8 @@
 | t, e, r, p, u | Manufactured Products Market       | Exports                            |
 | t, e, r, p, u | Imports                            | Manufactured Products Market       |
 | t, e, r, p, u | Use Phase                          | End-of-Life Management             |
+| t, e, r, p, u | End-of-Life Management             | Reuse                              |
+| t, e, r, p, u | Reuse                              | Use Phase                          |
 | t, e, r, p    | End-of-Life Management             | Sorting                            |
 | t, e, r, p    | End-of-Life Management             | Uncollected                        |
 | t, e, r, p    | Sorting                            | Mechanical Recycling               |

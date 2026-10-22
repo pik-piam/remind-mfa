@@ -256,7 +256,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         """
         # scale up occupied to total residential floorspace (vacant dwellings and second homes)
         total_floorspace = floorspace.copy()
-        total_floorspace[{"c": "Res"}] = floorspace[{"c": "Res"}] / (
+        total_floorspace[{"c": "Residential"}] = floorspace[{"c": "Residential"}] / (
             1.0 - prm["unoccupied_residential_stock_share"]
         )
         floorspace_bu = expand_common_to_bu(total_floorspace, prm)

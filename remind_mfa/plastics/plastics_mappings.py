@@ -19,6 +19,7 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "reclchem": "Chemical Recycling",
         "use": "Use Phase",
         "eol_management": "End-of-Life<br>Management",
+        "reuse": "Reuse",
         "sorting": "Sorting",
         "mismanaged": "Uncollected",
         "incineration": "Incineration",

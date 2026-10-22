@@ -12,6 +12,10 @@ Each scenario is defined by:
 
 The `ScenarioReader` resolves the inheritance chain, reads all relevant CSV files, and applies the data points in order from the root ancestor to the selected scenario.
 
+### What is a scenario parameter?
+
+A scenario parameter only affects the future. Anything that influences the historical years of a model run is a model assumption, not a scenario parameter. Model assumptions are set in the model code (and documented with `add_assumption_doc`), not in the scenario CSV files.
+
 ---
 
 ## Directory Structure

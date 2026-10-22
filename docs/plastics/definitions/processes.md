@@ -13,6 +13,7 @@
 | Manufactured Products Market       |
 | Use Phase                          |
 | End-of-Life Management             |
+| Reuse                              |
 | Waste Market                       |
 | Mechanical Recycling               |
 | Chemical Recycling                 |
