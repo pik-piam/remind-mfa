@@ -48,7 +48,7 @@ def _warn_if_scenario_pkbudg_ignored(
     if not scenario_pkbudg_is_effective(model) and scenario_pkbudg != AtlasScenarioPkBudg.BUDG_1000:
         typer.echo(
             f"[WARN] --scenario-pkbudg={scenario_pkbudg.value} has no effect for model={model}: "
-            "ATLAS_Trade only produces a single future scenario for this material.",
+            "ATLAS-Trade only produces a single future scenario for this material.",
             err=True,
         )
 
