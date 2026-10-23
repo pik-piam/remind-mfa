@@ -55,8 +55,8 @@ class CommonMFASystem(fd.MFASystem):
         lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
         lifetime_model.mean = self.parameters["lifetime_mean"]
         lifetime_model.std = self.parameters["lifetime_std"]
-        lifetime_model.lt_factor_by_year = self.parameters["lifetime_factor"]
-        lifetime_model.lt_factor_by_cohort = self.parameters.get("lifetime_factor_cohort")
+        lifetime_model.lt_factor_by_year = self.parameters["lifetime_factor_nurture"]
+        lifetime_model.lt_factor_by_cohort = self.parameters["lifetime_factor_cohort"]
         stock.compute()
 
     def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:

@@ -23,6 +23,39 @@ from remind_mfa.cement.cement_definition import scenario_parameters as cement_sc
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
 
 
+def converge_lifetime_factor(
+    lifetime_current: fd.Parameter,
+    lifetime_ref: fd.FlodymArray,
+    factor: fd.FlodymArray,
+    exponent: float,
+) -> fd.FlodymArray:
+    """Lifetime extension factor that lets lifetimes converge towards a reference lifetime.
+
+    The new lifetime is max(lifetime_current, factor * lifetime_ref - gap / factor ** exponent),
+    with gap = lifetime_ref - lifetime_current. A lifetime equal to the reference is extended by
+    `factor`, and the absolute gap of all other lifetimes to it shrinks by 1 / factor ** exponent.
+    For factor >= 1, the new lifetime increases monotonically with the current lifetime and is
+    never below it. A factor of 1 leaves lifetimes unchanged.
+    Plain english: lifetimes below reference receive a larger multiplier than factor,
+    lifetimes above reference a smaller one until they just remain at their value.
+
+    Args:
+        lifetime_current (fd.Parameter): Current lifetime.
+        lifetime_ref (fd.FlodymArray): Reference lifetime to converge towards.
+        factor (fd.FlodymArray): Lifetime extension factor at the reference lifetime. Its
+            dimensions must contain those of `lifetime_current` and `lifetime_ref`.
+        exponent (float): Exponent n of the gap shrinkage 1 / factor ** n.
+
+    Returns:
+        fd.Parameter: Ratio of the new to the current lifetime, with the dimensions of `factor`.
+    """
+    lifetime_current = lifetime_current.cast_to(factor.dims)
+    lifetime_ref = lifetime_ref.cast_to(factor.dims)
+    lifetime_new = factor * lifetime_ref - (lifetime_ref - lifetime_current) / factor**exponent
+    lifetime_factor = lifetime_new.maximum(lifetime_current) / lifetime_current
+    return lifetime_factor.to_class(fd.Parameter)
+
+
 class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
@@ -164,42 +197,35 @@ class CementModel(CommonModel[CementCfg]):
             ),
         )
 
-    def extrapolate_parameters(self):
-        super().extrapolate_parameters()
-        self.calculate_lifetime_factor_cohort()
+    def get_lifetime_factor_cohort(self) -> fd.Parameter:
+        """Lifetime extension factor by age-cohort (nature), derived from the scenario parameter
+        `lifetime_factor_nature`.
 
-    def calculate_lifetime_factor_cohort(self):
-        """Derive the lifetime extension by age-cohort (nature) from the extrapolated lifetime
-        extension by year (nurture), `lifetime_factor`.
-
-        New age-cohorts of regions below the end-use maximum lifetime gain the same absolute
-        lifetime of (lifetime_factor - 1) * maximum lifetime, i.e. a total factor of
-        lifetime_factor + (lifetime_factor - 1) * catch_up. The nurture part is applied
-        to all age-cohorts, so the nature factor only contains the remainder.
+        Lifetimes of new age-cohorts converge to the GDP-weighted regional mean lifetime of the
+        last historical year (see `converge_lifetime_factor`).
         """
-        # TODO move lifetime_max to mrmfa
-        lifetime_max = fd.FlodymArray(dims=self.dims["u",])
-        lifetime_max["Residential"] = 100
-        lifetime_max["Commercial"] = 80
-        lifetime_max["Industrial"] = 75
-        lifetime_max["Civil Engineering"] = 75
-        lifetime_current = self.parameters["lifetime_mean"][{"t": self.dims["h"].items[-1]}]
-        catch_up = (1 / lifetime_current * lifetime_max - 1).maximum(0)
+        lifetime_convergence_exponent = 3
+        factor = self.parameters["lifetime_factor_nature"]
+        last_historical = {"t": self.dims["h"].items[-1]}
 
-        factor = self.parameters["lifetime_factor"]
-        self.parameters["lifetime_factor_cohort"] = ((factor - 1) * catch_up / factor + 1).to_class(
-            fd.Parameter
-        )
+        # calculate gdp-weighted global lifetime average
+        lifetime_current = self.parameters["lifetime_mean"][last_historical]
+        gdp = self.parameters["gdppc"][last_historical] * self.parameters["population"][last_historical]
+        lifetime_ref = (lifetime_current * gdp).sum_over("r") / gdp.sum_over("r")
+
         add_assumption_doc(
             type="model switch",
-            name="Lifetime catch-up of new age-cohorts",
-            value="lifetime_factor",
+            name="Lifetime convergence of new age-cohorts",
+            value=lifetime_convergence_exponent,
             description=(
-                "On top of the lifetime extension of all age-cohorts by 'lifetime_factor' "
-                "(nurture), new age-cohorts of regions below the end-use maximum lifetime gain "
-                "an additional extension (nature), such that all regions gain the same absolute "
-                "lifetime of (lifetime_factor - 1) * maximum lifetime."
+                "New age-cohorts (nature) of a region at the GDP-weighted regional mean lifetime "
+                "of the last historical year are extended by 'lifetime_factor_nature'. The gap of "
+                "other regions to this reference lifetime shrinks by the factor "
+                "1 / lifetime_factor_nature ** n, with n = 3. Lifetimes are never reduced."
             ),
+        )
+        return converge_lifetime_factor(
+            lifetime_current, lifetime_ref, factor, lifetime_convergence_exponent
         )
 
     def run(self):
@@ -217,7 +243,7 @@ class CementModel(CommonModel[CementCfg]):
         intensive_end_use_prms = (
             "lifetime_mean",
             "lifetime_std",
-            "lifetime_factor",
+            "lifetime_factor_nurture",
             "lifetime_factor_cohort",
         )
         bu_mfa = self.make_mfa(

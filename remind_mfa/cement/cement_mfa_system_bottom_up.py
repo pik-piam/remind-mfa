@@ -243,7 +243,12 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         """
         letters = stock.dims.letters
         lifetime_prms = {}
-        for name in ("lifetime_mean", "lifetime_std", "lifetime_factor", "lifetime_factor_cohort"):
+        for name in (
+            "lifetime_mean",
+            "lifetime_std",
+            "lifetime_factor_nurture",
+            "lifetime_factor_cohort",
+        ):
             prm = self.parameters[name]
             if "b" in letters:
                 prm = prm[{"e": self.dims["b"]}]
@@ -254,7 +259,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
         lifetime_model.mean = lifetime_prms["lifetime_mean"]
         lifetime_model.std = lifetime_prms["lifetime_std"]
-        lifetime_model.lt_factor_by_year = lifetime_prms["lifetime_factor"]
+        lifetime_model.lt_factor_by_year = lifetime_prms["lifetime_factor_nurture"]
         lifetime_model.lt_factor_by_cohort = lifetime_prms["lifetime_factor_cohort"]
         stock.compute()
 
