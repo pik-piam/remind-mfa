@@ -340,9 +340,13 @@ class CommonModel[CfgT: CommonCfg]:
 
     def lifetime_limit(self):
         """Effective lifetime when saturation level is reached.
-        Currently, this is just the last modelled lifetime, including the nurture extension."""
+        Currently, this is just the last modelled lifetime, including the nurture and (if
+        present) nature extension."""
         last_year = {"t": self.dims["t"].items[-1]}
-        return (
+        lifetime = (
             self.parameters["lifetime_mean"][last_year]
             * self.parameters["lifetime_factor"][last_year]
         )
+        if "lifetime_factor_cohort" in self.parameters:
+            lifetime = lifetime * self.parameters["lifetime_factor_cohort"][last_year]
+        return lifetime

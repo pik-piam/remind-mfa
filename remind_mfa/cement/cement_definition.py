@@ -350,15 +350,6 @@ scenario_parameters = [
         name="concrete_building_mi",
         dim_letters=("r", "b", "s"),
     ),
-    PlainDataPointDefinition(
-        name="lifetime_factor_min",
-        description=(
-            "Minimum lifetime factor, applied to regions at or above the end-use maximum "
-            "lifetime. Regions below it gain the same absolute lifetime of "
-            "(lifetime_factor_min - 1) * maximum lifetime in years, i.e. a factor of "
-            "1 + (lifetime_factor_min - 1) * maximum / current lifetime."
-        ),
-    ),
 ]
 
 # fmt: on

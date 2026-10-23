@@ -164,21 +164,42 @@ class CementModel(CommonModel[CementCfg]):
             ),
         )
 
-        # Lifetime
+    def extrapolate_parameters(self):
+        super().extrapolate_parameters()
+        self.calculate_lifetime_factor_cohort()
+
+    def calculate_lifetime_factor_cohort(self):
+        """Derive the lifetime extension by age-cohort (nature) from the extrapolated lifetime
+        extension by year (nurture), `lifetime_factor`.
+
+        New age-cohorts of regions below the end-use maximum lifetime gain the same absolute
+        lifetime of (lifetime_factor - 1) * maximum lifetime, i.e. a total factor of
+        lifetime_factor + (lifetime_factor - 1) * catch_up. The nurture part is applied
+        to all age-cohorts, so the nature factor only contains the remainder.
+        """
         # TODO move lifetime_max to mrmfa
         lifetime_max = fd.FlodymArray(dims=self.dims["u",])
         lifetime_max["Residential"] = 100
         lifetime_max["Commercial"] = 80
         lifetime_max["Industrial"] = 75
         lifetime_max["Civil Engineering"] = 75
-        lifetime_current = self.parameters["lifetime_mean"][{"h": self.dims["h"].items[-1]}]
-        multiplier = (1 / lifetime_current * lifetime_max - 1).maximum(0)
+        lifetime_current = self.parameters["lifetime_mean"][{"t": self.dims["h"].items[-1]}]
+        catch_up = (1 / lifetime_current * lifetime_max - 1).maximum(0)
 
-        # below the maximum, all regions gain the same absolute lifetime:
-        # (factor_min - 1) * lifetime_max
-        factor_min = self.scenario_parameters["lifetime_factor_min"]
-        prm["lifetime_factor_target"] = (factor_min + (factor_min - 1) * multiplier).to_class(
+        factor = self.parameters["lifetime_factor"]
+        self.parameters["lifetime_factor_cohort"] = ((factor - 1) * catch_up / factor + 1).to_class(
             fd.Parameter
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="Lifetime catch-up of new age-cohorts",
+            value="lifetime_factor",
+            description=(
+                "On top of the lifetime extension of all age-cohorts by 'lifetime_factor' "
+                "(nurture), new age-cohorts of regions below the end-use maximum lifetime gain "
+                "an additional extension (nature), such that all regions gain the same absolute "
+                "lifetime of (lifetime_factor - 1) * maximum lifetime."
+            ),
         )
 
     def run(self):
@@ -193,7 +214,12 @@ class CementModel(CommonModel[CementCfg]):
         Intensive end-use-resolved parameters (`intensive_end_use_prms`) are broadcasted to the
         extended-end-use dimension for the bottom-up MFA.
         """
-        intensive_end_use_prms = ("lifetime_mean", "lifetime_std", "lifetime_factor")
+        intensive_end_use_prms = (
+            "lifetime_mean",
+            "lifetime_std",
+            "lifetime_factor",
+            "lifetime_factor_cohort",
+        )
         bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historical=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,

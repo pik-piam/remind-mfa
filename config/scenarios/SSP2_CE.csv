@@ -1,8 +1,7 @@
 parameter,models,value,extra:year,extra:type,index:Region,index:Construction Material,description
 stock_factor,all,0.9,,,,,
-lifetime_factor,"steel,plastics",1.2,,,,,
+lifetime_factor,all,1.2,,,,,
 concrete_building_mi,cement,0.9,,,,,
-lifetime_factor_min,cement,1.2,,,,,
 min_timber_share,cement,0.1,,,,,Wooden buildings reach at least 10% of floor area
 cement_ratio,cement,0.95,,,,,Cement content of new concrete and mortar reduced by 5%
 clinker_ratio,cement,0.6,2060,target,,,Clinker ratio converges to 0.6 (Chatham/IEA)
