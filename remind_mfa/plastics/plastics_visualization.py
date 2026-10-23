@@ -22,16 +22,16 @@ class PlasticsVisualizer(CommonVisualizer):
         if self.cfg.use_stock.do_visualize:
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.stocks["in_use"].stock,
+                flow=self._model.future_mfa.stocks["use"].stock,
                 name="Stock",
-                linecolor_dim="Good",
+                linecolor_dim="End Use",
                 regional=False,
             )
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.stocks["in_use"].stock,
+                flow=self._model.future_mfa.stocks["use"].stock,
                 name="Stock",
-                linecolor_dim="Good",
+                linecolor_dim="End Use",
                 regional=True,
                 per_capita=True,
             )
@@ -44,8 +44,8 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_production(mfa=self._model.future_mfa, regional=False)
 
         if self.cfg.extrapolation.do_visualize:
-            self.visualize_extrapolation(subplot_dim="Good", linecolor_dim="Region")
-            self.visualize_extrapolation(subplot_dim="Region", linecolor_dim="Good")
+            self.visualize_extrapolation(subplot_dim="End Use", linecolor_dim="Region")
+            self.visualize_extrapolation(subplot_dim="Region", linecolor_dim="End Use")
 
         if self.cfg.flows.do_visualize:
             self.visualize_production_trade_consumption(
@@ -66,31 +66,31 @@ class PlasticsVisualizer(CommonVisualizer):
             )
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.flows["primary_market => fabrication"],
+                flow=self._model.future_mfa.flows["primary_market => manufacturing"],
                 name="Primary plastics demand",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.flows["fabrication => good_market"],
-                name="Fabrication",
+                flow=self._model.future_mfa.flows["manufacturing => manufactured_products_market"],
+                name="Manufacturing",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.stocks["in_use"].inflow,
+                flow=self._model.future_mfa.stocks["use"].inflow,
                 name="Demand",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr_stacked(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.flows["reclmech => aux_recyclate_trade"],
+                flow=self._model.future_mfa.flows["reclmech => aux_recyclate_market"],
                 name="Mechanically recycled",
                 linecolor_dim="Material",
             )
             self.visualize_fdarr(
                 mfa=self._model.future_mfa,
-                flow=self._model.future_mfa.flows["reclchem => aux_recl_feedstock_trade"],
+                flow=self._model.future_mfa.flows["reclchem => aux_recl_feedstock_market"],
                 name="Chemically recycled",
             )
             self.visualize_fdarr_stacked(
@@ -152,7 +152,7 @@ class PlasticsVisualizer(CommonVisualizer):
             self.visualize_transience_eol_parameters(
                 self._model,
                 parameter_REMIND_MFA=self._model.future_mfa.flows[
-                    "reclmech => aux_recyclate_trade"
+                    "reclmech => aux_recyclate_market"
                 ].sum_to(("t", "r", "m"))[
                     {"r": EU_MFA_REGION, "m": self._model.dims["n"], "t": self._model.dims["v"]}
                 ],
@@ -170,12 +170,12 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_consumption(self, mfa: fd.MFASystem):
         per_capita = self.cfg.consumption.per_capita
-        demand = mfa.stocks["in_use"].inflow.sum_over(("m", "e"))
+        demand = mfa.stocks["use"].inflow.sum_over(("m", "e"))
         self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=demand,
             name="Plastic consumption",
-            linecolor_dim="Good",
+            linecolor_dim="End Use",
             per_capita=per_capita,
             regional=True,
         )
@@ -183,7 +183,7 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_production(self, mfa: fd.MFASystem, regional=True):
         production = (
             mfa.flows["polymerization => primary_market"]
-            + mfa.flows["aux_recyclate_trade => primary_market"]
+            + mfa.flows["aux_recyclate_market => primary_market"]
         )
         self.visualize_fdarr_stacked(
             mfa=mfa,
@@ -196,20 +196,21 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_production_trade_consumption(self, mfa: fd.MFASystem, per_capita=False):
         production = (
             mfa.flows["polymerization => primary_market"]
-            + mfa.flows["aux_recyclate_trade => primary_market"]
+            + mfa.flows["aux_recyclate_market => primary_market"]
         ).sum_to(("t", "r"))
         primary_net_imports = (
             mfa.flows["imports => primary_market"] - mfa.flows["primary_market => exports"]
         ).sum_to(("t", "r"))
-        final_net_imports = (
-            mfa.flows["imports => good_market"] - mfa.flows["good_market => exports"]
+        manufactured_net_imports = (
+            mfa.flows["imports => manufactured_products_market"]
+            - mfa.flows["manufactured_products_market => exports"]
         ).sum_to(("t", "r"))
-        consumption = mfa.stocks["in_use"].inflow.sum_to(("t", "r"))
+        consumption = mfa.stocks["use"].inflow.sum_to(("t", "r"))
 
         series_specs = [
             (production, "Production", "#4E79A7"),
             (primary_net_imports, "Primary net imports", "#F28E2B"),
-            (final_net_imports, "Final net imports", "#E15759"),
+            (manufactured_net_imports, "Manufactured products net imports", "#E15759"),
             (consumption, "Consumption", "#59A14F"),
         ]
 
@@ -247,26 +248,26 @@ class PlasticsVisualizer(CommonVisualizer):
             do_plot=False,
         )
 
-    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-        subplot_dim = "Good" if subplots_by_good else None
-        super().visualize_use_stock(mfa, stock=mfa.stocks["in_use"].stock, subplot_dim=subplot_dim)
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_end_use=False):
+        subplot_dim = "End Use" if subplots_by_end_use else None
+        super().visualize_use_stock(mfa, stock=mfa.stocks["use"].stock, subplot_dim=subplot_dim)
 
     def visualize_trade(self, mfa: fd.MFASystem, linecolor_dims=True):
         if linecolor_dims is True:
             linecolor_dims = {
                 "primary": "Material",
-                "final": "Material",
+                "manufactured_products": "Material",
                 "waste": "Material",
-                "aux_recyclate_trade": "Material",
-                "aux_recl_feedstock_trade": None,
+                "aux_recyclate": "Material",
+                "aux_recl_feedstock": None,
             }
         else:
             linecolor_dims = {
                 "primary": None,
-                "final": None,
+                "manufactured_products": None,
                 "waste": None,
-                "aux_recyclate_trade": None,
-                "aux_recl_feedstock_trade": None,
+                "aux_recyclate": None,
+                "aux_recl_feedstock": None,
             }
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
@@ -274,18 +275,18 @@ class PlasticsVisualizer(CommonVisualizer):
         if linecolor_dims is True:
             linecolor_dims = {
                 "primary": "Material",
-                "final": "Material",
+                "manufactured_products": "Material",
                 "waste": "Material",
-                "aux_recyclate_trade": "Material",
-                "aux_recl_feedstock_trade": None,
+                "aux_recyclate": "Material",
+                "aux_recl_feedstock": None,
             }
         else:
             linecolor_dims = {
                 "primary": None,
-                "final": None,
+                "manufactured_products": None,
                 "waste": None,
-                "aux_recyclate_trade": None,
-                "aux_recl_feedstock_trade": None,
+                "aux_recyclate": None,
+                "aux_recl_feedstock": None,
             }
         super().visualize_net_trade(mfa, linecolor_dims=linecolor_dims)
 
@@ -302,13 +303,13 @@ class PlasticsVisualizer(CommonVisualizer):
         other_color = "#BAB0AC"
         good_colors = [
             packaging_color if good == "Packaging" else other_color
-            for good in mfa.dims["Good"].items
+            for good in mfa.dims["End Use"].items
         ]
 
         # Initialize default flow color mapping
         flow_color_dict = {"default": use_color}
         flow_color_dict.update(
-            {fn: ("Good", good_colors) for fn, f in mfa.flows.items() if "Good" in f.dims}
+            {fn: ("End Use", good_colors) for fn, f in mfa.flows.items() if "End Use" in f.dims}
         )
 
         # # Assign colors to 'use' flows
@@ -410,14 +411,14 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_material_splits(self, mfa: fd.MFASystem):
 
-        # material shares are extrapolated by keeping the last historic value constant in the future, so we visualize the last historic year
+        # material shares are extrapolated by keeping the last historical value constant in the future, so we visualize the last historical year
         material_shares = mfa.parameters["material_shares_use_inflow"][{"t": 2024}]
         material_shares = material_shares.cumsum(dim_letter="m")
 
-        ap_sector_splits = self.plotter_class(
+        ap_end_use_split = self.plotter_class(
             array=material_shares,
             intra_line_dim="Region",
-            subplot_dim="Good",
+            subplot_dim="End Use",
             linecolor_dim="Material",
             xlabel="Year",
             ylabel="Material Splits [%]",
@@ -426,11 +427,11 @@ class PlasticsVisualizer(CommonVisualizer):
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"material_splits")
+        self.plot_and_save_figure(ap_end_use_split, f"material_splits")
 
     def visualize_transience_inflow(self, model: "PlasticsModel", subplot_dim: str = None):
         EU_region = EU_MFA_REGION
-        inflow = model.future_mfa.stocks["in_use"].inflow[
+        inflow = model.future_mfa.stocks["use"].inflow[
             {"r": EU_MFA_REGION, "m": model.dims["n"], "u": model.dims["f"], "t": model.dims["v"]}
         ]
         super().visualize_transience_inflow(
@@ -439,7 +440,7 @@ class PlasticsVisualizer(CommonVisualizer):
 
     def visualize_transience_outflow(self, model: "PlasticsModel", subplot_dim: str = None):
         EU_region = EU_MFA_REGION
-        inflow = model.future_mfa.stocks["in_use"].inflow[
+        inflow = model.future_mfa.stocks["use"].inflow[
             {"r": EU_MFA_REGION, "m": model.dims["n"], "u": model.dims["f"], "t": model.dims["v"]}
         ]
         super().visualize_transience_outflow(

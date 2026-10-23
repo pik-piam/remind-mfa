@@ -15,7 +15,7 @@ import pytest
 
 from remind_mfa.common.trade import Trade, set_trade_from_data
 
-H = fd.Dimension(name="Historic Time", letter="h", items=[2000, 2001, 2002])
+H = fd.Dimension(name="Historical Time", letter="h", items=[2000, 2001, 2002])
 T = fd.Dimension(name="Time", letter="t", items=[2000, 2001, 2002, 2003, 2004])
 R = fd.Dimension(name="Region", letter="r", items=["A", "B"])
 

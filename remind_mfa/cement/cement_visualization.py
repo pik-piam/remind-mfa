@@ -58,7 +58,7 @@ class CementVisualizer(CommonVisualizer):
         self.visualize_fdarr(mfa=mfa, flow=production, name="Product production", regional=regional)
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        consumption = mfa.stocks["in_use"].inflow[{"k": "cement"}]
+        consumption = mfa.stocks["use"].inflow[{"k": "cement"}]
         self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=consumption,
@@ -70,9 +70,9 @@ class CementVisualizer(CommonVisualizer):
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         pass
 
-    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-        subplot_dim = self._end_use_dim_name(mfa) if subplots_by_good else None
-        stock = mfa.stocks["in_use"].stock[{"k": "cement"}]
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_end_use=False):
+        subplot_dim = self._end_use_dim_name(mfa) if subplots_by_end_use else None
+        stock = mfa.stocks["use"].stock[{"k": "cement"}]
         super().visualize_use_stock(mfa, stock=stock, subplot_dim=subplot_dim)
 
     def visualize_carbonation(self, mfa: fd.MFASystem):

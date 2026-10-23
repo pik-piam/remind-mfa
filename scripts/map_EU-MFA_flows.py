@@ -125,16 +125,16 @@ def assert_target_region_supported(material: str) -> None:
         )
 
 
-def load_production_reference(material_prefix: str) -> pd.DataFrame:
+def load_production_reference(parameter_name: str) -> pd.DataFrame:
     """Load the production parameter used as the backcasting reference, from data_in/parameters.
 
     Read live from the extracted madrat archive so the current input data revision is always
     used. Asserts that the target EU region is present, because backcast_by_reference silently
     fills NaN for regions missing from the reference, which would hide a resolution mismatch.
     """
-    path = PARAMETERS_DIR / f"{material_prefix}_production.cs4r"
+    path = PARAMETERS_DIR / f"{parameter_name}.cs4r"
     ref = read_cs4r(path)
-    # the time column is named "Time" for plastics and "Historic Time" for steel
+    # the time column is named "Time" for plastics and "Historical Time" for steel
     ref = ref.rename(columns={ref.columns[0]: "Time"})
     if TARGET_EU_REGION not in set(ref["Region"]):
         raise ValueError(
@@ -481,7 +481,7 @@ def run_combination(material: str, flow: str, scenario: str):
             df_EU_MFA = pd.concat([df_EU_MFA, df_baseline_others], ignore_index=True)
 
         # --- load reference (Time, Region, Type, value) ---
-        ref = load_production_reference("pl")
+        ref = load_production_reference("pl_production")
         # EU-MFA plastics flows are all Type="Plastics", so filter the reference to match
         ref = ref[ref.Type == "Plastics"].copy()
 
@@ -516,8 +516,8 @@ def run_combination(material: str, flow: str, scenario: str):
             df_EU_MFA = df2.groupby(["Time", "Region", "Good"], as_index=False)["value"].sum()
             dimensions = "(EU-MFA_Time,Region,EU-MFA_Good,value)"
 
-        # --- load reference (Historic Time, Region, value) ---
-        ref = load_production_reference("st")
+        # --- load reference (Historical Time, Region, value) ---
+        ref = load_production_reference("st_steel_production")
 
     # --- backcast: extend df_EU_MFA into historic years using ref ---
     if material == "plastics" and scenario != "baseline" and flow not in FLOWS_WITHOUT_BASELINE:
@@ -591,13 +591,13 @@ def run_combination(material: str, flow: str, scenario: str):
         # save Good dimension
         if flow != "scrap":  # scrap flow has no Good dimension
             goods = df_backcasted["Good"].dropna().unique()
-            with open(DIMENSION_DIR / "eu_mfa_goods.csv", "w") as f:
+            with open(DIMENSION_DIR / "eu_mfa_good.csv", "w") as f:
                 for g in goods:
                     f.write(f"{g}\n")
         if material == "plastics":
             # save Material dimension
             materials = df_backcasted["Material"].dropna().unique()
-            with open(DIMENSION_DIR / "eu_mfa_materials.csv", "w") as f:
+            with open(DIMENSION_DIR / "eu_mfa_material.csv", "w") as f:
                 for m in materials:
                     f.write(f"{m}\n")
         print(f"Saved dimensions to {DIMENSION_DIR}")
