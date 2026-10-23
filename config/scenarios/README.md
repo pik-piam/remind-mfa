@@ -93,6 +93,10 @@ Each scenario CSV file contains rows of parameter data points. The columns are:
 - The `index` and `extra` columns contain dicts in the form `{key: value, key2: value2}`. Keys and bare-word string values do not need quotes; numeric values are parsed automatically. Lists are written as `[v1, v2, v3]`. Because dicts contain commas, the cell must be wrapped in double quotes in the CSV file (standard CSV quoting).
 - An empty `index` or `extra` cell is treated as no index / no extras.
 
+### Aggregate Regions
+
+Region sets form a hierarchy: `iso249` countries aggregate to `eu21` regions, which aggregate to `h12` regions. A `Region` in the `index` column that is not part of the current region set, but of one of its aggregations, is applied to all regions of the current set that it consists of, and an info message is logged. E.g. `{Region: EUR}` in an `eu21` run sets `DEU`, `FRA`, `UKI`, etc. Regions that are part of neither the current set nor its aggregations are skipped with a warning. The mappings are read from the `data_in/piam_mappings` submodule (`regional/regionmappingH12.csv` and `regional/regionmapping_21_EU11.csv`).
+
 ---
 
 ## Defining Parameters in Code

@@ -2,10 +2,12 @@ import os
 import ast
 import csv
 import itertools
+import logging
 import numpy as np
 import yaml
 import flodym as fd
 from pydantic import Field, field_validator, model_validator
+from functools import cached_property
 from typing import Any, Dict, List, Optional
 
 from remind_mfa.common.common_definition import (
@@ -14,6 +16,7 @@ from remind_mfa.common.common_definition import (
     RemindMFAParameterDefinition,
 )
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
+from remind_mfa.common.region_aggregation import RegionAggregations
 
 # Declares the numpy dtype of each key of the `extra` column on an extrapolation parameter.
 # Strings need a fixed-width dtype: plain `str` would allocate single characters only.
@@ -146,6 +149,8 @@ class ScenarioReader(RemindMFABaseModel):
     parameter_definitions: List[
         ExtrapolationDefinition | RemindMFAParameterDefinition | PlainDataPointDefinition
     ]
+    region_mappings_path: Optional[str] = None
+    """Directory of the piamMappings region mapping files, used to resolve aggregate regions."""
     _scenarios: List["Scenario"] = []
     _parameters: dict = {}
 
@@ -178,10 +183,50 @@ class ScenarioReader(RemindMFABaseModel):
         while True:
             scenario = self.read_single(name)
             scenario.filter_data_by_model(self.model)
+            scenario.data = self._resolve_regions(scenario)
             self._scenarios.insert(0, scenario)
             if scenario.parent is None:
                 break
             name = scenario.parent
+
+    @cached_property
+    def _region_aggregations(self) -> Optional[RegionAggregations]:
+        if self.region_mappings_path is None or "Region" not in self.dims.names:
+            return None
+        return RegionAggregations(self.region_mappings_path, self.dims["Region"].items)
+
+    def _resolve_regions(self, scenario: "Scenario") -> list:
+        """Replace regions not in the current region set by the regions they aggregate.
+
+        Data points with a region that is neither in the current set nor in one of its
+        aggregations are skipped.
+        """
+        if "Region" not in self.dims.names:
+            return scenario.data
+        regions = self.dims["Region"].items
+        data_points = []
+        for data_point in scenario.data:
+            region = data_point.index.get("Region")
+            if region is None or region in regions:
+                data_points.append(data_point)
+                continue
+            aggregations = self._region_aggregations
+            members = aggregations.members(region) if aggregations is not None else None
+            if not members:
+                logging.warning(
+                    f"Scenario '{scenario.name}': region '{region}' of '{data_point.parameter}' "
+                    "is neither in the current region set nor in its aggregations. Skipping it."
+                )
+                continue
+            logging.info(
+                f"Scenario '{scenario.name}': applying '{data_point.parameter}' of aggregate "
+                f"region '{region}' to {members}."
+            )
+            data_points.extend(
+                data_point.model_copy(update={"index": {**data_point.index, "Region": member}})
+                for member in members
+            )
+        return data_points
 
     def read_single(self, name: str) -> "Scenario":
         csv_file = os.path.join(self.base_path, f"{name}.csv")
