@@ -4,5 +4,7 @@ stock_factor,all,0.9,,,,,
 lifetime_factor,"steel,plastics",1.2,,,,,
 concrete_building_mi,cement,0.9,,,,,
 lifetime_factor_min,cement,1.2,,,,,
+cement_ratio,cement,0.95,,,,,Cement content of new concrete and mortar reduced by 5%
 clinker_ratio,cement,0.6,2060,target,,,Clinker ratio converges to 0.6 (Chatham/IEA)
 reuse_share,cement,0.10,,,,Concrete,
+unoccupied_residential_stock_share,cement,0.05,2100,target,,,Unoccupied residential stock share reduces to 5% in all regions by 2100

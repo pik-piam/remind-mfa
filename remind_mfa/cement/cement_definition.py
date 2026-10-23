@@ -305,6 +305,10 @@ scenario_parameters = [
         name="clinker_ratio",
         dim_letters=("r",),
     ),
+    ExtrapolationDefinition(
+        name="cement_ratio",
+        dim_letters=("r", "m"),
+    ),
     # cement lifetime is time-dependent and therefore needs (constant) extrapolation first
     ExtrapolationDefinition(
         name="lifetime_mean",
