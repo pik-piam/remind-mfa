@@ -19,6 +19,7 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "reclchem": "Chemical<br>recycling",
         "use": "Use phase",
         "eol_management": "End-of-life<br>management",
+        "reuse": "Reuse",
         "sorting": "Sorting",
         "mismanaged": "Uncollected",
         "incineration": "Incineration",
@@ -32,6 +33,6 @@ class PlasticsDisplayNames(CommonDisplayNames):
         "manufactured_products_market": "Manufactured products market",
         "imports": "Imports",
         "exports": "Exports",
-        "aux_recyclate_market": "Auxiliary Recyclate Trade",
-        "aux_recl_feedstock_market": "Auxiliary Recycled Feedstock Trade",
+        "aux_recyclate_market": "Auxiliary recyclate trade",
+        "aux_recl_feedstock_market": "Auxiliary recycled feedstock trade",
     }

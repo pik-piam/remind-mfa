@@ -1,36 +1,37 @@
-parameter,models,value,extra:year,extra:type,index:Region,index:End Use,index:Structure,index:Residential Type,description
+parameter,models,value,extra,index,description
 
 # --- Model defaults ---
-saturation_level,steel,10,,,,,,,
-saturation_level,plastics,3,,,,,,,
-saturation_level,cement,180,,,,,,,Corresponds to about 24 t cement at historical cement ratios
+saturation_level,steel,10,,,
+saturation_level,plastics,2,,,Corresponds to about 217 kg/capita/yr steady-state consumption at the global end-use split and lifetimes
+saturation_level,cement,180,,,Corresponds to about 24 t cement at historical cement ratios
 
 # --- Scenario defaults ---
-stock_factor,all,1.0,2100,factor,,,,,
-lifetime_mean,all,1.0,2060,factor,,,,,
-lifetime_std,all,1.0,2060,factor,,,,,
-n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
-n_trend_years,all,2,,,CHA,,,,
+stock_factor,all,1.0,"{year: 2100, type: factor}",,
+lifetime_mean,all,1.0,"{year: 2060, type: factor}",,
+lifetime_std,all,1.0,"{year: 2060, type: factor}",,
+n_trend_years,all,10,,,Number of recent historic years for the initial slope of the inflow and trade blending
+reuse_share,all,0.0,"{year: 2100, type: target}",,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
-max_scrap_share,steel,0.7,,,,,,,Maximum share of scrap in the metallic input to steel production
+n_trend_years,steel,2,,"{Region: CHA}",
+max_scrap_share,steel,0.7,,,Maximum share of scrap in the metallic input to steel production
 
 # --- Plastics ---
-waste_imports,plastics,0,2030,target,,,,,
-waste_exports,plastics,0,2030,target,,,,,
-collection_rate,plastics,0.99,2100,target,,,,,
-landfill_rate,plastics,0.0,2100,target,,,,,
-mechanical_recycling_rate,plastics,0.4,2100,target,,,,,
-chemical_recycling_rate,plastics,0.1,2100,target,,,,,
-bio_production_rate,plastics,0.1,2100,target,,,,,
-daccu_production_rate,plastics,0.01,2100,target,,,,,
+waste_imports,plastics,0,"{year: 2030, type: target}",,
+waste_exports,plastics,0,"{year: 2030, type: target}",,
+collection_rate,plastics,0.99,"{year: 2100, type: target}",,
+landfill_rate,plastics,0.0,"{year: 2100, type: target}",,
+mechanical_recycling_rate,plastics,0.4,"{year: 2100, type: target}",,
+chemical_recycling_rate,plastics,0.1,"{year: 2100, type: target}",,
+bio_production_rate,plastics,0.1,"{year: 2100, type: target}",,
+daccu_production_rate,plastics,0.01,"{year: 2100, type: target}",,
 
 # --- Cement (top-down) ---
-concrete_reuse_share,cement,0.0,2100,target,,,,,Share of the in-use concrete outflow that is reused
+n_trend_years,cement,2,,"{Region: CHA}",
 
 # --- Cement (bottom-up) ---
-development_gdppc_low,cement,8000,,,,,,,GDP per capita below which splits fully converge to their global means
-development_gdppc_high,cement,30000,,,,,,,GDP per capita above which regions keep their own splits
-structure_split,cement,structure_split_mean,2060,target,,,,,Low-GDP regions converge their structure split to the global mean
-residential_type_split,cement,residential_type_split_mean,2060,target,,,,,Low-GDP regions converge their residential type split to the global mean
-# unoccupied_residential_stock_share,cement,0.10,2060,target,CHA,,,,China's unoccupied residential stock share reduces to 10% by 2060
+development_gdppc_low,cement,8000,,,GDP per capita below which splits fully converge to their global means
+development_gdppc_high,cement,30000,,,GDP per capita above which regions keep their own splits
+structure_split,cement,structure_split_mean,"{year: 2060, type: target}",,Low-GDP regions converge their structure split to the global mean
+residential_type_split,cement,residential_type_split_mean,"{year: 2060, type: target}",,Low-GDP regions converge their residential type split to the global mean
+unoccupied_residential_stock_share,cement,0.10,"{year: 2060, type: target}","{Region: CHA}",China's unoccupied residential stock share reduces to 10% by 2060

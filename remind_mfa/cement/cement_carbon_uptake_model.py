@@ -50,31 +50,21 @@ class CementCarbonUptakeModel(BaseModel):
         stk["atmosphere"].compute()
 
     def build_subsystem(self):
-        """Create the carbonation subsystem on the MFA and reroute the in-use outflow through it.
+        """Create the carbonation subsystem on the MFA.
 
-        The base cement definition doesn't include eol stocks (hence ``use => sysenv``).
         This method injects the processes, stocks, and flows the carbonation model needs, so the
-        memory-heavy ``eol`` cohort arrays (and the ``atmosphere``/``carbonated_co2`` stocks) are
-        allocated only when carbonation is active.
+        ``atmosphere`` and ``carbonated_co2`` stocks are allocated only when carbonation is active.
         """
         mfa = self.mfa
-        use_letters = mfa.stocks["use"].dims.letters
 
         # processes (ids continue after the ones already defined)
         next_id = max(process.id for process in mfa.processes.values()) + 1
-        for name in ("eol", "atmosphere", "carbonation"):
+        for name in ("atmosphere", "carbonation"):
             mfa.processes[name] = fd.Process(name=name, id=next_id)
             next_id += 1
 
         # stocks
         stock_definitions = [
-            fd.StockDefinition(
-                name="eol",
-                process="eol",
-                dim_letters=use_letters,
-                subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=fd.FixedLifetime,
-            ),
             fd.StockDefinition(
                 name="atmosphere",
                 process="atmosphere",
@@ -97,8 +87,6 @@ class CementCarbonUptakeModel(BaseModel):
 
         # flows
         flow_definitions = [
-            fd.FlowDefinition(from_process="use", to_process="eol", dim_letters=use_letters),
-            fd.FlowDefinition(from_process="eol", to_process="sysenv", dim_letters=use_letters),
             fd.FlowDefinition(
                 from_process="clinker_production", to_process="atmosphere", dim_letters=("t", "r")
             ),
@@ -111,15 +99,6 @@ class CementCarbonUptakeModel(BaseModel):
                 processes=mfa.processes, flow_definitions=flow_definitions, dims=mfa.dims
             )
         )
-
-        # reroute the non-reused in-use outflow: use => sysenv (baseline sink) becomes
-        # use => eol => sysenv
-        mfa.flows["use => eol"][...] = mfa.flows["use => sysenv"]
-        del mfa.flows["use => sysenv"]
-        mfa.stocks["eol"].inflow[...] = mfa.flows["use => eol"]
-        mfa.stocks["eol"].lifetime_model.set_prms(mean=np.inf)
-        mfa.stocks["eol"].compute()
-        mfa.flows["eol => sysenv"][...] = mfa.stocks["eol"].outflow
 
         # refresh cached references so the rest of the model sees the injected entries
         self.flows = mfa.flows
@@ -214,6 +193,15 @@ class CementCarbonUptakeModel(BaseModel):
             description=(
                 "Reused products are assumed not to carbonate further during their second life,"
                 " as their surface is already mostly carbonated from the first life."
+            ),
+        )
+
+        add_assumption_doc(
+            type="model assumption",
+            name="No carbonation of hibernating stock",
+            description=(
+                "Products in the hibernating stock (no longer used, but not demolished) are"
+                " assumed not to carbonate further. This underestimates total uptake."
             ),
         )
 
@@ -355,9 +343,9 @@ class CementCarbonUptakeModel(BaseModel):
 
         prm = self.parameters
         stk_use = self.stocks["use"]
-        eol_dims = self.stocks["eol"].dims
         stk_dims_no_k = stk_use.dims.drop("k")
-        eol_dims_no_k = eol_dims.drop("k")
+        # EOL carbonation is computed at reduced resolution to limit the size of the age-resolved arrays
+        eol_dims_no_k = stk_use.dims["t", "r", "m"]
         cement_k_idx = list(stk_use.dims["k"].items).index("Cement")
         # use application-weighted averages for EOL (EOL stock has no application dimension)
         k_free_in_mean = self._application_weighted_average(k_free_in)  # (r, m)
@@ -390,9 +378,9 @@ class CementCarbonUptakeModel(BaseModel):
             # (I4) sum over all age cohorts, convert to flodym array
             uncarbonated_inflow[t] = (inflow * uncarbonated_fraction).sum(axis=(0))
 
-        # (I5) only the non-reused outflow enters eol: rescale from in-use outflow to eol inflow
+        # (I5) only the non-hibernated, non-reused outflow enters eol: rescale from in-use outflow to eol inflow
         uncarbonated_inflow *= safe_share(
-            self.stocks["eol"].inflow[{"k": "Cement"}], stk_use.outflow[{"k": "Cement"}]
+            self.stocks["eol_waste"].inflow[{"k": "Cement"}], stk_use.outflow[{"k": "Cement"}]
         )
 
         uncarbonated_inflow = fd.FlodymArray(dims=stk_dims_no_k, values=uncarbonated_inflow)
@@ -411,7 +399,7 @@ class CementCarbonUptakeModel(BaseModel):
         # time fd.DimensionSet fails as it doesn't accept it as "normal" int
         # when dtype = np.int64 selcted, the printing agedim becomes very ugly
         ages = [i for i in range(self.stocks["use"]._n_t)][::-1]
-        ageletter = self.get_unused_dimletter(exclude_letters=eol_dims.letters)
+        ageletter = self.get_unused_dimletter(exclude_letters=stk_use.dims.letters)
         agedim = fd.Dimension(name="age", letter=ageletter, items=ages, dtype=int)
         agedimset = fd.DimensionSet(dim_list=[agedim])
         age = fd.FlodymArray(dims=agedimset, values=np.array(ages), dtype=float)

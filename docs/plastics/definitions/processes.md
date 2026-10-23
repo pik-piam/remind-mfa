@@ -10,12 +10,13 @@
 | Polymerization                     |
 | Primary market                     |
 | Manufacturing                      |
-| Manufactured products market       |
-| Use phase                          |
-| End-of-life management             |
-| Waste market                       |
-| Mechanical recycling               |
-| Chemical recycling                 |
+| Manufactured Products Market       |
+| Use Phase                          |
+| End-of-Life Management             |
+| Reuse                              |
+| Waste Market                       |
+| Mechanical Recycling               |
+| Chemical Recycling                 |
 | Incineration                       |
 | Landfilled                         |
 | Sorting                            |

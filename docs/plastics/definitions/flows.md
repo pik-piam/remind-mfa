@@ -18,18 +18,20 @@
 | t, e, r       | Other reactants                    | Polymerization                     |
 | t, e, r, p    | Polymerization                     | Primary market                     |
 | t, e, r       | Polymerization                     | Losses                             |
-| t, e, r, p    | Primary market                     | Manufacturing                      |
-| t, e, r, p    | Primary market                     | Exports                            |
-| t, e, r, p    | Imports                            | Primary market                     |
-| t, e, r, p, u | Manufacturing                      | Manufactured products market       |
-| t, e, r, p, u | Manufactured products market       | Use phase                          |
-| t, e, r, p, u | Manufactured products market       | Exports                            |
-| t, e, r, p, u | Imports                            | Manufactured products market       |
-| t, e, r, p, u | Use phase                          | End-of-life management             |
-| t, e, r, p    | End-of-life management             | Sorting                            |
-| t, e, r, p    | End-of-life management             | Uncollected                        |
-| t, e, r, p    | Sorting                            | Mechanical recycling               |
-| t, e, r, p    | Sorting                            | Chemical recycling                 |
+| t, e, r, p    | Primary Market                     | Manufacturing                      |
+| t, e, r, p    | Primary Market                     | Exports                            |
+| t, e, r, p    | Imports                            | Primary Market                     |
+| t, e, r, p, u | Manufacturing                      | Manufactured Products Market       |
+| t, e, r, p, u | Manufactured Products Market       | Use Phase                          |
+| t, e, r, p, u | Manufactured Products Market       | Exports                            |
+| t, e, r, p, u | Imports                            | Manufactured Products Market       |
+| t, e, r, p, u | Use Phase                          | End-of-Life Management             |
+| t, e, r, p, u | End-of-Life Management             | Reuse                              |
+| t, e, r, p, u | Reuse                              | Use Phase                          |
+| t, e, r, p    | End-of-Life Management             | Sorting                            |
+| t, e, r, p    | End-of-Life Management             | Uncollected                        |
+| t, e, r, p    | Sorting                            | Mechanical Recycling               |
+| t, e, r, p    | Sorting                            | Chemical Recycling                 |
 | t, e, r, p    | Sorting                            | Landfilled                         |
 | t, e, r, p    | Sorting                            | Incineration                       |
 | t, e, r, p    | Uncollected                        | Uncontrolled                       |
