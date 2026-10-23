@@ -59,20 +59,25 @@ class CommonMFASystem(fd.MFASystem):
         stock.compute()
 
     def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
-        """Smooth the transition of the in-use stock inflow from historical to future years
-        with a critically damped blend, and correct any negative inflows to zero.
+        """Correct any negative inflows to zero, then smooth the transition of the in-use stock
+        inflow from historical to future years with a critically damped blend in log space.
+
+        Negative inflows only occur if the stock projection declines faster than the outflow.
+        Blending in log space keeps the blended inflow non-negative.
 
         Args:
             inflow (fd.FlodymArray): Inflow resulting from a StockDrivenDSM computation.
 
         Returns:
-            fd.FlodymArray: Blended and non-negative inflow.
+            fd.FlodymArray: Non-negative and blended inflow.
         """
+        inflow.name = "In-use stock inflow"
         blended_inflow = critically_damped_blend(
-            inflow,
+            clip_negative_arr(inflow),
             n_historical=self.dims["h"].len,
             n_trend_years=self.parameters["n_trend_years"],
             approaching_time=DEFAULT_APPROACHING_TIME,
+            log_space=True,
         )
         blended_inflow.name = "In-use stock inflow"
         add_assumption_doc(
@@ -81,12 +86,14 @@ class CommonMFASystem(fd.MFASystem):
             value=DEFAULT_APPROACHING_TIME,
             description=(
                 "The in-use stock inflow resulting from the stock-driven model is blended smoothly "
-                "from historical trends to the future values with a critically damped blend. "
+                "from historical trends to the future values with a critically damped blend of "
+                "its logarithm, so that historical trends continue as relative growth rates and "
+                "the inflow stays non-negative. "
                 "The in-use stock is then recomputed from the blended inflow. "
                 "The value is the approaching time in years."
             ),
         )
-        return clip_negative_arr(blended_inflow)
+        return blended_inflow
 
     def compute_hibernation(self, outflow: fd.FlodymArray) -> fd.FlodymArray:
         """Compute the hibernating share of the in-use outflow and the hibernating stock.

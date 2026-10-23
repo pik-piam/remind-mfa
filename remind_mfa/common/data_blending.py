@@ -148,6 +148,10 @@ DEFAULT_APPROACHING_TIME = 50
 """Default characteristic timescale in years of the critically damped blend, used for stocks,
 in-use stock inflows and trade."""
 
+LOG_BLEND_OFFSET_SHARE = 1e-3
+"""Offset added before blending in log space, as share of the maximum of each time series.
+Values well below this share of the maximum are blended approximately linearly."""
+
 
 def critically_damped_blend(
     array: fd.FlodymArray,
@@ -155,12 +159,17 @@ def critically_damped_blend(
     n_trend_years: fd.FlodymArray,
     time_letter: str = "t",
     approaching_time: float = DEFAULT_APPROACHING_TIME,
+    log_space: bool = False,
 ) -> fd.FlodymArray:
     """Smooth the transition from historical to future values of an array with a critically
     damped blend (see `CriticallyDampedBlender`).
 
     The first ``n_historical`` entries along the time dimension are taken as historical data and
     are preserved. The full array is the prediction the blended trajectory converges to.
+
+    In log space, the logarithm of the values (plus an offset of ``LOG_BLEND_OFFSET_SHARE``
+    times the maximum of each time series) is blended. The historical trend then enters as a
+    relative growth rate, and the blended values cannot become negative.
 
     Args:
         array (fd.FlodymArray): Array covering both the historical and the future period.
@@ -171,12 +180,21 @@ def critically_damped_blend(
         time_letter (str): Letter of the time dimension. Defaults to "t".
         approaching_time (float): Characteristic timescale in years of the blend.
             Defaults to ``DEFAULT_APPROACHING_TIME``.
+        log_space (bool): Whether to blend in log space. Requires non-negative values.
+            Defaults to False.
 
     Returns:
         fd.FlodymArray: Blended array with the same dimensions as ``array``.
     """
     time_axis = array.dims.index(time_letter)
     values = np.moveaxis(array.values, time_axis, 0)
+    if log_space:
+        if values.min() < 0:
+            raise ValueError("Blending in log space requires non-negative values.")
+        offset = LOG_BLEND_OFFSET_SHARE * values.max(axis=0)
+        # all-zero series: any positive offset reproduces the zeros
+        offset[offset == 0] = 1.0
+        values = np.log(values + offset)
     # the other dims keep their order when moving the time axis to the front
     trend_years = n_trend_years.cast_to(array.dims.drop(time_letter)).values
     blender = CriticallyDampedBlender(
@@ -186,7 +204,11 @@ def critically_damped_blend(
         initial_slope="weighted_regression",
         n_trend_years=np.round(trend_years).astype(int),
     )
-    blended_values = np.moveaxis(blender.blend(approaching_time), 0, time_axis)
+    blended_values = blender.blend(approaching_time)
+    if log_space:
+        # exp(log(x + offset)) - offset can be slightly negative from round-off
+        blended_values = np.maximum(np.exp(blended_values) - offset, 0)
+    blended_values = np.moveaxis(blended_values, 0, time_axis)
     return fd.FlodymArray(dims=array.dims, values=blended_values)
 
 
