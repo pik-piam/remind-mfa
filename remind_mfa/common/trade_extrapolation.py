@@ -9,7 +9,7 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_blending import (
     blend,
     critically_damped_blend,
-    FLOW_APPROACHING_TIME,
+    DEFAULT_APPROACHING_TIME,
 )
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
@@ -227,12 +227,12 @@ class TradeExtrapolator(RemindMFABaseModel):
                 future_flow,
                 n_historical=n_historical,
                 n_trend_years=self.n_trend_years,
-                approaching_time=FLOW_APPROACHING_TIME,
+                approaching_time=DEFAULT_APPROACHING_TIME,
             ).maximum(0)
         add_assumption_doc(
             type="model assumption",
             name="Critically damped blend of extrapolated trade",
-            value=FLOW_APPROACHING_TIME,
+            value=DEFAULT_APPROACHING_TIME,
             description=(
                 "Extrapolated imports and exports are blended smoothly from historical trends to the "
                 "extrapolated values with a critically damped blend, before they are balanced. "
