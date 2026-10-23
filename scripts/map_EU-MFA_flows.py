@@ -47,23 +47,52 @@ FLOWS_BY_MATERIAL = {
     ],
     "steel": ["demand", "collected_eol", "lost_eol", "scrap"],
 }
-# Some flows don't exist for every scenario. traded_recyclate is only produced
-# by the CE-PET scenarios (S0/S1/S2), not by the plastics baseline, so it is
-# skipped there.
-SCENARIO_EXCLUDED_FLOWS = {
-    "baseline": ["traded_recyclate"],
+# Plastics scenarios, mapped to the baseline they build on (None = the scenario is a baseline).
+# Baselines cover all polymers x sectors at EU sub-region level, annually to 2060. Derived
+# scenarios only cover PET x Packaging (quarterly, EU27+3, to 2050); all other combinations and
+# the historic years are taken from their baseline, which must be processed first.
+PLASTICS_SCENARIOS = {
+    "baseline": None,
+    "BASE_plastics": None,
+    "BASE_plastics_combined": None,
+    "CE-PET_fd_plastics_S0": "baseline",
+    "CE-PET_fd_plastics_S1": "baseline",
+    "CE-PET_fd_plastics_S2": "baseline",
 }
-# Flows with no baseline counterpart: non-baseline scenarios are not supplemented
+for _scenario, _baseline in PLASTICS_SCENARIOS.items():
+    if _baseline is not None and PLASTICS_SCENARIOS.get(_baseline, "missing") is not None:
+        raise ValueError(
+            f"Plastics scenario '{_scenario}' builds on '{_baseline}', which is not defined as a "
+            f"baseline in PLASTICS_SCENARIOS."
+        )
+
+
+def is_plastics_baseline(scenario: str) -> bool:
+    return PLASTICS_SCENARIOS[scenario] is None
+
+
+def plastics_baseline_of(scenario: str) -> str:
+    """Return the baseline a derived plastics scenario builds on."""
+    return PLASTICS_SCENARIOS[scenario]
+
+
+# Some flows don't exist for every scenario. traded_recyclate is only produced
+# by the derived plastics scenarios (CE-PET S0/S1/S2), not by the plastics
+# baselines, so it is skipped there.
+SCENARIO_EXCLUDED_FLOWS = {
+    scenario: ["traded_recyclate"]
+    for scenario, baseline in PLASTICS_SCENARIOS.items()
+    if baseline is None
+}
+# Flows with no baseline counterpart: derived scenarios are not supplemented
 # with baseline data for the non-PET / non-Packaging combinations.
 FLOWS_WITHOUT_BASELINE = {"traded_recyclate"}
 SCENARIOS = {
-    "plastics": [
-        "baseline",
-        "CE-PET_fd_plastics_S0",
-        "CE-PET_fd_plastics_S1",
-        "CE-PET_fd_plastics_S2",
-    ],
+    # baselines first, so they are processed before the scenarios that build on them
+    "plastics": sorted(PLASTICS_SCENARIOS, key=lambda s: not is_plastics_baseline(s)),
     "steel": [
+        "BASE_steel",
+        "BASE_steel_combined",
         "Baseline_Steel_01_06_2026",
         "Downsizing_Conservative_Steel_01_06_2026",
         "Downsizing_Highly_Ambitious_Steel_result_01_06_2026",
@@ -223,21 +252,21 @@ def scale_to_target_eu_region(df: pd.DataFrame, factors: pd.Series | None) -> pd
     return df
 
 
-def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
+def _load_baseline_plastics(flow: str, mapping: pd.DataFrame, baseline: str) -> pd.DataFrame:
     """Load and aggregate baseline plastics data into (Time, Region, Material, Good, value)."""
-    BASELINE_DIR = Path("data_in/legacy/transience_input/plastics/baseline")
+    BASELINE_DIR = Path("data_in/legacy/transience_input/plastics") / baseline
     eu_subregions = ["Germany", "West", "South", "North", "East"]
 
     if flow == "demand":
-        input_file = BASELINE_DIR / "plastics_market__end_use_stock.csv"
+        input_file = _input_file(BASELINE_DIR, "plastics_market__end_use_stock")
     elif flow == "stock_outflow":
-        input_file = BASELINE_DIR / "end_use_stock__waste_collection.csv"
+        input_file = _input_file(BASELINE_DIR, "end_use_stock__waste_collection")
     elif flow == "collected_eol":
-        input_file = BASELINE_DIR / "waste_collection__waste_sorting.csv"
+        input_file = _input_file(BASELINE_DIR, "waste_collection__waste_sorting")
     elif flow == "sorted_eol":
-        input_file = BASELINE_DIR / "waste_sorting__sorted_waste_market.csv"
+        input_file = _input_file(BASELINE_DIR, "waste_sorting__sorted_waste_market")
     elif flow == "recycled_eol":
-        input_file = BASELINE_DIR / "recycling__recyclate_sysenv.csv"
+        input_file = _input_file(BASELINE_DIR, "recycling__recyclate_sysenv")
 
     df = pd.read_csv(input_file, sep=",")
     df = df.rename(columns={"time": "Time", "region": "Region"})
@@ -273,7 +302,7 @@ def _load_baseline_plastics(flow: str, mapping: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
+def _load_baseline_output_plastics(flow: str, baseline: str) -> pd.DataFrame:
     """Load the already-processed baseline output flow to use as the backcasting
     reference for non-baseline scenarios.
 
@@ -281,7 +310,7 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
     period (1950-2060), so it provides a complete trajectory for extending the
     shorter non-baseline scenario series into the past.
     """
-    BASELINE_OUT_DIR = Path("data_in/legacy/transience/baseline")
+    BASELINE_OUT_DIR = Path("data_in/legacy/transience") / baseline
     flow_to_file = {
         "demand": "pl_stock_inflow_EU-MFA.cs4r",
         "stock_outflow": "pl_stock_outflow_EU-MFA.cs4r",
@@ -292,8 +321,8 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
     path = BASELINE_OUT_DIR / flow_to_file[flow]
     if not path.exists():
         raise FileNotFoundError(
-            f"Baseline output {path} not found. The 'baseline' scenario must be processed "
-            f"before non-baseline scenarios, since it is used as the backcasting reference."
+            f"Baseline output {path} not found. The '{baseline}' scenario must be processed "
+            f"before the scenarios building on it, since it is used as the backcasting reference."
         )
     return pd.read_csv(
         path,
@@ -301,6 +330,21 @@ def _load_baseline_output_plastics(flow: str) -> pd.DataFrame:
         header=None,
         names=["Time", "Region", "Material", "Good", "value"],
     )
+
+
+def _input_file(data_dir: Path, flow_name: str) -> Path:
+    """Return the EU-MFA input file for a flow, which is named either <flow_name>_combined.csv
+    (e.g. most steel scenarios, BASE_plastics_combined) or <flow_name>.csv (e.g. BASE_steel,
+    plastics baseline and CE-PET scenarios).
+    """
+    candidates = [data_dir / f"{flow_name}_combined.csv", data_dir / f"{flow_name}.csv"]
+    existing = [path for path in candidates if path.exists()]
+    if len(existing) != 1:
+        raise FileNotFoundError(
+            f"Expected exactly one of {[path.name for path in candidates]} in {data_dir}, "
+            f"found {[path.name for path in existing]}."
+        )
+    return existing[0]
 
 
 def run_combination(material: str, flow: str, scenario: str):
@@ -312,44 +356,44 @@ def run_combination(material: str, flow: str, scenario: str):
         DATA_DIR = Path("data_in/legacy/transience_input/plastics") / scenario
         MAPPING_FILE = Path("data_in/legacy/transience_input/plastics/EU_MFA_mapping_plastics.csv")
         if flow == "demand":
-            INPUT_FILE = DATA_DIR / "plastics_market__end_use_stock.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "plastics_market__end_use_stock")
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
         elif flow == "stock_outflow":
-            INPUT_FILE = DATA_DIR / "end_use_stock__waste_collection.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "end_use_stock__waste_collection")
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_outflow_EU-MFA.cs4r"
         elif flow == "collected_eol":
-            INPUT_FILE = DATA_DIR / "waste_collection__waste_sorting.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "waste_collection__waste_sorting")
             OUTPUT_FILE = OUTPUT_DIR / "pl_collected_eol_EU-MFA.cs4r"
         elif flow == "sorted_eol":  # TODO think about trade of collected waste?
-            if scenario == "baseline":
-                INPUT_FILE = DATA_DIR / "waste_sorting__sorted_waste_market.csv"
+            if is_plastics_baseline(scenario):
+                INPUT_FILE = _input_file(DATA_DIR, "waste_sorting__sorted_waste_market")
             else:
-                INPUT_FILE = DATA_DIR / "sorted_waste_market__recycling.csv"
+                INPUT_FILE = _input_file(DATA_DIR, "sorted_waste_market__recycling")
             OUTPUT_FILE = OUTPUT_DIR / "pl_sorted_eol_EU-MFA.cs4r"
         elif flow == "recycled_eol":
-            if scenario == "baseline":
-                INPUT_FILE = DATA_DIR / "recycling__recyclate_sysenv.csv"
+            if is_plastics_baseline(scenario):
+                INPUT_FILE = _input_file(DATA_DIR, "recycling__recyclate_sysenv")
             else:
-                INPUT_FILE = DATA_DIR / "recycling__recyclate_market.csv"
+                INPUT_FILE = _input_file(DATA_DIR, "recycling__recyclate_market")
             OUTPUT_FILE = OUTPUT_DIR / "pl_recycled_eol_EU-MFA.cs4r"
         elif flow == "traded_recyclate":
-            INPUT_FILE = DATA_DIR / "polymer_market__recyclate_sysenv.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "polymer_market__recyclate_sysenv")
             OUTPUT_FILE = OUTPUT_DIR / "pl_traded_recyclate_EU-MFA.cs4r"
         DIMENSION_DIR = Path("data_in/dimensions/plastics")
     elif material == "steel":
         DATA_DIR = Path("data_in/legacy/transience_input/steel") / scenario
         MAPPING_FILE = Path("data_in/legacy/transience_input/steel/EU_MFA_mapping_steel.csv")
         if flow == "demand":
-            INPUT_FILE = DATA_DIR / "steel_goods_market__end_use_stock_combined.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "steel_goods_market__end_use_stock")
             OUTPUT_FILE = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
         elif flow == "collected_eol":
-            INPUT_FILE = DATA_DIR / "end_use_stock__waste_management_combined.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "end_use_stock__waste_management")
             OUTPUT_FILE = OUTPUT_DIR / "st_collected_eol_EU-MFA.cs4r"
         elif flow == "lost_eol":
-            INPUT_FILE = DATA_DIR / "end_use_stock__sysenv_combined.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "end_use_stock__sysenv")
             OUTPUT_FILE = OUTPUT_DIR / "st_lost_eol_EU-MFA.cs4r"
         elif flow == "scrap":
-            INPUT_FILE = DATA_DIR / "waste_management__available_scrap_sysenv_combined.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "waste_management__available_scrap_sysenv")
             OUTPUT_FILE = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
         DIMENSION_DIR = Path("data_in/dimensions/steel")
 
@@ -362,7 +406,7 @@ def run_combination(material: str, flow: str, scenario: str):
         df1.element == "All"
     ].copy()  # only consider total flows, no Cu contamination flow for steel
     if material == "plastics":
-        if scenario == "baseline":
+        if is_plastics_baseline(scenario):
             # flows are available at subregion level with differentiated lifetimes;
             # use subregions for consistency
             eu_subregions = ["Germany", "West", "South", "North", "East"]
@@ -426,7 +470,7 @@ def run_combination(material: str, flow: str, scenario: str):
         )
 
         # --- map end-use sectors -> Good ---
-        if scenario == "baseline":
+        if is_plastics_baseline(scenario):
             sector_map = mapping[mapping.original_dimension == "end_use_sectors_MainSectors"][
                 ["original_element", "target_element"]
             ]
@@ -469,8 +513,8 @@ def run_combination(material: str, flow: str, scenario: str):
 
         # non-baseline scenarios only have PET×Packaging data; supplement with baseline flows for all other combinations
         # (traded_recyclate has no baseline counterpart, so there is nothing to supplement)
-        if scenario != "baseline" and flow not in FLOWS_WITHOUT_BASELINE:
-            df_baseline = _load_baseline_plastics(flow, mapping)
+        if not is_plastics_baseline(scenario) and flow not in FLOWS_WITHOUT_BASELINE:
+            df_baseline = _load_baseline_plastics(flow, mapping, plastics_baseline_of(scenario))
             nonbaseline_combos = df_EU_MFA[["Material", "Good"]].drop_duplicates()
             df_baseline_others = df_baseline.merge(
                 nonbaseline_combos, on=["Material", "Good"], how="left", indicator=True
@@ -520,12 +564,16 @@ def run_combination(material: str, flow: str, scenario: str):
         ref = load_production_reference("st")
 
     # --- backcast: extend df_EU_MFA into historic years using ref ---
-    if material == "plastics" and scenario != "baseline" and flow not in FLOWS_WITHOUT_BASELINE:
+    if (
+        material == "plastics"
+        and not is_plastics_baseline(scenario)
+        and flow not in FLOWS_WITHOUT_BASELINE
+    ):
         # Non-baseline scenarios only cover the scenario period (e.g. 2018-2050) and would
         # otherwise drop abruptly to zero before their start year. Use the already-processed
         # baseline flow (full 1950-2060 coverage) as the reference so every flow follows the
         # baseline trajectory into the past, scaled to match the scenario in the overlap years.
-        baseline_ref = _load_baseline_output_plastics(flow)
+        baseline_ref = _load_baseline_output_plastics(flow, plastics_baseline_of(scenario))
         df_backcasted = backcast_by_reference(
             x=df_EU_MFA,
             ref=baseline_ref,
@@ -552,9 +600,9 @@ def run_combination(material: str, flow: str, scenario: str):
         df_backcasted = full_grid.merge(df_EU_MFA, on=["Time"] + group_dims, how="left")
         df_backcasted["value"] = df_backcasted["value"].fillna(0.0)
 
-    # non-baseline plastics: keep only years covered by the scenario itself;
+    # derived plastics scenarios: keep only years covered by the scenario itself;
     # baseline-supplemented goods (to 2060) and reference years must not extend past it.
-    if material == "plastics" and scenario != "baseline":
+    if material == "plastics" and not is_plastics_baseline(scenario):
         df_backcasted = df_backcasted[df_backcasted["Time"] <= scenario_last_year].copy()
 
     # --- save ---
