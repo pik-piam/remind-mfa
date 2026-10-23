@@ -258,17 +258,22 @@ class CommonDataReader(fd.CompoundDataReader):
                 f"'{self.model_class.value}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
             )
 
+    def _read_baseline_model(self):
+        """Load the baseline model from its pickle file."""
+        if self.baseline_pickle_path is None:
+            raise ValueError("Reading baseline data requires transience.baseline_pickle_path.")
+        with open(self.baseline_pickle_path, "rb") as fh:
+            return pickle.load(fh)
+
     def read_baseline_trade(self) -> dict:
         """Load trade set from a baseline pickle file."""
-        with open(self.baseline_pickle_path, "rb") as fh:
-            baseline_model = pickle.load(fh)
+        baseline_model = self._read_baseline_model()
         baseline_trade = baseline_model.future_mfa.trade_set
         return baseline_trade
 
     def read_baseline_flows(self) -> dict:
         """Load flows dictionary from a baseline pickle file."""
-        with open(self.baseline_pickle_path, "rb") as fh:
-            baseline_model = pickle.load(fh)
+        baseline_model = self._read_baseline_model()
         baseline_flows = baseline_model.future_mfa.flows
         return baseline_flows
 
