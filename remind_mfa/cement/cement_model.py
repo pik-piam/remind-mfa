@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Optional
 from copy import deepcopy
 import numpy as np
@@ -20,6 +21,12 @@ from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
+from remind_mfa.cement.reconciliation_cache import (
+    compute_cache_key,
+    get_cache_path,
+    load_cache,
+    save_cache,
+)
 
 
 class CementModel(CommonModel[CementCfg]):
@@ -193,25 +200,71 @@ class CementModel(CommonModel[CementCfg]):
     ):
         """Reconcile parameters between top-down and bottom-up stocks.
 
+        The result is cached in `<export.path>/cache/`, one file per region mapping. The cache
+        is used if it was created from the same inputs, settings and code, and if its parameters
+        still reconcile the stocks. Otherwise, the reconciliation is recomputed and the cache
+        is overwritten.
+
         Args:
             max_iter: Maximum number of correction iterations.
             tol: Convergence tolerance; stop early when max |log(td/bu)| < tol.
                  If None, always run max_iter iterations.
         """
-        logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
-
         ref_mfa = self.make_mfa(historical=True)
         ref_mfa.trade_set = (
             self.historical_mfa.trade_set
         )  # trade is not altered during reconciliation, so we can just take it from the already computed historical MFA
 
+        # always created (also when using the cache), as it is needed to check the cached result
         self.parameter_reconciliation = CementParameterReconciliation(
             ref_mfa=ref_mfa,
             output_dims_are_independent=True,
         )
+
+        cache_path = get_cache_path(
+            cache_dir=Path(self.cfg.export.path) / "cache",
+            region_mapping=self.cfg.input.region_mapping,
+        )
+        cache_key = compute_cache_key(
+            ref_mfa,
+            settings={
+                "max_iter": max_iter,
+                "tol": tol,
+                "output_dims_are_independent": True,
+            },
+        )
+        cached = load_cache(cache_path, cache_key)
+
+        if cached is not None:
+            # Double-check that the cached parameters still reconcile the stocks. The mismatch
+            # is recomputed from scratch, so it must equal the stored one (up to rounding).
+            mismatch = self.parameter_reconciliation.calc_mismatch(
+                cached["parameters"], label="cached result"
+            )
+            if mismatch <= cached["mismatch"] + 1e-9:
+                logging.info(f"Using cached reconciliation result from {cache_path}.")
+                self.parameter_reconciliation.output_prms = cached["parameters"]
+                self.parameter_reconciliation.final_mismatch = mismatch
+                self.parameters = cached["parameters"]
+                return
+            logging.warning(
+                f"Cached reconciliation result from {cache_path} does not reconcile the stocks "
+                f"(mismatch {mismatch:.4f}, expected {cached['mismatch']:.4f}). "
+                "Recomputing and overwriting the cache."
+            )
+
+        logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
         self.parameters = self.parameter_reconciliation.correct_parameters(
             max_iter=max_iter,
             tol=tol,
+        )
+        save_cache(
+            cache_path,
+            {
+                "key": cache_key,
+                "parameters": self.parameters,
+                "mismatch": self.parameter_reconciliation.final_mismatch,
+            },
         )
 
     def _create_zero_trade(self, trade_ref):
