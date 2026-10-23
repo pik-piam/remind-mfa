@@ -54,6 +54,7 @@ FLOWS_BY_MATERIAL = {
 PLASTICS_SCENARIOS = {
     "baseline": None,
     "BASE_plastics": None,
+    "BASE_plastics_combined": None,
     "CE-PET_fd_plastics_S0": "baseline",
     "CE-PET_fd_plastics_S1": "baseline",
     "CE-PET_fd_plastics_S2": "baseline",
@@ -91,6 +92,7 @@ SCENARIOS = {
     "plastics": sorted(PLASTICS_SCENARIOS, key=lambda s: not is_plastics_baseline(s)),
     "steel": [
         "BASE_steel",
+        "BASE_steel_combined",
         "Baseline_Steel_01_06_2026",
         "Downsizing_Conservative_Steel_01_06_2026",
         "Downsizing_Highly_Ambitious_Steel_result_01_06_2026",
@@ -256,15 +258,15 @@ def _load_baseline_plastics(flow: str, mapping: pd.DataFrame, baseline: str) -> 
     eu_subregions = ["Germany", "West", "South", "North", "East"]
 
     if flow == "demand":
-        input_file = BASELINE_DIR / "plastics_market__end_use_stock.csv"
+        input_file = _input_file(BASELINE_DIR, "plastics_market__end_use_stock")
     elif flow == "stock_outflow":
-        input_file = BASELINE_DIR / "end_use_stock__waste_collection.csv"
+        input_file = _input_file(BASELINE_DIR, "end_use_stock__waste_collection")
     elif flow == "collected_eol":
-        input_file = BASELINE_DIR / "waste_collection__waste_sorting.csv"
+        input_file = _input_file(BASELINE_DIR, "waste_collection__waste_sorting")
     elif flow == "sorted_eol":
-        input_file = BASELINE_DIR / "waste_sorting__sorted_waste_market.csv"
+        input_file = _input_file(BASELINE_DIR, "waste_sorting__sorted_waste_market")
     elif flow == "recycled_eol":
-        input_file = BASELINE_DIR / "recycling__recyclate_sysenv.csv"
+        input_file = _input_file(BASELINE_DIR, "recycling__recyclate_sysenv")
 
     df = pd.read_csv(input_file, sep=",")
     df = df.rename(columns={"time": "Time", "region": "Region"})
@@ -330,9 +332,10 @@ def _load_baseline_output_plastics(flow: str, baseline: str) -> pd.DataFrame:
     )
 
 
-def _steel_input_file(data_dir: Path, flow_name: str) -> Path:
-    """Return the EU-MFA steel file for a flow, which is named either <flow_name>_combined.csv
-    (most scenarios) or <flow_name>.csv (e.g. BASE_steel_final-demand_and_outflows).
+def _input_file(data_dir: Path, flow_name: str) -> Path:
+    """Return the EU-MFA input file for a flow, which is named either <flow_name>_combined.csv
+    (e.g. most steel scenarios, BASE_plastics_combined) or <flow_name>.csv (e.g. BASE_steel,
+    plastics baseline and CE-PET scenarios).
     """
     candidates = [data_dir / f"{flow_name}_combined.csv", data_dir / f"{flow_name}.csv"]
     existing = [path for path in candidates if path.exists()]
@@ -353,44 +356,44 @@ def run_combination(material: str, flow: str, scenario: str):
         DATA_DIR = Path("data_in/legacy/transience_input/plastics") / scenario
         MAPPING_FILE = Path("data_in/legacy/transience_input/plastics/EU_MFA_mapping_plastics.csv")
         if flow == "demand":
-            INPUT_FILE = DATA_DIR / "plastics_market__end_use_stock.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "plastics_market__end_use_stock")
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_inflow_EU-MFA.cs4r"
         elif flow == "stock_outflow":
-            INPUT_FILE = DATA_DIR / "end_use_stock__waste_collection.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "end_use_stock__waste_collection")
             OUTPUT_FILE = OUTPUT_DIR / "pl_stock_outflow_EU-MFA.cs4r"
         elif flow == "collected_eol":
-            INPUT_FILE = DATA_DIR / "waste_collection__waste_sorting.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "waste_collection__waste_sorting")
             OUTPUT_FILE = OUTPUT_DIR / "pl_collected_eol_EU-MFA.cs4r"
         elif flow == "sorted_eol":  # TODO think about trade of collected waste?
             if is_plastics_baseline(scenario):
-                INPUT_FILE = DATA_DIR / "waste_sorting__sorted_waste_market.csv"
+                INPUT_FILE = _input_file(DATA_DIR, "waste_sorting__sorted_waste_market")
             else:
-                INPUT_FILE = DATA_DIR / "sorted_waste_market__recycling.csv"
+                INPUT_FILE = _input_file(DATA_DIR, "sorted_waste_market__recycling")
             OUTPUT_FILE = OUTPUT_DIR / "pl_sorted_eol_EU-MFA.cs4r"
         elif flow == "recycled_eol":
             if is_plastics_baseline(scenario):
-                INPUT_FILE = DATA_DIR / "recycling__recyclate_sysenv.csv"
+                INPUT_FILE = _input_file(DATA_DIR, "recycling__recyclate_sysenv")
             else:
-                INPUT_FILE = DATA_DIR / "recycling__recyclate_market.csv"
+                INPUT_FILE = _input_file(DATA_DIR, "recycling__recyclate_market")
             OUTPUT_FILE = OUTPUT_DIR / "pl_recycled_eol_EU-MFA.cs4r"
         elif flow == "traded_recyclate":
-            INPUT_FILE = DATA_DIR / "polymer_market__recyclate_sysenv.csv"
+            INPUT_FILE = _input_file(DATA_DIR, "polymer_market__recyclate_sysenv")
             OUTPUT_FILE = OUTPUT_DIR / "pl_traded_recyclate_EU-MFA.cs4r"
         DIMENSION_DIR = Path("data_in/dimensions/plastics")
     elif material == "steel":
         DATA_DIR = Path("data_in/legacy/transience_input/steel") / scenario
         MAPPING_FILE = Path("data_in/legacy/transience_input/steel/EU_MFA_mapping_steel.csv")
         if flow == "demand":
-            INPUT_FILE = _steel_input_file(DATA_DIR, "steel_goods_market__end_use_stock")
+            INPUT_FILE = _input_file(DATA_DIR, "steel_goods_market__end_use_stock")
             OUTPUT_FILE = OUTPUT_DIR / "st_stock_inflow_EU-MFA.cs4r"
         elif flow == "collected_eol":
-            INPUT_FILE = _steel_input_file(DATA_DIR, "end_use_stock__waste_management")
+            INPUT_FILE = _input_file(DATA_DIR, "end_use_stock__waste_management")
             OUTPUT_FILE = OUTPUT_DIR / "st_collected_eol_EU-MFA.cs4r"
         elif flow == "lost_eol":
-            INPUT_FILE = _steel_input_file(DATA_DIR, "end_use_stock__sysenv")
+            INPUT_FILE = _input_file(DATA_DIR, "end_use_stock__sysenv")
             OUTPUT_FILE = OUTPUT_DIR / "st_lost_eol_EU-MFA.cs4r"
         elif flow == "scrap":
-            INPUT_FILE = _steel_input_file(DATA_DIR, "waste_management__available_scrap_sysenv")
+            INPUT_FILE = _input_file(DATA_DIR, "waste_management__available_scrap_sysenv")
             OUTPUT_FILE = OUTPUT_DIR / "st_available_scrap_EU-MFA.cs4r"
         DIMENSION_DIR = Path("data_in/dimensions/steel")
 
