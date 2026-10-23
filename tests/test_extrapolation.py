@@ -202,7 +202,7 @@ def test_target_anchors_at_last_historical():
 
 def test_value_without_year_warns_and_keeps_baseline(caplog):
     definition = ExtrapolationDefinition(name="p", dim_letters=("r",))
-    scn = make_scn(definition, dimset(R), rows=[(4.0, {"Region": "A"}, {})])  # no extra:year
+    scn = make_scn(definition, dimset(R), rows=[(4.0, {"Region": "A"}, {})])  # no year in extra
     with caplog.at_level(logging.WARNING):
         result = extrapolate(h_param(), scn)
     assert "no effect" in caplog.text
