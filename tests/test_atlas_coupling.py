@@ -98,13 +98,13 @@ def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(tmp_
     )
 
     assert imports.to_dict("records") == [
-        {"year": 2025, "region": "CAN", "type": "Plastics", "material": "LDPE", "quantity": 60.0},
-        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "HDPE", "quantity": 30.0},
-        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "LDPE", "quantity": 10.0},
+        {"year": 2025, "region": "CAN", "material": "LDPE", "quantity": 60.0},
+        {"year": 2025, "region": "EUR", "material": "HDPE", "quantity": 30.0},
+        {"year": 2025, "region": "EUR", "material": "LDPE", "quantity": 10.0},
     ]
     assert exports.to_dict("records") == [
-        {"year": 2025, "region": "CAN", "type": "Plastics", "material": "LDPE", "quantity": 30.0},
-        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "HDPE", "quantity": 20.0},
+        {"year": 2025, "region": "CAN", "material": "LDPE", "quantity": 30.0},
+        {"year": 2025, "region": "EUR", "material": "HDPE", "quantity": 20.0},
     ]
 
 
@@ -239,12 +239,12 @@ def test_copy_trade_writes_cs4r_files_for_plastics(tmp_path, monkeypatch):
     )
 
     assert imports_path.read_text(encoding="utf-8") == (
-        "* note: dimensions: (Time,Region,Type,Material,value)\n"
-        "2025,A,Plastics,LDPE,3.0\n2026,A,Plastics,LDPE,3.0\n"
-        "2025,B,Plastics,LDPE,2.0\n2026,B,Plastics,LDPE,2.0\n"
+        "* note: dimensions: (Time,Region,Material,value)\n"
+        "2025,A,LDPE,3.0\n2026,A,LDPE,3.0\n"
+        "2025,B,LDPE,2.0\n2026,B,LDPE,2.0\n"
     )
     assert exports_path.read_text(encoding="utf-8") == (
-        "* note: dimensions: (Time,Region,Type,Material,value)\n"
-        "2025,A,Plastics,LDPE,2.0\n2026,A,Plastics,LDPE,2.0\n"
-        "2025,B,Plastics,LDPE,3.0\n2026,B,Plastics,LDPE,3.0\n"
+        "* note: dimensions: (Time,Region,Material,value)\n"
+        "2025,A,LDPE,2.0\n2026,A,LDPE,2.0\n"
+        "2025,B,LDPE,3.0\n2026,B,LDPE,3.0\n"
     )
