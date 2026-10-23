@@ -12,6 +12,10 @@ Each scenario is defined by:
 
 The `ScenarioReader` resolves the inheritance chain, reads all relevant CSV files, and applies the data points in order from the root ancestor to the selected scenario.
 
+### What is a scenario parameter?
+
+A scenario parameter only affects the future. Anything that influences the historical years of a model run is a model assumption, not a scenario parameter. Model assumptions are set in the model code (and documented with `add_assumption_doc`), not in the scenario CSV files.
+
 ---
 
 ## Directory Structure
@@ -139,14 +143,14 @@ This creates a parameter initialized to `None`, set to a plain numeric value by 
 This reads in whole arrays of data, which are converted into a flodym array and stored as a structured extrapolation instruction under `scenario_parameters[<name>]`. During parameter extrapolation, the instruction is applied to the model parameter of the same name. Let's walk through the settings:
 
 1. You provide a `name`. If the `name` mirrors a name of a parameter that - at the time of extrapolation - already exists in your MFA parameters, the extrapolator knows you want to use it to extrapolate this parameter. This means you can even extrapolate parameters that are not part of the read-in. If the `name` doesn't match anything but you instead want to create a new parameter and extrapolate it directly, you can specify ...
-2. `create_new`. This defaults to `False`, but it can be useful to initiate a new parameter here directly, which you can then use anywhere in your MFA. This is currently used to create `parameters["stock_factor"]`, which scales the stock after stock extrapolation. Since there is no historic data, the parameter is initialized with 1 (type `factor`) or 0 (type `target`) before extrapolation.
+2. `create_new`. This defaults to `False`, but it can be useful to initiate a new parameter here directly, which you can then use anywhere in your MFA. This is currently used to create `parameters["stock_factor"]`, which scales the stock after stock extrapolation. Since there is no historical data, the parameter is initialized with 1 (type `factor`) or 0 (type `target`) before extrapolation.
 Then, the extrapolation is applied on this baseline, using the ...
 3. `blending_function`. It determines the shape of the transition from the old parameter to the scenario endpoint, defaulting to a linear transition. All available functions are listed in `remind_mfa/common/data_blending.py`.
 4. `split_dimension_letter` and `split_balancing_item` may be niche applications. With the first, you can provide a dimension letter along which a split is supposed to sum up to one. Then, the extrapolation renormalizes. E.g., if you increase your share of reinforced concrete buildings, it will proportionally decrease your share of other building structures, i.e., wood, steel and masonry. If you want the whole shift to reinforced concrete to happen through another coordinate, you can provide a balancing item. For instance, you could specify `M` (masonry) here, and all the growth in reinforced concrete buildings will be accompanied by a corresponding drop in masonry buildings.
 
-If you just want a constant extrapolation (hold the last historic value constant), you can simply omit all entries except for `name`, see e.g. `ExtrapolationDefinition(name="material_shares_use_inflow")`.
+If you just want a constant extrapolation (hold the last historical value constant), you can simply omit all entries except for `name`, see e.g. `ExtrapolationDefinition(name="polymer_shares_use_inflow")`.
 
-The extrapolation type (`factor` or `target`) is not part of the definition — it is declared in the scenario CSV via `extra:type`, see below.
+The extrapolation type (`factor` or `target`) is not part of the definition — it is declared in the `extra` column of the scenario CSV via the key `type`, see below.
 
 ### Registering definitions
 
@@ -169,18 +173,18 @@ These model-specific definitions are merged with `common_scn_prm_def` from `remi
 
 The `ExtrapolationDefinition` in the model definition holds the modelling decisions (blending, split handling), while the scenario decisions are stored in the scenario CSVs. REMIND-MFA connects the two through the parameter name.
 
-A CSV row for an extrapolated parameter provides the endpoint of a blend: the parameter transitions from its historic values towards the endpoint given in the `value` column. The `extra` column controls how:
+A CSV row for an extrapolated parameter provides the endpoint of a blend: the parameter transitions from its historical values towards the endpoint given in the `value` column. The `extra` column controls how:
 
 | Key in `extra` | Description |
 |----------------|-------------|
-| `year`         | The year by which the endpoint is reached. Must lie after the last historic year (earlier years raise an error). A value without `year` has no effect (the entry keeps its baseline) and triggers a warning. |
-| `type`         | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `year`. Target means that the parameter blends from the last historic value to the scenario value. |
+| `year`         | The year by which the endpoint is reached. Must lie after the last historical year (earlier years raise an error). A value without `year` has no effect (the entry keeps its baseline) and triggers a warning. |
+| `type`         | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `year`. Target means that the parameter blends from the last historical value to the scenario value. |
 
 Example: `"{year: 2060, type: target}"` in the `extra` column.
 
-Only one type per parameter is supported: declaring it on a single row (e.g. in the base scenario) is enough and also covers inherited rows, while mixed declarations raise an error. A row with `extra:year` but no type declared anywhere for that parameter raises an error as well.
+Only one type per parameter is supported: declaring it on a single row (e.g. in the base scenario) is enough and also covers inherited rows, while mixed declarations raise an error. A row with `year` in `extra` but no type declared anywhere for that parameter raises an error as well.
 
-For a constant extrapolation (hold the last historic value constant), you don't have to provide anything in the scenario CSV - a simple `ExtrapolationDefinition` is enough.
+For a constant extrapolation (hold the last historical value constant), you don't have to provide anything in the scenario CSV - a simple `ExtrapolationDefinition` is enough.
 
 The `value` column of extrapolation parameter can not only handle numbers, but you can mix-and-match them with a parameter name in the form of a string. During extrapolation, data from that parameter will be used as extrapolation target or factor. You could e.g. prepare a world-average structure split parameter in mrmfa, read it in as a normal parameter and then provide its name in the scenario CSV such that the structure split is converged towards the world-average split. This can be combined with any settings in the `ExtrapolationDefinition`. The referenced parameter can even itself be a parameter that is extrapolated — in that case it is automatically extrapolated before it is applied. Circular references raise an error.
 
@@ -217,7 +221,7 @@ This tells the `ScenarioReader` to load `SSP1.csv` (and its ancestors via `inher
 ## Summary
 
 1. **Add parameter definitions** in your model's `custom_scn_prm_def` list.
-2. **Create a CSV file** named `<scenario>.csv` with rows specifying `parameter`, `value`, and optional `models`/`index:`/`extra:` columns.
+2. **Create a CSV file** named `<scenario>.csv` with rows specifying `parameter`, `value`, and optional `models`/`index`/`extra` columns.
 3. **Register inheritance** in `inheritance.csv` if your scenario should inherit from another.
 4. **Set the scenario name** in your TOML config.
 5. **Access parameters** via `self.scenario_parameters[<name>]` in your model code.

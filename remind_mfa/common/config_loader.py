@@ -37,7 +37,35 @@ def _validate_config(config: dict, path: Path) -> None:
             raise ValueError(f"Top-level configuration key {root!r} in {path} must be a table.")
 
 
-def _load_config_file(name: str, config_dir: Path = CONFIG_DIR) -> dict:
+def _resolve_paths(config: dict, root_dir: Path) -> None:
+    """Resolve all relative paths in the configuration against the given root directory."""
+    CONFIG_PATHS = [
+        ("input", "input_data_path", True),
+        ("input", "scenarios_path", True),
+        ("input", "madrat_output_path", False),
+        ("export", "path", False),
+    ]
+    for section_name, key, must_exist in CONFIG_PATHS:
+        section = config.get(section_name)
+        if not section or section.get(key) is None:
+            continue
+        path = _resolve_relative_path(section[key], root_dir)
+        if must_exist and not path.exists():
+            raise FileNotFoundError(
+                f"Path {path} for {section_name}.{key} does not exist (resolved against {root_dir})."
+            )
+        section[key] = str(path)
+
+
+def _resolve_relative_path(path: str, root_dir: Path) -> Path:
+    """Resolve a relative path against the given root directory."""
+    resolved_path = Path(path)
+    if not resolved_path.is_absolute():
+        resolved_path = root_dir / resolved_path
+    return resolved_path.resolve()
+
+
+def _load_config_file(name: str | Path, config_dir: Path = CONFIG_DIR) -> dict:
     """Load a TOML configuration file by name, validate it, and return the resulting dictionary.
 
     The name can be given either as a path to a file or as a stem (without the .toml extension) of a file in the config_dir.
@@ -57,11 +85,15 @@ def _load_config_file(name: str, config_dir: Path = CONFIG_DIR) -> dict:
 
 
 def load_config(
-    config_names: list[str],
+    config_names: list[str | Path],
     model: ModelNames | None = None,
     config_dir: Path = CONFIG_DIR,
+    root_dir: Path | None = None,
 ) -> dict:
-    """Load and merge the specified configuration, and return the resulting, validated model configuration."""
+    """Load and merge the specified configuration, and return the resulting, validated model configuration.
+
+    Relative paths in the configuration are resolved against `root_dir` (default: current working directory).
+    """
     layers = [_load_config_file(name, config_dir) for name in config_names]
 
     # Merge the base and model-specific configurations from all layers
@@ -74,6 +106,7 @@ def load_config(
 
     # Merge the model-specific configuration into the base configuration
     config = _deep_merge(base_config, model_config)
+    _resolve_paths(config, root_dir if root_dir is not None else Path.cwd())
     if model is not None:
         config["model"] = model.value
         get_model_class(model).ConfigCls.model_validate(config)

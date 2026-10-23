@@ -1,0 +1,3 @@
+[submodule "data_in/legacy"]
+	path = data_in/legacy
+	url = git@gitlab.pik-potsdam.de:simson_data/remind_mfa_data.git

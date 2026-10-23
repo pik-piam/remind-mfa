@@ -2,30 +2,34 @@ import logging
 import os
 import pickle
 import shutil
-from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
 
 import flodym as fd
 import flodym.export as fde
+from pydantic import PrivateAttr
+import pandas as pd
 
-_root_logger = logging.getLogger()
-_prev_level = _root_logger.level
-_root_logger.setLevel(logging.WARNING)
-import pyam  # noqa: E402
-
-_root_logger.setLevel(_prev_level)
-del _root_logger, _prev_level
+from remind_mfa.common.docs_export_helpers import merge_parameters_sources
+from remind_mfa.common.docs_export_helpers import merge_bib_files
+from remind_mfa.common.docs_export_helpers import write_docs_file
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
-from remind_mfa.common.helpers import RemindMFABaseModel
+from remind_mfa.common.helpers import (
+    DOCS_PATH,
+    RemindMFABaseModel,
+    series_export_path,
+    export_dir_prefix,
+)
 
 if TYPE_CHECKING:
+    import pyam
+
     from remind_mfa.common.common_model import CommonModel
 
 
@@ -39,7 +43,7 @@ class IamcVariable(RemindMFABaseModel):
     unit: str
     """Base unit of the array, e.g. "t/yr" or "t"."""
     split_name: Optional[str] = None
-    """Display-column name to split into child variables (e.g. "Good"). None = single variable."""
+    """Display-column name to split into child variables (e.g. "End Use"). None = single variable."""
     aggregate_parent: bool = True
     """When this variable is split (``split_name`` set), whether its children are summed back
     into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent
@@ -66,47 +70,62 @@ class CommonDataExporter(RemindMFABaseModel):
     cfg: ExportCfg
     display_names: CommonDisplayNames
 
+    # Datasets producing a single file: placed directly in the run folder, no subfolder.
+    FLAT_DATASETS: ClassVar[set[str]] = {"pickle", "iamc", "assumptions"}
+
+    _model: Optional["CommonModel"] = PrivateAttr(default=None)
+    _run_path: Optional[str] = PrivateAttr(default=None)
+
     def export(self, model: "CommonModel"):
+        # Always set the model as the visualizer needs it to determine the run folder
+        # even when data export is disabled.
+        self._model = model
         if not self.cfg.do_export:
             return
-        self.export_common(model)
-        self.export_custom(model)
+        self.export_common()
+        self.export_custom()
 
-    def export_common(self, model: "CommonModel"):
-        mfa = model.future_mfa
+    def export_common(self):
+        mfa = self._model.future_mfa
         if self.cfg.pickle.do_export:
-            fde.export_mfa_to_pickle(mfa=mfa, export_path=self.export_path("pickle", "mfa.pickle"))
-            self.export_model_to_pickle(model=model)
-            pickle.dump(model, open(self.export_path("pickle", "model.pickle"), "wb"))
+            self._clear_recomputable_caches()
+            pickle.dump(self._model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
         if self.cfg.mrindustry.do_export:
-            self.write_mrindustry(model=model)
+            self.write_mrindustry()
         if self.cfg.assumptions.do_export:
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
         if self.cfg.docs.do_export:
-            self.definition_to_markdown(model.definition_future)
+            parameters_df = self.definition_to_markdown(self._model.definition_future)
+            self.merge_bibtex_files()
             self.assumptions_to_markdown()
-            self.cfg_to_markdown(cfg=model.cfg)
+            self.merge_parameters_sources(params_df=parameters_df)
+            self.cfg_to_markdown(cfg=self._model.cfg)
         if self.cfg.iamc.do_export:
-            self.write_iamc(model=model)
+            self.write_iamc()
 
-    def export_custom(self, model: "CommonModel"):
+    def export_custom(self):
         pass
 
-    def export_model_to_pickle(self, model: "CommonModel"):
-        material = model.cfg.model.value
-        scenario = model.cfg.model_switches.scenario
-        region_mapping = model.cfg.input.region_mapping
-        datetime_str = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
-        filename = f"model_{material}_{scenario}_{region_mapping}_{datetime_str}.pickle"
-        export_path = self.export_path("pickle", filename)
-        with open(export_path, "wb") as f:
-            pickle.dump(model, f)
+    def _clear_recomputable_caches(self):
+        """Drop lifetime-model sf/pdf caches from the historical and future MFA stocks before pickling
+        to save memory.
+
+        These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
+        properties, which lazily recompute when the backing attribute is ``None`` -- so clearing
+        them here is transparent: the next access (including any later ``stock.compute()``)
+        rebuilds them from the stored lifetime parameters.
+        """
+        for mfa in (self._model.historical_mfa, self._model.future_mfa):
+            for stock in mfa.stocks.values():
+                lifetime_model: fd.LifetimeModel | None = getattr(stock, "lifetime_model", None)
+                if lifetime_model is not None:
+                    lifetime_model.reset_cached_arrays()
 
     @property
     def model_name(self) -> str:
@@ -154,16 +173,16 @@ class CommonDataExporter(RemindMFABaseModel):
         """
         return []
 
-    def write_iamc(self, model: "CommonModel"):
+    def write_iamc(self):
         iamc_vars = self.iamc_variables()
         if not iamc_vars:
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        self._warn_if_iamc_includes_historic(model)
+        self._warn_if_iamc_includes_historical()
 
-        mfa = model.future_mfa
-        constants = {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
+        mfa = self._model.future_mfa
+        constants = {"model": self.model_name, "scenario": self._model.cfg.model_switches.scenario}
 
         iamc_dataframe, split_parent_components, region_weights = self._build_all_iamc_df(
             mfa, iamc_vars, constants
@@ -175,24 +194,24 @@ class CommonDataExporter(RemindMFABaseModel):
 
         iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
 
-    def _warn_if_iamc_includes_historic(self, model: "CommonModel"):
-        """Warn if the configured IAMC export range covers historic years.
+    def _warn_if_iamc_includes_historical(self):
+        """Warn if the configured IAMC export range covers historical years.
 
-        Historic years derive partly from proprietary input data (e.g. WorldSteel), so
-        including them in a shared output risks leaking that data. The last historic year is
-        taken per-material from the model's historic time dimension.
+        Historical years derive partly from proprietary input data (e.g. WorldSteel), so
+        including them in a shared output risks leaking that data. The last historical year is
+        taken per-material from the model's historical time dimension.
         """
-        last_historic_year = model.dims["h"].items[-1]
-        historic = [y for y in self.cfg.iamc.time_items if y <= last_historic_year]
-        if historic:
+        last_historical_year = self._model.dims["h"].items[-1]
+        historical = [y for y in self.cfg.iamc.time_items if y <= last_historical_year]
+        if historical:
             logging.warning(
-                f"IAMC export range includes historic years ({historic[0]}-{last_historic_year}), "
+                f"IAMC export range includes historical years ({historical[0]}-{last_historical_year}), "
                 "which may derive from proprietary input data (e.g. WorldSteel). "
                 "Verify you are permitted to share these years before distributing the output."
             )
 
     def _build_all_iamc_df(
-        self, mfa: "CommonMFASystem", iamc_vars: list, constants: dict
+        self, mfa: "CommonMFASystem", iamc_vars: list[IamcVariable], constants: dict
     ) -> tuple[pyam.IamDataFrame, dict[str, list[str]], dict[str, str]]:
         """Build one IamDataFrame per iamc variable and concatenate them.
 
@@ -206,6 +225,8 @@ class CommonDataExporter(RemindMFABaseModel):
         instead of a plain sum (e.g. per-capita variables weighted by Population),
         mapping variable -> weight variable.
         """
+        import pyam  # deferred: slow to import
+
         iamc_dataframes = []
         split_parent_components: dict[str, list[str]] = {}
         region_weights: dict[str, str] = {}
@@ -270,6 +291,8 @@ class CommonDataExporter(RemindMFABaseModel):
         self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
     ) -> tuple[pyam.IamDataFrame, list[str]]:
         """Build the IamDataFrame for a iamc variable and return it with the variable names it produced."""
+        import pyam  # deferred: slow to import
+
         df = self.to_iamc_df(iamc_var.calculation_function(mfa))
         df["variable"] = iamc_var.variable_name
         if iamc_var.split_name is not None:
@@ -283,7 +306,7 @@ class CommonDataExporter(RemindMFABaseModel):
         """Return the variables to export as REMIND input. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
 
-    def write_mrindustry(self, model: "CommonModel"):
+    def write_mrindustry(self):
         """Write material flows needed as inputs to REMIND."""
         export_dir = Path(self.export_path("mrindustry"))
         if export_dir.exists() and export_dir.is_dir():
@@ -292,7 +315,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         for variable in self.get_mrindustry_variables():
             df = (
-                variable.calculation_function(model.future_mfa)
+                variable.calculation_function(self._model.future_mfa)
                 .to_df()
                 .rename(columns={"value": variable.name})
             )
@@ -330,10 +353,30 @@ class CommonDataExporter(RemindMFABaseModel):
             df.columns = [self.display_names[col] for col in df.columns]
             df = df.map(convert_cell)
             if name == "parameters":
-                # Export parameters as CSV to merge with their source info later
-                df.to_csv(self.export_path("docs", f"definitions/{name}.csv"), index=False)
+                parameters_df = df
             else:
-                df.to_markdown(self.export_path("docs", f"definitions/{name}.md"), index=False)
+                write_docs_file(
+                    self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
+                )
+        return parameters_df
+
+    def merge_bibtex_files(self):
+        """Compatibility wrapper used previously; merges two default files."""
+        src1 = self._model.data_reader.parameters_path / "mrmfa_sources.bib"
+        src2 = DOCS_PATH / "custom_refs.bib"
+        out = DOCS_PATH / "all_refs.bib"
+        merge_bib_files([src1, src2], out)
+
+    def merge_parameters_sources(self, params_df: pd.DataFrame):
+
+        sources_df = pd.read_csv(self._model.data_reader.parameters_path / "mrmfa_sources.csv")
+
+        merged_df = merge_parameters_sources(
+            sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
+        )
+
+        output_file = self.model_docs_path / "definitions/parameters.md"
+        write_docs_file(output_file, merged_df.to_markdown(index=False))
 
     def assumptions_to_markdown(self):
 
@@ -341,7 +384,7 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         df = assumptions_df()
-        df.to_markdown(self.export_path("docs", "assumptions.md"), index=False)
+        write_docs_file(self.model_docs_path / "assumptions.md", df.to_markdown(index=False))
 
     def cfg_to_markdown(self, cfg: "CommonCfg"):
 
@@ -350,29 +393,46 @@ class CommonDataExporter(RemindMFABaseModel):
 
         schema_df = type(cfg).to_schema_df()
         schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
-        schema_df.to_markdown(self.export_path("docs", "config_schema.md"), index=False)
-
-    def export_path(self, dataset: str, filename: str | None = None) -> str:
-        if not hasattr(self.cfg, dataset):
-            raise ValueError(f"Dataset {dataset} not found in config")
-        cfg_path = getattr(self.cfg, dataset).path
-
-        if cfg_path is not None:
-            path_tuple = (cfg_path,)
-        else:
-            path_tuple = (self.cfg.path, dataset)
-
-        base_dir = os.path.join(*path_tuple)
-        if not os.path.isdir(base_dir):
-            os.mkdir(base_dir)
-
-        if filename is not None:
-            path_tuple += (filename,)
-
-        return os.path.join(*path_tuple)
+        write_docs_file(
+            self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
+        )
 
     def to_iamc_df(self, array: fd.FlodymArray):
         time_out = fd.Dimension(name="Time Out", letter="O", items=self.cfg.iamc.time_items)
         df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
         df = df.rename(columns={"Region": "region"})
         return df
+
+    def run_path(self) -> str:
+        """Per-model-run export folder, created once and shared by exporter and visualizer."""
+        if self._run_path is None:
+            if self.cfg.bundle_export:
+                self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
+            name = (
+                f"{export_dir_prefix(self._model.cfg.export.prefix)}_{self._model.name}_"
+                f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}"
+            )
+            self._run_path = os.path.join(self.cfg.path, name)
+            Path(self._run_path).mkdir(parents=True, exist_ok=True)
+        return self._run_path
+
+    def export_path(self, dataset: str, filename: str | None = None) -> str:
+        if not hasattr(self.cfg, dataset):
+            raise ValueError(f"Dataset {dataset} not found in config")
+
+        if dataset in self.FLAT_DATASETS:
+            base_dir = self.run_path()
+        else:
+            base_dir = os.path.join(self.run_path(), dataset)
+
+        if not os.path.isdir(base_dir):
+            Path(base_dir).mkdir(parents=True, exist_ok=True)
+
+        if filename is None:
+            return base_dir
+        return os.path.join(base_dir, filename)
+
+    @property
+    def model_docs_path(self) -> str:
+        """Per-model-run export folder for docs, created once and shared by exporter and visualizer."""
+        return DOCS_PATH / self._model.name

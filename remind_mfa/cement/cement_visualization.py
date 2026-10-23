@@ -1,6 +1,6 @@
+from pydantic import PrivateAttr
 import flodym as fd
-from typing import TYPE_CHECKING
-import numpy as np
+from typing import TYPE_CHECKING, Optional
 import logging
 
 from remind_mfa.common.common_visualization import CommonVisualizer
@@ -14,57 +14,68 @@ if TYPE_CHECKING:
 class CementVisualizer(CommonVisualizer):
     cfg: CementVisualizationCfg
 
-    def visualize_custom(self, model: "CementModel"):
-        mfa: StockDrivenCementMFASystem = model.future_mfa
-        if self.cfg.prod_clinker.do_visualize:
-            self.visualize_prod_clinker(mfa=mfa)
-        if self.cfg.prod_cement.do_visualize:
-            self.visualize_prod_cement(mfa=mfa, regional=False)
-            self.visualize_prod_cement(mfa=mfa, regional=True)
-        if self.cfg.prod_product.do_visualize:
-            self.visualize_prod_product(mfa=mfa)
+    _model: Optional["CementModel"] = PrivateAttr(default=None)
+
+    def _end_use_letter(self, mfa: fd.MFASystem) -> str:
+        """The end-use-like letter the MFA's flows carry: u in top-down runs,
+        e in combined/reconciled runs."""
+        return "e" if "e" in mfa.flows["construction => use"].dims.letters else "u"
+
+    def _end_use_dim_name(self, mfa: fd.MFASystem) -> str:
+        return mfa.dims[self._end_use_letter(mfa)].name
+
+    def visualize_custom(self):
+        mfa: StockDrivenCementMFASystem = self._model.future_mfa
+        if self.cfg.clinker_production.do_visualize:
+            self.visualize_clinker_production(mfa=mfa)
+        if self.cfg.cement_production.do_visualize:
+            self.visualize_cement_production(mfa=mfa, regional=False)
+            self.visualize_cement_production(mfa=mfa, regional=True)
+        if self.cfg.construction.do_visualize:
+            self.visualize_construction(mfa=mfa)
         if self.cfg.eol_stock.do_visualize:
             self.visualize_eol_stock(mfa=mfa)
         if self.cfg.carbonation.do_visualize:
-            if not model.cfg.model_switches.carbonation:
+            if not self._model.cfg.model_switches.carbonation:
                 logging.warning(
                     "Carbonation visualization requested, but carbonation module not activated."
                 )
             else:
                 self.visualize_carbonation(mfa=mfa)
 
-    def visualize_prod_clinker(self, mfa: fd.MFASystem, regional: bool = False):
+    def visualize_clinker_production(self, mfa: fd.MFASystem, regional: bool = False):
         production = (
-            mfa.flows["prod_clinker => market_clinker"] + mfa.flows["prod_clinker => sysenv"]
+            mfa.flows["clinker_production => clinker_market"]
+            + mfa.flows["clinker_production => sysenv"]
         )
         self.visualize_fdarr(mfa=mfa, flow=production, name="Clinker production", regional=regional)
 
-    def visualize_prod_cement(self, mfa: fd.MFASystem, regional: bool = False):
-        production = mfa.flows["prod_cement => market_cement"]
+    def visualize_cement_production(self, mfa: fd.MFASystem, regional: bool = False):
+        production = mfa.flows["cement_production => cement_market"]
         self.visualize_fdarr(mfa=mfa, flow=production, name="Cement production", regional=regional)
 
-    def visualize_prod_product(self, mfa: fd.MFASystem, regional: bool = False):
-        production = mfa.flows["prod_product => use"].sum_over("s")
-        self.visualize_fdarr(mfa=mfa, flow=production, name="Product production", regional=regional)
+    def visualize_construction(self, mfa: fd.MFASystem, regional: bool = False):
+        production = mfa.flows["construction => use"].sum_over(self._end_use_letter(mfa))
+        self.visualize_fdarr(
+            mfa=mfa, flow=production, name="Construction material production", regional=regional
+        )
 
     def visualize_consumption(self, mfa: fd.MFASystem):
-        consumption = mfa.stocks["in_use"].inflow[{"k": "cement"}]
+        consumption = mfa.stocks["use"].inflow[{"k": "Cement"}]
         self.visualize_fdarr_stacked(
             mfa=mfa,
             flow=consumption,
             name="Cement consumption",
-            linecolor_dim="Stock Type",
+            linecolor_dim=self._end_use_dim_name(mfa),
             regional=True,
         )
 
     def visualize_eol_stock(self, mfa: fd.MFASystem):
         pass
 
-    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_good=False):
-        # TODO: find way to name subplots_by_good back to subplot_by_stock_type
-        # This is a workaround to streamline across materials.
-        subplot_dim = "Stock Type" if subplots_by_good else None
-        stock = mfa.stocks["in_use"].stock[{"k": "cement"}]
+    def visualize_use_stock(self, mfa: fd.MFASystem, subplots_by_end_use=False):
+        subplot_dim = self._end_use_dim_name(mfa) if subplots_by_end_use else None
+        stock = mfa.stocks["use"].stock[{"k": "Cement"}]
         super().visualize_use_stock(mfa, stock=stock, subplot_dim=subplot_dim)
 
     def visualize_carbonation(self, mfa: fd.MFASystem):

@@ -15,7 +15,7 @@ from remind_mfa.common.common_definition import (
 )
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
 
-# Declares the numpy dtype of each `extra:` column on an extrapolation parameter.
+# Declares the numpy dtype of each key of the `extra` column on an extrapolation parameter.
 # Strings need a fixed-width dtype: plain `str` would allocate single characters only.
 EXTRA_DTYPES = {"year": float, "type": "<U32"}
 
@@ -109,9 +109,9 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
         return sorted({v for v in self.value.values.flat if isinstance(v, str)})
 
     def resolve_type(self) -> str:
-        """Single extrapolation type of the parameter, declared via 'extra:type'.
+        """Single extrapolation type of the parameter, declared via 'type' in 'extra'.
 
-        Rows without 'extra:type' use the type declared by the other rows, so one
+        Rows without 'type' in 'extra' use the type declared by the other rows, so one
         declaration (e.g. in the base scenario) suffices. Mixed types are not
         supported: raises unless exactly one valid type is declared.
         """
@@ -121,7 +121,7 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
         types = {str(t) for t in declared if t}
         if not types:
             raise ValueError(
-                f"'{name}' has no extrapolation type. Declare it with an 'extra:type' "
+                f"'{name}' has no extrapolation type. Declare it with 'type' in the 'extra' "
                 f"column in the scenario CSV; valid types: {VALID_TYPES}."
             )
         if len(types) > 1:
@@ -239,7 +239,7 @@ class ScenarioReader(RemindMFABaseModel):
             return None
         try:
             return ast.literal_eval(val)
-        except (ValueError, SyntaxError):
+        except ValueError, SyntaxError:
             return val
 
     @staticmethod

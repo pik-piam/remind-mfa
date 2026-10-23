@@ -1,0 +1,46 @@
+import marimo
+
+__generated_with = "0.24.0"
+app = marimo.App()
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    To use `GraphvizProcessGraphPlotter` you need to have `graphviz` installed on your system. Go to https://graphviz.org/download/ to download and install.
+    """)
+    return
+
+
+@app.cell
+def _():
+    from remind_mfa.common.helpers import ModelNames
+    import dotenv
+    import marimo as mo
+    from pathlib import Path
+    from flodym.export import GraphvizProcessGraphPlotter
+
+    from remind_mfa.common.helpers import init_model
+    from remind_mfa.common.config_loader import load_config
+
+    dotenv.load_dotenv()
+    ROOT_DIR = Path(__file__).parents[1]
+    CONFIG_PATH = ROOT_DIR / "config" / "default.toml"
+
+    graphs = []
+    for historical in [True, False]:
+        graphs.append(mo.md(f"# MFA {'Historical' if historical else 'Future'}"))
+        for model_name in ModelNames:
+            model_config = load_config([CONFIG_PATH], model_name, root_dir=ROOT_DIR)
+            model = init_model(cfg=model_config)
+            mfa = model.make_mfa(historical=historical)
+            dot = GraphvizProcessGraphPlotter(mfa=mfa, rankdir="LR").plot()
+            graphs.append(mo.md(f"## {model_name.capitalize()}"))
+            graphs.append(dot)
+
+    mo.vstack(graphs)
+    return (mo,)
+
+
+if __name__ == "__main__":
+    app.run()

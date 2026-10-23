@@ -9,6 +9,7 @@ from remind_mfa.common.helpers import ModelNames
 
 def copy_default_config(destination: Path) -> None:
     shutil.copy(CONFIG_DIR / "default.toml", destination / "default.toml")
+    (destination / "scenarios").mkdir()
 
 
 @pytest.mark.parametrize("model", list(ModelNames))
@@ -16,7 +17,43 @@ def test_default_config_validates_for_every_model(model):
     config = load_config(["default"], model)
 
     assert config["model"] == model.value
-    assert config["visualization"]["figures_path"].startswith(f"data/{model.value}/")
+    assert config["export"]["path"] == str(Path.cwd() / "data_out")
+
+
+def test_paths_are_relative_to_root_dir(tmp_path: Path):
+    (tmp_path / "data_in").mkdir()
+    (tmp_path / "config" / "scenarios").mkdir(parents=True)
+    config_path = tmp_path / "custom.toml"
+    config_path.write_text(
+        '[base.input]\nmadrat_output_path = "madrat_overwrite"\n', encoding="utf-8"
+    )
+
+    config = load_config(
+        [CONFIG_DIR / "default.toml", config_path], ModelNames.STEEL, root_dir=tmp_path
+    )
+
+    assert config["input"]["input_data_path"] == str(tmp_path / "data_in")
+    assert config["input"]["scenarios_path"] == str(tmp_path / "config" / "scenarios")
+    assert config["input"]["madrat_output_path"] == str(tmp_path / "madrat_overwrite")
+    assert config["export"]["path"] == str(tmp_path / "data_out")
+
+
+def test_absolute_scenarios_path_is_unchanged(tmp_path: Path):
+    scenarios_path = tmp_path / "scenarios"
+    config_path = tmp_path / "custom.toml"
+    config_path.write_text(
+        f'[base.input]\nscenarios_path = "{scenarios_path.as_posix()}"\n', encoding="utf-8"
+    )
+    scenarios_path.mkdir()
+
+    config = load_config([CONFIG_DIR / "default.toml", config_path], ModelNames.STEEL)
+
+    assert config["input"]["scenarios_path"] == str(scenarios_path)
+
+
+def test_missing_input_path_is_rejected(tmp_path: Path):
+    with pytest.raises(FileNotFoundError, match="input.input_data_path"):
+        load_config([CONFIG_DIR / "default.toml"], ModelNames.STEEL, root_dir=tmp_path)
 
 
 def test_model_overrides_all_base_layers(tmp_path):

@@ -1,6 +1,8 @@
+import numpy as np
 import flodym as fd
 
-from remind_mfa.common.trade import TradeSet
+from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
@@ -11,12 +13,12 @@ class SteelMFASystem(CommonMFASystem):
 
     cfg: SteelCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historic_trade: TradeSet):
+    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet):
         """
         Perform all computations for the MFA system.
         """
-        self.compute_in_use_stock(stock_projection)
-        self.compute_flows(historic_trade)
+        self.compute_use_stock(stock_projection)
+        self.compute_flows(historical_trade)
         self.compute_other_stocks()
         self.check_mass_balance()
         self.check_flows(raise_error=False)
@@ -25,7 +27,7 @@ class SteelMFASystem(CommonMFASystem):
     def update_price_elastic(self):
         self.compute_price_elastic_trade()
         # self.compute_consumption()
-        # self.compute_in_use_stock() # ensure inflow-driven
+        # self.compute_use_stock() # ensure inflow-driven
         # self.compute_other_flows()
         # self.compute_other_stocks()
 
@@ -38,35 +40,27 @@ class SteelMFASystem(CommonMFASystem):
         # price.values[131:201,2] = np.minimum(800., np.linspace(500, 2000, 70))
         model = PriceDrivenTrade(dims=self.trade_set["steel"].exports.dims)
         model.calibrate(
-            demand=self.flows["ip_market => fabrication"][2022],
+            demand=self.flows["steel_market => manufacturing"][2022],
             price=price[2022],
             imports_target=self.trade_set["steel"].imports[2022],
             exports_target=self.trade_set["steel"].exports[2022],
         )
         price, demand, supply, imports, exports = model.compute_price_driven_trade(
             price_0=price,
-            demand_0=self.flows["ip_market => fabrication"],
-            supply_0=self.flows["forming => ip_market"],
+            demand_0=self.flows["steel_market => manufacturing"],
+            supply_0=self.flows["forming => steel_market"],
         )
 
-        self.flows["ip_market => fabrication"][...] = demand
-        self.flows["forming => ip_market"][...] = supply
+        self.flows["steel_market => manufacturing"][...] = demand
+        self.flows["forming => steel_market"][...] = supply
         self.trade_set["steel"].imports[...] = imports
         self.trade_set["steel"].exports[...] = exports
         self.trade_set["steel"].balance()
 
-        self.flows["imports => ip_market"][...] = self.trade_set["steel"].imports
-        self.flows["ip_market => exports"][...] = self.trade_set["steel"].exports
+        self.flows["imports => steel_market"][...] = self.trade_set["steel"].imports
+        self.flows["steel_market => exports"][...] = self.trade_set["steel"].exports
 
-    def compute_in_use_stock(self, stock_projection):
-        self.stocks["in_use"].stock[...] = stock_projection
-        self.stocks["in_use"].lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"], std=self.parameters["lifetime_std"]
-        )
-        self.stocks["in_use"].compute()
-        self.correct_negative_inflow("in_use")
-
-    def compute_flows(self, historic_trade: TradeSet):
+    def compute_flows(self, historical_trade: TradeSet):
         # abbreviations for better readability
         prm = self.parameters
         flw = self.flows
@@ -74,111 +68,199 @@ class SteelMFASystem(CommonMFASystem):
         trd = self.trade_set
 
         aux = {
-            "production": fd.Parameter(dims=self.dims["t", "r"]),
-            "scrap_in_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "steel_production": fd.Parameter(dims=self.dims["t", "r"]),
             "available_scrap": fd.Parameter(dims=self.dims["t", "r"]),
-            "eaf_share_production": fd.Parameter(dims=self.dims["t", "r"]),
             "production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
             "max_scrap_production": fd.Parameter(dims=self.dims["t", "r"]),
-            "scrap_share_production": fd.Parameter(dims=self.dims["t", "r"]),
-            "bof_production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
+            "new_scrap": fd.Parameter(dims=self.dims["t", "r"]),
+            "not_reused": fd.Parameter(dims=self.dims["t", "r", "u"]),
         }
 
         # fmt: off
 
-        flw["good_market => use"][...] = stk["in_use"].inflow
+        # Hibernation and reuse first, since reuse reduces the demand for new products
+        # reuse: a share of the not hibernating in-use outflow re-enters the stock, capped by the stock inflow
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+        flw["eol_management => reuse"][...] = (flw["use => eol_management"] * prm["reuse_share"]).minimum(stk["use"].inflow)
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
+
         # Pre-use
 
+        flw["manufactured_products_market => use"][...] = stk["use"].inflow - flw["reuse => use"]
+
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["indirect"],
-            future_trade=trd["indirect"],
-            future_dom_demand=flw["good_market => use"],
+            historical_trade=historical_trade["manufactured_products"],
+            future_trade=trd["manufactured_products"],
+            future_dom_demand=flw["manufactured_products_market => use"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
-        flw["imports => good_market"][...] = trd["indirect"].imports
-        flw["good_market => exports"][...] = trd["indirect"].exports
+        flw["imports => manufactured_products_market"][...] = trd["manufactured_products"].imports
+        flw["manufactured_products_market => exports"][...] = trd["manufactured_products"].exports
 
-        flw["fabrication => good_market"][...] = flw["good_market => use"][...] - trd["indirect"].net_imports
+        flw["manufacturing => manufactured_products_market"][...] = flw["manufactured_products_market => use"][...] - trd["manufactured_products"].net_imports
 
-        flw["ip_market => fabrication"][...] = flw["fabrication => good_market"] / prm["aggregate_fabrication_yield"]
-        flw["fabrication => scrap_market"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * (1. - prm["fabrication_losses"])
-        flw["fabrication => losses"][...] = (flw["ip_market => fabrication"][...] - flw["fabrication => good_market"]) * prm["fabrication_losses"]
+        flw["steel_market => manufacturing"][...] = flw["manufacturing => manufactured_products_market"] / prm["aggregate_manufacturing_yield"]
+        flw["manufacturing => scrap_pool"][...] = (flw["steel_market => manufacturing"][...] - flw["manufacturing => manufactured_products_market"]) * (1. - prm["manufacturing_losses"])
+        flw["manufacturing => losses"][...] = (flw["steel_market => manufacturing"][...] - flw["manufacturing => manufactured_products_market"]) * prm["manufacturing_losses"]
 
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["steel"],
+            historical_trade=historical_trade["steel"],
             future_trade=trd["steel"],
-            future_dom_demand=flw["ip_market => fabrication"],
+            future_dom_demand=flw["steel_market => manufacturing"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
-        flw["imports => ip_market"][...] = trd["steel"].imports
-        flw["ip_market => exports"][...] = trd["steel"].exports
+        flw["imports => steel_market"][...] = trd["steel"].imports
+        flw["steel_market => exports"][...] = trd["steel"].exports
 
-        flw["forming => ip_market"][...] = flw["ip_market => fabrication"] - trd["steel"].net_imports
-        aux["production"][...] = flw["forming => ip_market"] / prm["forming_yield"]
-        flw["forming => losses"][...] = aux["production"] * prm["forming_loss_rate"]
-        flw["forming => scrap_market"][...] = aux["production"] - flw["forming => ip_market"] - flw["forming => losses"]
+        flw["forming => steel_market"][...] = flw["steel_market => manufacturing"] - trd["steel"].net_imports
+        aux["steel_production"][...] = flw["forming => steel_market"] / prm["forming_yield"]
+        flw["forming => losses"][...] = aux["steel_production"] * prm["forming_loss_rate"]
+        flw["forming => scrap_pool"][...] = aux["steel_production"] - flw["forming => steel_market"] - flw["forming => losses"]
 
         # Post-use
 
-        flw["use => eol_market"][...] = stk["in_use"].outflow * prm["recovery_rate"]
-        flw["use => obsolete"][...] = stk["in_use"].outflow - flw["use => eol_market"]
+        # recovery applies to the non-reused part of the demolished outflow
+        aux["not_reused"][...] = flw["use => eol_management"] - flw["eol_management => reuse"]
+        flw["eol_management => scrap_market"][...] = aux["not_reused"] * prm["recovery_rate"]
+        flw["eol_management => eol_waste"][...] = aux["not_reused"] - flw["eol_management => scrap_market"]
 
         extrapolator = TradeExtrapolator(
-            historic_trade=historic_trade["scrap"],
+            historical_trade=historical_trade["scrap"],
             future_trade=trd["scrap"],
-            future_dom_supply=flw["use => eol_market"],
+            future_dom_supply=flw["eol_management => scrap_market"],
+            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
-        flw["imports => eol_market"][...] = trd["scrap"].imports
-        flw["eol_market => exports"][...] = trd["scrap"].exports
+        aux["production_inflow"][...] = aux["steel_production"] / (1 - prm["steel_production_loss_rate"])
+        aux["max_scrap_production"][...] = aux["production_inflow"] * prm["max_scrap_share"]
+        aux["new_scrap"][...] = flw["forming => scrap_pool"] + flw["manufacturing => scrap_pool"]
+        self.cap_scrap_imports_to_usable_scrap(
+            max_scrap_production=aux["max_scrap_production"],
+            domestic_scrap=flw["eol_management => scrap_market"].sum_over("u") + aux["new_scrap"],
+        )
+        self.redistribute_excess_scrap(
+            max_scrap_production=aux["max_scrap_production"],
+            eol_scrap=flw["eol_management => scrap_market"].sum_over("u"),
+            new_scrap=aux["new_scrap"],
+        )
 
-        flw["eol_market => recycling"][...] = flw["use => eol_market"] + trd["scrap"].net_imports
-        flw["recycling => scrap_market"][...] = flw["eol_market => recycling"]
+        flw["imports => scrap_market"][...] = trd["scrap"].imports
+        flw["scrap_market => exports"][...] = trd["scrap"].exports
+
+        flw["scrap_market => scrap_pool"][...] = flw["eol_management => scrap_market"] + trd["scrap"].net_imports
 
         # PRODUCTION
 
-        aux["production_inflow"][...] = aux["production"] / (1 - prm["production_loss_rate"])
-        aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
         aux["available_scrap"][...] = (
-            flw["recycling => scrap_market"]
-            + flw["forming => scrap_market"]
-            + flw["fabrication => scrap_market"]
+            flw["scrap_market => scrap_pool"]
+            + flw["forming => scrap_pool"]
+            + flw["manufacturing => scrap_pool"]
         )
-        aux["scrap_in_production"][...] = aux["available_scrap"].minimum(aux["max_scrap_production"])
-        flw["scrap_market => excess_scrap"][...] = aux["available_scrap"] - aux["scrap_in_production"]
-        aux["scrap_share_production"][...] = aux["scrap_in_production"] / aux["production_inflow"].maximum(1e-6)
-        aux["eaf_share_production"][...] = (
-            aux["scrap_share_production"]
-            - prm["scrap_in_bof_rate"].cast_to(aux["scrap_share_production"].dims)
-        )
-        aux["eaf_share_production"][...] = aux["eaf_share_production"] / (1 - prm["scrap_in_bof_rate"])
-        aux["eaf_share_production"][...] = aux["eaf_share_production"].minimum(1).maximum(0)
-        flw["scrap_market => eaf_production"][...] = aux["production_inflow"] * aux["eaf_share_production"]
-        flw["scrap_market => bof_production"][...] = aux["scrap_in_production"] - flw["scrap_market => eaf_production"]
-        aux["bof_production_inflow"][...] = aux["production_inflow"] - flw["scrap_market => eaf_production"]
-        flw["extraction => bof_production"][...] = aux["bof_production_inflow"] - flw["scrap_market => bof_production"]
-        flw["bof_production => forming"][...] = aux["bof_production_inflow"] * (1 - prm["production_loss_rate"])
-        flw["bof_production => losses"][...] = aux["bof_production_inflow"] - flw["bof_production => forming"]
-        flw["eaf_production => forming"][...] = flw["scrap_market => eaf_production"] * (1 - prm["production_loss_rate"])
-        flw["eaf_production => losses"][...] = flw["scrap_market => eaf_production"] - flw["eaf_production => forming"]
+        flw["scrap_pool => steel_production_scrap_based"][...] = aux["available_scrap"].minimum(aux["max_scrap_production"])
+        flw["scrap_pool => excess_scrap"][...] = aux["available_scrap"] - flw["scrap_pool => steel_production_scrap_based"]
+
+        flw["extraction => steel_production_ore_based"][...] = aux["production_inflow"] - flw["scrap_pool => steel_production_scrap_based"]
+        flw["steel_production_ore_based => forming"][...] = flw["extraction => steel_production_ore_based"] * (1 - prm["steel_production_loss_rate"])
+        flw["steel_production_ore_based => losses"][...] = flw["extraction => steel_production_ore_based"] - flw["steel_production_ore_based => forming"]
+        flw["steel_production_scrap_based => forming"][...] = flw["scrap_pool => steel_production_scrap_based"] * (1 - prm["steel_production_loss_rate"])
+        flw["steel_production_scrap_based => losses"][...] = flw["scrap_pool => steel_production_scrap_based"] - flw["steel_production_scrap_based => forming"]
 
         # buffers to sysenv for plotting
-        flw["sysenv => imports"][...] = flw["imports => good_market"] + flw["imports => ip_market"] + flw["imports => eol_market"]
-        flw["exports => sysenv"][...] = flw["good_market => exports"] + flw["ip_market => exports"] + flw["eol_market => exports"]
-        flw["losses => sysenv"][...] = flw["forming => losses"] + flw["fabrication => losses"] + flw["bof_production => losses"] + flw["eaf_production => losses"]
-        flw["sysenv => extraction"][...] = flw["extraction => bof_production"]
+        flw["sysenv => imports"][...] = flw["imports => manufactured_products_market"] + flw["imports => steel_market"] + flw["imports => scrap_market"]
+        flw["exports => sysenv"][...] = flw["manufactured_products_market => exports"] + flw["steel_market => exports"] + flw["scrap_market => exports"]
+        flw["losses => sysenv"][...] = flw["forming => losses"] + flw["manufacturing => losses"] + flw["steel_production_ore_based => losses"] + flw["steel_production_scrap_based => losses"]
+        flw["sysenv => extraction"][...] = flw["extraction => steel_production_ore_based"]
         # fmt: on
+
+    def cap_scrap_imports_to_usable_scrap(
+        self, max_scrap_production: fd.FlodymArray, domestic_scrap: fd.FlodymArray
+    ):
+        """Limit future scrap net imports to the amount a region can use in steel production.
+
+        The extrapolated scrap trade follows historical trade patterns and does not know how much
+        scrap a region can absorb. Without this cap, regions that already have more domestic
+        scrap than their steel production can take would import scrap only to divert it to
+        excess scrap, while the exporting regions lack it for their own secondary production.
+        The cap removes such imports and the exporting regions keep the scrap instead.
+        Historical years keep the historical trade data.
+
+        Args:
+            max_scrap_production: Maximum scrap input to steel production.
+            domestic_scrap: Scrap generated in the region (home, new and collected end-of-life
+                scrap) before trade.
+        """
+        add_assumption_doc(
+            type="model assumption",
+            name="No scrap imports beyond usable scrap",
+            description=(
+                "Future scrap net imports of a region are limited to the difference between "
+                "the maximum scrap input to its steel production and its domestic scrap. "
+                "Scrap that is not imported remains in the exporting regions."
+            ),
+        )
+        capacity = (max_scrap_production - domestic_scrap).maximum(0)
+        capacity[{"t": self.dims["h"]}] = np.inf
+        self.cap_net_imports_to_capacity(self.trade_set["scrap"], capacity=capacity)
+
+    def redistribute_excess_scrap(
+        self,
+        max_scrap_production: fd.FlodymArray,
+        eol_scrap: fd.FlodymArray,
+        new_scrap: fd.FlodymArray,
+    ):
+        """Redistribute scrap that would become excess scrap to regions that can still use it.
+
+        An auxiliary scrap trade is computed with :meth:`redistribute_surplus` and added to the
+        scrap trade: Regions whose available scrap after the extrapolated scrap trade exceeds the
+        maximum scrap input to their steel production export the surplus; regions below that
+        maximum import it. This reduces excess scrap and increases scrap-based steel production
+        in the importing regions. Historical years keep the historical trade data.
+
+        Args:
+            max_scrap_production: Maximum scrap input to steel production.
+            eol_scrap: Collected end-of-life scrap before trade.
+            new_scrap: Home and new scrap from forming and manufacturing.
+        """
+        add_assumption_doc(
+            type="model assumption",
+            name="Redistribution of excess scrap",
+            description=(
+                "Future scrap that exceeds the maximum scrap input to a region's steel "
+                "production is exported to regions that have not reached that maximum, "
+                "in proportion to their remaining capacity."
+            ),
+        )
+        scrap_trade = self.trade_set["scrap"]
+        available_scrap = eol_scrap + scrap_trade.net_imports + new_scrap
+        # The scrap trade passes the scrap market, which holds only end-of-life scrap. Raising the
+        # demand to the new scrap keeps aux exports below the end-of-life scrap after trade, so
+        # the flow to the scrap pool stays non-negative. This does not change any region's headroom.
+        demand = max_scrap_production.maximum(new_scrap)
+        aux_trade = Trade(
+            name="aux_scrap",
+            imports=fd.FlodymArray(dims=scrap_trade.imports.dims),
+            exports=fd.FlodymArray(dims=scrap_trade.exports.dims),
+        )
+        self.redistribute_surplus(aux_trade, supply=available_scrap, demand=demand)
+        for flow in (aux_trade.imports, aux_trade.exports):
+            flow[{"t": self.dims["h"]}] = 0.0
+        scrap_trade.imports[...] = scrap_trade.imports + aux_trade.imports
+        scrap_trade.exports[...] = scrap_trade.exports + aux_trade.exports
 
     def compute_other_stocks(self):
         stk = self.stocks
         flw = self.flows
 
-        # in-use stock is already computed in compute_in_use_stock
-        stk["obsolete"].inflow[...] = flw["use => obsolete"]
-        stk["obsolete"].compute()
+        # in-use stock is already computed in compute_use_stock,
+        # hibernating stock in compute_flows
+        stk["eol_waste"].inflow[...] = flw["eol_management => eol_waste"]
+        stk["eol_waste"].compute()
 
-        stk["excess_scrap"].inflow[...] = flw["scrap_market => excess_scrap"]
+        stk["excess_scrap"].inflow[...] = flw["scrap_pool => excess_scrap"]
         stk["excess_scrap"].compute()

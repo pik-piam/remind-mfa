@@ -1,5 +1,7 @@
-| Dimensions   | Name    |
-|:-------------|:--------|
-| t, r, m      | primary |
-| t, r, m, g   | final   |
-| t, e, r, m   | waste   |
+| Dimensions   | Name                  |
+|:-------------|:----------------------|
+| t, r, p      | primary               |
+| t, r, p, u   | manufactured_products |
+| t, e, r, p   | waste                 |
+| t, e, r, p   | aux_recyclate         |
+| t, e, r      | aux_recl_feedstock    |

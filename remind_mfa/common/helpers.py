@@ -1,10 +1,35 @@
+import logging
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
+from pathlib import Path
 
+import flodym as fd
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
+
+_SERIES_EXPORT_PATH = None
+
+DOCS_PATH = Path(__file__).parents[2] / "docs"
+
+
+def _timestamp_prefix() -> str:
+    return datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+
+
+def export_dir_prefix(prescribed_prefix: str | None = None) -> str:
+    """Return the export prefix, creating it once and reusing it across model runs."""
+    return prescribed_prefix if prescribed_prefix is not None else _timestamp_prefix()
+
+
+def series_export_path(base_path: str, prefix: str | None = None) -> str:
+    """Return the series prefix, creating it once and reusing it across model runs."""
+    global _SERIES_EXPORT_PATH
+    if _SERIES_EXPORT_PATH is None:
+        _SERIES_EXPORT_PATH = Path(base_path) / (export_dir_prefix(prefix) + "_series")
+    return _SERIES_EXPORT_PATH
 
 
 class ModelNames(str, Enum):
@@ -39,6 +64,29 @@ def init_model(cfg: dict) -> "CommonModel":
     return get_model_class(model)(cfg=cfg)
 
 
+def clip_negative_arr(arr: fd.FlodymArray) -> fd.FlodymArray:
+    """Set negative values of an array to 0, with a warning.
+
+    Args:
+        arr: Array to clip. If it has a region dimension (r), the warning lists the regions with
+            negative values.
+
+    Returns:
+        The array with negative values set to 0.
+    """
+    min_value = arr.values.min()
+    if min_value >= 0:
+        return arr
+    small_negative_threshold = -1e-6
+    if min_value < small_negative_threshold:
+        message = f"{arr.name} <0 (smallest: {min_value})"
+        if "r" in arr.dims:
+            negative_regions = [r for r in arr.dims["r"].items if arr[r].values.min() < 0]
+            message += f" in regions {negative_regions}"
+        logging.warning(f"{message}! Correcting negative values to 0.")
+    return arr.maximum(0)
+
+
 def prefix_from_module(module: str) -> str:
     if len(module) < 2:
         raise ValueError("Module name must be at least 2 characters long")
@@ -60,8 +108,3 @@ class RemindMFABaseModel(BaseModel):
         arbitrary_types_allowed=True,
         use_attribute_docstrings=True,
     )
-
-
-class RegressOverModes(str, Enum):
-    LOGGDPPC = "loggdppc"
-    LOGGDPPC_TIME = "loggdppc_time"

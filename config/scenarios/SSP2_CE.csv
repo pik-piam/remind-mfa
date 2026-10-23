@@ -1,4 +1,5 @@
 parameter,models,value,extra,index,description
-stock_factor,cement,0.9,,,
-lifetime_mean,cement,1.2,,,
-lifetime_std,cement,1.2,,,
+stock_factor,all,0.9,,,
+lifetime_mean,all,1.2,,,
+lifetime_std,all,1.2,,,
+reuse_share,cement,0.10,,{Construction Material: Concrete},
