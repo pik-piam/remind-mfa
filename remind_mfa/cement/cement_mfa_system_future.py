@@ -6,6 +6,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class StockDrivenCementMFASystem(CommonMFASystem):
@@ -83,11 +84,16 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         if "k" in arr.dims:
             return arr
+        return arr * self.constituent_split()
+
+    def constituent_split(self) -> fd.FlodymArray:
+        """Split of newly produced product mass into cement and non-cement (k), from
+        cement_ratio."""
         cement_ratio = self.parameters["cement_ratio"]
         constituent_split = fd.FlodymArray(dims=cement_ratio.dims.append(self.dims["k"]))
         constituent_split[{"k": "Cement"}] = cement_ratio
         constituent_split[{"k": "Non-Cement"}] = 1 - cement_ratio
-        return arr * constituent_split
+        return constituent_split
 
     def compute_flows(self, historical_trade: TradeSet):
         prm = self.parameters
@@ -99,10 +105,21 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
         flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
 
-        # reuse: a share of the demolished material re-enters the stock, capped by the stock inflow
-        flw["eol_management => reuse"][...] = (
-            flw["use => eol_management"] * prm["reuse_share"]
-        ).minimum(stk["use"].inflow)
+        # reuse: a share of the demolished construction material may re-enter the stock,
+        # capped by the stock inflow.
+        add_assumption_doc(
+            type="model assumption",
+            name="Cement content of reused material",
+            description=(
+                "Reused concrete and mortar are assigned the cement ratio of new construction in"
+                " the year of reuse instead of the cement content of the demolished material."
+                " This leads to negligible errors in stock and outflow if cement ratio changes."
+            ),
+        )
+        reuse = (flw["use => eol_management"].sum_over("k") * prm["reuse_share"]).minimum(
+            stk["use"].inflow.sum_over("k")
+        )
+        flw["eol_management => reuse"][...] = reuse * self.constituent_split()
         flw["reuse => use"][...] = flw["eol_management => reuse"]
 
         # construction: covers the stock inflow not met by reuse
