@@ -44,10 +44,11 @@ Dicts in `index` and `extra` use YAML syntax: keys and string values need no quo
 **Example:**
 
     parameter,models,value,extra,index,description
-    recycling_rate,steel,0.7,"{uncertainty: 0.1}","{Region: [CHA, IND, OAS]}",
+    recycling_rate,steel,0.6,"{uncertainty: 0.1}",
+    recycling_rate,steel,0.7,"{Region: [CHA, IND, OAS]}",
     growth_factor,all,1.2,,,
 
-Row 1 sets `recycling_rate` to `0.7` and `recycling_rate_uncertainty` to `0.1` for three regions of the steel model. Row 2 sets the whole `growth_factor` array to `1.2` for all models.
+Row 1 sets `recycling_rate` to `0.6` and `recycling_rate_uncertainty` to `0.1` for all regions in the steel model. Row 2 overwrites the values (but not the uncertainty) for three regions, and keeps it to the above values for the rest. Row 3 sets the whole `growth_factor` array to `1.2` for all models.
 
 ### Aggregate Regions
 
