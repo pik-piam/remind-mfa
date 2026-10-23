@@ -10,6 +10,7 @@ stock_factor,all,1.0,2100,factor,,,,,
 lifetime_mean,all,1.0,2060,factor,,,,,
 lifetime_std,all,1.0,2060,factor,,,,,
 n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
+reuse_share,all,0.0,2100,target,,,,,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
 n_trend_years,steel,2,,,CHA,,,,
@@ -27,7 +28,6 @@ daccu_production_rate,plastics,0.01,2100,target,,,,,
 
 # --- Cement (top-down) ---
 n_trend_years,cement,2,,,CHA,,,,
-concrete_reuse_share,cement,0.0,2100,target,,,,,Share of the in-use concrete outflow that is reused
 
 # --- Cement (bottom-up) ---
 development_gdppc_low,cement,8000,,,,,,,GDP per capita below which splits fully converge to their global means

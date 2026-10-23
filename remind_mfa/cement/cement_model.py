@@ -40,6 +40,8 @@ class CementModel(CommonModel[CementCfg]):
         lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
         self.parameters["lifetime_std"] = lifetime_std
 
+        self.set_hibernation_share(0.3)
+
         # development weight for gdp-dependent parameters/scenarios
         self.parameters["development_weight"] = self.calc_development_weight()
 

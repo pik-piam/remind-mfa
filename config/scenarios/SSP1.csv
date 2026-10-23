@@ -1,6 +1,6 @@
-parameter,models,value,extra:year,index:Region,description
-driver_scen,all,SSP1,,,
-stock_factor,all,0.9,,,
-lifetime_mean,all,1.2,,,
-lifetime_std,all,1.2,,,
-concrete_reuse_share,cement,0.10,,,
+parameter,models,value,extra:year,index:Region,index:Construction Material,description
+driver_scen,all,SSP1,,,,
+stock_factor,all,0.9,,,,
+lifetime_mean,all,1.2,,,,
+lifetime_std,all,1.2,,,,
+reuse_share,cement,0.10,,,Concrete,
