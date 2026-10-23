@@ -2,7 +2,7 @@ parameter,models,value,extra:year,extra:type,index:Region,index:End Use,index:St
 
 # --- Model defaults ---
 saturation_level,steel,10,,,,,,,
-saturation_level,plastics,3,,,,,,,
+saturation_level,plastics,2,,,,,,,Corresponds to about 217 kg/capita/yr steady-state consumption at the global end-use split and lifetimes
 saturation_level,cement,180,,,,,,,Corresponds to about 24 t cement at historical cement ratios
 
 # --- Scenario defaults ---
@@ -10,10 +10,10 @@ stock_factor,all,1.0,2100,factor,,,,,
 lifetime_mean,all,1.0,2060,factor,,,,,
 lifetime_std,all,1.0,2060,factor,,,,,
 n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending
-n_trend_years,all,2,,,CHA,,,,
 reuse_share,all,0.0,2100,target,,,,,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
+n_trend_years,steel,2,,,CHA,,,,
 max_scrap_share,steel,0.7,,,,,,,Maximum share of scrap in the metallic input to steel production
 
 # --- Plastics ---
@@ -25,6 +25,9 @@ mechanical_recycling_rate,plastics,0.4,2100,target,,,,,
 chemical_recycling_rate,plastics,0.1,2100,target,,,,,
 bio_production_rate,plastics,0.1,2100,target,,,,,
 daccu_production_rate,plastics,0.01,2100,target,,,,,
+
+# --- Cement (top-down) ---
+n_trend_years,cement,2,,,CHA,,,,
 
 # --- Cement (bottom-up) ---
 development_gdppc_low,cement,8000,,,,,,,GDP per capita below which splits fully converge to their global means
