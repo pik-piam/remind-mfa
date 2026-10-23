@@ -250,24 +250,24 @@ class CommonDataExporter(RemindMFABaseModel):
             pyam_df = pyam_df.append(pyam_df_prms)
 
         self._convert_iamc_units(pyam_df)
-        pyam_df.to_excel(self.export_path("iamc", f"output_iamc_raw_{suffix}.xlsx"))
+        pyam_df.to_csv(self.export_path("iamc", f"output_iamc_raw_{suffix}.csv"))
 
     def _write_riamc_flows(self, mfa: fd.MFASystem, vname_base, df_list):
         for flow in mfa.flows.values():
-            df = self._complete_and_agg(f"{vname_base}|Flows|{flow.name}", flow)
+            df = self._complete_and_agg(f"{vname_base}|flows|{flow.name}", flow)
             df["unit"] = "t/yr"
             df_list.append(df)
 
     def _write_riamc_stocks(self, mfa, vname_base, df_list):
         config = [
-            ("Inflow", lambda stock: stock.inflow, "t/yr"),
-            ("Outflow", lambda stock: stock.outflow, "t/yr"),
-            ("Stock", lambda stock: stock.stock, "t"),
+            ("inflow", lambda stock: stock.inflow, "t/yr"),
+            ("outflow", lambda stock: stock.outflow, "t/yr"),
+            ("stock", lambda stock: stock.stock, "t"),
         ]
         for stock in mfa.stocks.values():
             for name, array_func, unit in config:
                 df = self._complete_and_agg(
-                    vname_base=f"{vname_base}|Stocks|{stock.name}|{name}",
+                    vname_base=f"{vname_base}|stocks|{stock.name}|{name}",
                     array=array_func(stock),
                 )
                 df["unit"] = unit
@@ -275,13 +275,13 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def _write_riamc_trades(self, mfa, vname_base, df_list):
         config = [
-            ("Exports", lambda trade: trade.exports),
-            ("Imports", lambda trade: trade.imports),
+            ("export", lambda trade: trade.exports),
+            ("import", lambda trade: trade.imports),
         ]
         for name, trade in mfa.trade_set.markets.items():
             for direction, array_func in config:
                 df = self._complete_and_agg(
-                    vname_base=f"{vname_base}|Trade|{name}|{direction}",
+                    vname_base=f"{vname_base}|trades|{name}|{direction}",
                     array=array_func(trade),
                 )
                 df["unit"] = "t/yr"
@@ -301,7 +301,7 @@ class CommonDataExporter(RemindMFABaseModel):
             dims = mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
             param = param.cast_to(dims)
             df = self._fd_array_to_df_for_iamc(
-                f"{vname_base}|Parameters|{name}", param, split_dims="all"
+                f"{vname_base}|parameters|{name}", param, split_dims="all"
             )
             df["unit"] = unit
             df_list.append(df)
