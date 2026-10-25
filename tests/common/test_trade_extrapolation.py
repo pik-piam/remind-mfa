@@ -101,7 +101,9 @@ def test_single_region_factor_limits_global_trade_to_smaller_side():
     )
     # all imports are scaled down proportionally to match the reduced global exports
     import_ratio = reduced.imports.values[future] / baseline.imports.values[future]
-    np.testing.assert_allclose(import_ratio[:, 1:], np.repeat(import_ratio[:, [0]] / 0.5, 2, axis=1))
+    np.testing.assert_allclose(
+        import_ratio[:, 1:], np.repeat(import_ratio[:, [0]] / 0.5, 2, axis=1)
+    )
     assert np.all(import_ratio < 1.0)
     np.testing.assert_allclose(
         reduced.imports.values.sum(axis=1), reduced.exports.values.sum(axis=1)

@@ -109,9 +109,7 @@ scenario_parameters = [
         dim_letters=("r",),
         create_new=True,
         blending_function="poly_mix",
-        description=(
-            "Scaling factor on future trade, per region."
-        ),
+        description=("Scaling factor on future trade, per region."),
     ),
     ExtrapolationDefinition(
         name="lifetime_factor_nature",
