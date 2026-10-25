@@ -12,7 +12,7 @@ from remind_mfa.cement.cement_mfa_system_bottom_up import (
     extend_end_use_intensive,
 )
 from remind_mfa.common.assumptions_doc import add_assumption_doc
-from remind_mfa.common.data_blending import blend
+from remind_mfa.common.data_blending import blend, blend_regional_with_global_mean
 from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistoricalCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDisplayNames
@@ -83,7 +83,6 @@ class CementModel(CommonModel[CementCfg]):
         """Development weight per region from GDP per capita at the last historical year:
         Blends log(GDP per capita) from 1 at low GDP to 0 at high GDP, with the transition range
         defined by the scenario parameters `development_gdppc_low` and `development_gdppc_high`."""
-        # TODO this could be merged with steel's approach
         gdppc = self.parameters["gdppc"][{"t": self.dims["h"].items[-1]}]
         weight = fd.Parameter(dims=gdppc.dims, name="development_weight")
         weight[...] = blend(
@@ -96,27 +95,6 @@ class CementModel(CommonModel[CementCfg]):
             type="poly_mix",
         )
         return weight
-
-    def calculate_dynamic_mean(
-        self,
-        regional_parameter: fd.Parameter,
-        global_weights: fd.FlodymArray,
-        output_name: str,
-    ) -> fd.Parameter:
-        """Calculate a global weighted mean, then blend it with regional values.
-
-        The development weight controls the blend: a weight of one selects the
-        global weighted mean, while a weight of zero preserves the regional value.
-        """
-        global_weighted_mean = (regional_parameter * global_weights).sum_over(
-            "r"
-        ) / global_weights.sum_over("r")
-        development_blended_mean = fd.Parameter(dims=regional_parameter.dims, name=output_name)
-        development_blended_mean[...] = (
-            self.parameters["development_weight"] * global_weighted_mean
-            + (1.0 - self.parameters["development_weight"]) * regional_parameter
-        )
-        return development_blended_mean
 
     def set_structure_share(
         self,
@@ -158,15 +136,21 @@ class CementModel(CommonModel[CementCfg]):
 
         # residential type split target
         res_floorspace = floorspace[{"c": "Residential"}]
-        prm["residential_type_split_mean"] = self.calculate_dynamic_mean(
-            prm["residential_type_split"], res_floorspace, "residential_type_split_mean"
+        prm["residential_type_split_mean"] = blend_regional_with_global_mean(
+            regional_values=prm["residential_type_split"],
+            mean_weights=res_floorspace,
+            global_share=prm["development_weight"],
+            name="residential_type_split_mean",
         )
 
         # structure split target: global weighted mean without unknown structures,
         # with a floor on the timber share
         bu_floorspace = expand_common_to_bu(floorspace, prm)
-        structure_split_mean = self.calculate_dynamic_mean(
-            prm["structure_split"], bu_floorspace, "structure_split_mean"
+        structure_split_mean = blend_regional_with_global_mean(
+            regional_values=prm["structure_split"],
+            mean_weights=bu_floorspace,
+            global_share=prm["development_weight"],
+            name="structure_split_mean",
         )
         prm["structure_split_mean"] = self.set_structure_share(
             structure_split_mean, "Unspecified Structure", 0.0

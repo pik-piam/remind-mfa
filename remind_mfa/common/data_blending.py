@@ -144,6 +144,30 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
     return array
 
 
+def blend_regional_with_global_mean(
+    regional_values: fd.Parameter,
+    mean_weights: fd.FlodymArray,
+    global_share: fd.FlodymArray,
+    name: Optional[str] = None,
+) -> fd.Parameter:
+    """Blend regional values with their global weighted mean.
+
+    Args:
+        regional_values: Values per region.
+        mean_weights: Weights of the regions to calculate the global mean.
+        global_share: Value between 0 and 1 describing the extend to which the global mean is
+            reached in each region. One selects full global mean, zero preserves regional values.
+        name: Name of the resulting parameter.
+
+    Returns:
+        Parameter with the dimensions of `regional_values`.
+    """
+    global_mean = (regional_values * mean_weights).sum_over("r") / mean_weights.sum_over("r")
+    blended = fd.Parameter(dims=regional_values.dims, name=name)
+    blended[...] = global_share * global_mean + (1.0 - global_share) * regional_values
+    return blended
+
+
 DEFAULT_APPROACHING_TIME = 50
 """Default characteristic timescale in years of the critically damped blend, used for stocks,
 in-use stock inflows and trade."""
