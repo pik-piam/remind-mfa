@@ -194,7 +194,10 @@ class CementModel(CommonModel[CementCfg]):
 
         # calculate gdp-weighted global lifetime average
         lifetime_current = self.parameters["lifetime_mean"][last_historical]
-        gdp = self.parameters["gdppc"][last_historical] * self.parameters["population"][last_historical]
+        gdp = (
+            self.parameters["gdppc"][last_historical]
+            * self.parameters["population"][last_historical]
+        )
         lifetime_ref = (lifetime_current * gdp).sum_over("r") / gdp.sum_over("r")
 
         add_assumption_doc(
