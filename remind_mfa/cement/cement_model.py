@@ -18,6 +18,7 @@ from remind_mfa.cement.cement_mappings import CementDisplayNames
 from remind_mfa.cement.cement_export import CementDataExporter
 from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
+from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
 
@@ -100,6 +101,29 @@ class CementModel(CommonModel[CementCfg]):
 
         if self.cfg.model_switches.parameter_reconciliation:
             return self.run_with_reconciliation()
+
+    def make_empty_systems(self) -> dict[str, CommonMFASystem]:
+        """Build the MFA systems with empty flows and stocks, including the bottom-up system
+        if parameter reconciliation is enabled."""
+        systems = super().make_empty_systems()
+        if self.cfg.model_switches.parameter_reconciliation:
+            systems["bottom_up"] = self.make_mfa(
+                definition=self.get_definition(self.cfg, historical=False, bottom_up=True),
+                mfasystem_class=self.BottomUpMFASystemCls,
+            )
+        return systems
+
+    def computed_systems(self) -> dict[str, CommonMFASystem]:
+        """Return the computed MFA systems. With parameter reconciliation, these are the
+        reconciled ones, and `future` is the top-down system (`future_mfa` is the bottom-up one),
+        so that the names and structures match `make_empty_systems`."""
+        if not self.cfg.model_switches.parameter_reconciliation:
+            return super().computed_systems()
+        return {
+            "historical": self.td_hist_mfa_reconciled,
+            "future": self.td_mfa_reconciled,
+            "bottom_up": self.bu_mfa_reconciled,
+        }
 
     def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
         """Construct the future bottom-up MFA.

@@ -76,6 +76,28 @@ class CommonModel[CfgT: CommonCfg]:
         self.future_mfa = self.make_mfa(historical=False)
         self.future_mfa.compute(stock_projection, historical_trade)
 
+    def make_empty_systems(self) -> dict[str, CommonMFASystem]:
+        """Build the MFA systems of the model with empty flows and stocks, without computing them.
+
+        Shows the structure of the systems (dimensions, processes, flows, stocks) before `run`.
+        Building them does not change the model.
+
+        Returns:
+            The systems by name, with the same names as `computed_systems`.
+        """
+        return {
+            "historical": self.make_mfa(historical=True),
+            "future": self.make_mfa(historical=False),
+        }
+
+    def computed_systems(self) -> dict[str, CommonMFASystem]:
+        """Return the MFA systems computed by `run`.
+
+        Returns:
+            The systems by name, with the same names as `make_empty_systems`.
+        """
+        return {"historical": self.historical_mfa, "future": self.future_mfa}
+
     @property
     def name(self) -> str:
         return self.cfg.model.value

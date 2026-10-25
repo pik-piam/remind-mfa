@@ -82,3 +82,77 @@ unresolved-import = "ignore"
 redundant-condition = "ignore"
 invalid-type-form = "ignore"
 invalid-mutable-override = "ignore"
+
+# Manifest for the flodym designer, which runs the models in the browser with Pyodide.
+# It lists the files to load, as globs relative to this file (`**` is recursive),
+# and the entry point of each model (see `remind_mfa/designer.py`).
+[tool.flodym-designer]
+sys-path = ["."]
+packages = []
+files = [
+    "remind_mfa/**/*.py",
+    "config/default.toml",
+    "config/browser.toml",
+    "config/scenarios/*.csv",
+    # rev.txt and regions.txt mark the extracted input data as up to date, so no extraction is tried
+    "data_in/parameters/rev.txt",
+    "data_in/parameters/regions.txt",
+    "data_in/parameters/regionmapping.csv",
+]
+exclude = []
+
+[tool.flodym-designer.entries.steel]
+title = "Steel"
+call = "remind_mfa.designer:load"
+args = { model = "steel" }
+files = [
+    "data_in/dimensions/steel/*.csv",
+    "data_in/parameters/st_*.cs4r",
+    "data_in/legacy/input_data/st_end_use_split_gdppc_high.cs4r",
+    "data_in/legacy/input_data/st_end_use_split_gdppc_low.cs4r",
+    "data_in/legacy/input_data/st_end_use_split_medium_inco.cs4r",
+]
+
+[tool.flodym-designer.entries.cement]
+title = "Cement"
+call = "remind_mfa.designer:load"
+args = { model = "cement" }
+files = [
+    "data_in/dimensions/cement/*.csv",
+    "data_in/parameters/ce_*.cs4r",
+]
+
+[tool.flodym-designer.entries.plastics]
+title = "Plastics"
+call = "remind_mfa.designer:load"
+args = { model = "plastics" }
+# parameters are listed explicitly, since `pl_*.cs4r` would also match large unused files
+files = [
+    "data_in/dimensions/plastics/*.csv",
+    "data_in/parameters/pl_bio_production_rate.cs4r",
+    "data_in/parameters/pl_c4_input_shares.cs4r",
+    "data_in/parameters/pl_carbon_content_polymers.cs4r",
+    "data_in/parameters/pl_chemical_recycling_rate.cs4r",
+    "data_in/parameters/pl_collection_rate.cs4r",
+    "data_in/parameters/pl_daccu_production_rate.cs4r",
+    "data_in/parameters/pl_emission_capture_rate.cs4r",
+    "data_in/parameters/pl_end_use_polymer_split.cs4r",
+    "data_in/parameters/pl_gdppc.cs4r",
+    "data_in/parameters/pl_hvc_input_shares.cs4r",
+    "data_in/parameters/pl_incineration_rate.cs4r",
+    "data_in/parameters/pl_lifetime_mean.cs4r",
+    "data_in/parameters/pl_lifetime_std.cs4r",
+    "data_in/parameters/pl_manufactured_products_exports.cs4r",
+    "data_in/parameters/pl_manufactured_products_imports.cs4r",
+    "data_in/parameters/pl_mechanical_recycling_rate.cs4r",
+    "data_in/parameters/pl_mechanical_recycling_yield.cs4r",
+    "data_in/parameters/pl_polymerization_yield.cs4r",
+    "data_in/parameters/pl_population.cs4r",
+    "data_in/parameters/pl_primary_exports.cs4r",
+    "data_in/parameters/pl_primary_imports.cs4r",
+    "data_in/parameters/pl_production.cs4r",
+    "data_in/parameters/pl_reclmech_loss_uncontrolled_rate.cs4r",
+    "data_in/parameters/pl_waste_exports.cs4r",
+    "data_in/parameters/pl_waste_imports.cs4r",
+    "data_in/legacy/input_data/pl_chemical_recycling_yield.cs4r",
+]
