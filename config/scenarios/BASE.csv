@@ -7,7 +7,7 @@ saturation_level,cement,180,,,,,,,Corresponds to about 24 t cement at historical
 
 # --- Scenario defaults ---
 stock_factor,all,1.0,2100,factor,,,,,
-trade_factor,all,1.0,2040,factor,,,,,
+trade_factor,all,1.0,2040,factor,,,,,Factor on both future imports and exports of all trade markets
 lifetime_factor_nature,all,1.0,2060,factor,,,,,Lifetime of new age-cohorts is scaled by factor (nature); cement: higher scaling for lower lifetimes - lower scaling for higher lifetimes (compared to global mean)
 lifetime_factor_nurture,all,1.0,2060,factor,,,,,Lifetime of all age-cohorts is scaled by factor (nurture)
 n_trend_years,all,10,,,,,,,Number of recent historic years for the initial slope of the inflow and trade blending

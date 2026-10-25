@@ -84,3 +84,25 @@ def test_trade_factor_halves_future_trade():
     np.testing.assert_allclose(
         reduced.imports.values.sum(axis=1), reduced.exports.values.sum(axis=1)
     )
+
+
+def test_single_region_factor_limits_global_trade_to_smaller_side():
+    baseline = run_extrapolation(1.0)
+    factor = make_factor(1.0)
+    factor.values[H.len :, 0] = 0.5
+    reduced = run_extrapolation(factor)
+    future = slice(H.len, None)
+    # region A is a net exporter, so the reduced exports are the smaller side and act exactly
+    np.testing.assert_allclose(
+        reduced.exports.values[future, 0], 0.5 * baseline.exports.values[future, 0]
+    )
+    np.testing.assert_allclose(
+        reduced.exports.values[future, 1:], baseline.exports.values[future, 1:]
+    )
+    # all imports are scaled down proportionally to match the reduced global exports
+    import_ratio = reduced.imports.values[future] / baseline.imports.values[future]
+    np.testing.assert_allclose(import_ratio[:, 1:], np.repeat(import_ratio[:, [0]] / 0.5, 2, axis=1))
+    assert np.all(import_ratio < 1.0)
+    np.testing.assert_allclose(
+        reduced.imports.values.sum(axis=1), reduced.exports.values.sum(axis=1)
+    )

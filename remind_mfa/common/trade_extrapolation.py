@@ -36,8 +36,11 @@ class TradeExtrapolator(RemindMFABaseModel):
     slope of the critically damped blend of the extrapolated trade.
     """
     trade_factor: fd.FlodymArray | float = 1.0
-    """trade_factor (FlodymArray | float): Scenario factor applied to the extrapolated trade. Must
-    only contain dimensions of the future trade. Defaults to no scaling.
+    """trade_factor (FlodymArray | float): Scenario factor on the extrapolated trade. Must only
+    contain dimensions of the future trade. Defaults to no scaling.
+    The factor multiplies both import and export flows (including stopover trade) after they have
+    been extrapolated and balanced without it. See :meth:`apply_trade_factor` for how the global
+    balance is restored for factors that differ between regions.
     """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
@@ -145,7 +148,9 @@ class TradeExtrapolator(RemindMFABaseModel):
         stopover_trade = self.add_stopover()
         self.scale_second(stopover_trade)
         self.blend_transition()
-        self.balance()
+        self.future_trade.balance(to="hmean")
+        self.apply_trade_factor()
+        self.clip_excess_trade()
 
     def scale_first(self):
         # scale "first" trade flow (imports in demand-driven mode)
@@ -187,11 +192,11 @@ class TradeExtrapolator(RemindMFABaseModel):
 
         Stopover is pass-through trade, decoupled from the transit region's own domestic driver,
         so - unlike :meth:`scale_first` - it is scaled by *global* scaler growth (region-
-        independent, per end use). Stopover is further scaled with a scenario trade factor.
+        independent, per end use).
         """
         global_scaler = self.scaler_first.sum_over("r")
         global_scaler_0 = self.scaler_first_0.sum_over("r").maximum(self._eps)
-        stopover_trade = self.stopover_0 * (global_scaler / global_scaler_0) * self.trade_factor
+        stopover_trade = self.stopover_0 * (global_scaler / global_scaler_0)
         self.future_first[...] += stopover_trade
         self.future_first[self.id_hist] = self.historical_first
         return stopover_trade
@@ -244,17 +249,37 @@ class TradeExtrapolator(RemindMFABaseModel):
             ),
         )
 
-    def balance(self):
-        """We balance global imports and exports to their hmean
-        Balancing might result in a situation where imports exceed total demand or exports
+    def apply_trade_factor(self):
+        """Multiply the balanced trade flows with the scenario trade factor and restore the global
+        balance.
+
+        A factor that is uniform across regions keeps imports and exports balanced, so it acts
+        exactly. A factor that differs between regions generally leaves global imports and exports
+        unequal. Since trade requires both a buyer and a seller, the global trade is then limited
+        to the smaller of both, and all flows of the larger side are scaled down proportionally.
+        The factor is thus exact on the smaller side and an upper bound on the larger side.
+        """
+        for future_flow in (self.future_trade.imports, self.future_trade.exports):
+            future_flow[...] = future_flow * self.trade_factor
+        self.future_trade.balance(to="minimum")
+        add_assumption_doc(
+            type="model assumption",
+            name="Balancing of scenario trade factor",
+            description=(
+                "The scenario trade factor multiplies extrapolated and balanced imports and "
+                "exports. If it differs between regions, global trade is limited to the smaller "
+                "of global imports and exports, and the larger side is scaled down "
+                "proportionally across all regions."
+            ),
+        )
+
+    def clip_excess_trade(self):
+        """Balancing might result in a situation where imports exceed total demand or exports
         exceed total supply, which would lead to a negative flow on one side of the trade
         market. If this is the case, we scale down the trade flow which is too big.
         We then balance trades again, which might lead to excess trade in further regions,
         which is why we repeat the process iteratively until the excess is sufficiently small.
         """
-        self.future_trade.balance(to="hmean")
-        tolerance = self.scaler_first
-
         max_value = self.scaler_first.values.max()
         epsilon = np.finfo(self.scaler_first.values.dtype).eps
         tolerance = epsilon * max_value * 10
@@ -298,7 +323,6 @@ class TradeExtrapolator(RemindMFABaseModel):
         - for large relative increases of the scaler, global trade shares (e/p an i/d) slowly
           replace local ones, as such large changes diminish the predictive power of local
           historical trade patterns. Phase-in of global shares is governed by the alpha parameter
-        - the trade base is scaled by the scenario trade factor
         - no scaling for decreasing scaler in future_second
           Rationale:
           - if domestic demand decreases, the standing production might export more
@@ -306,9 +330,7 @@ class TradeExtrapolator(RemindMFABaseModel):
         """
         assert np.min(dom.values) >= -1e-6 * np.max(np.abs(dom.values))
         assert np.min(dom_0.values) >= -1e-6 * np.max(np.abs(dom_0.values))
-        # scale the trade base
-        # if we instead scaled the final result, the trd_0 floor would make low trades impossible.
-        trd_0 = trd_0.maximum(0) * self.trade_factor
+        trd_0 = trd_0.maximum(0)
         dom = dom.maximum(0)
         dom_0 = dom_0.maximum(1)
         dom_ratio = (dom / dom_0).maximum(1).apply(np.log) / np.log(50)
