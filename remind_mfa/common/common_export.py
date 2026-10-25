@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
 
 import flodym as fd
-import flodym.export as fde
 from pydantic import PrivateAttr
 import pandas as pd
 
@@ -91,6 +90,8 @@ class CommonDataExporter(RemindMFABaseModel):
             self._clear_recomputable_caches()
             pickle.dump(self._model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
+            import flodym.export as fde  # deferred: pulls in plotly and matplotlib
+
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)

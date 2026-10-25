@@ -1,7 +1,8 @@
 import copy
 import logging
+from functools import cached_property
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 import flodym as fd
 import numpy as np
 
@@ -11,7 +12,6 @@ from remind_mfa.common.common_definition import scenario_parameters as common_sc
 from remind_mfa.common.common_data_reader import CommonDataReader
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_export import CommonDataExporter
-from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.trade import TradeSet
@@ -19,17 +19,29 @@ from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationMana
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
+if TYPE_CHECKING:
+    from remind_mfa.common.common_visualization import CommonVisualizer
+
 
 class CommonModel[CfgT: CommonCfg]:
 
     ConfigCls = CommonCfg
     DataExporterCls = CommonDataExporter
-    VisualizerCls = CommonVisualizer
     DisplayNamesCls = CommonDisplayNames
     HistoricalMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
     custom_scn_prm_def = []
     cfg: CfgT
+
+    @classmethod
+    def visualizer_cls(cls) -> type[CommonVisualizer]:
+        """Return the visualizer class of the model. Overridden by each model.
+
+        The class is imported on demand, so plotting libraries are only loaded when visualizing.
+        """
+        from remind_mfa.common.common_visualization import CommonVisualizer
+
+        return CommonVisualizer
 
     @staticmethod
     def get_definition(cfg: CfgT, historical: bool) -> RemindMFADefinition:
@@ -52,7 +64,6 @@ class CommonModel[CfgT: CommonCfg]:
         self.select_driver_scen()
         self.modify_parameters()
         self.calculate_derived_parameters()
-        self.init_export_and_visualization()
 
     def run(self):
         logging.info("Running historical MFA system...")
@@ -84,7 +95,24 @@ class CommonModel[CfgT: CommonCfg]:
         self.data_writer.export(model=self)
 
     def visualize(self):
+        if not self.cfg.visualization.do_visualize:
+            return
         self.visualizer.visualize(model=self)
+
+    @cached_property
+    def display_names(self) -> CommonDisplayNames:
+        """Display names shared by the data exporter and the visualizer."""
+        return self.DisplayNamesCls()
+
+    @cached_property
+    def data_writer(self) -> CommonDataExporter:
+        """Data exporter of the model."""
+        return self.DataExporterCls(cfg=self.cfg.export, display_names=self.display_names)
+
+    @cached_property
+    def visualizer(self) -> CommonVisualizer:
+        """Visualizer of the model."""
+        return self.visualizer_cls()(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def set_definition(self):
         self.definition_historical = self.get_definition(self.cfg, historical=True)
@@ -171,17 +199,6 @@ class CommonModel[CfgT: CommonCfg]:
     def transfer_historical_parameters(self):
         """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
-
-    def init_export_and_visualization(self):
-        display_names = self.DisplayNamesCls()
-        self.data_writer = self.DataExporterCls(
-            cfg=self.cfg.export,
-            display_names=display_names,
-        )
-        self.visualizer = self.VisualizerCls(
-            cfg=self.cfg.visualization,
-            display_names=display_names,
-        )
 
     def make_mfa(
         self,

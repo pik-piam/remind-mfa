@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import numpy as np
 import flodym as fd
 
@@ -8,22 +10,29 @@ from remind_mfa.steel.steel_mfa_system_historical import SteelMFASystemHistorica
 from remind_mfa.steel.steel_definition import get_steel_definition
 from remind_mfa.steel.steel_config import SteelCfg
 from remind_mfa.steel.steel_mappings import SteelDisplayNames
-from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
+
+if TYPE_CHECKING:
+    from remind_mfa.steel.steel_visualization import SteelVisualizer
 
 
 class SteelModel(CommonModel[SteelCfg]):
 
     ConfigCls = SteelCfg
     DataExporterCls = SteelDataExporter
-    VisualizerCls = SteelVisualizer
     DisplayNamesCls = SteelDisplayNames
     HistoricalMFASystemCls = SteelMFASystemHistorical
     FutureMFASystemCls = SteelMFASystem
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
+
+    @classmethod
+    def visualizer_cls(cls) -> type[SteelVisualizer]:
+        from remind_mfa.steel.steel_visualization import SteelVisualizer
+
+        return SteelVisualizer
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""

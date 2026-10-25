@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from copy import deepcopy
 import numpy as np
 import flodym as fd
@@ -16,23 +16,30 @@ from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistorica
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDisplayNames
 from remind_mfa.cement.cement_export import CementDataExporter
-from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
+
+if TYPE_CHECKING:
+    from remind_mfa.cement.cement_visualization import CementVisualizer
 
 
 class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
     DataExporterCls = CementDataExporter
-    VisualizerCls = CementVisualizer
     DisplayNamesCls = CementDisplayNames
     HistoricalMFASystemCls = InflowDrivenHistoricalCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
     BottomUpMFASystemCls = StockDrivenBottomUpCementMFASystem
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
+
+    @classmethod
+    def visualizer_cls(cls) -> type[CementVisualizer]:
+        from remind_mfa.cement.cement_visualization import CementVisualizer
+
+        return CementVisualizer
 
     def modify_parameters(self):
         # construct lifetime std from mean and relative std

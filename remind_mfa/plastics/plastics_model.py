@@ -1,22 +1,25 @@
+from typing import TYPE_CHECKING
+
 import flodym as fd
 import numpy as np
 
 from .plastics_mfa_system_future import PlasticsMFASystemFuture
 from .plastics_mfa_system_historical import PlasticsMFASystemHistorical
 from .plastics_export import PlasticsDataExporter
-from .plastics_visualization import PlasticsVisualizer
 from .plastics_definition import get_plastics_definition
 from .plastics_mappings import PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_model import CommonModel
 
+if TYPE_CHECKING:
+    from .plastics_visualization import PlasticsVisualizer
+
 
 class PlasticsModel(CommonModel[PlasticsCfg]):
 
     ConfigCls = PlasticsCfg
     DataExporterCls = PlasticsDataExporter
-    VisualizerCls = PlasticsVisualizer
     DisplayNamesCls = PlasticsDisplayNames
     HistoricalMFASystemCls = PlasticsMFASystemHistorical
     FutureMFASystemCls = PlasticsMFASystemFuture
@@ -26,6 +29,12 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
     do_stock_extrapolation_with_time_factor: bool = True
     time_factor_prms = {"horizontal_shift_base": 1980, "growth_rate": 0.01}
     # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
+
+    @classmethod
+    def visualizer_cls(cls) -> type[PlasticsVisualizer]:
+        from .plastics_visualization import PlasticsVisualizer
+
+        return PlasticsVisualizer
 
     def modify_parameters(self):
         # cast lifetime mean to correct dimensions for use in common model
