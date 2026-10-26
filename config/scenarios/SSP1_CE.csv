@@ -1,9 +1,13 @@
 parameter,models,value,extra,index,description
+
+# --- All models ---
 stock_factor,all,0.8,,,
-lifetime_factor_nature,all,1.2,,,
 lifetime_factor_nurture,all,1.2,,,
+lifetime_factor_nature,all,1.2,,,
+
+# --- Cement ---
+clinker_ratio,cement,0.5,"{year: 2060, type: target}",,Clinker ratio converges to 0.5 (GCCA NZ)
+cement_ratio,cement,0.85,,,Cement content of new concrete and mortar reduced by 15%
+reuse_share,cement,0.20,,"{Construction Material: Concrete}",
 concrete_building_mi,cement,0.8,,,
 min_timber_share,cement,0.2,,,Wooden buildings reach at least 20% of floor area
-cement_ratio,cement,0.85,,,Cement content of new concrete and mortar reduced by 15%
-clinker_ratio,cement,0.5,"{year: 2060, type: target}",,Clinker ratio converges to 0.5 (GCCA NZ)
-reuse_share,cement,0.20,,"{Construction Material: Concrete}",
