@@ -72,7 +72,7 @@ def _aggregate_region_timeseries_with_map(
 
 def _load_production_df(config, region_mapping: str):
     mfa = _utils.load_future_mfa(config.material, region_mapping=region_mapping)
-    flow = (mfa.flows[config.production_flow_name].sum_to(("t", "r")) / 1e6).to_df().reset_index()
+    flow = (_utils.total_production(mfa, config) / 1e6).to_df().reset_index()
     time_col = _utils.get_column_name(flow, "Time")
     region_col = _utils.get_column_name(flow, "Region")
     value_col = _utils.get_column_name(flow, "value")

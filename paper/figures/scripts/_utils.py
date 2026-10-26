@@ -107,6 +107,14 @@ def load_future_mfa(material: str, scenario: str = "SSP2", region_mapping: str =
     return load_model(material, scenario, region_mapping).future_mfa
 
 
+def total_production(mfa, config):
+    """Total production per time and region, as defined in paper/zenodo/README.md."""
+    production = mfa.flows[config.production_flow_name].sum_to(("t", "r"))
+    for flow_name in config.additional_production_flow_names:
+        production = production + mfa.flows[flow_name].sum_to(("t", "r"))
+    return production
+
+
 def _hex_to_rgb01(color: str):
     color = color.lstrip("#")
     return tuple(int(color[i : i + 2], 16) / 255 for i in (0, 2, 4))

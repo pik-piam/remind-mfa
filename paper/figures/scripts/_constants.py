@@ -174,6 +174,8 @@ class MaterialPlotConfig:
     production_flow_name: str
     last_historical_year: int
     stock_index: str | None = None
+    # added to production_flow_name to obtain total production as defined in paper/zenodo/README.md
+    additional_production_flow_names: tuple[str, ...] = ()
     trade_imports_flow_name: str | None = None
     trade_exports_flow_name: str | None = None
     trade_demand_flow_name: str | None = None
@@ -187,6 +189,7 @@ MATERIAL_CONFIGS = {
         panel_label="a) Plastics",
         production_flow_name="polymerization => primary_market",
         last_historical_year=LAST_HISTORICAL_YEAR_PLASTICS,
+        additional_production_flow_names=("aux_recyclate_market => primary_market",),
         trade_imports_flow_name="imports => primary_market",
         trade_exports_flow_name="primary_market => exports",
         trade_demand_flow_name="primary_market => manufacturing",
