@@ -555,7 +555,9 @@ class CommonDataExporter(RemindMFABaseModel):
 
         schema_df = type(cfg).to_schema_df()
         schema_df.columns = [self.display_names[col] for col in schema_df.columns]
-        schema_df = schema_df.map(lambda cell: "" if str(cell) == "PydanticUndefined" else str(cell))
+        schema_df = schema_df.map(
+            lambda cell: "" if str(cell) == "PydanticUndefined" else str(cell)
+        )
         write_docs_file(
             self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
         )
