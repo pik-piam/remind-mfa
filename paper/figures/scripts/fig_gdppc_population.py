@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import _utils
-from _constants import CMAP_5, figure_output_path, get_material_config
+from _constants import CMAP_5, get_material_config
 
 X_RANGE = [2000, 2100]
 X_TICKS = [2000, 2050, 2100]
@@ -157,14 +157,8 @@ def _build_figure(parameter_name: str, aggregate_regions: bool) -> go.Figure:
 def main(use_h12: bool = False, show: bool = True):
     for parameter_name, plot_config in PLOT_CONFIG.items():
         fig = _build_figure(parameter_name, aggregate_regions=not use_h12)
-        output_path = figure_output_path(
-            f"{plot_config['output_prefix']}_{_utils.region_mode_suffix(use_h12)}.png"
-        )
-        fig.write_image(
-            output_path,
-            width=fig.layout.width,
-            height=fig.layout.height,
-            scale=3,
+        _utils.save_figure(
+            fig, f"{plot_config['output_prefix']}_{_utils.region_mode_suffix(use_h12)}"
         )
         if show:
             fig.show()

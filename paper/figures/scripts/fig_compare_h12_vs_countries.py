@@ -1,12 +1,16 @@
 import csv
 import math
-import pathlib
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import _utils
-from _constants import CMAP_5, MATERIAL_ORDER, figure_output_path, get_material_config
+from _constants import (
+    CMAP_5,
+    MATERIAL_ORDER,
+    REGION_MAPPING_PATH,
+    get_material_config,
+)
 
 X_RANGE = [1950, 2100]
 LINE_WIDTH_SCALE = 1.5
@@ -17,7 +21,6 @@ LEFT_COLUMN_Y_LABEL_X = -0.05
 MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 H12_COLOR = CMAP_5[1]
 ISO249_COLOR = CMAP_5[3]
-REGION_MAPPING_PATH = pathlib.Path(__file__).resolve().with_name("regionmapping.csv")
 METRICS = ("production", "pcstocks")
 METRIC_METADATA = {
     "production": {
@@ -278,25 +281,14 @@ def _build_figure(config, metric: str) -> go.Figure:
     return fig
 
 
-def _write_png(fig: go.Figure, output_path: pathlib.Path):
-    png_bytes = fig.to_image(
-        format="png",
-        width=fig.layout.width,
-        height=fig.layout.height,
-        scale=3,
-    )
-    output_path.write_bytes(png_bytes)
-
-
 def main(show: bool = True):
     for metric in METRICS:
         for material in MATERIAL_ORDER:
             config = get_material_config(material)
             fig = _build_figure(config, metric=metric)
-            output_path = figure_output_path(
-                f"{METRIC_METADATA[metric]['filename_prefix']}_{material}_h12_vs_iso249.png"
+            _utils.save_figure(
+                fig, f"{METRIC_METADATA[metric]['filename_prefix']}_{material}_h12_vs_iso249"
             )
-            _write_png(fig, output_path)
             if show:
                 fig.show()
 

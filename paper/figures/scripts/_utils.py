@@ -2,16 +2,24 @@ import pickle
 import colorsys
 import pathlib
 
+from dotenv import load_dotenv
+
 from _constants import (
     AGG_COLOR_PALETTE,
     AGG_REGIONS,
     AGG_REGION_ORDER,
     COLOR_PALETTE,
+    FIGURE_OUTPUT_DIR,
     REGION_DISPLAY_NAMES,
     REMIND_REGION_ORDER,
+    VECTOR_FIGURE_OUTPUT_DIR,
 )
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+
+# Static plotly export needs Chrome; its path (BROWSER_PATH) is set in the .env file.
+# Override, as a BROWSER_PATH set in the shell takes precedence otherwise.
+load_dotenv(REPO_ROOT / ".env", override=True)
 
 
 def get_column_name(df, target_name: str) -> str:
@@ -123,3 +131,20 @@ def cap_color_brightness(color: str, maximum_brightness: float) -> str:
 def legend_name(label: str, color: str, maximum_brightness: float) -> str:
     legend_text_color = cap_color_brightness(color, maximum_brightness)
     return f'<span style="color:{legend_text_color}">{label}</span>'
+
+
+def save_figure(fig, filename_stem: str, png_scale: float = 3):
+    """Save a plotly figure as PNG and as PDF (vector graphic for LaTeX)."""
+    output_specs = (
+        (FIGURE_OUTPUT_DIR, "png", png_scale),
+        (VECTOR_FIGURE_OUTPUT_DIR, "pdf", 1),
+    )
+    for output_dir, image_format, scale in output_specs:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        image_bytes = fig.to_image(
+            format=image_format,
+            width=fig.layout.width,
+            height=fig.layout.height,
+            scale=scale,
+        )
+        (output_dir / f"{filename_stem}.{image_format}").write_bytes(image_bytes)

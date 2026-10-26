@@ -1,11 +1,10 @@
 import csv
-import pathlib
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import _utils
-from _constants import MATERIAL_ORDER, figure_output_path, get_material_config
+from _constants import MATERIAL_ORDER, REGION_MAPPING_PATH, get_material_config
 
 LINE_WIDTH_SCALE = 1.5
 LINE_WIDTH_DEFAULT = 2 * LINE_WIDTH_SCALE
@@ -15,7 +14,6 @@ LEFT_Y_TITLE_X = 0
 LEFT_Y_TITLE_XSHIFT = -30
 MAXIMUM_LEGENDTEXT_BRIGHTNESS = 0.4
 LEGEND_FONT_SIZE = 14
-REGION_MAPPING_PATH = pathlib.Path(__file__).resolve().with_name("regionmapping.csv")
 
 
 def _load_country_to_h12_region_map() -> dict:
@@ -415,15 +413,7 @@ def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
     )
 
     country_suffix = "_countries" if mfa_regions == "iso249" else ""
-    output_path = figure_output_path(
-        f"figure_8_{_utils.region_mode_suffix(use_h12)}{country_suffix}.png"
-    )
-    fig.write_image(
-        output_path,
-        width=fig.layout.width,
-        height=fig.layout.height,
-        scale=3,
-    )
+    _utils.save_figure(fig, f"figure_8_{_utils.region_mode_suffix(use_h12)}{country_suffix}")
     if show:
         fig.show()
     return fig

@@ -1,57 +1,26 @@
-import pickle
+import argparse
 import math
-import pathlib
+
+import flodym as fd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from _constants import (
-    RUN_PLASTICS,
-    PATH_PLASTICS,
-    LAST_HISTORICAL_YEAR_PLASTICS,
-    RUN_STEEL,
-    PATH_STEEL,
-    LAST_HISTORICAL_YEAR_STEEL,
-    RUN_CEMENT,
-    PATH_CEMENT,
-    LAST_HISTORICAL_YEAR_CEMENT,
-    REGION_DISPLAY_NAMES,
-    figure_output_path,
-)
 
-MAT = "steel"
+import _utils
+from _constants import REGION_DISPLAY_NAMES, get_material_config
+
 HIDE_EXTR_LABELS = False
-# isos = list(REGION_DISPLAY_NAMES.keys())
-isos = ["JPN"]
-STEPS = [3]
+# Plot range per material: (first year, lower stock per capita, upper stock per capita)
+PLOT_LIMITS = {
+    "plastics": (1950, 0, 3.5),
+    "steel": (1950, 4, 12),
+}
 
 
-if MAT == "cement":
-    RUN_MAT = RUN_CEMENT
-    PATH_MAT = PATH_CEMENT
-    LAST_HISTORICAL_YEAR_MAT = LAST_HISTORICAL_YEAR_CEMENT
-elif MAT == "plastics":
-    RUN_MAT = RUN_PLASTICS
-    PATH_MAT = PATH_PLASTICS
-    LAST_HISTORICAL_YEAR_MAT = LAST_HISTORICAL_YEAR_PLASTICS
-    x_lower = 1950
-    y_lower = 0
-    y_upper = 3.5
-elif MAT == "steel":
-    RUN_MAT = RUN_STEEL
-    PATH_MAT = PATH_STEEL
-    LAST_HISTORICAL_YEAR_MAT = LAST_HISTORICAL_YEAR_STEEL
-    x_lower = 1950
-    y_lower = 4
-    y_upper = 12
-
-
-def _get_column_name(df, target_name: str) -> str:
-    for column in df.columns:
-        if str(column).strip().lower() == target_name.lower():
-            return column
-    raise KeyError(f"Could not find column '{target_name}' in dataframe columns {list(df.columns)}")
-
-
-for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
+def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = True):
+    if material not in PLOT_LIMITS:
+        raise ValueError(f"No plot limits defined for material '{material}'")
+    x_lower, y_lower, y_upper = PLOT_LIMITS[material]
+    last_historical_year = get_material_config(material).last_historical_year
 
     extrapolated_region = REGION_DISPLAY_NAMES[iso]
 
@@ -62,23 +31,21 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
         subplot_titles=("a) Over GDP per capita", "b) Over time"),
     )
 
-    pickle_path = PATH_MAT / f"{RUN_MAT}.pickle"
-    with pickle_path.open("rb") as file_handle:
-        model = pickle.load(file_handle)
-        mfa = model.future_mfa
+    model = _utils.load_model(material)
+    mfa = model.future_mfa
 
     stock = mfa.stocks["use"].stock.sum_to(("t", "r"))
     stock_pc = stock / mfa.parameters["population"]
     stock_pc = stock_pc[{"t": mfa.dims["h"]}].to_df().reset_index()
     gdppc_hist = mfa.parameters["gdppc"][{"t": mfa.dims["h"]}].to_df().reset_index()
 
-    time_col_stock = _get_column_name(stock_pc, "Historical Time")
-    region_col_stock = _get_column_name(stock_pc, "Region")
-    value_col_stock = _get_column_name(stock_pc, "value")
+    time_col_stock = _utils.get_column_name(stock_pc, "Historical Time")
+    region_col_stock = _utils.get_column_name(stock_pc, "Region")
+    value_col_stock = _utils.get_column_name(stock_pc, "value")
 
-    time_col_gdppc_hist = _get_column_name(gdppc_hist, "Historical Time")
-    region_col_gdppc_hist = _get_column_name(gdppc_hist, "Region")
-    value_col_gdppc_hist = _get_column_name(gdppc_hist, "value")
+    time_col_gdppc_hist = _utils.get_column_name(gdppc_hist, "Historical Time")
+    region_col_gdppc_hist = _utils.get_column_name(gdppc_hist, "Region")
+    value_col_gdppc_hist = _utils.get_column_name(gdppc_hist, "value")
 
     stock_pc = stock_pc[stock_pc[time_col_stock] >= x_lower].copy()
     gdppc_hist = gdppc_hist[gdppc_hist[time_col_gdppc_hist] >= x_lower].copy()
@@ -147,26 +114,27 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     stock_handler = model.stock_handler
     sat_level = model.end_use_specific_sat_level
 
-    if not hasattr(stock_handler, "pure_regression"):
-        raise AttributeError(
-            "The loaded pickle does not contain stock_handler.pure_regression. "
-            "Please rerun the model with the updated stock_extrapolation code and regenerate the pickle."
-        )
+    # The common regression is not stored in the model, so it is re-computed from the fitted
+    # extrapolation object.
+    pure_regression = fd.StockArray(
+        dims=stock_handler.fitted_regression.dims,
+        values=stock_handler.extrapolation.regress(),
+    )
 
     def _to_region_df(stock_pc_array):
         region_series = (stock_pc_array * sat_level).sum_to(("t", "r"))
         return region_series[{"r": extrapolated_region_code}].to_df().reset_index()
 
-    pure_df = _to_region_df(stock_handler.pure_regression)
+    pure_df = _to_region_df(pure_regression)
     fitted_df = _to_region_df(stock_handler.fitted_regression)
     smoothed_df = _to_region_df(stock_handler.stocks_pc)
     gdppc_full_df = mfa.parameters["gdppc"].to_df().reset_index()
 
-    time_col_extrap = _get_column_name(pure_df, "Time")
-    value_col_extrap = _get_column_name(pure_df, "value")
-    time_col_gdppc_full = _get_column_name(gdppc_full_df, "Time")
-    region_col_gdppc_full = _get_column_name(gdppc_full_df, "Region")
-    value_col_gdppc_full = _get_column_name(gdppc_full_df, "value")
+    time_col_extrap = _utils.get_column_name(pure_df, "Time")
+    value_col_extrap = _utils.get_column_name(pure_df, "value")
+    time_col_gdppc_full = _utils.get_column_name(gdppc_full_df, "Time")
+    region_col_gdppc_full = _utils.get_column_name(gdppc_full_df, "Region")
+    value_col_gdppc_full = _utils.get_column_name(gdppc_full_df, "value")
 
     extrapolated_region_gdppc_full_df = gdppc_full_df[
         gdppc_full_df[region_col_gdppc_full] == extrapolated_region_code
@@ -180,7 +148,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
         )
     gdppc_lower = float(gdppc_lower_row[value_col_gdppc_full].iloc[0])
     last_hist_gdppc_row = extrapolated_region_gdppc_full_df[
-        extrapolated_region_gdppc_full_df[time_col_gdppc_full] == LAST_HISTORICAL_YEAR_MAT
+        extrapolated_region_gdppc_full_df[time_col_gdppc_full] == last_historical_year
     ]
     if last_hist_gdppc_row.empty:
         raise ValueError(
@@ -193,8 +161,8 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     pure_df = pure_df[pure_df[time_col_extrap] >= x_lower].copy()
 
     # Show only future years for regional adaptation and transition smoothing.
-    fitted_df = fitted_df[fitted_df[time_col_extrap] >= LAST_HISTORICAL_YEAR_MAT].copy()
-    smoothed_df = smoothed_df[smoothed_df[time_col_extrap] >= LAST_HISTORICAL_YEAR_MAT].copy()
+    fitted_df = fitted_df[fitted_df[time_col_extrap] >= last_historical_year].copy()
+    smoothed_df = smoothed_df[smoothed_df[time_col_extrap] >= last_historical_year].copy()
 
     def _merge_extrap_with_gdppc(extrap_df):
         return extrap_df.merge(
@@ -208,7 +176,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     fitted_gdppc_df = _merge_extrap_with_gdppc(fitted_df)
     smoothed_gdppc_df = _merge_extrap_with_gdppc(smoothed_df)
 
-    if STEP >= 1:
+    if step >= 1:
         fig.add_trace(
             go.Scatter(
                 x=pure_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
@@ -237,7 +205,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
             col=1,
         )
 
-    if STEP >= 2:
+    if step >= 2:
         fig.add_trace(
             go.Scatter(
                 x=fitted_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
@@ -266,7 +234,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
             col=1,
         )
 
-    if STEP >= 3:
+    if step >= 3:
         fig.add_trace(
             go.Scatter(
                 x=smoothed_gdppc_df[f"{value_col_gdppc_full}_gdppc"],
@@ -307,8 +275,8 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
     )
     fig.add_shape(
         type="line",
-        x0=LAST_HISTORICAL_YEAR_MAT,
-        x1=LAST_HISTORICAL_YEAR_MAT,
+        x0=last_historical_year,
+        x1=last_historical_year,
         y0=y_lower,
         y1=y_upper,
         xref="x2",
@@ -403,7 +371,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
         within_group_spacing: float,
         title_to_group_spacing: float,
     ):
-        if HIDE_EXTR_LABELS or STEP == 0:
+        if HIDE_EXTR_LABELS or step == 0:
             return
 
         title_y = group_top_y + title_to_group_spacing
@@ -424,7 +392,7 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
             (2, "Step 2: Regional adaptation", "#ff7f0e"),
             (1, "Step 1: Common regression", "#1f77b4"),
         ]
-        visible_steps = [step for step in steps_in_display_order if step[0] <= STEP]
+        visible_steps = [entry for entry in steps_in_display_order if entry[0] <= step]
 
         for idx, (_, label, color) in enumerate(visible_steps):
             fig.add_annotation(
@@ -480,13 +448,17 @@ for iso, STEP in ((iso, STEP) for iso in isos for STEP in STEPS):
         template="plotly_white",
     )
 
-    # Save a high-resolution static copy while preserving on-figure relative sizing.
-    output_path = figure_output_path(f"figure_4_{MAT}_{iso}_s{STEP}.png")
-    fig.write_image(
-        output_path,
-        width=fig.layout.width,
-        height=fig.layout.height,
-        scale=3,
-    )
+    _utils.save_figure(fig, f"figure_4_{material}_{iso}_s{step}")
+    if show:
+        fig.show()
+    return fig
 
-    fig.show()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--material", choices=list(PLOT_LIMITS), default="steel")
+    parser.add_argument("--iso", choices=list(REGION_DISPLAY_NAMES), default="JPN")
+    parser.add_argument("--step", type=int, choices=[0, 1, 2, 3], default=3)
+    parser.add_argument("--no-show", action="store_true")
+    args = parser.parse_args()
+    main(material=args.material, iso=args.iso, step=args.step, show=not args.no_show)

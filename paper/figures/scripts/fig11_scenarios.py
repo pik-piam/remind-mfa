@@ -10,7 +10,6 @@ import _utils
 from _constants import (
     CMAP_5,
     SCENARIO_LABELS,
-    figure_output_path,
     get_material_config,
 )
 
@@ -259,15 +258,7 @@ def main(material: str = "cement", use_h12: bool = False, show: bool = True):
         comparison_array,
         aggregate_regions=not use_h12,
     )
-    output_path = figure_output_path(
-        f"figure_11_{config.material}_{_utils.region_mode_suffix(use_h12)}.png"
-    )
-    fig.write_image(
-        output_path,
-        width=fig.layout.width,
-        height=fig.layout.height,
-        scale=3,
-    )
+    _utils.save_figure(fig, f"figure_11_{config.material}_{_utils.region_mode_suffix(use_h12)}")
     if show:
         fig.show()
     return fig

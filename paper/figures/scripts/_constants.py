@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 FIGURE_OUTPUT_DIR = SCRIPT_DIR.parent / "png"
+VECTOR_FIGURE_OUTPUT_DIR = SCRIPT_DIR.parent / "pdf"
+REGION_MAPPING_PATH = SCRIPT_DIR.parents[2] / "data_in" / "parameters" / "regionmappingH12.csv"
 
 LAST_HISTORICAL_YEAR_CEMENT = 2023
 LAST_HISTORICAL_YEAR_PLASTICS = 2024
@@ -223,8 +225,3 @@ def get_material_config(material: str) -> MaterialPlotConfig:
     except KeyError as exc:
         valid = ", ".join(MATERIAL_CONFIGS)
         raise ValueError(f"Unknown material '{material}'. Expected one of: {valid}") from exc
-
-
-def figure_output_path(filename: str) -> pathlib.Path:
-    FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    return FIGURE_OUTPUT_DIR / filename

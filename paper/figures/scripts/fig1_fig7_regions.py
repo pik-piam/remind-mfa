@@ -1,6 +1,6 @@
 """Plot the country-to-region mapping as a discrete Plotly choropleth map.
 
-The mapping is read from ``regionmapping.csv`` in the same directory. Each ISO3
+The mapping is read from ``regionmappingH12.csv`` in ``data_in/parameters``. Each ISO3
 country code is colored according to its REMIND region code.
 """
 
@@ -11,15 +11,13 @@ import pathlib
 import pandas as pd
 import plotly.graph_objects as go
 
+import _utils
 from _constants import AGG_COLOR_PALETTE
 from _constants import AGG_REGION_ORDER
 from _constants import AGG_REGIONS
 from _constants import COLORS_REMIND
 from _constants import REGION_DISPLAY_NAMES
-from _constants import figure_output_path
-
-CSV_PATH = pathlib.Path(__file__).with_name("regionmapping.csv")
-
+from _constants import REGION_MAPPING_PATH
 
 def load_region_mapping(csv_path: pathlib.Path) -> pd.DataFrame:
     """Load the mapping CSV into a normalized dataframe."""
@@ -149,13 +147,12 @@ def build_figure(df: pd.DataFrame, aggregate_regions: bool = False) -> go.Figure
 
 
 def main(aggregate_regions: bool = True, show: bool = True) -> go.Figure:
-    """Render the map and save HTML and PNG outputs."""
+    """Render the map and save PNG and PDF outputs."""
 
-    df = load_region_mapping(CSV_PATH)
+    df = load_region_mapping(REGION_MAPPING_PATH)
     fig = build_figure(df, aggregate_regions=aggregate_regions)
     figure_number = 7 if aggregate_regions else 1
-    output_png = figure_output_path(f"figure_{figure_number}.png")
-    fig.write_image(output_png, width=600, height=300, scale=2)
+    _utils.save_figure(fig, f"figure_{figure_number}", png_scale=2)
     if show:
         fig.show()
     return fig

@@ -1,13 +1,11 @@
 import warnings
 
-from dotenv import load_dotenv
-
 from _constants import MATERIAL_ORDER, MFA_REGION_MAPPINGS
 from fig_gdppc_population import main as render_gdppc_population
-from paper.figures.scripts.fig_compare_h12_vs_countries import (
-    main as render_production_h12_vs_countries,
-)
+from fig_compare_h12_vs_countries import main as render_production_h12_vs_countries
 from fig1_fig7_regions import main as render_regions
+from fig4_stock_extrap import main as render_stock_extrapolation
+from fig5_logistic_prms import main as render_logistic_parameters
 from fig8_demand import main as render_demand
 from fig10_trade import main as render_trade
 from fig11_scenarios import main as render_scenarios
@@ -15,10 +13,12 @@ from fig11_scenarios import main as render_scenarios
 
 def main(show: bool = False):
 
-    load_dotenv()
-
     render_regions(aggregate_regions=False, show=show)
     render_regions(aggregate_regions=True, show=show)
+
+    render_stock_extrapolation(material="steel", iso="JPN", step=3, show=show)
+
+    render_logistic_parameters(show=show)
 
     for mfa_regions in MFA_REGION_MAPPINGS:
         for use_h12 in (False, True):

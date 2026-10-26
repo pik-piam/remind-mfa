@@ -11,7 +11,7 @@ import numpy as np
 import plotly.subplots
 import plotly.graph_objects as go
 
-from _constants import figure_output_path
+import _utils
 
 
 def create_logistic_parameter_plot():
@@ -113,13 +113,13 @@ def create_logistic_parameter_plot():
     return fig
 
 
-if __name__ == "__main__":
+def main(show: bool = True) -> go.Figure:
     fig = create_logistic_parameter_plot()
-    fig.show()
-    path = figure_output_path("figure_5.png")
-    fig.write_image(
-        path,
-        width=fig.layout.width,
-        height=fig.layout.height,
-        scale=2,
-    )
+    _utils.save_figure(fig, "figure_5", png_scale=2)
+    if show:
+        fig.show()
+    return fig
+
+
+if __name__ == "__main__":
+    main()

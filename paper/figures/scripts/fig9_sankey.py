@@ -16,7 +16,7 @@ from remind_mfa.steel.steel_mappings import SteelDisplayNames
 from remind_mfa.steel.steel_config import SteelVisualizationCfg
 from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.cement.cement_config import CementVisualizationCfg
-from _constants import FIGURE_OUTPUT_DIR, figure_output_path, get_material_config
+from _constants import get_material_config
 from _utils import load_future_mfa
 
 
@@ -29,14 +29,12 @@ def _exclude_processes(material: str) -> list[str]:
 
 def _base_visualization_kwargs(
     material: str,
-    figures_path: str,
     do_show_figs: bool,
     slice_dict: dict,
 ) -> dict:
     return {
-        "figures_path": figures_path,
         "do_show_figs": do_show_figs,
-        "do_save_figs": True,
+        "do_save_figs": False,
         "plotting_engine": "plotly",
         "plotly_renderer": "browser",
         "use_stock": StockVisualizationCfg(do_visualize=False),
@@ -61,7 +59,6 @@ def _build_visualizer(material: str, do_show_figs: bool):
     config = get_material_config(material)
     kwargs = _base_visualization_kwargs(
         material=config.material,
-        figures_path=str(FIGURE_OUTPUT_DIR),
         do_show_figs=do_show_figs,
         slice_dict=config.sankey_slice_dict or {"t": 2050},
     )
@@ -91,19 +88,14 @@ def _build_visualizer(material: str, do_show_figs: bool):
 
 def main(material: str = "plastics", show: bool = True):
     config = get_material_config(material)
-    FIGURE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     mfa = load_future_mfa(config.material)
-    visualizer = _build_visualizer(material, do_show_figs=show)
+    visualizer = _build_visualizer(material, do_show_figs=False)
     visualizer.visualize_sankey(mfa)
-
-    generated_path = FIGURE_OUTPUT_DIR / "sankey.png"
-    output_path = figure_output_path(f"figure_9_{config.material}.png")
-    if output_path.exists():
-        output_path.unlink()
-    if not generated_path.exists():
-        raise FileNotFoundError(f"Expected sankey output was not created: {generated_path}")
-    generated_path.rename(output_path)
-    return output_path
+    fig = visualizer.figures["sankey"]
+    # do not save, as process positions need to be manually adjusted in the browser
+    if show:
+        fig.show(renderer="browser")
+    return fig
 
 
 if __name__ == "__main__":
