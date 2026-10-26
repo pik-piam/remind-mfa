@@ -135,7 +135,7 @@ class MarketSpec:
 class DependencyPanel:
     """A market whose net imports are divided by a demand quantity.
 
-    ``demand`` is either ``"stock_inflow"`` (``in_use`` stock inflow) or
+    ``demand`` is either ``"stock_inflow"`` (``use`` stock inflow) or
     ``"flow:<flow name>"``. The good/material slice is taken from ``market``.
     """
 
@@ -271,38 +271,45 @@ STEEL_CONFIG = ModelConfig(
     show_baseline_line=True,
     color_baseline=_GREY,
     market_display={
-        "indirect": "Steel in goods",
+        "manufactured_products": "Steel in goods",
         "steel": "Intermediate steel products",
     },
     markets=[
-        MarketSpec("indirect", good="Transport"),
+        MarketSpec("manufactured_products", good="Transport"),
         MarketSpec("steel"),
     ],
     dependency_panels=[
-        DependencyPanel(MarketSpec("indirect", good="Transport"), "stock_inflow"),
-        DependencyPanel(MarketSpec("steel"), "flow:ip_market => fabrication"),
+        DependencyPanel(MarketSpec("manufactured_products", good="Transport"), "stock_inflow"),
+        DependencyPanel(MarketSpec("steel"), "flow:steel_market => manufacturing"),
     ],
     demand_panels=[
         DemandPanel("Steel in goods — Transport", "stock_inflow", good="Transport"),
-        DemandPanel("Intermediate steel products", "flow:ip_market => fabrication"),
+        DemandPanel("Intermediate steel products", "flow:steel_market => manufacturing"),
     ],
     demand_title="Steel demands",
     region_panels=[
-        DependencyPanel(MarketSpec("indirect", good="Transport"), "stock_inflow"),
-        DependencyPanel(MarketSpec("steel"), "flow:ip_market => fabrication"),
+        DependencyPanel(MarketSpec("manufactured_products", good="Transport"), "stock_inflow"),
+        DependencyPanel(MarketSpec("steel"), "flow:steel_market => manufacturing"),
     ],
     flow_plots=[
-        FlowPlot("stock_inflow", "Stock inflow", subplot_dim="Good"),
-        FlowPlot("flow:fabrication => good_market", "Good supply", subplot_dim="Good"),
-        FlowPlot("flow:ip_market => fabrication", "Steel demand", subplot_dim=None),
+        FlowPlot("stock_inflow", "Stock inflow", subplot_dim="End Use"),
+        FlowPlot(
+            "flow:manufacturing => manufactured_products_market",
+            "Good supply",
+            subplot_dim="End Use",
+        ),
+        FlowPlot("flow:steel_market => manufacturing", "Steel demand", subplot_dim=None),
     ],
     csv_flows=[
         ("stock_inflow", "stock_inflow"),
-        ("fabrication__good_market", "flow:fabrication => good_market"),
-        ("ip_market__fabrication", "flow:ip_market => fabrication"),
-        ("forming__ip_market", "flow:forming => ip_market"),
+        (
+            "manufacturing__manufactured_products_market",
+            "flow:manufacturing => manufactured_products_market",
+        ),
+        ("steel_market__manufacturing", "flow:steel_market => manufacturing"),
+        ("forming__steel_market", "flow:forming => steel_market"),
     ],
-    trade_good_filters={"indirect": "Transport"},
+    trade_good_filters={"manufactured_products": "Transport"},
 )
 
 # ── plastics config ──────────────────────────────────────────────────────────
@@ -334,52 +341,55 @@ PLASTICS_CONFIG = ModelConfig(
     color_baseline=_GREY,
     market_display={
         "primary": "Primary",
-        "final": "Final goods",
+        "manufactured_products": "Final goods",
         "waste": "Waste",
     },
     markets=[
-        MarketSpec("final", good="Packaging", material="PET"),
+        MarketSpec("manufactured_products", good="Packaging", material="PET"),
         MarketSpec("primary", material="PET"),
     ],
     dependency_panels=[
-        DependencyPanel(MarketSpec("final", good="Packaging", material="PET"), "stock_inflow"),
+        DependencyPanel(MarketSpec("manufactured_products", good="Packaging", material="PET"), "stock_inflow"),
         DependencyPanel(
-            MarketSpec("primary", material="PET"), "flow:primary_market => fabrication"
+            MarketSpec("primary", material="PET"), "flow:primary_market => manufacturing"
         ),
     ],
     demand_panels=[
         DemandPanel("PET in packaging", "stock_inflow", good="Packaging", material="PET"),
-        DemandPanel("PET in primary forms", "flow:primary_market => fabrication", material="PET"),
+        DemandPanel("PET in primary forms", "flow:primary_market => manufacturing", material="PET"),
     ],
     demand_title="PET demands",
     region_panels=[
-        DependencyPanel(MarketSpec("final", good="Packaging", material="PET"), "stock_inflow"),
+        DependencyPanel(MarketSpec("manufactured_products", good="Packaging", material="PET"), "stock_inflow"),
         DependencyPanel(
-            MarketSpec("primary", material="PET"), "flow:primary_market => fabrication"
+            MarketSpec("primary", material="PET"), "flow:primary_market => manufacturing"
         ),
     ],
     flow_plots=[
-        FlowPlot("stock_inflow", "Stock inflow — PET", material="PET", subplot_dim="Good"),
+        FlowPlot("stock_inflow", "Stock inflow — PET", material="PET", subplot_dim="End Use"),
         FlowPlot(
-            "flow:fabrication => good_market",
+            "flow:manufacturing => manufactured_products_market",
             "Good supply — PET",
             material="PET",
-            subplot_dim="Good",
+            subplot_dim="End Use",
         ),
-        FlowPlot("flow:primary_market => fabrication", "PET demand", material="PET"),
+        FlowPlot("flow:primary_market => manufacturing", "PET demand", material="PET"),
     ],
     csv_flows=[
-        ("stock_inflow", "flow:good_market => use"),
-        ("stock_outflow", "flow:use => eol"),
-        ("collected_eol", "flow:eol => collected"),
-        ("recycled_mech", "flow:collected => reclmech"),
-        ("fabrication__good_market", "flow:fabrication => good_market"),
-        ("primary_market__fabrication", "flow:primary_market => fabrication"),
+        ("stock_inflow", "stock_inflow"),
+        ("stock_outflow", "flow:use => eol_management"),
+        ("collected_eol", "flow:eol_management => sorting"),
+        ("recycled_mech", "flow:sorting => reclmech"),
+        (
+            "manufacturing__manufactured_products_market",
+            "flow:manufacturing => manufactured_products_market",
+        ),
+        ("primary_market__manufacturing", "flow:primary_market => manufacturing"),
         ("polymerization__primary_market", "flow:polymerization => primary_market"),
-        ("reclmech__primary_market", "flow:reclmech => primary_market"),
+        ("aux_recyclate_market__primary_market", "flow:aux_recyclate_market => primary_market"),
     ],
-    trade_good_filters={"final": "Packaging"},
-    trade_material_filters={"final": "PET", "primary": "PET", "waste": "PET"},
+    trade_good_filters={"manufactured_products": "Packaging"},
+    trade_material_filters={"manufactured_products": "PET", "primary": "PET", "waste": "PET"},
     trade_overlays=[
         TradeOverlay(
             market="primary",
@@ -739,7 +749,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
             run_letter = mfa.dims[RUN].letter
             run_labels = list(mfa.dims[RUN].items)
             # last historical year — marked with a dashed vertical line in every figure
-            self._last_hist_year = model.historic_mfa.dims["h"].items[-1]
+            self._last_hist_year = model.historical_mfa.dims["h"].items[-1]
 
             # 1. raw per-market trade overlay (one coloured line per run)
             self.visualize_trade(
@@ -772,7 +782,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         def _resolve(self, mfa, source: str) -> fd.FlodymArray:
             """Resolve a ``"stock_inflow"`` / ``"flow:<name>"`` source string."""
             if source == "stock_inflow":
-                return mfa.stocks["in_use"].inflow
+                return mfa.stocks["use"].inflow
             return mfa.flows[source[len("flow:") :]]
 
         def _has_source(self, mfa, source: str) -> bool:
@@ -784,14 +794,14 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         def _net_imports(self, mfa, spec: MarketSpec, run_letter) -> np.ndarray:
             """Net imports (imports − exports) for one market, shape (n_t, n_run)."""
             trade = mfa.trade_set.markets[spec.name]
-            sel = self._sel(trade.imports, {"r": cfg.region, "u": spec.good, "m": spec.material})
+            sel = self._sel(trade.imports, {"r": cfg.region, "u": spec.good, "p": spec.material})
             sel = {k: v for k, v in sel.items() if v is not None}
             return (trade.imports - trade.exports)[sel].sum_to(["t", run_letter]).values
 
         def _demand_matrix(self, mfa, source, run_letter, good=None, material=None) -> np.ndarray:
             """Summed demand series over (t, run), filtered to good/material."""
             arr = self._resolve(mfa, source)
-            sel = self._sel(arr, {"r": cfg.region, "u": good, "m": material})
+            sel = self._sel(arr, {"r": cfg.region, "u": good, "p": material})
             sel = {k: v for k, v in sel.items() if v is not None}
             return arr[sel].sum_to(["t", run_letter]).values
 
@@ -1046,8 +1056,8 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 if mkt_good is not None and "u" in imports.dims.letters:
                     imports, exports = imports[{"u": mkt_good}], exports[{"u": mkt_good}]
                 mkt_mat = (material_filters or {}).get(name)
-                if mkt_mat is not None and "m" in imports.dims.letters:
-                    imports, exports = imports[{"m": mkt_mat}], exports[{"m": mkt_mat}]
+                if mkt_mat is not None and "p" in imports.dims.letters:
+                    imports, exports = imports[{"p": mkt_mat}], exports[{"p": mkt_mat}]
 
                 linecolor_dim = (linecolor_dims or {}).get(name)
                 subplot_dim = (subplot_dims or {}).get(name)
@@ -1127,7 +1137,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 if not self._has_source(mfa, spec.source):
                     continue
                 arr = self._resolve(mfa, spec.source)
-                sel = self._sel(arr, {"m": spec.material, "u": spec.good})
+                sel = self._sel(arr, {"p": spec.material, "u": spec.good})
                 sel = {k: v for k, v in sel.items() if v is not None}
                 self.visualize_flow(
                     mfa,
@@ -1316,7 +1326,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
         # ── gross trade ──────────────────────────────────────────────────────
         def _gross_matrices(self, mfa, spec: MarketSpec, run_letter):
             trade = mfa.trade_set.markets[spec.name]
-            sel = self._sel(trade.imports, {"r": cfg.region, "u": spec.good, "m": spec.material})
+            sel = self._sel(trade.imports, {"r": cfg.region, "u": spec.good, "p": spec.material})
             sel = {k: v for k, v in sel.items() if v is not None}
             return (
                 trade.imports[sel].sum_to(["t", run_letter]).values,
@@ -1620,7 +1630,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 spec = dp.market
                 trade = mfa.trade_set.markets[spec.name]
                 sel = self._sel(
-                    trade.imports, {run_letter: baseline_label, "u": spec.good, "m": spec.material}
+                    trade.imports, {run_letter: baseline_label, "u": spec.good, "p": spec.material}
                 )
                 sel = {k: v for k, v in sel.items() if v is not None}
                 imp = trade.imports[sel].sum_to(["t", "r"]).values / 1e6
@@ -1685,7 +1695,7 @@ def make_comparison_visualizer(cfg: ModelConfig, run_dim_name: str):
                 if not self._has_source(mfa, dp.demand):
                     continue
                 spec = dp.market
-                base_sel = {run_letter: baseline_label, "u": spec.good, "m": spec.material}
+                base_sel = {run_letter: baseline_label, "u": spec.good, "p": spec.material}
 
                 demand_arr = self._resolve(mfa, dp.demand)
                 demand = (
@@ -1788,7 +1798,7 @@ def export_flows_csv(models, labels, cfg: ModelConfig, directory: pathlib.Path, 
 
     def resolve(mfa, source):
         if source == "stock_inflow":
-            return mfa.stocks["in_use"].inflow
+            return mfa.stocks["use"].inflow
         return mfa.flows[source[len("flow:") :]]
 
     for model, label in zip(models, labels):
