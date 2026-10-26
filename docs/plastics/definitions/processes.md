@@ -10,13 +10,13 @@
 | Polymerization                     |
 | Primary market                     |
 | Manufacturing                      |
-| Manufactured Products Market       |
-| Use Phase                          |
-| End-of-Life Management             |
+| Manufactured products market       |
+| Use phase                          |
+| End-of-life management             |
 | Reuse                              |
-| Waste Market                       |
-| Mechanical Recycling               |
-| Chemical Recycling                 |
+| Waste market                       |
+| Mechanical recycling               |
+| Chemical recycling                 |
 | Incineration                       |
 | Landfilled                         |
 | Sorting                            |
@@ -27,7 +27,7 @@
 | Atmosphere                         |
 | Other reactants                    |
 | Losses                             |
-| Auxiliary Recyclate Trade          |
-| Auxiliary Recycled Feedstock Trade |
+| Auxiliary recyclate trade          |
+| Auxiliary recycled feedstock trade |
 | Imports                            |
 | Exports                            |
