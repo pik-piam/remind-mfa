@@ -1,0 +1,9 @@
+# Headless HPC override layer — stack on top of `default`.
+# Never open an interactive browser; export static PNGs via kaleido + the
+# container's chrome-headless-shell (BROWSER_PATH, piam-apptainer >= 2.6.1).
+# Usage: uv run remind_mfa --config default --config hpc --model <model>
+
+[base]
+    [base.visualization]
+        do_show_figs = false
+        do_save_figs = true
