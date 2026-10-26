@@ -1,110 +1,112 @@
-# What do we share?
+# REMIND-MFA scenario data
 
-Scenario results for prospective material demands and flows computed with REMIND-MFA
+Scenario results for prospective material demands and flows computed with [REMIND-MFA](https://github.com/pik-piam/remind-mfa).
 
 ## Which format?
 
-- IAMC format: Excel file with years as columns; regions disaggregated, other dimensions contained in variable name (see below)
-- Model and scenario are always the same in this case
+The data is provided in the IAMC format, i.e. as CSV files (which can be loaded into Excel) with years as columns.
+Regions are disaggregated, while all other dimensions are contained in the variable name (see below).
+The model and scenario columns contain the same value in all rows.
 
 ## Which scenarios?
 
-- SSP2 Current Policies (NPi - National Policies implemented) scenario
+We share the SSP2 Current Policies scenario (NPi - National Policies implemented).
 
 ## Which regions?
 
-- Global scope, computed and shared in two regional aggregations:
-  - REMIND 12-region aggregation (definition and three-letter codes see paper SM XXX)
-  - Country-resolution (249 countries with ISO 3166 codes)
+The scope is global. Results are computed and shared in two regional aggregations:
+  - the REMIND 12-region aggregation (the definition and three-letter codes are given in the file `mapping_remind12region.csv`), and
+  - a country resolution (249 countries with ISO 3166 codes).
 
 Note that these two datasets are from different model runs.
-In particular, the stock extrapolation is different: The stock is regressed to historical regional data and subsequently adapted to each single regions, so different aggregations will yield different results.
+In particular, the stock extrapolation is different: The stock is regressed to historical regional data and subsequently adapted to each single region, so different aggregations will yield different results.
 
-CAVEAT on the country-resolution dataset: Any MFA is only as good as its data. Especially for small regions, production and/or trade data are often unavailable or inaccurate, so they are reconstructed from more aggregated data sets. We advise to treat the country-resolution dataset with caution, but users can perform their own regional aggregations on it.
+**CAVEAT** on the country-resolution dataset: Any MFA is only as good as its data. Especially for small regions, production and/or trade data are often unavailable or inaccurate, so they are reconstructed from more aggregated data sets. We advise to treat the country-resolution dataset with caution. We recommend to perform regional aggregation to regions fitting users' needs. As an alternative, users can also use the 12-region data set and disaggregate/re-aggregate it with their own method.
 The data quality is also different across materials:
-Trade da is available for most single countries for all materials.
-Production data is available for 96 countries/regions for steel, 256 countries/regions for cement, but only 8 countries/regions for plastics, indicating potential inaccuracies especially for the plastics MFA. Regional aggregations should be performed to average out possible single-country errors.
+Trade data is available for most single countries for all materials.
+Production data is available for 96 countries/regions for steel, 256 countries/regions for cement, but only 8 countries/regions for plastics, indicating potential inaccuracies especially for the plastics MFA. Regional aggregation is recommended  to average out possible single-country errors.
 
 The data is available in the region set it was computed with.
-A global aggregation (Region "World") is also available for all flows, stocks, and trades, but not parameters (since they can't generally be simply summed to get the global values)
+A global aggregation (region "World") is also available for all flows, stocks, and trades, but not for parameters, since these generally cannot simply be summed to obtain global values.
 
 ## Which years?
 
-- Temporal scope: 2025-2100 with annual resolution
-  - Reason: Historical data partly builds on proprietary data, and we can't rule out directly sharing these data points.
+The temporal scope is 2025-2100 with annual resolution.
+The historical years are not included, because the historical data partly builds on proprietary data, which we cannot share directly.
 
-## Which Variables?
+## Which variables?
 
-- All flows, stocks, trades, and parameters of the prospective MFA
-  - This means the historical MFA and some auxiliary variables (e.g. from the stock extrapolation procedure) are not shared.
-- We provide a complete and an aggregated version:
+We share all flows, stocks, trades, and parameters of the prospective MFA.
+This means that the historical MFA and some auxiliary variables (e.g. from the stock extrapolation procedure) are not shared.
+We provide a complete and a reduced version of the dataset, which are described below.
 
 ### Variable naming convention for the complete dataset:
 
 The complete dataset contains the following variables:
 
 ```
-<material>|Flows|<flow name>
-<material>|Flows|<flow name>|<sub-dims>
+<material>|flows|<flow name>
+<material>|flows|<flow name>|<sub-dims>
 
-<material>|Stocks|<stock name>|Stock
-<material>|Stocks|<stock name>|Stock|<sub-dims>
-<material>|Stocks|<stock name>|Inflow
-<material>|Stocks|<stock name>|Inflow|<sub-dims>
-<material>|Stocks|<stock name>|Outflow
-<material>|Stocks|<stock name>|Outflow|<sub-dims>
+<material>|stocks|<stock name>|stock
+<material>|stocks|<stock name>|stock|<sub-dims>
+<material>|stocks|<stock name>|inflow
+<material>|stocks|<stock name>|inflow|<sub-dims>
+<material>|stocks|<stock name>|outflow
+<material>|stocks|<stock name>|outflow|<sub-dims>
 
-<material>|Trades|<trade name>|Imports
-<material>|Trades|<trade name>|Imports|<sub-dims>
-<material>|Trades|<trade name>|Exports
-<material>|Trades|<trade name>|Exports|<sub-dims>
+<material>|trades|<trade name>|imports
+<material>|trades|<trade name>|imports|<sub-dims>
+<material>|trades|<trade name>|exports
+<material>|trades|<trade name>|exports|<sub-dims>
 
-<material>|Paramaters|<parameter name>|<sub-dims>
+<material>|parameters|<parameter name>|<sub-dims>
 ```
 
 Notes:
-- Flows are named as "<from_process> => <to_process>"
-- <sub-dims> refers to dimensions in the variables apart from region and time (such as end-use).
-  If variables contain such additional dimensions, they're given once fully disaggregated, and once aggregated along all non-region-non-time dimensions.
-- Paramaters are not aggregated
+- Flows are named as `"<from_process> => <to_process>"`.
+- `<sub-dims>` refers to the dimensions of a variable apart from region and time (such as end-use).
+  If variables contain such additional dimensions, they are given once fully disaggregated and once aggregated along all dimensions except region and time.
+- Parameters are not aggregated.
 
 ### Variables contained in the reduced dataset:
 
-The reduced dataset contains the following variables.
+The reduced dataset contains the following variables:
 
 ```
-<material>|Flows|<flow name>
-<material>|Stocks|<stock name>|Stock
-<material>|Stocks|<stock name>|Inflow
-<material>|Stocks|<stock name>|Outflow
-<material>|Trades|<trade name>|Imports
-<material>|Trades|<trade name>|Exports
+<material>|flows|<flow name>
+<material>|stocks|<stock name>|stock
+<material>|stocks|<stock name>|inflow
+<material>|stocks|<stock name>|outflow
+<material>|trades|<trade name>|imports
+<material>|trades|<trade name>|exports
 ```
 
 Notes:
-- Flows, Stocks, and Trades are given, disaggregated only by region and time.
-- All these values are also contained in the complete dataset - but a reduced version can be more practical, e.g. if searching for a variable name.
+- Flows, stocks, and trades are given disaggregated only by region and time.
+- Parameters are not given, as they mostly only have meaning when disaggregated.
+- All these values are also contained in the complete dataset, but the reduced version can be more practical, e.g. when searching for a variable name.
 
 ### Variables of special interest
 
-- Total material consumption contained in end-use products can be found under <!-- TODO: stock name -->
+- Total material consumption contained in end-use products can be found under
   ```
-  <material>|Stocks|use|Inflow
+  <material>|stocks|use|inflow
   ```
   for all materials.
 
 - Total material production can be found under different flows for different materials:
-  - plastics:
+  - For plastics, it is the sum of the two flows
     ```
     plastics|flows|polymerization => primary_market
     +
     plastics|flows|aux_recyclate_market => primary_market
     ```
-  - steel:
+  - For steel, it is the flow
     ```
     steel|flows|forming => steel_market
     ```
-  - cement:
+  - For cement, it is the flow
     ```
     cement|flows|cement_production => cement_market
     ```

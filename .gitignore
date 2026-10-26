@@ -21,3 +21,4 @@ config/*.toml
 !config/ci.toml
 !config/mrindustry.toml
 notebooks/__marimo__/session/*
+paper/zenodo/*.csv

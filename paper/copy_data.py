@@ -19,9 +19,9 @@ DETAILS = {
 }
 MATERIALS = ["plastics", "steel", "cement"]
 
-INPUT_BASE_DIR = Path(__file__).parents[2] / "data_out" / "paper"
+INPUT_BASE_DIR = Path(__file__).parents[1] / "data_out" / "paper"
 
-OUTPUT_DIR = Path(__file__).parent
+OUTPUT_DIR = Path(__file__).parent / "zenodo"
 
 
 def get_source_path(material, regi_source, detail_source):
