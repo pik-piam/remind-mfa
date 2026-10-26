@@ -349,7 +349,9 @@ PLASTICS_CONFIG = ModelConfig(
         MarketSpec("primary", material="PET"),
     ],
     dependency_panels=[
-        DependencyPanel(MarketSpec("manufactured_products", good="Packaging", material="PET"), "stock_inflow"),
+        DependencyPanel(
+            MarketSpec("manufactured_products", good="Packaging", material="PET"), "stock_inflow"
+        ),
         DependencyPanel(
             MarketSpec("primary", material="PET"), "flow:primary_market => manufacturing"
         ),
@@ -360,7 +362,9 @@ PLASTICS_CONFIG = ModelConfig(
     ],
     demand_title="PET demands",
     region_panels=[
-        DependencyPanel(MarketSpec("manufactured_products", good="Packaging", material="PET"), "stock_inflow"),
+        DependencyPanel(
+            MarketSpec("manufactured_products", good="Packaging", material="PET"), "stock_inflow"
+        ),
         DependencyPanel(
             MarketSpec("primary", material="PET"), "flow:primary_market => manufacturing"
         ),
