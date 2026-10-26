@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 import plotly.colors as plc
 import plotly.io as pio
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from pydantic import model_validator, PrivateAttr
 import flodym as fd
 import flodym.export as fde
@@ -29,6 +29,15 @@ class CommonVisualizer(RemindMFABaseModel):
     display_names: CommonDisplayNames
 
     _model: Optional["CommonModel"] = PrivateAttr(default=None)
+    _figures: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    @property
+    def figures(self) -> dict[str, Any]:
+        """Figures produced so far, keyed by their file base name.
+
+        Filled by every plotting call whether or not figures are shown or saved.
+        """
+        return self._figures
 
     @model_validator(mode="after")
     def set_plotly_renderer(self):
@@ -77,6 +86,7 @@ class CommonVisualizer(RemindMFABaseModel):
         pass
 
     def _show_and_save_plotly(self, fig: go.Figure, base_name: str):
+        self._figures[base_name] = fig
         if self.cfg.do_save_figs:
             fig.write_image(self.figure_path(base_name))
         if self.cfg.do_save_figs_html:
@@ -132,6 +142,7 @@ class CommonVisualizer(RemindMFABaseModel):
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
             plotter.plot()
+        self._figures[base_name] = plotter.fig
         if self.cfg.do_show_figs:
             plotter.show()
         if self.cfg.do_save_figs:
@@ -646,7 +657,8 @@ class CommonVisualizer(RemindMFABaseModel):
             gdppc = gdppc * mfa.parameters["population"]
         if change:
             gdppc = gdppc.apply(np.diff, kwargs={"axis": 0, "prepend": 0})
-            gdppc[1900] = gdppc[1901]
+            first_year, second_year = gdppc.dims["t"].items[:2]
+            gdppc[first_year] = gdppc[second_year]
         ap = self.plotter_class(
             array=gdppc,
             intra_line_dim="Time",

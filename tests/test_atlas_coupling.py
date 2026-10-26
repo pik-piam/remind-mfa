@@ -77,7 +77,7 @@ def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(tmp_
     parameters_path = tmp_path / "data_in" / "parameters"
     parameters_path.mkdir(parents=True)
     (parameters_path / "pl_primary_imports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
+        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
         "2023,EUR,Plastics,LDPE,100\n"
         "2024,EUR,Plastics,HDPE,3\n"
         "2024,EUR,Plastics,LDPE,1\n"
@@ -85,7 +85,7 @@ def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(tmp_
         encoding="utf-8",
     )
     (parameters_path / "pl_primary_exports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
+        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
         "2024,EUR,Plastics,HDPE,1\n"
         "2024,CAN,Plastics,LDPE,3\n",
         encoding="utf-8",
@@ -205,13 +205,13 @@ def test_copy_trade_writes_cs4r_files_for_plastics(tmp_path, monkeypatch):
     parameters_path = tmp_path / "data_in" / "parameters"
     parameters_path.mkdir(parents=True)
     (parameters_path / "pl_primary_imports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
+        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
         "2024,A,Plastics,LDPE,1\n"
         "2024,B,Plastics,LDPE,1\n",
         encoding="utf-8",
     )
     (parameters_path / "pl_primary_exports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
+        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
         "2024,A,Plastics,LDPE,1\n"
         "2024,B,Plastics,LDPE,1\n",
         encoding="utf-8",
@@ -239,12 +239,12 @@ def test_copy_trade_writes_cs4r_files_for_plastics(tmp_path, monkeypatch):
     )
 
     assert imports_path.read_text(encoding="utf-8") == (
-        "* note: dimensions: (Time,Region,Material,value)\n"
+        "* note: dimensions: (Time,Region,Polymer,value)\n"
         "2025,A,LDPE,3.0\n2026,A,LDPE,3.0\n"
         "2025,B,LDPE,2.0\n2026,B,LDPE,2.0\n"
     )
     assert exports_path.read_text(encoding="utf-8") == (
-        "* note: dimensions: (Time,Region,Material,value)\n"
+        "* note: dimensions: (Time,Region,Polymer,value)\n"
         "2025,A,LDPE,2.0\n2026,A,LDPE,2.0\n"
         "2025,B,LDPE,3.0\n2026,B,LDPE,3.0\n"
     )

@@ -1,6 +1,7 @@
 import flodym as fd
 
 from remind_mfa.common.common_definition import (
+    ExtrapolationDefinition,
     RemindMFADefinition,
     RemindMFAParameterDefinition,
     trade_parameters_read_from_data,
@@ -39,9 +40,11 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             "manufacturing",
             "manufactured_products_market",
             "use",
-            "obsolete",
+            "hibernating",
+            "eol_management",
+            "reuse",
+            "eol_waste",
             "scrap_market",
-            "recycling",
             "scrap_pool",
             "excess_scrap",
             "imports",
@@ -86,12 +89,15 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             fd.FlowDefinition(from_process="manufactured_products_market", to_process="exports", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="imports", to_process="manufactured_products_market", dim_letters=("t", "r", "u")),
             fd.FlowDefinition(from_process="manufactured_products_market", to_process="use", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="use", to_process="obsolete", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="use", to_process="scrap_market", dim_letters=("t", "r", "u")),
-            fd.FlowDefinition(from_process="scrap_market", to_process="recycling", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="use", to_process="hibernating", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="use", to_process="eol_management", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="eol_management", to_process="reuse", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="eol_management", to_process="scrap_market", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="eol_management", to_process="eol_waste", dim_letters=("t", "r", "u")),
+            fd.FlowDefinition(from_process="scrap_market", to_process="scrap_pool", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="scrap_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="scrap_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="recycling", to_process="scrap_pool", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="scrap_pool", to_process="excess_scrap", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
@@ -112,18 +118,23 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             ),
         ]
     else:
-        use_stock_class = fd.StockDrivenDSM
         stocks = [
             fd.StockDefinition(
                 name="use",
                 process="use",
                 dim_letters=("t", "r", "u"),
-                subclass=use_stock_class,
+                subclass=fd.InflowDrivenDSM,
                 lifetime_model_class=cfg.model_switches.lifetime_model,
             ),
             fd.StockDefinition(
-                name="obsolete",
-                process="obsolete",
+                name="hibernating",
+                process="hibernating",
+                dim_letters=("t", "r", "u"),
+                subclass=fd.SimpleFlowDrivenStock,
+            ),
+            fd.StockDefinition(
+                name="eol_waste",
+                process="eol_waste",
                 dim_letters=("t", "r", "u"),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
@@ -188,10 +199,6 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
         RemindMFAParameterDefinition(
             name="forming_loss_rate", dim_letters=(),
             description="Loss rate in forming process. Contrary to (1-forming_yield), this material is completely lost and not recycled as home scrap"
-        ),
-        RemindMFAParameterDefinition(
-            name="manufacturing_losses", dim_letters=(),
-            description="Loss rate during manufacturing of final products. Contrary to (1-manufacturing_yield), this material is completely lost and not recycled as new scrap",
         ),
         RemindMFAParameterDefinition(
             name="steel_production_loss_rate", dim_letters=(),
@@ -282,4 +289,15 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
     )
 
 
-scenario_parameters = []
+scenario_parameters = [
+    RemindMFAParameterDefinition(
+        name="max_scrap_share",
+        dim_letters=("r",),
+        description="Maximum share of scrap in the metallic input to steel production",
+    ),
+    ExtrapolationDefinition(
+        name="reuse_share",
+        dim_letters=("r", "u"),
+        create_new=True,
+    ),
+]

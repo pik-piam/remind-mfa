@@ -23,7 +23,7 @@ from typing import Annotated
 import typer
 from dotenv import load_dotenv
 
-from remind_mfa.cli.helper import prompt_for_config_names
+from remind_mfa.cli.helpers import prompt_for_config_names
 from remind_mfa.common.common_config import InputCfg
 from remind_mfa.common.common_data_reader import CommonDataReader
 from remind_mfa.common.config_loader import load_config

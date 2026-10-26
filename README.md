@@ -30,10 +30,22 @@ python -m pip install .
 
 ## Run
 
-To run a model, run
+The basic model run command is
 
 ```shell
-uv run run_remind_mfa.py --config default --model steel
+uv run remind_mfa [options]
+```
+
+or, without `uv`,
+
+```shell
+python -m remind_mfa [options]
+```
+
+For an example model execution, run
+
+```shell
+uv run remind_mfa --config default --model steel
 ```
 
 from the main directory. Configuration names resolve to TOML files below `config`, so
@@ -41,12 +53,12 @@ from the main directory. Configuration names resolve to TOML files below `config
 order, with later files overriding earlier files:
 
 ```shell
-python run_remind_mfa.py --config default --config local --model all
+uv run remind_mfa --config default --config local --model all
 ```
 See the
 [configuration documentation](docs/config.md) for the file layout and merge rules.
 
-You can also simply run `python run_remind_mfa.py` without arguments, in which case you will be prompted to select a configuration and a material.
+You can also simply run `remind_mfa` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
 
@@ -68,7 +80,7 @@ Alternatively, you can also use `uv run scripts/fetch_from_hpc.py mrmfa-sources 
 The auto-generated documentation markdown files are updated automatically in each pull request.
 To update them locally, run
 ```
-uv run remind_mfa.py --config default --config update_docs --model all
+uv run remind_mfa --config default --config update_docs --model all
 ```
 
 

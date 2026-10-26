@@ -58,7 +58,7 @@ Note: `future` and `couple` accept a few options to control the ATLAS variant, C
 
 A few more details on the coupling:
 
-1. `uv run remind_mfa.py --config default --config atlas_run1 --model steel` writes the material
+1. `uv run remind-mfa --config default --config atlas_run1 --model steel` writes the material
    demand of the traded product to `<export.path>/atlas/` (`steel_demand.csv` per region and year,
    `plastics_demand.csv` additionally per type and material). Trade is extrapolated in this run.
 2. ATLAS is run on that demand, and its trade output is converted to the input data format of
@@ -73,7 +73,7 @@ A few more details on the coupling:
     `* note: dimensions: (Time,Region,value)` for steel and
     `* note: dimensions: (Time,Region,Type,Material,value)` for plastics.
 
-3. `uv run remind_mfa.py --config default --config atlas_run2 --model steel` reads those files
+3. `uv run remind-mfa --config default --config atlas_run2 --model steel` reads those files
    instead of extrapolating trade (`trade.source = "data"`). Historic years still use the trade of
    the historic MFA, so only future years come from ATLAS. Global imports and exports of the data
    are balanced (`trade.balance`).

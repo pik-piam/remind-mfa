@@ -315,8 +315,8 @@ def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
             "year": "Time",
             "region": "Region",
             "quantity": "value",
-            "type": "Type",
-            "material": "Material",
+            "type": "Polymer Type",
+            "material": "Polymer",
         }
     )
     dimensions = ",".join(result.columns)
