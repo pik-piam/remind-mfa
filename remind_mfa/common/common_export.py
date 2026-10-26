@@ -509,8 +509,7 @@ class CommonDataExporter(RemindMFABaseModel):
                 cell = ", ".join(cell)
             elif cell is None:
                 cell = ""
-            cell = self.display_names[str(cell)]
-            return cell.replace("<br>", " ")
+            return str(cell)
 
         for name, df in dfs.items():
             df.columns = [self.display_names[col] for col in df.columns]
@@ -555,7 +554,8 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         schema_df = type(cfg).to_schema_df()
-        schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
+        schema_df.columns = [self.display_names[col] for col in schema_df.columns]
+        schema_df = schema_df.map(lambda cell: "" if str(cell) == "PydanticUndefined" else str(cell))
         write_docs_file(
             self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
         )

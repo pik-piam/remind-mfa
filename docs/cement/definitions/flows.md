@@ -1,23 +1,23 @@
-| Dimensions    | Origin Process         | Destination Process    |
-|:--------------|:-----------------------|:-----------------------|
-| t, r          | System environment     | Production: Clinker    |
-| t, r          | Production: Clinker    | Market: Clinker        |
-| t, r          | Production: Clinker    | System environment     |
-| t, r          | Market: Clinker        | exports                |
-| t, r          | imports                | Market: Clinker        |
-| t, r          | Market: Clinker        | Production: Cement     |
-| t, r          | System environment     | Production: Cement     |
-| t, r          | Production: Cement     | Market: Cement         |
-| t, r          | Market: Cement         | exports                |
-| t, r          | imports                | Market: Cement         |
-| t, r          | Market: Cement         | System environment     |
-| t, r, u, m    | Market: Cement         | Construction           |
-| t, r, u, m    | System environment     | Construction           |
-| t, r, u, m, k | Construction           | Use phase              |
-| t, r, u, m, k | Use phase              | Hibernating stock      |
-| t, r, u, m, k | Use phase              | End-of-Life Management |
-| t, r, u, m, k | End-of-Life Management | Reuse                  |
-| t, r, u, m, k | Reuse                  | Use phase              |
-| t, r, u, m, k | End-of-Life Management | End-of-Life Waste      |
-| t, r          | exports                | System environment     |
-| t, r          | System environment     | imports                |
+| Dimensions    | Origin Process     | Destination Process   |
+|:--------------|:-------------------|:----------------------|
+| t, r          | sysenv             | clinker_production    |
+| t, r          | clinker_production | clinker_market        |
+| t, r          | clinker_production | sysenv                |
+| t, r          | clinker_market     | exports               |
+| t, r          | imports            | clinker_market        |
+| t, r          | clinker_market     | cement_production     |
+| t, r          | sysenv             | cement_production     |
+| t, r          | cement_production  | cement_market         |
+| t, r          | cement_market      | exports               |
+| t, r          | imports            | cement_market         |
+| t, r          | cement_market      | sysenv                |
+| t, r, u, m    | cement_market      | construction          |
+| t, r, u, m    | sysenv             | construction          |
+| t, r, u, m, k | construction       | use                   |
+| t, r, u, m, k | use                | hibernating           |
+| t, r, u, m, k | use                | eol_management        |
+| t, r, u, m, k | eol_management     | reuse                 |
+| t, r, u, m, k | reuse              | use                   |
+| t, r, u, m, k | eol_management     | eol_waste             |
+| t, r          | exports            | sysenv                |
+| t, r          | sysenv             | imports               |

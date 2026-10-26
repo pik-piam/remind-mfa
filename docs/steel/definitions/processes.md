@@ -1,21 +1,21 @@
-| Name                        |
-|:----------------------------|
-| System environment          |
-| Production from Ores        |
-| Production from Scrap       |
-| Forming                     |
-| Steel Market                |
-| Manufacturing               |
-| Manufactured Product Market |
-| Use Phase                   |
-| Hibernating stocks          |
-| End-of-Life Management      |
-| Reuse                       |
-| End-of-Life Waste           |
-| Old Scrap Market            |
-| Scrap Pool                  |
-| Excess Scrap                |
-| Imports                     |
-| Exports                     |
-| Losses                      |
-| Ore Extraction              |
+| Name                         |
+|:-----------------------------|
+| sysenv                       |
+| steel_production_ore_based   |
+| steel_production_scrap_based |
+| forming                      |
+| steel_market                 |
+| manufacturing                |
+| manufactured_products_market |
+| use                          |
+| hibernating                  |
+| eol_management               |
+| reuse                        |
+| eol_waste                    |
+| scrap_market                 |
+| scrap_pool                   |
+| excess_scrap                 |
+| imports                      |
+| exports                      |
+| losses                       |
+| extraction                   |

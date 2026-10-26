@@ -1,34 +1,34 @@
-| Dimensions   | Origin Process              | Destination Process         |
-|:-------------|:----------------------------|:----------------------------|
-| t, r         | Ore Extraction              | Production from Ores        |
-| t, r         | Production from Ores        | Forming                     |
-| t, r         | Production from Ores        | Losses                      |
-| t, r         | Scrap Pool                  | Production from Scrap       |
-| t, r         | Production from Scrap       | Forming                     |
-| t, r         | Production from Scrap       | Losses                      |
-| t, r         | Forming                     | Steel Market                |
-| t, r         | Forming                     | Scrap Pool                  |
-| t, r         | Forming                     | Losses                      |
-| t, r         | Manufacturing               | Losses                      |
-| t, r         | Steel Market                | Manufacturing               |
-| t, r         | Steel Market                | Exports                     |
-| t, r         | Imports                     | Steel Market                |
-| t, r, u      | Manufacturing               | Manufactured Product Market |
-| t, r         | Manufacturing               | Scrap Pool                  |
-| t, r, u      | Manufactured Product Market | Exports                     |
-| t, r, u      | Imports                     | Manufactured Product Market |
-| t, r, u      | Manufactured Product Market | Use Phase                   |
-| t, r, u      | Use Phase                   | Hibernating stocks          |
-| t, r, u      | Use Phase                   | End-of-Life Management      |
-| t, r, u      | End-of-Life Management      | Reuse                       |
-| t, r, u      | Reuse                       | Use Phase                   |
-| t, r, u      | End-of-Life Management      | Old Scrap Market            |
-| t, r, u      | End-of-Life Management      | End-of-Life Waste           |
-| t, r         | Old Scrap Market            | Scrap Pool                  |
-| t, r         | Old Scrap Market            | Exports                     |
-| t, r         | Imports                     | Old Scrap Market            |
-| t, r         | Scrap Pool                  | Excess Scrap                |
-| t, r         | Exports                     | System environment          |
-| t, r         | System environment          | Imports                     |
-| t, r         | Losses                      | System environment          |
-| t, r         | System environment          | Ore Extraction              |
+| Dimensions   | Origin Process               | Destination Process          |
+|:-------------|:-----------------------------|:-----------------------------|
+| t, r         | extraction                   | steel_production_ore_based   |
+| t, r         | steel_production_ore_based   | forming                      |
+| t, r         | steel_production_ore_based   | losses                       |
+| t, r         | scrap_pool                   | steel_production_scrap_based |
+| t, r         | steel_production_scrap_based | forming                      |
+| t, r         | steel_production_scrap_based | losses                       |
+| t, r         | forming                      | steel_market                 |
+| t, r         | forming                      | scrap_pool                   |
+| t, r         | forming                      | losses                       |
+| t, r         | manufacturing                | losses                       |
+| t, r         | steel_market                 | manufacturing                |
+| t, r         | steel_market                 | exports                      |
+| t, r         | imports                      | steel_market                 |
+| t, r, u      | manufacturing                | manufactured_products_market |
+| t, r         | manufacturing                | scrap_pool                   |
+| t, r, u      | manufactured_products_market | exports                      |
+| t, r, u      | imports                      | manufactured_products_market |
+| t, r, u      | manufactured_products_market | use                          |
+| t, r, u      | use                          | hibernating                  |
+| t, r, u      | use                          | eol_management               |
+| t, r, u      | eol_management               | reuse                        |
+| t, r, u      | reuse                        | use                          |
+| t, r, u      | eol_management               | scrap_market                 |
+| t, r, u      | eol_management               | eol_waste                    |
+| t, r         | scrap_market                 | scrap_pool                   |
+| t, r         | scrap_market                 | exports                      |
+| t, r         | imports                      | scrap_market                 |
+| t, r         | scrap_pool                   | excess_scrap                 |
+| t, r         | exports                      | sysenv                       |
+| t, r         | sysenv                       | imports                      |
+| t, r         | losses                       | sysenv                       |
+| t, r         | sysenv                       | extraction                   |
