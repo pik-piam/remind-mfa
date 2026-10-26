@@ -112,7 +112,7 @@ jobs:
       run: uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
 
     - name: Run model
-      run: uv run remind_mfa.py --config default --config ci --model all
+      run: uv run remind_mfa --config default --config ci --model all
 
     - name: Check out baseline
       uses: actions/checkout@v7
@@ -136,7 +136,7 @@ jobs:
         if ! cmp -s config/default.toml "$GITHUB_WORKSPACE/config/default.toml"; then
           uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
         fi
-        uv run remind_mfa.py --config default --config ci --model all
+        uv run remind_mfa --config default --config ci --model all
         ref="${BASELINE_REF#refs/heads/}"
         short_sha="$(git rev-parse --short HEAD)"
         if [ "${#ref}" -ge 40 ]; then label="$short_sha"; else label="$ref@$short_sha"; fi
@@ -270,7 +270,7 @@ jobs:
       if: github.event_name == 'pull_request_target'
       run: |
         set -eu
-        uv run remind_mfa.py --config default --config update_docs --model all
+        uv run remind_mfa --config default --config update_docs --model all
         git add --all docs
         if ! git diff --cached --quiet; then
           git diff --cached --stat
@@ -307,6 +307,6 @@ jobs:
             exit 0
           fi
           echo "::error::Could not push the updated docs. Allow edits by maintainers on the PR," \
-            "or run 'uv run remind_mfa.py --config default --config update_docs --model all' and commit docs/."
+            "or run 'uv run remind_mfa --config default --config update_docs --model all' and commit docs/."
           exit 1
         fi
