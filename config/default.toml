@@ -23,7 +23,7 @@
         gdp.do_visualize = false
         gdp.per_capita = false
         production.do_visualize = true
-        trade.do_visualize = false
+        trade.do_visualize = true
         consumption.do_visualize = true
         consumption.per_capita = true
         sankey.do_visualize = false
