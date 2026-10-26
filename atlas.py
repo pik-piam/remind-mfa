@@ -13,8 +13,8 @@ from remind_mfa.atlas_coupling import (
     ATLAS_TRADE_ROOT,
     AtlasCo2Price,
     AtlasScenarioPkBudg,
-    AtlasVariant,
     AtlasShareMode,
+    AtlasVariant,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
     execute_command,
@@ -127,7 +127,7 @@ def copy_trade(
 def preprocess() -> None:
     """Run the ATLAS data-preprocessing Snakemake workflow."""
 
-    execute_command(["pixi", "run", "snakemake", "--cores", "5"], ATLAS_DATA_PIPELINE_ROOT)
+    execute_command(["pixi", "run", "snakemake", "--cores", "5", "--rerun-incomplete"], ATLAS_DATA_PIPELINE_ROOT)
 
 
 @app.command()
