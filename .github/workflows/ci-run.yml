@@ -60,6 +60,12 @@ jobs:
           "git@gitlab.pik-potsdam.de:"
         git submodule update --init --depth 1 data_in/legacy
 
+    - name: Check out the data_in/piam_mappings submodule
+      # Public GitHub repository declared with an SSH remote; fetch it via HTTPS instead.
+      run: |
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+        git submodule update --init --depth 1 data_in/piam_mappings
+
     - name: Install uv
       uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       with:
@@ -122,6 +128,9 @@ jobs:
       run: |
         set -eu
         git submodule update --init --depth 1 data_in/legacy
+        if git config -f .gitmodules --get submodule.data_in/piam_mappings.path > /dev/null; then
+          git submodule update --init --depth 1 data_in/piam_mappings
+        fi
         uv sync --locked
         # Download old MFA archive if config changed
         if ! cmp -s config/default.toml "$GITHUB_WORKSPACE/config/default.toml"; then

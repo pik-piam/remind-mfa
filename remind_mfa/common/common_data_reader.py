@@ -47,6 +47,10 @@ class CommonDataReader(fd.CompoundDataReader):
         return self.input_data_path / "legacy" / "input_data"
 
     @property
+    def region_mappings_path(self) -> Path:
+        return self.input_data_path / "piam_mappings" / "regional"
+
+    @property
     def validation_path(self) -> Path:
         return self.input_data_path / "validation"
 
