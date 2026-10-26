@@ -7,19 +7,19 @@
 | Feedstock supply (ccu)             |
 | High Value Chemical Production     |
 | C4 Production                      |
-| Polymerization                     |
+| Primary Production                 |
 | Primary Market                     |
 | Manufacturing                      |
 | Manufactured Products Market       |
 | Use Phase                          |
-| End-of-Life Management             |
+| Waste Collection                   |
 | Reuse                              |
 | Waste Market                       |
 | Mechanical Recycling               |
 | Chemical Recycling                 |
 | Incineration                       |
 | Landfilled                         |
-| Sorting                            |
+| Waste Sorting                      |
 | Uncollected                        |
 | Uncontrolled                       |
 | Emissions                          |
