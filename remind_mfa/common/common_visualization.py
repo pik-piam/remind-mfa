@@ -51,8 +51,8 @@ class CommonVisualizer(RemindMFABaseModel):
                 self._model.future_mfa, change=False, per_capita=self.cfg.gdp.per_capita
             )
         if self.cfg.use_stock.do_visualize:
-            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=True)
-            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_good=False)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_end_use=True)
+            self.visualize_use_stock(mfa=self._model.future_mfa, subplots_by_end_use=False)
         if self.cfg.trade.do_visualize:
             self.visualize_trade(self._model.future_mfa)
             self.visualize_net_trade(self._model.future_mfa)
@@ -60,9 +60,9 @@ class CommonVisualizer(RemindMFABaseModel):
             self.visualize_sankey(self._model.future_mfa)
         if self.cfg.consumption.do_visualize:
             self.visualize_consumption(mfa=self._model.future_mfa)
-        if self.cfg.sector_splits.do_visualize:
-            self.visualize_sector_splits(regional=True)
-            self.visualize_sector_splits(regional=False)
+        if self.cfg.end_use_split.do_visualize:
+            self.visualize_end_use_split(regional=True)
+            self.visualize_end_use_split(regional=False)
         if self.cfg.extrapolation.do_visualize:
             self.visualize_extrapolation()
             self.visualize_extrapolation_functions(stock_handler=self._model.stock_handler)
@@ -124,7 +124,7 @@ class CommonVisualizer(RemindMFABaseModel):
     def figure_path(self, base_name: str, extension: str = "png") -> str:
         figures_dir = os.path.join(self._model.data_writer.run_path(), "figures")
         os.makedirs(figures_dir, exist_ok=True)
-        # base_name may carry a flow or parameter name such as "reclmech => aux_recyclate_trade",
+        # base_name may carry a flow or parameter name such as "reclmech => aux_recyclate_market",
         # which is not a valid file name on all platforms.
         safe_name = _INVALID_FILENAME_CHARS.sub("_", base_name.replace(" => ", "_to_")).strip()
         return os.path.join(figures_dir, f"{safe_name}.{extension}")
@@ -245,14 +245,14 @@ class CommonVisualizer(RemindMFABaseModel):
 
         colors = (
             colors[:n_linecolor_dim]  # future (dotted) color
-            + colors[:n_linecolor_dim]  # historic (solid) color
+            + colors[:n_linecolor_dim]  # historical (solid) color
             + ["black" for _ in range(n_linecolor_dim)]  # dot color
         )
 
         # data preparation
         hist = data_to_plot[{"t": mfa.dims["h"]}]
         last_year_dim = fd.Dimension(
-            name="Last Historic Year", letter="l", items=[mfa.dims["h"].items[-1]]
+            name="Last Historical Year", letter="l", items=[mfa.dims["h"].items[-1]]
         )
         scatter = hist[{"h": last_year_dim}]
         if x_array is None:
@@ -277,10 +277,10 @@ class CommonVisualizer(RemindMFABaseModel):
         )
         fig = ap.plot()
 
-        # Historic stock (solid)
+        # Historical stock (solid)
         ap = self.plotter_class(
             array=hist,
-            intra_line_dim="Historic Time",
+            intra_line_dim="Historical Time",
             linecolor_dim=linecolor_dim,
             subplot_dim=subplot_dim,
             x_array=hist_x_array,
@@ -294,10 +294,10 @@ class CommonVisualizer(RemindMFABaseModel):
             # Hack to remove future line from the plot, but keep the axis range
             colors = ["rgba(0,0,0,0)"] * len(colors)
 
-        # Last historic year (dot)
+        # Last historical year (dot)
         ap = self.plotter_class(
             array=scatter,
-            intra_line_dim="Last Historic Year",
+            intra_line_dim="Last Historical Year",
             linecolor_dim=linecolor_dim,
             subplot_dim=subplot_dim,
             x_array=scatter_x_array,
@@ -429,29 +429,29 @@ class CommonVisualizer(RemindMFABaseModel):
                 shared_yaxes=True,
             )
 
-    def visualize_sector_splits(self, regional: bool = True):
+    def visualize_end_use_split(self, regional: bool = True):
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["in_use"].inflow.sum_to(("t", "r", "u"))
+            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", "u"))
         )
-        sector_splits = consumption.get_shares_over("u")
-        sector_splits = sector_splits.cumsum(dim_letter="u")
+        end_use_split = consumption.get_shares_over("u")
+        end_use_split = end_use_split.cumsum(dim_letter="u")
 
-        ap_sector_splits = self.plotter_class(
-            array=sector_splits,
+        ap_end_use_split = self.plotter_class(
+            array=end_use_split,
             intra_line_dim="Time",
             **subplot_dim,
             linecolor_dim=self._model.dims["u"].name,
             xlabel="Year",
-            ylabel="Sector Splits [%]",
+            ylabel="End-Use Split [%]",
             display_names=self.display_names.dct,
-            title=f"Product demand sector splits ({name_str})",
+            title=f"Product demand end-use splits ({name_str})",
             chart_type="area",
         )
 
-        self.plot_and_save_figure(ap_sector_splits, f"sector_splits_{name_str}")
+        self.plot_and_save_figure(ap_end_use_split, f"end_use_split_{name_str}")
 
     def visualize_fdarr(
         self,
@@ -551,22 +551,16 @@ class CommonVisualizer(RemindMFABaseModel):
         mfa = self._model.future_mfa
         per_capita = self.cfg.use_stock.per_capita
         population = self._model.parameters["population"]
-        stock = (
-            self._model.stock_handler.stocks
-            * self._model.sector_specific_sat_level
-            * self._model.time_factor
-        )
+        stock = self._model.stock_handler.stocks * self._model.end_use_specific_sat_level
         extrapolation = (
-            self._model.stock_handler.fitted_regression
-            * self._model.sector_specific_sat_level
-            * self._model.time_factor
+            self._model.stock_handler.fitted_regression * self._model.end_use_specific_sat_level
         )
         x_array = None
 
         pc_str = "pC" if per_capita else ""
         x_label = "Year"
         y_label = f"Stock{pc_str} [t]"
-        title = f"Stock Extrapolation: Historic and Projected vs Pure Prediction"
+        title = f"Stock Extrapolation: Historical and Projected vs Pure Prediction"
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
@@ -604,7 +598,7 @@ class CommonVisualizer(RemindMFABaseModel):
             x_label=x_label,
             y_label=y_label,
             title=title,
-            line_label="Historic + Modelled Future" if linecolor_dim is None else None,
+            line_label="Historical + Modelled Future" if linecolor_dim is None else None,
             future_stock=show_future,
         )
 
@@ -636,7 +630,7 @@ class CommonVisualizer(RemindMFABaseModel):
                 ax.set_xlabel(x_label)
 
         extrapolation_name = "_extrapolation" if show_extrapolation else ""
-        future_name = "_projection" if show_future else "_historic"
+        future_name = "_projection" if show_future else "_historical"
         linecolor_str = f"_by_{linecolor_dim}" if linecolor_dim is not None else ""
         subplot_str = f"_by_{subplot_dim}" if subplot_dim is not None else ""
         over_str = "_overGDP" if self.cfg.use_stock.over_gdp else "_overTime"
@@ -676,7 +670,7 @@ class CommonVisualizer(RemindMFABaseModel):
     ):
         # visualize comparison of in-use stock inflow for EUR region between REMIND-MFA and EU-MFA data
         if inflow is None:
-            inflow = model.future_mfa.stocks["in_use"].inflow[
+            inflow = model.future_mfa.stocks["use"].inflow[
                 {"r": EU_region, "u": model.dims["f"], "t": model.dims["v"]}
             ]
         demand_REMIND_MFA = model.future_mfa.demand_REMIND_MFA
@@ -741,7 +735,7 @@ class CommonVisualizer(RemindMFABaseModel):
     ):
         # visualize comparison of in-use stock outflow for EUR region between REMIND-MFA and EU-MFA data
         if inflow is None:
-            inflow = model.future_mfa.stocks["in_use"].inflow[
+            inflow = model.future_mfa.stocks["use"].inflow[
                 {"r": EU_region, "u": model.dims["f"], "t": model.dims["v"]}
             ]
         outflow_REMIND_MFA = model.future_mfa.stock_outflow_REMIND_MFA

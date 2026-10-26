@@ -12,7 +12,6 @@ import pandas as pd
 
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
-from remind_mfa.common.common_mappings import CommonDimensionFiles
 from remind_mfa.common.helpers import prefix_from_module
 
 
@@ -27,12 +26,10 @@ class CommonDataReader(fd.CompoundDataReader):
         self,
         cfg: CommonCfg,
         definition: RemindMFADefinition,
-        dimension_file_mapping: CommonDimensionFiles,
         allow_missing_values: bool = False,
         allow_extra_values: bool = False,
     ):
         self._input_cfg = cfg.input
-        self.dimension_file_mapping = dimension_file_mapping
         self.model_class = cfg.model
         self.input_data_path = Path(cfg.input.input_data_path)
         self.input_data_revision = cfg.input.input_data_revision
@@ -258,20 +255,25 @@ class CommonDataReader(fd.CompoundDataReader):
         if missing:
             raise FileNotFoundError(
                 f"Missing {kind} files for model "
-                f"'{self.model_class}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
+                f"'{self.model_class.value}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
             )
+
+    def _read_baseline_model(self):
+        """Load the baseline model from its pickle file."""
+        if self.baseline_pickle_path is None:
+            raise ValueError("Reading baseline data requires transience.baseline_pickle_path.")
+        with open(self.baseline_pickle_path, "rb") as fh:
+            return pickle.load(fh)
 
     def read_baseline_trade(self) -> dict:
         """Load trade set from a baseline pickle file."""
-        with open(self.baseline_pickle_path, "rb") as fh:
-            baseline_model = pickle.load(fh)
+        baseline_model = self._read_baseline_model()
         baseline_trade = baseline_model.future_mfa.trade_set
         return baseline_trade
 
     def read_baseline_flows(self) -> dict:
         """Load flows dictionary from a baseline pickle file."""
-        with open(self.baseline_pickle_path, "rb") as fh:
-            baseline_model = pickle.load(fh)
+        baseline_model = self._read_baseline_model()
         baseline_flows = baseline_model.future_mfa.flows
         return baseline_flows
 
@@ -282,7 +284,7 @@ class CommonDataReader(fd.CompoundDataReader):
                 # Special case for Region: it is read from the parameters folder, not the dimensions folder
                 dimension_path = self.parameters_path / "regionmapping.csv"
             else:
-                dimension_filename = self.dimension_file_mapping[dimension.name]
+                dimension_filename = dimension.name.lower().replace(" ", "_").replace("-", "_")
                 dimension_path = self.dimensions_path / f"{dimension_filename}.csv"
 
             dimension_files[dimension.name] = dimension_path

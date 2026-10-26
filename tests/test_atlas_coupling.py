@@ -76,16 +76,16 @@ def test_aggregate_bilateral_trade_sums_flows():
 def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(tmp_path, monkeypatch):
     parameters_path = tmp_path / "data_in" / "parameters"
     parameters_path.mkdir(parents=True)
-    (parameters_path / "pl_primary_his_imports.cs4r").write_text(
-        "* note: dimensions: (Historic Time,Region,Type,Material,value)\n"
+    (parameters_path / "pl_primary_imports.cs4r").write_text(
+        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
         "2023,EUR,Plastics,LDPE,100\n"
         "2024,EUR,Plastics,HDPE,3\n"
         "2024,EUR,Plastics,LDPE,1\n"
         "2024,CAN,Plastics,LDPE,1\n",
         encoding="utf-8",
     )
-    (parameters_path / "pl_primary_his_exports.cs4r").write_text(
-        "* note: dimensions: (Historic Time,Region,Type,Material,value)\n"
+    (parameters_path / "pl_primary_exports.cs4r").write_text(
+        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
         "2024,EUR,Plastics,HDPE,1\n"
         "2024,CAN,Plastics,LDPE,3\n",
         encoding="utf-8",
@@ -98,20 +98,22 @@ def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(tmp_
     )
 
     assert imports.to_dict("records") == [
-        {"year": 2025, "region": "CAN", "type": "Plastics", "material": "LDPE", "quantity": 60.0},
-        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "HDPE", "quantity": 30.0},
-        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "LDPE", "quantity": 10.0},
+        {"year": 2025, "region": "CAN", "material": "LDPE", "quantity": 60.0},
+        {"year": 2025, "region": "EUR", "material": "HDPE", "quantity": 30.0},
+        {"year": 2025, "region": "EUR", "material": "LDPE", "quantity": 10.0},
     ]
     assert exports.to_dict("records") == [
-        {"year": 2025, "region": "CAN", "type": "Plastics", "material": "LDPE", "quantity": 30.0},
-        {"year": 2025, "region": "EUR", "type": "Plastics", "material": "HDPE", "quantity": 20.0},
+        {"year": 2025, "region": "CAN", "material": "LDPE", "quantity": 30.0},
+        {"year": 2025, "region": "EUR", "material": "HDPE", "quantity": 20.0},
     ]
 
 
 def _write_dimensions(tmp_path: Path) -> tuple[Path, Path]:
-    regions = tmp_path / "regions.csv"
-    times = tmp_path / "time_in_years.csv"
-    regions.write_text("A\nB\n", encoding="utf-8")
+    regions = tmp_path / "regionmapping.csv"
+    times = tmp_path / "time.csv"
+    regions.write_text(
+        "X;CountryCode;RegionCode\n1;Country A;AAA;A\n2;Country B;BBB;B\n", encoding="utf-8"
+    )
     times.write_text("2025\n2026\n", encoding="utf-8")
     return regions, times
 
@@ -202,14 +204,14 @@ def test_load_atlas_trade_projection_uses_baseline_sheet_for_plastics(tmp_path):
 def test_copy_trade_writes_cs4r_files_for_plastics(tmp_path, monkeypatch):
     parameters_path = tmp_path / "data_in" / "parameters"
     parameters_path.mkdir(parents=True)
-    (parameters_path / "pl_primary_his_imports.cs4r").write_text(
-        "* note: dimensions: (Historic Time,Region,Type,Material,value)\n"
+    (parameters_path / "pl_primary_imports.cs4r").write_text(
+        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
         "2024,A,Plastics,LDPE,1\n"
         "2024,B,Plastics,LDPE,1\n",
         encoding="utf-8",
     )
-    (parameters_path / "pl_primary_his_exports.cs4r").write_text(
-        "* note: dimensions: (Historic Time,Region,Type,Material,value)\n"
+    (parameters_path / "pl_primary_exports.cs4r").write_text(
+        "* note: dimensions: (Historical Time,Region,Type,Material,value)\n"
         "2024,A,Plastics,LDPE,1\n"
         "2024,B,Plastics,LDPE,1\n",
         encoding="utf-8",
@@ -237,12 +239,12 @@ def test_copy_trade_writes_cs4r_files_for_plastics(tmp_path, monkeypatch):
     )
 
     assert imports_path.read_text(encoding="utf-8") == (
-        "* note: dimensions: (Time,Region,Type,Material,value)\n"
-        "2025,A,Plastics,LDPE,3.0\n2026,A,Plastics,LDPE,3.0\n"
-        "2025,B,Plastics,LDPE,2.0\n2026,B,Plastics,LDPE,2.0\n"
+        "* note: dimensions: (Time,Region,Material,value)\n"
+        "2025,A,LDPE,3.0\n2026,A,LDPE,3.0\n"
+        "2025,B,LDPE,2.0\n2026,B,LDPE,2.0\n"
     )
     assert exports_path.read_text(encoding="utf-8") == (
-        "* note: dimensions: (Time,Region,Type,Material,value)\n"
-        "2025,A,Plastics,LDPE,2.0\n2026,A,Plastics,LDPE,2.0\n"
-        "2025,B,Plastics,LDPE,3.0\n2026,B,Plastics,LDPE,3.0\n"
+        "* note: dimensions: (Time,Region,Material,value)\n"
+        "2025,A,LDPE,2.0\n2026,A,LDPE,2.0\n"
+        "2025,B,LDPE,3.0\n2026,B,LDPE,3.0\n"
     )
