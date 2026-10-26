@@ -254,9 +254,12 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         The splits always sum to 1; `get_shares_over` re-asserts this to signal to the
         reconciliation optimizer that changing the sum has no effect.
         """
-        floorspace_bu = expand_common_to_bu(floorspace, prm)
+        # scale up occupied to total residential floorspace (vacant dwellings and second homes)
+        total_floorspace = floorspace.copy()
+        total_floorspace[{"c": "Residential"}] = floorspace[{"c": "Residential"}] / (
+            1.0 - prm["unoccupied_residential_stock_share"]
+        )
+        floorspace_bu = expand_common_to_bu(total_floorspace, prm)
         structure_shares = prm["structure_split"].get_shares_over(("s",))
         concrete = floorspace_bu * structure_shares * prm["concrete_building_mi"]
-        # scale up building stock to account for hibernating (unused) stock
-        total_concrete = concrete / (1.0 - prm["hibernating_stock_share"])
-        return total_concrete
+        return concrete

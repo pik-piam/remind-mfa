@@ -64,6 +64,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "total_polymerization_feed": self.get_new_array(dim_letters=("t", "e", "r", "p")),
             "total_primary_hvc": self.get_new_array(dim_letters=("t", "e", "r")),
             "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p")),
+            "not_reused": self.get_new_array(dim_letters=("t", "e", "r", "p", "u")),
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p")),
             "hvc_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "hvc_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
@@ -73,7 +74,14 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         # EoL flows are computed first, starting from the stock outflow, since recycling flows are needed for the trade extrapolation
         flw["use => eol_management"][...] = stk["use"].outflow
-        flw["eol_management => sorting"][...] = flw["use => eol_management"] * prm["collection_rate"]
+        # reuse: a share of the in-use outflow re-enters the stock, capped by the stock inflow;
+        # collection applies to the non-reused part
+        # this is a prototype-implementation; not all items that will be collected for reuse can actually be reused
+        # TODO implement reuse_yield and flow from reuse to sorting or one of the eol treatments
+        flw["eol_management => reuse"][...] = (flw["use => eol_management"] * prm["reuse_share"]).minimum(stk["use"].inflow)
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
+        aux["not_reused"][...] = flw["use => eol_management"] - flw["eol_management => reuse"]
+        flw["eol_management => sorting"][...] = aux["not_reused"] * prm["collection_rate"]
 
         # exports of plastic waste cannot exceed collected eol plastics
         trd["waste"].exports[...] = trd["waste"].exports.minimum(flw["eol_management => sorting"])
@@ -104,18 +112,18 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         flw["incineration => emission"][...] = flw["sorting => incineration"] + flw["reclmech => incineration"]
 
-        flw["eol_management => mismanaged"][...] = flw["use => eol_management"] - flw["eol_management => sorting"]
+        flw["eol_management => mismanaged"][...] = aux["not_reused"] - flw["eol_management => sorting"]
         flw["mismanaged => uncontrolled"][...] = flw["eol_management => mismanaged"]
 
         # now trades and production flows are computed starting from the stock inflow
-        flw["manufactured_products_market => use"][...] = stk["use"].inflow
+        flw["manufactured_products_market => use"][...] = stk["use"].inflow - flw["reuse => use"]
 
         # the historical trade still resolves the polymer type 'P'; the future MFA does not, so it is
         # summed away
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["manufactured_products"].sum_over("P"),
             future_trade=self.trade_set["manufactured_products"],
-            future_dom_demand=stk["use"].inflow,
+            future_dom_demand=flw["manufactured_products_market => use"],
             n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
