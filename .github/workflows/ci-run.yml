@@ -35,8 +35,8 @@ jobs:
         persist-credentials: false
 
     - name: Check out the data_in/legacy submodule
-      # The submodule lives on gitlab.pik-potsdam.de and is declared with an SSH
-      # remote, which actions/checkout cannot authenticate against on its own.
+      # The submodule lives on gitlab.pik-potsdam.de and is declared with an SSH or
+      # HTTPS remote, which actions/checkout cannot authenticate against on its own.
       env:
         GITLAB_TOKEN: ${{ secrets.PIK_GITLAB_TOKEN }}
       run: |
@@ -48,6 +48,9 @@ jobs:
         git config --global \
           url."https://oauth2:${GITLAB_TOKEN}@gitlab.pik-potsdam.de/".insteadOf \
           "git@gitlab.pik-potsdam.de:"
+        git config --global --add \
+          url."https://oauth2:${GITLAB_TOKEN}@gitlab.pik-potsdam.de/".insteadOf \
+          "https://gitlab.pik-potsdam.de/"
         git submodule update --init --depth 1 data_in/legacy
 
     - name: Install uv
