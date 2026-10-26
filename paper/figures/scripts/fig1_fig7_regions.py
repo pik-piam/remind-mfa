@@ -19,6 +19,7 @@ from _constants import COLORS_REMIND
 from _constants import REGION_DISPLAY_NAMES
 from _constants import REGION_MAPPING_PATH
 
+
 def load_region_mapping(csv_path: pathlib.Path) -> pd.DataFrame:
     """Load the mapping CSV into a normalized dataframe."""
 
