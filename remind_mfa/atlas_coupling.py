@@ -15,7 +15,7 @@ from remind_mfa.common.helpers import ModelNames
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ATLAS_DATA_PIPELINE_ROOT = PROJECT_ROOT / "ATLAS_Trade_data_pipeline"
-ATLAS_TRADE_ROOT = PROJECT_ROOT / "ATLAS_Trade"
+ATLAS_TRADE_ROOT = PROJECT_ROOT / "ATLAS-Trade"
 ATLAS_CACHE_EXPORTER = PROJECT_ROOT / "remind_mfa" / "export_atlas_cache.py"
 ANNUAL_FUTURE_YEARS = tuple(range(2025, 2051))
 H12_REGION_SET = "REMIND"
@@ -82,10 +82,10 @@ MATERIAL_SPECS = {
         },
         trade_market="primary",
         parameter_prefix="pl",
-        # ATLAS_Trade has no REMIND carbon-budget scenarios for plastics (only steel's
+        # ATLAS-Trade has no REMIND carbon-budget scenarios for plastics (only steel's
         # technology split depends on them), so it always runs a single "Baseline" future
         # scenario and writes the trade projection under a "Baseline_q_ij" sheet regardless
-        # of --scenario-pkbudg (see ATLAS_Trade/config/model_settings.py GOOD_SETTINGS).
+        # of --scenario-pkbudg (see ATLAS-Trade/config/model_settings.py GOOD_SETTINGS).
         atlas_scenario_tag="Baseline",
     ),
 }
