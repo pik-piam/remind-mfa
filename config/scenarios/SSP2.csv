@@ -1,2 +1,2 @@
 parameter,models,value,extra,index,description
-driver_scen,all,SSP2,,,
+driver_scen,all,SSP2,,,"SSP2 population, GDP and floorspace"

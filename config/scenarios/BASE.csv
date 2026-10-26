@@ -1,11 +1,11 @@
 parameter,models,value,extra,index,description
 
 # --- All models ---
-stock_factor,all,1.0,"{year: 2100, type: factor}",,
-trade_factor,all,1.0,"{year: 2040, type: factor}",,Factor on both future imports and exports of all trade markets
-lifetime_factor_nurture,all,1.0,"{year: 2060, type: factor}",,Lifetime of all age-cohorts is scaled by factor (nurture)
-lifetime_factor_nature,all,1.0,"{year: 2060, type: factor}",,Lifetime of new age-cohorts is scaled by factor (nature); cement: higher scaling for lower lifetimes - lower scaling for higher lifetimes (compared to global mean)
-n_trend_years,all,10,,,Number of recent historic years for the initial slope of the inflow and trade blending
+stock_factor,all,1.0,"{year: 2100, type: factor}",,Extrapolated stock per capita is scaled by factor
+trade_factor,all,1.0,"{year: 2040, type: factor}",,Imports and exports of all trade markets are scaled by factor
+lifetime_factor_nurture,all,1.0,"{year: 2060, type: factor}",,Lifetime of all age-cohorts is scaled by factor
+lifetime_factor_nature,all,1.0,"{year: 2060, type: factor}",,Lifetime of new age-cohorts is scaled by factor; cement: stronger for lifetimes below the global mean
+n_trend_years,all,10,,,Number of recent historic years for the initial slope of inflow and trade blending
 reuse_share,all,0.0,"{year: 2100, type: target}",,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
@@ -15,8 +15,8 @@ max_scrap_share,steel,0.7,,,Maximum share of scrap in the metallic input to stee
 
 # --- Plastics ---
 saturation_level,plastics,2,,,Corresponds to about 217 kg/capita/yr steady-state consumption at the global end-use split and lifetimes
-waste_imports,plastics,0,"{year: 2030, type: target}",,
-waste_exports,plastics,0,"{year: 2030, type: target}",,
+waste_imports,plastics,0.0,"{year: 2030, type: target}",,
+waste_exports,plastics,0.0,"{year: 2030, type: target}",,
 collection_rate,plastics,0.99,"{year: 2100, type: target}",,
 landfill_rate,plastics,0.0,"{year: 2100, type: target}",,
 mechanical_recycling_rate,plastics,0.4,"{year: 2100, type: target}",,
@@ -30,10 +30,10 @@ n_trend_years,cement,2,,"{Region: CHA}",
 cement_ratio,cement,1.0,"{year: 2100, type: factor}",,Cement content of new concrete and mortar is scaled by factor
 
 # --- Cement (bottom-up) ---
-concrete_building_mi,cement,1.0,"{year: 2060, type: factor}",,Concrete MI of buildings is scaled by factor
+concrete_building_mi,cement,1.0,"{year: 2060, type: factor}",,
 structure_split,cement,structure_split_target,"{year: 2060, type: target}",,Low-GDP regions converge their structure split to the global mean
 min_timber_share,cement,0.0,,,Minimum timber share the structure split target is lifted to
-unoccupied_residential_stock_share,cement,0.10,"{year: 2100, type: target}","{Region: CHA}",China's unoccupied residential stock share reduces to 10% by 2100
+unoccupied_residential_stock_share,cement,0.1,"{year: 2100, type: target}","{Region: CHA}",
 residential_type_split,cement,residential_type_split_mean,"{year: 2060, type: target}",,Low-GDP regions converge their residential type split to the global mean
 development_gdppc_low,cement,8000,,,GDP per capita below which splits fully converge to their global means
 development_gdppc_high,cement,30000,,,GDP per capita above which regions keep their own splits
