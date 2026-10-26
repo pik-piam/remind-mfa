@@ -136,7 +136,7 @@ jobs:
         if ! cmp -s config/default.toml "$GITHUB_WORKSPACE/config/default.toml"; then
           uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
         fi
-        uv run remind_mfa.py --config default --config ci --model all
+        uv run remind_mfa --config default --config ci --model all
         ref="${BASELINE_REF#refs/heads/}"
         short_sha="$(git rev-parse --short HEAD)"
         if [ "${#ref}" -ge 40 ]; then label="$short_sha"; else label="$ref@$short_sha"; fi
