@@ -210,7 +210,14 @@ def copy_demand_to_atlas(
         return copy_mfa_output_to_atlas(source, target, column_map={"steel_demand": "value"})
     if model == ModelNames.PLASTICS:
         return copy_mfa_output_to_atlas(
-            source, target, column_map={"plastics_demand": "value", "plastics_production": "value"}
+            source,
+            target,
+            column_map={
+                "plastics_demand": "value",
+                "plastics_production": "value",
+                # the ATLAS data pipeline still expects the polymer column under its old name "Material"
+                "Polymer": "Material",
+            },
         )
     raise AtlasCouplingError(f"No demand converter is implemented for model '{model}'.")
 

@@ -60,7 +60,7 @@ A few more details on the coupling:
 
 1. `uv run remind-mfa --config default --config atlas_run1 --model steel` writes the material
    demand of the traded product to `<export.path>/atlas/` (`steel_demand.csv` per region and year,
-   `plastics_demand.csv` additionally per type and material). Trade is extrapolated in this run.
+   `plastics_demand.csv` additionally per polymer). Trade is extrapolated in this run.
 2. ATLAS is run on that demand, and its trade output is converted to the input data format of
    REMIND-MFA, i.e. to one `.cs4r` file per market and trade direction in the input data folder:
 
@@ -71,7 +71,7 @@ A few more details on the coupling:
 
     The files carry the dimensions of the corresponding trade market in their header line, i.e.
     `* note: dimensions: (Time,Region,value)` for steel and
-    `* note: dimensions: (Time,Region,Type,Material,value)` for plastics.
+    `* note: dimensions: (Time,Region,Polymer,value)` for plastics.
 
 3. `uv run remind-mfa --config default --config atlas_run2 --model steel` reads those files
    instead of extrapolating trade (`trade.source = "data"`). Historic years still use the trade of
