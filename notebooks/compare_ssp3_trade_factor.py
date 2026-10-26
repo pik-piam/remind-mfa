@@ -3,9 +3,22 @@ import marimo
 __generated_with = "0.24.0"
 app = marimo.App(width="medium")
 
+with app.setup:
+    import logging
+
+    import marimo as mo
+    import pandas as pd
+    import plotly.express as px
+
+    from remind_mfa.common.common_model import CommonModel
+    from remind_mfa.common.config_loader import load_config
+    from remind_mfa.common.helpers import ModelNames, init_model
+
+    logging.getLogger().setLevel(logging.ERROR)
+
 
 @app.cell
-def _(mo):
+def _():
     mo.md(r"""
     # SSP3 trade with and without the trade factor
 
@@ -22,7 +35,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _():
     mo.md("This notebook is completely AI generated, with very little human checking!").callout(
         kind="danger", title="AI Disclaimer"
     )
@@ -31,29 +44,13 @@ def _(mo):
 
 @app.cell
 def _():
-    import logging
-
-    import marimo as mo
-    import pandas as pd
-    import plotly.express as px
-
-    from remind_mfa.common.common_model import CommonModel
-    from remind_mfa.common.config_loader import load_config
-    from remind_mfa.common.helpers import ModelNames, init_model
-
-    logging.getLogger().setLevel(logging.ERROR)
-    return CommonModel, ModelNames, init_model, load_config, mo, pd, px
-
-
-@app.cell
-def _(mo):
     # resolve against the notebook file, so the working directory does not matter
     repo_root = mo.notebook_dir().parent
     return (repo_root,)
 
 
 @app.cell
-def _(ModelNames, mo):
+def _():
     model_picker = mo.ui.dropdown(
         options=[model.value for model in ModelNames], value="cement", label="Model"
     )
@@ -62,7 +59,7 @@ def _(ModelNames, mo):
 
 
 @app.cell
-def _(CommonModel, ModelNames, init_model, load_config, mo, pd, repo_root):
+def _(model_picker, repo_root):
     def run_ssp3(model_name: str, use_trade_factor: bool) -> CommonModel:
         """Run a model in the SSP3 scenario.
 
@@ -119,7 +116,7 @@ def _(CommonModel, ModelNames, init_model, load_config, mo, pd, repo_root):
 
 
 @app.cell
-def _(mo):
+def _():
     mo.md(r"""
     ## Global trade
     """)
@@ -127,7 +124,7 @@ def _(mo):
 
 
 @app.cell
-def _(px, trade):
+def _(trade):
     global_trade = trade.groupby(["Case", "Market", "Flow", "Time"], as_index=False)["value"].sum()
     px.line(
         global_trade,
@@ -142,7 +139,7 @@ def _(px, trade):
 
 
 @app.cell
-def _(global_trade, px):
+def _(global_trade):
     ratio = global_trade.pivot_table(
         index=["Market", "Flow", "Time"], columns="Case", values="value"
     ).reset_index()
@@ -159,7 +156,7 @@ def _(global_trade, px):
 
 
 @app.cell
-def _(mo):
+def _():
     mo.md(r"""
     ## Regional trade
     """)
@@ -167,7 +164,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo, trade):
+def _(trade):
     market_picker = mo.ui.dropdown(
         options=sorted(trade["Market"].unique()),
         value=sorted(trade["Market"].unique())[0],
@@ -178,7 +175,7 @@ def _(mo, trade):
 
 
 @app.cell
-def _(market_picker, px, trade):
+def _(market_picker, trade):
     px.line(
         trade[trade["Market"] == market_picker.value],
         x="Time",
