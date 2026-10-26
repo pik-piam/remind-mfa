@@ -127,7 +127,9 @@ def copy_trade(
 def preprocess() -> None:
     """Run the ATLAS data-preprocessing Snakemake workflow."""
 
-    execute_command(["pixi", "run", "snakemake", "--cores", "5", "--rerun-incomplete"], ATLAS_DATA_PIPELINE_ROOT)
+    execute_command(
+        ["pixi", "run", "snakemake", "--cores", "5", "--rerun-incomplete"], ATLAS_DATA_PIPELINE_ROOT
+    )
 
 
 @app.command()
