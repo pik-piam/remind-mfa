@@ -6,7 +6,7 @@ param(
     [switch]$view
 )
 
-$texFile = "main"
+$texFile = "supplementary_materials"
 $pdflatex = "pdflatex"
 $biber = "biber"
 
