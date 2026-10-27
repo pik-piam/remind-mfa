@@ -204,8 +204,7 @@ class CommonVisualizer(RemindMFABaseModel):
             for c in legend_categories
         ]
         legend_entries += [
-            ("end_uses", "Use", color, end_use)
-            for end_use, color in zip(end_uses, end_use_colors)
+            ("end_uses", "Use", color, end_use) for end_use, color in zip(end_uses, end_use_colors)
         ]
         for group, group_title, color, label in legend_entries:
             fig.add_trace(
