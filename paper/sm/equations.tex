@@ -1,6 +1,8 @@
 
 \section{Detailed general methods with equations}
 
+This section describes the general methods applied to all materials in more detail. The stock extrapolation (Subsection \ref{sec:stock_extrapol}) and the trade extrapolation (Subsection \ref{sec:trade_extrapol}) extend the corresponding methods sections of the main paper, while the trade adjustments (Subsection \ref{sec:trade_adjustments}) are additional information not covered in the main paper.
+
 
 %=======================================================================
 %=======================================================================
@@ -137,7 +139,7 @@ The in-use stock inflow is first computed from the extrapolated stock with a sto
 %=======================================================================
 %=======================================================================
 %=======================================================================
-\subsection{Trade extrapolation}
+\subsection{Trade extrapolation} \label{sec:trade_extrapol}
 
 For trade extrapolation, a heuristic was developed that produces plausible future scenarios.
 As a first step, trade flows of individual regions are extrapolated into the future separately. In a second step, imports and exports are corrected to achieve global market clearing.
@@ -250,3 +252,28 @@ The above balancing is also performed for historical trades, as exogenous import
     g(t) = \max \left( \sum_r (\tilde{e}_r(t)),\; \sum_r (\tilde{i}_r(t))\right)
     \quad\text{for}\quad t \leq t_{0}.
 \end{equation}
+
+%=======================================================================
+%=======================================================================
+%=======================================================================
+\subsection{Trade adjustments} \label{sec:trade_adjustments}
+
+Exogenous trade data are not always consistent with exogenous production and demand data, and extrapolated trade does not account for how much secondary material a region can use. Without correction, this can result in negative flows or unused secondary material. The following mechanisms prevent this.
+
+\subsubsection{Trade capping}
+
+In historical years, the net exports of a region are limited to its domestic supply, e.g., net steel exports to domestic steel production. This is applied to the steel and manufactured products trade of steel, the primary and manufactured products trade of plastics, and the cement trade. Gross exports may still exceed supply if they are covered by imports, which represents re-export trade. Net exports are evaluated per good category, since net imports of one category cannot be re-exported as another category. Where the limit is exceeded, exports are reduced accordingly.
+
+Reducing the exports of some regions violates global market clearing. It is restored with the global balancing of Section \ref{sec:trade_balancing}, where only the opposite trade flows of the unaffected regions are scaled. As this may partially reintroduce the excess, capping and balancing are iterated until convergence.
+
+Analogously, historical net imports are limited to domestic demand for clinker trade (cement) and primary plastics trade. For plastics, the excess net imports of a polymer are first reassigned to other polymers of the same polymer type, as far as their demand allows; only the remainder is removed.
+
+The same procedure is applied to future steel scrap trade: net scrap imports of a region are limited to the amount that its scrap-based steel production can use in addition to domestic scrap. Scrap that is not imported remains in the exporting regions.
+
+\subsubsection{Surplus redistribution}
+
+In future years, some regions have more secondary material than they can use domestically, while others could use more. This surplus is redistributed with an auxiliary trade: regions export their surplus and import up to their remaining capacity, and both are scaled to the smaller of the two global sums. This applies to steel scrap exceeding the maximum scrap input to steel production, where the auxiliary trade is added to the extrapolated scrap trade. For plastics, it applies to mechanically recycled polymers and chemically recycled feedstock, each with its own auxiliary trade market.
+
+\subsubsection{Trade-adjusted end-use shares}
+
+Historical inflows into the in-use stock are disaggregated into end-use categories with exogenous end-use shares. This is applied to steel (by end use) and plastics (by end use and polymer). The inflow of each category consists of domestic manufacturing and net imports of manufactured goods. If the net imports of one category exceed the inflow given by its end-use share, domestic manufacturing of this category would become negative. In this case, the inflow of the category is set to its net imports instead. The resulting surplus is compensated by reducing the domestic manufacturing of the remaining categories proportionally. Total inflow is thereby conserved, and the end-use shares deviate from the exogenous values only where necessary.
