@@ -148,11 +148,15 @@ DEFAULT_APPROACHING_TIME = 50
 """Default characteristic timescale in years of the critically damped blend, used for stocks,
 in-use stock inflows and trade."""
 
+DEFAULT_N_TREND_YEARS = 15
+"""Default number of most recent historical years used for the initial slope of the critically
+damped blend."""
+
 
 def critically_damped_blend(
     array: fd.FlodymArray,
     n_historical: int,
-    n_trend_years: fd.FlodymArray,
+    n_trend_years: fd.FlodymArray | int = DEFAULT_N_TREND_YEARS,
     time_letter: str = "t",
     approaching_time: float = DEFAULT_APPROACHING_TIME,
 ) -> fd.FlodymArray:
@@ -165,9 +169,10 @@ def critically_damped_blend(
     Args:
         array (fd.FlodymArray): Array covering both the historical and the future period.
         n_historical (int): Number of historical time steps at the beginning of the time dimension.
-        n_trend_years (fd.FlodymArray): Number of most recent historical years used in the
-            weighted linear regression for the initial slope. Must not have the time dimension;
-            is broadcast to the other dimensions of ``array``.
+        n_trend_years (fd.FlodymArray | int): Number of most recent historical years used in the
+            weighted linear regression for the initial slope. An array must not have the time
+            dimension and is broadcast to the other dimensions of ``array``.
+            Defaults to ``DEFAULT_N_TREND_YEARS``.
         time_letter (str): Letter of the time dimension. Defaults to "t".
         approaching_time (float): Characteristic timescale in years of the blend.
             Defaults to ``DEFAULT_APPROACHING_TIME``.
@@ -178,7 +183,10 @@ def critically_damped_blend(
     time_axis = array.dims.index(time_letter)
     values = np.moveaxis(array.values, time_axis, 0)
     # the other dims keep their order when moving the time axis to the front
-    trend_years = n_trend_years.cast_to(array.dims.drop(time_letter)).values
+    if isinstance(n_trend_years, fd.FlodymArray):
+        trend_years = n_trend_years.cast_values_to(array.dims.drop(time_letter))
+    else:
+        trend_years = np.array(n_trend_years)
     blender = CriticallyDampedBlender(
         time=array.dims[time_letter].items,
         historical=values[:n_historical],
