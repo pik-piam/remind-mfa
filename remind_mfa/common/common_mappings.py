@@ -20,6 +20,7 @@ class CommonDisplayNames(Mapping):
         # for markdown export
         "name": "Name",
         "letter": "Letter",
+        "items": "Items",
         "dim_letters": "Dimensions",
         "from_process_name": "Origin Process",
         "to_process_name": "Destination Process",

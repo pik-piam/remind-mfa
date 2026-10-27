@@ -11,7 +11,7 @@ SECTIONS = ["plastics", "steel", "cement"]
 SUBSECTIONS = ["dimensions", "processes", "flows", "stocks", "trades", "parameters"]
 
 COLUMN_WIDTHS: dict[str, list[float]] = {
-    "dimensions": [0.25, 0.09],
+    "dimensions": [0.20, 0.09, 0.60],
     "processes": [0.25],
     "flows": [0.15, 0.25, 0.25],
     "stocks": [0.15, 0.16, 0.15, 0.23, 0.20],
@@ -58,6 +58,7 @@ def format_cell(text: str) -> str:
         return ""
     text = re.sub(r"\[@([^\]]+)\]", citation_placeholder, text)
     text = escape_latex(text)
+    text = re.sub(r"\*([^*]+)\*", r"\\textit{\1}", text)
     for token, ids in citation_placeholder.mapping.items():
         cite_text = r"\cite{" + ",".join(ids) + r"}"
         text = text.replace(f"@@{token}@@", cite_text)

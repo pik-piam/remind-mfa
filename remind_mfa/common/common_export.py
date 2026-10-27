@@ -491,6 +491,16 @@ class CommonDataExporter(RemindMFABaseModel):
 
         dfs = definition.to_dfs()
 
+        def dim_items_str(letter: str) -> str:
+            dim = self._model.dims[letter]
+            if dim.name == "Region":
+                return "*see region definition*"
+            if dim.dtype is int:
+                return f"{dim.items[0]} to {dim.items[-1]}"
+            return ", ".join(str(item) for item in dim.items)
+
+        dfs["dimensions"]["items"] = dfs["dimensions"]["letter"].map(dim_items_str)
+
         drop_columns = {
             "dimensions": ["dtype"],
             "stocks": ["solver", "time_letter"],
