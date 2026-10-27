@@ -9,7 +9,7 @@ saturation_level,cement,180,,,Corresponds to about 24 t cement at historical cem
 stock_factor,all,1.0,"{year: 2100, type: factor}",,
 lifetime_mean,all,1.0,"{year: 2060, type: factor}",,
 lifetime_std,all,1.0,"{year: 2060, type: factor}",,
-n_trend_years,all,10,,,Number of recent historic years for the initial slope of the inflow blending
+n_trend_years,all,15,,,Number of recent historic years for the initial slope of the inflow blending
 reuse_share,all,0.0,"{year: 2100, type: target}",,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
