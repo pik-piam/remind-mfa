@@ -21,6 +21,30 @@ if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
 
+# Flow colors and legend labels shared by the material-specific Sankey diagrams
+SANKEY_COLORS = {
+    "production": "#EDC948",
+    "use": "#D4965B",
+    "eol": "#499894",
+    "recycling": "#86BCB6",
+    "losses": "#E15759",
+    "trade": "#D37295",
+    "atmosphere": "#84A3F8",
+}
+SANKEY_LEGEND_LABELS = {
+    "production": "Production",
+    "use": "Use",
+    "eol": "End-of-Life",
+    "recycling": "Recycling",
+    "losses": "Losses & Waste",
+    "trade": "Trade",
+    "atmosphere": "Atmosphere",
+}
+# Hue and saturation of SANKEY_COLORS["use"]; flows to and from use are split by end use,
+# with the lightness varied
+SANKEY_USE_HUE_SATURATION = (29, 58)
+
+
 class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
     display_names: CommonDisplayNames
@@ -119,6 +143,92 @@ class CommonVisualizer(RemindMFABaseModel):
             # title_text=f"Steel Flows ({', '.join([str(v) for v in self.cfg.sankey.plotter_args['slice_dict'].values()])})",
             font_size=20,
         )
+
+        self._show_and_save_plotly(fig, base_name="sankey")
+
+    def _plot_styled_sankey(
+        self,
+        mfa: fd.MFASystem,
+        flow_color_dict: dict,
+        legend_categories: list[str],
+        end_use_dim: str = "End Use",
+    ):
+        """Vertical Sankey diagram with a unified style across materials.
+        Keys in legend_categories refer to SANKEY_COLORS.
+        Flows to and from use are colored by end use, overwriting flow_color_dict."""
+        end_uses = mfa.dims[end_use_dim].items
+        hue, saturation = SANKEY_USE_HUE_SATURATION
+        lightnesses = np.linspace(80, 40, len(end_uses)) if len(end_uses) > 1 else [59]
+        end_use_colors = [f"hsl({hue},{saturation}%,{l:.0f}%)" for l in lightnesses]
+        flow_color_dict.update(
+            {
+                fn: (end_use_dim, end_use_colors)
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "use" or f.to_process.name == "use"
+            }
+        )
+
+        self.cfg.sankey.plotter_args.update(
+            {
+                "flow_color_dict": flow_color_dict,
+                "node_color_dict": {"default": "#CCCCCC", "use": "#999999"},
+            }
+        )
+
+        plotter = fde.PlotlySankeyPlotter(
+            mfa=mfa, display_names=self.display_names.dct, **self.cfg.sankey.plotter_args
+        )
+        links = plotter._get_links_dict()
+        nodes = plotter._get_nodes_dict()
+        nodes.update(
+            {
+                "pad": 15,
+                "thickness": 20,
+            }
+        )
+        fig = go.Figure(
+            go.Sankey(
+                arrangement="snap",
+                link=links,
+                node=nodes,
+                orientation="v",
+                textfont={
+                    "size": 12,
+                    "shadow": "0px 0px 0px rgba(0,0,0,0)",
+                },
+            )
+        )
+
+        legend_entries = [
+            ("categories", None, SANKEY_COLORS[c], SANKEY_LEGEND_LABELS[c])
+            for c in legend_categories
+        ]
+        legend_entries += [
+            ("end_uses", "Use", color, end_use)
+            for end_use, color in zip(end_uses, end_use_colors)
+        ]
+        for group, group_title, color, label in legend_entries:
+            fig.add_trace(
+                go.Scatter(
+                    mode="markers",
+                    x=[None],
+                    y=[None],
+                    marker=dict(size=10, color=color, symbol="square"),
+                    name=label,
+                    legendgroup=group,
+                    legendgrouptitle_text=group_title,
+                )
+            )
+
+        fig.update_layout(
+            legend_traceorder="grouped",
+            legend_tracegroupgap=20,
+            font_size=12,
+            showlegend=True,
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+        fig.update_xaxes(visible=False)
+        fig.update_yaxes(visible=False)
 
         self._show_and_save_plotly(fig, base_name="sankey")
 
