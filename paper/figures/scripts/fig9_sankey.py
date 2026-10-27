@@ -102,12 +102,13 @@ def _build_visualizer(material: str, do_show_figs: bool, carbon_only: bool = Tru
     )
     return CementVisualizer(cfg=cfg, display_names=CementDisplayNames())
 
+
 def bypass_flow(mfa: fd.MFASystem, from_process: str, via_process: str, to_process: str):
-        first = mfa.flows.pop(f"{from_process} => {via_process}")
-        second = mfa.flows.pop(f"{via_process} => {to_process}")
-        mfa.flows[f"{from_process} => {to_process}"] = first
-        mfa.flows[f"{from_process} => {to_process}"].to_process = second.to_process
-        mfa.flows[f"{from_process} => {to_process}"].name = f"{from_process} => {to_process}"
+    first = mfa.flows.pop(f"{from_process} => {via_process}")
+    second = mfa.flows.pop(f"{via_process} => {to_process}")
+    mfa.flows[f"{from_process} => {to_process}"] = first
+    mfa.flows[f"{from_process} => {to_process}"].to_process = second.to_process
+    mfa.flows[f"{from_process} => {to_process}"].name = f"{from_process} => {to_process}"
 
 
 def modify_mfa_for_sankey(mfa: fd.MFASystem, material):
@@ -138,9 +139,7 @@ def main_all():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--material", choices=["plastics", "steel", "cement", "all"], default="all"
-    )
+    parser.add_argument("--material", choices=["plastics", "steel", "cement", "all"], default="all")
     parser.add_argument(
         "--carbon-only",
         action=argparse.BooleanOptionalAction,
