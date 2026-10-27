@@ -86,19 +86,23 @@ W_{D_\gamma} = 0.025.
 \end{equation}
 
 %=======================================================================
-\subsubsection{Step 3: Transition smoothing}
+\subsubsection{Step 3: Transition smoothing} \label{sec:smoothing}
 
 Since Step 2 does not guarantee an exact match of value and derivative to historical data, a blending procedure from historical data $\tilde{h}_{r,u}(t)$ to the logistic curve $f^{(2)}_{r,u}(t)$ is performed.
 
-The blending procedure is carried out in the time domain. The resulting smoothed function $f^{(3)}_{r,u}(t)$ is obtained by solving an initial value problem (a differential equation): its second derivative is controlled as described below, and its function value and first derivative are determined by time integration.
+The same procedure is later also applied to in-use stock inflows (Section \ref{sec:inflow_smoothing}) and to trade (Section \ref{sec:trade_smoothing}). It is therefore described in a generic notation, applied separately to each region and category: $h(t)$ denotes the historical data up to the last historical year $t_{0}$, the target value is labeled $s(t)$ ($s$ as in "set point", another term for target in this context), and the smoothed transition is labeled $y(t)$. One or two dots denote first and second time derivatives $\dot{y}(t) = \frac{dy}{d t}$ and $\ddot{y}(t) = \frac{d^2y}{d t^2}$.
 
-The second derivative is determined to drive the smoothed function $f^{(3)}_{r,u}(t)$ towards its target $f^{(2)}_{r,u}(t)$. To this end, a critically damped PD-controller is used, which means that the second derivative has two terms: one is proportional to the difference in the function value (the "P" in "PD", as in "proportional"), whereas the other is proportional to the differences in the derivative (the "D" in "PD", as in "difference"). In the following, a notation change is introduced to avoid confusion: the target value (also "set point" in control theory) is labeled $f^{(2)}_{r,u}(t) = s(t)$, and the smoothed transition (i.e. the solution variable of the differential equation) is labeled $f^{(3)}_{r,u}(t) = y(t)$. One or two dots denote first and second time derivatives $\dot{y}(t) = \frac{dy}{d t}$ and $\ddot{y}(t) = \frac{d^2y}{d t^2}$.
+For the stocks, this notation means that $h(t) = \tilde{h}_{r,u}(t)$, $s(t) = f^{(2)}_{r,u}(t)$, and $y(t) = f^{(3)}_{r,u}(t)$.
+
+The blending procedure is carried out in the time domain. The smoothed function $y(t)$ is obtained by solving an initial value problem (a differential equation) with initial conditions $y(t_{0}) = h(t_{0})$ and $\dot{y}(t_{0}) = v_0$, where the initial slope $v_0$ is estimated from the recent historical trend. Its second derivative is controlled as described below, and its function value and first derivative are determined by time integration.
+
+The second derivative is determined to drive the smoothed function $y(t)$ towards its target $s(t)$. To this end, a critically damped PD-controller is used, which means that the second derivative has two terms: one is proportional to the difference in the function value (the "P" in "PD", as in "proportional"), whereas the other is proportional to the differences in the derivative (the "D" in "PD", as in "difference").
 
 The resulting differential equation then reads
 \begin{equation} \label{eq:pd_acc}
     \ddot{y}(t) = - 2k\; (\dot{y}(t) - \dot{s}(t^*)) - k^2\;(y(t)-s(t)).
 \end{equation}
-The constant $k$ is a damping factor which determines the convergence speed. It is set to a value such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within 50 years. The asterisk $t^*$ is part of a look-ahead modification described below.
+The constant $k$ is a damping factor which determines the convergence speed. It is set such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within a pre-defined approaching time $\tau$, which is chosen between 50 and 75 years. The asterisk $t^*$ is part of a look-ahead modification described below.
 
 The differential equation is solved with an explicit Euler scheme, that is by starting at $t=t_{0}$ and executing the following three assignments year by year.
 \begin{equation}
@@ -110,16 +114,25 @@ The differential equation is solved with an explicit Euler scheme, that is by st
 \end{equation}
 Here, $\Delta t$ is the time step width, one year in this case. The value $y_p(t)$ is the preliminary smoothed function. The actual smoothed function $y(t)$ is finally obtained through the nudging procedure
 \begin{equation}
-    y(t+\Delta t) = \theta(t)\, s(t+\Delta t) + (1-\theta(t))\, y_p(t+\Delta t)
+    y(t+\Delta t) = \theta(t+\Delta t)\, s(t+\Delta t) + (1-\theta(t+\Delta t))\, y_p(t+\Delta t)
 \end{equation}
-with the nudging factor $\theta(t)$. It is increased over time to accelerate the complete convergence of the smoothed function to the target function. In control theory, an integration term is often added to the PD-controller to achieve complete convergence, making it a PID controller. In the present case, this led to oscillations in the smoothed function, which is why a nudging procedure was used instead.
+with the nudging factor
+\begin{equation}
+    \theta(t) = 1 - \exp\big(-\rho(t)\,\Delta t\big), \qquad
+    \rho(t) = \frac{\lambda}{\tau} \left(\frac{t-t_{0}}{\tau}\right)^2.
+\end{equation}
+The nudging rate $\rho(t)$ increases over time to accelerate the complete convergence of the smoothed function to the target function. The coefficient $\lambda$ is chosen such that the nudging alone would reduce the difference $y(t)-s(t)$ by 95 \% within $\tau$. In control theory, an integration term is often added to the PD-controller to achieve complete convergence, making it a PID controller. In the present case, this led to oscillations in the smoothed function, which is why a nudging procedure was used instead.
 
-Since the set point $s(t)$ is known a priori for all years (it is the output of Step 2), its future development over time can be used by the algorithm. In particular, the derivative $\dot{s}$ in Eq. \eqref{eq:pd_acc} is evaluated at a later time than $t$, i.e. at $t^*=t+c(t)$, where $c(t)$ is varied between one and five years.
-This lessens overshoots of the smoothed function if the logistic target function nears saturation.
+Since the set point $s(t)$ is known a priori for all years, its future development over time can be used by the algorithm. In particular, the derivative $\dot{s}$ in Eq. \eqref{eq:pd_acc} is evaluated at a later time than $t$, i.e. at $t^*=t+c(t)$, where the look-ahead $c(t)$ decreases linearly from five years to zero within $\tau/2$.
+This lessens overshoots of the smoothed function if the target function nears saturation.
 
 \subsubsection{Denormalization}
 
 Finally, the smoothed normalized per-capita stocks $f^{(3)}_{r,u}(t)$ are multiplied with the good-specific saturation level $\alpha_u$ and with the population of the region $r$ to obtain the in-use stock extrapolation for each region and end-use category.
+
+\subsubsection{In-use stock inflow smoothing} \label{sec:inflow_smoothing}
+
+The in-use stock inflow is first computed from the extrapolated stock with a stock-driven dynamic stock model. As this can cause abrupt changes of the inflow at $t_{0}$, the transition smoothing of Section \ref{sec:smoothing} is applied to the inflow, with $h(t)$ the historical inflow, $s(t)$ the inflow from the stock-driven model, and $y(t)$ the smoothed inflow. Negative values of the smoothed inflow are set to zero, and the in-use stock is recomputed from the smoothed inflow with an inflow-driven dynamic stock model. The resulting stock therefore deviates slightly from the extrapolation of Section \ref{sec:stock_extrapol}.
 
 %=======================================================================
 %=======================================================================
@@ -207,7 +220,9 @@ Scrap and waste trade is calculated analogously to the other trade stages, with 
 This means that exports are calculated first. They are still scaled with production, as in Eq. \eqref{eq:export_scaling_basic}. Imports are scaled with demand, as in Eq. \eqref{eq:import_scaling_basic}. Imports and demand are then calculated concurrently with a fixed-point iteration.
 In case of increasing scrap/waste production, the Eqs. \eqref{eq:export_scaling_incr} and \eqref{eq:import_scaling_incr} are used, while for decreasing production, \eqref{eq:export_scaling_decr} and \eqref{eq:import_scaling_decr} are used.
 
+\subsubsection{Transition smoothing} \label{sec:trade_smoothing}
 
+The transition smoothing of Section \ref{sec:smoothing} is applied to the extrapolated imports $i_r(t)$ and exports $e_r(t)$ before global balancing. For each, $h(t)$ is the historical trade flow, $s(t)$ the extrapolated trade flow, and $y(t)$ the smoothed trade flow. Negative values of the smoothed trade flows are set to zero.
 
 %=======================================================================
 \subsubsection{Global balancing}
