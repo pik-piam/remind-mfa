@@ -146,6 +146,7 @@ class CommonModel[CfgT: CommonCfg]:
             model=self.cfg.model,
             dims=self.dims,
             parameter_definitions=scn_prm_def,
+            region_mappings_path=str(self.data_reader.region_mappings_path),
         )
         self.scenario_parameters = scenario_reader.get_parameters()
         # scenario parameters used within the MFA systems
