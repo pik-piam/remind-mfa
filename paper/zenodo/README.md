@@ -24,7 +24,7 @@ In particular, the stock extrapolation is different: The stock is regressed to h
 **CAVEAT** on the country-resolution dataset: Any MFA is only as good as its data. Especially for small regions, production and/or trade data are often unavailable or inaccurate, so they are reconstructed from more aggregated data sets. We advise to treat the country-resolution dataset with caution. We recommend to perform regional aggregation to regions fitting users' needs. As an alternative, users can also use the 12-region data set and disaggregate/re-aggregate it with their own method.
 The data quality is also different across materials:
 Trade data is available for most single countries for all materials.
-Production data is available for 96 countries/regions for steel, 256 countries/regions for cement, but only 8 countries/regions for plastics, indicating potential inaccuracies especially for the plastics MFA. Regional aggregation is recommended  to average out possible single-country errors.
+Production data is available for 96 countries/regions for steel, 256 countries/regions for cement, but only 8 countries/regions for plastics, indicating potential inaccuracies especially for the plastics MFA. Regional aggregation is recommended to average out possible single-country errors.
 
 The data is available in the region set it was computed with.
 A global aggregation (region "World") is also available for all flows, stocks, and trades, but not for parameters, since these generally cannot simply be summed to obtain global values.
@@ -38,7 +38,7 @@ Historical years are not included, because the historical data partly builds on 
 
 We share all flows, stocks, trades, and parameters of the prospective MFA.
 This means that the historical MFA and some auxiliary variables (e.g. from the stock extrapolation procedure) are not shared.
-We provide a complete and a reduced version of the dataset, which are described below.
+We provide a complete and an aggregated version of the dataset (files `data_<material>_<regions>_complete.csv` and `data_<material>_<regions>_aggregated.csv`), which are described below.
 
 ### Variable naming convention for the complete dataset:
 
@@ -55,11 +55,12 @@ The complete dataset contains the following variables:
 <material>|stocks|<stock name>|outflow
 <material>|stocks|<stock name>|outflow|<sub-dims>
 
-<material>|trades|<trade name>|imports
-<material>|trades|<trade name>|imports|<sub-dims>
-<material>|trades|<trade name>|exports
-<material>|trades|<trade name>|exports|<sub-dims>
+<material>|trades|<trade name>|import
+<material>|trades|<trade name>|import|<sub-dims>
+<material>|trades|<trade name>|export
+<material>|trades|<trade name>|export|<sub-dims>
 
+<material>|parameters|<parameter name>
 <material>|parameters|<parameter name>|<sub-dims>
 ```
 
@@ -67,25 +68,25 @@ Notes:
 - Flows are named as `"<from_process> => <to_process>"`.
 - `<sub-dims>` refers to the dimensions of a variable apart from region and time (such as end-use).
   If variables contain such additional dimensions, they are given once fully disaggregated and once aggregated along all dimensions except region and time.
-- Parameters are not aggregated.
+- Parameters are only given fully disaggregated, i.e. not aggregated along their sub-dims.
 
-### Variables contained in the reduced dataset:
+### Variables contained in the aggregated dataset:
 
-The reduced dataset contains the following variables:
+The aggregated dataset contains the following variables:
 
 ```
 <material>|flows|<flow name>
 <material>|stocks|<stock name>|stock
 <material>|stocks|<stock name>|inflow
 <material>|stocks|<stock name>|outflow
-<material>|trades|<trade name>|imports
-<material>|trades|<trade name>|exports
+<material>|trades|<trade name>|import
+<material>|trades|<trade name>|export
 ```
 
 Notes:
 - Flows, stocks, and trades are given disaggregated only by region and time.
 - Parameters are not given, as they mostly only have meaning when disaggregated.
-- All these values are also contained in the complete dataset, but the reduced version can be more practical, e.g. when searching for a variable name.
+- All these values are also contained in the complete dataset, but the aggregated version can be more practical, e.g. when searching for a variable name.
 
 ### Variables of special interest
 

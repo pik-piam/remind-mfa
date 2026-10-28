@@ -34,11 +34,11 @@ We first calculate the common regression for normalized per-capita in-use stocks
 \begin{equation}
 f^{(1)}_u(t) = \tilde{L}\big(\hat{\varphi}^{(1)}_u,\,x_r(t)\big),
 \end{equation}
-where $x_r(t)$ is the base-10 logarithm of the GDP per capita\footnote{Strictly speaking, the GDP per capita is divided by 1 USD/cap to make it unitless before taking the logarithm.} of that region and
+where $x_r(t)$ is the standardized base-10 logarithm of the GDP per capita\footnote{Strictly speaking, the GDP per capita is divided by 1 USD/cap to make it unitless before taking the logarithm.} of that region and
 \begin{equation}
-    \hat{\varphi}^{(1)}_u = \arg\min_{\varphi} \left( \sum_{t,r} (\tilde{L}(\varphi,x_r(t))-\tilde{h}_{r,u}(t))^2 \right)
+    \hat{\varphi}^{(1)}_u = \arg\min_{\varphi} \left( \sum_{t,r} \big(w_r(t)\,(\tilde{L}(\varphi,x_r(t))-\tilde{h}_{r,u}(t))\big)^2 \right)
 \end{equation}
-are the reduced parameters minimizing the $L^2$-distance from the historical stocks.
+are the reduced parameters minimizing the $L^2$-distance from the historical stocks, with GDP shares $w_r(t)$ as region weights.
 
 
 %=======================================================================
@@ -98,7 +98,7 @@ For the stocks, this notation means that $h(t) = \tilde{h}_{r,u}(t)$, $s(t) = f^
 
 The blending procedure is carried out in the time domain. The smoothed function $y(t)$ is obtained by solving an initial value problem (a differential equation) with initial conditions $y(t_{0}) = h(t_{0})$ and $\dot{y}(t_{0}) = v_0$, where the initial slope $v_0$ is estimated from the recent historical trend. Its second derivative is controlled as described below, and its function value and first derivative are determined by time integration.
 
-The second derivative is determined to drive the smoothed function $y(t)$ towards its target $s(t)$. To this end, a critically damped PD-controller is used, which means that the second derivative has two terms: one is proportional to the difference in the function value (the "P" in "PD", as in "proportional"), whereas the other is proportional to the differences in the derivative (the "D" in "PD", as in "difference").
+The second derivative is determined to drive the smoothed function $y(t)$ towards its target $s(t)$. To this end, a critically damped PD-controller is used, which means that the second derivative has two terms: one is proportional to the difference in the function value (the "P" in "PD", as in "proportional"), whereas the other is proportional to the differences in the derivative (the "D" in "PD", as in "derivative").
 
 The resulting differential equation then reads
 \begin{equation} \label{eq:pd_acc}
@@ -106,7 +106,7 @@ The resulting differential equation then reads
 \end{equation}
 The constant $k$ is a damping factor which determines the convergence speed. It is set such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within a pre-defined approaching time $\tau$, which is chosen between 30 and 65 years. The asterisk $t^*$ is part of a look-ahead modification described below.
 
-The differential equation is solved with an explicit Euler scheme, that is by starting at $t=t_{0}$ and executing the following three assignments year by year.
+The differential equation is solved with a semi-implicit (symplectic) Euler scheme, that is by starting at $t=t_{0}$ and executing the following three assignments year by year.
 \begin{equation}
 \begin{split}
     \ddot{y}(t) &= - 2k\; (\dot{y}(t) - \dot{s}(t^*)) - k^2\;(y(t)-s(t)) \\
@@ -191,9 +191,9 @@ with $\delta$ being the logarithm of the relative demand change
 
 Similarly, exports are scaled as
 \begin{equation} \label{eq:export_scaling_incr}
-    e_r(t) = p_r(t) \left(\frac{e_r(t_{0})}{p_r(t_{0})}\right)^{(1-\alpha)} \left(\frac{\sum_{r'} e_{r'}(t_{0})}{\sum_{r'} p_{r'}(t_{0})}\right)^{\alpha} \quad\text{for}\quad d_r(t) \geq d_r(t_{0}).
+    e_r(t) = p_r(t) \left(\frac{e_r(t_{0})}{p_r(t_{0})}\right)^{(1-\alpha)} \left(\frac{\sum_{r'} e_{r'}(t_{0})}{\sum_{r'} p_{r'}(t_{0})}\right)^{\alpha} \quad\text{for}\quad p_r(t) \geq p_r(t_{0}),
 \end{equation}
-Note that $\alpha$ depends on demand, not production, for simplicity.
+where $\alpha$ is evaluated with the relative change of production, $p_r(t)/p_r(t_{0})$.
 
 \subsubsection{Scaling modification for decreasing demand}
 
@@ -208,19 +208,16 @@ while imports are still scaled proportionally with demand as in Eq. \eqref{eq:im
 
 \subsubsection{Solving for exports and production}
 
-Imports only depend on the known variable demand and can therefore be calculated directly. Exports, on the other hand, depend on production (cf. Eq. \eqref{eq:export_scaling_incr}), which in turn is determined from the mass balance in Eq. \eqref{eq:trade_extrapol_massb} and thus depends on exports. This equation system is solved in a fixed-point iteration loop. This loop is initialized with the assumption
-\begin{equation}
-     \frac{p_r(t)}{p_r(t_{0})} =\frac{d_r(t)}{d_r(t_{0})}.
-\end{equation}
+Imports only depend on the known variable demand and can therefore be calculated directly. Exports, on the other hand, depend on production (cf. Eq. \eqref{eq:export_scaling_incr}), which in turn is determined from the mass balance in Eq. \eqref{eq:trade_extrapol_massb} and thus depends on exports. This equation system is solved in a fixed-point iteration loop. This loop is initialized with constant exports, $e_r(t) = e_r(t_{0})$.
 
-In every iteration, Eqs. \eqref{eq:export_scaling_incr} or \eqref{eq:export_scaling_decr} are solved for $e_r(t)$, after which Eq. \eqref{eq:trade_extrapol_massb} is solved for $p_r(t)$. This updated $p_r(t)$ is then used for the next iteration. Ten iterations are used without a convergence criterion, which yields sufficient accuracy.
+In every iteration, Eq. \eqref{eq:trade_extrapol_massb} is solved for $p_r(t)$, after which Eq. \eqref{eq:export_scaling_decr} is solved for $e_r(t)$. This updated $e_r(t)$ is then used for the next iteration. Three iterations are used without a convergence criterion, which yields sufficient accuracy.
 
-\subsubsection{Scrap and waste trade}
+\subsubsection{Steel scrap trade}
 
-Scrap and waste trade is calculated analogously to the other trade stages, with the difference that the roles of imports and exports as well as those of demand and production are flipped.
+Steel scrap trade is calculated analogously to the other trade stages, with the difference that the roles of imports and exports as well as those of demand and production are flipped.
 
-This means that exports are calculated first. They are still scaled with production, as in Eq. \eqref{eq:export_scaling_basic}. Imports are scaled with demand, as in Eq. \eqref{eq:import_scaling_basic}. Imports and demand are then calculated concurrently with a fixed-point iteration.
-In case of increasing scrap/waste production, the Eqs. \eqref{eq:export_scaling_incr} and \eqref{eq:import_scaling_incr} are used, while for decreasing production, \eqref{eq:export_scaling_decr} and \eqref{eq:import_scaling_decr} are used.
+This means that exports are calculated first. They are still scaled with production (here, the domestic scrap supply), as in Eq. \eqref{eq:export_scaling_basic}, and with the modification of Eq. \eqref{eq:export_scaling_incr} for increasing supply. Imports are scaled with demand, as in Eq. \eqref{eq:import_scaling_basic}, with the modification of Eq. \eqref{eq:import_scaling_incr} for increasing demand. Imports and demand are then calculated concurrently with a fixed-point iteration.
+The modification for decreasing values also applies with flipped roles: exports decline proportionally with decreasing supply, while imports do not decline below their reference value, analogously to Eq. \eqref{eq:export_scaling_decr}.
 
 \subsubsection{Transition smoothing} \label{sec:trade_smoothing}
 
@@ -241,9 +238,9 @@ This condition is not necessarily fulfilled after the extrapolation step. Theref
 \end{equation}
 Here, the tilde accent denotes values before the scaling step, and the apostrophe is only added to the summing index $r'$ so as not to be confused with the equation index $r$.
 
-For future trades, the common value $g(t)$ is determined as the geometric mean of imports and exports, i.e.
+For future trades, the common value $g(t)$ is determined as the harmonic mean of global imports and exports, i.e.
 \begin{equation}
-    g(t) = \sqrt{\sum_r (\tilde{e}_r(t)) \; \sum_r (\tilde{i}_r(t))}
+    g(t) = \frac{2}{1/\sum_r (\tilde{e}_r(t)) + 1/\sum_r (\tilde{i}_r(t))}
     \quad\text{for}\quad t > t_{0}.
 \end{equation}
 
