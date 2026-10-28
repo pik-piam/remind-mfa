@@ -169,8 +169,11 @@ def blend_regional_with_global_mean(
 
 
 DEFAULT_APPROACHING_TIME = 50
-"""Default characteristic timescale in years of the critically damped blend, used for stocks,
-in-use stock inflows and trade."""
+"""Default characteristic timescale in years of the critically damped blend."""
+
+FLOW_APPROACHING_TIME = 75
+"""Characteristic timescale in years of the critically damped blend of in-use stock inflows
+and trade."""
 
 
 def critically_damped_blend(
