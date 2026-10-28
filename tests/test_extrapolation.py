@@ -355,9 +355,9 @@ def test_critically_damped_blender():
     time = np.arange(2000, 2101)
     historical = np.arange(6, dtype=float).reshape(-1, 1)  # ramp 0..5
     prediction = np.full((len(time), 1), 50.0)
-    blended = PDController(
-        time=time, historical=historical, prediction=prediction
-    ).blend(approaching_time=10)
+    blended = PDController(time=time, historical=historical, prediction=prediction).blend(
+        approaching_time=10
+    )
 
     np.testing.assert_allclose(blended[:6], historical)  # history preserved exactly
     assert abs(blended[-1, 0] - 50.0) < 0.5  # converges to the prediction long-term
