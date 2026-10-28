@@ -187,17 +187,17 @@ class StockExtrapolation(RemindMFABaseModel):
                     prediction=self.fitted_regression.values,
                     lifetime=self._prepare_lifetime_for_blender(),
                 )
-                approaching_time = 50
+                stock_approaching_time = 50
                 add_assumption_doc(
                     type="integer number",
                     name="years for blending to regression",
-                    value=approaching_time,
+                    value=stock_approaching_time,
                     description=(
                         "Number of years for the blending from historical to regressed in-use stocks. "
                         "Governs the damping parameter k."
                     ),
                 )
-                stocks_pc_out[...] = blender.blend(approaching_time)
+                stocks_pc_out[...] = blender.blend(stock_approaching_time)
                 add_assumption_doc(
                     type="model assumption",
                     name="Usage of critically damped blend",

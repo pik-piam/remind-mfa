@@ -9,11 +9,13 @@ saturation_level,cement,180,,,Corresponds to about 24 t cement at historical cem
 stock_factor,all,1.0,"{year: 2100, type: factor}",,
 lifetime_mean,all,1.0,"{year: 2060, type: factor}",,
 lifetime_std,all,1.0,"{year: 2060, type: factor}",,
-n_trend_years,all,15,,,Number of recent historic years for the initial slope of the inflow blending
+n_trend_years,all,12,,,Number of recent historic years for the initial slope of the inflow blending
+flow_approaching_time,all,60,,,Characteristic timescale in years of the inflow blending
 reuse_share,all,0.0,"{year: 2100, type: target}",,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
 n_trend_years,steel,2,,"{Region: CHA}",
+flow_approaching_time,steel,30,,"{Region: CHA}",
 max_scrap_share,steel,0.7,,,Maximum share of scrap in the metallic input to steel production
 
 # --- Plastics ---
@@ -28,6 +30,7 @@ daccu_production_rate,plastics,0.01,"{year: 2100, type: target}",,
 
 # --- Cement (top-down) ---
 n_trend_years,cement,2,,"{Region: CHA}",
+flow_approaching_time,cement,30,,"{Region: CHA}",
 
 # --- Cement (bottom-up) ---
 development_gdppc_low,cement,8000,,,GDP per capita below which splits fully converge to their global means

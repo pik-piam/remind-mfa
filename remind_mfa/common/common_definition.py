@@ -99,6 +99,14 @@ scenario_parameters = [
             "critically damped blend of in-use stock inflows"
         ),
     ),
+    RemindMFAParameterDefinition(
+        name="flow_approaching_time",
+        dim_letters=("r",),
+        description=(
+            "Characteristic timescale in years of the critically damped blend of in-use stock "
+            "inflows from historical trends to future values"
+        ),
+    ),
     ExtrapolationDefinition(
         name="stock_factor",
         dim_letters=("r",),
