@@ -66,6 +66,8 @@ def run_mfa(
     model_instance = init_model(cfg=config)
     model_instance.run()
     model_instance.export()
+    if stage == "two":
+        model_instance.visualize()
 
 
 @app.command("copy-demands")
