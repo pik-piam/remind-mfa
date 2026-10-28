@@ -93,7 +93,6 @@ class SteelMFASystem(CommonMFASystem):
             historical_trade=historical_trade["manufactured_products"],
             future_trade=trd["manufactured_products"],
             future_dom_demand=flw["manufactured_products_market => use"],
-            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
@@ -110,7 +109,6 @@ class SteelMFASystem(CommonMFASystem):
             historical_trade=historical_trade["steel"],
             future_trade=trd["steel"],
             future_dom_demand=flw["steel_market => manufacturing"],
-            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 
@@ -133,7 +131,6 @@ class SteelMFASystem(CommonMFASystem):
             historical_trade=historical_trade["scrap"],
             future_trade=trd["scrap"],
             future_dom_supply=flw["eol_management => scrap_market"],
-            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
 

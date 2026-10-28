@@ -144,20 +144,21 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
     return array
 
 
-DEFAULT_APPROACHING_TIME = 50
-"""Default characteristic timescale in years of the critically damped blend."""
+DEFAULT_APPROACHING_TIME = 65
+"""Default characteristic timescale in years of the critically damped blend, used for stocks,
+in-use stock inflows and trade."""
 
-FLOW_APPROACHING_TIME = 75
-"""Characteristic timescale in years of the critically damped blend of in-use stock inflows
-and trade."""
+DEFAULT_N_TREND_YEARS = 12
+"""Default number of most recent historical years used for the initial slope of the critically
+damped blend."""
 
 
 def critically_damped_blend(
     array: fd.FlodymArray,
     n_historical: int,
-    n_trend_years: fd.FlodymArray,
+    n_trend_years: fd.FlodymArray | int = DEFAULT_N_TREND_YEARS,
     time_letter: str = "t",
-    approaching_time: float = DEFAULT_APPROACHING_TIME,
+    approaching_time: fd.FlodymArray | float = DEFAULT_APPROACHING_TIME,
 ) -> fd.FlodymArray:
     """Smooth the transition from historical to future values of an array with a critically
     damped blend (see `CriticallyDampedBlender`).
@@ -168,12 +169,14 @@ def critically_damped_blend(
     Args:
         array (fd.FlodymArray): Array covering both the historical and the future period.
         n_historical (int): Number of historical time steps at the beginning of the time dimension.
-        n_trend_years (fd.FlodymArray): Number of most recent historical years used in the
-            weighted linear regression for the initial slope. Must not have the time dimension;
-            is broadcast to the other dimensions of ``array``.
+        n_trend_years (fd.FlodymArray | int): Number of most recent historical years used in the
+            weighted linear regression for the initial slope. An array must not have the time
+            dimension and is broadcast to the other dimensions of ``array``.
+            Defaults to ``DEFAULT_N_TREND_YEARS``.
         time_letter (str): Letter of the time dimension. Defaults to "t".
-        approaching_time (float): Characteristic timescale in years of the blend.
-            Defaults to ``DEFAULT_APPROACHING_TIME``.
+        approaching_time (fd.FlodymArray | float): Characteristic timescale in years of the
+            blend. An array must not have the time dimension and is broadcast to the other
+            dimensions of ``array``. Defaults to ``DEFAULT_APPROACHING_TIME``.
 
     Returns:
         fd.FlodymArray: Blended array with the same dimensions as ``array``.
@@ -181,8 +184,13 @@ def critically_damped_blend(
     time_axis = array.dims.index(time_letter)
     values = np.moveaxis(array.values, time_axis, 0)
     # the other dims keep their order when moving the time axis to the front
-    trend_years = n_trend_years.cast_to(array.dims.drop(time_letter)).values
-    blender = CriticallyDampedBlender(
+    if isinstance(n_trend_years, fd.FlodymArray):
+        trend_years = n_trend_years.cast_values_to(array.dims.drop(time_letter))
+    else:
+        trend_years = np.array(n_trend_years)
+    if isinstance(approaching_time, fd.FlodymArray):
+        approaching_time = approaching_time.cast_values_to(array.dims.drop(time_letter))
+    blender = PDController(
         time=array.dims[time_letter].items,
         historical=values[:n_historical],
         prediction=values,
@@ -193,7 +201,7 @@ def critically_damped_blend(
     return fd.FlodymArray(dims=array.dims, values=blended_values)
 
 
-class CriticallyDampedBlender:
+class PDController:
 
     def __init__(
         self,
@@ -251,7 +259,7 @@ class CriticallyDampedBlender:
 
     def blend(
         self,
-        approaching_time: float = DEFAULT_APPROACHING_TIME,
+        approaching_time: float | np.ndarray = DEFAULT_APPROACHING_TIME,
     ) -> np.ndarray:
         """
         Blend historical and extrapolated values using a forced critically damped system
@@ -267,10 +275,11 @@ class CriticallyDampedBlender:
         A quadratic nudge applied after each step guarantees convergence to P over the long run.
 
         Args:
-            approaching_time (float): Characteristic timescale in years. Sets the damping
-                parameter ``k = 4.74 / approaching_time`` (95% step-response convergence
+            approaching_time (float | np.ndarray): Characteristic timescale in years. Sets the
+                damping parameter ``k = 4.74 / approaching_time`` (95% step-response convergence
                 within ``approaching_time`` years) and the nudge rate (95% convergence of the
-                nudge alone within ``approaching_time`` years).
+                nudge alone within ``approaching_time`` years). Either a scalar or an array
+                matching the shape of prediction/historical, except time (0th axis).
                 Defaults to ``DEFAULT_APPROACHING_TIME``.
 
         Returns:
@@ -278,6 +287,9 @@ class CriticallyDampedBlender:
             historical index and a smooth blended trajectory thereafter.
         """
         last_history_idx = len(self.historical) - 1
+        approaching_time = np.broadcast_to(
+            np.asarray(approaching_time, dtype=float), self.prediction.shape[1:]
+        )
 
         # 1. Isolate the time window and prediction values we need to integrate over
         t_future = self.time[last_history_idx:]
@@ -325,7 +337,7 @@ class CriticallyDampedBlender:
         t_array: np.ndarray,
         p_array: np.ndarray,
         vp_array: np.ndarray,
-        approaching_time: float,
+        approaching_time: np.ndarray,
     ) -> np.ndarray:
         """
         Integrate a trajectory from an initial state (y0, v0) that smoothly tracks a target
@@ -345,10 +357,10 @@ class CriticallyDampedBlender:
                 shape ``(len(t_array), spatial...)``. Must be uniformly spaced in time.
             vp_array (np.ndarray): P'(t), the raw (not yet look-ahead-shifted) slope of the
                 prediction, same shape as ``p_array``.
-            approaching_time (float): Characteristic timescale in years. Sets the damping
-                parameter ``k = 4.74 / approaching_time`` and the nudge rate, such that both
-                the PD-controller and the nudge alone yield 95% convergence of a step response
-                within ``approaching_time`` years.
+            approaching_time (np.ndarray): Characteristic timescale in years, same shape as
+                ``y0``. Sets the damping parameter ``k = 4.74 / approaching_time`` and the nudge
+                rate, such that both the PD-controller and the nudge alone yield 95% convergence
+                of a step response within ``approaching_time`` years.
 
         Returns:
             np.ndarray: Integrated trajectory array of shape ``(len(t_array), spatial...)``.
@@ -364,7 +376,7 @@ class CriticallyDampedBlender:
         # of a unit step to 5% within approaching_time, consistent with the definition of k.
         # The exponential converts the rate to a per-step fraction.
         nudge_coefficient = 3 * np.log(20)
-        dt_elapsed = t_array - t_array[0]
+        dt_elapsed = (t_array - t_array[0]).reshape((-1,) + (1,) * approaching_time.ndim)
         nudge_rate = nudge_coefficient / approaching_time * (dt_elapsed / approaching_time) ** 2
         nudge_arr = 1 - np.exp(-nudge_rate * dt)
 
@@ -397,7 +409,7 @@ class CriticallyDampedBlender:
     def _lookahead_shift(
         arr: np.ndarray,
         dt: float,
-        approaching_time: float,
+        approaching_time: np.ndarray,
     ) -> np.ndarray:
         """
         Shift a time-indexed array by a continuously decreasing look-ahead.
@@ -415,26 +427,30 @@ class CriticallyDampedBlender:
             arr (np.ndarray): Array to shift, with shape ``(n_steps, ...)`` and time on
                 axis 0, starting at the transition point.
             dt (float): Spacing between consecutive time steps.
-            approaching_time (float): Duration over which the look-ahead ramps to zero.
+            approaching_time (np.ndarray): Duration over which the look-ahead ramps to zero,
+                with the shape of ``arr`` except time (0th axis).
 
         Returns:
             np.ndarray: Look-ahead-shifted array, with the same shape as ``arr``.
         """
         n_steps = arr.shape[0]
         n_fwd_max = 5
-        n_ramp_steps = max(1, int((approaching_time / 2) / dt))
+        n_ramp_steps = np.maximum(1, ((approaching_time / 2) / dt).astype(int))
+        steps = np.arange(n_steps, dtype=float).reshape((-1,) + (1,) * (arr.ndim - 1))
 
         # Continuous look-ahead amount for each step: 5 → 0 over n_ramp_steps, then 0
-        n_fwd_cont = n_fwd_max * np.maximum(0.0, 1.0 - np.arange(n_steps) / n_ramp_steps)
+        n_fwd_cont = n_fwd_max * np.maximum(0.0, 1.0 - steps / n_ramp_steps)
 
         # For each step i, look n_fwd_cont[i] steps forward in the array
-        look_pos = np.clip(np.arange(n_steps, dtype=float) + n_fwd_cont, 0, n_steps - 1)
+        look_pos = np.clip(steps + n_fwd_cont, 0, n_steps - 1)
 
         # Fractional interpolation between the two bracketing integer positions
         lo = look_pos.astype(int)
         hi = np.minimum(lo + 1, n_steps - 1)
-        w = (look_pos - lo).reshape((-1,) + (1,) * (arr.ndim - 1))
-        return (1 - w) * arr[lo] + w * arr[hi]
+        w = look_pos - lo
+        return (1 - w) * np.take_along_axis(arr, lo, axis=0) + w * np.take_along_axis(
+            arr, hi, axis=0
+        )
 
     def _weighted_trend_slope(self, idx: int) -> np.ndarray:
         """

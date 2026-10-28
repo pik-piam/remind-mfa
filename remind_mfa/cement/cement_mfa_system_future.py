@@ -128,7 +128,6 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
             future_dom_demand=total_cement_demand,
-            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
         flw["cement_market => exports"][...] = trd["cement"].exports
@@ -156,7 +155,6 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             historical_trade=historical_trade["clinker"],
             future_trade=trd["clinker"],
             future_dom_demand=flw["clinker_market => cement_production"],
-            n_trend_years=self.parameters["n_trend_years"],
         )
         extrapolator.run()
         flw["imports => clinker_market"][...] = trd["clinker"].imports

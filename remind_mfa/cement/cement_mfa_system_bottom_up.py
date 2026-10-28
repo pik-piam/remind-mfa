@@ -2,7 +2,7 @@ import flodym as fd
 
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.data_blending import CriticallyDampedBlender
+from remind_mfa.common.data_blending import PDController
 
 
 def expand_common_to_bu(arr: fd.FlodymArray, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
@@ -215,7 +215,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         ]
 
         # Lifetime independent blend
-        blender = CriticallyDampedBlender(
+        blender = PDController(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
             prediction=stk["bu_use"].stock.values,
