@@ -45,17 +45,18 @@ class CommonMFASystem(fd.MFASystem):
         self.stocks[use_stock_name].inflow[...] = inflow
         self.set_prms_and_compute(self.stocks[use_stock_name])
 
-    def set_prms_and_compute(self, stock: fd.Stock):
+    def set_prms_and_compute(self, stock: fd.DynamicStockModel):
         """Set the lifetime model parameters and compute the stock.
 
         Args:
-            stock (fd.Stock): Stock to set parameters for and compute.
+            stock (fd.DynamicStockModel): Stock to set parameters for and compute.
         """
-        stock.lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
-        stock.lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"],
-            std=self.parameters["lifetime_std"],
-        )
+        lifetime_model = stock.lifetime_model
+        lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
+        lifetime_model.mean = self.parameters["lifetime_mean"]
+        lifetime_model.std = self.parameters["lifetime_std"]
+        lifetime_model.lt_factor_by_year = self.parameters["lifetime_factor_nurture"]
+        lifetime_model.lt_factor_by_cohort = self.parameters["lifetime_factor_cohort"]
         stock.compute()
 
     def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:

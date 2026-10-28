@@ -113,13 +113,24 @@ scenario_parameters = [
         create_new=True,
     ),
     ExtrapolationDefinition(
-        name="lifetime_mean",
+        name="trade_factor",
         dim_letters=("r",),
+        create_new=True,
         blending_function="poly_mix",
+        description=("Scaling factor on future trade, per region."),
     ),
     ExtrapolationDefinition(
-        name="lifetime_std",
-        dim_letters=("r",),
+        name="lifetime_factor_nature",
+        dim_letters=("r", "u"),  # u dimension necessary for cement
+        create_new=True,
         blending_function="poly_mix",
+        description=("Lifetime extension factor of new age-cohorts (nature)."),
+    ),
+    ExtrapolationDefinition(
+        name="lifetime_factor_nurture",
+        dim_letters=("r", "u"),  # u dimension necessary for cement
+        create_new=True,
+        blending_function="poly_mix",
+        description=("Lifetime extension factor of all age-cohorts by year (nurture)."),
     ),
 ]

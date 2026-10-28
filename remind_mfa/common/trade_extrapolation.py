@@ -31,6 +31,13 @@ class TradeExtrapolator(RemindMFABaseModel):
     """future_dom_demand (FlodymArray): The domestic demand values to scale the historical imports by.
     Setting this means calculating trade in backward mode
     """
+    trade_factor: fd.FlodymArray | float = 1.0
+    """trade_factor (FlodymArray | float): Scenario factor on the extrapolated trade. Must only
+    contain dimensions of the future trade. Defaults to no scaling.
+    The factor multiplies both import and export flows (including stopover trade) after they have
+    been extrapolated and balanced without it. See :meth:`apply_trade_factor` for how the global
+    balance is restored for factors that differ between regions.
+    """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
 
@@ -137,7 +144,9 @@ class TradeExtrapolator(RemindMFABaseModel):
         stopover_trade = self.add_stopover()
         self.scale_second(stopover_trade)
         self.blend_transition()
-        self.balance()
+        self.future_trade.balance(to="hmean")
+        self.apply_trade_factor()
+        self.clip_excess_trade()
 
     def scale_first(self):
         # scale "first" trade flow (imports in demand-driven mode)
@@ -235,17 +244,37 @@ class TradeExtrapolator(RemindMFABaseModel):
             ),
         )
 
-    def balance(self):
-        """We balance global imports and exports to their hmean
-        Balancing might result in a situation where imports exceed total demand or exports
+    def apply_trade_factor(self):
+        """Multiply the balanced trade flows with the scenario trade factor and restore the global
+        balance.
+
+        A factor that is uniform across regions keeps imports and exports balanced, so it acts
+        exactly. A factor that differs between regions generally leaves global imports and exports
+        unequal. Since trade requires both a buyer and a seller, the global trade is then limited
+        to the smaller of both, and all flows of the larger side are scaled down proportionally.
+        The factor is thus exact on the smaller side and an upper bound on the larger side.
+        """
+        for future_flow in (self.future_trade.imports, self.future_trade.exports):
+            future_flow[...] = future_flow * self.trade_factor
+        self.future_trade.balance(to="minimum")
+        add_assumption_doc(
+            type="model assumption",
+            name="Balancing of scenario trade factor",
+            description=(
+                "The scenario trade factor multiplies extrapolated and balanced imports and "
+                "exports. If it differs between regions, global trade is limited to the smaller "
+                "of global imports and exports, and the larger side is scaled down "
+                "proportionally across all regions."
+            ),
+        )
+
+    def clip_excess_trade(self):
+        """Balancing might result in a situation where imports exceed total demand or exports
         exceed total supply, which would lead to a negative flow on one side of the trade
         market. If this is the case, we scale down the trade flow which is too big.
         We then balance trades again, which might lead to excess trade in further regions,
         which is why we repeat the process iteratively until the excess is sufficiently small.
         """
-        self.future_trade.balance(to="hmean")
-        tolerance = self.scaler_first
-
         max_value = self.scaler_first.values.max()
         epsilon = np.finfo(self.scaler_first.values.dtype).eps
         tolerance = epsilon * max_value * 10

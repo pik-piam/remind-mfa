@@ -205,6 +205,14 @@ class CommonModel[CfgT: CommonCfg]:
             self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
 
+        # lifetime cohort extension requires future dimensions, so it is set after extrapolation
+        self.parameters["lifetime_factor_cohort"] = self.get_lifetime_factor_cohort()
+
+    def get_lifetime_factor_cohort(self) -> fd.Parameter:
+        """Lifetime extension factor by age-cohort (nature). By default the scenario parameter
+        `lifetime_factor_nature`; overwritten by models that derive it differently."""
+        return self.parameters["lifetime_factor_nature"]
+
     def transfer_historical_parameters(self):
         """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
@@ -342,5 +350,11 @@ class CommonModel[CfgT: CommonCfg]:
 
     def lifetime_limit(self):
         """Effective lifetime when saturation level is reached.
-        Currently, this is just the last modelled lifetime."""
-        return self.parameters["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
+        Currently, this is just the last modelled lifetime, including the nurture and nature
+        extension."""
+        last_year = {"t": self.dims["t"].items[-1]}
+        return (
+            self.parameters["lifetime_mean"][last_year]
+            * self.parameters["lifetime_factor_nurture"][last_year]
+            * self.parameters["lifetime_factor_cohort"][last_year]
+        )

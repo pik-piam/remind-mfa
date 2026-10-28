@@ -11,7 +11,8 @@ from remind_mfa.cement.cement_mfa_system_bottom_up import (
     expand_common_to_bu,
     extend_end_use_intensive,
 )
-from remind_mfa.common.data_blending import blend
+from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.data_blending import blend, blend_regional_with_global_mean
 from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistoricalCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDisplayNames
@@ -20,6 +21,39 @@ from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
+
+
+def converge_lifetime_factor(
+    lifetime_current: fd.Parameter,
+    lifetime_ref: fd.FlodymArray,
+    factor: fd.FlodymArray,
+    exponent: float,
+) -> fd.FlodymArray:
+    """Lifetime extension factor that lets lifetimes converge towards a reference lifetime.
+
+    The new lifetime is max(lifetime_current, factor * lifetime_ref - gap / factor ** exponent),
+    with gap = lifetime_ref - lifetime_current. A lifetime equal to the reference is extended by
+    `factor`, and the absolute gap of all other lifetimes to it shrinks by 1 / factor ** exponent.
+    For factor >= 1, the new lifetime increases monotonically with the current lifetime and is
+    never below it. A factor of 1 leaves lifetimes unchanged.
+    Plain english: lifetimes below reference receive a larger multiplier than factor,
+    lifetimes above reference a smaller one until they just remain at their value.
+
+    Args:
+        lifetime_current (fd.Parameter): Current lifetime.
+        lifetime_ref (fd.FlodymArray): Reference lifetime to converge towards.
+        factor (fd.FlodymArray): Lifetime extension factor at the reference lifetime. Its
+            dimensions must contain those of `lifetime_current` and `lifetime_ref`.
+        exponent (float): Exponent n of the gap shrinkage 1 / factor ** n.
+
+    Returns:
+        fd.Parameter: Ratio of the new to the current lifetime, with the dimensions of `factor`.
+    """
+    lifetime_current = lifetime_current.cast_to(factor.dims)
+    lifetime_ref = lifetime_ref.cast_to(factor.dims)
+    lifetime_new = factor * lifetime_ref - (lifetime_ref - lifetime_current) / factor**exponent
+    lifetime_factor = lifetime_new.maximum(lifetime_current) / lifetime_current
+    return lifetime_factor.to_class(fd.Parameter)
 
 
 class CementModel(CommonModel[CementCfg]):
@@ -49,7 +83,6 @@ class CementModel(CommonModel[CementCfg]):
         """Development weight per region from GDP per capita at the last historical year:
         Blends log(GDP per capita) from 1 at low GDP to 0 at high GDP, with the transition range
         defined by the scenario parameters `development_gdppc_low` and `development_gdppc_high`."""
-        # TODO this could be merged with steel's approach
         gdppc = self.parameters["gdppc"][{"t": self.dims["h"].items[-1]}]
         weight = fd.Parameter(dims=gdppc.dims, name="development_weight")
         weight[...] = blend(
@@ -63,39 +96,124 @@ class CementModel(CommonModel[CementCfg]):
         )
         return weight
 
+    def set_structure_share(
+        self,
+        structure_split: fd.Parameter,
+        structure: str,
+        new_share: fd.FlodymArray | float,
+    ) -> fd.Parameter:
+        """Set the share of one structure type and rescale the others proportionally.
+
+        Args:
+            structure_split: Split over the structure dimension, summing to one.
+            structure: Item of the structure dimension whose share is set.
+            new_share: New share of `structure`.
+
+        Returns:
+            Structure split with the new share, still summing to one.
+        """
+        old_share = structure_split[{"s": structure}]
+        # scaling of the other shares, which absorb the change of the set share
+        others_scaling = (1.0 - new_share) / (1.0 - old_share).maximum(1e-9)
+
+        adjusted_split = fd.Parameter(dims=structure_split.dims, name=structure_split.name)
+        adjusted_split[...] = structure_split * others_scaling
+        adjusted_split[{"s": structure}] = new_share
+        return adjusted_split
+
     def calculate_derived_parameters(self):
 
         # copy/rename for use in common model
         self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
 
+        self.calculate_scenario_parameters()
+
+    def calculate_scenario_parameters(self):
+
         # derive mean residential type and structure splits from global weighted average
         prm = self.parameters
-        w = prm["development_weight"]
         floorspace = prm["floorspace"][{"t": self.dims["h"].items[-1]}]
 
         # residential type split target
         res_floorspace = floorspace[{"c": "Residential"}]
-        global_residential_type_split = (prm["residential_type_split"] * res_floorspace).sum_over(
-            "r"
-        ) / res_floorspace.sum_over("r")
-        residential_type_split_mean = fd.Parameter(
-            dims=prm["residential_type_split"].dims, name="residential_type_split_mean"
+        prm["residential_type_split_mean"] = blend_regional_with_global_mean(
+            regional_values=prm["residential_type_split"],
+            mean_weights=res_floorspace,
+            global_share=prm["development_weight"],
+            name="residential_type_split_mean",
         )
-        residential_type_split_mean[...] = (
-            w * global_residential_type_split + (1.0 - w) * prm["residential_type_split"]
-        )
-        prm["residential_type_split_mean"] = residential_type_split_mean
 
-        # structure split target
+        # structure split target: global weighted mean without unknown structures,
+        # with a floor on the timber share
         bu_floorspace = expand_common_to_bu(floorspace, prm)
-        global_structure_split = (prm["structure_split"] * bu_floorspace).sum_over(
-            "r"
-        ) / bu_floorspace.sum_over("r")
-        structure_split_mean = fd.Parameter(
-            dims=prm["structure_split"].dims, name="structure_split_mean"
+        structure_split_mean = blend_regional_with_global_mean(
+            regional_values=prm["structure_split"],
+            mean_weights=bu_floorspace,
+            global_share=prm["development_weight"],
+            name="structure_split_mean",
         )
-        structure_split_mean[...] = w * global_structure_split + (1.0 - w) * prm["structure_split"]
-        prm["structure_split_mean"] = structure_split_mean
+        prm["structure_split_mean"] = self.set_structure_share(
+            structure_split_mean, "Unspecified Structure", 0.0
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="No unknown structure type in target",
+            value="0",
+            description=(
+                "The structure split converges to a target without the unknown structure type. "
+                "Its share is redistributed to the other structure types proportionally."
+            ),
+        )
+
+        timber = prm["structure_split_mean"][{"s": "Timber Structure"}]
+        floor = self.scenario_parameters["min_timber_share"].cast_to(timber.dims)
+        prm["structure_split_target"] = self.set_structure_share(
+            prm["structure_split_mean"], "Timber Structure", timber.maximum(floor)
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="Minimum timber share of buildings",
+            value=str(np.unique(floor.values)),
+            description=(
+                "The structure split converges to a target in which the timber share is at "
+                "least the scenario value given here. Regions above it keep their share. The "
+                "added timber share is taken from the other structure types proportionally."
+            ),
+        )
+
+    def get_lifetime_factor_cohort(self) -> fd.Parameter:
+        """Lifetime extension factor by age-cohort (nature), derived from the scenario parameter
+        `lifetime_factor_nature`.
+
+        Lifetimes of new age-cohorts converge to the GDP-weighted regional mean lifetime of the
+        last historical year (see `converge_lifetime_factor`).
+        """
+        lifetime_convergence_exponent = 3
+        factor = self.parameters["lifetime_factor_nature"]
+        last_historical = {"t": self.dims["h"].items[-1]}
+
+        # calculate gdp-weighted global lifetime average
+        lifetime_current = self.parameters["lifetime_mean"][last_historical]
+        gdp = (
+            self.parameters["gdppc"][last_historical]
+            * self.parameters["population"][last_historical]
+        )
+        lifetime_ref = (lifetime_current * gdp).sum_over("r") / gdp.sum_over("r")
+
+        add_assumption_doc(
+            type="model switch",
+            name="Lifetime convergence of new age-cohorts",
+            value=lifetime_convergence_exponent,
+            description=(
+                "New age-cohorts (nature) of a region at the GDP-weighted regional mean lifetime "
+                "of the last historical year are extended by 'lifetime_factor_nature'. The gap of "
+                "other regions to this reference lifetime shrinks by the factor "
+                "1 / lifetime_factor_nature ** n, with n = 3. Lifetimes are never reduced."
+            ),
+        )
+        return converge_lifetime_factor(
+            lifetime_current, lifetime_ref, factor, lifetime_convergence_exponent
+        )
 
     def run(self):
         super().run()
@@ -109,7 +227,12 @@ class CementModel(CommonModel[CementCfg]):
         Intensive end-use-resolved parameters (`intensive_end_use_prms`) are broadcasted to the
         extended-end-use dimension for the bottom-up MFA.
         """
-        intensive_end_use_prms = ("lifetime_mean", "lifetime_std")
+        intensive_end_use_prms = (
+            "lifetime_mean",
+            "lifetime_std",
+            "lifetime_factor_nurture",
+            "lifetime_factor_cohort",
+        )
         bu_mfa = self.make_mfa(
             definition=self.get_definition(self.cfg, historical=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,
