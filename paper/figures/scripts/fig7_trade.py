@@ -172,7 +172,7 @@ def _build_figure(config, aggregate_regions: bool) -> go.Figure:
 def main(material: str = "steel", use_h12: bool = False, show: bool = True):
     config = get_material_config(material)
     fig = _build_figure(config, aggregate_regions=not use_h12)
-    _utils.save_figure(fig, f"figure_10_{config.material}_{_utils.region_mode_suffix(use_h12)}")
+    _utils.save_figure(fig, f"figure_7_{config.material}_{_utils.region_mode_suffix(use_h12)}")
     if show:
         fig.show()
     return fig

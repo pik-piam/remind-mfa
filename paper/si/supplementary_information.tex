@@ -39,7 +39,7 @@
 }
 
 % Crop boxes (content area in bp) of the PDF figures, written by
-% figures/scripts/crop_boxes.py; \includecropped[options]{name} includes ../figures/name.pdf
+% figures/scripts/prepare_figures.py; \includecropped[options]{name} includes ../figures/name.pdf
 % cropped to its box, or uncropped if there is no box for it.
 \IfFileExists{../figures/crop_boxes.csv}{%
 	\csvreader{../figures/crop_boxes.csv}%
@@ -58,7 +58,7 @@
 
 \DeclareMathOperator*{\argmin}{arg\,min}
 
-\title{Supplementary Materials}
+\title{Supplementary Information}
 \author{}
 \date{}
 

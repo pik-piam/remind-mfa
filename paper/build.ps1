@@ -1,4 +1,4 @@
-# Build manuscript and supplementary materials with pdflatex and biber.
+# Build manuscript and supplementary information with pdflatex and biber.
 # Both documents are always built together, since they cross-reference each other
 # via their .aux files (xr-hyper).
 # Usage: .\build.ps1 [-clean] [-view]
@@ -10,7 +10,7 @@ param(
 
 $documents = @(
     @{ Dir = "manuscript"; TexFile = "manuscript" },
-    @{ Dir = "sm"; TexFile = "supplementary_materials" }
+    @{ Dir = "si"; TexFile = "supplementary_information" }
 )
 $pdflatex = "pdflatex"
 $biber = "biber"

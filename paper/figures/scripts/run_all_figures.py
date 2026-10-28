@@ -3,12 +3,12 @@ import warnings
 from _constants import MATERIAL_ORDER, MFA_REGION_MAPPINGS
 from fig_gdppc_population import main as render_gdppc_population
 from fig_compare_h12_vs_countries import main as render_production_h12_vs_countries
-from fig1_fig7_regions import main as render_regions
-from fig4_stock_extrap import main as render_stock_extrapolation
-from fig5_logistic_prms import main as render_logistic_parameters
-from fig8_demand import main as render_demand
-from fig10_trade import main as render_trade
-from fig11_scenarios import main as render_scenarios
+from fig4_regions import main as render_regions
+from fig2_stock_extrap import main as render_stock_extrapolation
+from figS1_logistic_prms import main as render_logistic_parameters
+from fig5_demand import main as render_demand
+from fig7_trade import main as render_trade
+from fig8_scenarios import main as render_scenarios
 
 
 def main(show: bool = False):

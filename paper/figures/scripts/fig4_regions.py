@@ -152,8 +152,8 @@ def main(aggregate_regions: bool = True, show: bool = True) -> go.Figure:
 
     df = load_region_mapping(REGION_MAPPING_PATH)
     fig = build_figure(df, aggregate_regions=aggregate_regions)
-    figure_number = 7 if aggregate_regions else 1
-    _utils.save_figure(fig, f"figure_{figure_number}", png_scale=2)
+    panel = "b" if aggregate_regions else "a"
+    _utils.save_figure(fig, f"figure_4{panel}", png_scale=2)
     if show:
         fig.show()
     return fig

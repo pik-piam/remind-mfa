@@ -425,7 +425,7 @@ def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = 
         template="plotly_white",
     )
 
-    _utils.save_figure(fig, f"figure_4_{material}_{iso}_s{step}")
+    _utils.save_figure(fig, f"figure_2_{material}_{iso}_s{step}")
     if show:
         fig.show()
     return fig

@@ -115,7 +115,7 @@ def create_logistic_parameter_plot():
 
 def main(show: bool = True) -> go.Figure:
     fig = create_logistic_parameter_plot()
-    _utils.save_figure(fig, "figure_5", png_scale=2)
+    _utils.save_figure(fig, "figure_S1", png_scale=2)
     if show:
         fig.show()
     return fig

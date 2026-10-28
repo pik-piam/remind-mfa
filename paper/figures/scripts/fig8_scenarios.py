@@ -51,7 +51,7 @@ def _available_runs(config):
     if missing_labels:
         warnings.warn(
             f"Missing scenario runs for {config.material}: {', '.join(missing_labels)}. "
-            "Figure 11 will use the available runs only.",
+            "Figure 8 will use the available runs only.",
             stacklevel=2,
         )
     return runs
@@ -258,7 +258,7 @@ def main(material: str = "cement", use_h12: bool = False, show: bool = True):
         comparison_array,
         aggregate_regions=not use_h12,
     )
-    _utils.save_figure(fig, f"figure_11_{config.material}_{_utils.region_mode_suffix(use_h12)}")
+    _utils.save_figure(fig, f"figure_8_{config.material}_{_utils.region_mode_suffix(use_h12)}")
     if show:
         fig.show()
     return fig

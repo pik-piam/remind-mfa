@@ -413,7 +413,7 @@ def main(use_h12: bool = False, mfa_regions: str = "h12", show: bool = True):
     )
 
     country_suffix = "_countries" if mfa_regions == "iso249" else ""
-    _utils.save_figure(fig, f"figure_8_{_utils.region_mode_suffix(use_h12)}{country_suffix}")
+    _utils.save_figure(fig, f"figure_5_{_utils.region_mode_suffix(use_h12)}{country_suffix}")
     if show:
         fig.show()
     return fig

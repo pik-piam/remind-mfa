@@ -124,7 +124,8 @@ def main(material: str = "plastics", carbon_only: bool = True):
     visualizer = _build_visualizer(material, do_show_figs=False, carbon_only=carbon_only)
     visualizer.visualize_sankey(mfa)
     fig = visualizer.figures["sankey"]
-    # do not save, as process positions need to be manually adjusted in the browser
+    # do not save, as process positions need to be manually adjusted in the browser;
+    # save manually to pdf/figure_6_carbon.pdf (plastics, carbon only) or pdf/figure_6_<material>.pdf
     fig.show(renderer="browser")
     return fig
 
