@@ -2,7 +2,7 @@ import flodym as fd
 
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.data_blending import CriticallyDampedBlender
+from remind_mfa.common.data_blending import PDController
 
 
 def expand_common_to_bu(arr: fd.FlodymArray, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
@@ -220,7 +220,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
         # lifetime of the last historical year sets the trend window of the initial slope
         lifetime = self.parameters["lifetime_mean"][{"t": self.dims["h"].items[-1]}][bu_mask]
-        blender = CriticallyDampedBlender(
+        blender = PDController(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
             prediction=bu_stock.values,

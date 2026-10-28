@@ -124,7 +124,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historical_trade=historical_trade["manufactured_products"].sum_over("P"),
             future_trade=self.trade_set["manufactured_products"],
             future_dom_demand=flw["manufactured_products_market => use"],
-            n_trend_years=self.parameters["n_trend_years"],
             trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
@@ -153,7 +152,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historical_trade=historical_trade["primary"].sum_over("P"),
             future_trade=self.trade_set["primary"],
             future_dom_demand=flw["primary_market => manufacturing"],
-            n_trend_years=self.parameters["n_trend_years"],
             trade_factor=prm["trade_factor"],
         )
         extrapolator.run()

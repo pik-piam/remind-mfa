@@ -151,6 +151,7 @@ class CommonModel[CfgT: CommonCfg]:
         self.scenario_parameters = scenario_reader.get_parameters()
         # scenario parameters used within the MFA systems
         self.parameters["n_trend_years"] = self.scenario_parameters["n_trend_years"]
+        self.parameters["flow_approaching_time"] = self.scenario_parameters["flow_approaching_time"]
 
     def modify_parameters(self):
         """Manual changes to parameters. Called once at initialization."""
@@ -307,7 +308,7 @@ class CommonModel[CfgT: CommonCfg]:
             parameters=self.parameters,
             target_dim_letters="all",
             bound_list=bound_list_obj,
-            lifetime=self.lifetime_limit(),
+            lifetime=self.parameters["lifetime_mean"],
         )
         self.stock_handler.extrapolate()
 

@@ -5,12 +5,14 @@ stock_factor,all,1.0,"{year: 2100, type: factor}",,Extrapolated stock per capita
 trade_factor,all,1.0,"{year: 2040, type: factor}",,Imports and exports of all trade markets are scaled by factor
 lifetime_factor_nurture,all,1.0,"{year: 2060, type: factor}",,Lifetime of all age-cohorts is scaled by factor
 lifetime_factor_nature,all,1.0,"{year: 2060, type: factor}",,Lifetime of new age-cohorts is scaled by factor; cement: stronger for lifetimes below the global mean
-n_trend_years,all,10,,,Number of recent historic years for the initial slope of inflow and trade blending
+n_trend_years,all,12,,,Number of recent historic years for the initial slope of the inflow blending
+flow_approaching_time,all,65,,,Characteristic timescale in years of the inflow blending
 reuse_share,all,0.0,"{year: 2100, type: target}",,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
 saturation_level,steel,10,,,
 n_trend_years,steel,2,,"{Region: CHA}",
+flow_approaching_time,steel,30,,"{Region: CHA}",
 max_scrap_share,steel,0.7,,,Maximum share of scrap in the metallic input to steel production
 
 # --- Plastics ---
@@ -28,6 +30,7 @@ daccu_production_rate,plastics,0.01,"{year: 2100, type: target}",,
 saturation_level,cement,180,,,Corresponds to about 24 t cement at historical cement ratios
 n_trend_years,cement,2,,"{Region: CHA}",
 cement_ratio,cement,1.0,"{year: 2100, type: factor}",,Cement content of new concrete and mortar is scaled by factor
+flow_approaching_time,cement,30,,"{Region: CHA}",
 
 # --- Cement (bottom-up) ---
 concrete_building_mi,cement,1.0,"{year: 2060, type: factor}",,
