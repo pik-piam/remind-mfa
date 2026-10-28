@@ -300,7 +300,7 @@ class CommonModel[CfgT: CommonCfg]:
             parameters=self.parameters,
             target_dim_letters="all",
             bound_list=bound_list_obj,
-            lifetime=self.lifetime_limit(),
+            lifetime=self.parameters["lifetime_mean"],
         )
         self.stock_handler.extrapolate()
 
