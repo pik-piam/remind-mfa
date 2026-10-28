@@ -32,7 +32,7 @@ class SteelModel(CommonModel[SteelCfg]):
 
         self.parameters["max_scrap_share"] = self.scenario_parameters["max_scrap_share"]
 
-        lifetime_factor = blend(
+        lifetime_calibration_factor = blend(
             target_dims=self.dims["t",],
             y_lower=0.9,
             y_upper=1.1,
@@ -50,19 +50,23 @@ class SteelModel(CommonModel[SteelCfg]):
                 "of 1.5 to smooth out unrealistic dips after rapid stock build-up"
             ),
         )
-        lifetime_factor_prm = fd.Parameter(dims=self.dims["t",])
-        lifetime_factor_prm[...] = lifetime_factor
-        self.parameters["lifetime_factor"] = lifetime_factor_prm
+        lifetime_calibration_prm = fd.Parameter(dims=self.dims["t",])
+        lifetime_calibration_prm[...] = lifetime_calibration_factor
+        self.parameters["lifetime_calibration_factor"] = lifetime_calibration_prm
 
         self.parameters["lifetime_mean"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_mean"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_std"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values
             * 1.5,

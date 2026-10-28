@@ -22,4 +22,5 @@ config/*.toml
 !config/mrindustry.toml
 !config/atlas_run1.toml
 !config/atlas_run2.toml
+!config/hpc.toml
 notebooks/__marimo__/session/*

@@ -5,11 +5,14 @@ import flodym as fd
 import numpy as np
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
-from remind_mfa.common.trade import Trade, TradeSet
-from remind_mfa.common.trade_extrapolation import TradeExtrapolator, FixedSupplyTradeExtrapolator
-from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.price_driven_trade import PriceDrivenTrade
+from remind_mfa.common.trade import Trade, TradeSet
+from remind_mfa.common.trade_extrapolation import (
+    FixedSupplyTradeExtrapolator,
+    TradeExtrapolator,
+)
 from remind_mfa.steel.steel_config import SteelCfg
 
 
@@ -117,8 +120,8 @@ class SteelMFASystem(CommonMFASystem):
             ] = self.stock_outflow_EU_MFA
             self.stocks["use"].compute()
             logging.warning(
-                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for EUR region are not computed from stock projection, but taken from EU-MFA. "
-                f"The stock is calculated as a simple flow-driven stock. "
+                "TRANSIENCE mode is on. Both in-use stock inflow and outflow for EUR region are not computed from stock projection, but taken from EU-MFA. "
+                "The stock is calculated as a simple flow-driven stock. "
             )
 
     def compute_flows(
@@ -159,7 +162,7 @@ class SteelMFASystem(CommonMFASystem):
                 historical_trade=historical_trade["manufactured_products"],
                 future_trade=trd["manufactured_products"],
                 future_dom_demand=flw["manufactured_products_market => use"],
-                n_trend_years=self.parameters["n_trend_years"],
+                trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
 
@@ -203,7 +206,7 @@ class SteelMFASystem(CommonMFASystem):
                 historical_trade=historical_trade["steel"],
                 future_trade=trd["steel"],
                 future_dom_demand=flw["steel_market => manufacturing"],
-                n_trend_years=self.parameters["n_trend_years"],
+                trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
 
@@ -238,7 +241,7 @@ class SteelMFASystem(CommonMFASystem):
                 historical_trade=historical_trade["scrap"],
                 future_trade=trd["scrap"],
                 future_dom_supply=flw["eol_management => scrap_market"],
-                n_trend_years=self.parameters["n_trend_years"],
+                trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
 
