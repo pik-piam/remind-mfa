@@ -104,7 +104,7 @@ The resulting differential equation then reads
 \begin{equation} \label{eq:pd_acc}
     \ddot{y}(t) = - 2k\; (\dot{y}(t) - \dot{s}(t^*)) - k^2\;(y(t)-s(t)).
 \end{equation}
-The constant $k$ is a damping factor which determines the convergence speed. It is set such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within a pre-defined approaching time $\tau$, which is chosen between 50 and 75 years. The asterisk $t^*$ is part of a look-ahead modification described below.
+The constant $k$ is a damping factor which determines the convergence speed. It is set such that in a static problem with $\dot{s}(t)=0$ and $\dot{y}(t_{0})=0$, the difference $y(t)-s(t)$ is reduced by 95 \% within a pre-defined approaching time $\tau$, which is chosen between 30 and 65 years. The asterisk $t^*$ is part of a look-ahead modification described below.
 
 The differential equation is solved with an explicit Euler scheme, that is by starting at $t=t_{0}$ and executing the following three assignments year by year.
 \begin{equation}

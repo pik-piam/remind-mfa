@@ -314,10 +314,11 @@ def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = 
     title_to_group_spacing = 0.06 * 900 / figure_height
 
     top_hist_group_top_y = 0.8
-    top_extrap_group_top_y = 0.5
+    # Top edge of the extrapolation text block (anchored at the top).
+    top_extrap_group_top_y = 0.46
 
     bottom_hist_group_top_y = 0.97
-    bottom_extrap_group_top_y = 0.55
+    bottom_extrap_group_top_y = 0.51
 
     hist_group_x = 0.02
     extrap_group_x = 0.65
@@ -364,28 +365,9 @@ def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = 
             font={"color": "#B0B0B0", "size": 13},
         )
 
-    def _add_extrapolation_group(
-        x_right: float,
-        group_top_y: float,
-        yref: str,
-        within_group_spacing: float,
-        title_to_group_spacing: float,
-    ):
+    def _add_extrapolation_group(x_right: float, group_top_y: float, yref: str):
         if HIDE_EXTR_LABELS or step == 0:
             return
-
-        title_y = group_top_y + title_to_group_spacing
-        fig.add_annotation(
-            x=x_right,
-            y=title_y,
-            xref="paper",
-            yref=yref,
-            text="<b>Extrapolation</b>",
-            showarrow=False,
-            xanchor="left",
-            align="left",
-            font={"color": "black", "size": 14},
-        )
 
         steps_in_display_order = [
             (3, "Step 3: Transition smoothing", "#2ca02c"),
@@ -394,18 +376,21 @@ def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = 
         ]
         visible_steps = [entry for entry in steps_in_display_order if entry[0] <= step]
 
-        for idx, (_, label, color) in enumerate(visible_steps):
-            fig.add_annotation(
-                x=x_right,
-                y=group_top_y - idx * within_group_spacing,
-                xref="paper",
-                yref=yref,
-                text=label,
-                showarrow=False,
-                xanchor="left",
-                align="left",
-                font={"color": color, "size": 13},
-            )
+        # Single annotation with HTML line breaks, as separate annotations get uneven spacing.
+        lines = ['<span style="font-size:14px"><b>Extrapolation</b></span>']
+        lines += [f'<span style="color:{color}">{label}</span>' for _, label, color in visible_steps]
+        fig.add_annotation(
+            x=x_right,
+            y=group_top_y,
+            xref="paper",
+            yref=yref,
+            text="<br>".join(lines),
+            showarrow=False,
+            xanchor="left",
+            yanchor="top",
+            align="left",
+            font={"color": "black", "size": 13},
+        )
 
     _add_historical_group(
         x_left=hist_group_x,
@@ -415,11 +400,7 @@ def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = 
         title_to_group_spacing=title_to_group_spacing,
     )
     _add_extrapolation_group(
-        x_right=extrap_group_x,
-        group_top_y=top_extrap_group_top_y,
-        yref="y domain",
-        within_group_spacing=within_group_spacing,
-        title_to_group_spacing=title_to_group_spacing,
+        x_right=extrap_group_x, group_top_y=top_extrap_group_top_y, yref="y domain"
     )
     _add_historical_group(
         x_left=hist_group_x,
@@ -429,11 +410,7 @@ def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = 
         title_to_group_spacing=title_to_group_spacing,
     )
     _add_extrapolation_group(
-        x_right=extrap_group_x,
-        group_top_y=bottom_extrap_group_top_y,
-        yref="y2 domain",
-        within_group_spacing=within_group_spacing,
-        title_to_group_spacing=title_to_group_spacing,
+        x_right=extrap_group_x, group_top_y=bottom_extrap_group_top_y, yref="y2 domain"
     )
 
     # Slightly raise subplot titles without affecting custom label annotations.

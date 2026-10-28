@@ -32,7 +32,7 @@ A global aggregation (region "World") is also available for all flows, stocks, a
 ## Which years?
 
 The temporal scope is 2025-2100 with annual resolution.
-The historical years are not included, because the historical data partly builds on proprietary data, which we cannot share directly.
+Historical years are not included, because the historical data partly builds on proprietary data, which we cannot share directly.
 
 ## Which variables?
 
