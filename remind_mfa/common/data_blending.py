@@ -144,7 +144,7 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
     return array
 
 
-DEFAULT_APPROACHING_TIME = 60
+DEFAULT_APPROACHING_TIME = 65
 """Default characteristic timescale in years of the critically damped blend, used for stocks,
 in-use stock inflows and trade."""
 

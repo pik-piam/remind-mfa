@@ -10,7 +10,7 @@ stock_factor,all,1.0,"{year: 2100, type: factor}",,
 lifetime_mean,all,1.0,"{year: 2060, type: factor}",,
 lifetime_std,all,1.0,"{year: 2060, type: factor}",,
 n_trend_years,all,12,,,Number of recent historic years for the initial slope of the inflow blending
-flow_approaching_time,all,60,,,Characteristic timescale in years of the inflow blending
+flow_approaching_time,all,65,,,Characteristic timescale in years of the inflow blending
 reuse_share,all,0.0,"{year: 2100, type: target}",,Share of the (non-hibernating) in-use outflow that is reused
 
 # --- Steel ---
