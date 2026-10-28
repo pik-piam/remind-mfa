@@ -3,7 +3,7 @@ from unittest import case
 
 import flodym as fd
 import numpy as np
-from remind_mfa.common.data_blending import CriticallyDampedBlender
+from remind_mfa.common.data_blending import PDController
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
 
@@ -181,7 +181,7 @@ class StockExtrapolation(RemindMFABaseModel):
             case "none":
                 stocks_pc_out[...] = self.fitted_regression.values
             case "critically_damped":
-                blender = CriticallyDampedBlender(
+                blender = PDController(
                     time=self.dims["t"].items,
                     historical=self.historical_stocks_pc.values,
                     prediction=self.fitted_regression.values,

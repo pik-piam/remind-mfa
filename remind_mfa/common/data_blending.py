@@ -190,7 +190,7 @@ def critically_damped_blend(
         trend_years = np.array(n_trend_years)
     if isinstance(approaching_time, fd.FlodymArray):
         approaching_time = approaching_time.cast_values_to(array.dims.drop(time_letter))
-    blender = CriticallyDampedBlender(
+    blender = PDController(
         time=array.dims[time_letter].items,
         historical=values[:n_historical],
         prediction=values,
@@ -201,7 +201,7 @@ def critically_damped_blend(
     return fd.FlodymArray(dims=array.dims, values=blended_values)
 
 
-class CriticallyDampedBlender:
+class PDController:
 
     def __init__(
         self,
