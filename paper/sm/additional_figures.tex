@@ -1,11 +1,13 @@
 
-\section{Additional Figures}
+\section{Additional Figures} \label{sec:add_figures}
 
 This section shows the results figures of the main paper for all materials, and additionally in the REMIND 12-region aggregation it was computed with: the regional comparison (Figure 8, Subsection \ref{sec:add_fig_8}), the Sankey diagrams (Figure 9, Subsection \ref{sec:add_fig_9}), trade (Figure 10, Subsection \ref{sec:add_fig_10}), and the scenario comparison (Figure 11, Subsection \ref{sec:add_fig_11}). The figures from the main paper are repeated here for completeness and side-by-side comparison.
 The exogenous model inputs GDP per capita and population are shown in Subsections \ref{sec:add_gdppc} and \ref{sec:add_pop}.
 Unless stated otherwise, all results refer to the SSP2 scenario, computed on REMIND 12-region resolution.
 
-Results for Figure 8 are also shown for a model run with the MFA computed on country level, and aggregated to the respective regions after the computation (Subsection \ref{sec:add_fig_8_countries}). For a clearer comparison of the effect of different regional aggregations on these most important quantities, production and per-capita in-use stocks are also directly compared in Subsection \ref{sec:comparison_country_level} with one panel per region.
+The MFA can be computed with arbitrary regional aggregation, and demand trajectories are provided with the REMIND 12-region aggregation (h12) and with country level (iso249) resolution.
+The resolution of the MFA computation can have an effect on the results, even if the results are aggregated to the same regional aggregation after the computation. For details on these effects, see the README in the data repository.
+Two subsections illustrate the effect of different regional aggregations on the results: Subsection \ref{sec:add_fig_8_countries} shows the results of Figure 8 for a model run with the MFA computed on country level, and aggregated to the respective regions after the computation. Subsection \ref{sec:comparison_country_level} directly compares production and per-capita in-use stocks for both resolutions, with one panel per region.
 
 In all time series plots, the dashed vertical line marks the last historical year of the respective material.
 
@@ -36,7 +38,8 @@ The dotted black line shows the global value (global average for per-capita valu
 \clearpage
 \subsection{Figure 8 - Regional comparison - MFA computed with country-resolution} \label{sec:add_fig_8_countries}
 
-Same as the previous subsection, but with the MFA computed on country level.
+Same as the previous subsection, but with the MFA computed on country level (see the introduction of Section \ref{sec:additional_figures} for details).
+
 The results are aggregated to the respective regions after the computation.
 
 \subsubsection{REMIND 12-region aggregation}
@@ -240,11 +243,9 @@ Population is an exogenous model input and converts per-capita in-use stocks to 
 
 \subsection{Comparison of REMIND 12-region and country-level resolution} \label{sec:comparison_country_level}
 
-The MFA can be computed either on the REMIND 12-region aggregation (h12) or on country level (iso249).
-The following figures compare both resolutions for the SSP2 scenario.
-Results computed on country level are aggregated to the REMIND 12 regions after the computation
-(iso249 $\rightarrow$ h12).
-The dashed vertical line marks the last historical year.
+The MFA can be computed either on the REMIND 12-region aggregation (h12) or on country level (iso249). Results computed on country level are aggregated to the REMIND 12 regions after the computation (iso249 $\rightarrow$ h12).
+
+See the introduction of Section \ref{sec:additional_figures} for details.
 
 \subsubsection{Production}
 
