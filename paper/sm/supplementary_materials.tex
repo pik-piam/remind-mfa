@@ -11,11 +11,21 @@
 \usepackage{graphicx}
 \usepackage{csvsimple}
 \usepackage{amsmath}
+\usepackage{xr-hyper}
 \usepackage[hidelinks]{hyperref}
 % \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage[backend=biber,style=authoryear,maxbibnames=99]{biblatex}
 
 \addbibresource{../../docs/all_refs.bib}
+
+% Labels of the main paper, referenced as \ref{MS-<label>}
+\externaldocument[MS-]{../manuscript/manuscript}
+
+% Prefix numbering with "S" to distinguish it from the main paper
+\renewcommand{\thesection}{S\arabic{section}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\theequation}{S\arabic{equation}}
 
 \setlength{\LTpre}{0.75em}
 \setlength{\LTpost}{0.75em}

@@ -1,17 +1,17 @@
 
 \section{Additional Figures} \label{sec:add_figures}
 
-This section shows the results figures of the main paper for all materials, and additionally in the REMIND 12-region aggregation it was computed with: the regional comparison (Figure 8, Subsection \ref{sec:add_fig_8}), the Sankey diagrams (Figure 9, Subsection \ref{sec:add_fig_9}), trade (Figure 10, Subsection \ref{sec:add_fig_10}), and the scenario comparison (Figure 11, Subsection \ref{sec:add_fig_11}). The figures from the main paper are repeated here for completeness and side-by-side comparison.
+This section shows the results figures of the main paper (Section~\ref{MS-sec:results}) for all materials, and additionally in the REMIND 12-region aggregation it was computed with: the regional comparison (Figure~\ref{MS-fig:demand}, Subsection \ref{sec:add_fig_8}), the Sankey diagrams (Figure~\ref{MS-fig:sankey_carbon}, Subsection \ref{sec:add_fig_9}), trade (Figure~\ref{MS-fig:trade_steel}, Subsection \ref{sec:add_fig_10}), and the scenario comparison (Figure~\ref{MS-fig:scenarios_cement}, Subsection \ref{sec:add_fig_11}). The figures from the main paper are repeated here for completeness and side-by-side comparison.
 The exogenous model inputs GDP per capita and population are shown in Subsections \ref{sec:add_gdppc} and \ref{sec:add_pop}.
 Unless stated otherwise, all results refer to the SSP2 scenario, computed on REMIND 12-region resolution.
 
 The MFA can be computed with arbitrary regional aggregation, and demand trajectories are provided with the REMIND 12-region aggregation (h12) and with country level (iso249) resolution.
 The resolution of the MFA computation can have an effect on the results, even if the results are aggregated to the same regional aggregation after the computation. For details on these effects, see the README in the data repository.
-Two subsections illustrate the effect of different regional aggregations on the results: Subsection \ref{sec:add_fig_8_countries} shows the results of Figure 8 for a model run with the MFA computed on country level, and aggregated to the respective regions after the computation. Subsection \ref{sec:comparison_country_level} directly compares production and per-capita in-use stocks for both resolutions, with one panel per region.
+Two subsections illustrate the effect of different regional aggregations on the results: Subsection \ref{sec:add_fig_8_countries} shows the results of Figure~\ref{MS-fig:demand} for a model run with the MFA computed on country level, and aggregated to the respective regions after the computation. Subsection \ref{sec:comparison_country_level} directly compares production and per-capita in-use stocks for both resolutions, with one panel per region.
 
 In all time series plots, the dashed vertical line marks the last historical year of the respective material.
 
-\subsection{Figure 8 - Regional comparison} \label{sec:add_fig_8}
+\subsection{Figure \texorpdfstring{\ref{MS-fig:demand}}{8} - Regional comparison} \label{sec:add_fig_8}
 
 Each column refers to one material.
 The rows show per-capita in-use stocks, per-capita production, and total production by region.
@@ -21,7 +21,7 @@ The dotted black line shows the global value (global average for per-capita valu
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_8_h12.pdf}
-    \caption{Paper Figure 8 for the \textbf{REMIND 12-region aggregation}: per-capita in-use stocks (top), per-capita production (middle), and production stacked by region (bottom) for plastics, steel, and cement.}
+    \caption{Paper Figure~\ref{MS-fig:demand} for the \textbf{REMIND 12-region aggregation}: per-capita in-use stocks (top), per-capita production (middle), and production stacked by region (bottom) for plastics, steel, and cement.}
     \label{fig:figure_8_h12}
 \end{figure}
 
@@ -30,15 +30,15 @@ The dotted black line shows the global value (global average for per-capita valu
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_8_agg5.pdf}
-    \caption{Paper Figure 8 for the results section \textbf{5-region aggregation}: per-capita in-use stocks (top), per-capita production (middle), and production stacked by region (bottom) for plastics, steel, and cement.}
+    \caption{Paper Figure~\ref{MS-fig:demand} for the results section \textbf{5-region aggregation}: per-capita in-use stocks (top), per-capita production (middle), and production stacked by region (bottom) for plastics, steel, and cement.}
     \label{fig:figure_8_agg5}
 \end{figure}
 
 
 \clearpage
-\subsection{Figure 8 - Regional comparison - MFA computed with country-resolution} \label{sec:add_fig_8_countries}
+\subsection{Figure \texorpdfstring{\ref{MS-fig:demand}}{8} - Regional comparison - MFA computed with country-resolution} \label{sec:add_fig_8_countries}
 
-Same as the previous subsection, but with the MFA computed on country level (see the introduction of Section \ref{sec:additional_figures} for details).
+Same as the previous subsection, but with the MFA computed on country level (see the introduction of Section \ref{sec:add_figures} for details).
 
 The results are aggregated to the respective regions after the computation.
 
@@ -46,7 +46,7 @@ The results are aggregated to the respective regions after the computation.
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_8_h12_countries.pdf}
-    \caption{Paper Figure 8 for the \textbf{REMIND 12-region aggregation}; MFA computed with \textbf{country-resolution}.}
+    \caption{Paper Figure~\ref{MS-fig:demand} for the \textbf{REMIND 12-region aggregation}; MFA computed with \textbf{country-resolution}.}
     \label{fig:figure_8_h12_countries}
 \end{figure}
 
@@ -55,12 +55,12 @@ The results are aggregated to the respective regions after the computation.
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_8_agg5_countries.pdf}
-    \caption{Paper Figure 8 for the results section \textbf{5-region aggregation}; MFA computed with \textbf{country-resolution}.}
+    \caption{Paper Figure~\ref{MS-fig:demand} for the results section \textbf{5-region aggregation}; MFA computed with \textbf{country-resolution}.}
     \label{fig:figure_8_agg5_countries}
 \end{figure}
 
 \clearpage
-\subsection{Figure 9 - Sankey diagrams} \label{sec:add_fig_9}
+\subsection{Figure \texorpdfstring{\ref{MS-fig:sankey_carbon}}{9} - Sankey diagrams} \label{sec:add_fig_9}
 
 Global material flows in the year 2050.
 Imports, exports, and flows from and to the system environment are not shown.
@@ -68,26 +68,26 @@ Imports, exports, and flows from and to the system environment are not shown.
 \begin{figure}[htbp]
     \centering
     \includecropped[width=0.92\textwidth]{figure_9_plastics}
-    \caption{Paper Figure 9 for \textbf{plastics}: global plastics flows in 2050. Contrary to the main paper, also non-carbon mass flows are included, and the atmospheric stock/cycle is omited.}
+    \caption{Paper Figure~\ref{MS-fig:sankey_carbon} for \textbf{plastics}: global plastics flows in 2050. Contrary to the main paper, also non-carbon mass flows are included, and the atmospheric stock/cycle is omited.}
     \label{fig:figure_9_plastics}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includecropped[width=0.92\textwidth]{figure_9_steel}
-    \caption{Paper Figure 9 for \textbf{steel}: global steel flows in 2050.}
+    \caption{Paper Figure~\ref{MS-fig:sankey_carbon} for \textbf{steel}: global steel flows in 2050.}
     \label{fig:figure_9_steel}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includecropped[width=0.92\textwidth]{figure_9_cement}
-    \caption{Paper Figure 9 for \textbf{cement}: global cement flows in 2050.}
+    \caption{Paper Figure~\ref{MS-fig:sankey_carbon} for \textbf{cement}: global cement flows in 2050.}
     \label{fig:figure_9_cement}
 \end{figure}
 
 \clearpage
-\subsection{Figure 10 - Trade} \label{sec:add_fig_10}
+\subsection{Figure \texorpdfstring{\ref{MS-fig:trade_steel}}{10} - Trade} \label{sec:add_fig_10}
 
 Each figure shows exports (top left), imports (bottom left), export share (top right), and import share (bottom right) by region.
 The export share is defined relative to regional production, the import share relative to regional demand.
@@ -98,21 +98,21 @@ Imports and import shares are plotted on reversed vertical axes.
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_10_plastics_h12.pdf}
-    \caption{Paper Figure 10 for \textbf{plastics} in the \textbf{REMIND 12-region aggregation}: exports, imports, and the respective shares in production and demand.}
+    \caption{Paper Figure~\ref{MS-fig:trade_steel} for \textbf{plastics} in the \textbf{REMIND 12-region aggregation}: exports, imports, and the respective shares in production and demand.}
     \label{fig:figure_10_plastics_h12}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_10_steel_h12.pdf}
-    \caption{Paper Figure 10 for \textbf{steel} in the \textbf{REMIND 12-region aggregation}: exports, imports, and the respective shares in production and demand.}
+    \caption{Paper Figure~\ref{MS-fig:trade_steel} for \textbf{steel} in the \textbf{REMIND 12-region aggregation}: exports, imports, and the respective shares in production and demand.}
     \label{fig:figure_10_steel_h12}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_10_cement_h12.pdf}
-    \caption{Paper Figure 10 for \textbf{cement} in the \textbf{REMIND 12-region aggregation}: exports, imports, and the respective shares in production and demand.}
+    \caption{Paper Figure~\ref{MS-fig:trade_steel} for \textbf{cement} in the \textbf{REMIND 12-region aggregation}: exports, imports, and the respective shares in production and demand.}
     \label{fig:figure_10_cement_h12}
 \end{figure}
 
@@ -122,26 +122,26 @@ Imports and import shares are plotted on reversed vertical axes.
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_10_plastics_agg5.pdf}
-    \caption{Paper Figure 10 for \textbf{plastics} in the results section \textbf{5-region aggregation}: exports, imports, and the respective shares in production and demand.}
+    \caption{Paper Figure~\ref{MS-fig:trade_steel} for \textbf{plastics} in the results section \textbf{5-region aggregation}: exports, imports, and the respective shares in production and demand.}
     \label{fig:figure_10_plastics_agg5}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_10_steel_agg5.pdf}
-    \caption{Paper Figure 10 for \textbf{steel} in the results section \textbf{5-region aggregation}: exports, imports, and the respective shares in production and demand.}
+    \caption{Paper Figure~\ref{MS-fig:trade_steel} for \textbf{steel} in the results section \textbf{5-region aggregation}: exports, imports, and the respective shares in production and demand.}
     \label{fig:figure_10_steel_agg5}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_10_cement_agg5.pdf}
-    \caption{Paper Figure 10 for \textbf{cement} in the results section \textbf{5-region aggregation}: exports, imports, and the respective shares in production and demand.}
+    \caption{Paper Figure~\ref{MS-fig:trade_steel} for \textbf{cement} in the results section \textbf{5-region aggregation}: exports, imports, and the respective shares in production and demand.}
     \label{fig:figure_10_cement_agg5}
 \end{figure}
 
 \clearpage
-\subsection{Figure 11 - Scenario comparison} \label{sec:add_fig_11}
+\subsection{Figure \texorpdfstring{\ref{MS-fig:scenarios_cement}}{11} - Scenario comparison} \label{sec:add_fig_11}
 
 Each figure shows production in the scenarios SSP2, SSP1-drivers, and SSP1-CE.
 The framed panel shows the global total, the other panels show individual regions.
@@ -151,21 +151,21 @@ The framed panel shows the global total, the other panels show individual region
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_11_plastics_h12.pdf}
-    \caption{Paper Figure 11 for \textbf{plastics} in the \textbf{REMIND 12-region aggregation}: production by scenario, globally and per region.}
+    \caption{Paper Figure~\ref{MS-fig:scenarios_cement} for \textbf{plastics} in the \textbf{REMIND 12-region aggregation}: production by scenario, globally and per region.}
     \label{fig:figure_11_plastics_h12}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_11_steel_h12.pdf}
-    \caption{Paper Figure 11 for \textbf{steel} in the \textbf{REMIND 12-region aggregation}: production by scenario, globally and per region.}
+    \caption{Paper Figure~\ref{MS-fig:scenarios_cement} for \textbf{steel} in the \textbf{REMIND 12-region aggregation}: production by scenario, globally and per region.}
     \label{fig:figure_11_steel_h12}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_11_cement_h12.pdf}
-    \caption{Paper Figure 11 for \textbf{cement} in the \textbf{REMIND 12-region aggregation}: production by scenario, globally and per region.}
+    \caption{Paper Figure~\ref{MS-fig:scenarios_cement} for \textbf{cement} in the \textbf{REMIND 12-region aggregation}: production by scenario, globally and per region.}
     \label{fig:figure_11_cement_h12}
 \end{figure}
 
@@ -176,21 +176,21 @@ The framed panel shows the global total, the other panels show individual region
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_11_plastics_agg5.pdf}
-    \caption{Paper Figure 11 for \textbf{plastics} in the results section \textbf{5-region aggregation}: production by scenario, globally and per region.}
+    \caption{Paper Figure~\ref{MS-fig:scenarios_cement} for \textbf{plastics} in the results section \textbf{5-region aggregation}: production by scenario, globally and per region.}
     \label{fig:figure_11_plastics_agg5}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_11_steel_agg5.pdf}
-    \caption{Paper Figure 11 for \textbf{steel} in the results section \textbf{5-region aggregation}: production by scenario, globally and per region.}
+    \caption{Paper Figure~\ref{MS-fig:scenarios_cement} for \textbf{steel} in the results section \textbf{5-region aggregation}: production by scenario, globally and per region.}
     \label{fig:figure_11_steel_agg5}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{../figures/pdf/figure_11_cement_agg5.pdf}
-    \caption{Paper Figure 11 for \textbf{cement} in the results section \textbf{5-region aggregation}: production by scenario, globally and per region.}
+    \caption{Paper Figure~\ref{MS-fig:scenarios_cement} for \textbf{cement} in the results section \textbf{5-region aggregation}: production by scenario, globally and per region.}
     \label{fig:figure_11_cement_agg5}
 \end{figure}
 
@@ -245,7 +245,7 @@ Population is an exogenous model input and converts per-capita in-use stocks to 
 
 The MFA can be computed either on the REMIND 12-region aggregation (h12) or on country level (iso249). Results computed on country level are aggregated to the REMIND 12 regions after the computation (iso249 $\rightarrow$ h12).
 
-See the introduction of Section \ref{sec:additional_figures} for details.
+See the introduction of Section \ref{sec:add_figures} for details.
 
 \subsubsection{Production}
 
