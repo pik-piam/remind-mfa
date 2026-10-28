@@ -15,7 +15,15 @@ To fix conventions, let $L(p,x)$ be the logistic curve over $x$ parametrized by 
 \begin{equation}
     L(p,x) =  \alpha / (1 + \exp(-4\,\gamma\,(x - \beta))),
 \end{equation}
-where $\alpha$ is the saturation level, $\beta$ is the horizontal offset and $\gamma$ is the growth rate.
+where $\alpha$ is the saturation level, $\beta$ is the horizontal offset and $\gamma$ is the growth rate. Their effects on the function are shown in Figure~\ref{fig:logistic}.
+
+\begin{figure}[htbp]
+    \centering
+    \includecropped[width=0.5\textwidth]{pdf/figure_5}
+    \caption{Parameter variations of the logistic function, which is used for regression of per-capita in-use stocks over the logarithm of GDP per capita.}
+    \label{fig:logistic}
+\end{figure}
+
 We define the normalized logistic function $\tilde{L}(\varphi,x) = L(p,x)/\alpha$:
 \begin{equation}
     \tilde{L}(\varphi,x) =  1 / (1 + \exp(-4\,\gamma\,(x - \beta))),
