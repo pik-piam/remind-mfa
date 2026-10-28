@@ -81,7 +81,8 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
            calculate the inflow-driven DSM to get the bottom-up concrete stock (b, s).
         3. Extend the td inflow (from `td_use`, end uses u) to extended end uses and
            structures (e, s) and calculate the inflow-driven DSM to get the extended td stock.
-        4. Blend historical td into future bu stock for the end uses the bottom-up model
+        4. Combine the extended td stock with the bu concrete stock, which transitions smoothly
+           from historical td to future bu stock for the end uses the bottom-up model
            resolves (b); Industrial, Civil Engineering and mortar stay td.
         5. Compute the complete MFA with the combined stock and historical trade. Only the
            inflow of the bu concrete is blended; the td parts keep the inflow of `td_use`,
@@ -91,7 +92,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         self.compute_floorspace_stock()
         self.compute_bottom_up_stock()
         self.extend_top_down_stock(td_use)
-        combined_stock = self.blend_stocks()
+        combined_stock = self.combine_top_down_and_bottom_up_stocks()
         super().compute(combined_stock, historical_trade)
 
     def compute_floorspace_stock(self):
@@ -195,13 +196,17 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
         return floor_area_split * mi / avg_mi
 
-    def blend_stocks(self) -> fd.FlodymArray:
-        """Combine the bu and td stocks into one:
-        Blend smoothly between historical td and future bu concrete stock for the end uses
-        the bottom-up model resolves (b); Industrial, Civil Engineering and all mortar stay td.
+    def combine_top_down_and_bottom_up_stocks(self) -> fd.FlodymArray:
+        """Combine the extended top-down stock with the bottom-up concrete stock.
+        For the end uses resolved bottom-up (b), the concrete stock transitions smoothly from
+        the historical top-down to the projected bottom-up stock; Industrial, Civil Engineering
+        and all mortar keep the top-down stock.
+        The blend uses the same settings as the top-down stock extrapolation (default
+        approaching time and lifetime-dependent initial slope).
         """
         stk = self.stocks
         td_stock_expanded = stk["td_use"].stock
+        bu_stock = stk["bu_use"].stock
 
         # restrict the td stock to the bottom-up-resolved end uses
         bu_mask = {"e": self.dims["b"]}
@@ -213,14 +218,16 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             }
         ]
 
-        # Lifetime independent blend
+        # lifetime of the last historical year sets the trend window of the initial slope
+        lifetime = self.parameters["lifetime_mean"][{"t": self.dims["h"].items[-1]}][bu_mask]
         blender = CriticallyDampedBlender(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
-            prediction=stk["bu_use"].stock.values,
+            prediction=bu_stock.values,
+            lifetime=lifetime.cast_to(bu_stock.dims.drop("t")).values,
         )
         blended_stock = fd.FlodymArray.full_like(
-            other=stk["bu_use"].stock,
+            other=bu_stock,
             fill_value=blender.blend(),
         )
 
