@@ -60,7 +60,9 @@ def run_mfa(
 ) -> None:
     """Run one model of the MFA: either to produce the demand (stage one) or the actual results (stage two)."""
 
-    config_names = ["default", "hpc", "atlas_run1"] if stage == "one" else ["default", "hpc", "atlas_run2"]
+    config_names = (
+        ["default", "hpc", "atlas_run1"] if stage == "one" else ["default", "hpc", "atlas_run2"]
+    )
     typer.echo(f"Run MFA with model={model} and config={','.join(config_names)}")
     config = load_config(list(config_names), model)
     model_instance = init_model(cfg=config)
