@@ -83,7 +83,9 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
            structures (e, s) and calculate the inflow-driven DSM to get the extended td stock.
         4. Blend historical td into future bu stock for the end uses the bottom-up model
            resolves (b); Industrial, Civil Engineering and mortar stay td.
-        5. Compute the complete MFA with the blended stock and historical trade.
+        5. Compute the complete MFA with the combined stock and historical trade. Only the
+           inflow of the bu concrete is blended; the td parts keep the inflow of `td_use`,
+           which was already blended in the td MFA (see `adjust_inflow`).
         """
 
         self.compute_floorspace_stock()
@@ -225,6 +227,27 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         combined_stock = td_stock_expanded.copy()
         combined_stock[{**bu_mask, "m": "Concrete"}] = blended_stock
         return combined_stock
+
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Blend and correct only the inflow of the bottom-up-resolved concrete (b).
+        Industrial, Civil Engineering and all mortar keep the inflow of `td_use`, which was
+        already blended and corrected in the top-down MFA. Blending it again would continue
+        the historical trend a second time.
+        The parent method is applied to the full inflow, as slicing the concrete would drop
+        the material dimension (m). Its result for the top-down parts is discarded.
+
+        Args:
+            inflow: Product inflow resulting from a StockDrivenDSM computation of the
+                combined stock.
+
+        Returns:
+            Composition-resolved in-use stock inflow.
+        """
+        use_inflow = super().adjust_inflow(inflow)
+        adjusted_inflow = self.add_constituent_split(self.stocks["td_use"].inflow)
+        bu_mask = {"e": self.dims["b"], "m": "Concrete"}
+        adjusted_inflow[bu_mask] = use_inflow[bu_mask]
+        return adjusted_inflow
 
     def set_prms_and_compute(self, stock: fd.DynamicStockModel):
         """Set the lifetime model parameters and compute the stock.
