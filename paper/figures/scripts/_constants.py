@@ -2,8 +2,9 @@ import pathlib
 from dataclasses import dataclass
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
-FIGURE_OUTPUT_DIR = SCRIPT_DIR.parent / "png"
-VECTOR_FIGURE_OUTPUT_DIR = SCRIPT_DIR.parent / "pdf"
+FIGURE_DIR = SCRIPT_DIR.parent
+FIGURE_OUTPUT_DIR = FIGURE_DIR / "png"
+VECTOR_FIGURE_OUTPUT_DIR = FIGURE_DIR / "pdf"
 REGION_MAPPING_PATH = SCRIPT_DIR.parents[2] / "data_in" / "parameters" / "regionmappingH12.csv"
 
 LAST_HISTORICAL_YEAR_CEMENT = 2023

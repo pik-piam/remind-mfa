@@ -1,10 +1,13 @@
 """
 Detect the content area of PDF figures, i.e. the bounding box of all non-white pixels,
 and write it to a csv file, which LaTeX reads to crop the figures on inclusion
-(see \\includecropped in paper/sm/main.tex). The PDF files themselves are not modified.
+(see \\includecropped in paper/manuscript/manuscript.tex and paper/sm/supplementary_materials.tex).
+The PDF files themselves are not modified.
 
-Used for figures saved manually from the browser (e.g. figure 9), which are placed
-on a full page with white surroundings.
+Applied to all PDF figures: some are placed on a full page with white or transparent
+surroundings, e.g. figures saved manually from the browser (figure 9) or exported from drawio
+(figure 3), others have white margins. Figures are identified by their path relative to the
+figures folder without suffix, e.g. pdf/figure_1 or drawio/simplified.
 
 Requires Ghostscript (gs, gswin64c, or rungs from TeX Live) for rendering.
 """
@@ -18,9 +21,9 @@ from pathlib import Path
 
 from PIL import Image, ImageChops
 
-from _constants import VECTOR_FIGURE_OUTPUT_DIR
+from _constants import FIGURE_DIR
 
-CROP_BOX_FILE = VECTOR_FIGURE_OUTPUT_DIR / "crop_boxes.csv"
+CROP_BOX_FILE = FIGURE_DIR / "crop_boxes.csv"
 COLUMNS = ["name", "llx", "lly", "urx", "ury"]
 
 
@@ -89,16 +92,17 @@ def read_crop_boxes() -> dict[str, list[str]]:
 
 
 def main(patterns: list[str], dpi: int = 144, threshold: int = 8, margin: float = 1.0):
-    pdfs = sorted({p for pattern in patterns for p in VECTOR_FIGURE_OUTPUT_DIR.glob(pattern)})
+    pdfs = sorted({p for pattern in patterns for p in FIGURE_DIR.glob(pattern)})
     if not pdfs:
-        raise FileNotFoundError(f"No PDFs matching {patterns} in {VECTOR_FIGURE_OUTPUT_DIR}.")
+        raise FileNotFoundError(f"No PDFs matching {patterns} in {FIGURE_DIR}.")
 
     # keep entries of figures not processed in this run
     crop_boxes = read_crop_boxes()
     for pdf in pdfs:
         box = content_box(pdf, dpi=dpi, threshold=threshold, margin=margin)
-        crop_boxes[pdf.stem] = [f"{v:.1f}" for v in box]
-        print(f"{pdf.name}: {' '.join(crop_boxes[pdf.stem])}")
+        name = pdf.relative_to(FIGURE_DIR).with_suffix("").as_posix()
+        crop_boxes[name] = [f"{v:.1f}" for v in box]
+        print(f"{name}: {' '.join(crop_boxes[name])}")
 
     with open(CROP_BOX_FILE, "w", newline="") as f:
         writer = csv.writer(f)
@@ -113,8 +117,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "patterns",
         nargs="*",
-        default=["figure_9_*.pdf"],
-        help="file name patterns of PDFs in the figures/pdf folder",
+        default=["pdf/*.pdf", "drawio/*.pdf"],
+        help="file name patterns of PDFs, relative to the figures folder",
     )
     parser.add_argument("--dpi", type=int, default=144, help="rendering resolution")
     parser.add_argument(

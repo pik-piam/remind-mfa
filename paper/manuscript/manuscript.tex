@@ -9,6 +9,7 @@
 \usepackage{authblk}
 \usepackage{xr-hyper}
 \usepackage[hidelinks]{hyperref}
+\usepackage{orcidlink}
 \usepackage[backend=biber,style=authoryear,maxbibnames=99]{biblatex}
 
 \addbibresource{references.bib}
@@ -16,11 +17,11 @@
 % Labels of the supplementary materials, referenced as \ref{SM-<label>}
 \externaldocument[SM-]{../sm/supplementary_materials}
 
-% Crop boxes (content area in bp) of figures with white surroundings, written by
-% figures/scripts/crop_boxes.py; \includecropped[options]{name} includes ../figures/pdf/name.pdf
+% Crop boxes (content area in bp) of the PDF figures, written by
+% figures/scripts/crop_boxes.py; \includecropped[options]{name} includes ../figures/name.pdf
 % cropped to its box, or uncropped if there is no box for it.
-\IfFileExists{../figures/pdf/crop_boxes.csv}{%
-	\csvreader{../figures/pdf/crop_boxes.csv}%
+\IfFileExists{../figures/crop_boxes.csv}{%
+	\csvreader{../figures/crop_boxes.csv}%
 		{name=\cropname, llx=\cropllx, lly=\croplly, urx=\cropurx, ury=\cropury}{%
 		\expandafter\xdef\csname cropbox@\cropname\endcsname{\cropllx\space\croplly\space\cropurx\space\cropury}%
 	}%
@@ -31,20 +32,20 @@
 	\else
 		\def\cropoptions{#1}%
 	\fi
-	\expandafter\includegraphics\expandafter[\cropoptions]{../figures/pdf/#2.pdf}%
+	\expandafter\includegraphics\expandafter[\cropoptions]{../figures/#2.pdf}%
 }
 
 \title{The material flow analysis model REMIND-MFA: Global demand scenarios and circular flows for plastics, steel, and cement}
 
-\author[1]{Jakob Dürrwächter}
-\author[1,2]{Bennet Weiss}
-\author[1]{Leonie Schweiger}
-\author[1]{Merlin Hosak}
-\author[3]{Qianzhi Zhang}
-\author[1]{Tobias Diez}
-\author[1,2]{Johanna Hoppe}
-\author[1,2]{Gunnar Luderer}
-\author[1,4]{Falko Ueckerdt}
+\author[1]{Jakob Dürrwächter\,\orcidlink{0000-0001-8961-5340}}
+\author[1,2]{Bennet Weiss\,\orcidlink{0009-0009-9859-9683}}
+\author[1]{Leonie Schweiger\,\orcidlink{0009-0008-1259-7779}}
+\author[1]{Merlin Hosak\,\orcidlink{0009-0005-7965-1846}}
+\author[3]{Qianzhi Zhang\,\orcidlink{0000-0001-5319-9859}}
+\author[1]{Tobias Diez\,\orcidlink{0000-0002-1407-7696}}
+\author[1,2]{Johanna Hoppe\,\orcidlink{0009-0004-6753-5090}}
+\author[1,2]{Gunnar Luderer\,\orcidlink{0000-0002-9057-6155}}
+\author[1,4]{Falko Ueckerdt\,\orcidlink{0000-0001-5585-030X}}
 \affil[1]{Potsdam Institute for Climate Impact Research, Potsdam, Germany}
 \affil[2]{Global Energy Systems Analysis, Technical University of Berlin, Berlin, Germany}
 \affil[3]{Institute of Energy, Environment and Economy, Tsinghua University, Beijing 100084, China}
@@ -75,7 +76,7 @@ REMIND-MFA complements existing material-flow models in terms of scope, temporal
 
 These studies incorporate the key elements of REMIND-MFA needed to address the stated RQ – global coverage, stock-driven prospective modelling, and economy-wide material cycles for plastics, steel, and cement – individually. However, to our knowledge, REMIND-MFA is the first model to combine these elements in one framework. Additional features and novelties include: a new stock projection method based on Shared Socioeconomic Pathways (SSP) \parencite{oneillRoadsAheadNarratives2017a} that robustly generates plausible demand scenarios and can be rapidly extended to new materials, regional aggregations, and socioeconomic scenarios; a trade projection method; country-level resolution or flexible aggregations thereof; and individual material model structures tailored to the specifics of each material’s economy. Together, these features provide a flexible framework for exploring future material demand, circularity, and their interactions with climate mitigation.
 
-The present paper provides the methods, model code, results, and data. Section~\ref{sec:methods} introduces common modeling methods, including the methodology for stock and trade extrapolations. Section~\ref{sec:material_models} outlines the specifics of the three material models plastics, steel, and cement. Section~\ref{sec:results} shows exemplary model results. Section~\ref{sec:availability} briefly discusses model code and data availability. Section~\ref{sec:conclusion} concludes with a summary and next steps.
+The present paper provides the methods, model code, results, and data. Section~\ref{sec:methods} introduces common modeling methods, including the methodology for stock and trade extrapolations. Section~\ref{sec:material_models} outlines the specifics of the three material models plastics, steel, and cement. Section~\ref{sec:results} shows exemplary model results. Section~\ref{sec:conclusion} concludes with a summary and next steps. Section~\ref{sec:availability} briefly discusses model code and data availability.
 
 \section{Common model methods}\label{sec:methods}
 This section describes the modelling framework common to all three materials and the methodological developments introduced in this paper. The first three subsections establish the general model approach, while the subsequent sections describe the specific innovations and the processing of input data.
@@ -85,7 +86,7 @@ REMIND-MFA can be run with country-level resolution or arbitrary regional aggreg
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\textwidth]{../figures/pdf/figure_1.pdf}
+	\includecropped[width=0.75\textwidth]{pdf/figure_1}
 	\caption{Definition of the REMIND 12-region aggregation used for the results presented in this paper. The complete country mapping is given in Table~\ref{SM-tab:regions_h12} in the supplementary materials (SM).}
 	\label{fig:regions_h12}
 \end{figure}
@@ -99,7 +100,7 @@ A simplified common layout illustrating the general structure of the flows, proc
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=0.5\textwidth]{../figures/drawio/simplified.pdf}
+	\includecropped[width=0.4\textwidth]{drawio/simplified}
 	\caption{Simplified common layout of REMIND MFA. White boxes are processes, red boxes are stocks, arrows are flows. The model layouts of each material are given in Figure~\ref{fig:layouts}. They are more complex and tailored to each material’s specifics.}
 	\label{fig:layout_simplified}
 \end{figure}
@@ -107,7 +108,7 @@ A simplified common layout illustrating the general structure of the flows, proc
 \subsection{Model steps: Basic algorithm}\label{sec:model_steps}
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=0.8\textwidth]{../figures/figure_3_model_steps.png}
+	\includecropped[width=0.65\textwidth]{pdf/figure_3_model_steps}
 	\caption{Model steps of REMIND-MFA. “Historical” and “Prospective” are two distinct MFA models, where the historical MFA is production-driven and the future MFA is stock-driven.}
 	\label{fig:model_steps}
 \end{figure}
@@ -123,7 +124,7 @@ To meet these two requirements, we developed a three-step stock extrapolation al
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=0.6\textwidth]{../figures/pdf/figure_4_steel_JPN_s3.pdf}
+	\includecropped[width=0.6\textwidth]{pdf/figure_4_steel_JPN_s3}
 	\caption{The three steps of the stock extrapolation algorithm, illustrated for steel in Japan as an example. Panel a) is over GDP per capita (log scale), panel b) is over time.}
 	\label{fig:stock_extrapolation}
 \end{figure}
@@ -133,7 +134,7 @@ In-use stock per capita for every end-use category is regressed on the logarithm
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\textwidth]{../figures/pdf/figure_5.pdf}
+	\includecropped[width=0.8\textwidth]{pdf/figure_5}
 	\caption{Parameter variations of the logistic function, which is used for regression of per-capita in-use stocks over the logarithm of GDP per capita.}
 	\label{fig:logistic}
 \end{figure}
@@ -163,7 +164,7 @@ The material models build on the common framework outlined above. However, life 
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\textwidth]{../figures/drawio/all.pdf}
+	\includecropped[width=\textwidth]{drawio/all}
 	\caption{Layouts and system definition for the three material MFA models.}
 	\label{fig:layouts}
 \end{figure}
@@ -175,20 +176,20 @@ Panel a) of Figure~\ref{fig:layouts} shows the plastics MFA. It distinguishes ei
 Panel b) of Figure~\ref{fig:layouts} shows the steel MFA. It differentiates between four end-use sectors. \textit{Production} covers the stages from crude steel production through forming and fabrication to final goods. Historical production data from \textcite{worldsteelassociation2023} is used. The \textit{in-use stock} inflow is allocated across end-use sectors using shares approximated as a function of GDP per capita, which is informed by sectoral splits from the literature at three regional reference points. \textit{Circular flows} reflect the widespread recycling of steel scrap, representing scrap generation at three stages along the life cycle: Steel forming and manufacturing loss rates \parencite{cullen2012} determine generation of home scrap and new scrap, while the outflow of the in-use stock, multiplied with scrap collection rates, drives the generation of old scrap. Recycling reintroduces scrap into production, but the share of secondary steel is capped at 70\% of total production to reflect material quality limitations, while excess scrap accumulates in a separate stock. The historical model is calibrated against observed scrap use data from \textcite{bureauofinternationalrecyclingaisbl2023} through the adjustment of key parameters such as yields, lifetimes, and recovery rates. Reuse is represented as well. \textit{Trade} is represented for intermediates, end-use products, and scrap using data from \textcite{worldsteelassociation2023} and \textcite{gaulier2010}.
 
 \subsection{Cement}\label{sec:cement}
-The cement MFA is shown in Panel c) of Figure~\ref{fig:layouts}. Four end-use sectors and two application types (concrete and mortar) are distinguished. \textit{Production} covers not only cement, but also explicitly represents clinker and end-use products. Historical cement production data are taken from \textcite{andrewGlobalCO2Emissions2019a,andrew2026}. As clinker is the most carbon-intensive material in the value chain, material transformations coefficients represent key levers of circular economy intervention. The region-specific clinker-to-cement ratio is calculated based on clinker and cement production data \parencite{andrewGlobalCO2Emissions2019a,andrew2026} wherever available, and informed by \textcite{2024a} elsewhere. Application-specific cement intensities and material losses are based on unpublished data from \textcite{kaufmann2024}. The in-use stock model is based on regionally differentiated data for both lifetimes and end-use shares \parencite{kaufmann2024} further resolved by end use. \textit{Circular flow} modeling reflects the limited recyclability of cement: Reuse of concrete elements is represented, while down- and recycling into aggregates and fines is out of scope and, in the latter case, implicitly assumed to play a role in reducing the clinker ratio. \textit{Trade} is explicitly represented for clinker and cement using data from \textcite{gaulier2010}, while end-use products are treated as non-tradable, reflecting their fixed location.
+The cement MFA is shown in Panel c) of Figure~\ref{fig:layouts}. Four end-use sectors and two application types (concrete and mortar) are distinguished. \textit{Production} covers not only cement, but also explicitly represents clinker and end-use products. Historical cement production data are taken from \textcite{andrewGlobalCO2Emissions2019a,andrew2026a}. As clinker is the most carbon-intensive material in the value chain, material transformations coefficients represent key levers of circular economy intervention. The region-specific clinker-to-cement ratio is calculated based on clinker and cement production data \parencite{andrewGlobalCO2Emissions2019a,andrew2026a,andrew2026} wherever available, and informed by \textcite{2024a} elsewhere. Application-specific cement intensities and material losses are based on unpublished data from \textcite{kaufmann2024}. The in-use stock model is based on regionally differentiated data for both lifetimes and end-use shares \parencite{kaufmann2024} further resolved by end use. \textit{Circular flow} modeling reflects the limited recyclability of cement: Reuse of concrete elements is represented, while down- and recycling into aggregates and fines is out of scope and, in the latter case, implicitly assumed to play a role in reducing the clinker ratio. \textit{Trade} is explicitly represented for clinker and cement using data from \textcite{gaulier2010}, while end-use products are treated as non-tradable, reflecting their fixed location.
 
 \section{Results}\label{sec:results}
 The results are structured around the three questions motivating REMIND-MFA. As a core result, we first address RQ1 by presenting per-capita in-use stock extrapolations and material production trajectories (Section~\ref{sec:res_demand}). We then illustrate the model’s capacity to address RQ2 through three more detailed applications: global plastics carbon flows (Section~\ref{sec:res_carbon}), future steel trade (Section~\ref{sec:res_trade}), and regional cement production across scenarios (Section~\ref{sec:res_scenarios}). Sections~\ref{sec:res_demand}--\ref{sec:res_trade} show results for an SSP2 (“middle of the road”) socioeconomic driver scenario under a current policies assumption, which serves as a baseline for further policy assessments such as in Section~\ref{sec:res_scenarios}. For visualization, regional results are aggregated from the original 12-region set to the five regions shown in Figure~\ref{fig:regions_agg5}. Sections~\ref{sec:res_carbon}--\ref{sec:res_scenarios} show results for one representative material in the main text. Equivalent figures for the other materials are provided in SM Section~\ref{SM-sec:add_figures} for all results, using both the five-region aggregation and the original 12-region set. The SM further contain a comparison of country-resolution and 12-region results (SM Section~\ref{SM-sec:comparison_country_level}), as well as underlying population and per-capita GDP trajectories (SM Sections~\ref{SM-sec:add_gdppc} and \ref{SM-sec:add_pop}).
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\textwidth]{../figures/pdf/figure_7.pdf}
+	\includecropped[width=0.75\textwidth]{pdf/figure_7}
 	\caption{Five-region aggregation for visualization purposes; The five regions are supersets of the REMIND 12-region aggregation in Figure~\ref{fig:regions_h12}.}
 	\label{fig:regions_agg5}
 \end{figure}
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\textwidth]{../figures/pdf/figure_8_agg5.pdf}
+	\includecropped[width=\textwidth]{pdf/figure_8_agg5}
 	\caption{In-use stock (top) and production (center and bottom) projections for plastics (left), steel (center), and cement (right) in the SSP2 current policies scenario. Vertical lines mark the last year with historical data; production refers to raw material production.}
 	\label{fig:demand}
 \end{figure}
@@ -210,7 +211,7 @@ Taken together, these results imply a substantial future material-demand and equ
 
 \begin{figure}[htbp]
 	\centering
-	\includecropped[width=0.8\textwidth]{figure_9_carbon}
+	\includecropped[width=0.8\textwidth]{pdf/figure_9_carbon}
 	\caption{Sankey diagram of the 2050 global embedded carbon cycle in plastics in an SSP2 current policies scenario; trades are omitted due to the global scope.}
 	\label{fig:sankey_carbon}
 \end{figure}
@@ -220,7 +221,7 @@ Figure~\ref{fig:sankey_carbon} provides a more detailed illustration relevant to
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\textwidth]{../figures/pdf/figure_10_steel_agg5.pdf}
+	\includecropped[width=\textwidth]{pdf/figure_10_steel_agg5}
 	\caption{Projected exports (top) and imports (bottom) of steel; left: absolute trade volumes; right: export share (exports divided by local supply) and import share (imports divided by local demand). Vertical dashed lines denote the last year with historical data.}
 	\label{fig:trade_steel}
 \end{figure}
@@ -230,7 +231,7 @@ Figure~\ref{fig:trade_steel} illustrates how the trade extrapolation algorithm b
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=\textwidth]{../figures/pdf/figure_11_cement_agg5.pdf}
+	\includecropped[width=\textwidth]{pdf/figure_11_cement_agg5}
 	\caption{Global and regional cement production across three different scenarios: SSP2 as a baseline, SSP1-drivers, where only GDP and population trajectories are adapted, and SSP1-CE where moderate CE measures are added to the scenario definition, consistent with the SSP1 narrative. Vertical dashed lines denote the last year with historical data.}
 	\label{fig:scenarios_cement}
 \end{figure}

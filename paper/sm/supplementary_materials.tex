@@ -38,11 +38,11 @@
 	}%
 }
 
-% Crop boxes (content area in bp) of figures with white surroundings, written by
-% figures/scripts/crop_boxes.py; \includecropped[options]{name} includes ../figures/pdf/name.pdf
+% Crop boxes (content area in bp) of the PDF figures, written by
+% figures/scripts/crop_boxes.py; \includecropped[options]{name} includes ../figures/name.pdf
 % cropped to its box, or uncropped if there is no box for it.
-\IfFileExists{../figures/pdf/crop_boxes.csv}{%
-	\csvreader{../figures/pdf/crop_boxes.csv}%
+\IfFileExists{../figures/crop_boxes.csv}{%
+	\csvreader{../figures/crop_boxes.csv}%
 		{name=\cropname, llx=\cropllx, lly=\croplly, urx=\cropurx, ury=\cropury}{%
 		\expandafter\xdef\csname cropbox@\cropname\endcsname{\cropllx\space\croplly\space\cropurx\space\cropury}%
 	}%
@@ -53,7 +53,7 @@
 	\else
 		\def\cropoptions{#1}%
 	\fi
-	\expandafter\includegraphics\expandafter[\cropoptions]{../figures/pdf/#2.pdf}%
+	\expandafter\includegraphics\expandafter[\cropoptions]{../figures/#2.pdf}%
 }
 
 \DeclareMathOperator*{\argmin}{arg\,min}
