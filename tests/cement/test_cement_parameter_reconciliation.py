@@ -67,7 +67,9 @@ REL_STDS: dict[str, float | fd.FlodymArray] = {
 
 
 def mismatch(rec: ToyReconciliation, prms: dict[str, fd.Parameter]) -> np.ndarray:
-    return rec.calc_residual_log(rec.calc_top_down_stock(prms), rec.calc_bottom_up_stock(prms)).values
+    return rec.calc_residual_log(
+        rec.calc_top_down_stock(prms), rec.calc_bottom_up_stock(prms)
+    ).values
 
 
 @pytest.mark.parametrize("output_dims_are_independent", [True, False])
