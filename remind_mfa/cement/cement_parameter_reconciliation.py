@@ -237,6 +237,7 @@ class CementParameterReconciliation:
                 logging.info(
                     f"Converged after {i} iteration(s) (mismatch {mismatch:.4f} < tol {tol})."
                 )
+                self.final_mismatch = mismatch
                 return self.output_prms
 
             # fresh sensitivity matrices each iteration (re-linearise around current prms)
@@ -249,11 +250,18 @@ class CementParameterReconciliation:
             self.prepare_prms(self.output_prms)
 
         # report the mismatch reached by the last applied corrections
-        td = self.calc_top_down_stock(self.prms)
-        bu = self.calc_bottom_up_stock(self.prms)
-        self.mismatch_logging(self.calc_residual_log(td, bu), td, bu, label="final")
+        self.final_mismatch = self.calc_mismatch(self.output_prms, label="final")
 
         return self.output_prms
+
+    def calc_mismatch(self, source_prms: dict[str, fd.Parameter], label: str) -> float:
+        """Max |log(td / bu)| reached by the given parameters (in their original dimensions).
+
+        Also sets them as working parameters, as after `correct_parameters`."""
+        self.prepare_prms(source_prms)
+        td = self.calc_top_down_stock(self.prms)
+        bu = self.calc_bottom_up_stock(self.prms)
+        return self.mismatch_logging(self.calc_residual_log(td, bu), td, bu, label=label)
 
     def calc_residual_log(self, td: fd.FlodymArray, bu: fd.FlodymArray) -> fd.FlodymArray:
         """Residual r = log(td / bu), with validity checks for the log-space treatment."""
