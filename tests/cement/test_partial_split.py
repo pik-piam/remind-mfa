@@ -69,7 +69,9 @@ def test_view_of_complement_item_follows_rest(material_split):
     partial_split = make_material_partial_split(material_split)
     rest = partial_split.rest(material_split)
     view = partial_split.view(material_split, rest * 2.0)
-    expected_mortar = 2.0 * np.array([0.2, 0.4]) / (np.array([0.8, 0.6]) + 2.0 * np.array([0.2, 0.4]))
+    expected_mortar = (
+        2.0 * np.array([0.2, 0.4]) / (np.array([0.8, 0.6]) + 2.0 * np.array([0.2, 0.4]))
+    )
     np.testing.assert_allclose(view[{"m": "Mortar"}].values, expected_mortar)
     np.testing.assert_allclose(view.sum_over("m").values, 1.0)
 
