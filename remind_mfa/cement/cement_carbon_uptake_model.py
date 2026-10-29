@@ -29,14 +29,14 @@ class CementCarbonUptakeModel(BaseModel):
         # emissions (process only)
         flw["clinker_production => atmosphere"][...] = (
             flw["clinker_production => clinker_market"] * prm["clinker_cao_ratio"]  # clinker
-            + flw["clinker_production => sysenv"] * prm["ckd_cao_ratio"]  # CKD
+            + flw["clinker_production => losses"] * prm["ckd_cao_ratio"]  # CKD
         ) * prm["cao_emission_factor"]
         stk["atmosphere"].inflow = flw["clinker_production => atmosphere"]
         # overwrite previous sysenv clinker flow to include emissions
         flw["sysenv => clinker_production"][...] = (
             flw["clinker_production => clinker_market"]
             + flw["clinker_production => atmosphere"]
-            + flw["clinker_production => sysenv"]
+            + flw["clinker_production => losses"]
         )
 
         # carbonation
@@ -133,7 +133,7 @@ class CementCarbonUptakeModel(BaseModel):
         )
 
         prm = self.parameters
-        ckd_prod = self.flows["clinker_production => sysenv"]
+        ckd_prod = self.flows["clinker_production => losses"]
         uptake = (
             ckd_prod * prm["ckd_landfill_share"] * prm["ckd_cao_ratio"] * prm["cao_emission_factor"]
         )
@@ -151,7 +151,7 @@ class CementCarbonUptakeModel(BaseModel):
         )
 
         prm = self.parameters
-        cwaste_prod = self.flows["cement_market => sysenv"]
+        cwaste_prod = self.flows["cement_market => losses"]
 
         # calculate uptake in one year
         annual_carbonation_fraction = 0.2

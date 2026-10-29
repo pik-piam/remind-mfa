@@ -40,7 +40,7 @@ class CementDataExporter(CommonDataExporter):
         """Clinker output before trade"""
         return (
             mfa.flows["clinker_production => clinker_market"]
-            + mfa.flows["clinker_production => sysenv"]
+            + mfa.flows["clinker_production => losses"]
         ).sum_to(("t", "r"))
 
     @staticmethod
