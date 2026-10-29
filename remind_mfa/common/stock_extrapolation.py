@@ -110,7 +110,7 @@ class StockExtrapolation(RemindMFABaseModel):
         The extrapolation object contains the pure regression result without any correction or
         fitting to the historical stocks.
         """
-        all_weights = (self.gdppc * self.pop).get_shares_over(("r",))
+        all_weights = self.pop.cast_to(self.dims["t", "r", "u"]).get_shares_over(("r",))
         historical_weights = all_weights[{"t": self.dims["h"]}]
         independent_dims = (self.historical_stocks_pc.dims.index("u"),)
         self.extrapolation = self.cfg.stock_extrapolation_class(
