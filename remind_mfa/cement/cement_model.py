@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 from copy import deepcopy
 import numpy as np
 import flodym as fd
@@ -188,17 +187,21 @@ class CementModel(CommonModel[CementCfg]):
 
     def reconcile_parameters(
         self,
-        max_iter: int = 5,
-        tol: Optional[float] = 1e-3,
+        max_iter: int = 50,
+        tol_r: float = 1e-8,
+        tol_step: float = 1e-8,
     ):
         """Reconcile parameters between top-down and bottom-up stocks.
 
         Args:
             max_iter: Maximum number of correction iterations.
-            tol: Convergence tolerance; stop early when max |log(td/bu)| < tol.
-                 If None, always run max_iter iterations.
+            tol_r: Convergence tolerance of the mismatch max |log(td/bu)|.
+            tol_step: Convergence tolerance of the largest log-step of the corrections.
         """
-        logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
+        logging.info(
+            f"Starting parameter reconciliation (max_iter={max_iter}, tol_r={tol_r}, "
+            f"tol_step={tol_step})..."
+        )
 
         ref_mfa = self.make_mfa(historical=True)
         ref_mfa.trade_set = (
@@ -211,7 +214,8 @@ class CementModel(CommonModel[CementCfg]):
         )
         self.parameters = self.parameter_reconciliation.correct_parameters(
             max_iter=max_iter,
-            tol=tol,
+            tol_r=tol_r,
+            tol_step=tol_step,
         )
 
     def _create_zero_trade(self, trade_ref):

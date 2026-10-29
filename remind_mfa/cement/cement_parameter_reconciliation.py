@@ -30,29 +30,31 @@ class CementParameterReconciliation:
         small as possible, letting more uncertain parameters move more:
 
             minimize    sum_p (d_p / sigma_p)^2    small, uncertainty-weighted corrections
-            subject to  log(td) = log(bu)          the two models agree
+            subject to  r(d) = log(td / bu) = 0    the two models agree
 
-        where sigma_p is the relative uncertainty of parameter p. The constraint is
-        non-linear in d_p, so we linearise it and repeat (Gauss-Newton). Each iteration
-        measures
+        where sigma_p is the relative uncertainty of parameter p. Parameters with zero
+        uncertainty are fixed. The constraint is non-linear in d, so it is linearised around
+        the current estimate d_hat and the linear problem is solved repeatedly, following
+        the weighted least-squares data reconciliation of Cencic (2016), doi:
+        10.1016/j.serj.2016.06.002, with measurements d = 0 (no correction a priori).
+        Each iteration evaluates
 
-            r   = log(td / bu)                 the current mismatch
-            S_p = d log(td/bu) / d log(x_p)    how much parameter p shifts the mismatch
+            r   = log(td / bu)                 the mismatch at d_hat
+            S_p = d r / d d_p                  how much parameter p shifts the mismatch
                                                (the "sensitivity", via finite differences),
 
-        turning the constraint into the linear ``r + sum_p S_p d_p = 0``, which has the
-        closed-form (KKT) solution
+        which turns the constraint into ``r + sum_p S_p (d_p - d_hat_p) = 0``. Its closed-form
+        (KKT) solution (Cencic 2016, eq. 11) is the new total correction
 
             d_p = -sigma_p^2 * S_p^T lambda,
-            (sum_p S_p sigma_p^2 S_p^T) lambda = r.
+            (sum_p S_p sigma_p^2 S_p^T) lambda = r - sum_p S_p d_hat_p.
+
+        The iteration stops when both the mismatch and the step d - d_hat vanish; d is then
+        the constrained optimum. The corrected parameters are always computed from the input
+        parameters as input * exp(d).
 
         In code: S_p = ``sensitivities[p]``, lambda = ``lmda``, r = ``residual_log``,
-        sigma_p^2 = ``get_variances(p)``.
-
-        Each iteration minimises that single step, not the total correction so far.
-        Anchoring the penalty to the running total does not converge here: re-normalising
-        the split parameters (see below) keeps undoing part of each correction, which an
-        anchored objective would then re-request every iteration.
+        d_p = ``log_corrections[p]``, sigma_p^2 = ``get_variances(p)``.
 
     Dimension handling:
         - The top-down side is computed for all end uses ``u`` and restricted to the common end
@@ -160,24 +162,27 @@ class CementParameterReconciliation:
 
     def correct_parameters(
         self,
-        max_iter: int = 1,
-        tol: Optional[float] = None,
+        max_iter: int = 50,
+        tol_r: float = 1e-8,
+        tol_step: float = 1e-8,
     ) -> dict[str, fd.Parameter]:
         """Iteratively correct parameters to reconcile top-down and bottom-up stocks.
 
-        Each iteration linearises around the current working parameters, computes a
-        constrained least-squares log-correction (see class docstring), and applies them.
+        Each iteration linearises around the current working parameters, computes the
+        constrained least-squares log-correction (see class docstring), and applies it to
+        the input parameters.
 
         Args:
             max_iter: Maximum number of correction iterations.
-            tol: Convergence tolerance.  Stop early when
-                ``max(|log(td / bu)|) < tol``.  If *None*, always run
-                ``max_iter`` iterations.
+            tol_r: Convergence tolerance of the mismatch ``max(|log(td / bu)|)``.
+            tol_step: Convergence tolerance of the largest log-step ``max(|d - d_hat|)``.
 
         Returns:
             The corrected parameters in their original dimensions.
         """
         self.output_prms = deepcopy(self.input_prms)
+        # total log-corrections d, flattened over prms_adj_dims
+        log_corrections: dict[str, np.ndarray] = {}
 
         for i in range(max_iter):
             td = self.calc_top_down_stock(self.prms)
@@ -187,25 +192,36 @@ class CementParameterReconciliation:
                 residual_log, td, bu, label=f"iteration {i + 1}/{max_iter}"
             )
 
-            if tol is not None and mismatch < tol:
-                logging.info(
-                    f"Converged after {i} iteration(s) (mismatch {mismatch:.4f} < tol {tol})."
-                )
-                break
-
             # fresh sensitivity matrices each iteration (re-linearise around current prms)
             sensitivities = self.compute_sensitivities(td, bu)
-            lmda = self.solve_lagrange_multipliers(sensitivities, residual_log)
-            corrections = self.calc_corrections(sensitivities, lmda)
+            lmda = self.solve_lagrange_multipliers(sensitivities, residual_log, log_corrections)
+            new_log_corrections = {
+                prm_name: self.calc_log_correction(prm_name, S, lmda)
+                for prm_name, S in sensitivities.items()
+            }
+            max_step = max(
+                float(np.max(np.abs(d - log_corrections.get(prm_name, 0.0))))
+                for prm_name, d in new_log_corrections.items()
+            )
+            logging.info(
+                f"Reconciliation iteration {i + 1}/{max_iter}: max |step| = {max_step:.2e}, "
+                f"objective = {self.calc_objective(new_log_corrections):.6g}"
+            )
 
-            self.apply_corrections(corrections)
+            if mismatch < tol_r and max_step < tol_step:
+                logging.info(f"Reconciliation converged after {i} iteration(s).")
+                break
+
+            log_corrections = new_log_corrections
+            self.apply_corrections(log_corrections)
             # set output prms as new working prms
             self.prepare_prms(self.output_prms)
         else:
-            # not converged early: report the mismatch reached by the last applied corrections
+            # not converged: report the mismatch reached by the last applied corrections
             td = self.calc_top_down_stock(self.prms)
             bu = self.calc_bottom_up_stock(self.prms)
             self.mismatch_logging(self.calc_residual_log(td, bu), td, bu, label="final")
+            logging.warning(f"Reconciliation did not converge in {max_iter} iterations.")
 
         for prm_name in self._normalization_dims:
             self.normalize_output_parameter(prm_name)
@@ -486,38 +502,48 @@ class CementParameterReconciliation:
         self,
         sensitivities: dict[str, np.ndarray],
         residual_log: fd.FlodymArray,
+        log_corrections: dict[str, np.ndarray],
     ) -> np.ndarray:
-        """Solve A λ = r with A = Σ_p S_p diag(σ_p²) S_pᵀ (see class docstring)."""
+        """Solve A λ = r - Σ_p S_p d_hat_p with A = Σ_p S_p diag(σ_p²) S_pᵀ (see class
+        docstring)."""
         r = self.flatten_fd_to_np(residual_log)
         A = np.zeros((r.size, r.size))
 
         for prm_name, S in sensitivities.items():
             variances = self.get_variances(prm_name)
             A += (S * variances[np.newaxis, :]) @ S.T
+            if prm_name in log_corrections:
+                r = r - S @ log_corrections[prm_name]
 
+        if np.linalg.matrix_rank(A) < r.size:
+            raise ValueError(
+                "Reconciliation constraints are linearly dependent or not affected by any "
+                "uncertain parameter; A = Σ_p S_p diag(σ_p²) S_pᵀ is singular."
+            )
         return np.linalg.solve(A, r)
 
-    def calc_corrections(
-        self,
-        sensitivities: dict[str, np.ndarray],
-        lmda: np.ndarray,
-    ) -> dict[str, fd.FlodymArray]:
-        """Correction factors exp(d_p)."""
-        corrections = {}
-        for prm_name, S in sensitivities.items():
-            d = self.calc_log_correction(prm_name, S, lmda)
-            corrections[prm_name] = d.apply(np.exp)
-        return corrections
+    def calc_log_correction(self, prm_name: str, S: np.ndarray, lmda: np.ndarray) -> np.ndarray:
+        """Flattened total log-correction d_p = -diag(σ_p²) S_pᵀ λ for a single parameter
+        (see class docstring)."""
+        return -self.get_variances(prm_name) * (S.T @ lmda)
 
-    def calc_log_correction(self, prm_name: str, S: np.ndarray, lmda: np.ndarray) -> fd.FlodymArray:
-        """Log-correction d_p = -diag(σ_p²) S_pᵀ λ for a single parameter (see class docstring)."""
-        d = -self.get_variances(prm_name) * (S.T @ lmda)
-        return self.reshape_np_to_fd(d, self.prms_adj_dims[prm_name])
+    def calc_objective(self, log_corrections: dict[str, np.ndarray]) -> float:
+        """Objective Σ_p Σ (d_p / σ_p)² (fixed elements with σ_p = 0 have d_p = 0).
+        Only used for logging."""
+        objective = 0.0
+        for prm_name, d in log_corrections.items():
+            variances = self.get_variances(prm_name)
+            uncertain = variances > 0
+            objective += float(np.sum(d[uncertain] ** 2 / variances[uncertain]))
+        return objective
 
-    def apply_corrections(self, corrections: dict[str, fd.FlodymArray]):
-        """Apply correction factors to the output parameters (in their original dimensions)."""
-        for prm_name, c in corrections.items():
-            self.output_prms[prm_name][...] = self.output_prms[prm_name] * c
+    def apply_corrections(self, log_corrections: dict[str, np.ndarray]):
+        """Set the output parameters (in their original dimensions) to the input parameters
+        scaled by the correction factors exp(d_p)."""
+        self.output_prms = deepcopy(self.input_prms)
+        for prm_name, d in log_corrections.items():
+            factor = self.reshape_np_to_fd(np.exp(d), self.prms_adj_dims[prm_name])
+            self.output_prms[prm_name][...] = self.output_prms[prm_name] * factor
 
     def get_variances(self, prm_name: str) -> np.ndarray:
         """Flattened variances σ_p² of the log-corrections, approximated by the squared
