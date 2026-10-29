@@ -69,7 +69,9 @@ VAR_A, VAR_C, VAR_SPLIT = (np.log1p(v**2) for v in (REL_STD_A, REL_STD_C, REL_ST
 
 
 def mismatch(rec: ToyReconciliation, prms: dict[str, fd.Parameter]) -> np.ndarray:
-    return rec.calc_residual_log(rec.calc_top_down_stock(prms), rec.calc_bottom_up_stock(prms)).values
+    return rec.calc_residual_log(
+        rec.calc_top_down_stock(prms), rec.calc_bottom_up_stock(prms)
+    ).values
 
 
 @pytest.mark.parametrize("output_dims_are_independent", [True, False])
