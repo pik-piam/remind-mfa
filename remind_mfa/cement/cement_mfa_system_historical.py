@@ -72,9 +72,10 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         flw["construction => use"][...] = product_by_material.sum_over("m")
 
         stk["use"].inflow[...] = flw["construction => use"]
+        # std is derived from the mean here, so that it follows corrections of the mean
         stk["use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
-            std=prm["lifetime_std"],
+            std=prm["lifetime_mean"] * prm["lifetime_rel_std"],
         )
         stk["use"].compute()
 

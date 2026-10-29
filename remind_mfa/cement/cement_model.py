@@ -85,11 +85,6 @@ class CementModel(CommonModel[CementCfg]):
         return {definition.name for definition in bottom_up_scenario_parameters}
 
     def modify_parameters(self):
-        # construct lifetime std from mean and relative std
-        lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
-        lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
-        self.parameters["lifetime_std"] = lifetime_std
-
         self.set_hibernation_share(0.3)
 
         # development weight for gdp-dependent parameters/scenarios
@@ -141,6 +136,11 @@ class CementModel(CommonModel[CementCfg]):
 
         # copy/rename for use in common model
         self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
+
+        # construct lifetime std from (reconciled) mean and relative std
+        lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims, name="lifetime_std")
+        lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
+        self.parameters["lifetime_std"] = lifetime_std
 
         if self.bottom_up_active:
             self.calculate_bottom_up_scenario_parameters()

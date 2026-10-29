@@ -32,8 +32,8 @@ class CementParameterReconciliation:
             minimize    sum_p (d_p / sigma_p)^2    small, uncertainty-weighted corrections
             subject to  r(d) = log(td / bu) = 0    the two models agree
 
-        where sigma_p is the relative uncertainty of parameter p. Parameters with zero
-        uncertainty are fixed. The constraint is non-linear in d, so it is linearised around
+        where sigma_p^2 = ln(1 + v_p^2) is the log-space variance of parameter p with relative
+        uncertainty v_p (lognormal). Parameters with zero uncertainty are fixed. The constraint is non-linear in d, so it is linearised around
         the current estimate d_hat and the linear problem is solved repeatedly, following
         the weighted least-squares data reconciliation of Cencic (2016), doi:
         10.1016/j.serj.2016.06.002, with measurements d = 0 (no correction a priori).
@@ -64,6 +64,8 @@ class CementParameterReconciliation:
           information overlap.
         - Each parameter receives one correction factor per element of its dimensions
           except time (``t``/``h``): corrections are constant across all time steps.
+        - The lifetime standard deviation is not reconciled itself but derived from the
+          (corrected) lifetime mean and the fixed relative standard deviation.
         - Splits are corrected item by item, including items outside the reconciliation
           (Industrial/Civil Engineering, Mortar): they enter through the shares of the
           reconciled items.
@@ -546,9 +548,9 @@ class CementParameterReconciliation:
             self.output_prms[prm_name][...] = self.output_prms[prm_name] * factor
 
     def get_variances(self, prm_name: str) -> np.ndarray:
-        """Flattened variances σ_p² of the log-corrections, approximated by the squared
-        relative standard deviations of the parameter."""
-        return self.flatten_fd_to_np(self.rel_std(prm_name)) ** 2
+        """Flattened variances σ_p² = ln(1 + v_p²) of the log-corrections of a lognormally
+        distributed parameter with relative standard deviation v_p (Limpert et al. 2001)."""
+        return np.log1p(self.flatten_fd_to_np(self.rel_std(prm_name)) ** 2)
 
     def _build_rel_stds(self) -> dict[str, float | fd.FlodymArray]:
         return {
@@ -566,7 +568,7 @@ class CementParameterReconciliation:
             "construction_material_split": 0.4,
             "end_use_split": 0.5,
             "lifetime_mean": 0.4,
-            "lifetime_std": 0.0,
+            "lifetime_rel_std": 0.0,
         }
 
     def rel_std(self, prm_name: str) -> fd.FlodymArray:
@@ -605,8 +607,10 @@ class CementParameterReconciliation:
         split dimension.
 
         The corrections multiply the items of a split by different factors, so the stored
-        split no longer sums to 1. The reconciled stock functions only see shares and are
-        blind to this, but the model after the reconciliation uses the raw values (mass
+        split no longer sums to 1. The reconciled stock functions only see shares
+        (`get_shares_over`), which makes the scale of a split irrelevant to the solver but does
+        not fix its sum: the solver keeps the product of the correction factors at 1 instead.
+        The model after the reconciliation uses the raw values (mass
         balance of end-use and material split, mortar residential type split, concrete mass
         shares, derived global split means). Proportional scaling does not change the shares.
         """

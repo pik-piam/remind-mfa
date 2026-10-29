@@ -57,13 +57,15 @@ def make_prms(split_scale: float = 1.0) -> dict[str, fd.Parameter]:
     }
 
 
-VAR_A, VAR_C, VAR_SPLIT = 0.2**2, 0.1**2, 0.5**2
+REL_STD_A, REL_STD_C, REL_STD_SPLIT = 0.2, 0.1, 0.5
 REL_STDS: dict[str, float | fd.FlodymArray] = {
-    "a": VAR_A**0.5,
-    "c": VAR_C**0.5,
+    "a": REL_STD_A,
+    "c": REL_STD_C,
     "fixed": 0.0,
-    "split": VAR_SPLIT**0.5,
+    "split": REL_STD_SPLIT,
 }
+# log-space variances of lognormal parameters
+VAR_A, VAR_C, VAR_SPLIT = (np.log1p(v**2) for v in (REL_STD_A, REL_STD_C, REL_STD_SPLIT))
 
 
 def mismatch(rec: ToyReconciliation, prms: dict[str, fd.Parameter]) -> np.ndarray:
