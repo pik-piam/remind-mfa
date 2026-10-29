@@ -151,54 +151,19 @@ class CommonMFASystem(fd.MFASystem):
         direction: Literal["imports", "exports"],
         warn: bool,
     ):
-        """Cap a trade's positive net flow in ``direction`` at ``limit`` and re-balance globally.
-
-        The capped side is reduced; ``balance`` then scales down the opposite side of the
-        regions that were not capped. This re-inflates the net flow of some regions and thereby
-        partially reintroduces the violation, so the cap and balance are iterated to
-        convergence.
+        """Cap a trade's positive net flow in ``direction`` at ``limit`` and re-balance globally
+        (see :meth:`Trade.cap_net`). If ``warn`` is set, warns where the cap was binding.
         """
-        trade_name = trade.name or "trade"
-        eps = sys.float_info.epsilon
         tolerance = 10 * self._absolute_float_precision
-        if direction == "exports":
-            capped_flow, opposite_flow = trade.exports, trade.imports
-        else:
-            capped_flow, opposite_flow = trade.imports, trade.exports
-        # Compare net trade and limit on the dimensions they share. The trade may be more
-        # granular than the limit (e.g. per-end use indirect exports vs. total manufacturing supply)
-        # or coarser (e.g. aggregate scrap exports vs. per-end use recovered scrap), so both are
-        # summed to their common dimensions before capping.
-        common_dims = tuple(
-            letter for letter in capped_flow.dims.letters if letter in limit.dims.letters
-        )
-        limit_total = limit.sum_to(common_dims).maximum(0)
-        for iteration in range(50):
-            net_flow = (capped_flow - opposite_flow).maximum(0)
-            net_flow_total = net_flow.sum_to(common_dims)
-            # sum of positive per-end use net trade may not exceed the limit
-            net_flow_excess = (net_flow_total - limit_total).maximum(0)
-            if not (net_flow_excess.values > tolerance).any():
-                break
-            if warn and iteration == 0:
-                self._warn_historical_net_trade_cap(
-                    trade_name,
-                    net_flow_excess,
-                    net_flow_total,
-                    tolerance,
-                    eps,
-                    direction=direction,
-                )
-            # reduce the capped flow of net-trade goods to bring positive net trade down to the
-            # limit, keeping the opposite flow (same-good stop-over) untouched; factor in [0, 1]
-            factor = (net_flow_total - net_flow_excess) / net_flow_total.maximum(eps)
-            capped_flow[...] = capped_flow - net_flow * (1 - factor)
-
-            scaled = net_flow_excess.cast_values_to(capped_flow.dims) == 0
-            trade.balance(to="minimum", mask_scaled=scaled)
-        else:
-            logging.warning(
-                f"'{trade_name}': positive-net-{direction} cap did not converge after 50 iterations."
+        excess, net_flow_total = trade.cap_net(limit, direction=direction, tolerance=tolerance)
+        if warn and (excess.values > tolerance).any():
+            self._warn_historical_net_trade_cap(
+                trade.name or "trade",
+                excess,
+                net_flow_total,
+                tolerance,
+                sys.float_info.epsilon,
+                direction=direction,
             )
 
     def redistribute_surplus(self, trade: Trade, supply: fd.FlodymArray, demand: fd.FlodymArray):
