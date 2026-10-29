@@ -34,9 +34,7 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
 
     def mfa_stats(
         self,
-    ) -> tuple[
-        dict[str, fd.Parameter], TradeSet, dict[str, fd.Flow], dict[str, fd.Stock]
-    ]:
+    ) -> tuple[dict[str, fd.Parameter], TradeSet, dict[str, fd.Flow], dict[str, fd.Stock]]:
         prm = self.parameters
         trd = self.trade_set
         flw = self.flows
@@ -60,11 +58,13 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         cement_use = (
             (flw["cement_production => cement_market"] + trd["cement"].net_imports)
             * (1 - prm["cement_losses"])
-            * prm["end_use_split"].get_shares_over("u") # only required for reconcilation.
+            * prm["end_use_split"].get_shares_over("u")  # only required for reconcilation.
         )
         flw["cement_market => construction"][...] = cement_use * prm[
             "construction_material_split"
-        ].get_shares_over("m") # only required for reconcilation, split naturally sums to 1 anyways.
+        ].get_shares_over(
+            "m"
+        )  # only required for reconcilation, split naturally sums to 1 anyways.
         product_by_material = flw["cement_market => construction"] / prm["cement_ratio"]
         flw["sysenv => construction"][...] = (
             product_by_material - flw["cement_market => construction"]
