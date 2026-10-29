@@ -97,9 +97,13 @@ class Trade(RemindMFABaseModel):
 
         Where the net flow exceeds the limit, the capped side is reduced, keeping the opposite
         side (same-good stop-over trade) untouched. Global imports and exports are then balanced
-        to their minimum by scaling only the items without excess. This raises the net flow of
-        some of them, which may now exceed their limit as well, so capping and balancing are
-        iterated until no excess above ``tolerance`` remains.
+        to their minimum by scaling only the items that have not been capped so far. This raises
+        the net flow of some of them, which may now exceed their limit as well, so capping and
+        balancing are iterated until no excess above ``tolerance`` remains.
+
+        Capped items stay excluded from scaling in all later iterations. Otherwise, whether an
+        item that was capped to exactly its limit is scaled would depend on the floating-point
+        rounding of its (zero) excess.
 
         Net trade and limit are compared on the dimensions they share. The trade may be more
         granular than the limit (e.g. per-end use indirect exports vs. total manufacturing supply)
@@ -124,6 +128,7 @@ class Trade(RemindMFABaseModel):
             letter for letter in capped_flow.dims.letters if letter in limit.dims.letters
         )
         limit_total = limit.sum_to(common_dims).maximum(0)
+        is_capped = np.zeros(capped_flow.shape, dtype=bool)
         for iteration in range(50):
             net_flow = (capped_flow - opposite_flow).maximum(0)
             net_flow_total = net_flow.sum_to(common_dims)
@@ -138,8 +143,8 @@ class Trade(RemindMFABaseModel):
             factor = (net_flow_total - net_flow_excess) / net_flow_total.maximum(eps)
             capped_flow[...] = capped_flow - net_flow * (1 - factor)
 
-            scaled = net_flow_excess.cast_values_to(capped_flow.dims) == 0
-            self.balance(to="minimum", mask_scaled=scaled)
+            is_capped |= net_flow_excess.cast_values_to(capped_flow.dims) > 0
+            self.balance(to="minimum", mask_scaled=~is_capped)
         else:
             logging.warning(
                 f"'{self.name or 'trade'}': positive-net-{direction} cap did not converge after "

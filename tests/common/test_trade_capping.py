@@ -119,3 +119,24 @@ def test_redistribute_surplus_without_surplus_is_empty():
 
     np.testing.assert_allclose(trade.imports.values, 0.0)
     np.testing.assert_allclose(trade.exports.values, 0.0)
+
+
+def test_cap_net_keeps_capped_regions_fixed():
+    """A is capped first; re-balancing then pushes B above its cap. A's re-exports stay
+    untouched while B is capped, only the uncapped exporters C and D are scaled down."""
+    regions = fd.Dimension(name="Region", letter="r", items=["A", "B", "C", "D"])
+    dims = fd.DimensionSet(dim_list=[regions])
+    trade = Trade(
+        name="test",
+        imports=fd.FlodymArray(dims=dims, values=np.array([10.0, 3.0, 0.0, 0.0])),
+        exports=fd.FlodymArray(dims=dims, values=np.array([2.0, 2.0, 6.0, 3.0])),
+    )
+    limit = fd.FlodymArray(dims=dims, values=np.array([4.0, 1.5, np.inf, np.inf]))
+
+    trade.cap_net(limit, direction="imports", tolerance=1e-12)
+
+    # first round: A imports 6, the exports of B, C, D are scaled by 7/11 to balance
+    # second round: B's net imports exceed 1.5 and are capped, C and D are scaled down again
+    np.testing.assert_allclose(trade.imports.values, [6.0, 1.5 + 14 / 11, 0.0, 0.0])
+    np.testing.assert_allclose(trade.exports.values, [2.0, 14 / 11, 11 / 3, 11 / 6])
+    np.testing.assert_allclose(trade.imports.values.sum(), trade.exports.values.sum())
