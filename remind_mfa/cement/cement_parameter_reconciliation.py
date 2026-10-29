@@ -55,19 +55,16 @@ class CementParameterReconciliation:
         anchored objective would then re-request every iteration.
 
     Dimension handling:
-        - The end-use dimension ``u`` is reduced to the common end use ``c``
-          (Residential/Commercial). The bottom-up side is computed at the bottom-up end-use
-          resolution ``b`` (Residential Single-/Multi-Family, Commercial) and aggregated to ``c``
-          (Residential = Single-Family + Multi-Family). In ``c``, top-down and bottom-up
+        - The top-down side is computed for all end uses ``u`` and restricted to the common end
+          use ``c`` (Residential/Commercial). The bottom-up side is computed at the bottom-up
+          end-use resolution ``b`` (Residential Single-/Multi-Family, Commercial) and aggregated
+          to ``c`` (Residential = Single-Family + Multi-Family). In ``c``, top-down and bottom-up
           information overlap.
         - Each parameter receives one correction factor per element of its dimensions
           except time (``t``/``h``): corrections are constant across all time steps.
-        - Full splits (every dim item is covered in the reconciliation: residential
-          type/structure) are corrected item by item. Partial splits (only a subset of dim items
-          covered: concrete for the material split, Residential/Commercial for the end-use split)
-          are reduced to a dimension of their own, holding the reconciled items and one "rest"
-          item, which sums the unused complement (mortar; Civil Engineering/Industrial); see
-          `PartialSplit`.
+        - Splits are corrected item by item, including items outside the reconciliation
+          (Industrial/Civil Engineering, Mortar): they enter through the shares of the
+          reconciled items.
         - The reconciled stock functions see all splits only as shares, so their norm does not
           matter during the reconciliation. The returned splits are re-normalized once to sum to
           1 (see `normalize_output_parameter`).
@@ -107,7 +104,6 @@ class CementParameterReconciliation:
         self.output_dims_are_independent = output_dims_are_independent
 
         self.input_prms = deepcopy(ref_mfa.parameters)
-        self._partial_splits = self._build_partial_splits()
         self.prepare_prms(ref_mfa.parameters)
         self.prepare_flws()
         self.prepare_stks()
@@ -116,54 +112,10 @@ class CementParameterReconciliation:
 
     def prepare_dims(self):
         self.input_dims = deepcopy(self.ref_mfa.dims)
-        self.reduced_end_use = self.input_dims["c"]
-
-    def _build_partial_splits(self) -> dict[str, "PartialSplit"]:
-        """Partial splits by name. Their reduced dimensions get letters unused in the model."""
-        partial_splits = [
-            PartialSplit(
-                name="end_use_split",
-                dim=self.input_dims["u"],
-                reconciled_items=tuple(self.reduced_end_use.items),
-                reduced_letter="x",
-                model_dim=self.reduced_end_use,
-            ),
-            PartialSplit(
-                name="construction_material_split",
-                dim=self.input_dims["m"],
-                reconciled_items=("Concrete",),
-                reduced_letter="y",
-                model_dim=self.input_dims["m"],
-            ),
-        ]
-        for split in partial_splits:
-            if split.reduced_dim.letter in self.input_dims.letters:
-                raise ValueError(
-                    f"Reduced letter {split.reduced_dim.letter} of {split.name} is already used."
-                )
-        return {split.name: split for split in partial_splits}
-
-    def reduce_u_to_common(self, arr: fd.FlodymArray) -> fd.FlodymArray:
-        """Restrict an end-use-resolved (u) array to the common end uses
-        (c: Residential/Commercial), dropping the end uses outside the reconciliation
-        (Industrial/Civil Engineering).
-
-        Relies on the items of ``c`` being a name-identical subset of the items of ``u``.
-        Returns a new array; the input is left untouched.
-        """
-        return arr[{"u": self.reduced_end_use}]
-
-    def expand_common_to_u(self, arr: fd.FlodymArray, fill_value: float) -> fd.FlodymArray:
-        """Expand a common-end-use (c) array back to the full end-use dimension (u), filling
-        the end uses outside the reconciliation (Industrial/Civil Engineering) with
-        `fill_value`. Inverse of `reduce_u_to_common`."""
-        new_dims = arr.dims.replace(self.reduced_end_use.letter, self.input_dims["u"])
-        out = fd.FlodymArray.full(dims=new_dims, fill_value=fill_value)
-        out[{"u": self.reduced_end_use}] = arr
-        return out
+        self.common_end_use = self.input_dims["c"]
 
     def prepare_prms(self, source_prms: dict[str, fd.Parameter]):
-        """Build the reduced working parameters `prms` from `source_prms`, and the
+        """Build the working parameters `prms` from `source_prms`, and the
         dimensions along which each parameter is corrected (`prms_adj_dims`)."""
         self.prms: dict[str, fd.Parameter] = {}
         self.prms_adj_dims: dict[str, fd.DimensionSet] = {}
@@ -177,12 +129,6 @@ class CementParameterReconciliation:
     def reduce_prm(self, prm_name: str, prm: fd.FlodymArray) -> fd.FlodymArray:
         """Reduce a parameter (or an array with the parameter's dims) to the dimensions
         used during reconciliation."""
-        # reduce partial splits to their reconciled items and rest
-        if prm_name in self._partial_splits:
-            return self._partial_splits[prm_name].reduce(prm)
-        # reduce end-use dimension to the common end use (Residential/Commercial)
-        if "u" in prm.dims.letters:
-            prm = self.reduce_u_to_common(prm)
         # remove time dimension
         if prm_name in ["floorspace"]:
             prm = prm[{"t": self._year_of_reconciliation}]
@@ -191,24 +137,12 @@ class CementParameterReconciliation:
     def prepare_flws(self):
         self.flws: dict[str, fd.Flow] = {}
         for key, val in self.ref_mfa.flows.items():
-            if "u" in val.dims.letters:
-                val = self.reduce_u_to_common(val)  # slicing returns a new array
-            else:
-                val = deepcopy(val)  # protect ref_mfa flows from in-place modification
-            self.flws[key] = val
+            self.flws[key] = deepcopy(val)  # protect ref_mfa flows from in-place modification
 
     def prepare_stks(self):
         self.stks: dict[str, fd.Stock] = {}
         for key, val in self.ref_mfa.stocks.items():
-            val = deepcopy(val)
-            if "u" in val.dims.letters:
-                val.inflow = self.reduce_u_to_common(val.inflow)
-                val.outflow = self.reduce_u_to_common(val.outflow)
-                val.stock = self.reduce_u_to_common(val.stock)
-                val.dims = val.inflow.dims
-                if hasattr(val, "lifetime_model"):
-                    val.lifetime_model.dims = val.inflow.dims
-            self.stks[key] = val
+            self.stks[key] = deepcopy(val)
 
     def prepare_trds(self):
         """Leave trade as is."""
@@ -307,13 +241,6 @@ class CementParameterReconciliation:
 
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]):
         """Top-down stock calculation for reconciliaton."""
-        # 0. Replace reduced partial splits by the shares the model sees. Unreduced splits
-        # (e.g. raw parameters in `AnalyzeParameterReconciliation`) are left untouched.
-        prm = prm.copy()
-        for split in self._partial_splits.values():
-            if split.reduced_dim.letter in prm[split.name].dims.letters:
-                prm[split.name] = split.model_shares(prm[split.name])
-
         # 1. Compute product stock (summed over construction materials) from historical MFA
         product_stock = InflowDrivenHistoricalCementMFASystem.compute_stock(
             prm, self.trds, self.flws, self.stks
@@ -323,10 +250,13 @@ class CementParameterReconciliation:
         # 2.1 Use only reconciliation year
         product_stock = product_stock[{"h": self._year_of_reconciliation}]
 
-        # 2.2 Use only the reconciled material (concrete) [no mortar]
+        # 2.2 Use only the common end uses (Residential/Commercial)
+        product_stock = product_stock[{"u": self.common_end_use}]
+
+        # 2.3 Use only the reconciled material (concrete) [no mortar]
         concrete_stock = StockDrivenCementMFASystem.add_construction_material_split(
             product_stock, prm
-        )[{"m": self._partial_splits["construction_material_split"].reconciled_items[0]}]
+        )[{"m": "Concrete"}]
 
         return concrete_stock
 
@@ -338,7 +268,7 @@ class CementParameterReconciliation:
         )
 
         # 2. Reduce dimensions to match top-down stock dimensions
-        return aggregate_bu_to_common(concrete_stk.sum_over("s"), self.reduced_end_use)
+        return aggregate_bu_to_common(concrete_stk.sum_over("s"), self.common_end_use)
 
     def compute_sensitivities(
         self, td: fd.FlodymArray, bu: fd.FlodymArray
@@ -587,8 +517,7 @@ class CementParameterReconciliation:
     def apply_corrections(self, corrections: dict[str, fd.FlodymArray]):
         """Apply correction factors to the output parameters (in their original dimensions)."""
         for prm_name, c in corrections.items():
-            c_full = self.cast_correction_to_original_prm_dim(prm_name, c)
-            self.output_prms[prm_name][...] = self.output_prms[prm_name] * c_full
+            self.output_prms[prm_name][...] = self.output_prms[prm_name] * c
 
     def get_variances(self, prm_name: str) -> np.ndarray:
         """Flattened variances σ_p² of the log-corrections, approximated by the squared
@@ -645,22 +574,6 @@ class CementParameterReconciliation:
         reshaped_values = flat_arr.reshape(target_dims.shape)
         return fd.FlodymArray(dims=target_dims, values=reshaped_values)
 
-    def cast_correction_to_original_prm_dim(
-        self, prm_name: str, correction_factor: fd.FlodymArray
-    ) -> fd.FlodymArray:
-        """Expand a common-end-use (c) correction back to the parameter's end-use dimension
-        (u), filling the end uses outside the reconciliation (Industrial/Civil Engineering) with
-        1.0 (no correction).
-        Parameters natively resolved at c (e.g. floorspace) need no cast. Partial splits are
-        expanded from their reduced dimension (see `PartialSplit.expand_correction`)."""
-        if prm_name in self._partial_splits:
-            return self._partial_splits[prm_name].expand_correction(correction_factor)
-        original_letters = self.output_prms[prm_name].dims.letters
-        if "c" not in correction_factor.dims.letters or "u" not in original_letters:
-            return correction_factor
-
-        return self.expand_common_to_u(correction_factor, fill_value=1.0)
-
     def normalize_output_parameter(self, prm_name: str):
         """Renormalize a returned split parameter proportionally so it sums to 1 along its
         split dimension.
@@ -677,77 +590,6 @@ class CementParameterReconciliation:
         prm[...] = prm / prm_sum
 
 
-class PartialSplit:
-    """A split parameter of which only some items enter the reconciliation.
-
-    The "reconciled" items (e.g. concrete, or Residential/Commercial) feed the reconciled stock;
-    the others are the unused "complement" (e.g. mortar, or Civil Engineering/Industrial).
-    During the reconciliation, the split is reduced to a dimension of its own, holding the
-    reconciled items and one rest item, which sums the complement. A single complement item is
-    its own rest item and keeps its name. The model sees the shares over the reduced dimension,
-    so only the ratios of reconciled items and rest matter. The rest correction scales all
-    complement items alike, keeping the complement's internal ratio as in the input data.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        dim: fd.Dimension,
-        reconciled_items: tuple[str, ...],
-        reduced_letter: str,
-        model_dim: fd.Dimension,
-    ):
-        """
-        Args:
-            name: Name of the split parameter.
-            dim: Split dimension of the original parameter.
-            reconciled_items: Items of the split dimension that enter the reconciliation.
-            reduced_letter: Letter of the reduced dimension, unused in the model.
-            model_dim: Dimension the reconciled stock functions expect for the split. Its items
-                must be items of the reduced dimension.
-        """
-        self.name = name
-        self.dim = dim
-        self.reconciled_items = reconciled_items
-        self.complement_items = tuple(item for item in dim.items if item not in reconciled_items)
-        self.rest_item = self.complement_items[0] if len(self.complement_items) == 1 else "Rest"
-        self.reduced_dim = fd.Dimension(
-            name=f"Reconciled {dim.name}",
-            letter=reduced_letter,
-            items=[*reconciled_items, self.rest_item],
-        )
-        if not set(model_dim.items) <= set(self.reduced_dim.items):
-            raise ValueError(f"Items of {model_dim.name} must be items of {self.reduced_dim.name}.")
-        self.model_dim = model_dim
-
-    def reduce(self, prm: fd.FlodymArray) -> fd.FlodymArray:
-        """Reduce the split dimension of `prm` to the reconciled items and the rest."""
-        reduced = fd.FlodymArray(dims=prm.dims.replace(self.dim.letter, self.reduced_dim))
-        for item in self.reconciled_items:
-            reduced[{self.reduced_dim.letter: item}] = prm[{self.dim.letter: item}]
-        for item in self.complement_items:
-            reduced[{self.reduced_dim.letter: self.rest_item}] += prm[{self.dim.letter: item}]
-        return reduced
-
-    def model_shares(self, reduced: fd.FlodymArray) -> fd.FlodymArray:
-        """Shares over the reduced dimension, restricted to the model dimension."""
-        letter = self.reduced_dim.letter
-        return reduced.get_shares_over(letter)[{letter: self.model_dim}]
-
-    def expand_correction(self, correction_factor: fd.FlodymArray) -> fd.FlodymArray:
-        """Expand a correction over the reduced dimension to the original split dimension:
-        complement items get the correction of the rest."""
-        expanded = fd.FlodymArray(
-            dims=correction_factor.dims.replace(self.reduced_dim.letter, self.dim)
-        )
-        for item in self.dim.items:
-            source_item = self.rest_item if item in self.complement_items else item
-            expanded[{self.dim.letter: item}] = correction_factor[
-                {self.reduced_dim.letter: source_item}
-            ]
-        return expanded
-
-
 class DependencyTracker(dict):
     """Dictionary that tracks accessed keys."""
 
@@ -761,16 +603,6 @@ class DependencyTracker(dict):
 
         # 2. Return the actual value so the math doesn't crash
         return super().__getitem__(key)
-
-    def copy(self) -> "DependencyTracker":
-        """Shallow copy that records accessed keys in the same set as the original.
-
-        Needed because model functions may copy the parameter dict (e.g. `calc_top_down_stock`);
-        `dict.copy` would return a plain dict, so later accesses would go unrecorded.
-        """
-        tracker = DependencyTracker(self)
-        tracker.accessed_keys = self.accessed_keys
-        return tracker
 
 
 class AnalyzeParameterReconciliation:

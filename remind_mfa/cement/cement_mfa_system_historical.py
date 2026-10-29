@@ -1,4 +1,7 @@
+import flodym as fd
+
 from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.trade import TradeSet
 from remind_mfa.cement.cement_config import CementCfg
 
 
@@ -7,7 +10,7 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
 
     cfg: CementCfg
 
-    def compute(self):
+    def compute(self) -> None:
         """
         Perform all computations for the MFA system.
         """
@@ -20,7 +23,7 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         self.check_mass_balance()
         self.check_flows()
 
-    def balance_trade(self):
+    def balance_trade(self) -> None:
         """
         Balance trade data to global imports.
         This best reflects high historical US imports according to USGS DS140.
@@ -29,7 +32,11 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         """
         self.trade_set.balance(to="imports")
 
-    def mfa_stats(self):
+    def mfa_stats(
+        self,
+    ) -> tuple[
+        dict[str, fd.Parameter], TradeSet, dict[str, fd.Flow], dict[str, fd.Stock]
+    ]:
         prm = self.parameters
         trd = self.trade_set
         flw = self.flows
@@ -37,7 +44,12 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         return prm, trd, flw, stk
 
     @staticmethod
-    def compute_stock(prm, trd, flw, stk):
+    def compute_stock(
+        prm: dict[str, fd.Parameter],
+        trd: TradeSet,
+        flw: dict[str, fd.Flow],
+        stk: dict[str, fd.Stock],
+    ) -> fd.FlodymArray:
         """Compute relevant flows for stock build-up and compute the in-use stock.
         For reconciliation, returns in use stock."""
 
@@ -48,9 +60,11 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         cement_use = (
             (flw["cement_production => cement_market"] + trd["cement"].net_imports)
             * (1 - prm["cement_losses"])
-            * prm["end_use_split"]
+            * prm["end_use_split"].get_shares_over("u") # only required for reconcilation.
         )
-        flw["cement_market => construction"][...] = cement_use * prm["construction_material_split"]
+        flw["cement_market => construction"][...] = cement_use * prm[
+            "construction_material_split"
+        ].get_shares_over("m") # only required for reconcilation, split naturally sums to 1 anyways.
         product_by_material = flw["cement_market => construction"] / prm["cement_ratio"]
         flw["sysenv => construction"][...] = (
             product_by_material - flw["cement_market => construction"]
@@ -67,7 +81,12 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         return stk["use"].stock
 
     @staticmethod
-    def compute_other_flows(prm, trd, flw, stk):
+    def compute_other_flows(
+        prm: dict[str, fd.Parameter],
+        trd: TradeSet,
+        flw: dict[str, fd.Flow],
+        stk: dict[str, fd.Stock],
+    ) -> None:
         """Compute other flows for sanity checks like mass balance or negative flows."""
 
         # production
