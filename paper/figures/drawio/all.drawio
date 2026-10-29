@@ -345,7 +345,7 @@
         <mxCell id="Oasqh8jdOcl1WLKWLksj-53" edge="1" parent="1" source="Oasqh8jdOcl1WLKWLksj-54" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Oasqh8jdOcl1WLKWLksj-10" value="(t,r,p,e,u)">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="Oasqh8jdOcl1WLKWLksj-54" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Material shares in goods" vertex="1">
+        <mxCell id="Oasqh8jdOcl1WLKWLksj-54" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="End use and polymer split" vertex="1">
           <mxGeometry height="60" width="60" x="279.09999999999997" y="580" as="geometry" />
         </mxCell>
         <mxCell id="Oasqh8jdOcl1WLKWLksj-55" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Landfill" vertex="1">
