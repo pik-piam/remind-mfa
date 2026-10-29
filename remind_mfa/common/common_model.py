@@ -138,15 +138,23 @@ class CommonModel[CfgT: CommonCfg]:
             self.parameters[prm_name] = fd.Parameter(dims=prm.dims.drop("S"))
             self.parameters[prm_name][...] = slice
 
+    def get_scenario_parameter_definitions(self) -> list:
+        """Definitions of the scenario parameters of the active model modules."""
+        return common_scn_prm_def + self.custom_scn_prm_def
+
+    def get_inactive_scenario_parameter_names(self) -> set[str]:
+        """Names of scenario parameters of inactive model modules, whose scenario rows are skipped."""
+        return set()
+
     def read_scenario_parameters(self):
-        scn_prm_def = common_scn_prm_def + self.custom_scn_prm_def
         scenario_reader = ScenarioReader(
             name=self.cfg.model_switches.scenario,
             base_path=self.cfg.input.scenarios_path,
             model=self.cfg.model,
             dims=self.dims,
-            parameter_definitions=scn_prm_def,
+            parameter_definitions=self.get_scenario_parameter_definitions(),
             region_mappings_path=str(self.data_reader.region_mappings_path),
+            inactive_parameters=self.get_inactive_scenario_parameter_names(),
         )
         self.scenario_parameters = scenario_reader.get_parameters()
         # scenario parameters used within the MFA systems
