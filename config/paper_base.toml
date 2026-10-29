@@ -18,4 +18,4 @@
         iamc.t = "2025:2100"
         mrindustry.do_export = false
         assumptions.do_export = false
-        docs.do_export = true
+        docs.do_export = false

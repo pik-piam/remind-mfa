@@ -1,0 +1,99 @@
+# Orchestration of the paper build with go-task (https://taskfile.dev).
+# Usage: task --list; task all; task build -- -view
+#
+# Figures 1b and 6 are not generated automatically: figure 6 has to be saved manually from the
+# browser (see task figures:sankey), figure 1b is stored in figures/pdf.
+
+version: "3"
+
+vars:
+  # config/ and data_out/ are resolved relative to the working directory, so python and model
+  # runs are started from the repository root
+  REPO_DIR: "{{.TASKFILE_DIR}}/.."
+  POWERSHELL: powershell -NoProfile -ExecutionPolicy Bypass -File
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  all:
+    desc: Run the models and build the paper from scratch
+    cmds:
+      - task: mfa
+      - task: data
+      - task: paper
+
+  paper:
+    desc: Build the paper from existing model outputs (figures, tables, LaTeX)
+    cmds:
+      - task: figures
+      - task: tables
+      - task: build
+
+  mfa:
+    desc: Run the models for all paper scenarios and update the docs
+    cmds:
+      - task: mfa:scenarios
+      - task: mfa:docs
+
+  mfa:scenarios:
+    desc: Run all models for all paper scenarios (writes to data_out/paper)
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - "{{.POWERSHELL}} paper/run_all_mfa.ps1"
+
+  mfa:docs:
+    desc: Update the model definitions in docs/, which the SI tables are generated from
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run remind_mfa --config default --config update_docs --model all
+
+  data:
+    desc: Copy the IAMC output csv files to the zenodo folder
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run python paper/copy_data.py
+
+  figures:
+    desc: Export draw.io figures, render plots, and number and crop all figures
+    cmds:
+      - task: figures:drawio
+      - task: figures:plots
+      - task: figures:prepare
+
+  figures:drawio:
+    desc: Export the draw.io diagrams to figures/numbered (requires draw.io desktop)
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run python paper/figures/drawio/convert_to_pdf.py
+
+  figures:plots:
+    desc: Render all plotted figures to figures/pdf and figures/png
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run python paper/figures/scripts/run_all_figures.py
+
+  figures:sankey:
+    desc: Open the Sankey diagrams (figure 6) in the browser for manual adjustment and saving
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run python paper/figures/scripts/fig6_sankey.py {{.CLI_ARGS}}
+
+  figures:prepare:
+    desc: Copy figures to figures/numbered and write crop boxes (requires Ghostscript)
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run python paper/figures/scripts/prepare_figures.py {{.CLI_ARGS}}
+
+  tables:
+    desc: Generate the SI definition tables from the markdown docs
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run python paper/si/generate_tables.py
+
+  build:
+    desc: Remove LaTeX intermediate files, then compile manuscript and SI (options e.g. -- -view)
+    cmds:
+      - "{{.POWERSHELL}} build.ps1 -clean {{.CLI_ARGS}}"
