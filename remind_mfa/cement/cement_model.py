@@ -170,6 +170,26 @@ class CementModel(CommonModel[CementCfg]):
             global_share=prm["development_weight"],
             name="structure_split_mean",
         )
+        # where no structure type is known, the regional split carries no information:
+        # fall back to the global mean
+        global_structure_split_mean = (prm["structure_split"] * bu_floorspace).sum_over(
+            "r"
+        ) / bu_floorspace.sum_over("r")
+        only_unspecified = structure_split_mean[{"s": "Unspecified Structure"}].apply(
+            lambda x: (x > 1.0 - 1e-9).astype(float)
+        )
+        structure_split_mean[...] = (
+            structure_split_mean * (1.0 - only_unspecified)
+            + global_structure_split_mean * only_unspecified
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="Global mean structure split for unknown structures",
+            description=(
+                "Where the historical structure split contains only the unknown structure type, "
+                "the structure split converges to the global weighted mean."
+            ),
+        )
         prm["structure_split_mean"] = self.set_structure_share(
             structure_split_mean, "Unspecified Structure", 0.0
         )
