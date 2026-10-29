@@ -49,6 +49,7 @@ tasks:
     dir: "{{.REPO_DIR}}"
     cmds:
       - uv run remind_mfa --config default --config update_docs --model all
+      - uv run python paper/fix_all_refs.py
 
   data:
     desc: Copy the IAMC output csv files to the zenodo folder
