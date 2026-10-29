@@ -11,5 +11,6 @@
 | End-of-Life Management |
 | End-of-Life Waste      |
 | Reuse                  |
+| Losses                 |
 | imports                |
 | exports                |

@@ -70,6 +70,7 @@ def get_cement_definition(
             "eol_management",
             "eol_waste",
             "reuse",
+            "losses",
             "imports",
             "exports",
         ]
@@ -100,7 +101,8 @@ def get_cement_definition(
             # clinker production
             fd.FlowDefinition(from_process="sysenv", to_process="clinker_production", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="clinker_production", to_process="clinker_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="clinker_production", to_process="sysenv", dim_letters=("t", "r")),
+            # net cement kiln dust generation
+            fd.FlowDefinition(from_process="clinker_production", to_process="losses", dim_letters=("t", "r")),
             # clinker trade
             fd.FlowDefinition(from_process="clinker_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="clinker_market", dim_letters=("t", "r")),
@@ -112,7 +114,7 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="cement_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="cement_market", dim_letters=("t", "r")),
             # cement losses during construction
-            fd.FlowDefinition(from_process="cement_market", to_process="sysenv", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="cement_market", to_process="losses", dim_letters=("t", "r")),
             # construction
             fd.FlowDefinition(from_process="cement_market", to_process="construction", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="sysenv", to_process="construction", dim_letters=full_flow_letters),
@@ -126,6 +128,8 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=full_flow_letters + ("k",)),
             # disposal: the non-reused material accumulates in the eol waste stock
             fd.FlowDefinition(from_process="eol_management", to_process="eol_waste", dim_letters=full_flow_letters + ("k",)),
+            # losses leave the system
+            fd.FlowDefinition(from_process="losses", to_process="sysenv", dim_letters=("t", "r")),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
