@@ -306,6 +306,19 @@ scenario_parameters = [
         dim_letters=("r",),
     ),
     ExtrapolationDefinition(
+        name="cement_ratio",
+        dim_letters=("r", "m"),
+    ),
+    # cement lifetime is time-dependent and therefore needs (constant) extrapolation first
+    ExtrapolationDefinition(
+        name="lifetime_mean",
+        dim_letters=("r",),
+    ),
+    ExtrapolationDefinition(
+        name="lifetime_std",
+        dim_letters=("r",),
+    ),
+    ExtrapolationDefinition(
         name="unoccupied_residential_stock_share",
         dim_letters=("r",),
     ),
@@ -327,6 +340,15 @@ scenario_parameters = [
         name="reuse_share",
         dim_letters=("r", "m"),
         create_new=True,
+    ),
+    RemindMFAParameterDefinition(
+        name="min_timber_share",
+        dim_letters=("r",),
+        description="Minimum share of timber buildings the structure split converges to.",
+    ),
+    ExtrapolationDefinition(
+        name="concrete_building_mi",
+        dim_letters=("r", "b", "s"),
     ),
 ]
 

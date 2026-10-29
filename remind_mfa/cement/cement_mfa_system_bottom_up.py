@@ -2,7 +2,7 @@ import flodym as fd
 
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.data_blending import CriticallyDampedBlender
+from remind_mfa.common.data_blending import PDController
 
 
 def expand_common_to_bu(arr: fd.FlodymArray, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
@@ -81,15 +81,18 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
            calculate the inflow-driven DSM to get the bottom-up concrete stock (b, s).
         3. Extend the td inflow (from `td_use`, end uses u) to extended end uses and
            structures (e, s) and calculate the inflow-driven DSM to get the extended td stock.
-        4. Blend historical td into future bu stock for the end uses the bottom-up model
+        4. Combine the extended td stock with the bu concrete stock, which transitions smoothly
+           from historical td to future bu stock for the end uses the bottom-up model
            resolves (b); Industrial, Civil Engineering and mortar stay td.
-        5. Compute the complete MFA with the blended stock and historical trade.
+        5. Compute the complete MFA with the combined stock and historical trade. Only the
+           inflow of the bu concrete is blended; the td parts keep the inflow of `td_use`,
+           which was already blended in the td MFA (see `adjust_inflow`).
         """
 
         self.compute_floorspace_stock()
         self.compute_bottom_up_stock()
         self.extend_top_down_stock(td_use)
-        combined_stock = self.blend_stocks()
+        combined_stock = self.combine_top_down_and_bottom_up_stocks()
         super().compute(combined_stock, historical_trade)
 
     def compute_floorspace_stock(self):
@@ -102,8 +105,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             0  # TODO remove once mrmfa is fixed
         )
         stk["floorspace"].stock = stock
-        self._set_lifetime("floorspace")
-        stk["floorspace"].compute()
+        self.set_prms_and_compute(stk["floorspace"])
 
     def compute_bottom_up_stock(self) -> fd.FlodymArray:
         """Resolve the floorspace inflow by bottom-up end use and structure and calculate
@@ -114,8 +116,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         stk["bu_use"].inflow[...] = self.concrete_from_floorspace(
             stk["floorspace"].inflow, self.parameters
         )
-        self._set_lifetime("bu_use")
-        stk["bu_use"].compute()
+        self.set_prms_and_compute(stk["bu_use"])
         return stk["bu_use"].stock
 
     def extend_top_down_stock(self, td_use: fd.Stock):
@@ -166,8 +167,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         for item in ("Commercial", "Industrial", "Civil Engineering"):
             inflow[{"m": "Mortar", "e": item, "s": "Unspecified Structure"}] = mortar[{"u": item}]
 
-        self._set_lifetime("td_use")
-        stk["td_use"].compute()
+        self.set_prms_and_compute(stk["td_use"])
 
     def _concrete_mass_shares(self) -> fd.FlodymArray:
         """Distributes the concrete mass of each top-down end use (u) over bottom-up end uses
@@ -196,13 +196,17 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
 
         return floor_area_split * mi / avg_mi
 
-    def blend_stocks(self) -> fd.FlodymArray:
-        """Combine the bu and td stocks into one:
-        Blend smoothly between historical td and future bu concrete stock for the end uses
-        the bottom-up model resolves (b); Industrial, Civil Engineering and all mortar stay td.
+    def combine_top_down_and_bottom_up_stocks(self) -> fd.FlodymArray:
+        """Combine the extended top-down stock with the bottom-up concrete stock.
+        For the end uses resolved bottom-up (b), the concrete stock transitions smoothly from
+        the historical top-down to the projected bottom-up stock; Industrial, Civil Engineering
+        and all mortar keep the top-down stock.
+        The blend uses the same settings as the top-down stock extrapolation (default
+        approaching time and lifetime-dependent initial slope).
         """
         stk = self.stocks
         td_stock_expanded = stk["td_use"].stock
+        bu_stock = stk["bu_use"].stock
 
         # restrict the td stock to the bottom-up-resolved end uses
         bu_mask = {"e": self.dims["b"]}
@@ -214,14 +218,16 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             }
         ]
 
-        # Lifetime independent blend
-        blender = CriticallyDampedBlender(
+        # lifetime of the last historical year sets the trend window of the initial slope
+        lifetime = self.parameters["lifetime_mean"][{"t": self.dims["h"].items[-1]}][bu_mask]
+        blender = PDController(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
-            prediction=stk["bu_use"].stock.values,
+            prediction=bu_stock.values,
+            lifetime=lifetime.cast_to(bu_stock.dims.drop("t")).values,
         )
         blended_stock = fd.FlodymArray.full_like(
-            other=stk["bu_use"].stock,
+            other=bu_stock,
             fill_value=blender.blend(),
         )
 
@@ -229,21 +235,63 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         combined_stock[{**bu_mask, "m": "Concrete"}] = blended_stock
         return combined_stock
 
-    def _set_lifetime(self, stock_name: str):
-        """Set the stock's lifetime from the extended-end-use (e) lifetime parameters,
-        restricted to the stock's own end-use resolution (detected from its dimensions):
-        b-stocks slice e to b; c-stocks slice to b then aggregate the residential types to
-        Residential; e-stocks use the full extended end use directly."""
-        mean = self.parameters["lifetime_mean"]
-        std = self.parameters["lifetime_std"]
-        letters = self.stocks[stock_name].dims.letters
-        if "b" in letters:
-            mean = mean[{"e": self.dims["b"]}]
-            std = std[{"e": self.dims["b"]}]
-        elif "c" in letters:
-            mean = aggregate_bu_to_common_intensive(mean[{"e": self.dims["b"]}], self.dims["c"])
-            std = aggregate_bu_to_common_intensive(std[{"e": self.dims["b"]}], self.dims["c"])
-        self.stocks[stock_name].lifetime_model.set_prms(mean=mean, std=std)
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Blend and correct only the inflow of the bottom-up-resolved concrete (b).
+        Industrial, Civil Engineering and all mortar keep the inflow of `td_use`, which was
+        already blended and corrected in the top-down MFA. Blending it again would continue
+        the historical trend a second time.
+        The parent method is applied to the full inflow, as slicing the concrete would drop
+        the material dimension (m). Its result for the top-down parts is discarded.
+
+        Args:
+            inflow: Product inflow resulting from a StockDrivenDSM computation of the
+                combined stock.
+
+        Returns:
+            Composition-resolved in-use stock inflow.
+        """
+        use_inflow = super().adjust_inflow(inflow)
+        adjusted_inflow = self.add_constituent_split(self.stocks["td_use"].inflow)
+        bu_mask = {"e": self.dims["b"], "m": "Concrete"}
+        adjusted_inflow[bu_mask] = use_inflow[bu_mask]
+        return adjusted_inflow
+
+    def set_prms_and_compute(self, stock: fd.DynamicStockModel):
+        """Set the lifetime model parameters and compute the stock.
+
+        The extended-end-use (e) lifetime parameters are restricted to the stock's own
+        end-use resolution (detected from its dimensions): b-stocks slice e to b; c-stocks
+        slice to b then aggregate the residential types to Residential; e-stocks use the
+        full extended end use directly.
+
+        Note: Overrides `CommonMFASystem.set_prms_and_compute` without calling `super()`,
+        since the parent reads the parameters directly. Changes to the parent body must be
+        mirrored here.
+
+        Args:
+            stock (fd.DynamicStockModel): Stock to set parameters for and compute.
+        """
+        letters = stock.dims.letters
+        lifetime_prms = {}
+        for name in (
+            "lifetime_mean",
+            "lifetime_std",
+            "lifetime_factor_nurture",
+            "lifetime_factor_cohort",
+        ):
+            prm = self.parameters[name]
+            if "b" in letters:
+                prm = prm[{"e": self.dims["b"]}]
+            elif "c" in letters:
+                prm = aggregate_bu_to_common_intensive(prm[{"e": self.dims["b"]}], self.dims["c"])
+            lifetime_prms[name] = prm
+        lifetime_model = stock.lifetime_model
+        lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
+        lifetime_model.mean = lifetime_prms["lifetime_mean"]
+        lifetime_model.std = lifetime_prms["lifetime_std"]
+        lifetime_model.lt_factor_by_year = lifetime_prms["lifetime_factor_nurture"]
+        lifetime_model.lt_factor_by_cohort = lifetime_prms["lifetime_factor_cohort"]
+        stock.compute()
 
     @staticmethod
     def concrete_from_floorspace(
