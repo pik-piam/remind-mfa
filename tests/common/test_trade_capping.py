@@ -152,3 +152,30 @@ def test_cap_historical_net_imports_to_demand_rebalances():
     np.testing.assert_allclose(trade.exports[2030].values, [0.0, 3.2, 0.8])
     np.testing.assert_allclose(trade.imports[2040].values, [10.0, 0.0, 0.0])
     np.testing.assert_allclose(trade.exports[2040].values, [0.0, 8.0, 2.0])
+
+
+def test_cap_historical_net_imports_to_demand_reassigns_within_category():
+    polymers = fd.Dimension(name="Polymer", letter="p", items=["x", "y"])
+    dims = fd.DimensionSet(dim_list=[T, R, polymers])
+
+    def per_region_and_polymer(values: list[list[float]]) -> fd.FlodymArray:
+        return fd.FlodymArray(dims=dims, values=np.tile(values, (T.len, 1, 1)))
+
+    trade = Trade(
+        name="test",
+        imports=per_region_and_polymer([[4.0, 1.0], [0.0, 0.0], [0.0, 0.0]]),
+        exports=per_region_and_polymer([[0.0, 0.0], [3.0, 1.0], [1.0, 0.0]]),
+    )
+    # A's net imports of x exceed its demand by 2, which fits into the headroom of y
+    demand = per_region_and_polymer([[2.0, 3.0], [20.0, 20.0], [20.0, 20.0]])
+
+    make_system().cap_historical_net_imports_to_demand(trade, demand=demand, category_dim="p")
+
+    np.testing.assert_allclose(trade.imports[{"r": "A"}].values, [[2.0, 3.0], [2.0, 3.0]])
+    # the net exporters of x move 2 of their exports from x to y, proportionally to their net
+    # exports of x (B: 1.5, C: 0.5), so trade stays balanced per polymer
+    np.testing.assert_allclose(trade.exports[{"r": "B"}].values, [[1.5, 2.5], [1.5, 2.5]])
+    np.testing.assert_allclose(trade.exports[{"r": "C"}].values, [[0.5, 0.5], [0.5, 0.5]])
+    np.testing.assert_allclose(
+        trade.imports.sum_over("r").values, trade.exports.sum_over("r").values
+    )

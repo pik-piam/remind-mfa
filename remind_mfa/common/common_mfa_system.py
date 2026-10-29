@@ -220,15 +220,23 @@ class CommonMFASystem(fd.MFASystem):
     def _reassign_net_imports_within_category(
         trade: Trade, demand: fd.FlodymArray, category_dim: str
     ):
-        """Reassign net imports exceeding demand to sibling categories.
+        """Reassign net imports exceeding demand to sibling categories, on both trade sides.
 
         A region's excess of net imports over demand is moved to the categories that share all
         *other* dimensions (for plastics: the polymers of the same polymer type), as far as they
         still have headroom (demand - net imports). The part that does not fit is left for the
         cap.
 
+        Moving imports between categories changes the global imports per category, while the
+        changes cancel within each group. To keep the trade balanced, the exports are moved in
+        the same way: the exports of categories whose global imports decrease are reduced in the
+        regions that are net exporters of them, proportionally to their net exports, and these
+        regions export the same amount of the categories whose global imports increase instead.
+        A net exporter thus exports at most its net exports less, so it cannot become a net
+        importer, and its exports per group stay unchanged.
+
         Args:
-            trade (Trade): Trade to modify in place.
+            trade (Trade): Trade to modify in place. Assumed to be globally balanced.
             demand (fd.FlodymArray): Domestic demand on the trade dimensions.
             category_dim (str): Letter of the dimension to reassign within.
         """
@@ -243,6 +251,18 @@ class CommonMFASystem(fd.MFASystem):
         removed = excess * (reassigned_group / excess_group.maximum(eps))
         fill = headroom * (reassigned_group / headroom_group.maximum(eps))
         trade.imports[...] = (trade.imports - removed + fill).maximum(0)
+
+        # global change of imports per category, which sums to zero within each group
+        import_change = (fill - removed).sum_over("r")
+        import_decrease = (-import_change).maximum(0)
+        import_increase = import_change.maximum(0)
+        positive_net_exports = (-net).maximum(0)
+        export_decrease = positive_net_exports * (
+            import_decrease / positive_net_exports.sum_over("r").maximum(eps)
+        ).minimum(1)
+        increase_share = import_increase / import_increase.sum_over(category_dim).maximum(eps)
+        export_increase = export_decrease.sum_over(category_dim) * increase_share
+        trade.exports[...] = (trade.exports - export_decrease + export_increase).maximum(0)
 
     def _warn_historical_net_trade_cap(
         self,
