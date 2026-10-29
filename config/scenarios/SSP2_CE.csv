@@ -1,5 +1,15 @@
 parameter,models,value,extra,index,description
+# Same settings as SSP1 (except driver_scen), plus min_timber_share. Keep both files consistent.
+
+# --- All models ---
 stock_factor,all,0.9,,,
-lifetime_mean,all,1.2,,,
-lifetime_std,all,1.2,,,
-reuse_share,cement,0.10,,"{Construction Material: Concrete}",
+lifetime_factor_nurture,all,1.1,,,
+lifetime_factor_nature,all,1.1,,,
+
+# --- Cement ---
+clinker_ratio,cement,0.6,"{year: 2060, type: target}",,Source: Chatham/IEA
+cement_ratio,cement,0.95,,,Cement content of new concrete and mortar reduced by 5% by 2100
+reuse_share,cement,0.1,,"{Construction Material: Concrete}",
+concrete_building_mi,cement,0.9,,,
+min_timber_share,cement,0.1,,,Timber structures reach at least 10% of floor area
+unoccupied_residential_stock_share,cement,0.05,"{year: 2100, type: target}",,

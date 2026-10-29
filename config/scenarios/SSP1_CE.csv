@@ -1,4 +1,4 @@
 parameter,models,value,extra,index,description
 stock_factor,all,0.9,,,
-lifetime_mean,all,1.2,,,
-lifetime_std,all,1.2,,,
+lifetime_factor_nurture,all,1.1,
+lifetime_factor_nature,all,1.1,

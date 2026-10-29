@@ -121,3 +121,7 @@ class CementVisualizer(CommonVisualizer):
             linecolor_dim=linecolor_dim,
             regional=False,
         )
+
+    def visualize_end_use_split(self, regional: bool = True):
+        end_use_letter = self._end_use_letter(self._model.future_mfa)
+        super().visualize_end_use_split(regional=regional, end_use_letter=end_use_letter)
