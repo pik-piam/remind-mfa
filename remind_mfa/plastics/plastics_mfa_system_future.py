@@ -66,6 +66,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p")),
             "not_reused": self.get_new_array(dim_letters=("t", "e", "r", "p", "u")),
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p")),
+            "hvc_input_clipped": self.get_new_array(dim_letters=("t", "e", "r")),
             "hvc_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "hvc_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
@@ -124,7 +125,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historical_trade=historical_trade["manufactured_products"].sum_over("P"),
             future_trade=self.trade_set["manufactured_products"],
             future_dom_demand=flw["manufactured_products_market => use"],
-            n_trend_years=self.parameters["n_trend_years"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
 
@@ -152,7 +153,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             historical_trade=historical_trade["primary"].sum_over("P"),
             future_trade=self.trade_set["primary"],
             future_dom_demand=flw["primary_market => manufacturing"],
-            n_trend_years=self.parameters["n_trend_years"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
 
@@ -194,7 +195,10 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["losses => sysenv"][...] = flw["polymerization => losses"]
         # guard against 0/0 in region-years with no HVC input (e.g. countries that never
         # polymerize at iso resolution): the numerator is also 0 there, so the share is 0.
-        aux["hvc_c_content"][...] = flw["hvc_production => polymerization"] / flw["hvc_production => polymerization"].sum_to(("t", "r")).maximum(sys.float_info.epsilon)
+        # The HVC input is clipped at 0 first: where recyclate covers (almost) all demand, it is only
+        # float noise of mixed sign, which would give element shares outside [0, 1].
+        aux["hvc_input_clipped"][...] = flw["hvc_production => polymerization"].maximum(0)
+        aux["hvc_c_content"][...] = aux["hvc_input_clipped"] / aux["hvc_input_clipped"].sum_to(("t", "r")).maximum(sys.float_info.epsilon)
 
         # chemical recycling: chem-recycled HVC is redistributed between regions the same way as
         # mechanical recyclate, so a region's chemical recycling above its virgin HVC demand feeds

@@ -1,6 +1,7 @@
+import logging
 from pydantic import model_validator
 from remind_mfa.common.helpers import RemindMFABaseModel
-from typing import List
+from typing import List, Literal
 from types import EllipsisType
 import numpy as np
 from scipy.stats import gmean, hmean
@@ -85,6 +86,71 @@ class Trade(RemindMFABaseModel):
 
             new_flow = flow * flow_factor
             flow.values[mask_scaled] = new_flow.values[mask_scaled]
+
+    def cap_net(
+        self,
+        limit: fd.FlodymArray,
+        direction: Literal["imports", "exports"],
+        tolerance: float,
+    ) -> tuple[fd.FlodymArray, fd.FlodymArray]:
+        """Cap the positive net flow in ``direction`` at ``limit`` and re-balance globally.
+
+        Where the net flow exceeds the limit, the capped side is reduced, keeping the opposite
+        side (same-good stop-over trade) untouched. Global imports and exports are then balanced
+        to their minimum by scaling only the items that have not been capped so far. This raises
+        the net flow of some of them, which may now exceed their limit as well, so capping and
+        balancing are iterated until no excess above ``tolerance`` remains.
+
+        Capped items stay excluded from scaling in all later iterations. Otherwise, whether an
+        item that was capped to exactly its limit is scaled would depend on the floating-point
+        rounding of its (zero) excess.
+
+        Net trade and limit are compared on the dimensions they share. The trade may be more
+        granular than the limit (e.g. per-end use indirect exports vs. total manufacturing supply)
+        or coarser (e.g. aggregate scrap exports vs. per-end use recovered scrap), so both are
+        summed to their common dimensions before capping.
+
+        Args:
+            limit (fd.FlodymArray): Upper bound of the positive net flow.
+            direction (Literal["imports", "exports"]): Trade side whose net flow is capped.
+            tolerance (float): Absolute excess up to which the cap counts as satisfied.
+
+        Returns:
+            tuple[fd.FlodymArray, fd.FlodymArray]: Excess over the limit and positive net flow,
+                both before capping and on the common dimensions.
+        """
+        eps = sys.float_info.epsilon
+        if direction == "exports":
+            capped_flow, opposite_flow = self.exports, self.imports
+        else:
+            capped_flow, opposite_flow = self.imports, self.exports
+        common_dims = tuple(
+            letter for letter in capped_flow.dims.letters if letter in limit.dims.letters
+        )
+        limit_total = limit.sum_to(common_dims).maximum(0)
+        is_capped = np.zeros(capped_flow.shape, dtype=bool)
+        for iteration in range(50):
+            net_flow = (capped_flow - opposite_flow).maximum(0)
+            net_flow_total = net_flow.sum_to(common_dims)
+            # sum of positive per-end use net trade may not exceed the limit
+            net_flow_excess = (net_flow_total - limit_total).maximum(0)
+            if iteration == 0:
+                initial_excess, initial_net_flow_total = net_flow_excess, net_flow_total
+            if not (net_flow_excess.values > tolerance).any():
+                break
+            # reduce the capped flow of net-trade goods to bring positive net trade down to the
+            # limit; factor in [0, 1]
+            factor = (net_flow_total - net_flow_excess) / net_flow_total.maximum(eps)
+            capped_flow[...] = capped_flow - net_flow * (1 - factor)
+
+            is_capped |= net_flow_excess.cast_values_to(capped_flow.dims) > 0
+            self.balance(to="minimum", mask_scaled=~is_capped)
+        else:
+            logging.warning(
+                f"'{self.name or 'trade'}': positive-net-{direction} cap did not converge after "
+                "50 iterations."
+            )
+        return initial_excess, initial_net_flow_total
 
     @staticmethod
     def get_reference_trade(

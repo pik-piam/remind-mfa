@@ -12,6 +12,7 @@ class CementDisplayNames(CommonDisplayNames):
         "eol_management": "End-of-Life<br>Management",
         "reuse": "Reuse",
         "eol_waste": "End-of-Life<br>Waste",
+        "losses": "Losses",
         "atmosphere": "Atmosphere",
         "carbonation": "Carbonation",
         "clinker_market": "Market: Clinker",

@@ -25,6 +25,32 @@ class RemindMFADefinition(fd.MFADefinition):
     parameters: List[RemindMFAParameterDefinition]  # ty: ignore[invalid-attribute-override]
     """List of definitions of parameters used in the model."""
 
+    @classmethod
+    def from_parts(cls, parts: List["RemindMFAPartialDefinition"]) -> "RemindMFADefinition":
+        """Combine partial definitions (e.g. a core definition and optional modules) into one
+        definition. The parts are only validated together, so a part may use dimensions or
+        processes declared in another part."""
+        merged = {
+            name: [item for part in parts for item in getattr(part, name)]
+            for name in cls.model_fields
+        }
+        return cls(**merged)
+
+
+class RemindMFAPartialDefinition(RemindMFADefinition):
+    """Part of an MFA definition, e.g. an optional model module that is only added to the
+    definition if it is active. Missing fields default to empty lists. Not validated on its own,
+    only once combined to a full definition by `RemindMFADefinition.from_parts`."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_to_empty(cls, data: dict) -> dict:
+        return {name: [] for name in cls.model_fields} | data
+
+    @model_validator(mode="after")
+    def check_dimension_letters(self):
+        return self
+
 
 class PlainDataPointDefinition(RemindMFABaseModel):
 
@@ -96,7 +122,15 @@ scenario_parameters = [
         dim_letters=("r",),
         description=(
             "Number of most recent historical years used to determine the initial slope of the "
-            "critically damped blend of in-use stock inflows and trade"
+            "critically damped blend of in-use stock inflows"
+        ),
+    ),
+    RemindMFAParameterDefinition(
+        name="flow_approaching_time",
+        dim_letters=("r",),
+        description=(
+            "Characteristic timescale in years of the critically damped blend of in-use stock "
+            "inflows from historical trends to future values"
         ),
     ),
     ExtrapolationDefinition(
@@ -105,13 +139,24 @@ scenario_parameters = [
         create_new=True,
     ),
     ExtrapolationDefinition(
-        name="lifetime_mean",
+        name="trade_factor",
         dim_letters=("r",),
+        create_new=True,
         blending_function="poly_mix",
+        description=("Scaling factor on future trade, per region."),
     ),
     ExtrapolationDefinition(
-        name="lifetime_std",
-        dim_letters=("r",),
+        name="lifetime_factor_nature",
+        dim_letters=("r", "u"),  # u dimension necessary for cement
+        create_new=True,
         blending_function="poly_mix",
+        description=("Lifetime extension factor of new age-cohorts (nature)."),
+    ),
+    ExtrapolationDefinition(
+        name="lifetime_factor_nurture",
+        dim_letters=("r", "u"),  # u dimension necessary for cement
+        create_new=True,
+        blending_function="poly_mix",
+        description=("Lifetime extension factor of all age-cohorts by year (nurture)."),
     ),
 ]
