@@ -4,6 +4,89 @@ import flodym as fd
 from pydantic import BaseModel, Field, model_validator
 
 from remind_mfa.common.assumptions_doc import add_assumption_doc
+from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import RemindMFAPartialDefinition
+
+# fmt: off
+
+def get_carbonation_definition() -> RemindMFAPartialDefinition:
+    """Definition part of the carbonation module, added to the future cement MFA if
+    carbonation is active."""
+
+    dimensions = [
+        fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
+        fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
+        fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
+        fd.DimensionDefinition(name="Carbonation Location", dim_letter="l", dtype=str),
+    ]
+
+    processes = ["atmosphere", "carbonation"]
+
+    flows = [
+        fd.FlowDefinition(from_process="clinker_production", to_process="atmosphere", dim_letters=("t", "r")),
+        fd.FlowDefinition(from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "l")),
+    ]
+
+    stocks = [
+        fd.StockDefinition(
+            name="atmosphere",
+            process="atmosphere",
+            dim_letters=("t", "r"),
+            subclass=fd.SimpleFlowDrivenStock,
+        ),
+        fd.StockDefinition(
+            name="carbonated_co2",
+            process="carbonation",
+            dim_letters=("t", "r", "l"),
+            subclass=fd.InflowDrivenDSM,
+            lifetime_model_class=fd.FixedLifetime,
+        ),
+    ]
+
+    parameters = [
+        RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=(),
+                                     description="Mass fraction of CaO contained in clinker."),
+        RemindMFAParameterDefinition(name="cao_carbonation_share", dim_letters=("m",),
+                                     description="Share of CaO that is available for carbonation per construction material."),
+        RemindMFAParameterDefinition(name="cao_emission_factor", dim_letters=(),
+                                     description="Process CO2 emission factor from producing CaO."),
+        RemindMFAParameterDefinition(name="ckd_cao_ratio", dim_letters=(),
+                                     description="CaO content ratio present in cement kiln dust."),
+        RemindMFAParameterDefinition(name="ckd_landfill_share", dim_letters=(),
+                                     description="Share of cement kiln dust disposed to landfill."),
+        RemindMFAParameterDefinition(name="carbonation_rate", dim_letters=("r", "a"),
+                                     description="Carbonation rate for exposed stocks by region and application."),
+        RemindMFAParameterDefinition(name="carbonation_rate_buried", dim_letters=("r", "a"),
+                                     description="Carbonation rate for buried stocks by region and application."),
+        RemindMFAParameterDefinition(name="carbonation_rate_coating", dim_letters=(),
+                                     description="Carbonation rate modifier factoring in coated cement products."),
+        RemindMFAParameterDefinition(name="carbonation_rate_co2", dim_letters=(),
+                                     description="Carbonation rate modifier factoring in increased atmospheric CO2 concentrations."),
+        RemindMFAParameterDefinition(name="carbonation_rate_additives", dim_letters=(),
+                                     description="Carbonation rate modifier factoring in cement additives."),
+        RemindMFAParameterDefinition(name="product_thickness", dim_letters=("a",),
+                                     description="Average thickness assumed for each product application."),
+        RemindMFAParameterDefinition(name="material_application_split", dim_letters=("r", "m", "a"),
+                                     description="Share of each construction material distributed across product applications, by region."),
+        RemindMFAParameterDefinition(name="waste_type_split", dim_letters=("r", "w"),
+                                     description="Share of end-of-life cement flows by waste type and region."),
+        RemindMFAParameterDefinition(name="waste_size_share", dim_letters=("r", "w", "p"),
+                                     description="Share of waste distributed across size classes per region and type."),
+        RemindMFAParameterDefinition(name="waste_size_min", dim_letters=("w", "p"),
+                                     description="Minimum particle size represented for each waste type and class."),
+        RemindMFAParameterDefinition(name="waste_size_max", dim_letters=("w", "p"),
+                                     description="Maximum particle size represented for each waste type and class."),
+    ]
+
+    return RemindMFAPartialDefinition(
+        dimensions=dimensions,
+        processes=processes,
+        flows=flows,
+        stocks=stocks,
+        parameters=parameters,
+    )
+
+# fmt: on
 
 
 class CementCarbonUptakeModel(BaseModel):
@@ -20,8 +103,6 @@ class CementCarbonUptakeModel(BaseModel):
         return self
 
     def compute_carbon_flow(self):
-        self.build_subsystem()
-
         flw = self.flows
         stk = self.stocks
         prm = self.parameters
@@ -48,61 +129,6 @@ class CementCarbonUptakeModel(BaseModel):
 
         stk["atmosphere"].outflow[...] = stk["carbonated_co2"].inflow
         stk["atmosphere"].compute()
-
-    def build_subsystem(self):
-        """Create the carbonation subsystem on the MFA.
-
-        This method injects the processes, stocks, and flows the carbonation model needs, so the
-        ``atmosphere`` and ``carbonated_co2`` stocks are allocated only when carbonation is active.
-        """
-        mfa = self.mfa
-
-        # processes (ids continue after the ones already defined)
-        next_id = max(process.id for process in mfa.processes.values()) + 1
-        for name in ("atmosphere", "carbonation"):
-            mfa.processes[name] = fd.Process(name=name, id=next_id)
-            next_id += 1
-
-        # stocks
-        stock_definitions = [
-            fd.StockDefinition(
-                name="atmosphere",
-                process="atmosphere",
-                dim_letters=("t", "r"),
-                subclass=fd.SimpleFlowDrivenStock,
-            ),
-            fd.StockDefinition(
-                name="carbonated_co2",
-                process="carbonation",
-                dim_letters=("t", "r", "l"),
-                subclass=fd.InflowDrivenDSM,
-                lifetime_model_class=fd.FixedLifetime,
-            ),
-        ]
-        mfa.stocks.update(
-            fd.make_empty_stocks(
-                stock_definitions=stock_definitions, processes=mfa.processes, dims=mfa.dims
-            )
-        )
-
-        # flows
-        flow_definitions = [
-            fd.FlowDefinition(
-                from_process="clinker_production", to_process="atmosphere", dim_letters=("t", "r")
-            ),
-            fd.FlowDefinition(
-                from_process="atmosphere", to_process="carbonation", dim_letters=("t", "r", "l")
-            ),
-        ]
-        mfa.flows.update(
-            fd.make_empty_flows(
-                processes=mfa.processes, flow_definitions=flow_definitions, dims=mfa.dims
-            )
-        )
-
-        # refresh cached references so the rest of the model sees the injected entries
-        self.flows = mfa.flows
-        self.stocks = mfa.stocks
 
     def calc_carbonation(self) -> fd.FlodymArray:
         # get parameters for calculation

@@ -5,6 +5,7 @@ import numpy as np
 import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
+from remind_mfa.cement.cement_bottom_up_definition import bottom_up_scenario_parameters
 from remind_mfa.cement.cement_definition import get_cement_definition
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
     StockDrivenBottomUpCementMFASystem,
@@ -68,6 +69,22 @@ class CementModel(CommonModel[CementCfg]):
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
+    @property
+    def bottom_up_active(self) -> bool:
+        """Whether the bottom-up module is active, which is only used for parameter reconciliation."""
+        return self.cfg.model_switches.parameter_reconciliation
+
+    def get_scenario_parameter_definitions(self) -> list:
+        definitions = super().get_scenario_parameter_definitions()
+        if self.bottom_up_active:
+            definitions = definitions + bottom_up_scenario_parameters
+        return definitions
+
+    def get_inactive_scenario_parameter_names(self) -> set[str]:
+        if self.bottom_up_active:
+            return set()
+        return {definition.name for definition in bottom_up_scenario_parameters}
+
     def modify_parameters(self):
         # construct lifetime std from mean and relative std
         lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
@@ -126,9 +143,10 @@ class CementModel(CommonModel[CementCfg]):
         # copy/rename for use in common model
         self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
 
-        self.calculate_scenario_parameters()
+        if self.bottom_up_active:
+            self.calculate_bottom_up_scenario_parameters()
 
-    def calculate_scenario_parameters(self):
+    def calculate_bottom_up_scenario_parameters(self):
 
         # derive mean residential type and structure splits from global weighted average
         prm = self.parameters

@@ -26,8 +26,8 @@ class RemindMFADefinition(fd.MFADefinition):
     """List of definitions of parameters used in the model."""
 
     @classmethod
-    def from_parts(cls, parts: List["RemindMFASubDefinition"]) -> "RemindMFADefinition":
-        """Combine sub-definitions (e.g. a core definition and optional modules) into one
+    def from_parts(cls, parts: List["RemindMFAPartialDefinition"]) -> "RemindMFADefinition":
+        """Combine partial definitions (e.g. a core definition and optional modules) into one
         definition. The parts are only validated together, so a part may use dimensions or
         processes declared in another part."""
         merged = {
@@ -37,7 +37,7 @@ class RemindMFADefinition(fd.MFADefinition):
         return cls(**merged)
 
 
-class RemindMFASubDefinition(RemindMFADefinition):
+class RemindMFAPartialDefinition(RemindMFADefinition):
     """Part of an MFA definition, e.g. an optional model module that is only added to the
     definition if it is active. Missing fields default to empty lists. Not validated on its own,
     only once combined to a full definition by `RemindMFADefinition.from_parts`."""
