@@ -57,6 +57,12 @@ tasks:
     cmds:
       - uv run python paper/copy_data.py
 
+  data:readme:
+    desc: Convert the zenodo README to pdf (requires pandoc and xelatex)
+    dir: "{{.TASKFILE_DIR}}/zenodo"
+    cmds:
+      - pandoc README.md -o README.pdf --pdf-engine=xelatex -V papersize=a4 -V geometry:margin=2.5cm -V colorlinks=true
+
   figures:
     desc: Export draw.io figures, render plots, and number and crop all figures
     cmds:

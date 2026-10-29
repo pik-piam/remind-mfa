@@ -15,6 +15,7 @@ We share the SSP2 Current Policies scenario (NPi - National Policies implemented
 ## Which regions?
 
 The scope is global. Results are computed and shared in two regional aggregations:
+
   - the REMIND 12-region aggregation (the definition and three-letter codes are given in the file `mapping_remind12region.csv`), and
   - a country resolution (249 countries with ISO 3166 codes).
 
@@ -65,6 +66,7 @@ The complete dataset contains the following variables:
 ```
 
 Notes:
+
 - Flows are named as `"<from_process> => <to_process>"`.
 - `<sub-dims>` refers to the dimensions of a variable apart from region and time (such as end-use).
   If variables contain such additional dimensions, they are given once fully disaggregated and once aggregated along all dimensions except region and time.
@@ -86,6 +88,7 @@ The aggregated dataset contains the following variables:
 ```
 
 Notes:
+
 - Flows, stocks, and trades are given disaggregated only by region and time.
 - Parameters are not given, as they mostly only have meaning when disaggregated.
 - All these values are also contained in the complete dataset, but the aggregated version can be more practical, e.g. when searching for a variable name.
