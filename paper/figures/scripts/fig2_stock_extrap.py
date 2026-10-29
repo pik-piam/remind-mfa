@@ -378,7 +378,9 @@ def main(material: str = "steel", iso: str = "JPN", step: int = 3, show: bool = 
 
         # Single annotation with HTML line breaks, as separate annotations get uneven spacing.
         lines = ['<span style="font-size:14px"><b>Extrapolation</b></span>']
-        lines += [f'<span style="color:{color}">{label}</span>' for _, label, color in visible_steps]
+        lines += [
+            f'<span style="color:{color}">{label}</span>' for _, label, color in visible_steps
+        ]
         fig.add_annotation(
             x=x_right,
             y=group_top_y,
