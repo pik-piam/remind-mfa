@@ -68,6 +68,8 @@ Notes:
 - Flows are named as `"<from_process> => <to_process>"`.
 - `<sub-dims>` refers to the dimensions of a variable apart from region and time (such as end-use).
   If variables contain such additional dimensions, they are given once fully disaggregated and once aggregated along all dimensions except region and time.
+- The list of all flows, stocks, trades, and parameters is given in the SI Section S2
+- The list of all `<sub-dims>` combinations can be inferred from SI Section S2 through the dimension letters of each flow, stock, trade, or parameter, and the dimension items for each dimension in the dimension definition.
 - Parameters are only given fully disaggregated, i.e. not aggregated along their sub-dims.
 
 ### Variables contained in the aggregated dataset:
