@@ -140,3 +140,15 @@ def test_cap_net_keeps_capped_regions_fixed():
     np.testing.assert_allclose(trade.imports.values, [6.0, 1.5 + 14 / 11, 0.0, 0.0])
     np.testing.assert_allclose(trade.exports.values, [2.0, 14 / 11, 11 / 3, 11 / 6])
     np.testing.assert_allclose(trade.imports.values.sum(), trade.exports.values.sum())
+
+
+def test_cap_historical_net_imports_to_demand_rebalances():
+    trade = make_trade(imports=[10.0, 0.0, 0.0], exports=[0.0, 8.0, 2.0])
+    demand = make_limit([4.0, 20.0, 20.0], [20.0, 20.0, 20.0])
+
+    make_system().cap_historical_net_imports_to_demand(trade, demand=demand)
+
+    np.testing.assert_allclose(trade.imports[2030].values, [4.0, 0.0, 0.0])
+    np.testing.assert_allclose(trade.exports[2030].values, [0.0, 3.2, 0.8])
+    np.testing.assert_allclose(trade.imports[2040].values, [10.0, 0.0, 0.0])
+    np.testing.assert_allclose(trade.exports[2040].values, [0.0, 8.0, 2.0])

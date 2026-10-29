@@ -191,52 +191,58 @@ class CommonMFASystem(fd.MFASystem):
         """Cap a trade's net imports at domestic demand so downstream production / manufacturing
         flows cannot go negative.
 
-        Where an item's net imports exceed its demand, the excess is removed from its imports.
-        If ``category_dim`` is given (e.g. polymer 'p' for plastics primary trade), the excess is
-        first reassigned to the sibling items that share all *other* dimensions (for plastics: the
-        polymers of the same polymer type), as far as they still have headroom
-        (demand - net imports); only the part that cannot be reassigned is removed and warned about.
-
-        If no ``category_dim`` is given, the excess is removed directly.
+        If ``category_dim`` is given (e.g. polymer 'p' for plastics primary trade), the excess of
+        net imports over demand is first reassigned to the sibling categories (see
+        :meth:`_reassign_net_imports_within_category`).
+        The remaining excess is removed with :meth:`Trade.cap_net`, which re-balances globally
+        by reducing the exports of the other regions, and warned about.
 
         ``demand`` must carry all trade dimensions; additional dimensions (e.g. the element
         dimension 'e') are summed away.
         """
-        trade_name = trade.name or "trade"
-        eps = sys.float_info.epsilon
-        tolerance = 100 * self._absolute_float_precision
-
         imp = trade.imports
-        net = trade.net_imports
 
         # align demand to historical time 'h', then drop element / other non-trade dims
         if "t" in demand.dims and "h" in imp.dims:
             demand = demand[{"t": imp.dims["h"]}]
         assert set(imp.dims.letters) <= set(demand.dims.letters), (
-            f"'{trade_name}': demand must carry all trade dimensions; trade has "
+            f"'{trade.name or 'trade'}': demand must carry all trade dimensions; trade has "
             f"'{imp.dims.string}', demand has '{demand.dims.string}'."
         )
         demand = demand.sum_to(imp.dims.letters).maximum(0)
 
+        if category_dim:
+            self._reassign_net_imports_within_category(trade, demand, category_dim)
+
+        self._cap_net_trade(trade, limit=demand, direction="imports", warn=True)
+
+    @staticmethod
+    def _reassign_net_imports_within_category(
+        trade: Trade, demand: fd.FlodymArray, category_dim: str
+    ):
+        """Reassign net imports exceeding demand to sibling categories.
+
+        A region's excess of net imports over demand is moved to the categories that share all
+        *other* dimensions (for plastics: the polymers of the same polymer type), as far as they
+        still have headroom (demand - net imports). The part that does not fit is left for the
+        cap.
+
+        Args:
+            trade (Trade): Trade to modify in place.
+            demand (fd.FlodymArray): Domestic demand on the trade dimensions.
+            category_dim (str): Letter of the dimension to reassign within.
+        """
+        eps = sys.float_info.epsilon
+        net = trade.net_imports
         excess = (net - demand).maximum(0)
-        if not (excess.values > tolerance).any():
-            return
-
-        # excess and headroom are complementary: at most one of them is non-zero per item, so
-        # without a category_dim to sum over, `fill` is zero and the excess is simply removed
         headroom = (demand - net).maximum(0)
-        group_dim = category_dim if category_dim else ""
-        excess_group = excess.sum_over(group_dim)
-        headroom_group = headroom.sum_over(group_dim)
-
-        fill = headroom * (excess_group / headroom_group.maximum(eps)).minimum(1)
-        trade.imports[...] = (imp - excess + fill).maximum(0)
-
-        residual = (excess_group - headroom_group).maximum(0)
-        if (residual.values > tolerance).any():
-            self._warn_historical_net_trade_cap(
-                trade_name, residual, net, tolerance, eps, direction="imports"
-            )
+        excess_group = excess.sum_over(category_dim)
+        headroom_group = headroom.sum_over(category_dim)
+        # move as much of the excess as the group's headroom allows, the rest is capped later
+        reassigned_group = excess_group.minimum(headroom_group)
+        removed = excess * (reassigned_group / excess_group.maximum(eps))
+        fill = headroom * (reassigned_group / headroom_group.maximum(eps))
+        trade.imports[...] = (trade.imports - removed + fill).maximum(0)
 
     def _warn_historical_net_trade_cap(
         self,
