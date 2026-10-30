@@ -1,17 +1,4 @@
 """Entry point for the flodym designer.
-
-The flodym designer is a browser-based GUI that runs flodym models in Pyodide. It reads the
-`[tool.flodym-designer]` manifest in `pyproject.toml`, which lists the files the browser needs and,
-for each model, the callable to call (`remind_mfa.designer:load`) with its keyword arguments.
-
-The callable returns an object with:
-
-- `systems`: the MFA systems by name (`historical`, `future` and, for cement with parameter
-  reconciliation, `bottom_up`). Before `run()`, they have empty flows and stocks, to show the
-  structure. After `run()`, they are the computed systems.
-- `run()`: runs the model and returns the computed systems.
-
-Building and introspecting the systems never exports or visualizes anything.
 """
 
 from collections.abc import Sequence
@@ -75,6 +62,11 @@ def load(
     root: str | Path | None = None,
 ) -> DesignerModel:
     """Load a model for the flodym designer.
+
+    The returned object has the following attributes and methods:
+    - `systems`: the MFA systems by name (`historical`, `future` and, for cement, `bottom_up`). Before `run()`, they have empty flows and stocks, to show the
+  structure. After `run()`, they are the computed systems.
+    - `run()`: runs the model and returns the computed systems.
 
     Args:
         model: Name of the model, e.g. "steel".

@@ -9,11 +9,6 @@ import pytest
 from remind_mfa.common.helpers import ModelNames
 from remind_mfa.designer import REPO_ROOT, load
 
-pytestmark = pytest.mark.skipif(
-    not (REPO_ROOT / "data_in" / "parameters" / "rev.txt").exists(),
-    reason="Input data is not available.",
-)
-
 
 @pytest.mark.parametrize("model", list(ModelNames))
 def test_systems_are_available_before_run(
