@@ -11,5 +11,6 @@
 | eol_management     |
 | eol_waste          |
 | reuse              |
+| losses             |
 | imports            |
 | exports            |
