@@ -56,7 +56,7 @@ class CementVisualizer(CommonVisualizer):
             {
                 fn: SANKEY_COLORS["losses"]
                 for fn, f in mfa.flows.items()
-                if f.to_process.name in ("hibernating", "eol_waste")
+                if f.to_process.name in ("losses", "hibernating", "eol_waste")
             }
         )
         flow_color_dict.update(
