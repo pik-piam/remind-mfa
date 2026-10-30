@@ -78,7 +78,7 @@ class SteelMFASystemHistorical(CommonMFASystem):
         stk["use"].compute()  # gives stocks and outflows corresponding to inflow
 
         flw["use => sysenv"][...] = stk["use"].outflow
-        aux["recovered_scrap"] = flw["use => sysenv"] * prm["recovery_rate"]
+        aux["recovered_scrap"] = flw["use => sysenv"] * (1 - prm["hibernation_share"]) * prm["recovery_rate"][{"t": self.dims["h"]}]
         trd["scrap"].exports[...] = trd["scrap"].exports.minimum(aux["recovered_scrap"])
         trd["scrap"].balance(to="minimum")
         # fmt: on

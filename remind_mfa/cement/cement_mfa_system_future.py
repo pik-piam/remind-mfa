@@ -1,58 +1,108 @@
 import flodym as fd
+import numpy as np
 
 from remind_mfa.cement.cement_carbon_uptake_model import CementCarbonUptakeModel
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class StockDrivenCementMFASystem(CommonMFASystem):
 
     cfg: CementCfg
 
-    def compute(self, stock_projection: fd.FlodymArray, historical_trade: TradeSet, **kwargs):
+    def compute(
+        self,
+        stock_projection: fd.FlodymArray,
+        historical_trade: TradeSet,
+        baseline_trade: TradeSet | None = None,
+        baseline_flows: dict | None = None,
+    ):
         """
         Perform all computations for the MFA system.
+
+        Args:
+            stock_projection: In-use product stock (concrete and mortar mass), with or without
+                the construction material (m) and constituent (k) dimensions.
+            historical_trade: Trade of the historical MFA, used for trade extrapolation.
+            baseline_trade: Trade of a TRANSIENCE baseline run. Unused, since cement has no
+                TRANSIENCE trade scenarios.
+            baseline_flows: Flows of a TRANSIENCE baseline run. Unused, see `baseline_trade`.
         """
-        self.compute_use_stock(stock_projection, **kwargs)
+        self.compute_use_stock(stock_projection)
         self.compute_flows(historical_trade)
         if self.cfg.model_switches.carbonation:
             CementCarbonUptakeModel(mfa=self).compute_carbon_flow()
         self.check_mass_balance()
         self.check_flows()
 
-    def compute_use_stock(self, stock_projection: fd.FlodymArray, stock_is_cement: bool = True):
-        prm = self.parameters
-        if stock_is_cement:
-            # Input is cement stock (t, r, u): apply material split and convert to total product mass.
-            product_stock = stock_projection * prm["product_material_split"] / prm["cement_ratio"]
-        else:
-            # Input is already product mass (t, r, u, m): just add k dim.
-            product_stock = stock_projection
-        constituent_stock = self.add_constituent_split(product_stock, prm)
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Blend and correct the product inflow (see parent class), then add the material (m)
+        and constituent (k) splits missing in the product inflow.
 
-        super().compute_use_stock(constituent_stock, warn_small_negative=False)
+        Args:
+            inflow: Product inflow resulting from a StockDrivenDSM computation.
 
-    def add_constituent_split(
-        self, product_stock: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
-    ) -> fd.FlodymArray:
-        """Add the Material Constituent (k) dimension to a product stock (t, r, u, m).
-
-        Splits into cement and non-cement using cement_ratio.
-        Returns an array with dim_letters (t, r, u, m, k).
+        Returns:
+            Composition-resolved in-use stock inflow.
         """
-        k_dim = fd.Dimension(
-            name="Material Constituent",
-            letter="k",
-            items=["cement", "non-cement"],
-            dtype=str,
-        )
-        constituent_dims = product_stock.dims.append(k_dim)
-        constituent_stock = fd.FlodymArray(dims=constituent_dims)
-        constituent_stock[{"k": "cement"}] = product_stock * prm["cement_ratio"]
-        constituent_stock[{"k": "non-cement"}] = product_stock * (1 - prm["cement_ratio"])
-        return constituent_stock
+        product_inflow = super().adjust_inflow(inflow)
+        use_inflow = self.add_construction_material_split(product_inflow, self.parameters)
+        use_inflow = self.add_constituent_split(use_inflow)
+
+        # sanity check
+        summed_inflow = use_inflow.sum_to(product_inflow.dims.letters)
+        assert np.allclose(
+            summed_inflow.values, product_inflow.values, rtol=1e-6, atol=1e-3
+        ), "Composition-resolved in-use inflow does not sum up to the product inflow."
+        return use_inflow
+
+    @staticmethod
+    def add_construction_material_split(
+        arr: fd.FlodymArray, prm: dict[str, fd.FlodymArray]
+    ) -> fd.FlodymArray:
+        """Split a product mass array over construction materials (m), if not already resolved.
+
+        Args:
+            arr: Product mass array (e.g. stock or flow), with or without m.
+            prm: Parameters, containing construction_material_split and cement_ratio.
+
+        Returns:
+            Array including the m dimension. Returned unchanged if m is already present.
+        """
+        if "m" in arr.dims:
+            return arr
+        # construction_material_split is a split of cement mass; convert to product mass shares
+        product_mass_split = (
+            prm["construction_material_split"] / prm["cement_ratio"]
+        ).get_shares_over("m")
+        return arr * product_mass_split
+
+    def add_constituent_split(self, arr: fd.FlodymArray) -> fd.FlodymArray:
+        """Split a product mass array into cement and non-cement (k), if not already resolved.
+
+        The split is derived from cement_ratio.
+
+        Args:
+            arr: Product mass array (e.g. stock or flow), with or without k.
+
+        Returns:
+            Array including the k dimension. Returned unchanged if k is already present.
+        """
+        if "k" in arr.dims:
+            return arr
+        return arr * self.constituent_split()
+
+    def constituent_split(self) -> fd.FlodymArray:
+        """Split of newly produced product mass into cement and non-cement (k), from
+        cement_ratio."""
+        cement_ratio = self.parameters["cement_ratio"]
+        constituent_split = fd.FlodymArray(dims=cement_ratio.dims.append(self.dims["k"]))
+        constituent_split[{"k": "Cement"}] = cement_ratio
+        constituent_split[{"k": "Non-Cement"}] = 1 - cement_ratio
+        return constituent_split
 
     def compute_flows(self, historical_trade: TradeSet):
         prm = self.parameters
@@ -60,76 +110,100 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
         trd = self.trade_set
 
-        # product production
-        flw["prod_product => use"][...] = stk["use"].inflow
-        flw["market_cement => prod_product"][...] = flw["prod_product => use"][{"k": "cement"}]
-        flw["sysenv => prod_product"][...] = flw["prod_product => use"][{"k": "non-cement"}]
-        flw["market_cement => sysenv"][...] = (
-            flw["market_cement => prod_product"]
+        # hibernation: a share of the in-use outflow remains in place and is not demolished
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+
+        # reuse: a share of the demolished construction material may re-enter the stock,
+        # capped by the stock inflow.
+        add_assumption_doc(
+            type="model assumption",
+            name="Cement content of reused material",
+            description=(
+                "Reused concrete and mortar are assigned the cement ratio of new construction in"
+                " the year of reuse instead of the cement content of the demolished material."
+                " This leads to negligible errors in stock and outflow if cement ratio changes."
+            ),
+        )
+        reuse = (flw["use => eol_management"].sum_over("k") * prm["reuse_share"]).minimum(
+            stk["use"].inflow.sum_over("k")
+        )
+        flw["eol_management => reuse"][...] = reuse * self.constituent_split()
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
+
+        # construction: covers the stock inflow not met by reuse
+        flw["construction => use"][...] = stk["use"].inflow - flw["reuse => use"]
+        flw["cement_market => construction"][...] = flw["construction => use"][{"k": "Cement"}]
+        flw["sysenv => construction"][...] = flw["construction => use"][{"k": "Non-Cement"}]
+        flw["cement_market => sysenv"][...] = (
+            flw["cement_market => construction"]
             * prm["cement_losses"]
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
         )
 
-        # use phase: the in-use outflow leaves the system boundary. When carbonation is active,
-        # CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = stk["use"].outflow
+        # disposal: the non-reused demolished material accumulates in the eol waste stock
+        flw["eol_management => eol_waste"][...] = (
+            flw["use => eol_management"] - flw["eol_management => reuse"]
+        )
+        stk["eol_waste"].inflow[...] = flw["eol_management => eol_waste"]
+        stk["eol_waste"].compute()
 
         # cement trade
-        total_cement_demand = flw["market_cement => prod_product"] + flw["market_cement => sysenv"]
+        total_cement_demand = flw["cement_market => construction"] + flw["cement_market => sysenv"]
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
             future_dom_demand=total_cement_demand,
-            n_trend_years=self.parameters["n_trend_years"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
-        flw["market_cement => exports"][...] = trd["cement"].exports
-        flw["imports => market_cement"][...] = trd["cement"].imports
+        flw["cement_market => exports"][...] = trd["cement"].exports
+        flw["imports => cement_market"][...] = trd["cement"].imports
 
         # cement production
-        flw["prod_cement => market_cement"][...] = (
-            flw["market_cement => prod_product"]
-            + flw["market_cement => sysenv"]
+        flw["cement_production => cement_market"][...] = (
+            flw["cement_market => construction"]
+            + flw["cement_market => sysenv"]
             + trd["cement"].net_exports
         )
-        flw["market_clinker => prod_cement"][...] = (
-            flw["prod_cement => market_cement"] * prm["clinker_ratio"]
+        flw["clinker_market => cement_production"][...] = (
+            flw["cement_production => cement_market"] * prm["clinker_ratio"]
         )
-        flw["sysenv => prod_cement"][...] = flw["prod_cement => market_cement"] * (
+        flw["sysenv => cement_production"][...] = flw["cement_production => cement_market"] * (
             1 - prm["clinker_ratio"]
         )
 
         # clinker trade
         self.cap_historical_net_imports_to_demand(
             trade=historical_trade["clinker"],
-            demand=flw["market_clinker => prod_cement"],
+            demand=flw["clinker_market => cement_production"],
         )
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["clinker"],
             future_trade=trd["clinker"],
-            future_dom_demand=flw["market_clinker => prod_cement"],
-            n_trend_years=self.parameters["n_trend_years"],
+            future_dom_demand=flw["clinker_market => cement_production"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
-        flw["imports => market_clinker"][...] = trd["clinker"].imports
-        flw["market_clinker => exports"][...] = trd["clinker"].exports
+        flw["imports => clinker_market"][...] = trd["clinker"].imports
+        flw["clinker_market => exports"][...] = trd["clinker"].exports
 
         # clinker production
-        flw["prod_clinker => market_clinker"][...] = (
-            flw["market_clinker => prod_cement"] + trd["clinker"].net_exports
+        flw["clinker_production => clinker_market"][...] = (
+            flw["clinker_market => cement_production"] + trd["clinker"].net_exports
         )
         # net cement kiln dust generation
-        flw["prod_clinker => sysenv"][...] = (
-            flw["prod_clinker => market_clinker"] * prm["clinker_losses"]
+        flw["clinker_production => sysenv"][...] = (
+            flw["clinker_production => clinker_market"] * prm["clinker_losses"]
         )
-        flw["sysenv => prod_clinker"][...] = (
-            flw["prod_clinker => market_clinker"] + flw["prod_clinker => sysenv"]
+        flw["sysenv => clinker_production"][...] = (
+            flw["clinker_production => clinker_market"] + flw["clinker_production => sysenv"]
         )
 
         # balance trade with sysenv
         flw["exports => sysenv"][...] = (
-            flw["market_cement => exports"] + flw["market_clinker => exports"]
+            flw["cement_market => exports"] + flw["clinker_market => exports"]
         )
         flw["sysenv => imports"][...] = (
-            flw["imports => market_cement"] + flw["imports => market_clinker"]
+            flw["imports => cement_market"] + flw["imports => clinker_market"]
         )

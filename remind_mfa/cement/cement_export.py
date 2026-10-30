@@ -33,7 +33,30 @@ class CementDataExporter(CommonDataExporter):
     @staticmethod
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Cement output before trade and construction losses"""
-        return mfa.flows["prod_cement => market_cement"].sum_to(("t", "r"))
+        return mfa.flows["cement_production => cement_market"].sum_to(("t", "r"))
+
+    @staticmethod
+    def _clinker_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Clinker output before trade"""
+        return (
+            mfa.flows["clinker_production => clinker_market"]
+            + mfa.flows["clinker_production => sysenv"]
+        ).sum_to(("t", "r"))
+
+    @staticmethod
+    def _cement_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Cement delivered to construction, by end use"""
+        return _sum_to_end_use_split(mfa.flows["cement_market => construction"])
+
+    @staticmethod
+    def _cement_stock(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Cement in the in-use stock, by end use"""
+        return _sum_to_end_use_split(mfa.stocks["use"].stock[{"k": "Cement"}])
+
+    @staticmethod
+    def _eol_scrap_potential(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """End-of-life cement leaving the in-use stock, by end use."""
+        return _sum_to_end_use_split(mfa.stocks["use"].outflow[{"k": "Cement"}])
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         return [
@@ -52,40 +75,29 @@ class CementDataExporter(CommonDataExporter):
         return [
             IamcVariable(
                 variable_name="Production|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
-                calculation_function=lambda mfa: (mfa.flows["prod_cement => market_cement"]).sum_to(
-                    ("t", "r")
-                ),
+                calculation_function=CementDataExporter._cement_production,
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Production|Non-Metallic Minerals|Cement Clinker",  # PRISMA nomenclature
-                calculation_function=lambda mfa: (
-                    mfa.flows["prod_clinker => market_clinker"]
-                    + mfa.flows["prod_clinker => sysenv"]
-                ).sum_to(("t", "r")),
+                calculation_function=CementDataExporter._clinker_production,
                 unit="t/yr",
             ),
             IamcVariable(
                 variable_name="Material Demand|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
-                calculation_function=lambda mfa: _sum_to_end_use_split(
-                    mfa.flows["market_cement => prod_product"]
-                ),
+                calculation_function=CementDataExporter._cement_demand,
                 unit="t/yr",
                 split_name="End Use",
             ),
             IamcVariable(
                 variable_name="Material Stock|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
-                calculation_function=lambda mfa: _sum_to_end_use_split(
-                    mfa.stocks["use"].stock[{"k": "cement"}]
-                ),
+                calculation_function=CementDataExporter._cement_stock,
                 unit="t",
                 split_name="End Use",
             ),
             IamcVariable(
                 variable_name="Scrap|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
-                calculation_function=lambda mfa: _sum_to_end_use_split(
-                    mfa.stocks["use"].outflow[{"k": "cement"}]
-                ),
+                calculation_function=CementDataExporter._eol_scrap_potential,
                 unit="t/yr",
                 split_name="End Use",
             ),

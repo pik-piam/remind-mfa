@@ -9,3 +9,6 @@
 [submodule "ATLAS_Trade_data_pipeline"]
 	path = ATLAS_Trade_data_pipeline
 	url = https://github.com/pik-piam/ATLAS-Trade_data-pipeline.git
+[submodule "data_in/piam_mappings"]
+	path = data_in/piam_mappings
+	url = git@github.com:pik-piam/piamMappings.git

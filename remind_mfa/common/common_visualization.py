@@ -1,21 +1,22 @@
 import os
 import re
 from pathlib import Path
-import numpy as np
-from matplotlib import pyplot as plt
-import plotly.graph_objects as go
-import plotly.colors as plc
-import plotly.io as pio
-from typing import Optional, TYPE_CHECKING
-from pydantic import model_validator, PrivateAttr
+from typing import TYPE_CHECKING, Any
+
 import flodym as fd
 import flodym.export as fde
+import numpy as np
+import plotly.colors as plc
+import plotly.graph_objects as go
+import plotly.io as pio
+from matplotlib import pyplot as plt
+from pydantic import PrivateAttr, model_validator
 
-from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import VisualizationCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
-from remind_mfa.common.figure_index import write_figure_index
 from remind_mfa.common.data_transformations import broadcast_trailing_dimensions
+from remind_mfa.common.figure_index import write_figure_index
+from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
@@ -28,7 +29,16 @@ class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
     display_names: CommonDisplayNames
 
-    _model: Optional["CommonModel"] = PrivateAttr(default=None)
+    _model: CommonModel | None = PrivateAttr(default=None)
+    _figures: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    @property
+    def figures(self) -> dict[str, Any]:
+        """Figures produced so far, keyed by their file base name.
+
+        Filled by every plotting call whether or not figures are shown or saved.
+        """
+        return self._figures
 
     @model_validator(mode="after")
     def set_plotly_renderer(self):
@@ -36,7 +46,7 @@ class CommonVisualizer(RemindMFABaseModel):
             pio.renderers.default = self.cfg.plotly_renderer
         return self
 
-    def visualize(self, model: "CommonModel"):
+    def visualize(self, model: CommonModel):
         if not self.cfg.do_visualize:
             return
         self._model = model
@@ -74,9 +84,9 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_custom(self):
         """To be overwritten by model subclasses"""
-        pass
 
     def _show_and_save_plotly(self, fig: go.Figure, base_name: str):
+        self._figures[base_name] = fig
         if self.cfg.do_save_figs:
             fig.write_image(self.figure_path(base_name))
         if self.cfg.do_save_figs_html:
@@ -132,6 +142,7 @@ class CommonVisualizer(RemindMFABaseModel):
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
             plotter.plot()
+        self._figures[base_name] = plotter.fig
         if self.cfg.do_show_figs:
             plotter.show()
         if self.cfg.do_save_figs:
@@ -224,12 +235,12 @@ class CommonVisualizer(RemindMFABaseModel):
         self,
         mfa: fd.MFASystem,
         data_to_plot: fd.FlodymArray,
-        subplot_dim: Optional[str] = None,
-        x_array: Optional[fd.FlodymArray] = None,
-        linecolor_dim: Optional[str] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        title: Optional[str] = None,
+        subplot_dim: str | None = None,
+        x_array: fd.FlodymArray | None = None,
+        linecolor_dim: str | None = None,
+        x_label: str | None = None,
+        y_label: str | None = None,
+        title: str | None = None,
         future_stock: bool = True,
         **kwargs,
     ):
@@ -361,7 +372,7 @@ class CommonVisualizer(RemindMFABaseModel):
         )
 
     def visualize_trade(
-        self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None
+        self, mfa: fd.MFASystem, linecolor_dims: dict[str, str | None] | None = None
     ):
 
         for name, trade in mfa.trade_set.markets.items():
@@ -415,7 +426,7 @@ class CommonVisualizer(RemindMFABaseModel):
             self.plot_and_save_figure(ap_exports, f"trade_{name}", do_plot=False)
 
     def visualize_net_trade(
-        self, mfa: fd.MFASystem, linecolor_dims: Optional[dict[str, Optional[str]]] = None
+        self, mfa: fd.MFASystem, linecolor_dims: dict[str, str | None] | None = None
     ):
 
         for name, trade in mfa.trade_set.markets.items():
@@ -429,21 +440,21 @@ class CommonVisualizer(RemindMFABaseModel):
                 shared_yaxes=True,
             )
 
-    def visualize_end_use_split(self, regional: bool = True):
+    def visualize_end_use_split(self, regional: bool = True, end_use_letter: str = "u"):
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", "u"))
+            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", end_use_letter))
         )
-        end_use_split = consumption.get_shares_over("u")
-        end_use_split = end_use_split.cumsum(dim_letter="u")
+        end_use_split = consumption.get_shares_over(end_use_letter)
+        end_use_split = end_use_split.cumsum(dim_letter=end_use_letter)
 
         ap_end_use_split = self.plotter_class(
             array=end_use_split,
             intra_line_dim="Time",
             **subplot_dim,
-            linecolor_dim=self._model.dims["u"].name,
+            linecolor_dim=self._model.dims[end_use_letter].name,
             xlabel="Year",
             ylabel="End-Use Split [%]",
             display_names=self.display_names.dct,
@@ -460,7 +471,7 @@ class CommonVisualizer(RemindMFABaseModel):
         name: str,
         regional: bool = True,
         per_capita: bool = False,
-        linecolor_dim: Optional[str] = None,
+        linecolor_dim: str | None = None,
         shared_yaxes: bool = False,
         y_unit: str = "t",
         scale: float = 1.0,
@@ -544,7 +555,7 @@ class CommonVisualizer(RemindMFABaseModel):
     def visualize_extrapolation(
         self,
         subplot_dim: str = "Region",
-        linecolor_dim: Optional[str] = None,
+        linecolor_dim: str | None = None,
         show_extrapolation: bool = True,
         show_future: bool = True,
     ):
@@ -560,7 +571,7 @@ class CommonVisualizer(RemindMFABaseModel):
         pc_str = "pC" if per_capita else ""
         x_label = "Year"
         y_label = f"Stock{pc_str} [t]"
-        title = f"Stock Extrapolation: Historical and Projected vs Pure Prediction"
+        title = "Stock Extrapolation: Historical and Projected vs Pure Prediction"
         if self.cfg.use_stock.over_gdp:
             title = title + f" over GDP{pc_str}"
             x_label = f"GDP/PPP{pc_str} [2005 USD]"
@@ -646,7 +657,8 @@ class CommonVisualizer(RemindMFABaseModel):
             gdppc = gdppc * mfa.parameters["population"]
         if change:
             gdppc = gdppc.apply(np.diff, kwargs={"axis": 0, "prepend": 0})
-            gdppc[1900] = gdppc[1901]
+            first_year, second_year = gdppc.dims["t"].items[:2]
+            gdppc[first_year] = gdppc[second_year]
         ap = self.plotter_class(
             array=gdppc,
             intra_line_dim="Time",
@@ -663,7 +675,7 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_transience_inflow(
         self,
-        model: "CommonModel",
+        model: CommonModel,
         subplot_dim: str = None,
         EU_region: str = "EUR",
         inflow: fd.FlodymArray = None,
@@ -728,7 +740,7 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_transience_outflow(
         self,
-        model: "CommonModel",
+        model: CommonModel,
         EU_region: str = "EUR",
         subplot_dim: str = None,
         inflow: fd.FlodymArray = None,
@@ -793,7 +805,7 @@ class CommonVisualizer(RemindMFABaseModel):
 
     def visualize_transience_eol_parameters(
         self,
-        model: "CommonModel",
+        model: CommonModel,
         parameter_EU_MFA: fd.FlodymArray,
         parameter_REMIND_MFA: fd.FlodymArray,
         subplot_dim: str = None,

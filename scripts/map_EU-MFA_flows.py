@@ -524,10 +524,10 @@ def run_combination(material: str, flow: str, scenario: str):
             ].drop(columns="_merge")
             df_EU_MFA = pd.concat([df_EU_MFA, df_baseline_others], ignore_index=True)
 
-        # --- load reference (Time, Region, Type, value) ---
+        # --- load reference (Time, Region, Polymer Type, value) ---
         ref = load_production_reference("pl_production")
-        # EU-MFA plastics flows are all Type="Plastics", so filter the reference to match
-        ref = ref[ref.Type == "Plastics"].copy()
+        # EU-MFA plastics flows are all of polymer type "Plastics", so filter the reference to match
+        ref = ref[ref["Polymer Type"] == "Plastics"].copy()
 
     elif material == "steel":
         if flow == "scrap":

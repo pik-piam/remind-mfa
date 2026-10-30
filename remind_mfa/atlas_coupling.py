@@ -210,7 +210,14 @@ def copy_demand_to_atlas(
         return copy_mfa_output_to_atlas(source, target, column_map={"steel_demand": "value"})
     if model == ModelNames.PLASTICS:
         return copy_mfa_output_to_atlas(
-            source, target, column_map={"plastics_demand": "value", "plastics_production": "value"}
+            source,
+            target,
+            column_map={
+                "plastics_demand": "value",
+                "plastics_production": "value",
+                # the ATLAS data pipeline still expects the polymer column under its old name "Material"
+                "Polymer": "Material",
+            },
         )
     raise AtlasCouplingError(f"No demand converter is implemented for model '{model}'.")
 
@@ -315,8 +322,8 @@ def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
             "year": "Time",
             "region": "Region",
             "quantity": "value",
-            "type": "Type",
-            "material": "Material",
+            "type": "Polymer Type",
+            "material": "Polymer",
         }
     )
     dimensions = ",".join(result.columns)

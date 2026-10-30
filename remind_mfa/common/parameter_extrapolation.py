@@ -22,11 +22,11 @@ class ParameterExtrapolation:
         On top of the baseline, scenario instructions modify individual
         entries. Its type determines the anchor:
 
-        - **Target** (``extra:type="target"``): the entry blends from the
+        - **Target** (``{type: target}`` in the ``extra`` column): the entry blends from the
       *last historical value* to the absolute target by the target year. The anchor is
       always the last historical value, independent of the baseline shape — so for a
       't' parameter this ignores any pre-existing future trajectory.
-        - **Factor** (``extra:type="factor"``): the entry keeps its *baseline*
+        - **Factor** (``{type: factor}`` in the ``extra`` column): the entry keeps its *baseline*
       and is multiplied by a factor blending from 1 to the given value by the factor year.
       The anchor is the baseline itself — so for a 't' parameter it scales the pre-existing
       future trajectory, and for an 'h'/static one it scales the (constant) last historical value.
@@ -132,7 +132,7 @@ class ParameterExtrapolation:
         return year.apply(lambda x: (x > 0).astype(float))
 
     def _warn_values_without_year(self, endpoint_year: Optional[fd.FlodymArray], name: str):
-        """Warn about values set at coordinates without an 'extra:year' entry.
+        """Warn about values set at coordinates without a 'year' in 'extra'.
 
         Such values have no effect: without a year, the entry keeps its baseline.
         """
@@ -143,12 +143,12 @@ class ParameterExtrapolation:
             return
         logging.warning(
             f"'{name}' has values set at {len(slices)} coordinate(s) without "
-            f"'extra:year'; they will have no effect: {self._format_coordinates(slices)}. "
-            "Set 'extra:year' or remove the value."
+            f"'year' in 'extra'; they will have no effect: {self._format_coordinates(slices)}. "
+            "Set 'year' in 'extra' or remove the value."
         )
 
     def _check_years_after_history(self, endpoint_year: Optional[fd.FlodymArray], name: str):
-        """Raise if an 'extra:year' entry lies at or before the last historical year.
+        """Raise if a 'year' in 'extra' lies at or before the last historical year.
 
         The blend anchors at the last historical year; an endpoint year at it would
         divide by zero (yielding NaNs), an earlier one would silently reverse the
@@ -160,7 +160,7 @@ class ParameterExtrapolation:
         if invalid.size == 0:
             return
         raise ValueError(
-            f"'{name}' has 'extra:year' entries at or before the last historical year "
+            f"'{name}' has 'year' entries in 'extra' at or before the last historical year "
             f"at {len(invalid)} coordinate(s): {self._format_coordinates(invalid)}. "
             f"Endpoint years must lie after the historical period, which ends in "
             f"{self._last_historical_time}."

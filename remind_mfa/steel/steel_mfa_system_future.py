@@ -1,13 +1,18 @@
-import flodym as fd
-import numpy as np
 import logging
 from copy import deepcopy
 
-from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.trade_extrapolation import TradeExtrapolator, FixedSupplyTradeExtrapolator
-from remind_mfa.common.price_driven_trade import PriceDrivenTrade
+import flodym as fd
+import numpy as np
+
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.price_driven_trade import PriceDrivenTrade
+from remind_mfa.common.trade import Trade, TradeSet
+from remind_mfa.common.trade_extrapolation import (
+    FixedSupplyTradeExtrapolator,
+    TradeExtrapolator,
+)
 from remind_mfa.steel.steel_config import SteelCfg
 
 
@@ -115,8 +120,8 @@ class SteelMFASystem(CommonMFASystem):
             ] = self.stock_outflow_EU_MFA
             self.stocks["use"].compute()
             logging.warning(
-                f"TRANSIENCE mode is on. Both in-use stock inflow and outflow for EUR region are not computed from stock projection, but taken from EU-MFA. "
-                f"The stock is calculated as a simple flow-driven stock. "
+                "TRANSIENCE mode is on. Both in-use stock inflow and outflow for EUR region are not computed from stock projection, but taken from EU-MFA. "
+                "The stock is calculated as a simple flow-driven stock. "
             )
 
     def compute_flows(
@@ -133,12 +138,22 @@ class SteelMFASystem(CommonMFASystem):
             "available_scrap": fd.Parameter(dims=self.dims["t", "r"]),
             "production_inflow": fd.Parameter(dims=self.dims["t", "r"]),
             "max_scrap_production": fd.Parameter(dims=self.dims["t", "r"]),
+            "new_scrap": fd.Parameter(dims=self.dims["t", "r"]),
+            "not_reused": fd.Parameter(dims=self.dims["t", "r", "u"]),
         }
 
         # fmt: off
 
-        flw["manufactured_products_market => use"][...] = stk["use"].inflow
+        # Hibernation and reuse first, since reuse reduces the demand for new products
+        # reuse: a share of the not hibernating in-use outflow re-enters the stock, capped by the stock inflow
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+        flw["eol_management => reuse"][...] = (flw["use => eol_management"] * prm["reuse_share"]).minimum(stk["use"].inflow)
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
+
         # Pre-use
+
+        flw["manufactured_products_market => use"][...] = stk["use"].inflow - flw["reuse => use"]
 
         if "manufactured_products" in self.get_trade_markets_from_data():
             self.set_trade_from_data("manufactured_products", historical_trade["manufactured_products"])
@@ -147,7 +162,7 @@ class SteelMFASystem(CommonMFASystem):
                 historical_trade=historical_trade["manufactured_products"],
                 future_trade=trd["manufactured_products"],
                 future_dom_demand=flw["manufactured_products_market => use"],
-                n_trend_years=self.parameters["n_trend_years"],
+                trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
 
@@ -191,7 +206,7 @@ class SteelMFASystem(CommonMFASystem):
                 historical_trade=historical_trade["steel"],
                 future_trade=trd["steel"],
                 future_dom_demand=flw["steel_market => manufacturing"],
-                n_trend_years=self.parameters["n_trend_years"],
+                trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
 
@@ -205,14 +220,19 @@ class SteelMFASystem(CommonMFASystem):
 
         # Post-use
 
-        flw["use => scrap_market"][...] = stk["use"].outflow * prm["recovery_rate"]
-        flw["use => obsolete"][...] = stk["use"].outflow - flw["use => scrap_market"]
+        # recovery applies to the non-reused part of the demolished outflow
+        aux["not_reused"][...] = flw["use => eol_management"] - flw["eol_management => reuse"]
+        flw["eol_management => scrap_market"][...] = aux["not_reused"] * prm["recovery_rate"]
+        flw["eol_management => eol_waste"][...] = aux["not_reused"] - flw["eol_management => scrap_market"]
 
         if self.cfg.transience.transience_run == True:
             # historical scrap trade needs to be scaled down to not exceed the EU-MFA stock outflow * recovery_rate (which would be the case for 1903-1950)
             # in a normal run, this happens in the historical MFA, but since we replaced the stock outflow with EU-MFA data, we need to ensure the scrap trade is consistent with this
-            historical_trade["scrap"].exports[...] = historical_trade["scrap"].exports.minimum(flw["use => scrap_market"][{"t": self.dims["h"]}])
+            historical_trade["scrap"].exports[...] = historical_trade["scrap"].exports.minimum(flw["eol_management => scrap_market"][{"t": self.dims["h"]}])
             historical_trade["scrap"].balance(to="minimum")
+
+        aux["production_inflow"][...] = aux["steel_production"] / (1 - prm["steel_production_loss_rate"])
+        aux["max_scrap_production"][...] = aux["production_inflow"] * prm["max_scrap_share"]
 
         if "scrap" in self.get_trade_markets_from_data():
             self.set_trade_from_data("scrap", historical_trade["scrap"])
@@ -220,23 +240,33 @@ class SteelMFASystem(CommonMFASystem):
             extrapolator = TradeExtrapolator(
                 historical_trade=historical_trade["scrap"],
                 future_trade=trd["scrap"],
-                future_dom_supply=flw["use => scrap_market"],
-                n_trend_years=self.parameters["n_trend_years"],
+                future_dom_supply=flw["eol_management => scrap_market"],
+                trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
+
+            # trade read from data is used as given; only the extrapolated trade is adjusted to
+            # the scrap the regions can use
+            aux["new_scrap"][...] = flw["forming => scrap_pool"] + flw["manufacturing => scrap_pool"]
+            self.cap_scrap_imports_to_usable_scrap(
+                max_scrap_production=aux["max_scrap_production"],
+                domestic_scrap=flw["eol_management => scrap_market"].sum_over("u") + aux["new_scrap"],
+            )
+            self.redistribute_excess_scrap(
+                max_scrap_production=aux["max_scrap_production"],
+                eol_scrap=flw["eol_management => scrap_market"].sum_over("u"),
+                new_scrap=aux["new_scrap"],
+            )
 
         flw["imports => scrap_market"][...] = trd["scrap"].imports
         flw["scrap_market => exports"][...] = trd["scrap"].exports
 
-        flw["scrap_market => recycling"][...] = flw["use => scrap_market"] + trd["scrap"].net_imports
-        flw["recycling => scrap_pool"][...] = flw["scrap_market => recycling"]
+        flw["scrap_market => scrap_pool"][...] = flw["eol_management => scrap_market"] + trd["scrap"].net_imports
 
         # PRODUCTION
 
-        aux["production_inflow"][...] = aux["steel_production"] / (1 - prm["steel_production_loss_rate"])
-        aux["max_scrap_production"][...] = aux["production_inflow"] * 0.7 #TODO: make a parameter
         aux["available_scrap"][...] = (
-            flw["recycling => scrap_pool"]
+            flw["scrap_market => scrap_pool"]
             + flw["forming => scrap_pool"]
             + flw["manufacturing => scrap_pool"]
         )
@@ -256,13 +286,89 @@ class SteelMFASystem(CommonMFASystem):
         flw["sysenv => extraction"][...] = flw["extraction => steel_production_ore_based"]
         # fmt: on
 
+    def cap_scrap_imports_to_usable_scrap(
+        self, max_scrap_production: fd.FlodymArray, domestic_scrap: fd.FlodymArray
+    ):
+        """Limit future scrap net imports to the amount a region can use in steel production.
+
+        The extrapolated scrap trade follows historical trade patterns and does not know how much
+        scrap a region can absorb. Without this cap, regions that already have more domestic
+        scrap than their steel production can take would import scrap only to divert it to
+        excess scrap, while the exporting regions lack it for their own secondary production.
+        The cap removes such imports and the exporting regions keep the scrap instead.
+        Historical years keep the historical trade data.
+
+        Args:
+            max_scrap_production: Maximum scrap input to steel production.
+            domestic_scrap: Scrap generated in the region (home, new and collected end-of-life
+                scrap) before trade.
+        """
+        add_assumption_doc(
+            type="model assumption",
+            name="No scrap imports beyond usable scrap",
+            description=(
+                "Future scrap net imports of a region are limited to the difference between "
+                "the maximum scrap input to its steel production and its domestic scrap. "
+                "Scrap that is not imported remains in the exporting regions."
+            ),
+        )
+        capacity = (max_scrap_production - domestic_scrap).maximum(0)
+        capacity[{"t": self.dims["h"]}] = np.inf
+        self.cap_net_imports_to_capacity(self.trade_set["scrap"], capacity=capacity)
+
+    def redistribute_excess_scrap(
+        self,
+        max_scrap_production: fd.FlodymArray,
+        eol_scrap: fd.FlodymArray,
+        new_scrap: fd.FlodymArray,
+    ):
+        """Redistribute scrap that would become excess scrap to regions that can still use it.
+
+        An auxiliary scrap trade is computed with :meth:`redistribute_surplus` and added to the
+        scrap trade: Regions whose available scrap after the extrapolated scrap trade exceeds the
+        maximum scrap input to their steel production export the surplus; regions below that
+        maximum import it. This reduces excess scrap and increases scrap-based steel production
+        in the importing regions. Historical years keep the historical trade data.
+
+        Args:
+            max_scrap_production: Maximum scrap input to steel production.
+            eol_scrap: Collected end-of-life scrap before trade.
+            new_scrap: Home and new scrap from forming and manufacturing.
+        """
+        add_assumption_doc(
+            type="model assumption",
+            name="Redistribution of excess scrap",
+            description=(
+                "Future scrap that exceeds the maximum scrap input to a region's steel "
+                "production is exported to regions that have not reached that maximum, "
+                "in proportion to their remaining capacity."
+            ),
+        )
+        scrap_trade = self.trade_set["scrap"]
+        available_scrap = eol_scrap + scrap_trade.net_imports + new_scrap
+        # The scrap trade passes the scrap market, which holds only end-of-life scrap. Raising the
+        # demand to the new scrap keeps aux exports below the end-of-life scrap after trade, so
+        # the flow to the scrap pool stays non-negative. This does not change any region's headroom.
+        demand = max_scrap_production.maximum(new_scrap)
+        aux_trade = Trade(
+            name="aux_scrap",
+            imports=fd.FlodymArray(dims=scrap_trade.imports.dims),
+            exports=fd.FlodymArray(dims=scrap_trade.exports.dims),
+        )
+        self.redistribute_surplus(aux_trade, supply=available_scrap, demand=demand)
+        for flow in (aux_trade.imports, aux_trade.exports):
+            flow[{"t": self.dims["h"]}] = 0.0
+        scrap_trade.imports[...] = scrap_trade.imports + aux_trade.imports
+        scrap_trade.exports[...] = scrap_trade.exports + aux_trade.exports
+
     def compute_other_stocks(self):
         stk = self.stocks
         flw = self.flows
 
-        # in-use stock is already computed in compute_use_stock
-        stk["obsolete"].inflow[...] = flw["use => obsolete"]
-        stk["obsolete"].compute()
+        # in-use stock is already computed in compute_use_stock,
+        # hibernating stock in compute_flows
+        stk["eol_waste"].inflow[...] = flw["eol_management => eol_waste"]
+        stk["eol_waste"].compute()
 
         stk["excess_scrap"].inflow[...] = flw["scrap_pool => excess_scrap"]
         stk["excess_scrap"].compute()

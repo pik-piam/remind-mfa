@@ -4,41 +4,51 @@ import flodym.export as fde
 import pathlib
 import questionary
 
-DIRECTORY = "data/plastics/output/transience/pickle"
-FLOW_NAME = "good_market => use"
+# export.path of the runs; each run has its own folder holding a model.pickle
+DIRECTORY = "data_out/transience"
+FLOW_NAME = "manufactured_products_market => use"
 IS_STOCK = False
-# RUNS = ["model_steel_SSP1_h12_2026-03-17--16-24-26", "model_steel_SSP2_h12_2026-03-17--16-25-51"]
+# run folder names, relative to DIRECTORY
+# RUNS = [
+#     "2026-10-06--10-03-42_steel_SSP1_h12_Baseline_Steel_01_06_2026_default",
+#     "2026-10-06--10-05-17_steel_SSP2_h12_Baseline_Steel_01_06_2026_default",
+# ]
+# LABELS = ["SSP1", "SSP2"]
 RUNS = None
-LABELS = ["SSP1", "SSP2"]
+LABELS = None  # defaults to the run folder names
 SUBPLOT_DIM_LETTER = "r"  # e.g. "r" for region, or None for no subplots
 
 DIRECTORY = pathlib.Path(DIRECTORY)
+PICKLE_NAME = "model.pickle"
 
 if not RUNS:
-    # Interactively choose files from all model_*.pickle files in the directory
-    available_files = sorted(DIRECTORY.glob("model_*.pickle"))
+    # Interactively choose from all run folders in the directory, including those bundled in a
+    # <prefix>_series folder (export.bundle_export = true)
+    available_files = sorted(
+        {*DIRECTORY.glob(f"*/{PICKLE_NAME}"), *DIRECTORY.glob(f"*/*/{PICKLE_NAME}")}
+    )
 
     if not available_files:
-        raise FileNotFoundError(f"No model_*.pickle files found in: {DIRECTORY}")
+        raise FileNotFoundError(f"No run folders containing {PICKLE_NAME} found in: {DIRECTORY}")
 
-    run_file_names = questionary.checkbox(
-        "Select run files to compare:",
-        choices=[file.name for file in available_files],
-        validate=lambda selected: True if selected else "Select at least one file.",
+    run_names = questionary.checkbox(
+        "Select runs to compare:",
+        choices=[str(file.parent.relative_to(DIRECTORY)) for file in available_files],
+        validate=lambda selected: True if selected else "Select at least one run.",
     ).ask()
 
-    if not run_file_names:
-        raise ValueError("No files selected. Aborting comparison.")
+    if not run_names:
+        raise ValueError("No runs selected. Aborting comparison.")
 
 else:
-    run_file_names = [f"{run_name}.pickle" for run_name in RUNS]
+    run_names = RUNS
 
-run_file_paths = [DIRECTORY / file_name for file_name in run_file_names]
+run_file_paths = [DIRECTORY / run_name / PICKLE_NAME for run_name in run_names]
 if not LABELS:
-    LABELS = [pathlib.Path(f).stem for f in run_file_names]
+    LABELS = [pathlib.Path(run_name).name for run_name in run_names]
 
-if RUNS is not None and len(RUNS) != len(run_file_names):
-    raise ValueError("run_names must have the same length as selected files")
+if len(LABELS) != len(run_names):
+    raise ValueError("LABELS must have the same length as the selected runs")
 
 
 new_dim = fd.Dimension(letter="X", name="Run", items=LABELS)
@@ -60,7 +70,7 @@ if SUBPLOT_DIM_LETTER:
         title=f"Comparison of {FLOW_NAME} across runs",
         intra_line_dim="t",
         linecolor_dim="X",
-        subplot_dim="r",
+        subplot_dim=SUBPLOT_DIM_LETTER,
     )
     fig = plotter.plot()
     fig.show()

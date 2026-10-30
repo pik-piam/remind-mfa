@@ -9,6 +9,7 @@
         do_save_figs_html = true
 
     [base.export]
-        # Export visualizations to data_out/ci_series/
+        # Export visualizations to data_out/ci_series/, which the CI workflow reads
+        path = "data_out"
         bundle_export = true
         prefix = "ci"

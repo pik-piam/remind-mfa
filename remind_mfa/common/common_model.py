@@ -5,6 +5,7 @@ from typing import Optional
 import flodym as fd
 import numpy as np
 
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
@@ -160,14 +161,50 @@ class CommonModel[CfgT: CommonCfg]:
             model=self.cfg.model,
             dims=self.dims,
             parameter_definitions=scn_prm_def,
+            region_mappings_path=str(self.data_reader.region_mappings_path),
         )
         self.scenario_parameters = scenario_reader.get_parameters()
         # scenario parameters used within the MFA systems
         self.parameters["n_trend_years"] = self.scenario_parameters["n_trend_years"]
+        self.parameters["flow_approaching_time"] = self.scenario_parameters["flow_approaching_time"]
 
     def modify_parameters(self):
         """Manual changes to parameters. Called once at initialization."""
         pass
+
+    def set_hibernation_share(
+        self, value: float, dim_letter: str | None = None, items: list[str] | None = None
+    ):
+        """Set the parameter ``hibernation_share`` and document it as an assumption.
+
+        Args:
+            value (float): Share of the in-use outflow that remains in place as hibernating stock.
+            dim_letter (str, optional): Letter of the dimension along which the share is set.
+                Defaults to None, giving a scalar share for the whole in-use outflow.
+            items (list[str], optional): Items of ``dim_letter`` that hibernate. All other items
+                have no hibernation. Required if ``dim_letter`` is given.
+        """
+        description = (
+            "Share of the in-use outflow that remains in place as hibernating stock (no longer "
+            "used, but not demolished or recovered). Hibernating stock has no outflow."
+        )
+        if dim_letter is None:
+            hibernation_share = fd.Parameter(dims=fd.DimensionSet(dim_list=[]))
+            hibernation_share[...] = value
+        else:
+            assert items is not None, "items are required if dim_letter is given."
+            dim = self.dims[dim_letter]
+            hibernation_share = fd.Parameter(dims=self.dims[dim_letter,])
+            for item in items:
+                hibernation_share[item] = value
+            description += (
+                f" Applies only to the {dim.name} items {', '.join(items)}. "
+                "Other items have no hibernation."
+            )
+        add_assumption_doc(
+            type="expert guess", name="hibernation share", value=value, description=description
+        )
+        self.parameters["hibernation_share"] = hibernation_share
 
     def calculate_derived_parameters(self):
         """Derive parameters from other parameters. Called once at initialization, after
@@ -186,6 +223,14 @@ class CommonModel[CfgT: CommonCfg]:
         self.parameters = ParameterExtrapolationManager(
             self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
+
+        # lifetime cohort extension requires future dimensions, so it is set after extrapolation
+        self.parameters["lifetime_factor_cohort"] = self.get_lifetime_factor_cohort()
+
+    def get_lifetime_factor_cohort(self) -> fd.Parameter:
+        """Lifetime extension factor by age-cohort (nature). By default the scenario parameter
+        `lifetime_factor_nature`; overwritten by models that derive it differently."""
+        return self.parameters["lifetime_factor_nature"]
 
     def transfer_historical_parameters(self):
         """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
@@ -282,7 +327,7 @@ class CommonModel[CfgT: CommonCfg]:
             parameters=self.parameters,
             target_dim_letters="all",
             bound_list=bound_list_obj,
-            lifetime=self.lifetime_limit(),
+            lifetime=self.parameters["lifetime_mean"],
         )
         self.stock_handler.extrapolate()
 
@@ -324,5 +369,11 @@ class CommonModel[CfgT: CommonCfg]:
 
     def lifetime_limit(self):
         """Effective lifetime when saturation level is reached.
-        Currently, this is just the last modelled lifetime."""
-        return self.parameters["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
+        Currently, this is just the last modelled lifetime, including the nurture and nature
+        extension."""
+        last_year = {"t": self.dims["t"].items[-1]}
+        return (
+            self.parameters["lifetime_mean"][last_year]
+            * self.parameters["lifetime_factor_nurture"][last_year]
+            * self.parameters["lifetime_factor_cohort"][last_year]
+        )

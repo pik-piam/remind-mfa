@@ -4,13 +4,16 @@ from remind_mfa.common.common_mappings import CommonDisplayNames
 class CementDisplayNames(CommonDisplayNames):
     _own_mapping = {
         "sysenv": "System environment",
-        "prod_clinker": "Production: Clinker",
-        "prod_cement": "Production: Cement",
-        "prod_product": "Production: Product",
+        "clinker_production": "Production: Clinker",
+        "cement_production": "Production: Cement",
+        "construction": "Construction",
         "use": "Use phase",
-        "eol": "End of life",
+        "hibernating": "Hibernating stock",
+        "eol_management": "End-of-Life<br>Management",
+        "reuse": "Reuse",
+        "eol_waste": "End-of-Life<br>Waste",
         "atmosphere": "Atmosphere",
         "carbonation": "Carbonation",
-        "market_clinker": "Market: Clinker",
-        "market_cement": "Market: Cement",
+        "clinker_market": "Market: Clinker",
+        "cement_market": "Market: Cement",
     }

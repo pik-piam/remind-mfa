@@ -3,7 +3,7 @@ from unittest import case
 
 import flodym as fd
 import numpy as np
-from remind_mfa.common.data_blending import CriticallyDampedBlender
+from remind_mfa.common.data_blending import PDController
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
 
@@ -181,23 +181,23 @@ class StockExtrapolation(RemindMFABaseModel):
             case "none":
                 stocks_pc_out[...] = self.fitted_regression.values
             case "critically_damped":
-                blender = CriticallyDampedBlender(
+                blender = PDController(
                     time=self.dims["t"].items,
                     historical=self.historical_stocks_pc.values,
                     prediction=self.fitted_regression.values,
                     lifetime=self._prepare_lifetime_for_blender(),
                 )
-                approaching_time = 50
+                stock_approaching_time = 50
                 add_assumption_doc(
                     type="integer number",
                     name="years for blending to regression",
-                    value=approaching_time,
+                    value=stock_approaching_time,
                     description=(
                         "Number of years for the blending from historical to regressed in-use stocks. "
                         "Governs the damping parameter k."
                     ),
                 )
-                stocks_pc_out[...] = blender.blend(approaching_time)
+                stocks_pc_out[...] = blender.blend(stock_approaching_time)
                 add_assumption_doc(
                     type="model assumption",
                     name="Usage of critically damped blend",

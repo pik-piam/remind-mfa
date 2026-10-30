@@ -2,31 +2,37 @@ import flodym as fd
 
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.common.trade import TradeSet
-from remind_mfa.common.data_blending import CriticallyDampedBlender
+from remind_mfa.common.data_blending import PDController
 
 
 def expand_common_to_bu(arr: fd.FlodymArray, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
-    """Expand an extensive common-end-use (c: Res/Com) quantity to bottom-up end uses
-    (b: RS/RM/Com): residential values are split into single- (RS) and multi-family (RM)
-    homes via the dwelling split; Com passes through.
-    The dwelling split always sums to 1; `get_shares_over` re-asserts this to signal to
+    """Expand an extensive common-end-use (c: Residential/Commercial) quantity to bottom-up
+    end uses (b: Residential Single-/Multi-Family, Commercial): residential values are split
+    into single- and multi-family homes via the residential type split; Commercial passes through.
+    The residential type split always sums to 1; `get_shares_over` re-asserts this to signal to
     the reconciliation optimizer that changing the sum has no effect.
     """
-    dwelling_shares = prm["dwelling_split"].get_shares_over(("d",))
+    residential_type_shares = prm["residential_type_split"].get_shares_over(("d",))
     bu_end_use_dim = prm["structure_split"].dims["b"]
     out = fd.FlodymArray(dims=arr.dims.replace("c", bu_end_use_dim))
-    out[{"b": "RS"}] = arr[{"c": "Res"}] * dwelling_shares[{"d": "RS"}]
-    out[{"b": "RM"}] = arr[{"c": "Res"}] * dwelling_shares[{"d": "RM"}]
-    out[{"b": "Com"}] = arr[{"c": "Com"}]
+    out[{"b": "Residential Single-Family"}] = (
+        arr[{"c": "Residential"}] * residential_type_shares[{"d": "Residential Single-Family"}]
+    )
+    out[{"b": "Residential Multi-Family"}] = (
+        arr[{"c": "Residential"}] * residential_type_shares[{"d": "Residential Multi-Family"}]
+    )
+    out[{"b": "Commercial"}] = arr[{"c": "Commercial"}]
     return out
 
 
 def aggregate_bu_to_common(arr: fd.FlodymArray, common_end_use_dim: fd.Dimension) -> fd.FlodymArray:
     """Aggregate an extensive bottom-up-end-use (b) quantity to common end uses (c):
-    Res = RS + RM."""
+    Residential = Residential Single-Family + Residential Multi-Family."""
     out = fd.FlodymArray(dims=arr.dims.replace("b", common_end_use_dim))
-    out[{"c": "Res"}] = arr[{"b": "RS"}] + arr[{"b": "RM"}]
-    out[{"c": "Com"}] = arr[{"b": "Com"}]
+    out[{"c": "Residential"}] = (
+        arr[{"b": "Residential Single-Family"}] + arr[{"b": "Residential Multi-Family"}]
+    )
+    out[{"c": "Commercial"}] = arr[{"b": "Commercial"}]
     return out
 
 
@@ -34,25 +40,26 @@ def aggregate_bu_to_common_intensive[T: fd.FlodymArray](
     arr: T, common_end_use_dim: fd.Dimension
 ) -> T:
     """Aggregate an intensive bottom-up-end-use (b) quantity to common end uses (c): the
-    residential value is the (identical) RS/RM value, Com passes through. Intensive
-    twin of `aggregate_bu_to_common`. Class (e.g. Parameter) and name of the input are
-    preserved."""
+    residential value is the (identical) single-/multi-family value, Commercial passes
+    through. Intensive twin of `aggregate_bu_to_common`. Class (e.g. Parameter) and name
+    of the input are preserved."""
     out = type(arr)(dims=arr.dims.replace("b", common_end_use_dim), name=arr.name)
-    out[{"c": "Res"}] = arr[{"b": "RS"}]
-    out[{"c": "Com"}] = arr[{"b": "Com"}]
+    out[{"c": "Residential"}] = arr[{"b": "Residential Single-Family"}]
+    out[{"c": "Commercial"}] = arr[{"b": "Commercial"}]
     return out
 
 
 def extend_end_use_intensive[T: fd.FlodymArray](arr: T, extended_end_use_dim: fd.Dimension) -> T:
     """Extend an intensive end-use-resolved (u) quantity to extended end uses (e) by copying
-    the residential value to both dwelling types (RS, RM). Only valid for intensive
-    quantities (e.g. lifetimes); extensive quantities require a weighted split instead.
+    the residential value to both residential types (single- and multi-family). Only valid
+    for intensive quantities (e.g. lifetimes); extensive quantities require a weighted split
+    instead.
     Class (e.g. Parameter) and name of the input are preserved.
     """
     out = type(arr)(dims=arr.dims.replace("u", extended_end_use_dim), name=arr.name)
-    out[{"e": "RS"}] = arr[{"u": "Res"}]
-    out[{"e": "RM"}] = arr[{"u": "Res"}]
-    for item in ("Com", "Ind", "Civ"):
+    out[{"e": "Residential Single-Family"}] = arr[{"u": "Residential"}]
+    out[{"e": "Residential Multi-Family"}] = arr[{"u": "Residential"}]
+    for item in ("Commercial", "Industrial", "Civil Engineering"):
         out[{"e": item}] = arr[{"u": item}]
     return out
 
@@ -70,20 +77,23 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         Implementation approach:
         1. Compute the floorspace inflow (both historical and future) from the floorspace
            stock (common end uses c).
-        2. Apply the dwelling split, structure split and MI to the floorspace inflow and
+        2. Apply the residential type split, structure split and MI to the floorspace inflow and
            calculate the inflow-driven DSM to get the bottom-up concrete stock (b, s).
         3. Extend the td inflow (from `td_use`, end uses u) to extended end uses and
            structures (e, s) and calculate the inflow-driven DSM to get the extended td stock.
-        4. Blend historical td into future bu stock for the end uses the bottom-up model
-           resolves (b); Ind, Civ and mortar stay td.
-        5. Compute the complete MFA with the blended stock and historical trade.
+        4. Combine the extended td stock with the bu concrete stock, which transitions smoothly
+           from historical td to future bu stock for the end uses the bottom-up model
+           resolves (b); Industrial, Civil Engineering and mortar stay td.
+        5. Compute the complete MFA with the combined stock and historical trade. Only the
+           inflow of the bu concrete is blended; the td parts keep the inflow of `td_use`,
+           which was already blended in the td MFA (see `adjust_inflow`).
         """
 
         self.compute_floorspace_stock()
         self.compute_bottom_up_stock()
         self.extend_top_down_stock(td_use)
-        combined_stock = self.blend_stocks()
-        super().compute(combined_stock, historical_trade, stock_is_cement=False)
+        combined_stock = self.combine_top_down_and_bottom_up_stocks()
+        super().compute(combined_stock, historical_trade)
 
     def compute_floorspace_stock(self):
         """Calculate the floorspace inflow from stock change + lifetime (stock-driven)."""
@@ -95,8 +105,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
             0  # TODO remove once mrmfa is fixed
         )
         stk["floorspace"].stock = stock
-        self._set_lifetime("floorspace")
-        stk["floorspace"].compute()
+        self.set_prms_and_compute(stk["floorspace"])
 
     def compute_bottom_up_stock(self) -> fd.FlodymArray:
         """Resolve the floorspace inflow by bottom-up end use and structure and calculate
@@ -107,8 +116,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         stk["bu_use"].inflow[...] = self.concrete_from_floorspace(
             stk["floorspace"].inflow, self.parameters
         )
-        self._set_lifetime("bu_use")
-        stk["bu_use"].compute()
+        self.set_prms_and_compute(stk["bu_use"])
         return stk["bu_use"].stock
 
     def extend_top_down_stock(self, td_use: fd.Stock):
@@ -116,116 +124,174 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         structures (s): extend the td inflow and recalculate the td stock
         (inflow-driven). Equivalent to floorspace approach. Necessary to translate
         inflow splits into stock splits.
-        Residential concrete is split into dwelling types and structures by joint
-        MI-weighted mass shares (see `_concrete_mass_shares`); Com concrete is split
-        over structures only. Ind, Civ and all mortar carry no structural resolution
-        and are assigned to the unspecified structure U; residential mortar is split
-        into dwelling types by floor area.
+        Residential concrete is split into residential types and structures by joint
+        MI-weighted mass shares (see `_concrete_mass_shares`); Commercial concrete is split
+        over structures only. Industrial, Civil Engineering and all mortar carry no structural
+        resolution and are assigned to the unspecified structure; residential mortar is split
+        into residential types by floor area.
         """
         stk = self.stocks
         inflow = stk["td_use"].inflow
 
         td_inflow = td_use.inflow.sum_over("k")
-        concrete = td_inflow[{"m": "concrete"}]
-        mortar = td_inflow[{"m": "mortar"}]
+        concrete = td_inflow[{"m": "Concrete"}]
+        mortar = td_inflow[{"m": "Mortar"}]
 
-        # concrete: split Res into dwellings by MI weighted floor area
-        # introduce structure dimension to Res/Com by MI weighted floor area, assign U to Ind/Civ
+        # concrete: split Residential into residential types by MI weighted floor area
+        # introduce structure dimension to Residential/Commercial by MI weighted floor area,
+        # assign unspecified structure to Industrial/Civil Engineering
         mass_split = self._concrete_mass_shares()
-        inflow[{"m": "concrete", "e": "RS"}] = concrete[{"u": "Res"}] * mass_split[{"b": "RS"}]
-        inflow[{"m": "concrete", "e": "RM"}] = concrete[{"u": "Res"}] * mass_split[{"b": "RM"}]
-        inflow[{"m": "concrete", "e": "Com"}] = concrete[{"u": "Com"}] * mass_split[{"b": "Com"}]
-        for item in ("Ind", "Civ"):
-            inflow[{"m": "concrete", "e": item, "s": "U"}] = concrete[{"u": item}]
-
-        # mortar: split Res into dwelling types by floor area
-        # assign U (unspecified) structure dimension to all end uses
-        inflow[{"m": "mortar", "e": "RS", "s": "U"}] = (
-            mortar[{"u": "Res"}] * self.parameters["dwelling_split"][{"d": "RS"}]
+        inflow[{"m": "Concrete", "e": "Residential Single-Family"}] = (
+            concrete[{"u": "Residential"}] * mass_split[{"b": "Residential Single-Family"}]
         )
-        inflow[{"m": "mortar", "e": "RM", "s": "U"}] = (
-            mortar[{"u": "Res"}] * self.parameters["dwelling_split"][{"d": "RM"}]
+        inflow[{"m": "Concrete", "e": "Residential Multi-Family"}] = (
+            concrete[{"u": "Residential"}] * mass_split[{"b": "Residential Multi-Family"}]
         )
-        for item in ("Com", "Ind", "Civ"):
-            inflow[{"m": "mortar", "e": item, "s": "U"}] = mortar[{"u": item}]
+        inflow[{"m": "Concrete", "e": "Commercial"}] = (
+            concrete[{"u": "Commercial"}] * mass_split[{"b": "Commercial"}]
+        )
+        for item in ("Industrial", "Civil Engineering"):
+            inflow[{"m": "Concrete", "e": item, "s": "Unspecified Structure"}] = concrete[
+                {"u": item}
+            ]
 
-        self._set_lifetime("td_use")
-        stk["td_use"].compute()
+        # mortar: split Residential into residential types by floor area
+        # assign unspecified structure to all end uses
+        res_type_split = self.parameters["residential_type_split"]
+        inflow[{"m": "Mortar", "e": "Residential Single-Family", "s": "Unspecified Structure"}] = (
+            mortar[{"u": "Residential"}] * res_type_split[{"d": "Residential Single-Family"}]
+        )
+        inflow[{"m": "Mortar", "e": "Residential Multi-Family", "s": "Unspecified Structure"}] = (
+            mortar[{"u": "Residential"}] * res_type_split[{"d": "Residential Multi-Family"}]
+        )
+        for item in ("Commercial", "Industrial", "Civil Engineering"):
+            inflow[{"m": "Mortar", "e": item, "s": "Unspecified Structure"}] = mortar[{"u": item}]
+
+        self.set_prms_and_compute(stk["td_use"])
 
     def _concrete_mass_shares(self) -> fd.FlodymArray:
         """Distributes the concrete mass of each top-down end use (u) over bottom-up end uses
         (b) and structures (s).
-        First, floor-area shares are derived from the dwelling and structure splits.
+        First, floor-area shares are derived from the residential type and structure splits.
         These are then reweighted by the relative MI of each category: categories with
         higher MI than the floor-area-weighted average for their parent end use receive a
         larger mass share, and vice versa.
         """
         prm = self.parameters
-        dwelling_split = expand_common_to_bu(
+        residential_type_split = expand_common_to_bu(
             fd.FlodymArray.full(dims=self.dims["r", "c"], fill_value=1.0), prm
         )
-        floor_area_split = dwelling_split * prm["structure_split"]  # (r, b, s)
+        floor_area_split = residential_type_split * prm["structure_split"]  # (r, b, s)
         mi = prm["concrete_building_mi"]  # (r, b, s)
 
-        # floor-area-weighted average MI per parent end use (Res pools RS + RM)
+        # floor-area-weighted average MI per parent end use (Residential pools both
+        # residential types)
         avg_mi_per_end_use = aggregate_bu_to_common(
             (floor_area_split * mi).sum_over("s"), self.dims["c"]
         )
         avg_mi = fd.FlodymArray(dims=floor_area_split.dims.drop("s"))
-        avg_mi[{"b": "RS"}] = avg_mi_per_end_use[{"c": "Res"}]
-        avg_mi[{"b": "RM"}] = avg_mi_per_end_use[{"c": "Res"}]
-        avg_mi[{"b": "Com"}] = avg_mi_per_end_use[{"c": "Com"}]
+        avg_mi[{"b": "Residential Single-Family"}] = avg_mi_per_end_use[{"c": "Residential"}]
+        avg_mi[{"b": "Residential Multi-Family"}] = avg_mi_per_end_use[{"c": "Residential"}]
+        avg_mi[{"b": "Commercial"}] = avg_mi_per_end_use[{"c": "Commercial"}]
 
         return floor_area_split * mi / avg_mi
 
-    def blend_stocks(self) -> fd.FlodymArray:
-        """Combine the bu and td stocks into one:
-        Blend smoothly between historical td and future bu concrete stock for the end uses
-        the bottom-up model resolves (b: RS/RM/Com); Ind, Civ and all mortar stay td.
+    def combine_top_down_and_bottom_up_stocks(self) -> fd.FlodymArray:
+        """Combine the extended top-down stock with the bottom-up concrete stock.
+        For the end uses resolved bottom-up (b), the concrete stock transitions smoothly from
+        the historical top-down to the projected bottom-up stock; Industrial, Civil Engineering
+        and all mortar keep the top-down stock.
+        The blend uses the same settings as the top-down stock extrapolation (default
+        approaching time and lifetime-dependent initial slope).
         """
         stk = self.stocks
         td_stock_expanded = stk["td_use"].stock
+        bu_stock = stk["bu_use"].stock
 
         # restrict the td stock to the bottom-up-resolved end uses
         bu_mask = {"e": self.dims["b"]}
         reduced_td_stock = td_stock_expanded[
             {
                 **bu_mask,
-                "m": "concrete",
+                "m": "Concrete",
                 "t": self.dims["h"],
             }
         ]
 
-        # Lifetime independent blend
-        blender = CriticallyDampedBlender(
+        # lifetime of the last historical year sets the trend window of the initial slope
+        lifetime = self.parameters["lifetime_mean"][{"t": self.dims["h"].items[-1]}][bu_mask]
+        blender = PDController(
             time=self.dims["t"].items,
             historical=reduced_td_stock.values,
-            prediction=stk["bu_use"].stock.values,
+            prediction=bu_stock.values,
+            lifetime=lifetime.cast_to(bu_stock.dims.drop("t")).values,
         )
         blended_stock = fd.FlodymArray.full_like(
-            other=stk["bu_use"].stock,
+            other=bu_stock,
             fill_value=blender.blend(),
         )
 
         combined_stock = td_stock_expanded.copy()
-        combined_stock[{**bu_mask, "m": "concrete"}] = blended_stock
+        combined_stock[{**bu_mask, "m": "Concrete"}] = blended_stock
         return combined_stock
 
-    def _set_lifetime(self, stock_name: str):
-        """Set the stock's lifetime from the extended-end-use (e) lifetime parameters,
-        restricted to the stock's own end-use resolution (detected from its dimensions):
-        b-stocks slice e to b; c-stocks slice to b then average RS/RM to Res;
-        e-stocks use the full extended end use directly."""
-        mean = self.parameters["lifetime_mean"]
-        std = self.parameters["lifetime_std"]
-        letters = self.stocks[stock_name].dims.letters
-        if "b" in letters:
-            mean = mean[{"e": self.dims["b"]}]
-            std = std[{"e": self.dims["b"]}]
-        elif "c" in letters:
-            mean = aggregate_bu_to_common_intensive(mean[{"e": self.dims["b"]}], self.dims["c"])
-            std = aggregate_bu_to_common_intensive(std[{"e": self.dims["b"]}], self.dims["c"])
-        self.stocks[stock_name].lifetime_model.set_prms(mean=mean, std=std)
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Blend and correct only the inflow of the bottom-up-resolved concrete (b).
+        Industrial, Civil Engineering and all mortar keep the inflow of `td_use`, which was
+        already blended and corrected in the top-down MFA. Blending it again would continue
+        the historical trend a second time.
+        The parent method is applied to the full inflow, as slicing the concrete would drop
+        the material dimension (m). Its result for the top-down parts is discarded.
+
+        Args:
+            inflow: Product inflow resulting from a StockDrivenDSM computation of the
+                combined stock.
+
+        Returns:
+            Composition-resolved in-use stock inflow.
+        """
+        use_inflow = super().adjust_inflow(inflow)
+        adjusted_inflow = self.add_constituent_split(self.stocks["td_use"].inflow)
+        bu_mask = {"e": self.dims["b"], "m": "Concrete"}
+        adjusted_inflow[bu_mask] = use_inflow[bu_mask]
+        return adjusted_inflow
+
+    def set_prms_and_compute(self, stock: fd.DynamicStockModel):
+        """Set the lifetime model parameters and compute the stock.
+
+        The extended-end-use (e) lifetime parameters are restricted to the stock's own
+        end-use resolution (detected from its dimensions): b-stocks slice e to b; c-stocks
+        slice to b then aggregate the residential types to Residential; e-stocks use the
+        full extended end use directly.
+
+        Note: Overrides `CommonMFASystem.set_prms_and_compute` without calling `super()`,
+        since the parent reads the parameters directly. Changes to the parent body must be
+        mirrored here.
+
+        Args:
+            stock (fd.DynamicStockModel): Stock to set parameters for and compute.
+        """
+        letters = stock.dims.letters
+        lifetime_prms = {}
+        for name in (
+            "lifetime_mean",
+            "lifetime_std",
+            "lifetime_factor_nurture",
+            "lifetime_factor_cohort",
+        ):
+            prm = self.parameters[name]
+            if "b" in letters:
+                prm = prm[{"e": self.dims["b"]}]
+            elif "c" in letters:
+                prm = aggregate_bu_to_common_intensive(prm[{"e": self.dims["b"]}], self.dims["c"])
+            lifetime_prms[name] = prm
+        lifetime_model = stock.lifetime_model
+        lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
+        lifetime_model.mean = lifetime_prms["lifetime_mean"]
+        lifetime_model.std = lifetime_prms["lifetime_std"]
+        lifetime_model.lt_factor_by_year = lifetime_prms["lifetime_factor_nurture"]
+        lifetime_model.lt_factor_by_cohort = lifetime_prms["lifetime_factor_cohort"]
+        stock.compute()
 
     @staticmethod
     def concrete_from_floorspace(
@@ -236,9 +302,12 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         The splits always sum to 1; `get_shares_over` re-asserts this to signal to the
         reconciliation optimizer that changing the sum has no effect.
         """
-        floorspace_bu = expand_common_to_bu(floorspace, prm)
+        # scale up occupied to total residential floorspace (vacant dwellings and second homes)
+        total_floorspace = floorspace.copy()
+        total_floorspace[{"c": "Residential"}] = floorspace[{"c": "Residential"}] / (
+            1.0 - prm["unoccupied_residential_stock_share"]
+        )
+        floorspace_bu = expand_common_to_bu(total_floorspace, prm)
         structure_shares = prm["structure_split"].get_shares_over(("s",))
         concrete = floorspace_bu * structure_shares * prm["concrete_building_mi"]
-        # scale up building stock to account for hibernating (unused) stock
-        total_concrete = concrete / (1.0 - prm["hibernating_stock_share"])
-        return total_concrete
+        return concrete

@@ -1,18 +1,20 @@
 | Name                        |
 |:----------------------------|
 | System environment          |
-| Production from ores        |
-| Production (EAF)            |
+| Production from Ores        |
+| Production from Scrap       |
 | Forming                     |
-| Intermediate products       |
+| Steel Market                |
 | Manufacturing               |
 | Manufactured Product Market |
 | Use Phase                   |
-| Obsolete stocks             |
-| End of life products        |
-| Recycling                   |
-| Scrap market                |
-| Excess scrap                |
+| Hibernating stocks          |
+| End-of-Life Management      |
+| Reuse                       |
+| End-of-Life Waste           |
+| Old Scrap Market            |
+| Scrap Pool                  |
+| Excess Scrap                |
 | Imports                     |
 | Exports                     |
 | Losses                      |

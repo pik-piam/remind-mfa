@@ -13,8 +13,8 @@ from remind_mfa.atlas_coupling import (
     ATLAS_TRADE_ROOT,
     AtlasCo2Price,
     AtlasScenarioPkBudg,
-    AtlasVariant,
     AtlasShareMode,
+    AtlasVariant,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
     execute_command,
@@ -60,12 +60,16 @@ def run_mfa(
 ) -> None:
     """Run one model of the MFA: either to produce the demand (stage one) or the actual results (stage two)."""
 
-    config_names = ["default", "atlas_run1"] if stage == "one" else ["default", "atlas_run2"]
+    config_names = (
+        ["default", "hpc", "atlas_run1"] if stage == "one" else ["default", "hpc", "atlas_run2"]
+    )
     typer.echo(f"Run MFA with model={model} and config={','.join(config_names)}")
     config = load_config(list(config_names), model)
     model_instance = init_model(cfg=config)
     model_instance.run()
     model_instance.export()
+    if stage == "two":
+        model_instance.visualize()
 
 
 @app.command("copy-demands")
@@ -77,7 +81,7 @@ def copy_demands(
 ) -> None:
     """Convert an MFA demand export to the format and location ATLAS expects."""
 
-    paths = get_coupling_paths(model, ["default", "atlas_run1"])
+    paths = get_coupling_paths(model, ["default", "hpc", "atlas_run1"])
     for demand_source, demand_target in paths.mfa_pipeline_mapping.items():
         result = copy_demand_to_atlas(model, demand_source, demand_target, force)
         typer.echo(f"Wrote {len(result)} demand rows to {demand_target}")
@@ -100,7 +104,7 @@ def copy_trade(
     """Aggregate ATLAS bilateral trade into MFA CS4R parameters."""
 
     _warn_if_scenario_pkbudg_ignored(model, scenario_pkbudg)
-    paths = get_coupling_paths(model, ["default", "atlas_run2"])
+    paths = get_coupling_paths(model, ["default", "hpc", "atlas_run2"])
     if not source:
         variant_value = variant.value.replace("-", "_")
         model_folder = "future" if model == ModelNames.STEEL else "future_plastics"
@@ -127,7 +131,9 @@ def copy_trade(
 def preprocess() -> None:
     """Run the ATLAS data-preprocessing Snakemake workflow."""
 
-    execute_command(["pixi", "run", "snakemake", "--cores", "5"], ATLAS_DATA_PIPELINE_ROOT)
+    execute_command(
+        ["pixi", "run", "snakemake", "--cores", "5", "--rerun-incomplete"], ATLAS_DATA_PIPELINE_ROOT
+    )
 
 
 @app.command()
