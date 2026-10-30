@@ -105,6 +105,7 @@ exclude = []
 title = "Steel"
 call = "remind_mfa.designer:load"
 args = { model = "steel" }
+default-system = "future"
 files = [
     "data_in/dimensions/steel/*.csv",
     "data_in/parameters/st_*.cs4r",
@@ -117,6 +118,7 @@ files = [
 title = "Cement"
 call = "remind_mfa.designer:load"
 args = { model = "cement" }
+default-system = "future"
 files = [
     "data_in/dimensions/cement/*.csv",
     "data_in/parameters/ce_*.cs4r",
@@ -126,6 +128,7 @@ files = [
 title = "Plastics"
 call = "remind_mfa.designer:load"
 args = { model = "plastics" }
+default-system = "future"
 # parameters are listed explicitly, since `pl_*.cs4r` would also match large unused files
 files = [
     "data_in/dimensions/plastics/*.csv",
