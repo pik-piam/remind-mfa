@@ -39,7 +39,7 @@ class SteelModel(CommonModel[SteelCfg]):
 
         self.parameters["max_scrap_share"] = self.scenario_parameters["max_scrap_share"]
 
-        lifetime_factor = blend(
+        lifetime_calibration_factor = blend(
             target_dims=self.dims["t",],
             y_lower=0.9,
             y_upper=1.1,
@@ -57,37 +57,29 @@ class SteelModel(CommonModel[SteelCfg]):
                 "of 1.5 to smooth out unrealistic dips after rapid stock build-up"
             ),
         )
-        lifetime_factor_prm = fd.Parameter(dims=self.dims["t",])
-        lifetime_factor_prm[...] = lifetime_factor
-        self.parameters["lifetime_factor"] = lifetime_factor_prm
+        lifetime_calibration_prm = fd.Parameter(dims=self.dims["t",])
+        lifetime_calibration_prm[...] = lifetime_calibration_factor
+        self.parameters["lifetime_calibration_factor"] = lifetime_calibration_prm
 
         self.parameters["lifetime_mean"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_mean"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_std"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values
             * 1.5,
         )
 
-        hibernation_share_construction = 0.3
-        add_assumption_doc(
-            type="expert guess",
-            name="construction hibernation share",
-            value=hibernation_share_construction,
-            description=(
-                "Share of construction steel leaving the in-use stock that remains in place as "
-                "hibernating stock (no longer used, but not demolished or recovered). Hibernating "
-                "stock has no outflow. Other end uses have no hibernation."
-            ),
-        )
-        self.parameters["hibernation_share"] = fd.Parameter(dims=self.dims["u",])
-        self.parameters["hibernation_share"]["Construction"] = hibernation_share_construction
+        self.set_hibernation_share(0.3, dim_letter="u", items=["Construction"])
 
         add_assumption_doc(
             type="ad-hoc fix",

@@ -27,8 +27,10 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
     custom_scn_prm_def = plastics_scn_prm_def
 
     do_stock_extrapolation_with_time_factor: bool = True
-    time_factor_prms = {"horizontal_shift_base": 1980, "growth_rate": 0.01}
-    # these are the parameters for a Gompertz function that reaches 20% saturation in 1950 and 80% in 2020
+    time_factor_prms = {"horizontal_shift_base": 1970, "growth_rate": 0.02}
+    # penetration of plastics at constant income (stock extrapolation function, shifted by the end-use
+    # lifetime): 50% in 1970 and ~95% in 2005, when per-capita demand in mature economies plateaued
+    # while GDP kept growing.
 
     @classmethod
     def visualizer_cls(cls) -> type[PlasticsVisualizer]:

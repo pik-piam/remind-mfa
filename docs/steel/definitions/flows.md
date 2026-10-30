@@ -20,8 +20,10 @@
 | t, r, u      | Manufactured Product Market | Use Phase                   |
 | t, r, u      | Use Phase                   | Hibernating stocks          |
 | t, r, u      | Use Phase                   | End-of-Life Management      |
+| t, r, u      | End-of-Life Management      | Reuse                       |
+| t, r, u      | Reuse                       | Use Phase                   |
 | t, r, u      | End-of-Life Management      | Old Scrap Market            |
-| t, r, u      | End-of-Life Management      | Losses                      |
+| t, r, u      | End-of-Life Management      | End-of-Life Waste           |
 | t, r         | Old Scrap Market            | Scrap Pool                  |
 | t, r         | Old Scrap Market            | Exports                     |
 | t, r         | Imports                     | Old Scrap Market            |
