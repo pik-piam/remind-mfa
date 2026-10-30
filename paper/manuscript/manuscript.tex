@@ -13,6 +13,9 @@
 \usepackage{amsfonts}
 \usepackage{amsmath}
 \usepackage{csquotes}
+% sn-jnl defines \orcidlogo (using Orcidlogo.eps, which is not part of the template), and
+% orcidlink >= v1.1 defines it with \newcommand, so the class definition is removed first
+\let\orcidlogo\relax
 \usepackage{orcidlink}
 \usepackage[backend=biber,style=apa]{biblatex}
 \hypersetup{hidelinks}
@@ -95,7 +98,7 @@ These studies incorporate the key elements of REMIND-MFA needed to address the s
 The present paper provides the methods, model code, results, and data. Section~\ref{sec:methods} introduces common modeling methods, including the methodology for stock and trade extrapolations. Section~\ref{sec:material_models} outlines the specifics of the three material models plastics, steel, and cement. Section~\ref{sec:results} shows exemplary model results. Section~\ref{sec:conclusion} concludes with a summary and next steps. Section~\ref{sec:availability} briefly discusses model code and data availability.
 
 \section{Common model methods}\label{sec:methods}
-This section describes the modelling framework common to all three materials and the methodological developments introduced in this paper. The first three subsections establish the general model approach, while the subsequent sections describe the specific innovations and the processing of input data. Detailed descriptions with equations on the stock and trade extrapolation methods are provided in the supplementary information (SI) Section~\ref{SI-sec:stock_extrapol} and \ref{SI-sec:trade_extrapol}, respectively. The SI also contains a section on trade adjustments (SI Section~\ref{SI-sec:trade_adjustments}) not mentioned in the main text.
+This section describes the modelling framework common to all three materials and the methodological developments introduced in this paper. The first three subsections establish the general model approach, while the subsequent sections describe the specific innovations and the processing of input data. Detailed descriptions with equations on the stock and trade extrapolation methods are provided in the supplementary information (SI) Section~\ref{SI-sec:stock_extrapol} and \ref{SI-sec:trade_extrapol}, respectively. The SI also contains a section on trade adjustments (SI Section~\ref{SI-sec:trade_adjustments}) not covered in the main text.
 
 \subsection{Scope and resolution}\label{sec:scope}
 REMIND-MFA can be run with country-level resolution or arbitrary regional aggregations thereof. The results presented here are based on model runs with the 12-region aggregation of the REMIND IAM, (cf. Figure~\ref{fig:regions}, panel a)). It is the level at which validation of results was performed. The data on future demands and material flows published alongside this paper is provided both in country-level resolution and REMIND 12-region aggregation.

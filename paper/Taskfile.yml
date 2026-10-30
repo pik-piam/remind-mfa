@@ -26,11 +26,12 @@ tasks:
       - task: paper
 
   paper:
-    desc: Build the paper from existing model outputs (figures, tables, LaTeX)
+    desc: Build the paper from existing model outputs (figures, tables, LaTeX, submission zip)
     cmds:
       - task: figures
       - task: tables
       - task: build
+      - task: submission
 
   mfa:
     desc: Run the models for all paper scenarios and update the docs
@@ -104,3 +105,9 @@ tasks:
     desc: Remove LaTeX intermediate files, then compile manuscript and SI (options e.g. -- -view)
     cmds:
       - "{{.POWERSHELL}} build.ps1 -clean {{.CLI_ARGS}}"
+
+  submission:
+    desc: Pack the manuscript LaTeX sources and figures into springer_submission.zip (run after build)
+    dir: "{{.REPO_DIR}}"
+    cmds:
+      - uv run python paper/make_submission_zip.py
