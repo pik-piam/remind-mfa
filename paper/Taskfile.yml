@@ -111,3 +111,10 @@ tasks:
     dir: "{{.REPO_DIR}}"
     cmds:
       - uv run python paper/make_submission_zip.py
+
+  cover_letter:
+    desc: Compile the cover letter and remove its intermediate files
+    dir: "{{.TASKFILE_DIR}}/cover_letter"
+    cmds:
+      - pdflatex -interaction=nonstopmode cover_letter.tex
+      - powershell -NoProfile -Command "Remove-Item cover_letter.aux, cover_letter.log, cover_letter.out -ErrorAction SilentlyContinue"
