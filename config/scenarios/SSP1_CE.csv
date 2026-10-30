@@ -1,5 +1,13 @@
-parameter,models,value,extra:year,index:Region,description
+parameter,models,value,extra,index,description
+
+# --- All models ---
 stock_factor,all,0.8,,,
-lifetime_mean,all,1.3,,,
-lifetime_std,all,1.3,,,
-concrete_reuse_share,cement,0.20,,,
+lifetime_factor_nurture,all,1.2,,,
+lifetime_factor_nature,all,1.2,,,
+
+# --- Cement ---
+clinker_ratio,cement,0.5,"{year: 2060, type: target}",,Source: GCCA NZ
+cement_ratio,cement,0.85,,,Cement content of new concrete and mortar reduced by factor
+reuse_share,cement,0.2,,"{Construction Material: Concrete}",
+concrete_building_mi,cement,0.8,,,
+min_timber_share,cement,0.2,,,Timber structures reach at least 20% of newly constructed floor area

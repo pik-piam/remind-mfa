@@ -6,6 +6,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.trade_extrapolation import TradeExtrapolator
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
 class StockDrivenCementMFASystem(CommonMFASystem):
@@ -83,11 +84,16 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         """
         if "k" in arr.dims:
             return arr
+        return arr * self.constituent_split()
+
+    def constituent_split(self) -> fd.FlodymArray:
+        """Split of newly produced product mass into cement and non-cement (k), from
+        cement_ratio."""
         cement_ratio = self.parameters["cement_ratio"]
         constituent_split = fd.FlodymArray(dims=cement_ratio.dims.append(self.dims["k"]))
         constituent_split[{"k": "Cement"}] = cement_ratio
         constituent_split[{"k": "Non-Cement"}] = 1 - cement_ratio
-        return arr * constituent_split
+        return constituent_split
 
     def compute_flows(self, historical_trade: TradeSet):
         prm = self.parameters
@@ -95,34 +101,52 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk = self.stocks
         trd = self.trade_set
 
-        # concrete reuse: a share of the in-use concrete outflow re-enters the stock,
-        # capped by the concrete stock inflow; mortar not reused
-        flw["use => reuse"][{"m": "Concrete"}] = (
-            stk["use"].outflow[{"m": "Concrete"}] * prm["concrete_reuse_share"]
-        ).minimum(stk["use"].inflow[{"m": "Concrete"}])
-        flw["reuse => use"][...] = flw["use => reuse"]
+        # hibernation: a share of the in-use outflow remains in place and is not demolished
+        flw["use => hibernating"][...] = self.compute_hibernation(stk["use"].outflow)
+        flw["use => eol_management"][...] = stk["use"].outflow - flw["use => hibernating"]
+
+        # reuse: a share of the demolished construction material may re-enter the stock,
+        # capped by the stock inflow.
+        add_assumption_doc(
+            type="model assumption",
+            name="Cement content of reused material",
+            description=(
+                "Reused concrete and mortar are assigned the cement ratio of new construction in"
+                " the year of reuse instead of the cement content of the demolished material."
+                " This leads to negligible errors in stock and outflow if cement ratio changes."
+            ),
+        )
+        reuse = (flw["use => eol_management"].sum_over("k") * prm["reuse_share"]).minimum(
+            stk["use"].inflow.sum_over("k")
+        )
+        flw["eol_management => reuse"][...] = reuse * self.constituent_split()
+        flw["reuse => use"][...] = flw["eol_management => reuse"]
 
         # construction: covers the stock inflow not met by reuse
         flw["construction => use"][...] = stk["use"].inflow - flw["reuse => use"]
-        flw["cement_market => construction"][...] = flw["construction => use"][{"k": "Cement"}]
+        # construction losses are relative to total cement use
+        flw["cement_market => construction"][...] = flw["construction => use"][{"k": "Cement"}] / (
+            1 - prm["cement_losses"]
+        )
         flw["sysenv => construction"][...] = flw["construction => use"][{"k": "Non-Cement"}]
-        flw["cement_market => sysenv"][...] = (
-            flw["cement_market => construction"]
-            * prm["cement_losses"]
-            / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
+        flw["construction => losses"][...] = (
+            flw["cement_market => construction"] * prm["cement_losses"]
         )
 
-        # use phase: the non-reused in-use outflow leaves the system boundary. When carbonation is
-        # active, CementCarbonUptakeModel reroutes this outflow through the eol stock it injects.
-        flw["use => sysenv"][...] = stk["use"].outflow - flw["use => reuse"]
+        # disposal: the non-reused demolished material accumulates in the eol waste stock
+        flw["eol_management => eol_waste"][...] = (
+            flw["use => eol_management"] - flw["eol_management => reuse"]
+        )
+        stk["eol_waste"].inflow[...] = flw["eol_management => eol_waste"]
+        stk["eol_waste"].compute()
 
         # cement trade
-        total_cement_demand = flw["cement_market => construction"] + flw["cement_market => sysenv"]
+        total_cement_demand = flw["cement_market => construction"].sum_to(("t", "r"))
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
             future_dom_demand=total_cement_demand,
-            n_trend_years=self.parameters["n_trend_years"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
         flw["cement_market => exports"][...] = trd["cement"].exports
@@ -130,9 +154,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # cement production
         flw["cement_production => cement_market"][...] = (
-            flw["cement_market => construction"]
-            + flw["cement_market => sysenv"]
-            + trd["cement"].net_exports
+            flw["cement_market => construction"] + trd["cement"].net_exports
         )
         flw["clinker_market => cement_production"][...] = (
             flw["cement_production => cement_market"] * prm["clinker_ratio"]
@@ -150,7 +172,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             historical_trade=historical_trade["clinker"],
             future_trade=trd["clinker"],
             future_dom_demand=flw["clinker_market => cement_production"],
-            n_trend_years=self.parameters["n_trend_years"],
+            trade_factor=prm["trade_factor"],
         )
         extrapolator.run()
         flw["imports => clinker_market"][...] = trd["clinker"].imports
@@ -161,11 +183,16 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             flw["clinker_market => cement_production"] + trd["clinker"].net_exports
         )
         # net cement kiln dust generation
-        flw["clinker_production => sysenv"][...] = (
+        flw["clinker_production => losses"][...] = (
             flw["clinker_production => clinker_market"] * prm["clinker_losses"]
         )
         flw["sysenv => clinker_production"][...] = (
-            flw["clinker_production => clinker_market"] + flw["clinker_production => sysenv"]
+            flw["clinker_production => clinker_market"] + flw["clinker_production => losses"]
+        )
+
+        # losses
+        flw["losses => sysenv"][...] = (
+            flw["clinker_production => losses"] + flw["construction => losses"]
         )
 
         # balance trade with sysenv

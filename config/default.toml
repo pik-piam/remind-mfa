@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "data_in"
-        input_data_revision = "2.8.0"
+        input_data_revision = "2.9.2"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -23,7 +23,7 @@
         gdp.do_visualize = false
         gdp.per_capita = false
         production.do_visualize = true
-        trade.do_visualize = false
+        trade.do_visualize = true
         consumption.do_visualize = true
         consumption.per_capita = true
         sankey.do_visualize = false

@@ -119,3 +119,63 @@ def test_redistribute_surplus_without_surplus_is_empty():
 
     np.testing.assert_allclose(trade.imports.values, 0.0)
     np.testing.assert_allclose(trade.exports.values, 0.0)
+
+
+def test_cap_net_keeps_capped_regions_fixed():
+    """A is capped first; re-balancing then pushes B above its cap. A's re-exports stay
+    untouched while B is capped, only the uncapped exporters C and D are scaled down."""
+    regions = fd.Dimension(name="Region", letter="r", items=["A", "B", "C", "D"])
+    dims = fd.DimensionSet(dim_list=[regions])
+    trade = Trade(
+        name="test",
+        imports=fd.FlodymArray(dims=dims, values=np.array([10.0, 3.0, 0.0, 0.0])),
+        exports=fd.FlodymArray(dims=dims, values=np.array([2.0, 2.0, 6.0, 3.0])),
+    )
+    limit = fd.FlodymArray(dims=dims, values=np.array([4.0, 1.5, np.inf, np.inf]))
+
+    trade.cap_net(limit, direction="imports", tolerance=1e-12)
+
+    # first round: A imports 6, the exports of B, C, D are scaled by 7/11 to balance
+    # second round: B's net imports exceed 1.5 and are capped, C and D are scaled down again
+    np.testing.assert_allclose(trade.imports.values, [6.0, 1.5 + 14 / 11, 0.0, 0.0])
+    np.testing.assert_allclose(trade.exports.values, [2.0, 14 / 11, 11 / 3, 11 / 6])
+    np.testing.assert_allclose(trade.imports.values.sum(), trade.exports.values.sum())
+
+
+def test_cap_historical_net_imports_to_demand_rebalances():
+    trade = make_trade(imports=[10.0, 0.0, 0.0], exports=[0.0, 8.0, 2.0])
+    demand = make_limit([4.0, 20.0, 20.0], [20.0, 20.0, 20.0])
+
+    make_system().cap_historical_net_imports_to_demand(trade, demand=demand)
+
+    np.testing.assert_allclose(trade.imports[2030].values, [4.0, 0.0, 0.0])
+    np.testing.assert_allclose(trade.exports[2030].values, [0.0, 3.2, 0.8])
+    np.testing.assert_allclose(trade.imports[2040].values, [10.0, 0.0, 0.0])
+    np.testing.assert_allclose(trade.exports[2040].values, [0.0, 8.0, 2.0])
+
+
+def test_cap_historical_net_imports_to_demand_reassigns_within_category():
+    polymers = fd.Dimension(name="Polymer", letter="p", items=["x", "y"])
+    dims = fd.DimensionSet(dim_list=[T, R, polymers])
+
+    def per_region_and_polymer(values: list[list[float]]) -> fd.FlodymArray:
+        return fd.FlodymArray(dims=dims, values=np.tile(values, (T.len, 1, 1)))
+
+    trade = Trade(
+        name="test",
+        imports=per_region_and_polymer([[4.0, 1.0], [0.0, 0.0], [0.0, 0.0]]),
+        exports=per_region_and_polymer([[0.0, 0.0], [3.0, 1.0], [1.0, 0.0]]),
+    )
+    # A's net imports of x exceed its demand by 2, which fits into the headroom of y
+    demand = per_region_and_polymer([[2.0, 3.0], [20.0, 20.0], [20.0, 20.0]])
+
+    make_system().cap_historical_net_imports_to_demand(trade, demand=demand, category_dim="p")
+
+    np.testing.assert_allclose(trade.imports[{"r": "A"}].values, [[2.0, 3.0], [2.0, 3.0]])
+    # the net exporters of x move 2 of their exports from x to y, proportionally to their net
+    # exports of x (B: 1.5, C: 0.5), so trade stays balanced per polymer
+    np.testing.assert_allclose(trade.exports[{"r": "B"}].values, [[1.5, 2.5], [1.5, 2.5]])
+    np.testing.assert_allclose(trade.exports[{"r": "C"}].values, [[0.5, 0.5], [0.5, 0.5]])
+    np.testing.assert_allclose(
+        trade.imports.sum_over("r").values, trade.exports.sum_over("r").values
+    )
