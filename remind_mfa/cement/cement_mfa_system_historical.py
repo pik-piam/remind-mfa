@@ -13,10 +13,10 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         """
         self.fill_trade()
         self.balance_trade()
-        prm, trd, flw, stk = self.mfa_stats()
-        self.cap_historical_net_exports_to_supply(trd["cement"], prm["cement_production"])
-        self.compute_stock(prm, trd, flw, stk)
-        self.compute_other_flows(prm, trd, flw, stk)
+        self.cap_historical_net_exports_to_supply(
+            self.trade_set["cement"], self.parameters["cement_production"]
+        )
+        self.compute_flows_and_stock(self.parameters, self.trade_set, self.flows, self.stocks)
         self.check_mass_balance()
         self.check_flows()
 
@@ -29,59 +29,44 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         """
         self.trade_set.balance(to="imports")
 
-    def mfa_stats(self):
-        prm = self.parameters
-        trd = self.trade_set
-        flw = self.flows
-        stk = self.stocks
-        return prm, trd, flw, stk
-
     @staticmethod
-    def compute_stock(prm, trd, flw, stk):
-        """Compute relevant flows for stock build-up and compute the in-use stock.
-        For reconciliation, returns in use stock."""
+    def compute_flows_and_stock(prm, trd, flw, stk):
+        """Compute all flows and the in-use stock. Static, as it is also used in the
+        parameter reconciliation, which needs the in-use stock it returns."""
 
         # production
+        flw["sysenv => cement_production"][...] = prm["cement_production"]
         flw["cement_production => cement_market"][...] = prm["cement_production"]
 
-        # product production
+        # trade
+        flw["imports => cement_market"][...] = trd["cement"].imports
+        flw["cement_market => exports"][...] = trd["cement"].exports
+        flw["sysenv => imports"][...] = trd["cement"].imports
+        flw["exports => sysenv"][...] = trd["cement"].exports
+
+        # construction
         cement_use = (
             (flw["cement_production => cement_market"] + trd["cement"].net_imports)
             * (1 - prm["cement_losses"])
             * prm["end_use_split"]
+            * prm["construction_material_split"]
         )
-        flw["cement_market => construction"][...] = cement_use * prm["construction_material_split"]
-        product_by_material = flw["cement_market => construction"] / prm["cement_ratio"]
-        flw["sysenv => construction"][...] = (
-            product_by_material - flw["cement_market => construction"]
-        )
+        product_by_material = cement_use / prm["cement_ratio"]
+        flw["sysenv => construction"][...] = product_by_material - cement_use
         flw["construction => use"][...] = product_by_material.sum_over("m")
+        # construction losses are relative to total cement use
+        flw["cement_market => construction"][...] = cement_use / (1 - prm["cement_losses"])
+        flw["construction => sysenv"][...] = (
+            flw["cement_market => construction"] * prm["cement_losses"]
+        )
 
+        # in-use stock
         stk["use"].inflow[...] = flw["construction => use"]
         stk["use"].lifetime_model.set_prms(
             mean=prm["lifetime_mean"],
             std=prm["lifetime_std"],
         )
         stk["use"].compute()
+        flw["use => sysenv"][...] = stk["use"].outflow
 
         return stk["use"].stock
-
-    @staticmethod
-    def compute_other_flows(prm, trd, flw, stk):
-        """Compute other flows for sanity checks like mass balance or negative flows."""
-
-        # production
-        flw["sysenv => cement_production"][...] = flw["cement_production => cement_market"]
-
-        # cement losses during construction
-        flw["cement_market => sysenv"][...] = (
-            flw["cement_market => construction"] * prm["cement_losses"] / (1 - prm["cement_losses"])
-        )
-
-        # trade
-        flw["cement_market => exports"][...] = trd["cement"].exports
-        flw["imports => cement_market"][...] = trd["cement"].imports
-        flw["exports => sysenv"][...] = flw["cement_market => exports"]
-        flw["sysenv => imports"][...] = flw["imports => cement_market"]
-
-        flw["use => sysenv"][...] = stk["use"].outflow
