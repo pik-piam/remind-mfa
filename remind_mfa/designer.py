@@ -57,7 +57,7 @@ class DesignerModel:
 
 def load(
     model: str,
-    configs: Sequence[str | Path] = ("default", "browser"),
+    configs: Sequence[str | Path] = ("default", "pyodide"),
     root: str | Path | None = None,
 ) -> DesignerModel:
     """Load a model for the flodym designer.

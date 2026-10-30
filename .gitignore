@@ -20,4 +20,5 @@ config/*.toml
 !config/default.toml
 !config/ci.toml
 !config/mrindustry.toml
+!config/pyodide.toml
 notebooks/__marimo__/session/*

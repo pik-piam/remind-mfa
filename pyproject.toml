@@ -90,7 +90,7 @@ packages = []
 files = [
     "remind_mfa/**/*.py",
     "config/default.toml",
-    "config/browser.toml",
+    "config/pyodide.toml",
     "config/scenarios/*.csv",
     "data_in/parameters/rev.txt",
     "data_in/parameters/regions.txt",

@@ -1,0 +1,19 @@
+# Configuration layer for running in Pyodide, e.g. in the flodym designer
+# Stack it on top of the default layer: load_config(["default", "pyodide"], model)
+# Nothing is shown or written to disk; results are read from the model object instead
+
+[base]
+    [base.visualization]
+        do_visualize = false
+        do_show_figs = false
+        do_save_figs = false
+        do_save_figs_html = false
+
+    [base.export]
+        do_export = false
+        pickle.do_export = false
+        csv.do_export = false
+        iamc.do_export = false
+        mrindustry.do_export = false
+        assumptions.do_export = false
+        docs.do_export = false
