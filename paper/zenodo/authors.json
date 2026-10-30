@@ -1,0 +1,155 @@
+[
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Dürrwächter",
+      "given_name": "Jakob",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0001-8961-5340"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Potsdam Institute for Climate Impact Research"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Weiss",
+      "given_name": "Bennet",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0009-0009-9859-9683"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Potsdam Institute for Climate Impact Research"
+      },
+      {
+        "name": "Technical University of Berlin"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Schweiger",
+      "given_name": "Leonie",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0009-0008-1259-7779"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Potsdam Institute for Climate Impact Research"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Hosak",
+      "given_name": "Merlin",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0009-0005-7965-1846"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Potsdam Institute for Climate Impact Research"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Zhang",
+      "given_name": "Qianzhi",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0001-5319-9859"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Tsinghua University"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Diez",
+      "given_name": "Tobias",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0002-1407-7696"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Potsdam Institute for Climate Impact Research"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Luderer",
+      "given_name": "Gunnar",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0002-9057-6155"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Potsdam Institute for Climate Impact Research"
+      },
+      {
+        "name": "Technical University of Berlin"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Ueckerdt",
+      "given_name": "Falko",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0001-5585-030X"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "Potsdam Institute for Climate Impact Research"
+      },
+      {
+        "name": "Interdisciplinary Transformation University Austria"
+      }
+    ]
+  }
+]
