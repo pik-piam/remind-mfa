@@ -126,7 +126,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["construction => use"][...] = stk["use"].inflow - flw["reuse => use"]
         flw["cement_market => construction"][...] = flw["construction => use"][{"k": "Cement"}]
         flw["sysenv => construction"][...] = flw["construction => use"][{"k": "Non-Cement"}]
-        flw["cement_market => sysenv"][...] = (
+        flw["cement_market => losses"][...] = (
             flw["cement_market => construction"]
             * prm["cement_losses"]
             / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
@@ -140,7 +140,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk["eol_waste"].compute()
 
         # cement trade
-        total_cement_demand = flw["cement_market => construction"] + flw["cement_market => sysenv"]
+        total_cement_demand = flw["cement_market => construction"] + flw["cement_market => losses"]
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
@@ -154,7 +154,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         # cement production
         flw["cement_production => cement_market"][...] = (
             flw["cement_market => construction"]
-            + flw["cement_market => sysenv"]
+            + flw["cement_market => losses"]
             + trd["cement"].net_exports
         )
         flw["clinker_market => cement_production"][...] = (
@@ -184,11 +184,16 @@ class StockDrivenCementMFASystem(CommonMFASystem):
             flw["clinker_market => cement_production"] + trd["clinker"].net_exports
         )
         # net cement kiln dust generation
-        flw["clinker_production => sysenv"][...] = (
+        flw["clinker_production => losses"][...] = (
             flw["clinker_production => clinker_market"] * prm["clinker_losses"]
         )
         flw["sysenv => clinker_production"][...] = (
-            flw["clinker_production => clinker_market"] + flw["clinker_production => sysenv"]
+            flw["clinker_production => clinker_market"] + flw["clinker_production => losses"]
+        )
+
+        # losses
+        flw["losses => sysenv"][...] = (
+            flw["clinker_production => losses"] + flw["cement_market => losses"]
         )
 
         # balance trade with sysenv

@@ -25,6 +25,32 @@ class RemindMFADefinition(fd.MFADefinition):
     parameters: List[RemindMFAParameterDefinition]  # ty: ignore[invalid-attribute-override]
     """List of definitions of parameters used in the model."""
 
+    @classmethod
+    def from_parts(cls, parts: List["RemindMFAPartialDefinition"]) -> "RemindMFADefinition":
+        """Combine partial definitions (e.g. a core definition and optional modules) into one
+        definition. The parts are only validated together, so a part may use dimensions or
+        processes declared in another part."""
+        merged = {
+            name: [item for part in parts for item in getattr(part, name)]
+            for name in cls.model_fields
+        }
+        return cls(**merged)
+
+
+class RemindMFAPartialDefinition(RemindMFADefinition):
+    """Part of an MFA definition, e.g. an optional model module that is only added to the
+    definition if it is active. Missing fields default to empty lists. Not validated on its own,
+    only once combined to a full definition by `RemindMFADefinition.from_parts`."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_to_empty(cls, data: dict) -> dict:
+        return {name: [] for name in cls.model_fields} | data
+
+    @model_validator(mode="after")
+    def check_dimension_letters(self):
+        return self
+
 
 class PlainDataPointDefinition(RemindMFABaseModel):
 

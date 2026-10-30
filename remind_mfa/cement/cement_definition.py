@@ -1,10 +1,14 @@
 import flodym as fd
 
+from remind_mfa.cement.cement_bottom_up_definition import get_bottom_up_data_definition
+from remind_mfa.cement.cement_bottom_up_definition import get_bottom_up_system_definition
+from remind_mfa.cement.cement_carbon_uptake_model import get_carbonation_definition
 from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.common.common_definition import ExtrapolationDefinition
 from remind_mfa.common.common_definition import PlainDataPointDefinition
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
+from remind_mfa.common.common_definition import RemindMFAPartialDefinition
 from remind_mfa.common.trade import TradeDefinition
 
 # fmt: off
@@ -12,12 +16,24 @@ from remind_mfa.common.trade import TradeDefinition
 def get_cement_definition(
     cfg: CementCfg, historical: bool, bottom_up: bool = False
 ) -> RemindMFADefinition:
+    """Build the cement MFA definition from the core definition and the active modules.
+
+    The bottom-up module (dimensions and parameters) is active if parameter reconciliation is
+    switched on, the carbonation module (future MFA only) if carbonation is switched on.
+
+    Args:
+        cfg: Cement model configuration.
+        historical: Whether to build the historical or the future MFA definition.
+        bottom_up: Whether to build the combined (bottom-up) future MFA definition, which runs at
+            the extended end-use resolution and contains the bottom-up stocks.
+    """
 
     if historical and bottom_up:
         raise ValueError(
             "Historical Bottom-up not implemented. Please set historical=False or bottom_up=False."
         )
-
+    bottom_up_active = bottom_up or cfg.model_switches.parameter_reconciliation
+    carbonation_active = not historical and cfg.model_switches.carbonation
 
     # 1) Dimensions
     dimensions = [
@@ -28,17 +44,6 @@ def get_cement_definition(
         fd.DimensionDefinition(name="Construction Material", dim_letter="m", dtype=str),
         fd.DimensionDefinition(name="Construction Material Constituent", dim_letter="k", dtype=str),
         fd.DimensionDefinition(name="Driver Scenario", dim_letter="S", dtype=str),
-        # carbonation dimensions
-        fd.DimensionDefinition(name="Product Application", dim_letter="a", dtype=str),
-        fd.DimensionDefinition(name="Waste Type", dim_letter="w", dtype=str),
-        fd.DimensionDefinition(name="Waste Size", dim_letter="p", dtype=str),
-        fd.DimensionDefinition(name="Carbonation Location", dim_letter="l", dtype=str),
-        # service demand
-        fd.DimensionDefinition(name="Structure", dim_letter="s", dtype=str),
-        fd.DimensionDefinition(name="Common End Use", dim_letter="c", dtype=str),  # Residential/Commercial
-        fd.DimensionDefinition(name="Bottom-up End Use", dim_letter="b", dtype=str),  # Residential Single-/Multi-Family, Commercial
-        fd.DimensionDefinition(name="Residential Type", dim_letter="d", dtype=str),  # Residential Single-/Multi-Family
-        fd.DimensionDefinition(name="Extended End Use", dim_letter="e", dtype=str),  # Bottom-up End Use + Industrial, Civil Engineering
     ]
 
     # 2) Processes
@@ -65,6 +70,7 @@ def get_cement_definition(
             "eol_management",
             "eol_waste",
             "reuse",
+            "losses",
             "imports",
             "exports",
         ]
@@ -95,7 +101,8 @@ def get_cement_definition(
             # clinker production
             fd.FlowDefinition(from_process="sysenv", to_process="clinker_production", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="clinker_production", to_process="clinker_market", dim_letters=("t", "r")),
-            fd.FlowDefinition(from_process="clinker_production", to_process="sysenv", dim_letters=("t", "r")),
+            # net cement kiln dust generation
+            fd.FlowDefinition(from_process="clinker_production", to_process="losses", dim_letters=("t", "r")),
             # clinker trade
             fd.FlowDefinition(from_process="clinker_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="clinker_market", dim_letters=("t", "r")),
@@ -107,7 +114,7 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="cement_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="cement_market", dim_letters=("t", "r")),
             # cement losses during construction
-            fd.FlowDefinition(from_process="cement_market", to_process="sysenv", dim_letters=("t", "r")),
+            fd.FlowDefinition(from_process="cement_market", to_process="losses", dim_letters=("t", "r")),
             # construction
             fd.FlowDefinition(from_process="cement_market", to_process="construction", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="sysenv", to_process="construction", dim_letters=full_flow_letters),
@@ -121,6 +128,8 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="reuse", to_process="use", dim_letters=full_flow_letters + ("k",)),
             # disposal: the non-reused material accumulates in the eol waste stock
             fd.FlowDefinition(from_process="eol_management", to_process="eol_waste", dim_letters=full_flow_letters + ("k",)),
+            # losses leave the system
+            fd.FlowDefinition(from_process="losses", to_process="sysenv", dim_letters=("t", "r")),
             # general trade
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("t", "r")),
@@ -159,35 +168,7 @@ def get_cement_definition(
                 dim_letters=full_flow_letters + ("k",),
                 subclass=fd.SimpleFlowDrivenStock,
             ),
-            # The atmosphere and carbonated_co2 stocks are injected at runtime by
-            # CementCarbonUptakeModel when carbonation is active (see cement_carbon_uptake_model.py).
         ]
-        if bottom_up:
-            stocks.extend(
-                [
-                    fd.StockDefinition(
-                        name="floorspace",
-                        process=None,  # no associated process
-                        dim_letters=("t", "r", "c"),
-                        subclass=fd.StockDrivenDSM,
-                        lifetime_model_class=cfg.model_switches.lifetime_model,
-                    ),
-                    fd.StockDefinition(
-                        name="bu_use",
-                        process=None,  # no associated process
-                        dim_letters=("t", "r", "b", "s"),
-                        subclass=fd.InflowDrivenDSM,
-                        lifetime_model_class=cfg.model_switches.lifetime_model,
-                    ),
-                    fd.StockDefinition(
-                        name="td_use",
-                        process=None,  # no associated process
-                        dim_letters=full_flow_letters,
-                        subclass=fd.InflowDrivenDSM,
-                        lifetime_model_class=cfg.model_switches.lifetime_model,
-                    ),
-                ]
-            )
 
     # 5) Parameters
     parameters = [
@@ -224,50 +205,6 @@ def get_cement_definition(
                                      description="Mass share of cement in each newly produced construction material."),
         RemindMFAParameterDefinition(name="construction_material_split", dim_letters=("r", "m"),
                                      description="Share of cement used in each construction material by region."),
-        # carbonation parameters
-        RemindMFAParameterDefinition(name="clinker_cao_ratio", dim_letters=(),
-                                     description="Mass fraction of CaO contained in clinker."),
-        RemindMFAParameterDefinition(name="cao_carbonation_share", dim_letters=("m",),
-                                     description="Share of CaO that is available for carbonation per construction material."),
-        RemindMFAParameterDefinition(name="cao_emission_factor", dim_letters=(),
-                                     description="Process CO2 emission factor from producing CaO."),
-        RemindMFAParameterDefinition(name="ckd_cao_ratio", dim_letters=(),
-                                     description="CaO content ratio present in cement kiln dust."),
-        RemindMFAParameterDefinition(name="ckd_landfill_share", dim_letters=(),
-                                     description="Share of cement kiln dust disposed to landfill."),
-        RemindMFAParameterDefinition(name="carbonation_rate", dim_letters=("r", "a"),
-                                     description="Carbonation rate for exposed stocks by region and application."),
-        RemindMFAParameterDefinition(name="carbonation_rate_buried", dim_letters=("r", "a"),
-                                     description="Carbonation rate for buried stocks by region and application."),
-        RemindMFAParameterDefinition(name="carbonation_rate_coating", dim_letters=(),
-                                     description="Carbonation rate modifier factoring in coated cement products."),
-        RemindMFAParameterDefinition(name="carbonation_rate_co2", dim_letters=(),
-                                     description="Carbonation rate modifier factoring in increased atmospheric CO2 concentrations."),
-        RemindMFAParameterDefinition(name="carbonation_rate_additives", dim_letters=(),
-                                     description="Carbonation rate modifier factoring in cement additives."),
-        RemindMFAParameterDefinition(name="product_thickness", dim_letters=("a",),
-                                     description="Average thickness assumed for each product application."),
-        RemindMFAParameterDefinition(name="material_application_split", dim_letters=("r", "m", "a"),
-                                     description="Share of each construction material distributed across product applications, by region."),
-        RemindMFAParameterDefinition(name="waste_type_split", dim_letters=("r", "w"),
-                                     description="Share of end-of-life cement flows by waste type and region."),
-        RemindMFAParameterDefinition(name="waste_size_share", dim_letters=("r", "w", "p"),
-                                     description="Share of waste distributed across size classes per region and type."),
-        RemindMFAParameterDefinition(name="waste_size_min", dim_letters=("w", "p"),
-                                     description="Minimum particle size represented for each waste type and class."),
-        RemindMFAParameterDefinition(name="waste_size_max", dim_letters=("w", "p"),
-                                     description="Maximum particle size represented for each waste type and class."),
-        # bottom-up parameters
-        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "S", "c"),
-                                     description="Historical and projected total buildings floorspace per region and common end use (Residential/Commercial)."),
-        RemindMFAParameterDefinition(name="residential_type_split", dim_letters=("r", "d"),
-                                     description="Split of residential floor area into single-family and multi-family homes."),
-        RemindMFAParameterDefinition(name="structure_split", dim_letters=("r", "b", "s"),
-                                     description="Split of building end uses into different structure types per region."),
-        RemindMFAParameterDefinition(name="concrete_building_mi", dim_letters=("r", "b", "s"),
-                                     description="Material intensity of concrete (t/m2) differentiated by building end use and structure."),
-        RemindMFAParameterDefinition(name="unoccupied_residential_stock_share", dim_letters=("r",),
-                                     description="Share of residential stock that is not permanently occupied (vacant dwellings and second homes)."),
     ]
 
     # 6) Trades
@@ -282,14 +219,25 @@ def get_cement_definition(
             TradeDefinition(name="cement", dim_letters=("t", "r")),
         ]
 
-    return RemindMFADefinition(
-        dimensions=dimensions,
-        processes=processes,
-        flows=flows,
-        stocks=stocks,
-        parameters=parameters,
-        trades=trades,
-    )
+    # 7) Modules
+    parts = [
+        RemindMFAPartialDefinition(
+            dimensions=dimensions,
+            processes=processes,
+            flows=flows,
+            stocks=stocks,
+            parameters=parameters,
+            trades=trades,
+        )
+    ]
+    if bottom_up_active:
+        parts.append(get_bottom_up_data_definition())
+    if bottom_up:
+        parts.append(get_bottom_up_system_definition(cfg, full_flow_letters))
+    if carbonation_active:
+        parts.append(get_carbonation_definition())
+
+    return RemindMFADefinition.from_parts(parts)
 
 
 scenario_parameters = [
@@ -319,36 +267,9 @@ scenario_parameters = [
         dim_letters=("r",),
     ),
     ExtrapolationDefinition(
-        name="unoccupied_residential_stock_share",
-        dim_letters=("r",),
-    ),
-    ExtrapolationDefinition(
-        name="residential_type_split",
-        dim_letters=("r", "d"),
-        blending_function="poly_mix",
-        split_dimension_letter="d",
-        split_balancing_item="Residential Multi-Family",
-    ),
-    ExtrapolationDefinition(
-        name="structure_split",
-        dim_letters=("r", "b", "s"),
-        blending_function="poly_mix",
-        split_dimension_letter="s",
-        split_balancing_item="Reinforced Concrete Structure",
-    ),
-    ExtrapolationDefinition(
         name="reuse_share",
         dim_letters=("r", "m"),
         create_new=True,
-    ),
-    RemindMFAParameterDefinition(
-        name="min_timber_share",
-        dim_letters=("r",),
-        description="Minimum share of timber buildings the structure split converges to.",
-    ),
-    ExtrapolationDefinition(
-        name="concrete_building_mi",
-        dim_letters=("r", "b", "s"),
     ),
 ]
 
