@@ -849,8 +849,8 @@ def standard_figures(run: LoadedRun, cfg: VisualizationCfg) -> dict[str, go.Figu
     but nothing is shown or written. Use :func:`visualization_cfg` to derive ``cfg``.
     """
     model = run.model
-    visualizer = type(model).visualizer_cls()(cfg=cfg, display_names=model.display_names)
     renderer = pio.renderers.default  # constructing a visualizer changes the global renderer
+    visualizer = type(model.visualizer)(cfg=cfg, display_names=model.display_names)
     try:
         visualizer.visualize(model)
     finally:

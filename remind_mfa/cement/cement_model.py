@@ -1,4 +1,5 @@
 import logging
+from functools import cached_property
 from typing import TYPE_CHECKING, Optional
 from copy import deepcopy
 import numpy as np
@@ -70,11 +71,11 @@ class CementModel(CommonModel[CementCfg]):
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
-    @classmethod
-    def visualizer_cls(cls) -> type[CementVisualizer]:
+    @cached_property
+    def visualizer(self) -> CementVisualizer:
         from remind_mfa.cement.cement_visualization import CementVisualizer
 
-        return CementVisualizer
+        return CementVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     @property
     def bottom_up_active(self) -> bool:

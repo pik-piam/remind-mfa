@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -28,11 +29,11 @@ class SteelModel(CommonModel[SteelCfg]):
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
 
-    @classmethod
-    def visualizer_cls(cls) -> type[SteelVisualizer]:
+    @cached_property
+    def visualizer(self) -> SteelVisualizer:
         from remind_mfa.steel.steel_visualization import SteelVisualizer
 
-        return SteelVisualizer
+        return SteelVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""

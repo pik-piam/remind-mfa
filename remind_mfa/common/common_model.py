@@ -34,16 +34,6 @@ class CommonModel[CfgT: CommonCfg]:
     custom_scn_prm_def = []
     cfg: CfgT
 
-    @classmethod
-    def visualizer_cls(cls) -> type[CommonVisualizer]:
-        """Return the visualizer class of the model. Overridden by each model.
-
-        The class is imported on demand, so plotting libraries are only loaded when visualizing.
-        """
-        from remind_mfa.common.common_visualization import CommonVisualizer
-
-        return CommonVisualizer
-
     @staticmethod
     def get_definition(cfg: CfgT, historical: bool) -> RemindMFADefinition:
         """Build the MFA definition. Overridden by each model."""
@@ -112,8 +102,13 @@ class CommonModel[CfgT: CommonCfg]:
 
     @cached_property
     def visualizer(self) -> CommonVisualizer:
-        """Visualizer of the model."""
-        return self.visualizer_cls()(cfg=self.cfg.visualization, display_names=self.display_names)
+        """Visualizer of the model. Overridden by each model.
+
+        Imported on first use, so plotting libraries are only loaded when visualizing.
+        """
+        from remind_mfa.common.common_visualization import CommonVisualizer
+
+        return CommonVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def set_definition(self):
         self.definition_historical = self.get_definition(self.cfg, historical=True)

@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import flodym as fd
@@ -32,11 +33,11 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
     # lifetime): 50% in 1970 and ~95% in 2005, when per-capita demand in mature economies plateaued
     # while GDP kept growing.
 
-    @classmethod
-    def visualizer_cls(cls) -> type[PlasticsVisualizer]:
+    @cached_property
+    def visualizer(self) -> PlasticsVisualizer:
         from .plastics_visualization import PlasticsVisualizer
 
-        return PlasticsVisualizer
+        return PlasticsVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def modify_parameters(self):
         # cast lifetime mean to correct dimensions for use in common model
