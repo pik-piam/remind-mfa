@@ -86,3 +86,47 @@ unresolved-import = "ignore"
 redundant-condition = "ignore"
 invalid-type-form = "ignore"
 invalid-mutable-override = "ignore"
+
+# Manifest for the flodym designer
+[tool.flodym-designer]
+sys-path = ["."]
+packages = []
+files = [
+    "remind_mfa/**/*.py",
+    "config/default.toml",
+    "config/browser.toml",
+    "config/scenarios/*.csv",
+    "data_in/parameters/rev.txt",
+    "data_in/parameters/regions.txt",
+    "data_in/parameters/regionmapping.csv",
+]
+exclude = []
+
+[tool.flodym-designer.entries.steel]
+title = "Steel"
+call = "remind_mfa.designer:load"
+args = { model = "steel" }
+default-system = "future"
+files = [
+    "data_in/dimensions/steel/*.csv",
+    "data_in/parameters/st_*.cs4r",
+    "data_in/legacy/input_data/st_*.cs4r",
+]
+
+[tool.flodym-designer.entries.cement]
+title = "Cement"
+call = "remind_mfa.designer:load"
+args = { model = "cement" }
+default-system = "future"
+files = ["data_in/dimensions/cement/*.csv", "data_in/parameters/ce_*.cs4r"]
+
+[tool.flodym-designer.entries.plastics]
+title = "Plastics"
+call = "remind_mfa.designer:load"
+args = { model = "plastics" }
+default-system = "future"
+files = [
+    "data_in/dimensions/plastics/*.csv",
+    "data_in/parameters/pl_*.cs4r",
+    "data_in/legacy/input_data/pl_*.cs4r",
+]
