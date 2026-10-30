@@ -17,7 +17,7 @@ from remind_mfa.cement.cement_mfa_system_bottom_up import (
 
 
 class CementParameterReconciliation:
-    """Reconcile parameters of the top-down (td) and bottom-up (bu) cement stock models.
+    """Reconcile parameters of the top-down (S_TD) and bottom-up (S_BU) cement stock models.
 
     Both models predict the in-use concrete stock in residential and commercial buildings
     in the last historical year, but they disagree. This class nudges the uncertain input
@@ -25,36 +25,38 @@ class CementParameterReconciliation:
     uncertainty allows.
 
     How it works:
-        Each parameter x_p is scaled by a factor exp(d_p), so d_p is its correction in log
-        space. We look for the corrections that make the two models agree while staying as
-        small as possible, letting more uncertain parameters move more:
+        Each parameter θ_p,k (p: parameter, k: dimension item index) is scaled by a factor
+        exp(δ_p,k), so δ_p,k is its correction in log space. We look for the corrections that
+        make the two models agree while staying as small as possible, letting more uncertain
+        parameters move more:
 
-            minimize    sum_p (d_p / sigma_p)^2    small, uncertainty-weighted corrections
-            subject to  r(d) = log(td / bu) = 0    the two models agree
+            minimize    δᵀ Q⁻¹ δ                       small, uncertainty-weighted corrections
+            subject to  r(δ) = ln S_TD - ln S_BU = 0   the two models agree
 
-        where sigma_p^2 = ln(1 + v_p^2) is the log-space variance of parameter p with relative
-        uncertainty v_p (lognormal). Parameters with zero uncertainty are fixed. The constraint is non-linear in d, so it is linearised around
-        the current estimate d_hat and the linear problem is solved repeatedly, following
-        the weighted least-squares data reconciliation of Cencic (2016), doi:
-        10.1016/j.serj.2016.06.002, with measurements d = 0 (no correction a priori).
-        Each iteration evaluates
+        where Q = diag(σ_p,k²) and σ_p,k² = ln(1 + v_p,k²) is the log-space variance of a
+        lognormal parameter with relative uncertainty v_p,k. Parameters with zero uncertainty
+        are fixed. The constraint is non-linear in δ, so it is linearised around the current
+        estimate δ⁽ⁿ⁾ and the linear problem is solved repeatedly, following the weighted
+        least-squares data reconciliation of Cencic (2016), doi: 10.1016/j.serj.2016.06.002,
+        with measurements δ = 0 (no correction a priori). Each iteration n evaluates
 
-            r   = log(td / bu)                 the mismatch at d_hat
-            S_p = d r / d d_p                  how much parameter p shifts the mismatch
-                                               (the "sensitivity", via finite differences),
+            r⁽ⁿ⁾ = r(δ⁽ⁿ⁾)                   the residual of all comparisons j
+            J⁽ⁿ⁾ = ∂r / ∂δ at δ⁽ⁿ⁾           the Jacobian, via forward finite differences,
 
-        which turns the constraint into ``r + sum_p S_p (d_p - d_hat_p) = 0``. Its closed-form
+        which turns the constraint into ``r⁽ⁿ⁾ + J⁽ⁿ⁾ (δ - δ⁽ⁿ⁾) = 0``. Its closed-form
         (KKT) solution (Cencic 2016, eq. 11) is the new total correction
 
-            d_p = -sigma_p^2 * S_p^T lambda,
-            (sum_p S_p sigma_p^2 S_p^T) lambda = r - sum_p S_p d_hat_p.
+            (J⁽ⁿ⁾ Q J⁽ⁿ⁾ᵀ) λ⁽ⁿ⁾ = r⁽ⁿ⁾ - J⁽ⁿ⁾ δ⁽ⁿ⁾,
+            δ⁽ⁿ⁺¹⁾ = -Q J⁽ⁿ⁾ᵀ λ⁽ⁿ⁾.
 
-        The iteration stops when both the mismatch and the step d - d_hat vanish; d is then
-        the constrained optimum. The corrected parameters are always computed from the input
-        parameters as input * exp(d).
+        The iteration stops when both the residual r⁽ⁿ⁾ and the step δ⁽ⁿ⁺¹⁾ - δ⁽ⁿ⁾ vanish;
+        δ⁽ⁿ⁺¹⁾ is then the constrained optimum δ*. The corrected parameters are always
+        computed from the input parameters as θ'_p,k = θ_p,k exp(δ_p,k).
 
-        In code: S_p = ``sensitivities[p]``, lambda = ``lmda``, r = ``residual_log``,
-        d_p = ``log_corrections[p]``, sigma_p^2 = ``get_variances(p)``.
+        In code, all quantities are stored per parameter p (each block flattened over k):
+        J_p = ``jacobian[p]``, λ = ``lagrange_multipliers``, r = ``residual``,
+        δ_p = ``delta[p]``, σ_p² = ``get_variances(p)``, v_p = ``relative_uncertainty(p)``,
+        S_TD = ``stock_td``, S_BU = ``stock_bu``.
 
     Dimension handling:
         - The top-down side is computed for all end uses ``u`` and restricted to the common end
@@ -103,7 +105,7 @@ class CementParameterReconciliation:
         self.prepare_dims()
 
         # parameters will get one correction factor across all time steps.
-        self._no_correction_dim_letters = ("t", "h")  # instead of df/dx, now calculating df/dd
+        self._no_correction_dim_letters = ("t", "h")
 
         self.output_dims_are_independent = output_dims_are_independent
 
@@ -112,7 +114,7 @@ class CementParameterReconciliation:
         self.prepare_flws()
         self.prepare_stks()
         self.prepare_trds()
-        self._rel_stds = self._build_rel_stds()
+        self._relative_uncertainties = self._build_relative_uncertainties()
 
     def prepare_dims(self):
         self.input_dims = deepcopy(self.ref_mfa.dims)
@@ -170,95 +172,102 @@ class CementParameterReconciliation:
     ) -> dict[str, fd.Parameter]:
         """Iteratively correct parameters to reconcile top-down and bottom-up stocks.
 
-        Each iteration linearises around the current working parameters, computes the
-        constrained least-squares log-correction (see class docstring), and applies it to
-        the input parameters.
+        Each iteration n linearises around the current working parameters θ exp(δ⁽ⁿ⁾),
+        computes the constrained least-squares correction δ⁽ⁿ⁺¹⁾ (see class docstring), and
+        applies it to the input parameters.
 
         Args:
             max_iter: Maximum number of correction iterations.
-            tol_r: Convergence tolerance of the mismatch ``max(|log(td / bu)|)``.
-            tol_step: Convergence tolerance of the largest log-step ``max(|d - d_hat|)``.
+            tol_r: Convergence tolerance of the residual ``max_j |r⁽ⁿ⁾_j|``.
+            tol_step: Convergence tolerance of the step ``max_p,k |δ⁽ⁿ⁺¹⁾ - δ⁽ⁿ⁾|``.
 
         Returns:
             The corrected parameters in their original dimensions.
         """
         self.output_prms = deepcopy(self.input_prms)
-        # total log-corrections d, flattened over prms_adj_dims
-        log_corrections: dict[str, np.ndarray] = {}
+        # total log-corrections δ⁽ⁿ⁾, flattened over prms_adj_dims
+        delta: dict[str, np.ndarray] = {}
 
-        for i in range(max_iter):
-            td = self.calc_top_down_stock(self.prms)
-            bu = self.calc_bottom_up_stock(self.prms)
-            residual_log = self.calc_residual_log(td, bu)
-            mismatch = self.mismatch_logging(
-                residual_log, td, bu, label=f"iteration {i + 1}/{max_iter}"
+        for n in range(max_iter):
+            stock_td = self.calc_top_down_stock(self.prms)
+            stock_bu = self.calc_bottom_up_stock(self.prms)
+            residual = self.calc_residual(stock_td, stock_bu)
+            max_abs_residual = self.residual_logging(
+                residual, stock_td, stock_bu, label=f"iteration {n + 1}/{max_iter}"
             )
 
-            # fresh sensitivity matrices each iteration (re-linearise around current prms)
-            sensitivities = self.compute_sensitivities(td, bu)
-            lmda = self.solve_lagrange_multipliers(sensitivities, residual_log, log_corrections)
-            new_log_corrections = {
-                prm_name: self.calc_log_correction(prm_name, S, lmda)
-                for prm_name, S in sensitivities.items()
+            # fresh Jacobian each iteration (re-linearise around current prms)
+            jacobian = self.compute_jacobian(stock_td, stock_bu)
+            lagrange_multipliers = self.solve_lagrange_multipliers(jacobian, residual, delta)
+            new_delta = {
+                prm_name: self.calc_delta(prm_name, jacobian_p, lagrange_multipliers)
+                for prm_name, jacobian_p in jacobian.items()
             }
             max_step = max(
-                float(np.max(np.abs(d - log_corrections.get(prm_name, 0.0))))
-                for prm_name, d in new_log_corrections.items()
+                float(np.max(np.abs(delta_p - delta.get(prm_name, 0.0))))
+                for prm_name, delta_p in new_delta.items()
             )
             logging.info(
-                f"Reconciliation iteration {i + 1}/{max_iter}: max |step| = {max_step:.2e}, "
-                f"objective = {self.calc_objective(new_log_corrections):.6g}"
+                f"Reconciliation iteration {n + 1}/{max_iter}: max |step| = {max_step:.2e}, "
+                f"objective = {self.calc_objective(new_delta):.6g}"
             )
 
-            if mismatch < tol_r and max_step < tol_step:
-                logging.info(f"Reconciliation converged after {i} iteration(s).")
+            delta = new_delta
+            self.apply_corrections(delta)
+
+            if max_abs_residual < tol_r and max_step < tol_step:
+                logging.info(f"Reconciliation converged after {n + 1} iteration(s).")
                 break
 
-            log_corrections = new_log_corrections
-            self.apply_corrections(log_corrections)
             # set output prms as new working prms
             self.prepare_prms(self.output_prms)
         else:
-            # not converged: report the mismatch reached by the last applied corrections
-            td = self.calc_top_down_stock(self.prms)
-            bu = self.calc_bottom_up_stock(self.prms)
-            self.mismatch_logging(self.calc_residual_log(td, bu), td, bu, label="final")
+            # not converged: report the residual reached by the last applied corrections
+            stock_td = self.calc_top_down_stock(self.prms)
+            stock_bu = self.calc_bottom_up_stock(self.prms)
+            self.residual_logging(
+                self.calc_residual(stock_td, stock_bu), stock_td, stock_bu, label="final"
+            )
             logging.warning(f"Reconciliation did not converge in {max_iter} iterations.")
 
         for prm_name in self._normalization_dims:
             self.normalize_output_parameter(prm_name)
         return self.output_prms
 
-    def calc_residual_log(self, td: fd.FlodymArray, bu: fd.FlodymArray) -> fd.FlodymArray:
-        """Residual r = log(td / bu), with validity checks for the log-space treatment."""
-        if td.dims.letters != bu.dims.letters:
+    def calc_residual(
+        self, stock_td: fd.FlodymArray, stock_bu: fd.FlodymArray
+    ) -> fd.FlodymArray:
+        """Residual r = ln S_TD - ln S_BU, with validity checks for the log-space treatment."""
+        if stock_td.dims.letters != stock_bu.dims.letters:
             # this is important for later numpy-based calculations
             raise ValueError(
                 "Top-down and bottom-up stocks must have the same dimension order, "
-                f"got {td.dims.letters} and {bu.dims.letters}."
+                f"got {stock_td.dims.letters} and {stock_bu.dims.letters}."
             )
-        if np.any(td.values <= 0) or np.any(bu.values <= 0):
+        if np.any(stock_td.values <= 0) or np.any(stock_bu.values <= 0):
             raise ValueError(
                 "Top-down and bottom-up stocks must be strictly positive "
                 "for log-space reconciliation."
             )
-        return td.apply(np.log) - bu.apply(np.log)
+        return stock_td.apply(np.log) - stock_bu.apply(np.log)
 
     @staticmethod
-    def mismatch_logging(
-        residual_log: fd.FlodymArray, td: fd.FlodymArray, bu: fd.FlodymArray, label: str
+    def residual_logging(
+        residual: fd.FlodymArray, stock_td: fd.FlodymArray, stock_bu: fd.FlodymArray, label: str
     ) -> float:
-        mismatch = float(np.max(np.abs(residual_log.values)))
-        percent_mismatch = float(np.max(np.abs(td.values - bu.values) / np.abs(bu.values)) * 100)
+        max_abs_residual = float(np.max(np.abs(residual.values)))
+        percent_mismatch = float(
+            np.max(np.abs(stock_td.values - stock_bu.values) / np.abs(stock_bu.values)) * 100
+        )
         logging.info(
             f"Reconciliation {label}: "
-            f"max |log(td/bu)| = {mismatch:.4f}, "
+            f"max |r| = {max_abs_residual:.4f}, "
             f"max percent mismatch = {percent_mismatch:.2f}%"
         )
-        return mismatch
+        return max_abs_residual
 
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]):
-        """Top-down stock calculation for reconciliaton."""
+        """Top-down stock S_TD_j for all comparisons j = (r, c) in the reconciliation year."""
         # 1. Compute product stock (summed over construction materials) from historical MFA
         product_stock = InflowDrivenHistoricalCementMFASystem.compute_stock(
             prm, self.trds, self.flws, self.stks
@@ -279,7 +288,7 @@ class CementParameterReconciliation:
         return concrete_stock
 
     def calc_bottom_up_stock(self, prm: dict[str, fd.FlodymArray]):
-        """Bottom-up stock calculation for reconciliation."""
+        """Bottom-up stock S_BU_j for all comparisons j = (r, c) in the reconciliation year."""
         # 1. Compute concrete stock bottom-up
         concrete_stk = StockDrivenBottomUpCementMFASystem.concrete_from_floorspace(
             prm["floorspace"], prm
@@ -288,27 +297,26 @@ class CementParameterReconciliation:
         # 2. Reduce dimensions to match top-down stock dimensions
         return aggregate_bu_to_common(concrete_stk.sum_over("s"), self.common_end_use)
 
-    def compute_sensitivities(
-        self, td: fd.FlodymArray, bu: fd.FlodymArray
+    def compute_jacobian(
+        self, stock_td: fd.FlodymArray, stock_bu: fd.FlodymArray
     ) -> dict[str, np.ndarray]:
-        """Sensitivity matrices S_p of the residual log(td/bu) for all uncertain
-        parameters used by either stock model."""
-        sensitivities: dict[str, np.ndarray] = {}
-        self.add_sensitivities(sensitivities, self.calc_top_down_stock, td, sign=1)
-        self.add_sensitivities(sensitivities, self.calc_bottom_up_stock, bu, sign=-1)
-        return sensitivities
+        """Jacobian blocks J_p = ∂r / ∂δ_p of the residual r = ln S_TD - ln S_BU for all
+        uncertain parameters used by either stock model."""
+        jacobian: dict[str, np.ndarray] = {}
+        self.add_jacobian_blocks(jacobian, self.calc_top_down_stock, stock_td, sign=1)
+        self.add_jacobian_blocks(jacobian, self.calc_bottom_up_stock, stock_bu, sign=-1)
+        return jacobian
 
-    def add_sensitivities(
+    def add_jacobian_blocks(
         self,
-        sensitivities: dict[str, np.ndarray],
+        jacobian: dict[str, np.ndarray],
         f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
         f0: fd.FlodymArray,
         sign: int,
     ):
         """
-        Compute sensitivity matrices for parameters used in the given model function and
-        add them to `sensitivities`. Matrices of parameters appearing in several model
-        functions are summed.
+        Compute Jacobian blocks for parameters used in the given stock model and add them
+        to `jacobian`. Blocks of parameters appearing in both stock models are summed.
         """
         relevant_params = self.get_relevant_parameters(f, self.prms)
 
@@ -316,14 +324,14 @@ class CementParameterReconciliation:
             # zero uncertainty parameters do not need to be adjusted
             if not np.any(self.get_variances(prm_name)):
                 continue
-            S_mat = self.calc_sensitivity(f, f0, prm_name, sign=sign)
-            if prm_name in sensitivities:
+            jacobian_p = self.calc_jacobian_block(f, f0, prm_name, sign=sign)
+            if prm_name in jacobian:
                 logging.info(
-                    f"Sensitivity for parameter {prm_name} already exists; summing matrices."
+                    f"Jacobian block for parameter {prm_name} already exists; summing blocks."
                 )
-                sensitivities[prm_name] = sensitivities[prm_name] + S_mat
+                jacobian[prm_name] = jacobian[prm_name] + jacobian_p
             else:
-                sensitivities[prm_name] = S_mat
+                jacobian[prm_name] = jacobian_p
 
     @staticmethod
     def get_relevant_parameters(model_func: Callable, prms: dict[str, fd.Parameter]) -> set:
@@ -338,50 +346,55 @@ class CementParameterReconciliation:
 
         return spy_prms.accessed_keys
 
-    def calc_sensitivity(
+    def calc_jacobian_block(
         self,
         f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
         f0: fd.FlodymArray,
         prm_name: str,
         sign: int = 1,
     ) -> np.ndarray:
-        """Log-log sensitivity S = d log(td/bu) / d log x_p as a 2D (output x parameter) matrix.
+        """Jacobian block J_p = ∂r / ∂δ_p = ±(1 / S) ∂S / ∂δ_p as a 2D (comparison j x
+        parameter item k) matrix.
 
-        `sign` is +1 if f contributes to the numerator (td), -1 for the denominator (bu), so
-        that S for bu parameters is negated to give d log(td/bu) / d log x_p correctly.
+        `sign` is +1 if f is the top-down stock S_TD and -1 if it is the bottom-up stock
+        S_BU, which enters the residual r = ln S_TD - ln S_BU negatively.
         """
-        J = self.calc_jacobian(f, f0, prm_name)
+        stock_derivative = self.calc_stock_derivative(f, f0, prm_name)
 
         if self.output_dims_are_independent:
-            # Convert FlodymArray Jacobian to numpy matrix and scale for logarithmic sensitivity
-            S = self.flodym_jacobian_to_matrix(J / f0, f0.dims, self.prms_adj_dims[prm_name])
+            # Convert FlodymArray derivative to numpy matrix and scale to log-derivative
+            jacobian_p = self.flodym_derivative_to_matrix(
+                stock_derivative / f0, f0.dims, self.prms_adj_dims[prm_name]
+            )
         else:
             f0_flat = self.flatten_fd_to_np(f0)[:, np.newaxis]
-            S = J / f0_flat
+            jacobian_p = stock_derivative / f0_flat
 
-        return sign * S
+        return sign * jacobian_p
 
-    def calc_jacobian(
+    def calc_stock_derivative(
         self,
         f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
         f0: fd.FlodymArray,
         prm_name: str,
-        epsilon=1e-5,
+        step_size=1e-5,
     ):
+        """Forward finite-difference derivative ∂S / ∂δ_p ≈ (S(δ + h e_p,k) - S(δ)) / h of
+        the stock S = f(θ exp(δ)), with step size h in δ."""
         if self.output_dims_are_independent:
-            return self._calc_jacobian_independent(f, f0, prm_name, epsilon)
-        return self._calc_jacobian_full(f, f0, prm_name, epsilon)
+            return self._calc_stock_derivative_independent(f, f0, prm_name, step_size)
+        return self._calc_stock_derivative_full(f, f0, prm_name, step_size)
 
-    def _calc_jacobian_independent(
+    def _calc_stock_derivative_independent(
         self,
         f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
         f0: fd.FlodymArray,
         prm_name: str,
-        epsilon=1e-5,
+        step_size=1e-5,
     ):
         prm = self.prms[prm_name]
         original_prm = prm.copy()
-        perturbation_factor = math.exp(epsilon)
+        perturbation_factor = math.exp(step_size)
 
         # dims in parameter but NOT in output — must loop over these
         reduced_dims = self.remove_fd_dims_if_present(self.prms_adj_dims[prm_name], f0.dims.letters)
@@ -392,38 +405,38 @@ class CementParameterReconciliation:
             prm[...] = prm * perturbation_factor
             f_perturbed = f(self.prms)
             prm[...] = original_prm
-            J = (f_perturbed - f0) / epsilon
-            return J
+            stock_derivative = (f_perturbed - f0) / step_size
+            return stock_derivative
 
-        J = fd.FlodymArray(dims=combined_dims)
+        stock_derivative = fd.FlodymArray(dims=combined_dims)
 
         for slicer in self.iter_dim_slicers(reduced_dims):
             val = original_prm[slicer]
 
             prm[slicer] = val * perturbation_factor
             f_perturbed = f(self.prms)
-            J[slicer] = (f_perturbed - f0) / epsilon
+            stock_derivative[slicer] = (f_perturbed - f0) / step_size
 
             prm[slicer] = val
 
-        return J
+        return stock_derivative
 
-    def _calc_jacobian_full(
+    def _calc_stock_derivative_full(
         self,
         f: Callable[[dict[str, fd.FlodymArray]], fd.FlodymArray],
         f0: fd.FlodymArray,
         prm_name: str,
-        epsilon=1e-5,
+        step_size=1e-5,
     ):
         """Assumption-free reference implementation: perturbs every parameter element
         individually, building the full output × parameter matrix. Used when
         `output_dims_are_independent` is False."""
         prm = self.prms[prm_name]
         original_prm = prm.copy()
-        perturbation_factor = math.exp(epsilon)
+        perturbation_factor = math.exp(step_size)
         dims_to_adj = self.prms_adj_dims[prm_name]
 
-        J = np.zeros((f0.size, dims_to_adj.total_size))
+        stock_derivative = np.zeros((f0.size, dims_to_adj.total_size))
 
         for flat_idx, slicer in enumerate(self.iter_dim_slicers(dims_to_adj)):
             val = original_prm[slicer]
@@ -431,12 +444,12 @@ class CementParameterReconciliation:
             # Perform perturbation (zero values are not corrected)
             prm[slicer] = val * perturbation_factor
             f_perturbed = f(self.prms)
-            J[:, flat_idx] = self.flatten_fd_to_np(f_perturbed - f0) / epsilon
+            stock_derivative[:, flat_idx] = self.flatten_fd_to_np(f_perturbed - f0) / step_size
 
             # Restore original value
             prm[slicer] = val
 
-        return J
+        return stock_derivative
 
     @staticmethod
     def iter_dim_slicers(dims: fd.DimensionSet):
@@ -455,21 +468,21 @@ class CementParameterReconciliation:
         """Flatten a FlodymArray into a 1D numpy array."""
         return arr.values.flatten()
 
-    def flodym_jacobian_to_matrix(
+    def flodym_derivative_to_matrix(
         self,
-        J: fd.FlodymArray,
+        derivative: fd.FlodymArray,
         output_dims: fd.DimensionSet,
         param_dims: fd.DimensionSet,
     ) -> np.ndarray:
         """
-        Convert a FlodymArray Jacobian into a 2D numpy sensitivity matrix.
+        Convert a FlodymArray derivative into a 2D numpy Jacobian block.
 
-        The Jacobian J has dimensions that are the union of output_dims and param_dims.
+        The derivative has dimensions that are the union of output_dims and param_dims.
         Dimensions shared between output and parameter create block-diagonal structure:
         each element of the shared dimension only affects its corresponding output.
 
         Args:
-            J: FlodymArray with dims = union(output_dims, param_dims)
+            derivative: FlodymArray with dims = union(output_dims, param_dims)
             output_dims: Dimensions of the model output (e.g., region, common end use)
             param_dims: Dimensions of the parameter being varied
 
@@ -478,7 +491,7 @@ class CementParameterReconciliation:
         """
         output_size = output_dims.total_size
         param_size = param_dims.total_size
-        S = np.zeros((output_size, param_size))
+        matrix = np.zeros((output_size, param_size))
 
         # Identify shared vs unique dimensions
         shared_letters = set(output_dims.letters) & set(param_dims.letters)
@@ -488,72 +501,74 @@ class CementParameterReconciliation:
             # Iterate over all parameter positions
             for prm_idx, prm_slicer in enumerate(self.iter_dim_slicers(param_dims)):
                 # Check if shared dimensions match
-                # If they don't match, the sensitivity is zero (block-diagonal structure)
+                # If they don't match, the derivative is zero (block-diagonal structure)
                 shared_match = all(
                     out_slicer[letter] == prm_slicer[letter] for letter in shared_letters
                 )
 
                 if shared_match:
-                    # Build the combined slicer for J
-                    # J has all dimensions from both output and param
-                    j_slicer = {**out_slicer, **prm_slicer}
-                    S[out_idx, prm_idx] = J[j_slicer].values.item()
+                    # Build the combined slicer for the derivative,
+                    # which has all dimensions from both output and param
+                    combined_slicer = {**out_slicer, **prm_slicer}
+                    matrix[out_idx, prm_idx] = derivative[combined_slicer].values.item()
 
-        return S
+        return matrix
 
     def solve_lagrange_multipliers(
         self,
-        sensitivities: dict[str, np.ndarray],
-        residual_log: fd.FlodymArray,
-        log_corrections: dict[str, np.ndarray],
+        jacobian: dict[str, np.ndarray],
+        residual: fd.FlodymArray,
+        delta: dict[str, np.ndarray],
     ) -> np.ndarray:
-        """Solve A λ = r - Σ_p S_p d_hat_p with A = Σ_p S_p diag(σ_p²) S_pᵀ (see class
+        """Solve (J Q Jᵀ) λ = r - J δ⁽ⁿ⁾ with J Q Jᵀ = Σ_p J_p diag(σ_p²) J_pᵀ (see class
         docstring)."""
-        r = self.flatten_fd_to_np(residual_log)
-        A = np.zeros((r.size, r.size))
+        rhs = self.flatten_fd_to_np(residual)
+        jqjt = np.zeros((rhs.size, rhs.size))
 
-        for prm_name, S in sensitivities.items():
+        for prm_name, jacobian_p in jacobian.items():
             variances = self.get_variances(prm_name)
-            A += (S * variances[np.newaxis, :]) @ S.T
-            if prm_name in log_corrections:
-                r = r - S @ log_corrections[prm_name]
+            jqjt += (jacobian_p * variances[np.newaxis, :]) @ jacobian_p.T
+            if prm_name in delta:
+                rhs = rhs - jacobian_p @ delta[prm_name]
 
-        if np.linalg.matrix_rank(A) < r.size:
+        if np.linalg.matrix_rank(jqjt) < rhs.size:
             raise ValueError(
                 "Reconciliation constraints are linearly dependent or not affected by any "
-                "uncertain parameter; A = Σ_p S_p diag(σ_p²) S_pᵀ is singular."
+                "uncertain parameter; J Q Jᵀ is singular."
             )
-        return np.linalg.solve(A, r)
+        return np.linalg.solve(jqjt, rhs)
 
-    def calc_log_correction(self, prm_name: str, S: np.ndarray, lmda: np.ndarray) -> np.ndarray:
-        """Flattened total log-correction d_p = -diag(σ_p²) S_pᵀ λ for a single parameter
+    def calc_delta(
+        self, prm_name: str, jacobian_p: np.ndarray, lagrange_multipliers: np.ndarray
+    ) -> np.ndarray:
+        """Flattened total log-correction δ_p = -diag(σ_p²) J_pᵀ λ for a single parameter
         (see class docstring)."""
-        return -self.get_variances(prm_name) * (S.T @ lmda)
+        return -self.get_variances(prm_name) * (jacobian_p.T @ lagrange_multipliers)
 
-    def calc_objective(self, log_corrections: dict[str, np.ndarray]) -> float:
-        """Objective Σ_p Σ (d_p / σ_p)² (fixed elements with σ_p = 0 have d_p = 0).
-        Only used for logging."""
+    def calc_objective(self, delta: dict[str, np.ndarray]) -> float:
+        """Objective δᵀ Q⁻¹ δ = Σ_p,k δ_p,k² / σ_p,k² (fixed elements with σ_p,k = 0 have
+        δ_p,k = 0). Only used for logging."""
         objective = 0.0
-        for prm_name, d in log_corrections.items():
+        for prm_name, delta_p in delta.items():
             variances = self.get_variances(prm_name)
             uncertain = variances > 0
-            objective += float(np.sum(d[uncertain] ** 2 / variances[uncertain]))
+            objective += float(np.sum(delta_p[uncertain] ** 2 / variances[uncertain]))
         return objective
 
-    def apply_corrections(self, log_corrections: dict[str, np.ndarray]):
+    def apply_corrections(self, delta: dict[str, np.ndarray]):
         """Set the output parameters (in their original dimensions) to the input parameters
-        scaled by the correction factors exp(d_p)."""
+        scaled by the correction factors, θ'_p = θ_p exp(δ_p)."""
         self.output_prms = deepcopy(self.input_prms)
-        for prm_name, d in log_corrections.items():
-            factor = self.reshape_np_to_fd(np.exp(d), self.prms_adj_dims[prm_name])
+        for prm_name, delta_p in delta.items():
+            factor = self.reshape_np_to_fd(np.exp(delta_p), self.prms_adj_dims[prm_name])
             self.output_prms[prm_name][...] = self.output_prms[prm_name] * factor
 
     def get_variances(self, prm_name: str) -> np.ndarray:
         """Flattened variances σ_p² = ln(1 + v_p²) of the log-corrections of a lognormally
-        distributed parameter with relative standard deviation v_p (Limpert et al. 2001)."""
-        return np.log1p(self.flatten_fd_to_np(self.rel_std(prm_name)) ** 2)
+        distributed parameter with relative uncertainty v_p (Limpert et al. 2001)."""
+        return np.log1p(self.flatten_fd_to_np(self.relative_uncertainty(prm_name)) ** 2)
 
-    def _build_rel_stds(self) -> dict[str, float | fd.FlodymArray]:
+    def _build_relative_uncertainties(self) -> dict[str, float | fd.FlodymArray]:
         return {
             # BU parameters
             # TODO MI std could be calculated from source in mrmfa (maybe other parameters, too)
@@ -572,21 +587,21 @@ class CementParameterReconciliation:
             "lifetime_rel_std": 0.0,
         }
 
-    def rel_std(self, prm_name: str) -> fd.FlodymArray:
+    def relative_uncertainty(self, prm_name: str) -> fd.FlodymArray:
         """
-        Get the relative standard deviation of a parameter.
+        Get the relative uncertainty v_p (relative standard deviation) of a parameter.
         Returns a FlodymArray with the same dimensions as the parameter.
         """
-        default_rel_std = 0.2
+        default_relative_uncertainty = 0.2
 
-        out = self._rel_stds.get(prm_name)
+        out = self._relative_uncertainties.get(prm_name)
         if out is None:
             logging.warning(
-                "Relative standard deviation missing for %s; using default %f",
+                "Relative uncertainty missing for %s; using default %f",
                 prm_name,
-                default_rel_std,
+                default_relative_uncertainty,
             )
-            out = default_rel_std
+            out = default_relative_uncertainty
 
         if isinstance(out, (float, int)):
             out = fd.FlodymArray.scalar(out)
