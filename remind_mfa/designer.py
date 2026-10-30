@@ -1,5 +1,4 @@
-"""Entry point for the flodym designer.
-"""
+"""Entry point for the flodym designer."""
 
 from collections.abc import Sequence
 from pathlib import Path
@@ -63,19 +62,19 @@ def load(
 ) -> DesignerModel:
     """Load a model for the flodym designer.
 
-    The returned object has the following attributes and methods:
-    - `systems`: the MFA systems by name (`historical`, `future` and, for cement, `bottom_up`). Before `run()`, they have empty flows and stocks, to show the
-  structure. After `run()`, they are the computed systems.
-    - `run()`: runs the model and returns the computed systems.
+      The returned object has the following attributes and methods:
+      - `systems`: the MFA systems by name (`historical`, `future` and, for cement, `bottom_up`). Before `run()`, they have empty flows and stocks, to show the
+    structure. After `run()`, they are the computed systems.
+      - `run()`: runs the model and returns the computed systems.
 
-    Args:
-        model: Name of the model, e.g. "steel".
-        configs: Configuration layers, as names of files in `<root>/config` or as paths.
-        root: Root of the repository, against which configuration paths are resolved.
-            Defaults to the repository containing this module.
+      Args:
+          model: Name of the model, e.g. "steel".
+          configs: Configuration layers, as names of files in `<root>/config` or as paths.
+          root: Root of the repository, against which configuration paths are resolved.
+              Defaults to the repository containing this module.
 
-    Returns:
-        The model, with its systems available before running it.
+      Returns:
+          The model, with its systems available before running it.
     """
     root_dir = Path(root) if root is not None else REPO_ROOT
     if isinstance(configs, (str, Path)):
