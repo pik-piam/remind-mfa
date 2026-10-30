@@ -1,22 +1,26 @@
+from functools import cached_property
+from typing import TYPE_CHECKING
+
 import flodym as fd
 import numpy as np
 
 from .plastics_mfa_system_future import PlasticsMFASystemFuture
 from .plastics_mfa_system_historical import PlasticsMFASystemHistorical
 from .plastics_export import PlasticsDataExporter
-from .plastics_visualization import PlasticsVisualizer
 from .plastics_definition import get_plastics_definition
 from .plastics_mappings import PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
 from remind_mfa.plastics.plastics_config import PlasticsCfg
 from remind_mfa.common.common_model import CommonModel
 
+if TYPE_CHECKING:
+    from .plastics_visualization import PlasticsVisualizer
+
 
 class PlasticsModel(CommonModel[PlasticsCfg]):
 
     ConfigCls = PlasticsCfg
     DataExporterCls = PlasticsDataExporter
-    VisualizerCls = PlasticsVisualizer
     DisplayNamesCls = PlasticsDisplayNames
     HistoricalMFASystemCls = PlasticsMFASystemHistorical
     FutureMFASystemCls = PlasticsMFASystemFuture
@@ -28,6 +32,12 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
     # penetration of plastics at constant income (stock extrapolation function, shifted by the end-use
     # lifetime): 50% in 1970 and ~95% in 2005, when per-capita demand in mature economies plateaued
     # while GDP kept growing.
+
+    @cached_property
+    def visualizer(self) -> PlasticsVisualizer:
+        from .plastics_visualization import PlasticsVisualizer
+
+        return PlasticsVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def modify_parameters(self):
         # cast lifetime mean to correct dimensions for use in common model

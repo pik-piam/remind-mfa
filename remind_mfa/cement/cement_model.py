@@ -1,5 +1,6 @@
 import logging
-from typing import Optional
+from functools import cached_property
+from typing import TYPE_CHECKING, Optional
 from copy import deepcopy
 import numpy as np
 import flodym as fd
@@ -18,10 +19,12 @@ from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistorica
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDisplayNames
 from remind_mfa.cement.cement_export import CementDataExporter
-from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
+
+if TYPE_CHECKING:
+    from remind_mfa.cement.cement_visualization import CementVisualizer
 
 
 def converge_lifetime_factor(
@@ -61,13 +64,18 @@ class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
     DataExporterCls = CementDataExporter
-    VisualizerCls = CementVisualizer
     DisplayNamesCls = CementDisplayNames
     HistoricalMFASystemCls = InflowDrivenHistoricalCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
     BottomUpMFASystemCls = StockDrivenBottomUpCementMFASystem
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
+
+    @cached_property
+    def visualizer(self) -> CementVisualizer:
+        from remind_mfa.cement.cement_visualization import CementVisualizer
+
+        return CementVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     @property
     def bottom_up_active(self) -> bool:

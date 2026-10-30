@@ -259,7 +259,7 @@ def _(changes, mo, rc):
 
 @app.cell
 def _(mo, other_run, rc, reference_run):
-    visualization_cfg = rc.visualization_cfg(other_run.model.visualizer.cfg)
+    visualization_cfg = rc.visualization_cfg(other_run.model.cfg.visualization)
     figure_sets = {}
     figure_failures = []
     for run in (reference_run, other_run):
