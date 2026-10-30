@@ -1,13 +1,13 @@
 | Name                   |
 |:-----------------------|
-| System environment     |
-| Production: Clinker    |
-| Market: Clinker        |
-| Production: Cement     |
-| Market: Cement         |
+| System Environment     |
+| Clinker Production     |
+| Clinker Market         |
+| Cement Production      |
+| Cement Market          |
 | Construction           |
-| Use phase              |
-| Hibernating stock      |
+| Use Phase              |
+| Hibernating Stock      |
 | End-of-Life Management |
 | End-of-Life Waste      |
 | Reuse                  |

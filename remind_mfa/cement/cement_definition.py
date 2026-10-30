@@ -84,10 +84,10 @@ def get_cement_definition(
             fd.FlowDefinition(from_process="imports", to_process="cement_market", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="exports", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="imports", dim_letters=("h", "r")),
-            fd.FlowDefinition(from_process="cement_market", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="cement_market", to_process="construction", dim_letters=("h", "r", "u", "m")),
             fd.FlowDefinition(from_process="sysenv", to_process="construction", dim_letters=("h", "r", "u", "m")),
             fd.FlowDefinition(from_process="construction", to_process="use", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="construction", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
         ]
     else:
@@ -113,12 +113,12 @@ def get_cement_definition(
             # cement trade
             fd.FlowDefinition(from_process="cement_market", to_process="exports", dim_letters=("t", "r")),
             fd.FlowDefinition(from_process="imports", to_process="cement_market", dim_letters=("t", "r")),
-            # cement losses during construction
-            fd.FlowDefinition(from_process="cement_market", to_process="losses", dim_letters=("t", "r")),
             # construction
             fd.FlowDefinition(from_process="cement_market", to_process="construction", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="sysenv", to_process="construction", dim_letters=full_flow_letters),
             fd.FlowDefinition(from_process="construction", to_process="use", dim_letters=full_flow_letters + ("k",)),
+            # cement losses during construction
+            fd.FlowDefinition(from_process="construction", to_process="losses", dim_letters=("t", "r")),
             # hibernation: part of the in-use outflow remains in place, without outflow
             fd.FlowDefinition(from_process="use", to_process="hibernating", dim_letters=full_flow_letters + ("k",)),
             # end-of-life management: the demolished in-use outflow (non-hibernating)
