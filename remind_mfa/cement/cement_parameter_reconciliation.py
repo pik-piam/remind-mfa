@@ -287,7 +287,7 @@ class CementParameterReconciliation:
         """Top-down stock calculation for reconciliaton."""
 
         # 1. Compute product stock (summed over construction materials) from historical MFA
-        product_stock = InflowDrivenHistoricalCementMFASystem.compute_stock(
+        product_stock = InflowDrivenHistoricalCementMFASystem.compute_flows_and_stock(
             prm, self.trds, self.flws, self.stks
         )
 
