@@ -309,7 +309,6 @@ class CementParameterReconciliation:
         Compute sensitivity matrices for parameters used in the given model function and
         add them to `sensitivities`. Matrices of parameters appearing in several model
         functions are summed.
-        TODO Analytical sensitivities for parameters could be provided to reduce computation time.
         """
         relevant_params = self.get_relevant_parameters(f, self.prms)
 
@@ -382,6 +381,7 @@ class CementParameterReconciliation:
     ):
         prm = self.prms[prm_name]
         original_prm = prm.copy()
+        perturbation_factor = math.exp(epsilon)
 
         # dims in parameter but NOT in output — must loop over these
         reduced_dims = self.remove_fd_dims_if_present(self.prms_adj_dims[prm_name], f0.dims.letters)
@@ -389,7 +389,7 @@ class CementParameterReconciliation:
 
         if not reduced_dims.letters:
             # No extra dims — single perturbation suffices
-            prm[...] = prm * (1 + epsilon)
+            prm[...] = prm * perturbation_factor
             f_perturbed = f(self.prms)
             prm[...] = original_prm
             J = (f_perturbed - f0) / epsilon
@@ -400,7 +400,7 @@ class CementParameterReconciliation:
         for slicer in self.iter_dim_slicers(reduced_dims):
             val = original_prm[slicer]
 
-            prm[slicer] = val * (1 + epsilon)
+            prm[slicer] = val * perturbation_factor
             f_perturbed = f(self.prms)
             J[slicer] = (f_perturbed - f0) / epsilon
 
@@ -420,6 +420,7 @@ class CementParameterReconciliation:
         `output_dims_are_independent` is False."""
         prm = self.prms[prm_name]
         original_prm = prm.copy()
+        perturbation_factor = math.exp(epsilon)
         dims_to_adj = self.prms_adj_dims[prm_name]
 
         J = np.zeros((f0.size, dims_to_adj.total_size))
@@ -428,7 +429,7 @@ class CementParameterReconciliation:
             val = original_prm[slicer]
 
             # Perform perturbation (zero values are not corrected)
-            prm[slicer] = val * (1 + epsilon)
+            prm[slicer] = val * perturbation_factor
             f_perturbed = f(self.prms)
             J[:, flat_idx] = self.flatten_fd_to_np(f_perturbed - f0) / epsilon
 
