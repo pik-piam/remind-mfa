@@ -75,8 +75,9 @@ A few more details on the coupling:
 
 3. `uv run remind_mfa.py --config default --config atlas_run2 --model steel` reads those files
    instead of extrapolating trade (`trade.source = "data"`). Historic years still use the trade of
-   the historic MFA, so only future years come from ATLAS. Global imports and exports of the data
-   are balanced (`trade.balance`).
+   the historic MFA, so only future years come from ATLAS. By default, ATLAS projects in 5-year
+   steps. Other future years are later interpolated linearly. Global imports and exports of the data are balanced
+   (`trade.balance`).
 
 By default, only the primary market of each material is read from data. Other markets (e.g. steel
 scrap or indirect trade) can be added with `trade.data_markets`.

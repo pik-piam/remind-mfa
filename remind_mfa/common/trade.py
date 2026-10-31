@@ -163,6 +163,10 @@ def set_trade_from_data(
     historic one and does not jump at the transition (the same convention as
     :class:`TradeExtrapolator`). The data is only used for the future years.
 
+    The data may cover only some future years (e.g. 5-year steps as output by ATLAS). Future
+    years without data are interpolated linearly between the last historic year and the years
+    covered by the data. After the last covered year, trade is held constant.
+
     Args:
         future_trade: Future trade object to write into.
         imports: Import data over the full time dimension 't'.
@@ -176,10 +180,10 @@ def set_trade_from_data(
     future_trade.exports[...] = exports
 
     historic_time = historic_trade.imports.dims["h"]
-    _warn_uncovered_years(future_trade, historic_time, market_name)
-
     future_trade.imports[{"t": historic_time}] = historic_trade.imports
     future_trade.exports[{"t": historic_time}] = historic_trade.exports
+
+    _interpolate_years_without_data(future_trade, historic_time, market_name)
 
     _warn_global_imbalance(future_trade, market_name)
 
@@ -187,22 +191,64 @@ def set_trade_from_data(
         future_trade.balance(to=balance_to)
 
 
-def _warn_uncovered_years(future_trade: Trade, historic_time: fd.Dimension, market_name: str):
-    """Warn about future years in which both imports and exports of the given data are zero.
+def _interpolate_years_without_data(
+    future_trade: Trade, historic_time: fd.Dimension, market_name: str
+):
+    """Interpolate future years in which global imports and exports are zero, in place.
 
-    Might happen if the cs4r file as output by ATLAS does not cover all future years, in which case the reader will silently set the trade to zero in those years. This is usually not intended.
+    The reader sets trade to zero in years not covered by the input file, e.g. if ATLAS only
+    outputs 5-year steps. These years are interpolated linearly between the last historic year
+    and the years covered by the data. After the last covered year, trade is held constant.
     """
     total = _global_values(future_trade.imports) + _global_values(future_trade.exports)
-    uncovered = [
+    future_years = [
+        year for year in future_trade.imports.dims["t"].items if year not in historic_time.items
+    ]
+    covered = [
         year
         for year, value in zip(future_trade.imports.dims["t"].items, total)
-        if year not in historic_time.items and value == 0.0
+        if year in future_years and value != 0.0
     ]
-    if uncovered:
-        logging.warning(
-            f"'{market_name}': trade data is zero in {len(uncovered)} future year(s) "
-            f"({uncovered}). These years are probably not covered by the data."
+    if not covered:
+        raise ValueError(
+            f"'{market_name}': trade data is zero in all future years. "
+            "The input data probably does not cover the future time range."
         )
+
+    interpolated = [year for year in future_years if year < covered[-1] and year not in covered]
+    if interpolated:
+        logging.info(
+            f"'{market_name}': trade data covers the future years {covered}. "
+            f"Interpolating linearly in {len(interpolated)} year(s) without data."
+        )
+    held_constant = [year for year in future_years if year > covered[-1]]
+    if held_constant:
+        logging.warning(
+            f"'{market_name}': trade data ends in {covered[-1]}. It is held constant in "
+            f"{len(held_constant)} later year(s) ({held_constant})."
+        )
+
+    anchor_years = [max(historic_time.items), *covered]
+    _interpolate_over_time(future_trade.imports, anchor_years)
+    _interpolate_over_time(future_trade.exports, anchor_years)
+
+
+def _interpolate_over_time(array: fd.FlodymArray, anchor_years: list[int]):
+    """Linearly interpolate the given array over time between the anchor years, in place.
+
+    Only years after the first anchor year are changed. After the last anchor year, the values of
+    that year are used.
+    """
+    years = np.asarray(array.dims["t"].items)
+    # view of the values with time as first axis, so assignments write through
+    values = np.moveaxis(array.values, array.dims.index("t"), 0)
+    anchor_values = values[np.searchsorted(years, anchor_years)]
+    interpolated = years > anchor_years[0]
+    values[interpolated] = np.apply_along_axis(
+        lambda anchor_series: np.interp(years[interpolated], anchor_years, anchor_series),
+        0,
+        anchor_values,
+    )
 
 
 def _warn_global_imbalance(future_trade: Trade, market_name: str, tolerance: float = 1e-3):
