@@ -166,7 +166,10 @@ class Extrapolation(RemindMFABaseModel):
             return fitting_function(prms)
 
         fit_prms[free] = least_squares(
-            fitting_function_free, x0=fit_prms[free], gtol=1.0e-12, bounds=(lower[free], upper[free])
+            fitting_function_free,
+            x0=fit_prms[free],
+            gtol=1.0e-12,
+            bounds=(lower[free], upper[free]),
         ).x
         regression = self.func(predictor, fit_prms)
         return fit_prms, regression
