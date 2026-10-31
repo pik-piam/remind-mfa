@@ -89,13 +89,6 @@ class Bound(RemindMFABaseModel):
 
         if np.any(lb > ub):
             raise ValueError("Lower bounds must be smaller than upper bounds")
-
-        # Check if lower bound equals upper bound and slightly adjust (required for scipy optimizer)
-        equal_mask = lb == ub
-        if np.any(equal_mask):
-            lb[equal_mask] = np.nextafter(lb[equal_mask], -np.inf) * (1 + 1e-6)
-            ub[equal_mask] = np.nextafter(ub[equal_mask], np.inf) * (1 + 1e-6)
-
         return self
 
     def extend_dims(self, target_dims: fd.DimensionSet):
