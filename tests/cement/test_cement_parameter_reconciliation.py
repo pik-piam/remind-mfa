@@ -1,7 +1,5 @@
 """Tests for the reconciliation algorithm of `CementParameterReconciliation` on a toy model."""
 
-from copy import deepcopy
-
 import flodym as fd
 import numpy as np
 import pytest
@@ -19,7 +17,7 @@ class ToyReconciliation(CementParameterReconciliation):
     log space.
     """
 
-    _normalization_dims = {"split": ("Split",)}
+    _normalization_dims = {"split": "Split"}
 
     def __init__(
         self,
@@ -29,11 +27,11 @@ class ToyReconciliation(CementParameterReconciliation):
         linear: bool = False,
     ):
         self.linear = linear
-        self.output_dims_are_independent = output_dims_are_independent
-        self._no_correction_dim_letters = ("t", "h")
-        self.input_prms = deepcopy(prms)
-        self.prepare_prms(prms)
-        self._relative_uncertainties = rel_stds
+        self.toy_rel_stds = rel_stds
+        self.init_parameters(prms, output_dims_are_independent)
+
+    def _build_relative_uncertainties(self) -> dict[str, float | fd.FlodymArray]:
+        return self.toy_rel_stds
 
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
         td = prm["a"] * prm["fixed"]
