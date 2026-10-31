@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from remind_mfa.atlas_coupling import (
     ATLAS_DATA_PIPELINE_ROOT,
+    ATLAS_PROJECTION_YEARS,
     ATLAS_TRADE_ROOT,
     AtlasCo2Price,
     AtlasScenarioPkBudg,
@@ -183,7 +184,7 @@ def future(
     scenario_pkbudg: ScenarioPkBudgOption = AtlasScenarioPkBudg.BUDG_1000,
     projection_years: Annotated[
         str, typer.Option(help="Comma-separated list of projection years.")
-    ] = ",".join(str(year) for year in range(2023, 2051)),
+    ] = ",".join(str(year) for year in ATLAS_PROJECTION_YEARS),
 ) -> None:
     """Calculate ATLAS future trade projections."""
 

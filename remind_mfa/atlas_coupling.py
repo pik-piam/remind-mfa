@@ -17,7 +17,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ATLAS_DATA_PIPELINE_ROOT = PROJECT_ROOT / "ATLAS_Trade_data_pipeline"
 ATLAS_TRADE_ROOT = PROJECT_ROOT / "ATLAS-Trade"
 ATLAS_CACHE_EXPORTER = PROJECT_ROOT / "remind_mfa" / "export_atlas_cache.py"
-ANNUAL_FUTURE_YEARS = tuple(range(2025, 2051))
+# ATLAS projects in 5-year steps, later we interpolate the years in between
+ATLAS_PROJECTION_YEARS = tuple(range(2025, 2051, 5))
 H12_REGION_SET = "REMIND"
 
 from enum import Enum
