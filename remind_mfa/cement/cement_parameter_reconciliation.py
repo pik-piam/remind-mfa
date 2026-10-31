@@ -132,11 +132,12 @@ class CementParameterReconciliation:
             prm_name: self.calc_variances(prm_name) for prm_name in td_prm_names | bu_prm_names
         }
         # zero uncertainty parameters do not need to be adjusted
+        # sorted to ensure deterministic order for reproducibility
         self.uncertain_td_prm_names = [
-            prm_name for prm_name in td_prm_names if np.any(self.variances[prm_name])
+            prm_name for prm_name in sorted(td_prm_names) if np.any(self.variances[prm_name])
         ]
         self.uncertain_bu_prm_names = [
-            prm_name for prm_name in bu_prm_names if np.any(self.variances[prm_name])
+            prm_name for prm_name in sorted(bu_prm_names) if np.any(self.variances[prm_name])
         ]
 
     def reduce_prms(self, prms: dict[str, fd.Parameter]) -> dict[str, fd.Parameter]:
