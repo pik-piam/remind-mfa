@@ -143,6 +143,8 @@ class Extrapolation(RemindMFABaseModel):
     def regress_common(self, predictor, data, weights, bounds):
         """
         Finds optimal fit of data through least squares. Weights and bounds are applied.
+        Parameters with equal lower and upper bound are fixed to that value and not optimized,
+        as scipy requires the lower bound to be strictly smaller than the upper bound.
         """
         fitting_function = self.get_fitting_function(
             predictor[: self.n_historical, ...],
@@ -152,7 +154,23 @@ class Extrapolation(RemindMFABaseModel):
         initial_guess = self.initial_guess(predictor, data)
         # correct initial guess
         initial_guess = self.correct_initial_guess_with_bounds(initial_guess, bounds)
-        fit_prms = least_squares(fitting_function, x0=initial_guess, gtol=1.0e-12, bounds=bounds).x
+
+        lower = np.broadcast_to(bounds[0], initial_guess.shape)
+        upper = np.broadcast_to(bounds[1], initial_guess.shape)
+        free = lower != upper
+        fit_prms = np.where(free, initial_guess, lower)
+
+        def fitting_function_free(free_prms: np.ndarray) -> np.ndarray:
+            prms = fit_prms.copy()
+            prms[free] = free_prms
+            return fitting_function(prms)
+
+        fit_prms[free] = least_squares(
+            fitting_function_free,
+            x0=fit_prms[free],
+            gtol=1.0e-12,
+            bounds=(lower[free], upper[free]),
+        ).x
         regression = self.func(predictor, fit_prms)
         return fit_prms, regression
 

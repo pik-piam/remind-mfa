@@ -92,12 +92,14 @@ def _clamped_sigmoid4(x):
 
 def _hermite(x):
     x = np.clip(x, 0, 1)
-    return 3 * x**2 - 2 * x**3
+    # clip the output as well, as rounding of the polynomial can exceed 1 close to x = 1
+    return np.clip(3 * x**2 - 2 * x**3, 0, 1)
 
 
 def _quintic(x):
     x = np.clip(x, 0, 1)
-    return 6 * x**5 - 15 * x**4 + 10 * x**3
+    # clip the output as well, as rounding of the polynomial can exceed 1 close to x = 1
+    return np.clip(6 * x**5 - 15 * x**4 + 10 * x**3, 0, 1)
 
 
 def _poly_mix(x):
