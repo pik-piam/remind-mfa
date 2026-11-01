@@ -45,7 +45,7 @@ class CementDataExporter(CommonDataExporter):
 
     @staticmethod
     def _cement_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
-        """Cement delivered to construction, by end use"""
+        """Cement inflow to construction (including construction losses), by end use"""
         return _sum_to_end_use_split(mfa.flows["cement_market => construction"])
 
     @staticmethod

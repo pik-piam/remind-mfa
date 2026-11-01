@@ -124,12 +124,13 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # construction: covers the stock inflow not met by reuse
         flw["construction => use"][...] = stk["use"].inflow - flw["reuse => use"]
-        flw["cement_market => construction"][...] = flw["construction => use"][{"k": "Cement"}]
+        # construction losses are relative to total cement use
+        flw["cement_market => construction"][...] = flw["construction => use"][{"k": "Cement"}] / (
+            1 - prm["cement_losses"]
+        )
         flw["sysenv => construction"][...] = flw["construction => use"][{"k": "Non-Cement"}]
-        flw["cement_market => losses"][...] = (
-            flw["cement_market => construction"]
-            * prm["cement_losses"]
-            / (1 - prm["cement_losses"])  # construction losses are relative to total cement use
+        flw["construction => losses"][...] = (
+            flw["cement_market => construction"] * prm["cement_losses"]
         )
 
         # disposal: the non-reused demolished material accumulates in the eol waste stock
@@ -140,7 +141,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         stk["eol_waste"].compute()
 
         # cement trade
-        total_cement_demand = flw["cement_market => construction"] + flw["cement_market => losses"]
+        total_cement_demand = flw["cement_market => construction"].sum_to(("t", "r"))
         extrapolator = TradeExtrapolator(
             historical_trade=historical_trade["cement"],
             future_trade=trd["cement"],
@@ -153,9 +154,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # cement production
         flw["cement_production => cement_market"][...] = (
-            flw["cement_market => construction"]
-            + flw["cement_market => losses"]
-            + trd["cement"].net_exports
+            flw["cement_market => construction"] + trd["cement"].net_exports
         )
         flw["clinker_market => cement_production"][...] = (
             flw["cement_production => cement_market"] * prm["clinker_ratio"]
@@ -193,7 +192,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
 
         # losses
         flw["losses => sysenv"][...] = (
-            flw["clinker_production => losses"] + flw["cement_market => losses"]
+            flw["clinker_production => losses"] + flw["construction => losses"]
         )
 
         # balance trade with sysenv
