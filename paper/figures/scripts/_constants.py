@@ -163,7 +163,7 @@ COLORS_REMIND = {
 
 COLOR_PALETTE = COLOR_PALETTE_1
 
-SCENARIO_LABELS = {"SSP2": "SSP2", "SSP1": "SSP1-drivers", "SSP1_CE": "SSP1-CE"}
+SCENARIO_LABELS = {"SSP2": "SSP2", "SSP1_drivers_paper": "SSP1-drivers", "SSP1_ce_paper": "SSP1-CE"}
 MATERIAL_ORDER = ("plastics", "steel", "cement")
 MFA_REGION_MAPPINGS = ("h12", "iso249")
 

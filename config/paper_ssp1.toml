@@ -1,2 +1,2 @@
     [base.model_switches]
-        scenario = "SSP1"
+        scenario = "SSP1_drivers_paper"
