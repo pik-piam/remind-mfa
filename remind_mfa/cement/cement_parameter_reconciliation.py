@@ -231,9 +231,7 @@ class CementParameterReconciliation:
         stock_bu = self.calc_bottom_up_stock(self.prms)
         return self.calc_residual(stock_td, stock_bu), stock_td, stock_bu
 
-    def calc_residual(
-        self, stock_td: fd.FlodymArray, stock_bu: fd.FlodymArray
-    ) -> fd.FlodymArray:
+    def calc_residual(self, stock_td: fd.FlodymArray, stock_bu: fd.FlodymArray) -> fd.FlodymArray:
         """Residual r = ln S_TD - ln S_BU, with validity checks for the log-space treatment."""
         if stock_td.dims.letters != stock_bu.dims.letters:
             # this is important for later numpy-based calculations
