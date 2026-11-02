@@ -177,7 +177,7 @@ def test_discover_runs_orders_runs_written_at_the_same_time(tmp_path):
 
 
 def test_run_info_of_a_run_elsewhere(tmp_path):
-    workbook = _touch(tmp_path / "my_prefix_plastics_SSP2_high_h12" / "output_iamc.xlsx", 1e9)
+    workbook = _touch(tmp_path / "my_prefix_plastics_SSP2_high_h12" / "iamc_reporting.xlsx", 1e9)
     run = RunInfo.from_path(workbook, label="custom")
     # outside the data root the whole path is shown
     assert run.display_path(tmp_path / "data_out") == str(workbook)
@@ -243,7 +243,7 @@ def test_with_label_keeps_the_data(runs):
 
 
 def test_model_accessors_reject_other_sources():
-    run = LoadedRun(path=Path("output_iamc.xlsx"), label="iamc", data=cast(Any, SimpleNamespace()))
+    run = LoadedRun(path=Path("iamc_reporting.xlsx"), label="iamc", data=cast(Any, SimpleNamespace()))
     assert not run.is_model
     with pytest.raises(TypeError, match="model pickle"):
         _ = run.mfa

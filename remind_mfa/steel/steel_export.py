@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class SteelDataExporter(CommonDataExporter):
     _model: Optional["SteelModel"] = PrivateAttr(default=None)
 
-    _MIF_ALL_PRMS: ClassVar[dict[str, str]] = {
+    _IAMC_RAW_PARAMETERS: ClassVar[dict[str, str]] = {
         "forming_yield": "-",
         "manufacturing_yield": "-",
         "recovery_rate": "-",
