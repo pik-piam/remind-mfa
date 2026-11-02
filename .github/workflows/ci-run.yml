@@ -33,7 +33,7 @@ jobs:
         # - PRs against the base branch
       BASELINE_REF: ${{ inputs.baseline_ref || (github.event_name == 'push' && github.event.before) || github.event.pull_request.base.ref || 'main' }}
     # Guard: Only run this job on PRs only for trusted contributors (since we are using secrets and accessing the HPC)
-    if: github.event_name != 'pull_request_target' || github.event.pull_request.author_association == 'COLLABORATOR' || github.event.pull_request.author_association == 'OWNER'
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.author_association == 'COLLABORATOR' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.user.login == 'renovate[bot]'
     steps:
     - name: Checkout
       uses: actions/checkout@v7
