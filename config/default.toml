@@ -45,6 +45,7 @@
         mrindustry.do_export = false
         assumptions.do_export = false
         docs.do_export = false
+        docs.apply_mappings = false
 
 [plastics]
     [plastics.visualization]

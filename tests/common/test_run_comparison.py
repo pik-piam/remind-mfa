@@ -243,7 +243,9 @@ def test_with_label_keeps_the_data(runs):
 
 
 def test_model_accessors_reject_other_sources():
-    run = LoadedRun(path=Path("iamc_reporting.xlsx"), label="iamc", data=cast(Any, SimpleNamespace()))
+    run = LoadedRun(
+        path=Path("iamc_reporting.xlsx"), label="iamc", data=cast(Any, SimpleNamespace())
+    )
     assert not run.is_model
     with pytest.raises(TypeError, match="model pickle"):
         _ = run.mfa

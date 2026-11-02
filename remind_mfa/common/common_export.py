@@ -443,9 +443,7 @@ class CommonDataExporter(RemindMFABaseModel):
         df_agg = self._fd_array_to_df_for_iamc(vname_base, array, time_items, split_dims=None)
         if detail == "aggregated" or array.dims.letters == ("t", "r"):
             return df_agg
-        df_complete = self._fd_array_to_df_for_iamc(
-            vname_base, array, time_items, split_dims="all"
-        )
+        df_complete = self._fd_array_to_df_for_iamc(vname_base, array, time_items, split_dims="all")
         return pd.concat([df_agg, df_complete], ignore_index=True)
 
     def _fd_array_to_df_for_iamc(
@@ -540,7 +538,7 @@ class CommonDataExporter(RemindMFABaseModel):
                 cell = ", ".join(cell)
             elif cell is None:
                 cell = ""
-            return str(cell)
+            return self._docs_cell_str(cell)
 
         for name, df in dfs.items():
             df.columns = [self.display_names[col] for col in df.columns]
@@ -587,11 +585,17 @@ class CommonDataExporter(RemindMFABaseModel):
         schema_df = type(cfg).to_schema_df()
         schema_df.columns = [self.display_names[col] for col in schema_df.columns]
         schema_df = schema_df.map(
-            lambda cell: "" if str(cell) == "PydanticUndefined" else str(cell)
+            lambda cell: "" if str(cell) == "PydanticUndefined" else self._docs_cell_str(cell)
         )
         write_docs_file(
             self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
         )
+
+    def _docs_cell_str(self, cell: Any) -> str:
+        """String of a docs table cell, with internal names replaced by display names if configured."""
+        if not self.cfg.docs.apply_mappings:
+            return str(cell)
+        return self.display_names[str(cell)].replace("<br>", " ")
 
     def to_iamc_df(self, array: fd.FlodymArray, time_items: list):
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
