@@ -812,7 +812,7 @@ def visualization_cfg(
     """A copy of a run's visualization config that plots headlessly.
 
     Args:
-        base: Visualization config of a run, usually ``run.model.visualizer.cfg``. Its class
+        base: Visualization config of a run, usually ``run.model.cfg.visualization``. Its class
             (e.g. ``SteelVisualizationCfg``) and plot settings are kept.
         plots: Plot groups to switch on or off, by field name (see :func:`plot_toggles`).
     """
@@ -849,8 +849,8 @@ def standard_figures(run: LoadedRun, cfg: VisualizationCfg) -> dict[str, go.Figu
     but nothing is shown or written. Use :func:`visualization_cfg` to derive ``cfg``.
     """
     model = run.model
-    visualizer = type(model).VisualizerCls(cfg=cfg, display_names=type(model).DisplayNamesCls())
     renderer = pio.renderers.default  # constructing a visualizer changes the global renderer
+    visualizer = type(model.visualizer)(cfg=cfg, display_names=model.display_names)
     try:
         visualizer.visualize(model)
     finally:
