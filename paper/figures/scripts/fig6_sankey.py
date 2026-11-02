@@ -1,5 +1,4 @@
 import argparse
-import flodym as fd
 
 from remind_mfa.cement.cement_mappings import CementDisplayNames
 from remind_mfa.cement.cement_visualization import CementVisualizer
@@ -103,24 +102,9 @@ def _build_visualizer(material: str, do_show_figs: bool, carbon_only: bool = Tru
     return CementVisualizer(cfg=cfg, display_names=CementDisplayNames())
 
 
-def bypass_flow(mfa: fd.MFASystem, from_process: str, via_process: str, to_process: str):
-    first = mfa.flows.pop(f"{from_process} => {via_process}")
-    second = mfa.flows.pop(f"{via_process} => {to_process}")
-    mfa.flows[f"{from_process} => {to_process}"] = first
-    mfa.flows[f"{from_process} => {to_process}"].to_process = second.to_process
-    mfa.flows[f"{from_process} => {to_process}"].name = f"{from_process} => {to_process}"
-
-
-def modify_mfa_for_sankey(mfa: fd.MFASystem, material):
-    if material == "plastics":
-        bypass_flow(mfa, "reclmech", "aux_recyclate_market", "primary_market")
-        bypass_flow(mfa, "reclchem", "aux_recl_feedstock_market", "hvc_production")
-
-
 def main(material: str = "plastics", carbon_only: bool = True):
     config = get_material_config(material)
     mfa = load_future_mfa(config.material)
-    modify_mfa_for_sankey(mfa, material)
     visualizer = _build_visualizer(material, do_show_figs=False, carbon_only=carbon_only)
     visualizer.visualize_sankey(mfa)
     fig = visualizer.figures["sankey"]
