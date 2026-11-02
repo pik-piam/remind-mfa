@@ -14,7 +14,7 @@ REGIONS = {
     "iso249": "countries",
 }
 DETAILS = {
-    "agg": "aggregated",
+    "aggregated": "aggregated",
     "complete": "complete",
 }
 MATERIALS = ["plastics", "steel", "cement"]
@@ -26,7 +26,7 @@ OUTPUT_DIR = Path(__file__).parent / "zenodo"
 
 def get_source_path(material, regi_source, detail_source):
     dir = INPUT_BASE_DIR / f"paper_{material}_SSP2_{regi_source}"
-    file = f"output_iamc_raw_{detail_source}.csv"
+    file = f"iamc_raw_{detail_source}.csv"
     return dir / file
 
 
