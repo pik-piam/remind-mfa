@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 import flodym as fd
 from pydantic import PrivateAttr
@@ -29,6 +29,15 @@ def _sum_to_end_use_split(arr: fd.FlodymArray) -> fd.FlodymArray:
 
 class CementDataExporter(CommonDataExporter):
     _model: Optional["CementModel"] = PrivateAttr(default=None)
+
+    _MIF_ALL_PRMS: ClassVar[dict[str, str]] = {
+        "end_use_split": "-",
+        "clinker_ratio": "-",
+        "cement_losses": "-",
+        "clinker_losses": "-",
+        "cement_ratio": "-",
+        "construction_material_split": "-",
+    }
 
     @staticmethod
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:

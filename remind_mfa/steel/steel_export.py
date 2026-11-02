@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 import flodym as fd
 from pydantic import PrivateAttr
@@ -15,6 +15,19 @@ if TYPE_CHECKING:
 
 class SteelDataExporter(CommonDataExporter):
     _model: Optional["SteelModel"] = PrivateAttr(default=None)
+
+    _MIF_ALL_PRMS: ClassVar[dict[str, str]] = {
+        "forming_yield": "-",
+        "manufacturing_yield": "-",
+        "recovery_rate": "-",
+        "max_scrap_share": "-",
+        "forming_loss_rate": "-",
+        "manufacturing_losses": "-",
+        "steel_production_loss_rate": "-",
+        "end_use_split": "-",
+        "end_use_split_limit": "-",
+        "aggregate_manufacturing_yield": "-",
+    }
 
     @staticmethod
     def _total_steel_production(mfa: fd.MFASystem) -> fd.FlodymArray:
