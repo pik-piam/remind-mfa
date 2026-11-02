@@ -1,0 +1,4 @@
+[base]
+    [base.export]
+        docs.do_export = true
+        docs.apply_mappings = false

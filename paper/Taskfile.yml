@@ -46,10 +46,9 @@ tasks:
       - "{{.POWERSHELL}} paper/run_all_mfa.ps1"
 
   mfa:docs:
-    desc: Update the model definitions in docs/, which the SI tables are generated from
+    desc: Apply fixes to the bibliography file
     dir: "{{.REPO_DIR}}"
     cmds:
-      - uv run remind_mfa --config default --config update_docs --model all
       - uv run python paper/fix_all_refs.py
 
   data:

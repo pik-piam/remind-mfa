@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 | Name                         |
 |:-----------------------------|
 | sysenv                       |
@@ -32,38 +31,3 @@
 | aux_recl_feedstock_market    |
 | imports                      |
 | exports                      |
-=======
-| Name                               |
-|:-----------------------------------|
-| System environment                 |
-| Feedstock supply (fossil)          |
-| Feedstock supply (biomass)         |
-| Feedstock supply (DACCU)           |
-| Feedstock supply (CCU)             |
-| HVC production                     |
-| C4 production                      |
-| Polymerization                     |
-| Primary market                     |
-| Manufacturing                      |
-| Manufactured products market       |
-| Use phase                          |
-| End-of-life management             |
-| Reuse                              |
-| Waste market                       |
-| Mechanical recycling               |
-| Chemical recycling                 |
-| Incineration                       |
-| Landfilled                         |
-| Sorting                            |
-| Uncollected                        |
-| Uncontrolled                       |
-| Emissions                          |
-| Captured                           |
-| Atmosphere                         |
-| Other reactants                    |
-| Losses                             |
-| Auxiliary recyclate trade          |
-| Auxiliary recycled feedstock trade |
-| Imports                            |
-| Exports                            |
->>>>>>> 36e0a94f69bfe618ec093c15dd0bc738fd3bf602
