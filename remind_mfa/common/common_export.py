@@ -510,6 +510,16 @@ class CommonDataExporter(RemindMFABaseModel):
 
         dfs = definition.to_dfs()
 
+        def dim_items_str(letter: str) -> str:
+            dim = self._model.dims[letter]
+            if dim.name == "Region":
+                return "*see region definition*"
+            if dim.dtype is int:
+                return f"{dim.items[0]} to {dim.items[-1]}"
+            return ", ".join(str(item) for item in dim.items)
+
+        dfs["dimensions"]["items"] = dfs["dimensions"]["letter"].map(dim_items_str)
+
         drop_columns = {
             "dimensions": ["dtype"],
             "stocks": ["solver", "time_letter"],
@@ -528,8 +538,7 @@ class CommonDataExporter(RemindMFABaseModel):
                 cell = ", ".join(cell)
             elif cell is None:
                 cell = ""
-            cell = self.display_names[str(cell)]
-            return cell.replace("<br>", " ")
+            return self._docs_cell_str(cell)
 
         for name, df in dfs.items():
             df.columns = [self.display_names[col] for col in df.columns]
@@ -574,10 +583,19 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         schema_df = type(cfg).to_schema_df()
-        schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
+        schema_df.columns = [self.display_names[col] for col in schema_df.columns]
+        schema_df = schema_df.map(
+            lambda cell: "" if str(cell) == "PydanticUndefined" else self._docs_cell_str(cell)
+        )
         write_docs_file(
             self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
         )
+
+    def _docs_cell_str(self, cell: Any) -> str:
+        """String of a docs table cell, with internal names replaced by display names if configured."""
+        if not self.cfg.docs.apply_mappings:
+            return str(cell)
+        return self.display_names[str(cell)].replace("<br>", " ")
 
     def to_iamc_df(self, array: fd.FlodymArray, time_items: list):
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
