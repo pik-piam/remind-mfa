@@ -98,7 +98,7 @@ def merge_parameters_sources(
         "waste_size_max": "[@Kaufmann2024]",
         "cao_emission_factor": "Stoichiometry",
         "floorspace": "[@edgeb26]",
-        "unoccupied_residential_stock_share": "[@Zheng25]",
+        "unoccupied_residential_stock_share": "[@Zheng2025]",
     }
     if CUSTOM_SOURCES:
         mapped = merged_df["Name"].map(CUSTOM_SOURCES)
