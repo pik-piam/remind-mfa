@@ -443,9 +443,7 @@ class CommonDataExporter(RemindMFABaseModel):
         df_agg = self._fd_array_to_df_for_iamc(vname_base, array, time_items, split_dims=None)
         if detail == "aggregated" or array.dims.letters == ("t", "r"):
             return df_agg
-        df_complete = self._fd_array_to_df_for_iamc(
-            vname_base, array, time_items, split_dims="all"
-        )
+        df_complete = self._fd_array_to_df_for_iamc(vname_base, array, time_items, split_dims="all")
         return pd.concat([df_agg, df_complete], ignore_index=True)
 
     def _fd_array_to_df_for_iamc(
