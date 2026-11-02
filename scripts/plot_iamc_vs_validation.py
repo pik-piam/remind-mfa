@@ -27,8 +27,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Defaults of config/default.toml: [base.export] path / [base.input] input_data_path.
 EXPORT_ROOT = REPO_ROOT / "data_out"
 VALIDATION_FILE = REPO_ROOT / "data_in" / "validation" / "validation.mif"
-# "iamc" is a flat dataset, so the exporter writes this file directly into the run folder.
-IAMC_FILENAME = "output_iamc.xlsx"
+# "iamc_reporting" is a flat dataset, so the exporter writes this file directly into the run folder.
+IAMC_FILENAME = "iamc_reporting.xlsx"
 
 # ID columns of the (wide) IAMC format; everything else is a year column.
 ID_COLUMNS = ["model", "scenario", "region", "variable", "unit"]
