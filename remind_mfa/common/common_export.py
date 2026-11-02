@@ -108,10 +108,9 @@ class CommonDataExporter(RemindMFABaseModel):
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
         if self.cfg.docs.do_export:
-            parameters_df = self.definition_to_markdown(self._model.definition_future)
+            self.definition_to_markdown(self._model.definition_future)
             self.merge_bibtex_files()
             self.assumptions_to_markdown()
-            self.merge_parameters_sources(params_df=parameters_df)
             self.cfg_to_markdown(cfg=self._model.cfg)
         if self.cfg.iamc_reporting.do_export:
             self.write_iamc_reporting()
@@ -542,14 +541,14 @@ class CommonDataExporter(RemindMFABaseModel):
 
         for name, df in dfs.items():
             df.columns = [self.display_names[col] for col in df.columns]
-            df = df.map(convert_cell)
+            columns_to_convert = list(df.columns)
             if name == "parameters":
-                parameters_df = df
-            else:
-                write_docs_file(
-                    self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
-                )
-        return parameters_df
+                # sources are matched by internal parameter name, so before converting the names
+                df = self.merge_parameters_sources(params_df=df)
+            df[columns_to_convert] = df[columns_to_convert].map(convert_cell)
+            write_docs_file(
+                self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
+            )
 
     def merge_bibtex_files(self):
         """Compatibility wrapper used previously; merges two default files."""
@@ -558,16 +557,12 @@ class CommonDataExporter(RemindMFABaseModel):
         out = DOCS_PATH / "all_refs.bib"
         merge_bib_files([src1, src2], out)
 
-    def merge_parameters_sources(self, params_df: pd.DataFrame):
-
+    def merge_parameters_sources(self, params_df: pd.DataFrame) -> pd.DataFrame:
+        """Add a "Sources" column to the parameters table, matched by the "Name" column."""
         sources_df = pd.read_csv(self._model.data_reader.parameters_path / "mrmfa_sources.csv")
-
-        merged_df = merge_parameters_sources(
+        return merge_parameters_sources(
             sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
         )
-
-        output_file = self.model_docs_path / "definitions/parameters.md"
-        write_docs_file(output_file, merged_df.to_markdown(index=False))
 
     def assumptions_to_markdown(self):
 
