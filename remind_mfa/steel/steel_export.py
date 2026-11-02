@@ -73,18 +73,18 @@ class SteelDataExporter(CommonDataExporter):
                     / mfa.parameters["manufacturing_yield"]
                 ).sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Material Stock|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=lambda mfa: mfa.stocks["use"].stock.sum_to(("t", "r", "u")),
                 unit="t",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Scrap|Iron and Steel|Steel",  # PRISMA nomenclature
                 calculation_function=SteelDataExporter._eol_scrap_potential,
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
         ]

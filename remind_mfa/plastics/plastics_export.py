@@ -88,7 +88,7 @@ class PlasticsDataExporter(CommonDataExporter):
                 variable_name="Material Demand|Chemicals|Plastics",  # PRISMA nomenclature
                 calculation_function=lambda mfa: mfa.stocks["use"].inflow.sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             # demand by polymer type
             # Same parent as the "by end use" split above (orthogonal breakdown), so opt out of
@@ -102,7 +102,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     * mfa.parameters["polymer_type_mapping"]
                 ).sum_to(("t", "r", "P")),
                 unit="t/yr",
-                split_name="Polymer Type",
+                split_dims=["Polymer Type"],
                 aggregate_parent=False,
             ),
             # demand per capita
@@ -135,7 +135,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     "imports => manufactured_products_market"
                 ].sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Export|Industry|Chemicals|Plastics|Goods",  # CIRCOMOD nomenclature (further differentiated by stage)
@@ -143,7 +143,7 @@ class PlasticsDataExporter(CommonDataExporter):
                     "manufactured_products_market => exports"
                 ].sum_to(("t", "r", "u")),
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
         ]
 

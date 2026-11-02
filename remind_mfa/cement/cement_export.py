@@ -87,18 +87,18 @@ class CementDataExporter(CommonDataExporter):
                 variable_name="Material Demand|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=CementDataExporter._cement_demand,
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Material Stock|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=CementDataExporter._cement_stock,
                 unit="t",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Scrap|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=CementDataExporter._eol_scrap_potential,
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
         ]
