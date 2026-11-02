@@ -1,4 +1,4 @@
+uv run remind_mfa --config default --config paper_base --config paper_iso249 --model all
 uv run remind_mfa --config default --config paper_base --config paper_update_docs --model all
 uv run remind_mfa --config default --config paper_base --config paper_ssp1 --model all
 uv run remind_mfa --config default --config paper_base --config paper_ssp1_ld --model all
-uv run remind_mfa --config default --config paper_base --config paper_iso249 --model all
