@@ -2,15 +2,19 @@ from pydantic import PrivateAttr
 import flodym as fd
 import pandas as pd
 
-import plotly.graph_objects as go
 from typing import TYPE_CHECKING, Optional
-import flodym.export as fde
 import plotly.express as px
 
-from remind_mfa.common.common_visualization import CommonVisualizer
+from remind_mfa.common.common_visualization import CommonVisualizer, SANKEY_COLORS, bypass_flows
 
 if TYPE_CHECKING:
     from remind_mfa.plastics.plastics_model import PlasticsModel
+
+# (from_process, via_process, to_process): auxiliary trade markets bypassed in the Sankey diagram
+SANKEY_BYPASSED_FLOWS = [
+    ("reclmech", "aux_recyclate_market", "primary_market"),
+    ("reclchem", "aux_recl_feedstock_market", "hvc_production"),
+]
 
 
 class PlasticsVisualizer(CommonVisualizer):
@@ -225,112 +229,64 @@ class PlasticsVisualizer(CommonVisualizer):
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
-        # Define colors for each stage
-        production_color = "#EDC948"
-        use_color = "#9EC3D5"
-        eol_color = "#499894"
-        recycle_color = "#86BCB6"
-        emission_color = "#E15759"
-        trade_color = "#D37295"
+        mfa = bypass_flows(mfa, SANKEY_BYPASSED_FLOWS)
 
         # Initialize default flow color mapping
-        flow_color_dict = {"default": production_color}
-
-        # Assign colors to 'use' flows
-        flow_color_dict.update(
-            {
-                fn: use_color
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "use" or f.to_process.name == "use"
-            }
-        )
+        flow_color_dict = {"default": SANKEY_COLORS["production"]}
 
         # Assign colors to end-of-life flows
         flow_color_dict.update(
             {
-                fn: eol_color
+                fn: SANKEY_COLORS["eol"]
                 for fn, f in mfa.flows.items()
                 if f.from_process.name in ("eol_management", "sorting")
-            }
-        )
-
-        # Assign colors to emission flows
-        flow_color_dict.update(
-            {
-                fn: emission_color
-                for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("atmosphere", "mismanaged", "uncontrolled", "emission", "losses")
             }
         )
 
         # Assign colors to recycling flows
         flow_color_dict.update(
             {
-                fn: recycle_color
+                fn: SANKEY_COLORS["recycling"]
                 for fn, f in mfa.flows.items()
                 if f.from_process.name in ("reclmech", "reclchem")
                 or f.to_process.name in ("reclmech", "reclchem")
             }
         )
 
+        # Assign colors to atmosphere flows
+        flow_color_dict.update(
+            {
+                fn: SANKEY_COLORS["atmosphere"]
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "atmosphere"
+                or f.to_process.name in ("atmosphere", "emission")
+            }
+        )
+
+        # Assign colors to emission flows
+        flow_color_dict.update(
+            {
+                fn: SANKEY_COLORS["losses"]
+                for fn, f in mfa.flows.items()
+                if f.to_process.name
+                in ("mismanaged", "uncontrolled", "emission", "losses", "landfill")
+            }
+        )
+
         # Assign colors to trade flows
         flow_color_dict.update(
             {
-                fn: trade_color
+                fn: SANKEY_COLORS["trade"]
                 for fn, f in mfa.flows.items()
                 if f.from_process.name in ("imports", "exports")
                 or f.to_process.name in ("imports", "exports")
             }
         )
 
-        # Update Sankey layout configuration
-        self.cfg.sankey.plotter_args.update(
-            {
-                "valueformat": ".2s",  # scientific notation, two significant digits
-                "node_pad": 15,  # padding between nodes
-                "node_thickness": 20,  # node thickness
-                "arrangement": "snap",  # reduce crossings by snapping nodes
-                "flow_color_dict": flow_color_dict,
-                "node_color_dict": {"default": "gray", "use": "black"},
-            }
-        )
-
-        # Prepare display names and generate the Sankey diagram
-        display_names_fmt = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
-        plotter = fde.PlotlySankeyPlotter(
-            mfa=mfa, display_names=display_names_fmt, **self.cfg.sankey.plotter_args
-        )
-        fig = plotter.plot()
-
-        # Add legend entries
-        legend_entries = [
-            (production_color, "Production"),
-            (use_color, "Use"),
-            (eol_color, "End-of-Life"),
-            (recycle_color, "Recycling"),
-            (emission_color, "Losses"),
-            (trade_color, "Trade"),
-        ]
-        for color, label in legend_entries:
-            fig.add_trace(
-                go.Scatter(
-                    mode="markers",
-                    x=[None],
-                    y=[None],
-                    marker=dict(size=10, color=color, symbol="square"),
-                    name=label,
-                )
-            )
-
-        # Final layout adjustments and display
-        fig.update_layout(
-            font_size=18, showlegend=True, plot_bgcolor="rgba(0,0,0,0)", font_color="black"
-        )
-        fig.update_xaxes(visible=False)
-        fig.update_yaxes(visible=False)
-
-        self._show_and_save_plotly(fig, base_name="sankey")
+        legend_categories = ["production", "eol", "recycling", "losses"]
+        if "atmosphere" not in self.cfg.sankey.plotter_args.get("exclude_processes", []):
+            legend_categories.append("atmosphere")
+        self._plot_styled_sankey(mfa, flow_color_dict, legend_categories)
 
     def visualize_polymer_splits(self, mfa: fd.MFASystem):
 

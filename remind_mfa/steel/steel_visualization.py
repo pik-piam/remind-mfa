@@ -1,11 +1,9 @@
 import numpy as np
-import plotly.graph_objects as go
 from pydantic import PrivateAttr
 import flodym as fd
 from typing import TYPE_CHECKING, Optional
-import flodym.export as fde
 
-from remind_mfa.common.common_visualization import CommonVisualizer
+from remind_mfa.common.common_visualization import CommonVisualizer, SANKEY_COLORS
 from remind_mfa.steel.steel_config import SteelVisualizationCfg
 
 if TYPE_CHECKING:
@@ -37,80 +35,39 @@ class SteelVisualizer(CommonVisualizer):
         )
 
     def visualize_sankey(self, mfa: fd.MFASystem):
-        end_use_colors = [f"hsl({190 + 10 *i},40,{77-5*i})" for i in range(4)]
-        production_color = "hsl(50,40,70)"
-        scrap_color = "hsl(120,40,70)"
-        losses_color = "hsl(20,40,70)"
-        trade_color = "hsl(260,20,80)"
-
-        flow_color_dict = {"default": production_color}
-        flow_color_dict.update(
-            {fn: ("End Use", end_use_colors) for fn, f in mfa.flows.items() if "End Use" in f.dims}
-        )
+        flow_color_dict = {"default": SANKEY_COLORS["production"]}
         flow_color_dict.update(
             {
-                fn: scrap_color
+                fn: SANKEY_COLORS["eol"]
                 for fn, f in mfa.flows.items()
-                if f.from_process.name == "scrap_pool" or f.to_process.name == "scrap_pool"
+                if f.from_process.name == "eol_management"
             }
         )
         flow_color_dict.update(
             {
-                fn: losses_color
+                fn: SANKEY_COLORS["recycling"]
                 for fn, f in mfa.flows.items()
-                if f.to_process.name in ["losses", "excess_scrap", "hibernating", "eol_waste"]
+                if f.from_process.name in ("scrap_market", "scrap_pool")
+                or f.to_process.name in ("scrap_market", "scrap_pool")
             }
         )
         flow_color_dict.update(
             {
-                fn: trade_color
+                fn: SANKEY_COLORS["losses"]
+                for fn, f in mfa.flows.items()
+                if f.to_process.name in ("losses", "excess_scrap", "hibernating", "eol_waste")
+            }
+        )
+        flow_color_dict.update(
+            {
+                fn: SANKEY_COLORS["trade"]
                 for fn, f in mfa.flows.items()
                 if f.from_process.name == "imports" or f.to_process.name == "exports"
             }
         )
-        self.cfg.sankey.plotter_args["flow_color_dict"] = flow_color_dict
 
-        self.cfg.sankey.plotter_args["node_color_dict"] = {"default": "gray", "use": "black"}
-
-        sdn = {k: f"<b>{v}</b>" for k, v in self.display_names.dct.items()}
-        plotter = fde.PlotlySankeyPlotter(
-            mfa=mfa, display_names=sdn, **self.cfg.sankey.plotter_args
-        )
-        fig = plotter.plot()
-
-        legend_entries = [
-            [production_color, "Production Phase"],
-            [scrap_color, "Scrap Treatment"],
-            [losses_color, "Losses and Waste"],
-            ["white", ""],
-            ["white", "Product Phase"],
-        ]
-        for end_use, color in zip(mfa.dims["End Use"].items, end_use_colors):
-            # legend_entries.append([color, f"Product Phase ({end_use})"])
-            legend_entries.append([color, end_use])
-
-        for entry in legend_entries:
-            fig.add_trace(
-                go.Scatter(
-                    mode="markers",
-                    x=[None],
-                    y=[None],
-                    marker=dict(size=10, color=entry[0], symbol="square"),
-                    name=entry[1],
-                )
-            )
-
-        fig.update_layout(
-            # title_text=f"Steel Flows ({', '.join([str(v) for v in self.sankey['slice_dict'].values()])})",
-            font_size=18,
-            showlegend=True,
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="black",
-        )
-        fig.update_xaxes(visible=False)
-        fig.update_yaxes(visible=False)
-
-        self._show_and_save_plotly(fig, base_name="sankey")
+        legend_categories = ["production", "recycling", "losses"]
+        self._plot_styled_sankey(mfa, flow_color_dict, legend_categories)
 
     def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
