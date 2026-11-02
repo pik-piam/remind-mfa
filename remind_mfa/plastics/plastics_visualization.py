@@ -5,7 +5,11 @@ import pandas as pd
 from typing import TYPE_CHECKING, Optional
 import plotly.express as px
 
-from remind_mfa.common.common_visualization import CommonVisualizer, SANKEY_COLORS, bypass_flows
+from remind_mfa.common.common_visualization import (
+    CommonVisualizer,
+    SankeyColorRule,
+    bypass_flows,
+)
 
 if TYPE_CHECKING:
     from remind_mfa.plastics.plastics_model import PlasticsModel
@@ -231,62 +235,21 @@ class PlasticsVisualizer(CommonVisualizer):
     def visualize_sankey(self, mfa: fd.MFASystem):
         mfa = bypass_flows(mfa, SANKEY_BYPASSED_FLOWS)
 
-        # Initialize default flow color mapping
-        flow_color_dict = {"default": SANKEY_COLORS["production"]}
-
-        # Assign colors to end-of-life flows
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["eol"]
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("eol_management", "sorting")
-            }
-        )
-
-        # Assign colors to recycling flows
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["recycling"]
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("reclmech", "reclchem")
-                or f.to_process.name in ("reclmech", "reclchem")
-            }
-        )
-
-        # Assign colors to atmosphere flows
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["atmosphere"]
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "atmosphere"
-                or f.to_process.name in ("atmosphere", "emission")
-            }
-        )
-
-        # Assign colors to emission flows
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["losses"]
-                for fn, f in mfa.flows.items()
-                if f.to_process.name
-                in ("mismanaged", "uncontrolled", "emission", "losses", "landfill")
-            }
-        )
-
-        # Assign colors to trade flows
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["trade"]
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("imports", "exports")
-                or f.to_process.name in ("imports", "exports")
-            }
-        )
+        recycling = ("reclmech", "reclchem")
+        color_rules = [
+            SankeyColorRule("eol", from_processes=("eol_management", "sorting")),
+            SankeyColorRule("recycling", from_processes=recycling, to_processes=recycling),
+            SankeyColorRule("atmosphere", ("atmosphere",), ("atmosphere",)),
+            SankeyColorRule(
+                "losses",
+                to_processes=("mismanaged", "uncontrolled", "emission", "losses", "landfill"),
+            ),
+        ]
 
         legend_categories = ["production", "eol", "recycling", "losses"]
         if "atmosphere" not in self.cfg.sankey.plotter_args.get("exclude_processes", []):
             legend_categories.append("atmosphere")
-        self._plot_styled_sankey(mfa, flow_color_dict, legend_categories)
+        self._plot_styled_sankey(mfa, color_rules, legend_categories)
 
     def visualize_polymer_splits(self, mfa: fd.MFASystem):
 
