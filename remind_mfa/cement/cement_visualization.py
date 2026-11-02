@@ -3,7 +3,7 @@ import flodym as fd
 from typing import TYPE_CHECKING, Optional
 import logging
 
-from remind_mfa.common.common_visualization import CommonVisualizer
+from remind_mfa.common.common_visualization import CommonVisualizer, SankeyColorRule
 from remind_mfa.cement.cement_config import CementVisualizationCfg
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 
@@ -42,6 +42,20 @@ class CementVisualizer(CommonVisualizer):
                 )
             else:
                 self.visualize_carbonation(mfa=mfa)
+
+    def visualize_sankey(self, mfa: fd.MFASystem):
+        color_rules = [
+            SankeyColorRule("eol", from_processes=("eol_management",)),
+            SankeyColorRule("losses", to_processes=("losses", "hibernating", "eol_waste")),
+        ]
+
+        # only the cement share of concrete and other construction materials
+        self.cfg.sankey.plotter_args.setdefault("slice_dict", {}).setdefault("k", "Cement")
+
+        legend_categories = ["production", "losses"]
+        self._plot_styled_sankey(
+            mfa, color_rules, legend_categories, end_use_dim=self._end_use_dim_name(mfa)
+        )
 
     def visualize_clinker_production(self, mfa: fd.MFASystem, regional: bool = False):
         production = (

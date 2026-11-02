@@ -28,7 +28,7 @@
         consumption.per_capita = true
         sankey.do_visualize = false
         sankey.plotter_args.slice_dict = { "t" = 2050 }
-        sankey.plotter_args.exclude_processes = ["sysenv"]
+        sankey.plotter_args.exclude_processes = ["sysenv", "imports", "exports"]
         sankey.plotter_args.exclude_flows = []
         extrapolation.do_visualize = true
         end_use_split.do_visualize = false
@@ -69,7 +69,4 @@
         clinker_production.do_visualize = false
         cement_production.do_visualize = true
         construction.do_visualize = false
-        sankey.plotter_args.split_flows_by = "End Use"
-        sankey.plotter_args.color_scheme = "blueish"
-        sankey.plotter_args.flow_color = "hsl(230,20,70)"
         carbonation.do_visualize = false
