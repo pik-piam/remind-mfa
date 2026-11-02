@@ -294,11 +294,7 @@ class CommonModel[CfgT: CommonCfg]:
         )
 
         # after normalization, target saturation level is 1 across all regions and end-uses.
-        sat_level_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=1,
-            upper_bound=1,
-        )
+        sat_level_bound = Bound.fixed(var_name="saturation_level", value=1)
         growth_rate_bound = Bound(
             var_name="growth_rate",
             lower_bound=0,
