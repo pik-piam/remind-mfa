@@ -3,7 +3,7 @@ from pydantic import PrivateAttr
 import flodym as fd
 from typing import TYPE_CHECKING, Optional
 
-from remind_mfa.common.common_visualization import CommonVisualizer, SANKEY_COLORS
+from remind_mfa.common.common_visualization import CommonVisualizer, SankeyColorRule
 from remind_mfa.steel.steel_config import SteelVisualizationCfg
 
 if TYPE_CHECKING:
@@ -35,39 +35,16 @@ class SteelVisualizer(CommonVisualizer):
         )
 
     def visualize_sankey(self, mfa: fd.MFASystem):
-        flow_color_dict = {"default": SANKEY_COLORS["production"]}
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["eol"]
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "eol_management"
-            }
-        )
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["recycling"]
-                for fn, f in mfa.flows.items()
-                if f.from_process.name in ("scrap_market", "scrap_pool")
-                or f.to_process.name in ("scrap_market", "scrap_pool")
-            }
-        )
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["losses"]
-                for fn, f in mfa.flows.items()
-                if f.to_process.name in ("losses", "excess_scrap", "hibernating", "eol_waste")
-            }
-        )
-        flow_color_dict.update(
-            {
-                fn: SANKEY_COLORS["trade"]
-                for fn, f in mfa.flows.items()
-                if f.from_process.name == "imports" or f.to_process.name == "exports"
-            }
-        )
-
+        scrap = ("scrap_market", "scrap_pool")
+        color_rules = [
+            SankeyColorRule("eol", from_processes=("eol_management",)),
+            SankeyColorRule("recycling", from_processes=scrap, to_processes=scrap),
+            SankeyColorRule(
+                "losses", to_processes=("losses", "excess_scrap", "hibernating", "eol_waste")
+            ),
+        ]
         legend_categories = ["production", "recycling", "losses"]
-        self._plot_styled_sankey(mfa, flow_color_dict, legend_categories)
+        self._plot_styled_sankey(mfa, color_rules, legend_categories)
 
     def visualize_production_consumption(self, mfa: fd.MFASystem, regional=True):
         flw = mfa.flows
