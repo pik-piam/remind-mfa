@@ -5,4 +5,5 @@
     [base.export]
         do_export = true
         docs.do_export = true
+        docs.apply_mappings = false
         pickle.do_export = false
