@@ -5,10 +5,16 @@ import pandas as pd
 from typing import TYPE_CHECKING, Optional
 import plotly.express as px
 
-from remind_mfa.common.common_visualization import CommonVisualizer, SANKEY_COLORS
+from remind_mfa.common.common_visualization import CommonVisualizer, SANKEY_COLORS, bypass_flows
 
 if TYPE_CHECKING:
     from remind_mfa.plastics.plastics_model import PlasticsModel
+
+# (from_process, via_process, to_process): auxiliary trade markets bypassed in the Sankey diagram
+SANKEY_BYPASSED_FLOWS = [
+    ("reclmech", "aux_recyclate_market", "primary_market"),
+    ("reclchem", "aux_recl_feedstock_market", "hvc_production"),
+]
 
 
 class PlasticsVisualizer(CommonVisualizer):
@@ -223,6 +229,8 @@ class PlasticsVisualizer(CommonVisualizer):
         super().visualize_trade(mfa, linecolor_dims=linecolor_dims)
 
     def visualize_sankey(self, mfa: fd.MFASystem):
+        mfa = bypass_flows(mfa, SANKEY_BYPASSED_FLOWS)
+
         # Initialize default flow color mapping
         flow_color_dict = {"default": SANKEY_COLORS["production"]}
 

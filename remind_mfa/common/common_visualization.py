@@ -45,6 +45,22 @@ SANKEY_LEGEND_LABELS = {
 SANKEY_USE_HUE_SATURATION = (29, 58)
 
 
+def bypass_flows(mfa: fd.MFASystem, bypasses: list[tuple[str, str, str]]) -> fd.MFASystem:
+    """Copy of the MFA system with intermediate processes bypassed, e.g. for Sankey diagrams.
+
+    For each (from_process, via_process, to_process), the flows from_process => via_process
+    and via_process => to_process are replaced by a single flow from_process => to_process
+    carrying the values of the first flow. The original MFA system is left unchanged.
+    """
+    flows = dict(mfa.flows)
+    for from_process, via_process, to_process in bypasses:
+        first = flows.pop(f"{from_process} => {via_process}")
+        second = flows.pop(f"{via_process} => {to_process}")
+        name = f"{from_process} => {to_process}"
+        flows[name] = first.model_copy(update={"name": name, "to_process": second.to_process})
+    return mfa.model_copy(update={"flows": flows})
+
+
 class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
     display_names: CommonDisplayNames
