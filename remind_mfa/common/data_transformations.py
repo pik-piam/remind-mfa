@@ -1,6 +1,6 @@
 import flodym as fd
 import numpy as np
-from typing import Any
+from typing import Any, Self
 from pydantic import model_validator, Field
 
 from remind_mfa.common.helpers import RemindMFABaseModel
@@ -35,6 +35,16 @@ class Bound(RemindMFABaseModel):
     May also be part of the lower and upper bounds."""
     lower_bound: fd.FlodymArray
     upper_bound: fd.FlodymArray
+
+    @classmethod
+    def fixed(
+        cls,
+        var_name: str,
+        value: float | np.ndarray | fd.FlodymArray,
+        dims: fd.DimensionSet | None = None,
+    ) -> Self:
+        """Define a parameter with a fixed value instead of separate bounds."""
+        return cls(var_name=var_name, lower_bound=value, upper_bound=value, dims=dims)
 
     @model_validator(mode="before")
     @classmethod
