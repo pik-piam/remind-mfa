@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class PlasticsDataExporter(CommonDataExporter):
     _model: Optional["PlasticsModel"] = PrivateAttr(default=None)
 
-    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+    _MIF_ALL_PRMS: ClassVar[dict[str, str]] = {
         "collection_rate": "-",
         "mechanical_recycling_rate": "-",
         "chemical_recycling_rate": "-",

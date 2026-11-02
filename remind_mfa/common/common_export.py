@@ -73,7 +73,7 @@ class CommonDataExporter(RemindMFABaseModel):
     # Datasets producing a single file: placed directly in the run folder, no subfolder.
     FLAT_DATASETS: ClassVar[set[str]] = {"pickle", "iamc", "assumptions"}
 
-    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+    _MIF_ALL_PRMS: ClassVar[dict[str, str]] = {
         "lifetime_mean": "yr",
         "lifetime_std": "yr",
         "population": "cap",
@@ -82,9 +82,9 @@ class CommonDataExporter(RemindMFABaseModel):
 
     _model: Optional["CommonModel"] = PrivateAttr(default=None)
     _run_path: Optional[str] = PrivateAttr(default=None)
-    _riamc_only_agg: Optional[bool] = PrivateAttr(default=False)
+    _mif_all_only_agg: Optional[bool] = PrivateAttr(default=False)
     """If True, only export the aggregated variables, not the split components.
-    Set by the write_riamc() method to avoid passing the flag through multiple layers of function calls.
+    Set by the write_mif_all() method to avoid passing the flag through multiple layers of function calls.
     """
 
     def export(self, model: "CommonModel"):
@@ -119,16 +119,16 @@ class CommonDataExporter(RemindMFABaseModel):
             self.cfg_to_markdown(cfg=self._model.cfg)
         if self.cfg.iamc.do_export:
             # self.write_iamc(model=model)
-            self.write_riamc(only_agg=True)
-            self.write_riamc(only_agg=False)
+            self.write_mif_all(only_agg=True)
+            self.write_mif_all(only_agg=False)
 
     def export_custom(self):
         pass
 
     @property
-    def riamc_prms(self) -> dict[str, str]:
+    def mif_all_prms(self) -> dict[str, str]:
         """IAMC parameters to include in every exported variable."""
-        return CommonDataExporter._RIAMC_PRMS | self._RIAMC_PRMS
+        return CommonDataExporter._MIF_ALL_PRMS | self._MIF_ALL_PRMS
 
     def _clear_recomputable_caches(self):
         """Drop lifetime-model sf/pdf caches from the historical and future MFA stocks before pickling
@@ -216,20 +216,20 @@ class CommonDataExporter(RemindMFABaseModel):
         """IAMC constants to include in every exported variable."""
         return {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
 
-    def write_riamc(self, only_agg: bool = False):
+    def write_mif_all(self, only_agg: bool = False):
         import pyam  # deferred: slow to import
 
         mfa = self._model.future_mfa
         vname_base = self._model.cfg.model.value
         constants = self.iamc_constants(self._model)
 
-        self._riamc_only_agg = only_agg
+        self._mif_all_only_agg = only_agg
         suffix = "agg" if only_agg else "complete"
 
         df_list = []
-        self._write_riamc_flows(mfa, vname_base, df_list)
-        self._write_riamc_stocks(mfa, vname_base, df_list)
-        self._write_riamc_trades(mfa, vname_base, df_list)
+        self._write_mif_all_flows(mfa, vname_base, df_list)
+        self._write_mif_all_stocks(mfa, vname_base, df_list)
+        self._write_mif_all_trades(mfa, vname_base, df_list)
 
         df_out = pd.concat(df_list)
         pyam_df = pyam.IamDataFrame(df_out, **constants)
@@ -237,7 +237,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
         if not only_agg:
             df_list = []
-            self._write_riamc_parameters(mfa, vname_base, df_list)
+            self._write_mif_all_parameters(mfa, vname_base, df_list)
             df_out = pd.concat(df_list)
             pyam_df_prms = pyam.IamDataFrame(df_out, **constants)
             pyam_df = pyam_df.append(pyam_df_prms)
@@ -245,13 +245,13 @@ class CommonDataExporter(RemindMFABaseModel):
         self._convert_iamc_units(pyam_df)
         pyam_df.to_csv(self.export_path("iamc", f"output_iamc_raw_{suffix}.csv"))
 
-    def _write_riamc_flows(self, mfa: fd.MFASystem, vname_base, df_list):
+    def _write_mif_all_flows(self, mfa: fd.MFASystem, vname_base, df_list):
         for flow in mfa.flows.values():
             df = self._complete_and_agg(f"{vname_base}|flows|{flow.name}", flow)
             df["unit"] = "t/yr"
             df_list.append(df)
 
-    def _write_riamc_stocks(self, mfa, vname_base, df_list):
+    def _write_mif_all_stocks(self, mfa, vname_base, df_list):
         config = [
             ("inflow", lambda stock: stock.inflow, "t/yr"),
             ("outflow", lambda stock: stock.outflow, "t/yr"),
@@ -266,7 +266,7 @@ class CommonDataExporter(RemindMFABaseModel):
                 df["unit"] = unit
                 df_list.append(df)
 
-    def _write_riamc_trades(self, mfa, vname_base, df_list):
+    def _write_mif_all_trades(self, mfa, vname_base, df_list):
         config = [
             ("export", lambda trade: trade.exports),
             ("import", lambda trade: trade.imports),
@@ -280,8 +280,8 @@ class CommonDataExporter(RemindMFABaseModel):
                 df["unit"] = "t/yr"
                 df_list.append(df)
 
-    def _write_riamc_parameters(self, mfa: fd.MFASystem, vname_base, df_list):
-        for name, unit in self.riamc_prms.items():
+    def _write_mif_all_parameters(self, mfa: fd.MFASystem, vname_base, df_list):
+        for name, unit in self.mif_all_prms.items():
             param = mfa.parameters[name]
             if not isinstance(param, fd.FlodymArray):
                 logging.warning(
@@ -423,7 +423,7 @@ class CommonDataExporter(RemindMFABaseModel):
         array: fd.FlodymArray,
     ) -> pd.DataFrame:
         df_agg = self._fd_array_to_df_for_iamc(vname_base, array, split_dims=None)
-        if self._riamc_only_agg or array.dims.letters == ("t", "r"):
+        if self._mif_all_only_agg or array.dims.letters == ("t", "r"):
             return df_agg
         df_complete = self._fd_array_to_df_for_iamc(vname_base, array, split_dims="all")
         return pd.concat([df_agg, df_complete], ignore_index=True)

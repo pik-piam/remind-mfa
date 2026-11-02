@@ -30,7 +30,7 @@ def _sum_to_end_use_split(arr: fd.FlodymArray) -> fd.FlodymArray:
 class CementDataExporter(CommonDataExporter):
     _model: Optional["CementModel"] = PrivateAttr(default=None)
 
-    _RIAMC_PRMS: ClassVar[dict[str, str]] = {
+    _MIF_ALL_PRMS: ClassVar[dict[str, str]] = {
         "end_use_split": "-",
         "clinker_ratio": "-",
         "cement_losses": "-",
