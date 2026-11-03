@@ -1,0 +1,132 @@
+name: Apptainer image
+
+# The image bakes in the private remind_mfa_data submodule and the madrat
+# rev*_mfa.tgz archives, so this job only works on a runner inside the PIK
+# network (label `pik`), where the GitLab remote and /p/projects are reachable.
+on:
+  workflow_dispatch:
+    inputs:
+      upload_image:
+        description: "Upload the built .sif as a workflow artifact (several GB)"
+        type: boolean
+        default: false
+      madrat_archive_dir:
+        description: "Directory holding the rev*_mfa.tgz archives"
+        type: string
+        default: /p/projects/rd3mod/inputdata/output
+  push:
+    tags: [ "v*" ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apptainer-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Directory on the cluster that holds the rev*_mfa.tgz archives.
+  MADRAT_ARCHIVE_DIR: ${{ inputs.madrat_archive_dir || '/p/projects/rd3mod/inputdata/output' }}
+
+jobs:
+  build:
+    name: Build and test the container
+    runs-on: [self-hosted, linux, pik]
+    timeout-minutes: 240
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        submodules: false
+
+    - name: Authenticate to PIK GitLab
+      # remind_mfa_data lives on gitlab.pik-potsdam.de, which actions/checkout
+      # cannot authenticate against on its own.
+      env:
+        GITLAB_TOKEN: ${{ secrets.PIK_GITLAB_TOKEN }}
+      run: |
+        if [ -n "${GITLAB_TOKEN:-}" ]; then
+          git config --global \
+            url."https://oauth2:${GITLAB_TOKEN}@gitlab.pik-potsdam.de/".insteadOf \
+            "https://gitlab.pik-potsdam.de/"
+        else
+          echo "No PIK_GITLAB_TOKEN secret set; relying on the runner's git credentials."
+        fi
+
+    - name: Check out submodules
+      run: git submodule update --init --depth 1 remind_mfa_data apptainer/mrmfa
+
+    - name: Stage madrat archives
+      # The build needs madrat_output/rev<revision>_*_mfa.tgz for the revision
+      # configured in config/default.toml.
+      run: |
+        set -eu
+        revision="$(sed -n 's/^ *input_data_revision *= *"\(.*\)"/\1/p' config/default.toml | head -1)"
+        if [ -z "$revision" ]; then
+          echo "could not read input_data_revision from config/default.toml" >&2
+          exit 1
+        fi
+        echo "Staging archives for revision $revision from $MADRAT_ARCHIVE_DIR"
+        mkdir -p madrat_output
+        found=0
+        for archive in "$MADRAT_ARCHIVE_DIR"/rev"${revision}"_*_mfa.tgz; do
+          [ -f "$archive" ] || continue
+          cp -f "$archive" madrat_output/
+          found=1
+        done
+        if [ "$found" -eq 0 ]; then
+          echo "no rev${revision}_*_mfa.tgz archives found in $MADRAT_ARCHIVE_DIR" >&2
+          exit 1
+        fi
+        ls -l madrat_output/
+
+    - name: Check build tools
+      # apptainer builds the image, rsync stages the build context (see meson.build).
+      run: |
+        apptainer --version
+        rsync --version | head -1
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      with:
+        version: "0.11.28"
+
+    - name: Install meson and ninja
+      run: |
+        uv tool install meson
+        uv tool install ninja
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Configure
+      run: meson setup build
+      working-directory: apptainer
+
+    - name: Build image
+      run: meson compile -C build
+      working-directory: apptainer
+
+    - name: Test image
+      run: meson test -C build --print-errorlogs
+      working-directory: apptainer
+
+    - name: Report image
+      run: ls -lh apptainer/build/*.sif
+
+    - name: Upload image
+      if: inputs.upload_image
+      uses: actions/upload-artifact@v4
+      with:
+        name: remind-mfa-sif
+        path: apptainer/build/*.sif
+        retention-days: 7
+        if-no-files-found: error
+
+    - name: Upload test logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: meson-testlog
+        path: apptainer/build/meson-logs/
+        retention-days: 7
+        if-no-files-found: ignore
