@@ -31,6 +31,7 @@ jobs:
       # is deployed as the viewer, after a comparison with the build of the baseline run, whose
       # Markdown summary blicket writes to $SUMMARY.
       RUN: data_out/ci_series
+      BASELINE_BUILD: ${{ runner.temp }}/baseline_build
       BUILD: ${{ runner.temp }}/build
       SUMMARY: ${{ runner.temp }}/comparison_summary.md
       # The run is compared against the following baseline:
@@ -146,7 +147,7 @@ jobs:
           uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
         fi
         uv run remind-mfa --config default --config ci --model all --no-viewer
-        uv run blicket build data_out/ci_series
+        uv run blicket build "$RUN" --out "$BASELINE_BUILD"
         ref="${BASELINE_REF#refs/heads/}"
         short_sha="$(git rev-parse --short HEAD)"
         if [ "${#ref}" -ge 40 ]; then label="$short_sha"; else label="$ref@$short_sha"; fi
@@ -154,35 +155,51 @@ jobs:
 
     - name: Compare with baseline
       id: compare
-      if: steps.baseline.outcome == 'success'
       continue-on-error: true
       run: |
         set -u
         args=()
-        baseline=$(ls -d "baseline/data_out/ci_series"/*/ 2>/dev/null | head -n 1)
+        baseline=""
+        for candidate in "$BASELINE_BUILD"/*/; do
+          if [ -f "$candidate/manifest.json" ]; then baseline="$candidate"; break; fi
+        done
         if [ -n "$baseline" ]; then
           args+=(--against "$baseline")
         else
           echo "::warning::No baseline build; the run is built without a comparison" >&2
         fi
-        GITHUB_STEP_SUMMARY="$SUMMARY" uv run blicket check "data_out/ci_series" "${args[@]}" --out "data_out/ci_series"
-        code=$?
+        code=0
+        GITHUB_STEP_SUMMARY="$SUMMARY" uv run blicket check "$RUN" "${args[@]}" --out "$BUILD" || code=$?
         if [ -s "$SUMMARY" ]; then
           cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
         fi
-        build=$(ls -d "data_out/ci_series"/*/ 2>/dev/null | head -n 1)
+        build=""
+        for candidate in "$BUILD"/*/; do
+          if [ -f "$candidate/manifest.json" ] && [ -f "$candidate/index.html" ]; then
+            build="$candidate"
+            break
+          fi
+        done
         if [ -z "$build" ]; then
-          echo "::error::blicket built nothing, see above" >&2
+          echo "::error::blicket built no viewer, see above" >&2
           exit 1
         fi
-        # The build directory is self-contained: the viewer, the manifest and the Blick tables
+        # The build directory is self-contained: the viewer, the manifest and the Blick tables,
+        # the aggregated chart data. The input data behind the runs is private: nothing else
+        # may be deployed, never a pickle, CSV or input file.
         cp -r "$build" site
+        if find site -type f \( -name '*.pickle' -o -name '*.cs4r' -o -name '*.csv' -o -name '*.xlsx' -o -name '*.tgz' \) | grep -q .; then
+          echo "::error::site/ contains run outputs or input data; not deploying" >&2
+          rm -rf site
+          exit 1
+        fi
+        echo "staged=true" >> "$GITHUB_OUTPUT"
         du -sh site
         [ "$code" -ne 2 ]
 
     - name: Deploy to Cloudflare Pages
       id: deploy
-      if: env.CLOUDFLARE_API_TOKEN != ''
+      if: env.CLOUDFLARE_API_TOKEN != '' && steps.compare.outputs.staged == 'true'
       uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
       with:
         apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
