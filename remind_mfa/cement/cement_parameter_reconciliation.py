@@ -552,7 +552,7 @@ class CementParameterReconciliation:
             "population": 0.0,
             "unoccupied_residential_stock_share": 0.5,
             # TD parameters
-            "cement_losses": 0.2,
+            "cement_loss_rate": 0.2,
             "cement_production": 0.0,
             "cement_ratio": 0.1,
             "construction_material_split": 0.4,

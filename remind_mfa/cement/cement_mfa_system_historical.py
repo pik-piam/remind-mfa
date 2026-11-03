@@ -57,13 +57,13 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
         # construction
         cement_use = (
             (flw["cement_production => cement_market"] + trd["cement"].net_imports)
-            * (1 - prm["cement_losses"])
+            * (1 - prm["cement_loss_rate"])
             * prm["end_use_split"].get_shares_over("u")  # only required for reconcilation.
             # only required for reconcilation, split naturally sums to 1 anyways.
             * prm["construction_material_split"].get_shares_over("m")
         )
         # construction losses are relative to total cement use
-        flw["cement_market => construction"][...] = cement_use / (1 - prm["cement_losses"])
+        flw["cement_market => construction"][...] = cement_use / (1 - prm["cement_loss_rate"])
         product_by_material = cement_use / prm["cement_ratio"]
         flw["sysenv => construction"][...] = product_by_material - cement_use
         flw["construction => use"][...] = product_by_material.sum_over("m")
@@ -92,7 +92,7 @@ class InflowDrivenHistoricalCementMFASystem(CommonMFASystem):
 
         # cement losses during construction
         flw["construction => sysenv"][...] = (
-            flw["cement_market => construction"] * prm["cement_losses"]
+            flw["cement_market => construction"] * prm["cement_loss_rate"]
         )
 
         # trade
