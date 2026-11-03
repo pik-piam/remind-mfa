@@ -142,17 +142,17 @@ class CommonMFASystem(fd.MFASystem):
         dom_supply: fd.FlodymArray | None = None,
     ):
         """Align the future EU trade of the given market to the change of the OPEN-GEM trade
-        ratios, see :class:`OpenGemTradeAligner`. Does nothing if no OPEN-GEM scenario is
-        configured or if the market's trade is read from data.
+        ratios, see :class:`OpenGemTradeAligner`. Does nothing if the OPEN-GEM alignment is
+        switched off or if the market's trade is read from data.
 
         Args:
-            market: Name of the trade market. The parameters ``open_gem_imports_ratio_[market]``
-                and ``open_gem_exports_ratio_[market]`` must be defined.
+            market: Name of the trade market. The parameters ``imports_ratio_[market]_OPEN-GEM``
+                and ``exports_ratio_[market]_OPEN-GEM`` must be defined.
             dom_demand: Domestic demand, for demand-driven trade (ratios to OPEN-GEM demand).
             dom_supply: Domestic supply, for supply-driven trade (ratios to OPEN-GEM production).
                 Used for steel scrap.
         """
-        if self.cfg.transience.open_gem_scenario is None:
+        if not self.cfg.transience.open_gem_alignment:
             return
         if market in self.get_trade_markets_from_data():
             logging.warning(
@@ -167,8 +167,8 @@ class CommonMFASystem(fd.MFASystem):
             )
         OpenGemTradeAligner(
             trade=self.trade_set[market],
-            imports_ratio=self.parameters[f"open_gem_imports_ratio_{market}"],
-            exports_ratio=self.parameters[f"open_gem_exports_ratio_{market}"],
+            imports_ratio=self.parameters[f"imports_ratio_{market}_OPEN-GEM"],
+            exports_ratio=self.parameters[f"exports_ratio_{market}_OPEN-GEM"],
             dom_demand=dom_demand,
             dom_supply=dom_supply,
             base_year=base_year,

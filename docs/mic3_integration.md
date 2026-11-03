@@ -39,18 +39,21 @@ the REMIND-MFA goods by `sector_mapping_OPEN_GEM.xlsx`. Plastics waste trade is 
 parameter and is not aligned. The physical limits of steel scrap use are applied after the
 alignment and may still change the EU scrap trade.
 
-To run with an OPEN-GEM scenario:
+The OPEN-GEM scenarios match the TRANSIENCE (EU-MFA) scenarios, so `transience.transience_scenario`
+selects both. To run with the alignment:
 
-1. Convert the OPEN-GEM report (sheet `SECTOR_<scenario>`) to `.cs4r` files in
-   `data_in/legacy/open_gem/<scenario>/`:
+1. Convert the OPEN-GEM report to `.cs4r` files next to the EU-MFA files of each scenario, in
+   `data_in/legacy/transience/<transience_scenario>/`:
 
     ```bash
-    uv run python scripts/map_OPEN-GEM_trade.py --scenario BASE
+    uv run python scripts/map_OPEN-GEM_trade.py
     ```
 
-    A different report file can be passed with `--report`.
-2. Set `open_gem_scenario = 'BASE'` in the `[<model>.transience]` section of the config. Without
-   it, the alignment is switched off. The run folder name gets the suffix `_OG-<scenario>`.
+    `SCENARIOS` in the script assigns each TRANSIENCE scenario its OPEN-GEM scenario, i.e. the sheet
+    `SECTOR_<OPEN-GEM scenario>` of the report. Add new scenarios there. A different report file
+    can be passed with `--report`.
+2. Set `open_gem_alignment = true` in the `[<model>.transience]` section of the config. The run
+   folder name gets the suffix `_OPEN-GEM`.
 
 ## Coupling with the ATLAS trade model
 

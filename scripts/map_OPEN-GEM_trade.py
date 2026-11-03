@@ -27,10 +27,17 @@ OPEN-GEM reports 5-year steps (2017, 2025, ..., 2050). The ratios are interpolat
 annual values on the model's Time dimension, held constant at the first reported value before and
 at the last reported value after the reported period.
 
-Output: data_in/legacy/open_gem/<scenario>/{st,pl}_open_gem_{imports,exports}_ratio_<market>.cs4r
+Scenarios
+---------
+The OPEN-GEM scenarios match the TRANSIENCE (EU-MFA) scenarios. SCENARIOS maps each TRANSIENCE
+scenario to its sheet SECTOR_<OPEN-GEM scenario> in the OPEN-GEM report, and the files are written
+next to the EU-MFA files of that scenario, so that `transience.transience_scenario` selects both.
+
+Output: data_in/legacy/transience/<TRANSIENCE scenario>/
+        {st,pl}_{imports,exports}_ratio_<market>_OPEN-GEM.cs4r
 
 Usage:
-    uv run --no-sync python scripts/map_OPEN-GEM_trade.py --scenario BASE
+    uv run --no-sync python scripts/map_OPEN-GEM_trade.py [--material steel] [--scenario X]
 """
 
 import argparse
@@ -42,7 +49,7 @@ import pandas as pd
 TRANSIENCE_INPUT = Path("data_in/legacy/transience_input")
 DEFAULT_REPORT = TRANSIENCE_INPUT / "OPEN_GEM_REPORT_v20261016.xlsx"
 DEFAULT_MAPPING = TRANSIENCE_INPUT / "sector_mapping_OPEN_GEM.xlsx"
-OUTPUT_ROOT = Path("data_in/legacy/open_gem")
+OUTPUT_ROOT = Path("data_in/legacy/transience")
 DIMENSION_ROOT = Path("data_in/dimensions")
 
 OG_REGION = "EU27"
@@ -52,6 +59,11 @@ OG_REGION = "EU27"
 TARGET_EU_REGION = "EUR"
 
 MATERIALS = ["steel", "plastics"]
+# TRANSIENCE scenario -> OPEN-GEM scenario (sheet SECTOR_<OPEN-GEM scenario>), per material
+SCENARIOS = {
+    "steel": {"BASE_steel_combined": "BASE"},
+    "plastics": {"BASE_plastics_combined": "BASE"},
+}
 PREFIX = {"steel": "st", "plastics": "pl"}
 # (material, trade category in the mapping) -> (REMIND-MFA trade market, OPEN-GEM denominator)
 MARKETS = {
@@ -124,7 +136,14 @@ def write_cs4r(path: Path, df: pd.DataFrame, description: str, dimensions: str):
     print(f"Saved {len(df)} rows to {path}")
 
 
-def run(material: str, scenario: str, og: pd.DataFrame, mapping: pd.DataFrame, report: Path):
+def run(
+    material: str,
+    scenario: str,
+    og_scenario: str,
+    og: pd.DataFrame,
+    mapping: pd.DataFrame,
+    report: Path,
+):
     years = pd.read_csv(DIMENSION_ROOT / material / "time.csv", header=None)[0].tolist()
     for (mat, category), (market, denominator) in MARKETS.items():
         if mat != material:
@@ -160,7 +179,7 @@ def run(material: str, scenario: str, og: pd.DataFrame, mapping: pd.DataFrame, r
             dimensions = "(Time,Region,End Use,value)" if per_good else "(Time,Region,value)"
             description = (
                 f"OPEN-GEM {numerator}/{denominator} (b$ 2017) of the {OG_REGION} region from sheet "
-                f"SECTOR_{scenario} of {report.name}, mapped to REMIND-MFA {market} trade by "
+                f"SECTOR_{og_scenario} of {report.name}, mapped to REMIND-MFA {market} trade by "
                 f"{DEFAULT_MAPPING.name}; written to {TARGET_EU_REGION} (EU27 vs EU28 scope "
                 f"difference not corrected, only relative changes are used); interpolated linearly "
                 f"to annual values, constant outside the reported years"
@@ -168,26 +187,37 @@ def run(material: str, scenario: str, og: pd.DataFrame, mapping: pd.DataFrame, r
             path = (
                 OUTPUT_ROOT
                 / scenario
-                / f"{PREFIX[material]}_open_gem_{direction}_ratio_{market}.cs4r"
+                / f"{PREFIX[material]}_{direction}_ratio_{market}_OPEN-GEM.cs4r"
             )
             write_cs4r(path, df, description, dimensions)
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="Map OPEN-GEM trade ratios to REMIND-MFA cs4r files.")
+    p.add_argument("--material", choices=MATERIALS, default=None)
     p.add_argument(
-        "--scenario", default="BASE", help="OPEN-GEM scenario, read from sheet SECTOR_<scenario>"
+        "--scenario",
+        default=None,
+        help="TRANSIENCE scenario (key of SCENARIOS); all scenarios of the material if not given",
     )
     p.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     p.add_argument("--mapping", type=Path, default=DEFAULT_MAPPING)
-    p.add_argument("--material", choices=MATERIALS, default=None)
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    og = read_open_gem(args.report, args.scenario)
     mapping = read_mapping(args.mapping)
     for material in [args.material] if args.material else MATERIALS:
-        print(f"\n=== {material} / OPEN-GEM {args.scenario} ===")
-        run(material, args.scenario, og, mapping, args.report)
+        scenarios = SCENARIOS[material]
+        if args.scenario is not None:
+            if args.scenario not in scenarios:
+                raise ValueError(
+                    f"No OPEN-GEM scenario for {material} scenario '{args.scenario}'. "
+                    f"Add it to SCENARIOS. Known: {list(scenarios)}"
+                )
+            scenarios = {args.scenario: scenarios[args.scenario]}
+        for scenario, og_scenario in scenarios.items():
+            print(f"\n=== {material} / {scenario} (OPEN-GEM {og_scenario}) ===")
+            og = read_open_gem(args.report, og_scenario)
+            run(material, scenario, og_scenario, og, mapping, args.report)

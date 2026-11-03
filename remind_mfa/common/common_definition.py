@@ -25,11 +25,9 @@ class RemindMFAParameterDefinition(fd.ParameterDefinition):
     description: Optional[str] = None
     """Description of the parameter."""
     scenario_folder: Optional[str] = None
-    """If set, the parameter file is read from ``legacy/<scenario_folder>/<scenario>/``
+    """If set, the parameter file is read from ``input_data/<scenario_folder>/<scenario>/``
     instead of the shared ``input_data/`` directory, where ``<scenario>`` comes from
-    ``cfg.transience.transience_scenario`` (folder 'transience') or
-    ``cfg.transience.open_gem_scenario`` (folder 'open_gem'). Use this for parameters that differ
-    between transience scenarios."""
+    ``cfg.transience.transience_scenario``. Use this for parameters that differ between transience scenarios."""
 
 
 class RemindMFADefinition(fd.MFADefinition):
@@ -78,22 +76,22 @@ OPEN_GEM_MARKETS = {
 
 
 def open_gem_parameters(cfg: CommonCfg) -> list[RemindMFAParameterDefinition]:
-    """Definitions of the OPEN-GEM trade ratio parameters, if an OPEN-GEM scenario is configured.
+    """Definitions of the OPEN-GEM trade ratio parameters, if the OPEN-GEM alignment is switched on.
 
     Returns one import and one export ratio parameter per trade market in `OPEN_GEM_MARKETS`.
     """
-    if cfg.transience.open_gem_scenario is None:
+    if not cfg.transience.open_gem_alignment:
         return []
     parameters = []
     for market, dim_letters in OPEN_GEM_MARKETS[cfg.model].items():
         for direction in ("imports", "exports"):
             parameters.append(
                 RemindMFAParameterDefinition(
-                    name=f"open_gem_{direction}_ratio_{market}",
+                    name=f"{direction}_ratio_{market}_OPEN-GEM",
                     dim_letters=dim_letters,
                     description=f"OPEN-GEM ratio of EU {market} {direction} to demand "
                     "(manufactured products) or production (scrap)",
-                    scenario_folder="open_gem",
+                    scenario_folder="transience",
                 )
             )
     return parameters
