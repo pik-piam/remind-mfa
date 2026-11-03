@@ -31,6 +31,7 @@ jobs:
       # is deployed as the viewer, after a comparison with the build of the baseline run, whose
       # Markdown summary blicket writes to $SUMMARY.
       RUN: data_out/ci_series
+      BASELINE_RUN: data_out/baseline_series
       BASELINE_BUILD: ${{ github.workspace }}/data_out/blicket_builds/baseline
       BUILD: ${{ github.workspace }}/data_out/blicket_builds/current
       SUMMARY: ${{ github.workspace }}/data_out/comparison_summary.md
@@ -146,8 +147,9 @@ jobs:
         if ! cmp -s config/default.toml "$GITHUB_WORKSPACE/config/default.toml"; then
           uv run scripts/fetch_from_hpc.py mfa-archive hpc --config default --config ci
         fi
-        uv run remind-mfa --config default --config ci --model all --no-viewer
-        uv run blicket build "$RUN" --out "$BASELINE_BUILD"
+        printf '[base]\n    [base.export]\n        prefix = "baseline"\n' > config/baseline.toml
+        uv run remind-mfa --config default --config ci --config baseline --model all --no-viewer
+        uv run blicket build "$BASELINE_RUN" --out "$BASELINE_BUILD"
         ref="${BASELINE_REF#refs/heads/}"
         short_sha="$(git rev-parse --short HEAD)"
         if [ "${#ref}" -ge 40 ]; then label="$short_sha"; else label="$ref@$short_sha"; fi
