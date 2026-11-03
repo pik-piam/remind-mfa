@@ -137,13 +137,13 @@ def get_coupling_paths(
     region_mapping = config["input"].get("region_mapping")
     transience_scenario = config["transience"].get("transience_scenario")
     trade_scenario = config["transience"].get("trade_scenario")
+    open_gem_scenario = config["transience"].get("open_gem_scenario")
+    run_name = f"{export_cfg['prefix']}_{model.value}_{scenario}_{region_mapping}_{transience_scenario}_{trade_scenario}"
+    if open_gem_scenario is not None:
+        # same suffix as CommonDataExporter.run_path
+        run_name += f"_OG-{open_gem_scenario}"
     export_path = _resolve_path(export_cfg["path"], root)
-    atlas_export_path = (
-        export_path
-        / f"{export_cfg['prefix']}_series"
-        / f"{export_cfg['prefix']}_{model.value}_{scenario}_{region_mapping}_{transience_scenario}_{trade_scenario}"
-        / "atlas"
-    )
+    atlas_export_path = export_path / f"{export_cfg['prefix']}_series" / run_name / "atlas"
     input_data_path = _resolve_path(config["input"]["input_data_path"], root)
     dimensions_path = input_data_path / "dimensions" / spec.name
 

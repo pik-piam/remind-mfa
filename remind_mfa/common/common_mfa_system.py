@@ -6,7 +6,9 @@ import flodym as fd
 import numpy as np
 
 from remind_mfa.common.common_config import CommonCfg
+from remind_mfa.common.common_definition import EU_MFA_REGION
 from remind_mfa.common.trade import Trade, TradeSet, set_trade_from_data
+from remind_mfa.common.trade_extrapolation import OpenGemTradeAligner
 from remind_mfa.common.helpers import clip_negative_arr
 from remind_mfa.common.data_blending import critically_damped_blend
 from remind_mfa.common.assumptions_doc import add_assumption_doc
@@ -132,6 +134,46 @@ class CommonMFASystem(fd.MFASystem):
             balance_to=self.cfg.trade.balance,
             market_name=market,
         )
+
+    def align_trade_to_open_gem(
+        self,
+        market: str,
+        dom_demand: fd.FlodymArray | None = None,
+        dom_supply: fd.FlodymArray | None = None,
+    ):
+        """Align the future EU trade of the given market to the change of the OPEN-GEM trade
+        ratios, see :class:`OpenGemTradeAligner`. Does nothing if no OPEN-GEM scenario is
+        configured or if the market's trade is read from data.
+
+        Args:
+            market: Name of the trade market. The parameters ``open_gem_imports_ratio_[market]``
+                and ``open_gem_exports_ratio_[market]`` must be defined.
+            dom_demand: Domestic demand, for demand-driven trade (ratios to OPEN-GEM demand).
+            dom_supply: Domestic supply, for supply-driven trade (ratios to OPEN-GEM production).
+                Used for steel scrap.
+        """
+        if self.cfg.transience.open_gem_scenario is None:
+            return
+        if market in self.get_trade_markets_from_data():
+            logging.warning(
+                f"'{market}' trade is read from data, so it is not aligned to OPEN-GEM."
+            )
+            return
+        base_year = self.cfg.transience.open_gem_base_year
+        if base_year <= self.dims["h"].items[-1]:
+            raise ValueError(
+                f"OPEN-GEM base year {base_year} must be after the last historical year "
+                f"{self.dims['h'].items[-1]}."
+            )
+        OpenGemTradeAligner(
+            trade=self.trade_set[market],
+            imports_ratio=self.parameters[f"open_gem_imports_ratio_{market}"],
+            exports_ratio=self.parameters[f"open_gem_exports_ratio_{market}"],
+            dom_demand=dom_demand,
+            dom_supply=dom_supply,
+            base_year=base_year,
+            region=EU_MFA_REGION,
+        ).run()
 
     def cap_historical_net_exports_to_supply(self, trade: Trade, supply: fd.FlodymArray):
         """Cap a historical trade's *net* exports at the available domestic supply so downstream

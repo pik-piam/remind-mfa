@@ -429,6 +429,8 @@ class CommonDataExporter(RemindMFABaseModel):
                 f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}_"
                 f"{self._model.cfg.transience.transience_scenario}_{self._model.cfg.transience.trade_scenario}"
             )
+            if self._model.cfg.transience.open_gem_scenario is not None:
+                name += f"_OG-{self._model.cfg.transience.open_gem_scenario}"
             self._run_path = os.path.join(self.cfg.path, name)
             Path(self._run_path).mkdir(parents=True, exist_ok=True)
         return self._run_path

@@ -3,6 +3,7 @@ import flodym as fd
 from remind_mfa.common.common_definition import (
     ExtrapolationDefinition,
     RemindMFADefinition,
+    open_gem_parameters,
     trade_parameters_read_from_data,
 )
 from remind_mfa.plastics.plastics_config import PlasticsCfg
@@ -294,6 +295,7 @@ def get_plastics_definition(cfg: PlasticsCfg, historical: bool) -> RemindMFADefi
             TradeDefinition(name="aux_recl_feedstock", dim_letters=("t", "e", "r")),
         ]
         parameters += trade_parameters_read_from_data(cfg, trades)
+        parameters += open_gem_parameters(cfg)
 
     return RemindMFADefinition(
         dimensions=dimensions,

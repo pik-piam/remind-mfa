@@ -5,6 +5,7 @@ import flodym as fd
 
 from remind_mfa.common.data_blending import BLEND_TYPES
 from remind_mfa.common.helpers import (
+    ModelNames,
     RemindMFABaseModel,
 )
 from remind_mfa.common.common_config import CommonCfg
@@ -24,9 +25,11 @@ class RemindMFAParameterDefinition(fd.ParameterDefinition):
     description: Optional[str] = None
     """Description of the parameter."""
     scenario_folder: Optional[str] = None
-    """If set, the parameter file is read from ``input_data/<scenario_folder>/<scenario>/``
+    """If set, the parameter file is read from ``legacy/<scenario_folder>/<scenario>/``
     instead of the shared ``input_data/`` directory, where ``<scenario>`` comes from
-    ``cfg.transience.transience_scenario``. Use this for parameters that differ between transience scenarios."""
+    ``cfg.transience.transience_scenario`` (folder 'transience') or
+    ``cfg.transience.open_gem_scenario`` (folder 'open_gem'). Use this for parameters that differ
+    between transience scenarios."""
 
 
 class RemindMFADefinition(fd.MFADefinition):
@@ -61,6 +64,36 @@ def trade_parameters_read_from_data(
                     dim_letters=trades_by_name[market].dim_letters,
                     description=f"Future {market} {direction} read from data instead of being "
                     "extrapolated from historical trade",
+                )
+            )
+    return parameters
+
+
+OPEN_GEM_MARKETS = {
+    ModelNames.STEEL: {"manufactured_products": ("t", "r", "u"), "scrap": ("t", "r")},
+    # plastics waste trade is not aligned, since it is a scenario parameter (phased out in BASE)
+    ModelNames.PLASTICS: {"manufactured_products": ("t", "r", "u")},
+}
+"""Trade markets of each material aligned to OPEN-GEM, with the dimensions of their trade ratios."""
+
+
+def open_gem_parameters(cfg: CommonCfg) -> list[RemindMFAParameterDefinition]:
+    """Definitions of the OPEN-GEM trade ratio parameters, if an OPEN-GEM scenario is configured.
+
+    Returns one import and one export ratio parameter per trade market in `OPEN_GEM_MARKETS`.
+    """
+    if cfg.transience.open_gem_scenario is None:
+        return []
+    parameters = []
+    for market, dim_letters in OPEN_GEM_MARKETS[cfg.model].items():
+        for direction in ("imports", "exports"):
+            parameters.append(
+                RemindMFAParameterDefinition(
+                    name=f"open_gem_{direction}_ratio_{market}",
+                    dim_letters=dim_letters,
+                    description=f"OPEN-GEM ratio of EU {market} {direction} to demand "
+                    "(manufactured products) or production (scrap)",
+                    scenario_folder="open_gem",
                 )
             )
     return parameters

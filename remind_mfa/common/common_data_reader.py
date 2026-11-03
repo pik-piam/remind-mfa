@@ -38,7 +38,10 @@ class CommonDataReader(fd.CompoundDataReader):
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
-        self.transience_scenario = cfg.transience.transience_scenario
+        self.scenarios_by_folder = {
+            "transience": cfg.transience.transience_scenario,
+            "open_gem": cfg.transience.open_gem_scenario,
+        }
         self.prepare_input_readers()
         self.baseline_pickle_path = (
             os.path.join(cfg.export.path, cfg.transience.baseline_pickle_path, "model.pickle")
@@ -302,16 +305,20 @@ class CommonDataReader(fd.CompoundDataReader):
         legacy_files = ()
         for parameter in self.definition.parameters:
             if parameter.scenario_folder is not None:
-                # scenario-specific parameter: read from input_data/<scenario_folder>/<scenario>/
-                scenario_path = (
-                    self.legacy_path / parameter.scenario_folder / self.transience_scenario
-                )
+                # scenario-specific parameter: read from legacy/<scenario_folder>/<scenario>/
+                scenario = self.scenarios_by_folder[parameter.scenario_folder]
+                scenario_path = self.legacy_path / parameter.scenario_folder / scenario
                 model_specific_file = scenario_path / f"{model_prefix}_{parameter.name}.cs4r"
+                legacy_file = None
             else:
                 model_specific_file = self.parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
                 legacy_file = self.legacy_parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
 
-            if not model_specific_file.exists() and legacy_file.exists():
+            if (
+                not model_specific_file.exists()
+                and legacy_file is not None
+                and legacy_file.exists()
+            ):
                 legacy_files += (parameter.name,)
                 parameter_files[parameter.name] = legacy_file
             else:
