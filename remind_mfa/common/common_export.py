@@ -77,8 +77,6 @@ class CommonDataExporter(RemindMFABaseModel):
     _run_path: Optional[str] = PrivateAttr(default=None)
 
     def export(self, model: "CommonModel"):
-        # Always set the model as the visualizer needs it to determine the run folder
-        # even when data export is disabled.
         self._model = model
         if not self.cfg.do_export:
             return
@@ -404,7 +402,7 @@ class CommonDataExporter(RemindMFABaseModel):
         return df
 
     def run_path(self) -> str:
-        """Per-model-run export folder, created once and shared by exporter and visualizer."""
+        """Per-model-run export folder, created once."""
         if self._run_path is None:
             if self.cfg.bundle_export:
                 self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
@@ -434,5 +432,5 @@ class CommonDataExporter(RemindMFABaseModel):
 
     @property
     def model_docs_path(self) -> str:
-        """Per-model-run export folder for docs, created once and shared by exporter and visualizer."""
+        """Folder of the generated documentation of this model."""
         return DOCS_PATH / self._model.name

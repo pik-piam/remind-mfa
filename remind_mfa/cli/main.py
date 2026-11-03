@@ -1,5 +1,10 @@
 from remind_mfa.common.batch import run_batch
-from remind_mfa.cli.helpers import configure_logger, prompt_for_config_names, prompt_for_model
+from remind_mfa.cli.helpers import (
+    configure_logger,
+    open_viewer,
+    prompt_for_config_names,
+    prompt_for_model,
+)
 from remind_mfa.common.helpers import ModelNames
 
 
@@ -25,6 +30,13 @@ def main(
         Literal["all", "plastics", "steel", "cement"] | None,
         typer.Option("--model", help="Model to run, or all."),
     ] = None,
+    viewer: Annotated[
+        bool,
+        typer.Option(
+            "--viewer/--no-viewer",
+            help="Open the blicket viewer on the run afterwards.",
+        ),
+    ] = True,
 ) -> None:
     """Run REMIND-MFA with one or more layered configurations."""
     load_dotenv()
@@ -39,4 +51,6 @@ def main(
 
     configure_logger()
 
-    run_batch(config_names, models_to_run)
+    run_paths = run_batch(config_names, models_to_run)
+    if viewer:
+        open_viewer(run_paths)

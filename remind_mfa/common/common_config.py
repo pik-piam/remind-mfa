@@ -96,71 +96,6 @@ class ExportCfg(BaseExportCfg):
     """Configuration of export of results in IAMC format."""
 
 
-class BaseVisualizationCfg(RemindMFABaseModel):
-    do_visualize: bool = True
-    """Whether to create visualizations for this entity"""
-
-
-class SankeyVisualizationCfg(BaseVisualizationCfg):
-    plotter_args: dict = {}
-    """dictionary of arguments to pass to the Sankey plotter"""
-
-
-class StockVisualizationCfg(BaseVisualizationCfg):
-    per_capita: bool = False
-    """Whether to visualize stock per capita."""
-    over_gdp: bool = False
-    """Whether to visualize stock over GDPpC. Alternative is over time"""
-    accumulate_gdp: bool = False
-    """Whether to accumulate GDPpC over time (i.e. do not allow decreasing GDPpC) for visualization purposes."""
-
-
-class ConsumptionVisualizationCfg(BaseVisualizationCfg):
-    per_capita: bool = False
-    """Whether to visualize consumption per capita."""
-
-
-class GDPVisualizationCfg(BaseVisualizationCfg):
-    per_capita: bool = False
-    """Whether to visualize gdp per capita."""
-
-
-class VisualizationCfg(BaseVisualizationCfg):
-    do_show_figs: bool = True
-    """Whether to show figures."""
-    do_save_figs: bool = False
-    """Whether to save figures as static png files."""
-    do_save_figs_html: bool = False
-    """Whether to save figures as standalone HTML files."""
-    plotting_engine: str = "plotly"
-    """Plotting engine to use for visualizations."""
-    plotly_renderer: str = "browser"
-    """Plotly renderer to use for visualizations."""
-
-    use_stock: StockVisualizationCfg
-    """Visualization configuration for use stock."""
-    gdp: GDPVisualizationCfg
-    """Visualization configuration for GDP per capita."""
-    production: BaseVisualizationCfg
-    """Visualization configuration for production."""
-    trade: BaseVisualizationCfg
-    """Visualization configuration for trade."""
-    consumption: ConsumptionVisualizationCfg
-    """Visualization configuration for consumption."""
-    sankey: SankeyVisualizationCfg
-    """Visualization configuration for sankey."""
-    extrapolation: BaseVisualizationCfg
-    """Visualization configuration for extrapolation."""
-    end_use_split: BaseVisualizationCfg
-    """Visualization configuration for end-use splits."""
-
-    @model_validator(mode="after")
-    def validate_html_export(self):
-        if self.do_save_figs_html and self.plotting_engine != "plotly":
-            raise ValueError("do_save_figs_html requires plotting_engine = 'plotly'.")
-        return self
-
-
 class InputCfg(RemindMFABaseModel):
     madrat_output_path: str | None = None
     """Where to find the madrat output archives to extract input data from. If None, MADRAT_OUTPUT_FOLDER is used."""
@@ -205,8 +140,6 @@ class CommonCfg(RemindMFABaseModel):
     """Input data configuration."""
     model_switches: ModelSwitches
     """Model customization parameters."""
-    visualization: VisualizationCfg
-    """Visualization configuration."""
     export: ExportCfg
     """Data export configuration."""
 

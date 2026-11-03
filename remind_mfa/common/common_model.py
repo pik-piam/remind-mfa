@@ -12,7 +12,6 @@ from remind_mfa.common.common_definition import scenario_parameters as common_sc
 from remind_mfa.common.common_data_reader import CommonDataReader
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_export import CommonDataExporter
-from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.trade import TradeSet
@@ -25,7 +24,6 @@ class CommonModel[CfgT: CommonCfg]:
 
     ConfigCls = CommonCfg
     DataExporterCls = CommonDataExporter
-    VisualizerCls = CommonVisualizer
     DisplayNamesCls = CommonDisplayNames
     HistoricalMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
@@ -53,7 +51,7 @@ class CommonModel[CfgT: CommonCfg]:
         self.select_driver_scen()
         self.modify_parameters()
         self.calculate_derived_parameters()
-        self.init_export_and_visualization()
+        self.init_export()
 
     def run(self):
         logging.info("Running historical MFA system...")
@@ -83,9 +81,6 @@ class CommonModel[CfgT: CommonCfg]:
 
     def export(self):
         self.data_writer.export(model=self)
-
-    def visualize(self):
-        self.visualizer.visualize(model=self)
 
     def set_definition(self):
         self.definition_historical = self.get_definition(self.cfg, historical=True)
@@ -225,15 +220,10 @@ class CommonModel[CfgT: CommonCfg]:
         """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
 
-    def init_export_and_visualization(self):
-        display_names = self.DisplayNamesCls()
+    def init_export(self):
         self.data_writer = self.DataExporterCls(
             cfg=self.cfg.export,
-            display_names=display_names,
-        )
-        self.visualizer = self.VisualizerCls(
-            cfg=self.cfg.visualization,
-            display_names=display_names,
+            display_names=self.DisplayNamesCls(),
         )
 
     def make_mfa(
@@ -323,7 +313,7 @@ class CommonModel[CfgT: CommonCfg]:
         # denormalize
         self.end_use_specific_sat_level = (
             end_use_specific_sat_level * time_factor
-        )  # to be used in visualization of extrapolation functions
+        )  # read by the stock extrapolation Blicks
         long_term_stock = self.stock_handler.stocks * self.end_use_specific_sat_level
 
         return long_term_stock

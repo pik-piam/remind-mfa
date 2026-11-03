@@ -1,10 +1,4 @@
-from remind_mfa.common.common_config import (
-    CommonCfg,
-    ModelSwitches,
-    VisualizationCfg,
-    BaseVisualizationCfg,
-    StockVisualizationCfg,
-)
+from remind_mfa.common.common_config import CommonCfg, ModelSwitches
 
 
 class CementModelSwitches(ModelSwitches):
@@ -16,23 +10,7 @@ class CementModelSwitches(ModelSwitches):
     """Whether to perform parameter reconciliation with bottom-up stock data."""
 
 
-class CementVisualizationCfg(VisualizationCfg):
-
-    clinker_production: BaseVisualizationCfg
-    """Visualization configuration for clinker production."""
-    cement_production: BaseVisualizationCfg
-    """Visualization configuration for cement production."""
-    construction: BaseVisualizationCfg
-    """Visualization configuration for construction (construction material production)."""
-    eol_stock: StockVisualizationCfg
-    """Visualization configuration for end-of-life stock."""
-    carbonation: BaseVisualizationCfg
-    """Visualization configuration for carbonation."""
-
-
 class CementCfg(CommonCfg):
 
     model_switches: CementModelSwitches
     """Model customization parameters for the cement model."""
-    visualization: CementVisualizationCfg
-    """Cement visualization configuration."""

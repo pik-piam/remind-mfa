@@ -18,7 +18,6 @@ from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistorica
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mappings import CementDisplayNames
 from remind_mfa.cement.cement_export import CementDataExporter
-from remind_mfa.cement.cement_visualization import CementVisualizer
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
@@ -61,7 +60,6 @@ class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
     DataExporterCls = CementDataExporter
-    VisualizerCls = CementVisualizer
     DisplayNamesCls = CementDisplayNames
     HistoricalMFASystemCls = InflowDrivenHistoricalCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem

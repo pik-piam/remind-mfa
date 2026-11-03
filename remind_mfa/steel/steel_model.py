@@ -8,7 +8,6 @@ from remind_mfa.steel.steel_mfa_system_historical import SteelMFASystemHistorica
 from remind_mfa.steel.steel_definition import get_steel_definition
 from remind_mfa.steel.steel_config import SteelCfg
 from remind_mfa.steel.steel_mappings import SteelDisplayNames
-from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
@@ -18,7 +17,6 @@ class SteelModel(CommonModel[SteelCfg]):
 
     ConfigCls = SteelCfg
     DataExporterCls = SteelDataExporter
-    VisualizerCls = SteelVisualizer
     DisplayNamesCls = SteelDisplayNames
     HistoricalMFASystemCls = SteelMFASystemHistorical
     FutureMFASystemCls = SteelMFASystem

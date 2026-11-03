@@ -48,7 +48,9 @@ For an example model execution, run
 uv run remind_mfa --config default --model steel
 ```
 
-from the main directory. Configuration names resolve to TOML files below `config`, so
+from the main directory. After the run, the [blicket](https://github.com/tobiasdiez/blicket)
+viewer opens in the browser with the figures of the run (see `blicks/README.md`). Pass `--no-viewer` to skip that. Configuration names resolve to TOML files below
+`config`, so
 `default` selects `config/default.toml`. Repeat `--config` to stack configurations in
 order, with later files overriding earlier files:
 
@@ -80,7 +82,7 @@ Alternatively, you can also use `uv run scripts/fetch_from_hpc.py mrmfa-sources 
 The auto-generated documentation markdown files are updated automatically in each pull request.
 To update them locally, run
 ```
-uv run remind_mfa --config default --config update_docs --model all
+uv run remind_mfa --config default --config update_docs --model all --no-viewer
 ```
 
 

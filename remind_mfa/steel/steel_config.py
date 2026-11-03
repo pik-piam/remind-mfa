@@ -1,12 +1,5 @@
-from remind_mfa.common.common_config import CommonCfg, VisualizationCfg, BaseVisualizationCfg
-
-
-class SteelVisualizationCfg(VisualizationCfg):
-    scrap_demand_supply: BaseVisualizationCfg
-    """Visualization configuration for scrap demand and supply."""
+from remind_mfa.common.common_config import CommonCfg
 
 
 class SteelCfg(CommonCfg):
-
-    visualization: SteelVisualizationCfg
-    """Steel visualization configuration."""
+    """Configuration of the steel model."""

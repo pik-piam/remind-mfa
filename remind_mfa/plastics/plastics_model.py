@@ -4,7 +4,6 @@ import numpy as np
 from .plastics_mfa_system_future import PlasticsMFASystemFuture
 from .plastics_mfa_system_historical import PlasticsMFASystemHistorical
 from .plastics_export import PlasticsDataExporter
-from .plastics_visualization import PlasticsVisualizer
 from .plastics_definition import get_plastics_definition
 from .plastics_mappings import PlasticsDisplayNames
 from remind_mfa.plastics.plastics_definition import scenario_parameters as plastics_scn_prm_def
@@ -16,7 +15,6 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
 
     ConfigCls = PlasticsCfg
     DataExporterCls = PlasticsDataExporter
-    VisualizerCls = PlasticsVisualizer
     DisplayNamesCls = PlasticsDisplayNames
     HistoricalMFASystemCls = PlasticsMFASystemHistorical
     FutureMFASystemCls = PlasticsMFASystemFuture
