@@ -7,7 +7,7 @@ from remind_mfa.cement.cement_config import CementCfg
 from remind_mfa.cement.cement_bottom_up_definition import bottom_up_scenario_parameters
 from remind_mfa.cement.cement_definition import get_cement_definition
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
-    StockDrivenBottomUpCementMFASystem,
+    StockDrivenBottomUpCementMFASystem as BU,
     expand_common_to_bu,
     extend_end_use_intensive,
 )
@@ -64,7 +64,7 @@ class CementModel(CommonModel[CementCfg]):
     DisplayNamesCls = CementDisplayNames
     HistoricalMFASystemCls = InflowDrivenHistoricalCementMFASystem
     FutureMFASystemCls = StockDrivenCementMFASystem
-    BottomUpMFASystemCls = StockDrivenBottomUpCementMFASystem
+    BottomUpMFASystemCls = BU
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
@@ -149,7 +149,7 @@ class CementModel(CommonModel[CementCfg]):
 
         # derive mean residential type and structure splits from global weighted average
         prm = self.parameters
-        floorspace = prm["floorspace"][{"t": self.dims["h"].items[-1]}]
+        floorspace = BU.calc_gross_floorspace(prm)[{"t": self.dims["h"].items[-1]}]
 
         # residential type split target
         res_floorspace = floorspace[{"c": "Residential"}]
@@ -258,7 +258,7 @@ class CementModel(CommonModel[CementCfg]):
         if self.cfg.model_switches.parameter_reconciliation:
             return self.run_with_reconciliation()
 
-    def make_bottom_up_mfa(self) -> StockDrivenBottomUpCementMFASystem:
+    def make_bottom_up_mfa(self) -> BU:
         """Construct the future bottom-up MFA.
 
         Intensive end-use-resolved parameters (`intensive_end_use_prms`) are broadcasted to the

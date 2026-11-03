@@ -11,7 +11,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.cement.cement_mfa_system_historical import InflowDrivenHistoricalCementMFASystem
 from remind_mfa.cement.cement_mfa_system_future import StockDrivenCementMFASystem
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
-    StockDrivenBottomUpCementMFASystem,
+    StockDrivenBottomUpCementMFASystem as BU,
     aggregate_bu_to_common,
 )
 
@@ -147,7 +147,7 @@ class CementParameterReconciliation:
     def reduce_prm(self, prm_name: str, prm: fd.Parameter) -> fd.Parameter:
         """Reduce a parameter to the dimensions used during reconciliation."""
         # remove time dimension (not strictly necessary but improves performance)
-        if prm_name in ["floorspace"]:
+        if prm_name in ["floorspace_pc", "population"]:
             prm = prm[{"t": self._year_of_reconciliation}]
         return prm
 
@@ -285,9 +285,7 @@ class CementParameterReconciliation:
     def calc_bottom_up_stock(self, prm: dict[str, fd.FlodymArray]):
         """Bottom-up stock S_BU_j for all comparisons j = (r, c) in the reconciliation year."""
         # 1. Compute concrete stock bottom-up
-        concrete_stk = StockDrivenBottomUpCementMFASystem.concrete_from_floorspace(
-            prm["floorspace"], prm
-        )
+        concrete_stk = BU.concrete_from_floorspace(BU.calc_gross_floorspace(prm), prm)
 
         # 2. Reduce dimensions to match top-down stock dimensions
         return aggregate_bu_to_common(concrete_stk.sum_over("s"), self.common_end_use)
@@ -549,7 +547,9 @@ class CementParameterReconciliation:
             "concrete_building_mi": 0.2 + 0.3 * self.prms["development_weight"],
             "residential_type_split": 0.2,
             "structure_split": 0.2,
-            "floorspace": 0.4,
+            "floorspace_pc": 0.4,
+            "floorspace_net_to_gross": 0.1,
+            "population": 0.0,
             "unoccupied_residential_stock_share": 0.5,
             # TD parameters
             "cement_losses": 0.2,
