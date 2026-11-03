@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 import flodym as fd
 from pydantic import PrivateAttr
@@ -29,6 +29,15 @@ def _sum_to_end_use_split(arr: fd.FlodymArray) -> fd.FlodymArray:
 
 class CementDataExporter(CommonDataExporter):
     _model: Optional["CementModel"] = PrivateAttr(default=None)
+
+    _IAMC_RAW_PARAMETERS: ClassVar[dict[str, str]] = {
+        "end_use_split": "-",
+        "clinker_ratio": "-",
+        "cement_losses": "-",
+        "clinker_losses": "-",
+        "cement_ratio": "-",
+        "construction_material_split": "-",
+    }
 
     @staticmethod
     def _cement_production(mfa: fd.MFASystem) -> fd.FlodymArray:
@@ -87,18 +96,18 @@ class CementDataExporter(CommonDataExporter):
                 variable_name="Material Demand|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=CementDataExporter._cement_demand,
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Material Stock|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=CementDataExporter._cement_stock,
                 unit="t",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
             IamcVariable(
                 variable_name="Scrap|Non-Metallic Minerals|Cement",  # PRISMA nomenclature
                 calculation_function=CementDataExporter._eol_scrap_potential,
                 unit="t/yr",
-                split_name="End Use",
+                split_dims=["End Use"],
             ),
         ]

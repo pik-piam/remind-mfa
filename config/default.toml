@@ -18,7 +18,8 @@
         # prefix = "test"
         pickle.do_export = true
         csv.do_export = false
-        iamc.do_export = false
+        iamc_reporting.do_export = false
+        iamc_raw.do_export = false
         mrindustry.do_export = false
         assumptions.do_export = false
         docs.do_export = false

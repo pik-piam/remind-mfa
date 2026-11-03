@@ -1,5 +1,6 @@
 import os
 from functools import cached_property
+from typing import Literal
 
 import flodym as fd
 import pandas as pd
@@ -49,6 +50,8 @@ class BaseExportCfg(RemindMFABaseModel):
 
 
 class IamcExportCfg(BaseExportCfg):
+    """Common configuration of exports in IAMC format."""
+
     t: str = "1950:2100"
     """Inclusive "start:stop" year range to export in IAMC format (e.g. "1950:2100")."""
 
@@ -60,19 +63,30 @@ class IamcExportCfg(BaseExportCfg):
     def _parse_range(self) -> tuple[int, int]:
         parts = str(self.t).split(":")
         if len(parts) != 2:
-            raise ValueError(f"iamc.t must be a 'start:stop' year range, got {self.t!r}")
+            raise ValueError(f"t must be a 'start:stop' year range, got {self.t!r}")
         try:
             start, stop = int(parts[0]), int(parts[1])
         except ValueError:
-            raise ValueError(f"iamc.t must be a 'start:stop' year range, got {self.t!r}")
+            raise ValueError(f"t must be a 'start:stop' year range, got {self.t!r}")
         if start > stop:
-            raise ValueError(f"iamc.t start must not be after stop, got {self.t!r}")
+            raise ValueError(f"t start must not be after stop, got {self.t!r}")
         return start, stop
 
     @model_validator(mode="after")
     def validate_time_range(self):
         self._parse_range()
         return self
+
+
+class IamcReportingExportCfg(IamcExportCfg):
+    """Configuration of the export of selected variables in IAMC nomenclature."""
+
+
+class IamcRawExportCfg(IamcExportCfg):
+    """Configuration of the export of all flows, stocks, trades and selected parameters in IAMC format."""
+
+    detail: list[Literal["aggregated", "complete"]] = ["aggregated", "complete"]
+    """Detail levels to write, one file each: "aggregated" (resolved by time and region only) or "complete" (with all splits and parameters)."""
 
 
 class ExportCfg(BaseExportCfg):
@@ -92,8 +106,10 @@ class ExportCfg(BaseExportCfg):
     """Configuration of export of assumptions to a txt file."""
     docs: BaseExportCfg
     """Configuration of export to documentation files."""
-    iamc: IamcExportCfg
-    """Configuration of export of results in IAMC format."""
+    iamc_reporting: IamcReportingExportCfg
+    """Configuration of export of selected variables in IAMC nomenclature."""
+    iamc_raw: IamcRawExportCfg
+    """Configuration of export of all flows, stocks, trades and selected parameters in IAMC format."""
 
 
 class InputCfg(RemindMFABaseModel):
