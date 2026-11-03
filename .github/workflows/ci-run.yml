@@ -31,9 +31,9 @@ jobs:
       # is deployed as the viewer, after a comparison with the build of the baseline run, whose
       # Markdown summary blicket writes to $SUMMARY.
       RUN: data_out/ci_series
-      BASELINE_BUILD: ${{ runner.temp }}/baseline_build
-      BUILD: ${{ runner.temp }}/build
-      SUMMARY: ${{ runner.temp }}/comparison_summary.md
+      BASELINE_BUILD: ${{ github.workspace }}/data_out/blicket_builds/baseline
+      BUILD: ${{ github.workspace }}/data_out/blicket_builds/current
+      SUMMARY: ${{ github.workspace }}/data_out/comparison_summary.md
       # The run is compared against the following baseline:
         # - Manual runs against the input
         # - Pushes to main against the previous commit
