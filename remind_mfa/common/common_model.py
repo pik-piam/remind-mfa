@@ -20,6 +20,7 @@ from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationMana
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
+
 class CommonModel[CfgT: CommonCfg]:
 
     ConfigCls = CommonCfg

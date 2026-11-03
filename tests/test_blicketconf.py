@@ -246,9 +246,7 @@ def test_dataset_of_several_models_unites_the_values_of_a_dimension():
 
 
 def test_dataset_selects_and_sums(frames: bk.Frames):
-    table = frames.select(
-        "steel/flows/fabrication => use", ["Time", "Region"], {"Region": ["EUR"]}
-    )
+    table = frames.select("steel/flows/fabrication => use", ["Time", "Region"], {"Region": ["EUR"]})
 
     assert table.columns == ["Time", "Region", "value"]
     assert table["Time"].to_list() == [2020, 2030, 2040]

@@ -177,8 +177,16 @@ _STAGES: tuple[tuple[str, frozenset[str]], ...] = (
     (
         "Losses",
         frozenset(
-            {"losses", "excess_scrap", "hibernating", "eol_waste", "mismanaged", "uncontrolled",
-             "emission", "captured"}
+            {
+                "losses",
+                "excess_scrap",
+                "hibernating",
+                "eol_waste",
+                "mismanaged",
+                "uncontrolled",
+                "emission",
+                "captured",
+            }
         ),
     ),
     ("Recycling", frozenset({"reclmech", "reclchem", "scrap_pool", "scrap_market"})),
