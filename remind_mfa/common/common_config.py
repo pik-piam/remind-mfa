@@ -49,6 +49,11 @@ class BaseExportCfg(RemindMFABaseModel):
     """Whether to export this entity"""
 
 
+class DocsExportCfg(BaseExportCfg):
+    apply_mappings: bool = True
+    """Whether to replace internal names in the generated tables by their display names."""
+
+
 class IamcExportCfg(BaseExportCfg):
     """Common configuration of exports in IAMC format."""
 
@@ -104,7 +109,7 @@ class ExportCfg(BaseExportCfg):
     """Configuration of export to pickle files."""
     assumptions: BaseExportCfg
     """Configuration of export of assumptions to a txt file."""
-    docs: BaseExportCfg
+    docs: DocsExportCfg
     """Configuration of export to documentation files."""
     iamc_reporting: IamcReportingExportCfg
     """Configuration of export of selected variables in IAMC nomenclature."""

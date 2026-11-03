@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, List, Literal, ClassVar
 
 import flodym as fd
-import flodym.export as fde
 from pydantic import PrivateAttr
 import pandas as pd
 
@@ -96,6 +95,8 @@ class CommonDataExporter(RemindMFABaseModel):
             self._clear_recomputable_caches()
             pickle.dump(self._model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
+            import flodym.export as fde  # deferred: pulls in plotly and matplotlib
+
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
@@ -106,10 +107,9 @@ class CommonDataExporter(RemindMFABaseModel):
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
         if self.cfg.docs.do_export:
-            parameters_df = self.definition_to_markdown(self._model.definition_future)
+            self.definition_to_markdown(self._model.definition_future)
             self.merge_bibtex_files()
             self.assumptions_to_markdown()
-            self.merge_parameters_sources(params_df=parameters_df)
             self.cfg_to_markdown(cfg=self._model.cfg)
         if self.cfg.iamc_reporting.do_export:
             self.write_iamc_reporting()
@@ -517,6 +517,16 @@ class CommonDataExporter(RemindMFABaseModel):
 
         dfs = definition.to_dfs()
 
+        def dim_items_str(letter: str) -> str:
+            dim = self._model.dims[letter]
+            if dim.name == "Region":
+                return "*see region definition*"
+            if dim.dtype is int:
+                return f"{dim.items[0]} to {dim.items[-1]}"
+            return ", ".join(str(item) for item in dim.items)
+
+        dfs["dimensions"]["items"] = dfs["dimensions"]["letter"].map(dim_items_str)
+
         drop_columns = {
             "dimensions": ["dtype"],
             "stocks": ["solver", "time_letter"],
@@ -535,19 +545,18 @@ class CommonDataExporter(RemindMFABaseModel):
                 cell = ", ".join(cell)
             elif cell is None:
                 cell = ""
-            cell = self.display_names[str(cell)]
-            return cell.replace("<br>", " ")
+            return self._docs_cell_str(cell)
 
         for name, df in dfs.items():
             df.columns = [self.display_names[col] for col in df.columns]
-            df = df.map(convert_cell)
+            columns_to_convert = list(df.columns)
             if name == "parameters":
-                parameters_df = df
-            else:
-                write_docs_file(
-                    self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
-                )
-        return parameters_df
+                # sources are matched by internal parameter name, so before converting the names
+                df = self.merge_parameters_sources(params_df=df)
+            df[columns_to_convert] = df[columns_to_convert].map(convert_cell)
+            write_docs_file(
+                self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
+            )
 
     def merge_bibtex_files(self):
         """Compatibility wrapper used previously; merges two default files."""
@@ -556,16 +565,12 @@ class CommonDataExporter(RemindMFABaseModel):
         out = DOCS_PATH / "all_refs.bib"
         merge_bib_files([src1, src2], out)
 
-    def merge_parameters_sources(self, params_df: pd.DataFrame):
-
+    def merge_parameters_sources(self, params_df: pd.DataFrame) -> pd.DataFrame:
+        """Add a "Sources" column to the parameters table, matched by the "Name" column."""
         sources_df = pd.read_csv(self._model.data_reader.parameters_path / "mrmfa_sources.csv")
-
-        merged_df = merge_parameters_sources(
+        return merge_parameters_sources(
             sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
         )
-
-        output_file = self.model_docs_path / "definitions/parameters.md"
-        write_docs_file(output_file, merged_df.to_markdown(index=False))
 
     def assumptions_to_markdown(self):
 
@@ -581,10 +586,19 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         schema_df = type(cfg).to_schema_df()
-        schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
+        schema_df.columns = [self.display_names[col] for col in schema_df.columns]
+        schema_df = schema_df.map(
+            lambda cell: "" if str(cell) == "PydanticUndefined" else self._docs_cell_str(cell)
+        )
         write_docs_file(
             self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
         )
+
+    def _docs_cell_str(self, cell: Any) -> str:
+        """String of a docs table cell, with internal names replaced by display names if configured."""
+        if not self.cfg.docs.apply_mappings:
+            return str(cell)
+        return self.display_names[str(cell)].replace("<br>", " ")
 
     def to_iamc_df(self, array: fd.FlodymArray, time_items: list):
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)

@@ -1,5 +1,6 @@
 import copy
 import logging
+from functools import cached_property
 from pathlib import Path
 from typing import Optional
 import flodym as fd
@@ -18,7 +19,6 @@ from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-
 
 class CommonModel[CfgT: CommonCfg]:
 
@@ -51,7 +51,6 @@ class CommonModel[CfgT: CommonCfg]:
         self.select_driver_scen()
         self.modify_parameters()
         self.calculate_derived_parameters()
-        self.init_export()
 
     def run(self):
         logging.info("Running historical MFA system...")
@@ -81,6 +80,16 @@ class CommonModel[CfgT: CommonCfg]:
 
     def export(self):
         self.data_writer.export(model=self)
+
+    @cached_property
+    def display_names(self) -> CommonDisplayNames:
+        """Display names of the model, used by the data exporter."""
+        return self.DisplayNamesCls()
+
+    @cached_property
+    def data_writer(self) -> CommonDataExporter:
+        """Data exporter of the model."""
+        return self.DataExporterCls(cfg=self.cfg.export, display_names=self.display_names)
 
     def set_definition(self):
         self.definition_historical = self.get_definition(self.cfg, historical=True)
@@ -220,12 +229,6 @@ class CommonModel[CfgT: CommonCfg]:
         """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
 
-    def init_export(self):
-        self.data_writer = self.DataExporterCls(
-            cfg=self.cfg.export,
-            display_names=self.DisplayNamesCls(),
-        )
-
     def make_mfa(
         self,
         historical: bool = True,
@@ -284,11 +287,7 @@ class CommonModel[CfgT: CommonCfg]:
         )
 
         # after normalization, target saturation level is 1 across all regions and end-uses.
-        sat_level_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=1,
-            upper_bound=1,
-        )
+        sat_level_bound = Bound.fixed(var_name="saturation_level", value=1)
         growth_rate_bound = Bound(
             var_name="growth_rate",
             lower_bound=0,
