@@ -27,6 +27,7 @@ class ToyReconciliation(CementParameterReconciliation):
         linear: bool = False,
     ):
         self.linear = linear
+        self.scale_variances_by_stock_share = False
         self.toy_rel_stds = rel_stds
         self.init_parameters(prms, output_dims_are_independent)
 
@@ -66,6 +67,7 @@ REL_STDS: dict[str, float | fd.FlodymArray] = {
     "fixed": 0.0,
     "split": REL_STD_SPLIT,
 }
+SOLVER_SETTINGS = {"max_iter": 50, "tol_r": 1e-8, "tol_step": 1e-8}
 # log-space variances of lognormal parameters
 VAR_A, VAR_C, VAR_SPLIT = (np.log1p(v**2) for v in (REL_STD_A, REL_STD_C, REL_STD_SPLIT))
 
@@ -81,7 +83,7 @@ def test_linear_case_matches_closed_form(output_dims_are_independent: bool):
     rec = ToyReconciliation(prms, REL_STDS, output_dims_are_independent, linear=True)
     residual = mismatch(rec, prms)
 
-    out = rec.correct_parameters()
+    out = rec.correct_parameters(**SOLVER_SETTINGS)
 
     expected_delta_a = -VAR_A * residual / (VAR_A + VAR_C)
     expected_delta_c = VAR_C * residual / (VAR_A + VAR_C)
@@ -100,7 +102,7 @@ def test_nonlinear_case_reaches_constrained_optimum(output_dims_are_independent:
     prms = make_prms()
     rec = ToyReconciliation(prms, REL_STDS, output_dims_are_independent)
 
-    out = rec.correct_parameters()
+    out = rec.correct_parameters(**SOLVER_SETTINGS)
 
     np.testing.assert_allclose(mismatch(rec, out), 0.0, atol=1e-10)
     np.testing.assert_allclose(out["fixed"].values, prms["fixed"].values)
@@ -123,8 +125,8 @@ def test_split_scaling_does_not_change_result():
     rec = ToyReconciliation(make_prms(), REL_STDS, output_dims_are_independent=True)
     rec_scaled = ToyReconciliation(make_prms(split_scale=3.0), REL_STDS, True)
 
-    out = rec.correct_parameters()
-    out_scaled = rec_scaled.correct_parameters()
+    out = rec.correct_parameters(**SOLVER_SETTINGS)
+    out_scaled = rec_scaled.correct_parameters(**SOLVER_SETTINGS)
 
     for prm_name in out:
         np.testing.assert_allclose(out_scaled[prm_name].values, out[prm_name].values, rtol=1e-6)
@@ -135,4 +137,4 @@ def test_no_uncertain_parameter_raises():
     rec = ToyReconciliation(make_prms(), rel_stds, output_dims_are_independent=True)
 
     with pytest.raises(ValueError, match="singular"):
-        rec.correct_parameters()
+        rec.correct_parameters(**SOLVER_SETTINGS)

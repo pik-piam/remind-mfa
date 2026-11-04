@@ -391,8 +391,8 @@ class CementModel(CommonModel[CementCfg]):
     def reconcile_parameters(
         self,
         max_iter: int = 50,
-        tol_r: float = 1e-8,
-        tol_step: float = 1e-8,
+        tol_r: float = 1e-3,
+        tol_step: float = 5e-2,
     ):
         """Reconcile parameters between top-down and bottom-up stocks.
 

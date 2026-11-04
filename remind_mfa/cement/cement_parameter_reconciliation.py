@@ -34,9 +34,11 @@ class CementParameterReconciliation:
             subject to  r(δ) = ln S_TD - ln S_BU = 0   the two models agree
 
         where Q = diag(σ_p,k²) and σ_p,k² = ln(1 + v_p,k²) S_r / S_k is the log-space variance of
-        a lognormal parameter with relative uncertainty v_p,k, scaled by the inverse share of item
-        k in the stock of its region in the parameter's stock model (at the input parameters).
-        Parameters with zero uncertainty are fixed. The constraint is non-linear in δ, so it is linearised around the current
+        a lognormal parameter with relative uncertainty v_p,k. If `scale_variances_by_stock_share`
+        is set, it is scaled by the inverse share of item k in the stock of its region in the
+        parameter's stock model (at the input parameters); otherwise all items are treated equally.
+        Parameters with zero uncertainty are fixed. The constraint is non-linear in δ,
+        so it is linearised around the current
         estimate δ⁽ⁿ⁾ and the linear problem is solved repeatedly, following the weighted
         least-squares data reconciliation of Cencic (2016), doi: 10.1016/j.serj.2016.06.002,
         with measurements δ = 0 (no correction a priori). Each iteration n evaluates
@@ -88,6 +90,7 @@ class CementParameterReconciliation:
         self,
         ref_mfa: CommonMFASystem,
         output_dims_are_independent: bool = False,
+        scale_variances_by_stock_share: bool = False,
     ):
         """
         Initialize the parameter reconciliation.
@@ -99,7 +102,12 @@ class CementParameterReconciliation:
                 (e.g., changing a parameter for region EU does not affect the output for Asia).
                 This allows a more efficient block-diagonal Jacobian computation instead of
                 building the full output × parameter matrix.
+            scale_variances_by_stock_share: If True, scale the variances by S_r / S_k (see class
+                docstring). Off by default: it gives items with a small stock share very large
+                variances, which makes the iteration oscillate between two states in some regions
+                (e.g. with the gtap155 region mapping).
         """
+        self.scale_variances_by_stock_share = scale_variances_by_stock_share
         self._year_of_reconciliation = ref_mfa.dims["h"].items[-1]
         self.common_end_use = ref_mfa.dims["c"]
         # protect ref_mfa flows and stocks from in-place modification; trade is not corrected
@@ -165,9 +173,9 @@ class CementParameterReconciliation:
 
     def correct_parameters(
         self,
-        max_iter: int = 50,
-        tol_r: float = 1e-8,
-        tol_step: float = 1e-8,
+        max_iter: int,
+        tol_r: float,
+        tol_step: float,
     ) -> dict[str, fd.Parameter]:
         """Iteratively correct parameters to reconcile top-down and bottom-up stocks.
 
@@ -542,7 +550,7 @@ class CementParameterReconciliation:
         lognormally distributed parameter with relative uncertainty v_p,k (Limpert et al. 2001),
         scaled by the inverse stock share of item k in its region (see class docstring)."""
         variances = self.relative_uncertainty(prm_name).apply(lambda v: np.log1p(v**2))
-        if np.any(variances.values):  # skaling for non-zero uncertainty parameters only
+        if self.scale_variances_by_stock_share and np.any(variances.values):
             variances = variances * self.calc_stock_scaling(prm_name, is_top_down)
         return self.flatten_fd_to_np(variances.cast_to(self.prms_adj_dims[prm_name]))
 
@@ -563,7 +571,9 @@ class CementParameterReconciliation:
             stock = aggregate_bu_to_common(stock, self.common_end_use)
         if "d" in dims.letters:
             stock = stock[{"b": dims["d"]}]
-        return regional_stock / stock.sum_to(dims.letters).maximum(100)
+        item_stock = stock.sum_to(dims.letters)
+        min_item_stock = (regional_stock * 0.01).cast_to(item_stock.dims)
+        return regional_stock / item_stock.maximum(min_item_stock)
 
     def _build_relative_uncertainties(self) -> dict[str, float | fd.FlodymArray]:
         return {
