@@ -165,6 +165,7 @@ class SteelMFASystem(CommonMFASystem):
                 trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
+            self.align_trade_to_open_gem("manufactured_products", dom_demand=flw["manufactured_products_market => use"])
 
         flw["imports => manufactured_products_market"][...] = trd["manufactured_products"].imports
         flw["manufactured_products_market => exports"][...] = trd["manufactured_products"].exports
@@ -244,6 +245,8 @@ class SteelMFASystem(CommonMFASystem):
                 trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
+            # the following physical limits of scrap use take priority over the OPEN-GEM alignment
+            self.align_trade_to_open_gem("scrap", dom_supply=flw["eol_management => scrap_market"])
 
             # trade read from data is used as given; only the extrapolated trade is adjusted to
             # the scrap the regions can use

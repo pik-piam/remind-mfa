@@ -9,16 +9,51 @@ The trade flows of REMIND-MFA are delivered especially to the [EU-MFA](https://t
 ## Inputs from other modules
 | Parameter                                   | Source   | Description                                                                                                   |
 |---------------------------------------------|----------|---------------------------------------------------------------------------------------------------------------|
-| GDP                                         | OPEN-GEM | As an overarching driver for material demand within the EU region |
-| Trade flows                                 | OPEN-GEM | For harmonization of trade flows between OPEN-GEM and REMIND-MFA (requires translation between monetary values and tonnages) |
-| EU material demands and other parameters (tbd) | EU-MFA   | For harmonization of flows between EU-MFA and EU region in REMIND-MFA                                         |
-| Production costs (shadow prices)            | ITOM     | Eventually for calculating price-sensitive trade (currently planned to use prices from REMIND)                |
+| Trade flows                                 | OPEN-GEM | For harmonization of EU trade flows of manufactured products and steel scrap, via the relative change of OPEN-GEM trade ratios (see below) |
+| EU material demands and EoL flows           | EU-MFA   | For harmonization of flows within the EUR region between EU-MFA and EU region in REMIND-MFA                                         |
+| Production costs                            | FORECAST-Sites | For informing supply cost curves in the price-sensitive Armington trade model ATLAS coupled to REMIND-MFA                |
 
 ## Outputs to other modules
 | Parameter                                   | Sink     | Description                                                                                                   |
 |---------------------------------------------|----------|---------------------------------------------------------------------------------------------------------------|
 | Trade flows                                 | EU-MFA   |   |
-| Trade flows                                 | OPEN-GEM | For harmonization of trade flows between OPEN-GEM and REMIND-MFA (requires translation between tonnages and monetary values) |
+| Trade flows                                 | OPEN-GEM | For harmonization of trade flows between OPEN-GEM and REMIND-MFA |
+
+## Alignment of EU trade with OPEN-GEM
+
+OPEN-GEM reports sectoral trade in monetary terms (b$ 2017). Since the sectors do not match the
+REMIND-MFA goods 1:1 and the material intensity of the economic value can change, the monetary
+flows are not translated into tonnes. Instead, the EU (`EUR`) trade ratios of REMIND-MFA follow the
+relative change of the OPEN-GEM trade ratios from a base year (`transience.open_gem_base_year`,
+default 2025) on (`OpenGemTradeAligner`):
+
+| Model    | Market                  | Ratio (MFA)               | Ratio (OPEN-GEM, EU27)                |
+|----------|-------------------------|---------------------------|---------------------------------------|
+| steel    | `manufactured_products` | imports, exports / demand | `IMPORTS`, `EXPORTS` / `DEMAND`, per end use |
+| steel    | `scrap`                 | imports, exports / collected scrap | `IMPORTS`, `EXPORTS` / `PROD` of IND19 |
+| plastics | `manufactured_products` | imports, exports / demand | `IMPORTS`, `EXPORTS` / `DEMAND`, per end use |
+
+The trade in the base year comes from the usual trade extrapolation, and the other regions absorb
+the change of the EU trade, so global trade stays balanced. The OPEN-GEM sectors are assigned to
+the REMIND-MFA goods by `sector_mapping_OPEN_GEM.xlsx`. Plastics waste trade is a scenario
+parameter and is not aligned. The physical limits of steel scrap use are applied after the
+alignment and may still change the EU scrap trade.
+
+The OPEN-GEM scenarios match the TRANSIENCE (EU-MFA) scenarios, so `transience.transience_scenario`
+selects both. To run with the alignment:
+
+1. Convert the OPEN-GEM report to `.cs4r` files next to the EU-MFA files of each scenario, in
+   `data_in/legacy/transience/<transience_scenario>/`:
+
+    ```bash
+    uv run python scripts/map_OPEN-GEM_trade.py
+    ```
+
+    `SCENARIOS` in the script assigns each TRANSIENCE scenario its OPEN-GEM scenario, i.e. the sheet
+    `SECTOR_<OPEN-GEM scenario>` of the report. Add new scenarios there. A different report file
+    can be passed with `--report`.
+2. Set `open_gem_alignment = true` in the `[<model>.transience]` section of the config. The run
+   folder name gets the suffix `_OPEN-GEM`.
 
 ## Coupling with the ATLAS trade model
 

@@ -5,6 +5,7 @@ import flodym as fd
 
 from remind_mfa.common.data_blending import BLEND_TYPES
 from remind_mfa.common.helpers import (
+    ModelNames,
     RemindMFABaseModel,
 )
 from remind_mfa.common.common_config import CommonCfg
@@ -61,6 +62,36 @@ def trade_parameters_read_from_data(
                     dim_letters=trades_by_name[market].dim_letters,
                     description=f"Future {market} {direction} read from data instead of being "
                     "extrapolated from historical trade",
+                )
+            )
+    return parameters
+
+
+OPEN_GEM_MARKETS = {
+    ModelNames.STEEL: {"manufactured_products": ("t", "r", "u"), "scrap": ("t", "r")},
+    # plastics waste trade is not aligned, since it is a scenario parameter (phased out in BASE)
+    ModelNames.PLASTICS: {"manufactured_products": ("t", "r", "u")},
+}
+"""Trade markets of each material aligned to OPEN-GEM, with the dimensions of their trade ratios."""
+
+
+def open_gem_parameters(cfg: CommonCfg) -> list[RemindMFAParameterDefinition]:
+    """Definitions of the OPEN-GEM trade ratio parameters, if the OPEN-GEM alignment is switched on.
+
+    Returns one import and one export ratio parameter per trade market in `OPEN_GEM_MARKETS`.
+    """
+    if not cfg.transience.open_gem_alignment:
+        return []
+    parameters = []
+    for market, dim_letters in OPEN_GEM_MARKETS[cfg.model].items():
+        for direction in ("imports", "exports"):
+            parameters.append(
+                RemindMFAParameterDefinition(
+                    name=f"{direction}_ratio_{market}_OPEN-GEM",
+                    dim_letters=dim_letters,
+                    description=f"OPEN-GEM ratio of EU {market} {direction} to demand "
+                    "(manufactured products) or production (scrap)",
+                    scenario_folder="transience",
                 )
             )
     return parameters

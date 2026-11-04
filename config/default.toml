@@ -62,6 +62,9 @@
         baseline_pickle_path = '' #'2026-09-15--17-08-25_plastics_SSP2_2c0a4149_CE-PET_fd_plastics_S0_default'
         transience_scenario = 'BASE_plastics_combined' # 'CE-PET_fd_plastics_S0', 'CE-PET_fd_plastics_S1', 'CE-PET_fd_plastics_S2'
         trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
+        # align EUR manufactured products (and steel scrap) trade to the OPEN-GEM run of the same scenario;
+        # files written by scripts/map_OPEN-GEM_trade.py
+        open_gem_alignment = true
 
     [plastics.visualization]
         sankey.plotter_args.slice_dict = { "t" = 2019, "r" = "EUR", "p" = "PET" }
@@ -76,6 +79,9 @@
         baseline_pickle_path = '' #'2026-09-15--17-01-13_steel_SSP2_h12_Baseline_Steel_01_06_2026_default'
         transience_scenario = 'BASE_steel_combined' # 'Baseline_Steel_01_06_2026', 'Downsizing_Conservative_Steel_01_06_2026', 'Downsizing_Highly_Ambitious_Steel_result_01_06_2026', 'Redesign_ Conservative_Steel', 'Redesign_ Highly_Ambitious_Steel', 'Remanufacturing_Conservative_Steel', 'Remanufacturing_Highly_Ambitious_Steel', 'Combined_Conservative_Steel', 'Combined_Highly_Ambitious_Steel'
         trade_scenario = 'default' # 'default', 'fix_supply_alpha0' (export expansion), or 'fix_supply_alpha1' (import substitution)
+        # align EUR manufactured products (and steel scrap) trade to the OPEN-GEM run of the same scenario;
+        # files written by scripts/map_OPEN-GEM_trade.py
+        open_gem_alignment = true
 
     [steel.visualization]
         scrap_demand_supply.do_visualize = false
