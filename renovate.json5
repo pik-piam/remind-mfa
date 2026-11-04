@@ -15,6 +15,8 @@
   ],
   // Always squash PRs: https://docs.renovatebot.com/configuration-options/#automergestrategy
   automergeStrategy: 'squash',
+  // Don't treat Renovate PRs as modified when the bot updates the docs: https://docs.renovatebot.com/configuration-options/#gitignoredauthors
+  gitIgnoredAuthors: ['335062343+pik-piam-bot[bot]@users.noreply.github.com'],
   packageRules: [
     {
       // Keep the lower bounds in pyproject.toml as they are, and only bump the versions in uv.lock: https://docs.renovatebot.com/configuration-options/#rangestrategy

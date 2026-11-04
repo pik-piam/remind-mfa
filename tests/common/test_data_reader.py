@@ -1,4 +1,4 @@
-"""Tests for reading .cs4r parameter files."""
+"""Tests for reading the region mapping and .cs4r parameter files."""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ import flodym as fd
 import numpy as np
 import pytest
 
-from remind_mfa.common.common_data_reader import MadratParameterReader
+from remind_mfa.common.common_data_reader import CommonDimensionReader, MadratParameterReader
 
 T = fd.Dimension(name="Time", letter="t", items=[2020, 2021])
 R = fd.Dimension(name="Region", letter="r", items=["A", "B"])
@@ -43,3 +43,23 @@ def test_cs4r_without_dimension_header_is_rejected(tmp_path: Path):
 
     with pytest.raises(ValueError, match="No header line found"):
         reader.read_parameter_values(PARAMETER_NAME, dims=DIMS)
+
+
+REGIONMAPPING_CONTENT = """X;CountryCode;RegionCode
+Germany;DEU;EUR
+China;CHN;CHA
+France;FRA;EUR
+United States;USA;USA
+Hong Kong;HKG;CHA
+"""
+
+
+def test_region_items_are_plain_strings_in_order_of_first_appearance(tmp_path: Path):
+    path = tmp_path / "regionmapping.csv"
+    path.write_text(REGIONMAPPING_CONTENT, encoding="utf-8")
+    reader = CommonDimensionReader({"Region": str(path)})
+
+    region = reader.read_dimension(fd.DimensionDefinition(name="Region", letter="r", dtype=str))
+
+    assert region.items == ["EUR", "CHA", "USA"]
+    assert all(type(item) is str for item in region.items)

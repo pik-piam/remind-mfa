@@ -99,7 +99,7 @@ def merge_parameters_sources(
         "cao_emission_factor": "Stoichiometry",
         "floorspace_pc": "[@edgeb26]",
         "floorspace_net_to_gross": "[@Rck2020]",
-        "unoccupied_residential_stock_share": "[@Zheng25]",
+        "unoccupied_residential_stock_share": "[@Zheng2025]",
     }
     if CUSTOM_SOURCES:
         mapped = merged_df["Name"].map(CUSTOM_SOURCES)

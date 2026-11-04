@@ -14,7 +14,7 @@ from remind_mfa.common.common_config import (
     VisualizationCfg,
 )
 from remind_mfa.common.common_mappings import CommonDisplayNames
-from remind_mfa.common.common_visualization import CommonVisualizer
+from remind_mfa.common.common_visualization import CommonVisualizer, bypass_flows
 
 
 def make_visualization_cfg() -> VisualizationCfg:
@@ -84,3 +84,48 @@ def test_each_visualizer_has_its_own_collection():
     first, second = make_visualizer(), make_visualizer()
     first._show_and_save_plotly(go.Figure(), "one")
     assert second.figures == {}
+
+
+def make_chain_mfa() -> fd.MFASystem:
+    """MFA system with the flow chain a => via => b and a separate flow a => c."""
+    processes = fd.make_processes(["sysenv", "a", "via", "b", "c"])
+    dims = fd.DimensionSet(dim_list=[fd.Dimension(name="Time", letter="t", items=[2020])])
+
+    def flow(from_name: str, to_name: str, value: float) -> fd.Flow:
+        return fd.Flow(
+            from_process=processes[from_name],
+            to_process=processes[to_name],
+            dims=dims,
+            values=np.array([value]),
+            name=f"{from_name} => {to_name}",
+        )
+
+    flows = [flow("a", "via", 1.0), flow("via", "b", 1.0), flow("a", "c", 2.0)]
+    return fd.MFASystem(
+        dims=dims, parameters={}, processes=processes, flows={f.name: f for f in flows}
+    )
+
+
+def test_bypass_flows_replaces_the_chain_by_a_direct_flow():
+    mfa = make_chain_mfa()
+
+    bypassed = bypass_flows(mfa, [("a", "via", "b")])
+
+    assert list(bypassed.flows) == ["a => c", "a => b"]
+    direct = bypassed.flows["a => b"]
+    assert direct.name == "a => b"
+    assert direct.from_process.name == "a"
+    assert direct.to_process.name == "b"
+    np.testing.assert_array_equal(direct.values, [1.0])
+
+
+def test_bypass_flows_leaves_the_original_mfa_unchanged():
+    mfa = make_chain_mfa()
+    first_flow = mfa.flows["a => via"]
+
+    bypass_flows(mfa, [("a", "via", "b")])
+
+    assert list(mfa.flows) == ["a => via", "via => b", "a => c"]
+    assert mfa.flows["a => via"] is first_flow
+    assert first_flow.name == "a => via"
+    assert first_flow.to_process.name == "via"

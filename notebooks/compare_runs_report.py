@@ -25,7 +25,7 @@ def _():
     # Marimo by default has a limited output size, increase it to handle the larger outputs that occur in the comparison cell (especially for plastics)
     mo_context.get_context().marimo_config[
         "runtime"  # ty: ignore[invalid-key] -- ty has issues resolving the type of marimo_config correctly
-    ]["output_max_bytes"] = 30_000_000
+    ]["output_max_bytes"] = 60_000_000
     return Path, mo, rc
 
 
@@ -259,7 +259,7 @@ def _(changes, mo, rc):
 
 @app.cell
 def _(mo, other_run, rc, reference_run):
-    visualization_cfg = rc.visualization_cfg(other_run.model.visualizer.cfg)
+    visualization_cfg = rc.visualization_cfg(other_run.model.cfg.visualization)
     figure_sets = {}
     figure_failures = []
     for run in (reference_run, other_run):
