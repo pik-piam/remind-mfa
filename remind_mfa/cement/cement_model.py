@@ -1,7 +1,6 @@
 import logging
 from functools import cached_property
 from typing import TYPE_CHECKING
-from copy import deepcopy
 import numpy as np
 import flodym as fd
 
@@ -311,10 +310,11 @@ class CementModel(CommonModel[CementCfg]):
         )
 
     def run(self):
-        super().run()
+        reconcile = self.cfg.model_switches.parameter_reconciliation
+        super().run(future=not reconcile)
 
-        if self.cfg.model_switches.parameter_reconciliation:
-            return self.run_with_reconciliation()
+        if reconcile:
+            self.run_with_reconciliation()
 
     def make_bottom_up_mfa(self) -> BU:
         """Construct the future bottom-up MFA.
@@ -344,34 +344,18 @@ class CementModel(CommonModel[CementCfg]):
     def run_with_reconciliation(self):
         """Run the full reconciled model pipeline, producing both top-down and bottom-up MFAs.
 
-        Called by `run()` when `parameter_reconciliation` is enabled. Extends the base model run with a
-        parameter reconciliation loop that aligns historical top-down and bottom-up stocks, then
-        propagates reconciled parameters into the future projection.
+        Called by `run()` when `parameter_reconciliation` is enabled, after the base run has
+        computed the historical MFA only. Runs a parameter reconciliation loop that aligns
+        historical top-down and bottom-up stocks, then propagates reconciled parameters into the
+        future projection.
 
         Saves the full set of MFAs as attributes:
-        - `td_hist_mfa`: Original historical top-down MFA (pre-reconciliation) as calculated in super.run().
-        - `td_mfa`: Original future top-down MFA (pre-reconciliation) as calculated in super.run().
-        - `bu_mfa`: Future bottom-up MFA calculated from original parameters and zero trade (pre-reconciliation).
         - `td_hist_mfa_reconciled`: Reconciled historical top-down MFA.
         - `td_mfa_reconciled`: Reconciled future top-down MFA.
         - `bu_mfa_reconciled`: Reconciled future bottom-up MFA.
         - `combined_mfa`: Future MFA combining reconciled bottom-up where available and top-down as fallback (if enabled in config).
 
         """
-
-        # collect non-reconciled mfas
-        self.td_hist_mfa = self.historical_mfa
-        self.td_mfa = self.future_mfa
-
-        # TODO zero trade was a cheat to use top-down mfa system for bottom-up - not done currently
-        # zero_trade = self._create_zero_trade(self.td_hist_mfa.trade_set)
-
-        # TODO: once we can initialize stock vintage in flodym, we can provide them to bu stock.
-        # Then, we can set up a whole the bottom-up MFA system - and compare bu vs td demands.
-        # For now, we simply compute non-reconiled bottom-up stock for analysis.
-        bu_mfa = self.make_bottom_up_mfa()
-        bu_mfa.compute_floorspace_stock()
-        self.bu_stock = bu_mfa.compute_bottom_up_stock()
 
         # reconcile parameters, then re-derive dependent parameters from the result
         self.parameters = self.historical_parameters
@@ -437,13 +421,3 @@ class CementModel(CommonModel[CementCfg]):
             tol_step=tol_step,
         )
 
-    def _create_zero_trade(self, trade_ref):
-        zero_trade = deepcopy(trade_ref)
-        for market in trade_ref.markets.keys():
-            zero_trade[market].imports = fd.FlodymArray.full_like(
-                trade_ref[market].imports, fill_value=0
-            )
-            zero_trade[market].exports = fd.FlodymArray.full_like(
-                trade_ref[market].exports, fill_value=0
-            )
-        return zero_trade
