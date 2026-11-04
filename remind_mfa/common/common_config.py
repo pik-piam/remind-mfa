@@ -220,13 +220,6 @@ class TransienceCfg(RemindMFABaseModel):
     """Name of the scenario to use. Must be one of 'baseline', 'ME', 'RU'."""
     trade_scenario: str = "default"
     """Name of the trade extrapolation scenario to use. Must be one of 'default', 'fix_supply_alpha0', 'fix_supply_alpha1'."""
-    open_gem_alignment: bool = False
-    """Whether to align the EU manufactured products (and steel scrap) trade to OPEN-GEM. The
-    OPEN-GEM scenario matches the TRANSIENCE scenario, so its trade ratios are read from the same
-    folder as the EU-MFA data, written by ``scripts/map_OPEN-GEM_trade.py``. See
-    `OpenGemTradeAligner`."""
-    open_gem_base_year: int = 2025
-    """Year from which on the EU trade ratios follow the relative change of the OPEN-GEM ratios."""
 
 
 PRIMARY_TRADE_MARKETS = {

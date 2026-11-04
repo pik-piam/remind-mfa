@@ -197,7 +197,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
                 trade_factor=prm["trade_factor"],
             )
             extrapolator.run()
-            self.align_trade_to_open_gem("manufactured_products", dom_demand=flw["manufactured_products_market => use"])
 
         flw["manufactured_products_market => exports"][...] = (
             trd["manufactured_products"].exports * self.parameters["carbon_content_polymers"]

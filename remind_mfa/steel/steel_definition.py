@@ -4,7 +4,6 @@ from remind_mfa.common.common_definition import (
     ExtrapolationDefinition,
     RemindMFADefinition,
     RemindMFAParameterDefinition,
-    open_gem_parameters,
     trade_parameters_read_from_data,
 )
 from remind_mfa.common.trade import TradeDefinition
@@ -279,7 +278,6 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
             TradeDefinition(name="scrap", dim_letters=("t", "r")),
         ]
         parameters += trade_parameters_read_from_data(cfg, trades)
-        parameters += open_gem_parameters(cfg)
 
     return RemindMFADefinition(
         dimensions=dimensions,

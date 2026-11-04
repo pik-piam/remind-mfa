@@ -307,16 +307,11 @@ class CommonDataReader(fd.CompoundDataReader):
                     self.legacy_path / parameter.scenario_folder / self.transience_scenario
                 )
                 model_specific_file = scenario_path / f"{model_prefix}_{parameter.name}.cs4r"
-                legacy_file = None
             else:
                 model_specific_file = self.parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
                 legacy_file = self.legacy_parameters_path / f"{model_prefix}_{parameter.name}.cs4r"
 
-            if (
-                not model_specific_file.exists()
-                and legacy_file is not None
-                and legacy_file.exists()
-            ):
+            if not model_specific_file.exists() and legacy_file.exists():
                 legacy_files += (parameter.name,)
                 parameter_files[parameter.name] = legacy_file
             else:
