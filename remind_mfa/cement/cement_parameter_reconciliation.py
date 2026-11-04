@@ -563,7 +563,7 @@ class CementParameterReconciliation:
             stock = aggregate_bu_to_common(stock, self.common_end_use)
         if "d" in dims.letters:
             stock = stock[{"b": dims["d"]}]
-        return regional_stock / stock.sum_to(dims.letters)
+        return regional_stock / stock.sum_to(dims.letters).maximum(100)
 
     def _build_relative_uncertainties(self) -> dict[str, float | fd.FlodymArray]:
         return {
