@@ -33,9 +33,10 @@ class CementParameterReconciliation:
             minimize    δᵀ Q⁻¹ δ                       small, uncertainty-weighted corrections
             subject to  r(δ) = ln S_TD - ln S_BU = 0   the two models agree
 
-        where Q = diag(σ_p,k²) and σ_p,k² = ln(1 + v_p,k²) is the log-space variance of a
-        lognormal parameter with relative uncertainty v_p,k. Parameters with zero uncertainty
-        are fixed. The constraint is non-linear in δ, so it is linearised around the current
+        where Q = diag(σ_p,k²) and σ_p,k² = ln(1 + v_p,k²) S_r / S_k is the log-space variance of
+        a lognormal parameter with relative uncertainty v_p,k, scaled by the inverse share of item
+        k in the stock of its region in the parameter's stock model (at the input parameters).
+        Parameters with zero uncertainty are fixed. The constraint is non-linear in δ, so it is linearised around the current
         estimate δ⁽ⁿ⁾ and the linear problem is solved repeatedly, following the weighted
         least-squares data reconciliation of Cencic (2016), doi: 10.1016/j.serj.2016.06.002,
         with measurements δ = 0 (no correction a priori). Each iteration n evaluates
@@ -129,7 +130,8 @@ class CementParameterReconciliation:
         bu_prm_names = self.get_relevant_parameters(self.calc_bottom_up_stock, self.prms)
         self._relative_uncertainties = self._build_relative_uncertainties()
         self.variances = {
-            prm_name: self.calc_variances(prm_name) for prm_name in td_prm_names | bu_prm_names
+            prm_name: self.calc_variances(prm_name, is_top_down=prm_name in td_prm_names)
+            for prm_name in td_prm_names | bu_prm_names
         }
         # zero uncertainty parameters do not need to be adjusted
         # sorted to ensure deterministic order for reproducibility
@@ -535,10 +537,33 @@ class CementParameterReconciliation:
             corrected_prms[prm_name][...] = corrected_prms[prm_name] * factor
         return corrected_prms
 
-    def calc_variances(self, prm_name: str) -> np.ndarray:
-        """Flattened variances σ_p² = ln(1 + v_p²) of the log-corrections of a lognormally
-        distributed parameter with relative uncertainty v_p (Limpert et al. 2001)."""
-        return np.log1p(self.flatten_fd_to_np(self.relative_uncertainty(prm_name)) ** 2)
+    def calc_variances(self, prm_name: str, is_top_down: bool) -> np.ndarray:
+        """Flattened variances σ_p,k² = ln(1 + v_p,k²) S_r / S_k of the log-corrections of a
+        lognormally distributed parameter with relative uncertainty v_p,k (Limpert et al. 2001),
+        scaled by the inverse stock share of item k in its region (see class docstring)."""
+        variances = self.relative_uncertainty(prm_name).apply(lambda v: np.log1p(v**2))
+        if np.any(variances.values):  # skaling for non-zero uncertainty parameters only
+            variances = variances * self.calc_stock_scaling(prm_name, is_top_down)
+        return self.flatten_fd_to_np(variances.cast_to(self.prms_adj_dims[prm_name]))
+
+    def calc_stock_scaling(self, prm_name: str, is_top_down: bool) -> fd.FlodymArray:
+        """Factor S_r / S_k, with S_k the stock of item k of the parameter and S_r the stock of
+        its region in the parameter's stock model. Bottom-up end uses (b) are mapped to common
+        end uses (c) or residential types (d) for parameters resolved by these."""
+        if is_top_down:
+            stock = InflowDrivenHistoricalCementMFASystem.compute_stock(
+                self.prms, self.trds, self.flws, self.stks
+            )[{"h": self._year_of_reconciliation}]
+            stock = StockDrivenCementMFASystem.add_construction_material_split(stock, self.prms)
+        else:
+            stock = BU.concrete_from_floorspace(BU.calc_gross_floorspace(self.prms), self.prms)
+        dims = self.prms_adj_dims[prm_name]
+        regional_stock = stock.sum_to(("r",))
+        if "c" in dims.letters:
+            stock = aggregate_bu_to_common(stock, self.common_end_use)
+        if "d" in dims.letters:
+            stock = stock[{"b": dims["d"]}]
+        return regional_stock / stock.sum_to(dims.letters)
 
     def _build_relative_uncertainties(self) -> dict[str, float | fd.FlodymArray]:
         return {
