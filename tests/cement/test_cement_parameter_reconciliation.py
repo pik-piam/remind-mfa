@@ -33,6 +33,10 @@ class ToyReconciliation(CementParameterReconciliation):
     def _build_relative_uncertainties(self) -> dict[str, float | fd.FlodymArray]:
         return self.toy_rel_stds
 
+    def calc_stock_scaling(self, prm_name: str, is_top_down: bool) -> fd.FlodymArray:
+        """No stock scaling: tests the solver with the plain variances."""
+        return fd.FlodymArray.scalar(1.0)
+
     def calc_top_down_stock(self, prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
         td = prm["a"] * prm["fixed"]
         if not self.linear:
