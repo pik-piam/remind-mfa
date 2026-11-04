@@ -52,6 +52,11 @@ class AtlasScenarioPkBudg(Enum):
 class AtlasCouplingError(ValueError):
     """Raised when data does not satisfy the ATLAS coupling contract."""
 
+class AtlasGreySupplySource(Enum):
+    """Source of grey-supply curves for ATLAS-Trade."""
+    ATLAS_DEFAULT = "steel_iq"
+    MIC3_BASELINE = "steel_iq-mic3_baseline"
+    MIC3_POLICY = "steel_iq-mic3_policy"
 
 @dataclass(frozen=True)
 class ModelSpec:
