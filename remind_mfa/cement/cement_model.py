@@ -420,4 +420,3 @@ class CementModel(CommonModel[CementCfg]):
             tol_r=tol_r,
             tol_step=tol_step,
         )
-
