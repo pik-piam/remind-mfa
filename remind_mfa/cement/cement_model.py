@@ -60,6 +60,53 @@ def converge_lifetime_factor(
     return lifetime_factor.to_class(fd.Parameter)
 
 
+def apply_min_share(split: fd.Parameter, dim_letter: str, min_share: float) -> fd.Parameter:
+    """Raise all shares of a split to at least `min_share` and renormalize them to sum to one.
+
+    Args:
+        split: Split over the dimension `dim_letter`, summing to one.
+        dim_letter: Letter of the split dimension.
+        min_share: Minimum share before renormalization.
+
+    Returns:
+        Split without shares below `min_share` (up to renormalization), summing to one.
+    """
+    adjusted_split = fd.Parameter(dims=split.dims, name=split.name)
+    adjusted_split[...] = split.maximum(min_share).get_shares_over((dim_letter,))
+    return adjusted_split
+
+
+def replace_unspecified_structure_split(
+    structure_split: fd.Parameter,
+    weights: fd.FlodymArray,
+    unspecified: str = "Unspecified Structure",
+) -> fd.Parameter:
+    """Replace the structure split where only the unspecified structure type is known by the
+    weighted global mean of the regions with known structure types.
+
+    Args:
+        structure_split: Split over structures (s), with dimensions (r, b, s).
+        weights: Weights of the regional splits in the global mean, with dimensions (r, b).
+        unspecified: Item of the structure dimension without information on the structure.
+
+    Returns:
+        Structure split in which no region and building type has only unspecified structures.
+    """
+    only_unspecified = structure_split[{"s": unspecified}].apply(
+        lambda x: (x > 1.0 - 1e-9).astype(float)
+    )
+    known_weights = weights * (1.0 - only_unspecified)
+    global_mean = (structure_split * known_weights).sum_over("r") / known_weights.sum_over(
+        "r"
+    ).maximum(1e-12)
+
+    adjusted_split = fd.Parameter(dims=structure_split.dims, name=structure_split.name)
+    adjusted_split[...] = structure_split * (1.0 - only_unspecified) + (
+        global_mean * only_unspecified
+    ).cast_to(structure_split.dims)
+    return adjusted_split
+
+
 class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
@@ -98,6 +145,28 @@ class CementModel(CommonModel[CementCfg]):
 
         # development weight for gdp-dependent parameters/scenarios
         self.parameters["development_weight"] = self.calc_development_weight()
+
+        if self.bottom_up_active:
+            self.correct_bottom_up_input_data()
+
+    def correct_bottom_up_input_data(self):
+        """Quick fixes of bottom-up input data with zero concrete stock in single regions.
+
+        TODO: move to mrmfa (calcCeResidentialTypeSplit, calcCeStructureSplit).
+        """
+        prm = self.parameters
+
+        # residential types with zero share (e.g. no multi-family homes in CRI)
+        prm["residential_type_split"] = apply_min_share(
+            prm["residential_type_split"], dim_letter="d", min_share=0.01
+        )
+
+        # building types with only unspecified structures (zero concrete intensity, e.g. SGP
+        # single-family homes): use the global mean of the regions with known structures
+        floorspace = BU.calc_gross_floorspace(prm)[{"t": self.dims["h"].items[-1]}]
+        prm["structure_split"] = replace_unspecified_structure_split(
+            prm["structure_split"], weights=expand_common_to_bu(floorspace, prm)
+        )
 
     def calc_development_weight(self) -> fd.Parameter:
         """Development weight per region from GDP per capita at the last historical year:
@@ -177,26 +246,6 @@ class CementModel(CommonModel[CementCfg]):
             mean_weights=bu_floorspace,
             global_share=prm["development_weight"],
             name="structure_split_mean",
-        )
-        # where no structure type is known, the regional split carries no information:
-        # fall back to the global mean
-        global_structure_split_mean = (prm["structure_split"] * bu_floorspace).sum_over(
-            "r"
-        ) / bu_floorspace.sum_over("r")
-        only_unspecified = structure_split_mean[{"s": "Unspecified Structure"}].apply(
-            lambda x: (x > 1.0 - 1e-9).astype(float)
-        )
-        structure_split_mean[...] = (
-            structure_split_mean * (1.0 - only_unspecified)
-            + global_structure_split_mean * only_unspecified
-        )
-        add_assumption_doc(
-            type="model switch",
-            name="Global mean structure split for unknown structures",
-            description=(
-                "Where the historical structure split contains only the unknown structure type, "
-                "the structure split converges to the global weighted mean."
-            ),
         )
         prm["structure_split_mean"] = self.set_structure_share(
             structure_split_mean, "Unspecified Structure", 0.0
