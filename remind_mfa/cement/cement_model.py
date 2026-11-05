@@ -1,5 +1,6 @@
 import logging
 from functools import cached_property
+from pathlib import Path
 from typing import TYPE_CHECKING
 import numpy as np
 import flodym as fd
@@ -21,6 +22,7 @@ from remind_mfa.cement.cement_export import CementDataExporter
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.cement.cement_definition import scenario_parameters as cement_scn_prm_def
 from remind_mfa.cement.cement_parameter_reconciliation import CementParameterReconciliation
+from remind_mfa.cement.reconciliation_cache import ReconciliationCache
 
 if TYPE_CHECKING:
     from remind_mfa.cement.cement_visualization import CementVisualizer
@@ -396,27 +398,40 @@ class CementModel(CommonModel[CementCfg]):
     ):
         """Reconcile parameters between top-down and bottom-up stocks.
 
+        The result is taken from the cache in `<export.path>/cache/` if possible (see
+        `ReconciliationCache`). Otherwise, it is computed and saved to the cache.
+
         Args:
             max_iter: Maximum number of correction iterations.
             tol_r: Convergence tolerance of the mismatch max |log(td/bu)|.
             tol_step: Convergence tolerance of the largest log-step of the corrections.
         """
-        logging.info(
-            f"Starting parameter reconciliation (max_iter={max_iter}, tol_r={tol_r}, "
-            f"tol_step={tol_step})..."
-        )
-
         ref_mfa = self.make_mfa(historical=True)
         ref_mfa.trade_set = (
             self.historical_mfa.trade_set
         )  # trade is not altered during reconciliation, so we can just take it from the already computed historical MFA
 
+        # always created (also when using the cache), as it applies and checks the cached result
         self.parameter_reconciliation = CementParameterReconciliation(
             ref_mfa=ref_mfa,
             output_dims_are_independent=True,
         )
-        self.parameters = self.parameter_reconciliation.correct_parameters(
-            max_iter=max_iter,
-            tol_r=tol_r,
-            tol_step=tol_step,
+
+        settings = {"max_iter": max_iter, "tol_r": tol_r, "tol_step": tol_step}
+        cache = ReconciliationCache(
+            cache_dir=Path(self.cfg.export.path) / "cache",
+            region_mapping=self.cfg.input.region_mapping,
+            ref_mfa=ref_mfa,
+            settings={**settings, "output_dims_are_independent": True},
         )
+        force_use_cache = self.cfg.model_switches.force_use_reconciliation_cache
+        if cache.load(self.parameter_reconciliation, force_use=force_use_cache):
+            self.parameters = self.parameter_reconciliation.output_prms
+            return
+
+        logging.info(
+            f"Starting parameter reconciliation (max_iter={max_iter}, tol_r={tol_r}, "
+            f"tol_step={tol_step})..."
+        )
+        self.parameters = self.parameter_reconciliation.correct_parameters(**settings)
+        cache.save(self.parameter_reconciliation)

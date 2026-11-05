@@ -229,14 +229,20 @@ class CementParameterReconciliation:
                 logging.info(f"Reconciliation converged after {n + 1} iteration(s).")
                 break
         else:
-            # not converged: report the residual reached by the last applied corrections
-            self.prms = self.reduce_prms(corrected_prms)
-            self.residual_logging(*self.evaluate_residual(), label="final")
             logging.warning(f"Reconciliation did not converge in {max_iter} iterations.")
 
         self.delta = self.delta_to_fd(delta)
         self.output_prms = corrected_prms
+        # report the residual reached by the final parameters
+        self.final_mismatch = self.calc_mismatch(self.output_prms, label="final")
         return self.output_prms
+
+    def calc_mismatch(self, source_prms: dict[str, fd.Parameter], label: str) -> float:
+        """Max |r| reached by the given parameters (in their original dimensions).
+
+        Also sets them as working parameters."""
+        self.prms = self.reduce_prms(source_prms)
+        return self.residual_logging(*self.evaluate_residual(), label=label)
 
     def calc_corrected_parameters(
         self, delta: dict[str, fd.FlodymArray]
