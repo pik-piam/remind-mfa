@@ -132,7 +132,7 @@ def test_stored_delta_rebuilds_output_parameters():
     np.testing.assert_allclose(rec.delta["a"].values, -VAR_A * residual / (VAR_A + VAR_C))
     assert rec.delta["a"].dims.letters == ("r",)
     assert "fixed" not in rec.delta
-    rebuilt = rec.calc_output_parameters(rec.delta)
+    rebuilt = rec.calc_corrected_parameters(rec.delta)
     for prm_name in out:
         np.testing.assert_allclose(rebuilt[prm_name].values, out[prm_name].values)
 

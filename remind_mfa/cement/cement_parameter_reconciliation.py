@@ -75,8 +75,8 @@ class CementParameterReconciliation:
           (Industrial/Civil Engineering, Mortar): they enter through the shares of the
           reconciled items.
         - The reconciled stock functions see all splits only as shares, so their norm does not
-          matter during the reconciliation. The returned splits are re-normalized once to sum to
-          1 (see `normalize_split`).
+          matter during the reconciliation. The splits are re-normalized to sum to 1 whenever
+          the corrections are applied (see `calc_corrected_parameters`).
     """
 
     _normalization_dims: dict[str, str] = {
@@ -189,8 +189,8 @@ class CementParameterReconciliation:
             tol_step: Convergence tolerance of the step ``max_p,k |δ⁽ⁿ⁺¹⁾ - δ⁽ⁿ⁾|``.
 
         The final log-corrections δ* are stored in `delta` (one FlodymArray per corrected
-        parameter, over `prms_adj_dims`). The corrected parameters can be rebuilt from them and
-        the input parameters with `calc_output_parameters`.
+        parameter, over `prms_adj_dims`). The corrected parameters can be rebuilt from them with
+        `calc_corrected_parameters`.
 
         Returns:
             The corrected parameters in their original dimensions.
@@ -223,7 +223,7 @@ class CementParameterReconciliation:
             )
 
             delta = new_delta
-            corrected_prms = self.apply_corrections(self.delta_to_fd(delta))
+            corrected_prms = self.calc_corrected_parameters(self.delta_to_fd(delta))
 
             if max_abs_residual < tol_r and max_step < tol_step:
                 logging.info(f"Reconciliation converged after {n + 1} iteration(s).")
@@ -235,18 +235,24 @@ class CementParameterReconciliation:
             logging.warning(f"Reconciliation did not converge in {max_iter} iterations.")
 
         self.delta = self.delta_to_fd(delta)
-        self.output_prms = self.calc_output_parameters(self.delta)
+        self.output_prms = corrected_prms
         return self.output_prms
 
-    def calc_output_parameters(self, delta: dict[str, fd.FlodymArray]) -> dict[str, fd.Parameter]:
-        """Corrected parameters θ'_p = θ_p exp(δ_p) in their original dimensions, with the
-        splits re-normalized (see `normalize_split`).
+    def calc_corrected_parameters(
+        self, delta: dict[str, fd.FlodymArray]
+    ) -> dict[str, fd.Parameter]:
+        """Input parameters (in their original dimensions) scaled by the correction factors,
+        θ'_p = θ_p exp(δ_p), with the splits re-normalized (see `normalize_split`).
+
+        Used in each iteration and to rebuild the corrected parameters from a stored `delta`.
 
         Args:
             delta: Log-corrections δ_p over `prms_adj_dims[p]`, e.g. as stored in `delta`.
                 Parameters not in `delta` are returned uncorrected.
         """
-        corrected_prms = self.apply_corrections(delta)
+        corrected_prms = deepcopy(self.input_prms)
+        for prm_name, delta_p in delta.items():
+            corrected_prms[prm_name][...] = corrected_prms[prm_name] * delta_p.apply(np.exp)
         for prm_name, dim_name in self._normalization_dims.items():
             self.normalize_split(corrected_prms[prm_name], dim_name)
         return corrected_prms
@@ -559,14 +565,6 @@ class CementParameterReconciliation:
             for prm_name, delta_p in delta.items()
         }
 
-    def apply_corrections(self, delta: dict[str, fd.FlodymArray]) -> dict[str, fd.Parameter]:
-        """Input parameters (in their original dimensions) scaled by the correction factors,
-        θ'_p = θ_p exp(δ_p)."""
-        corrected_prms = deepcopy(self.input_prms)
-        for prm_name, delta_p in delta.items():
-            corrected_prms[prm_name][...] = corrected_prms[prm_name] * delta_p.apply(np.exp)
-        return corrected_prms
-
     def calc_variances(self, prm_name: str, is_top_down: bool) -> np.ndarray:
         """Flattened variances σ_p,k² = ln(1 + v_p,k²) S_r / S_k of the log-corrections of a
         lognormally distributed parameter with relative uncertainty v_p,k (Limpert et al. 2001),
@@ -651,7 +649,7 @@ class CementParameterReconciliation:
 
     @staticmethod
     def normalize_split(split: fd.Parameter, dim_name: str):
-        """Renormalize a returned split parameter in place, proportionally so it sums to 1
+        """Renormalize a corrected split parameter in place, proportionally so it sums to 1
         along its split dimension `dim_name`.
 
         The corrections multiply the items of a split by different factors, so the stored
