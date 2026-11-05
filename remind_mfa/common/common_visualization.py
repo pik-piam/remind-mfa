@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 import plotly.colors as plc
 import plotly.io as pio
-from typing import Optional, TYPE_CHECKING
+from typing import Any, NamedTuple, Optional, TYPE_CHECKING
 from pydantic import model_validator, PrivateAttr
 import flodym as fd
 import flodym.export as fde
@@ -21,11 +21,72 @@ if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
 
+# Flow colors and legend labels shared by the material-specific Sankey diagrams
+SANKEY_COLORS = {
+    "production": "#EDC948",
+    "use": "#D4965B",
+    "eol": "#499894",
+    "recycling": "#86BCB6",
+    "losses": "#E15759",
+    "trade": "#D37295",
+    "atmosphere": "#84A3F8",
+}
+SANKEY_LEGEND_LABELS = {
+    "production": "Production",
+    "use": "Use",
+    "eol": "End-of-Life",
+    "recycling": "Recycling",
+    "losses": "Losses & Waste",
+    "trade": "Trade",
+    "atmosphere": "Atmosphere",
+}
+# Hue and saturation of SANKEY_COLORS["use"]; flows to and from use are split by end use,
+# with the lightness varied
+SANKEY_USE_HUE_SATURATION = (29, 58)
+
+
+class SankeyColorRule(NamedTuple):
+    """Sankey flows from any of from_processes or to any of to_processes are colored as category."""
+
+    category: str
+    """Key of SANKEY_COLORS."""
+    from_processes: tuple[str, ...] = ()
+    to_processes: tuple[str, ...] = ()
+
+
+SANKEY_TRADE_COLOR_RULE = SankeyColorRule("trade", ("imports",), ("exports",))
+
+
+def bypass_flows(mfa: fd.MFASystem, bypasses: list[tuple[str, str, str]]) -> fd.MFASystem:
+    """Copy of the MFA system with intermediate processes bypassed, e.g. for Sankey diagrams.
+
+    For each (from_process, via_process, to_process), the flows from_process => via_process
+    and via_process => to_process are replaced by a single flow from_process => to_process
+    carrying the values of the first flow. The original MFA system is left unchanged.
+    """
+    flows = dict(mfa.flows)
+    for from_process, via_process, to_process in bypasses:
+        first = flows.pop(f"{from_process} => {via_process}")
+        second = flows.pop(f"{via_process} => {to_process}")
+        name = f"{from_process} => {to_process}"
+        flows[name] = first.model_copy(update={"name": name, "to_process": second.to_process})
+    return mfa.model_copy(update={"flows": flows})
+
+
 class CommonVisualizer(RemindMFABaseModel):
     cfg: VisualizationCfg
     display_names: CommonDisplayNames
 
     _model: Optional["CommonModel"] = PrivateAttr(default=None)
+    _figures: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    @property
+    def figures(self) -> dict[str, Any]:
+        """Figures produced so far, keyed by their file base name.
+
+        Filled by every plotting call whether or not figures are shown or saved.
+        """
+        return self._figures
 
     @model_validator(mode="after")
     def set_plotly_renderer(self):
@@ -68,6 +129,7 @@ class CommonVisualizer(RemindMFABaseModel):
         pass
 
     def _show_and_save_plotly(self, fig: go.Figure, base_name: str):
+        self._figures[base_name] = fig
         if self.cfg.do_save_figs:
             fig.write_image(self.figure_path(base_name))
         if self.cfg.do_save_figs_html:
@@ -112,6 +174,105 @@ class CommonVisualizer(RemindMFABaseModel):
 
         self._show_and_save_plotly(fig, base_name="sankey")
 
+    def _plot_styled_sankey(
+        self,
+        mfa: fd.MFASystem,
+        color_rules: list[SankeyColorRule],
+        legend_categories: list[str],
+        end_use_dim: str = "End Use",
+    ):
+        """Vertical Sankey diagram with a unified style across materials.
+
+        Flows are colored as production by default, then by color_rules and the trade rule,
+        with later rules taking precedence. Flows to and from use are colored by end use.
+        Keys in legend_categories refer to SANKEY_COLORS.
+        """
+        flow_color_dict = {"default": SANKEY_COLORS["production"]}
+        for rule in color_rules + [SANKEY_TRADE_COLOR_RULE]:
+            flow_color_dict.update(
+                {
+                    fn: SANKEY_COLORS[rule.category]
+                    for fn, f in mfa.flows.items()
+                    if f.from_process.name in rule.from_processes
+                    or f.to_process.name in rule.to_processes
+                }
+            )
+
+        end_uses = mfa.dims[end_use_dim].items
+        hue, saturation = SANKEY_USE_HUE_SATURATION
+        lightnesses = np.linspace(80, 40, len(end_uses)) if len(end_uses) > 1 else [59]
+        end_use_colors = [f"hsl({hue},{saturation}%,{l:.0f}%)" for l in lightnesses]
+        flow_color_dict.update(
+            {
+                fn: (end_use_dim, end_use_colors)
+                for fn, f in mfa.flows.items()
+                if f.from_process.name == "use" or f.to_process.name == "use"
+            }
+        )
+
+        self.cfg.sankey.plotter_args.update(
+            {
+                "flow_color_dict": flow_color_dict,
+                "node_color_dict": {"default": "#CCCCCC", "use": "#999999"},
+            }
+        )
+
+        plotter = fde.PlotlySankeyPlotter(
+            mfa=mfa, display_names=self.display_names.dct, **self.cfg.sankey.plotter_args
+        )
+        links = plotter._get_links_dict()
+        nodes = plotter._get_nodes_dict()
+        nodes.update(
+            {
+                "pad": 15,
+                "thickness": 20,
+            }
+        )
+        fig = go.Figure(
+            go.Sankey(
+                arrangement="snap",
+                link=links,
+                node=nodes,
+                orientation="v",
+                textfont={
+                    "size": 12,
+                    "shadow": "0px 0px 0px rgba(0,0,0,0)",
+                },
+            )
+        )
+
+        legend_entries = [
+            ("categories", None, SANKEY_COLORS[c], SANKEY_LEGEND_LABELS[c])
+            for c in legend_categories
+        ]
+        legend_entries += [
+            ("end_uses", "Use", color, end_use) for end_use, color in zip(end_uses, end_use_colors)
+        ]
+        for group, group_title, color, label in legend_entries:
+            fig.add_trace(
+                go.Scatter(
+                    mode="markers",
+                    x=[None],
+                    y=[None],
+                    marker=dict(size=10, color=color, symbol="square"),
+                    name=label,
+                    legendgroup=group,
+                    legendgrouptitle_text=group_title,
+                )
+            )
+
+        fig.update_layout(
+            legend_traceorder="grouped",
+            legend_tracegroupgap=20,
+            font_size=12,
+            showlegend=True,
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+        fig.update_xaxes(visible=False)
+        fig.update_yaxes(visible=False)
+
+        self._show_and_save_plotly(fig, base_name="sankey")
+
     def figure_path(self, base_name: str, extension: str = "png") -> str:
         figures_dir = os.path.join(self._model.data_writer.run_path(), "figures")
         os.makedirs(figures_dir, exist_ok=True)
@@ -120,6 +281,7 @@ class CommonVisualizer(RemindMFABaseModel):
     def plot_and_save_figure(self, plotter: fde.ArrayPlotter, base_name: str, do_plot: bool = True):
         if do_plot:
             plotter.plot()
+        self._figures[base_name] = plotter.fig
         if self.cfg.do_show_figs:
             plotter.show()
         if self.cfg.do_save_figs:
@@ -402,21 +564,21 @@ class CommonVisualizer(RemindMFABaseModel):
             fig = ap_exports.plot()
             self.plot_and_save_figure(ap_exports, f"trade_{name}", do_plot=False)
 
-    def visualize_end_use_split(self, regional: bool = True):
+    def visualize_end_use_split(self, regional: bool = True, end_use_letter: str = "u"):
 
         subplot_dim, summing_func, name_str = self._get_regional_vs_global_params(regional)
 
         consumption = summing_func(
-            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", "u"))
+            self._model.future_mfa.stocks["use"].inflow.sum_to(("t", "r", end_use_letter))
         )
-        end_use_split = consumption.get_shares_over("u")
-        end_use_split = end_use_split.cumsum(dim_letter="u")
+        end_use_split = consumption.get_shares_over(end_use_letter)
+        end_use_split = end_use_split.cumsum(dim_letter=end_use_letter)
 
         ap_end_use_split = self.plotter_class(
             array=end_use_split,
             intra_line_dim="Time",
             **subplot_dim,
-            linecolor_dim=self._model.dims["u"].name,
+            linecolor_dim=self._model.dims[end_use_letter].name,
             xlabel="Year",
             ylabel="End-Use Split [%]",
             display_names=self.display_names.dct,
@@ -609,7 +771,8 @@ class CommonVisualizer(RemindMFABaseModel):
             gdppc = gdppc * mfa.parameters["population"]
         if change:
             gdppc = gdppc.apply(np.diff, kwargs={"axis": 0, "prepend": 0})
-            gdppc[1900] = gdppc[1901]
+            first_year, second_year = gdppc.dims["t"].items[:2]
+            gdppc[first_year] = gdppc[second_year]
         ap = self.plotter_class(
             array=gdppc,
             intra_line_dim="Time",

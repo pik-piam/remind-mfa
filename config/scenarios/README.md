@@ -1,221 +1,84 @@
 # Scenarios Framework
 
-This document explains how to define scenarios, configure them via CSV files, and use them in code.
+A scenario parameter only affects the future. Anything that influences the historical years is a model assumption, set in the model code and documented with `add_assumption_doc`.
+
+The scenario is selected in the TOML config:
+
+    [base.model_switches]
+    scenario = "SSP1"
 
 ---
 
-## Overview
+## Inheritance
 
-Each scenario is defined by:
-1. A **CSV file** (`<scenario_name>.csv`) containing parameter overrides.
-2. An entry in **`inheritance.csv`** defining the parent scenario (if any).
-
-The `ScenarioReader` resolves the inheritance chain, reads all relevant CSV files, and applies the data points in order from the root ancestor to the selected scenario.
-
----
-
-## Directory Structure
-
-    config/scenarios/
-    ├── inheritance.csv
-    ├── BASE.csv
-    ├── SSP2.csv
-    ├── SSP1.csv
-    └── ...
-
----
-
-## inheritance.csv
-
-Defines the parent–child relationships between scenarios.
-
-| Column     | Description                                                                 |
-|------------|-----------------------------------------------------------------------------|
-| `scenario` | The name of the scenario (must match the CSV filename without extension).   |
-| `parent`   | The name of the parent scenario. Leave empty if this is a root scenario.    |
-
-**Example:**
+`inheritance.csv` assigns each scenario its parent (empty for a root scenario):
 
     scenario,parent
     BASE,
     SSP1,BASE
-    SSP2,BASE
     SSP1_CE,SSP1
 
-- `BASE` has no parent — it is the root/baseline scenario holding the model and scenario defaults. It sets no `driver_scen`, so it is not run directly.
-- `SSP1` inherits from `BASE`: all `BASE` data points are applied first, then `SSP1` overrides on top (including its own `driver_scen`).
-- `SSP1_CE` inherits from `SSP1`, which in turn inherits from `BASE`, giving a three-level chain.
+The `ScenarioReader` walks up the chain and applies the CSV files from the root to the selected scenario, so `SSP1_CE` applies `BASE.csv`, then `SSP1.csv`, then `SSP1_CE.csv`. A child scenario therefore only contains parameters that differ from its parent. `BASE` holds the model and scenario defaults; it sets no `driver_scen` and is not run directly.
 
-### How Inheritance Works
-
-When a scenario is loaded (e.g. `SSP1`), the reader walks up the inheritance chain:
-
-1. Find `SSP1` → parent is `BASE`.
-2. Find `BASE` → no parent (root).
-3. Apply in order: first `BASE.csv`, then `SSP1.csv`.
-
-This means the child scenario only needs to specify parameters that **differ** from its parent. Any parameter not overridden retains the parent's value. Chains can be arbitrarily deep.
+Within each scenario file, lines are read from top to bottom and overwrite each other.
+This allows, for example, to first set a parameter for all regions and then overwrite one region
+with a different value.
 
 ---
 
 ## Scenario CSV Files
 
-Each scenario CSV file contains rows of parameter data points. The columns are:
+Each `<scenario>.csv` has one row per data point:
 
-| Column           | Required | Description |
-|------------------|----------|-------------|
-| `parameter`      | ✅       | Name of the parameter to set. Must match a parameter definition (see below). |
-| `value`          | ✅       | The numeric value to assign. For extrapolated parameters, this can also be the name of another parameter (see [Parameter Extrapolation](#parameter-extrapolation)). |
-| `models`         | ❌       | Which material models this row applies to. Use `all` (default) or a comma-separated list of model names (e.g. `steel`, `plastics`, `cement`, `steel, plastics`). Rows not matching the current model are ignored. |
-| `index:<dim>`    | ❌       | Filter by dimension item. E.g. `index:Region` with value `EUR` sets the parameter only for that region. Multiple index columns can be combined. If no index columns are present, the entire parameter array is set to `value`. |
-| `extra:<suffix>` | ❌       | Set an additional related parameter named `<parameter>_<suffix>` to the given value in the same row. This requires a separate parameter definition for `<parameter>_<suffix>` to exist. Useful for parameters that come in groups (e.g. a parameter `recycling_rate` with `extra:uncertainty` will also set `recycling_rate_uncertainty`). Extrapolated parameters handle extras differently: extras like `extra:year` and `extra:type` are stored with the scenario parameter and control the extrapolation (see [Parameter Extrapolation](#parameter-extrapolation)). |
+| Column        | Required | Description |
+|---------------|----------|-------------|
+| `parameter`   | ✅ | Name of a defined scenario parameter (see [Defining Parameters](#defining-parameters)). |
+| `value`       | ✅ | Value to assign. Numbers are parsed as `int` or `float`, other strings are kept as-is (e.g. the scenario name of `driver_scen`, or a parameter name as extrapolation endpoint). |
+| `models`      | ❌ | `all` (default) or a list of model names, e.g. `steel` or `"steel, plastics"`. Rows for other models are ignored. |
+| `index`       | ❌ | Dimension items to set, e.g. `"{Region: EUR, Function: Res}"`. Keys are dimension names, not letters. A value can be a list, `"{Region: [EUR, USA]}"`; several lists are expanded via cross-product. If empty, the whole array is set. Not allowed for scalar parameters. |
+| `extra`       | ❌ | Auxiliary values, e.g. `"{uncertainty: 0.05}"`. Each key sets a parameter named `<parameter>_<key>`, which must be defined separately. For extrapolated parameters, the keys `year` and `type` control the extrapolation instead (see [Parameter Extrapolation](#parameter-extrapolation)). |
+| `description` | ❌ | Comment, not read by the model. |
+
+Dicts in `index` and `extra` use YAML syntax: keys and string values need no quotes. Since they contain commas, the cell must be wrapped in double quotes. Empty lines and lines starting with `#` are ignored.
 
 **Example:**
 
-    parameter,models,index:Region,value,extra:uncertainty
-    recycling_rate,steel,EUR,0.9,0.05
-    recycling_rate,steel,USA,0.85,0.04
-    carbon_tax,all,,50,
-    growth_factor,plastics,,1.2,
+    parameter,models,value,extra,index,description
+    recycling_rate,steel,0.6,"{uncertainty: 0.1}",
+    recycling_rate,steel,0.7,"{Region: [CHA, IND, OAS]}",
+    growth_factor,all,1.2,,,
 
-- Row 1: For the `steel` model, set `recycling_rate` at `Region=EUR` to `0.9`, and `recycling_rate_uncertainty` at `Region=EUR` to `0.05`.
-- Row 2: Same parameter, different region.
-- Row 3: For all models, set the entire `carbon_tax` parameter to `50`.
-- Row 4: Only for `plastics`, set `growth_factor` to `1.2`.
+Row 1 sets `recycling_rate` to `0.6` and `recycling_rate_uncertainty` to `0.1` for all regions in the steel model. Row 2 overwrites the values (but not the uncertainty) for three regions, and keeps it to the above values for the rest. Row 3 sets the whole `growth_factor` array to `1.2` for all models.
 
-### Value Parsing
+### Aggregate Regions
 
-- Numeric strings are parsed as `int` or `float`.
-- Strings that look like Python literals (lists, dicts) are parsed via `ast.literal_eval`.
-- Empty cells are treated as `None` and ignored for index/extra columns.
+Region sets form a hierarchy: `iso249` → `eu21` → `h12`. A `Region` in `index` that is not in the current region set, but in one of its aggregations, is applied to all regions it consists of (logged as info). E.g. `{Region: EUR}` in an `eu21` run sets `DEU`, `FRA`, `UKI`, etc.; this also works within lists. Regions in neither set are skipped with a warning. The mappings are read from the `data_in/piam_mappings` submodule (`regional/regionmappingH12.csv`, `regional/regionmapping_21_EU11.csv`).
 
 ---
 
-## Defining Parameters in Code
+## Defining Parameters
 
-Scenario parameters are defined in two places:
+Common parameters are defined in the list `scenario_parameters` in `remind_mfa/common/common_definition.py`, model-specific ones in the list `scenario_parameters` in `remind_mfa/<model>/<model>_definition.py`. The latter is assigned to `custom_scn_prm_def` on the model class; both lists are merged and passed to the `ScenarioReader`. Three definition types exist:
 
-- **Common parameters** shared across all material models are defined in `remind_mfa/common/common_definition.py` (as `common_scn_prm_def`).
-- **Model-specific parameters** are defined in each material model's definition file, e.g. `remind_mfa/plastics/plastics_definition.py`, `remind_mfa/steel/steel_definition.py`, or `remind_mfa/cement/cement_definition.py` (as `custom_scn_prm_def` on the model class).
+    RemindMFAParameterDefinition(name="recycling_rate", dim_letters=("r",))  # array, initialized to zero
+    PlainDataPointDefinition(name="carbon_tax")                              # scalar, initialized to None
+    ExtrapolationDefinition(name="collection_rate", dim_letters=("r",))      # extrapolated parameter
 
-Both lists are merged automatically and passed to the `ScenarioReader`.
-
-Parameters are defined using `RemindMFAParameterDefinition` (for array-valued parameters with dimensions), `PlainDataPointDefinition` (for scalar values), or `ExtrapolationDefinition` (for parameters that are extrapolated into the future based on scenario data).
-
-### Array parameter (with dimensions)
-
-    from remind_mfa.common.common_definition import RemindMFAParameterDefinition
-
-    custom_scn_prm_def = [
-        RemindMFAParameterDefinition(
-            name="recycling_rate",
-            dim_letters=["r"],  # e.g. Region dimension
-        ),
-    ]
-
-This creates a `flodym.Parameter` with the shape of the specified dimensions, initialized to zero. Scenario data points then fill in values.
-
-### Scalar parameter (plain value)
-
-    from remind_mfa.common.common_definition import PlainDataPointDefinition
-
-    custom_scn_prm_def = [
-        PlainDataPointDefinition(name="carbon_tax"),
-    ]
-
-This creates a parameter initialized to `None`, set to a plain numeric value by the scenario.
-
-### Extrapolated parameter (`ExtrapolationDefinition`)
-
-    from remind_mfa.common.common_definition import ExtrapolationDefinition
-
-    custom_scn_prm_def = [
-        ExtrapolationDefinition(
-            name="collection_rate",
-            dim_letters=("r",),
-        ),
-    ]
-
-This reads in whole arrays of data, which are converted into a flodym array and stored as a structured extrapolation instruction under `scenario_parameters[<name>]`. During parameter extrapolation, the instruction is applied to the model parameter of the same name. Let's walk through the settings:
-
-1. You provide a `name`. If the `name` mirrors a name of a parameter that - at the time of extrapolation - already exists in your MFA parameters, the extrapolator knows you want to use it to extrapolate this parameter. This means you can even extrapolate parameters that are not part of the read-in. If the `name` doesn't match anything but you instead want to create a new parameter and extrapolate it directly, you can specify ...
-2. `create_new`. This defaults to `False`, but it can be useful to initiate a new parameter here directly, which you can then use anywhere in your MFA. This is currently used to create `parameters["stock_factor"]`, which scales the stock after stock extrapolation. Since there is no historical data, the parameter is initialized with 1 (type `factor`) or 0 (type `target`) before extrapolation.
-Then, the extrapolation is applied on this baseline, using the ...
-3. `blending_function`. It determines the shape of the transition from the old parameter to the scenario endpoint, defaulting to a linear transition. All available functions are listed in `remind_mfa/common/data_blending.py`.
-4. `split_dimension_letter` and `split_balancing_item` may be niche applications. With the first, you can provide a dimension letter along which a split is supposed to sum up to one. Then, the extrapolation renormalizes. E.g., if you increase your share of reinforced concrete buildings, it will proportionally decrease your share of other building structures, i.e., wood, steel and masonry. If you want the whole shift to reinforced concrete to happen through another coordinate, you can provide a balancing item. For instance, you could specify `M` (masonry) here, and all the growth in reinforced concrete buildings will be accompanied by a corresponding drop in masonry buildings.
-
-If you just want a constant extrapolation (hold the last historical value constant), you can simply omit all entries except for `name`, see e.g. `ExtrapolationDefinition(name="polymer_shares_use_inflow")`.
-
-The extrapolation type (`factor` or `target`) is not part of the definition — it is declared in the scenario CSV via `extra:type`, see below.
-
-### Registering definitions
-
-In your model class (subclass of `CommonModel`), define `custom_scn_prm_def`:
-
-    class MyModel(CommonModel):
-        custom_scn_prm_def = [
-            RemindMFAParameterDefinition(name="recycling_rate", dim_letters=["r"]),
-            RemindMFAParameterDefinition(name="recycling_rate_uncertainty", dim_letters=["r"]),
-            PlainDataPointDefinition(name="carbon_tax"),
-        ]
-
-Note that if you use `extra:uncertainty` in a CSV row for the parameter `recycling_rate`, a definition for `recycling_rate_uncertainty` **must** exist in the parameter definitions. The `extra:` mechanism does not create definitions automatically — it only sets values on already-defined parameters.
-
-These model-specific definitions are merged with `common_scn_prm_def` from `remind_mfa/common/common_definition.py` and passed to the `ScenarioReader`.
+After reading, `self.scenario_parameters[<name>]` of the model and MFA system holds a `flodym.Parameter` (array) or a plain value (scalar), the use of which can be implemented in the different calculation routines. The `extra` column does not create definitions: `{uncertainty: 0.05}` on `recycling_rate` requires a definition of `recycling_rate_uncertainty`.
 
 ---
 
 ## Parameter Extrapolation
 
-The `ExtrapolationDefinition` in the model definition holds the modelling decisions (blending, split handling), while the scenario decisions are stored in the scenario CSVs. REMIND-MFA connects the two through the parameter name.
+After the historical MFA run, each parameter with an `ExtrapolationDefinition` is extended to the full time dimension `t`. The model parameter of the same name (from input data or computed in the model) first gets a baseline: with dimension `h`, the last historical value is continued; with `t`, the existing future values are kept; without a time dimension, the values are held constant. Entries with scenario data then blend from this baseline to a scenario endpoint, all other entries keep the baseline. Historical values are never changed. Afterwards, the result is accessed via `self.parameters[<name>]`.
 
-A CSV row for an extrapolated parameter provides the endpoint of a blend: the parameter transitions from its historical values towards the endpoint given in the `value` column. Two `extra:` columns control how:
+The definition in the code holds some modelling decisions, like the blending function (such as linear, or several s-shaped variants). The scenario CSV holds the scenario decisions: `value` gives the endpoint, `extra` controls the blend, e.g. `"{year: 2060, type: target}"`:
 
-| Extra        | Description |
-|--------------|-------------|
-| `extra:year` | The year by which the endpoint is reached. Must lie after the last historical year (earlier years raise an error). A value without `extra:year` has no effect (the entry keeps its baseline) and triggers a warning. |
-| `extra:type` | Either `factor` or `target`. Factor means that the extrapolation method takes your parameter and multiplies it by the value given in the scenario, blending from 1 to that factor by `extra:year`. Target means that the parameter blends from the last historical value to the scenario value. |
+| Key    | Description |
+|--------|-------------|
+| `year` | Year by which the endpoint is reached. Must lie after the last historical year, else an error is raised. Values without `year` have no effect and trigger a warning. |
+| `type` | `target`: blend from the last historical value to `value` (an existing future trajectory is ignored). `factor`: multiply the baseline by a factor that blends from 1 to `value`. |
 
-Only one type per parameter is supported: declaring it on a single row (e.g. in the base scenario) is enough and also covers inherited rows, while mixed declarations raise an error. A row with `extra:year` but no type declared anywhere for that parameter raises an error as well.
+Each parameter has a single type. Declaring it on one row (e.g. in `BASE`) covers all rows, including inherited ones. Mixed types, or `year` without any declared type, raise an error. Without any scenario rows, the parameter keeps its baseline, e.g. `polymer_shares_use_inflow`.
 
-For a constant extrapolation (hold the last historical value constant), you don't have to provide anything in the scenario CSV - a simple `ExtrapolationDefinition` is enough.
-
-The `value` column of extrapolation parameter can not only handle numbers, but you can mix-and-match them with a parameter name in the form of a string. During extrapolation, data from that parameter will be used as extrapolation target or factor. You could e.g. prepare a world-average structure split parameter in mrmfa, read it in as a normal parameter and then provide its name in the scenario CSV such that the structure split is converged towards the world-average split. This can be combined with any settings in the `ExtrapolationDefinition`. The referenced parameter can even itself be a parameter that is extrapolated — in that case it is automatically extrapolated before it is applied. Circular references raise an error.
-
----
-
-## Using Scenario Parameters in Code
-
-After `read_scenario_parameters()` runs, `self.scenario_parameters` is a dictionary:
-
-    # Access an array parameter (flodym.Parameter)
-    recycling_rate = self.scenario_parameters["recycling_rate"]
-    # Use like any flodym Parameter — supports indexing, slicing, math operations
-
-    # Access a scalar parameter
-    carbon_tax = self.scenario_parameters["carbon_tax"]  # float or None
-
-These are typically consumed during `compute()` or in `modify_parameters()`.
-
-Extrapolated parameters are the exception: after extrapolation has been run, they are ordinary model parameters, so you access them via `self.parameters[<name>]` instead.
-
----
-
-## Selecting a Scenario at Runtime
-
-The scenario name is set in the configuration file, e.g.:
-
-    [base.model_switches]
-    scenario = "SSP1"
-
-This tells the `ScenarioReader` to load `SSP1.csv` (and its ancestors via `inheritance.csv`).
-
----
-
-## Summary
-
-1. **Add parameter definitions** in your model's `custom_scn_prm_def` list.
-2. **Create a CSV file** named `<scenario>.csv` with rows specifying `parameter`, `value`, and optional `models`/`index:`/`extra:` columns.
-3. **Register inheritance** in `inheritance.csv` if your scenario should inherit from another.
-4. **Set the scenario name** in your TOML config.
-5. **Access parameters** via `self.scenario_parameters[<name>]` in your model code.
+Instead of a number, `value` can name another parameter, whose values serve as endpoint at the same coordinates. E.g. a structure split can converge to a world-average split read from mrmfa. The referenced parameter must not have the dimension `h` or dimensions the extrapolated parameter lacks. If it is itself extrapolated, it is extrapolated first; circular references raise an error.

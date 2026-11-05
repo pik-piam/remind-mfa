@@ -17,7 +17,7 @@ import pytest
 from remind_mfa.common.common_definition import ExtrapolationDefinition
 from remind_mfa.common.data_blending import (
     BLEND_TYPES,
-    CriticallyDampedBlender,
+    PDController,
     blend,
     blending_factor,
     critically_damped_blend,
@@ -202,7 +202,7 @@ def test_target_anchors_at_last_historical():
 
 def test_value_without_year_warns_and_keeps_baseline(caplog):
     definition = ExtrapolationDefinition(name="p", dim_letters=("r",))
-    scn = make_scn(definition, dimset(R), rows=[(4.0, {"Region": "A"}, {})])  # no extra:year
+    scn = make_scn(definition, dimset(R), rows=[(4.0, {"Region": "A"}, {})])  # no year in extra
     with caplog.at_level(logging.WARNING):
         result = extrapolate(h_param(), scn)
     assert "no effect" in caplog.text
@@ -355,9 +355,9 @@ def test_critically_damped_blender():
     time = np.arange(2000, 2101)
     historical = np.arange(6, dtype=float).reshape(-1, 1)  # ramp 0..5
     prediction = np.full((len(time), 1), 50.0)
-    blended = CriticallyDampedBlender(
-        time=time, historical=historical, prediction=prediction
-    ).blend(approaching_time=10)
+    blended = PDController(time=time, historical=historical, prediction=prediction).blend(
+        approaching_time=10
+    )
 
     np.testing.assert_allclose(blended[:6], historical)  # history preserved exactly
     assert abs(blended[-1, 0] - 50.0) < 0.5  # converges to the prediction long-term
@@ -371,7 +371,7 @@ def test_critically_damped_blender_initial_slope_is_weighted_trend():
     # linear trend with slope 2 over the last N_TREND_YEARS, preceded by an outlier
     historical = 2.0 * np.arange(N_TREND_YEARS + 1, dtype=float).reshape(-1, 1)
     historical[0] = 100.0
-    blender = CriticallyDampedBlender(
+    blender = PDController(
         time=time,
         historical=historical,
         prediction=np.zeros((len(time), 1)),
@@ -386,14 +386,14 @@ def test_critically_damped_blender_initial_slope_is_weighted_trend():
     jump_last[-1] += 10.0
     jump_first = 2.0 * np.arange(N_TREND_YEARS, dtype=float).reshape(-1, 1)
     jump_first[0] += 10.0
-    slope_last = CriticallyDampedBlender(
+    slope_last = PDController(
         time=time,
         historical=jump_last,
         prediction=np.zeros((len(time), 1)),
         initial_slope="weighted_regression",
         n_trend_years=N_TREND_YEARS,
     )._weighted_trend_slope(N_TREND_YEARS - 1)
-    slope_first = CriticallyDampedBlender(
+    slope_first = PDController(
         time=time,
         historical=jump_first,
         prediction=np.zeros((len(time), 1)),
@@ -427,7 +427,7 @@ def test_weighted_trend_slope_element_dependent_window():
     time = np.arange(2000, 2101)
     # quadratic history: the slope of the regression depends on the window length
     historical = (np.arange(10, dtype=float) ** 2).reshape(-1, 1).repeat(2, axis=1)
-    blender = CriticallyDampedBlender(
+    blender = PDController(
         time=time,
         historical=historical,
         prediction=np.zeros((len(time), 2)),
@@ -438,7 +438,7 @@ def test_weighted_trend_slope_element_dependent_window():
     # window of 2 years is the finite difference of the last two points
     np.testing.assert_allclose(slopes[1], 81.0 - 64.0)
     # each element equals the result for a scalar window of the same length
-    scalar_blender = CriticallyDampedBlender(
+    scalar_blender = PDController(
         time=time,
         historical=historical[:, :1],
         prediction=np.zeros((len(time), 1)),

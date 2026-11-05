@@ -1,17 +1,18 @@
 import copy
 import logging
+from functools import cached_property
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 import flodym as fd
 import numpy as np
 
+from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.scenarios import ScenarioReader
 from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
 from remind_mfa.common.common_data_reader import CommonDataReader
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_export import CommonDataExporter
-from remind_mfa.common.common_visualization import CommonVisualizer
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.trade import TradeSet
@@ -19,12 +20,14 @@ from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationMana
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
+if TYPE_CHECKING:
+    from remind_mfa.common.common_visualization import CommonVisualizer
+
 
 class CommonModel[CfgT: CommonCfg]:
 
     ConfigCls = CommonCfg
     DataExporterCls = CommonDataExporter
-    VisualizerCls = CommonVisualizer
     DisplayNamesCls = CommonDisplayNames
     HistoricalMFASystemCls = CommonMFASystem
     FutureMFASystemCls = CommonMFASystem
@@ -52,9 +55,14 @@ class CommonModel[CfgT: CommonCfg]:
         self.select_driver_scen()
         self.modify_parameters()
         self.calculate_derived_parameters()
-        self.init_export_and_visualization()
 
-    def run(self):
+    def run(self, future: bool = True):
+        """Run the historical MFA and, optionally, the future MFA.
+
+        Args:
+            future: If False, stop after the historical MFA and the snapshot of the historical
+                parameters, e.g. when a subclass computes the future MFA itself.
+        """
         logging.info("Running historical MFA system...")
         self.historical_mfa = self.make_mfa(historical=True)
         self.historical_mfa.compute()
@@ -66,6 +74,8 @@ class CommonModel[CfgT: CommonCfg]:
 
         # snapshot parameters before extrapolation, then extend them into the future
         self.historical_parameters = copy.deepcopy(self.parameters)
+        if not future:
+            return
         self.extrapolate_parameters()
         self.check_parameters()
 
@@ -84,7 +94,29 @@ class CommonModel[CfgT: CommonCfg]:
         self.data_writer.export(model=self)
 
     def visualize(self):
+        if not self.cfg.visualization.do_visualize:
+            return
         self.visualizer.visualize(model=self)
+
+    @cached_property
+    def display_names(self) -> CommonDisplayNames:
+        """Display names shared by the data exporter and the visualizer."""
+        return self.DisplayNamesCls()
+
+    @cached_property
+    def data_writer(self) -> CommonDataExporter:
+        """Data exporter of the model."""
+        return self.DataExporterCls(cfg=self.cfg.export, display_names=self.display_names)
+
+    @cached_property
+    def visualizer(self) -> CommonVisualizer:
+        """Visualizer of the model. Overridden by each model.
+
+        Imported on first use, so plotting libraries are only loaded when visualizing.
+        """
+        from remind_mfa.common.common_visualization import CommonVisualizer
+
+        return CommonVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def set_definition(self):
         self.definition_historical = self.get_definition(self.cfg, historical=True)
@@ -137,22 +169,66 @@ class CommonModel[CfgT: CommonCfg]:
             self.parameters[prm_name] = fd.Parameter(dims=prm.dims.drop("S"))
             self.parameters[prm_name][...] = slice
 
+    def get_scenario_parameter_definitions(self) -> list:
+        """Definitions of the scenario parameters of the active model modules."""
+        return common_scn_prm_def + self.custom_scn_prm_def
+
+    def get_inactive_scenario_parameter_names(self) -> set[str]:
+        """Names of scenario parameters of inactive model modules, whose scenario rows are skipped."""
+        return set()
+
     def read_scenario_parameters(self):
-        scn_prm_def = common_scn_prm_def + self.custom_scn_prm_def
         scenario_reader = ScenarioReader(
             name=self.cfg.model_switches.scenario,
             base_path=self.cfg.input.scenarios_path,
             model=self.cfg.model,
             dims=self.dims,
-            parameter_definitions=scn_prm_def,
+            parameter_definitions=self.get_scenario_parameter_definitions(),
+            region_mappings_path=str(self.data_reader.region_mappings_path),
+            inactive_parameters=self.get_inactive_scenario_parameter_names(),
         )
         self.scenario_parameters = scenario_reader.get_parameters()
         # scenario parameters used within the MFA systems
         self.parameters["n_trend_years"] = self.scenario_parameters["n_trend_years"]
+        self.parameters["flow_approaching_time"] = self.scenario_parameters["flow_approaching_time"]
 
     def modify_parameters(self):
         """Manual changes to parameters. Called once at initialization."""
         pass
+
+    def set_hibernation_share(
+        self, value: float, dim_letter: str | None = None, items: list[str] | None = None
+    ):
+        """Set the parameter ``hibernation_share`` and document it as an assumption.
+
+        Args:
+            value (float): Share of the in-use outflow that remains in place as hibernating stock.
+            dim_letter (str, optional): Letter of the dimension along which the share is set.
+                Defaults to None, giving a scalar share for the whole in-use outflow.
+            items (list[str], optional): Items of ``dim_letter`` that hibernate. All other items
+                have no hibernation. Required if ``dim_letter`` is given.
+        """
+        description = (
+            "Share of the in-use outflow that remains in place as hibernating stock (no longer "
+            "used, but not demolished or recovered). Hibernating stock has no outflow."
+        )
+        if dim_letter is None:
+            hibernation_share = fd.Parameter(dims=fd.DimensionSet(dim_list=[]))
+            hibernation_share[...] = value
+        else:
+            assert items is not None, "items are required if dim_letter is given."
+            dim = self.dims[dim_letter]
+            hibernation_share = fd.Parameter(dims=self.dims[dim_letter,])
+            for item in items:
+                hibernation_share[item] = value
+            description += (
+                f" Applies only to the {dim.name} items {', '.join(items)}. "
+                "Other items have no hibernation."
+            )
+        add_assumption_doc(
+            type="expert guess", name="hibernation share", value=value, description=description
+        )
+        self.parameters["hibernation_share"] = hibernation_share
 
     def calculate_derived_parameters(self):
         """Derive parameters from other parameters. Called once at initialization, after
@@ -168,20 +244,17 @@ class CommonModel[CfgT: CommonCfg]:
             self.dims["h"], self.dims["t"]
         ).apply_prm_extrapolation(self.parameters, self.scenario_parameters)
 
+        # lifetime cohort extension requires future dimensions, so it is set after extrapolation
+        self.parameters["lifetime_factor_cohort"] = self.get_lifetime_factor_cohort()
+
+    def get_lifetime_factor_cohort(self) -> fd.Parameter:
+        """Lifetime extension factor by age-cohort (nature). By default the scenario parameter
+        `lifetime_factor_nature`; overwritten by models that derive it differently."""
+        return self.parameters["lifetime_factor_nature"]
+
     def transfer_historical_parameters(self):
         """Transfer parameters from historical to future MFA system if needed, e.g. material splits of plastics stock."""
         pass
-
-    def init_export_and_visualization(self):
-        display_names = self.DisplayNamesCls()
-        self.data_writer = self.DataExporterCls(
-            cfg=self.cfg.export,
-            display_names=display_names,
-        )
-        self.visualizer = self.VisualizerCls(
-            cfg=self.cfg.visualization,
-            display_names=display_names,
-        )
 
     def make_mfa(
         self,
@@ -241,11 +314,7 @@ class CommonModel[CfgT: CommonCfg]:
         )
 
         # after normalization, target saturation level is 1 across all regions and end-uses.
-        sat_level_bound = Bound(
-            var_name="saturation_level",
-            lower_bound=1,
-            upper_bound=1,
-        )
+        sat_level_bound = Bound.fixed(var_name="saturation_level", value=1)
         growth_rate_bound = Bound(
             var_name="growth_rate",
             lower_bound=0,
@@ -263,7 +332,7 @@ class CommonModel[CfgT: CommonCfg]:
             parameters=self.parameters,
             target_dim_letters="all",
             bound_list=bound_list_obj,
-            lifetime=self.lifetime_limit(),
+            lifetime=self.parameters["lifetime_mean"],
         )
         self.stock_handler.extrapolate()
 
@@ -305,5 +374,11 @@ class CommonModel[CfgT: CommonCfg]:
 
     def lifetime_limit(self):
         """Effective lifetime when saturation level is reached.
-        Currently, this is just the last modelled lifetime."""
-        return self.parameters["lifetime_mean"][{"t": self.dims["t"].items[-1]}]
+        Currently, this is just the last modelled lifetime, including the nurture and nature
+        extension."""
+        last_year = {"t": self.dims["t"].items[-1]}
+        return (
+            self.parameters["lifetime_mean"][last_year]
+            * self.parameters["lifetime_factor_nurture"][last_year]
+            * self.parameters["lifetime_factor_cohort"][last_year]
+        )

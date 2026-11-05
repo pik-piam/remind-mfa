@@ -3,19 +3,20 @@
 | System environment                 |
 | Feedstock supply (fossil)          |
 | Feedstock supply (biomass)         |
-| Feedstock supply (daccu)           |
-| Feedstock supply (ccu)             |
-| High Value Chemical Production     |
-| C4 Production                      |
+| Feedstock supply (DACCU)           |
+| Feedstock supply (CCU)             |
+| HVC production                     |
+| C4 production                      |
 | Polymerization                     |
-| Primary Market                     |
+| Primary market                     |
 | Manufacturing                      |
-| Manufactured Products Market       |
-| Use Phase                          |
-| End-of-Life Management             |
-| Waste Market                       |
-| Mechanical Recycling               |
-| Chemical Recycling                 |
+| Manufactured products market       |
+| Use phase                          |
+| End-of-life management             |
+| Reuse                              |
+| Waste market                       |
+| Mechanical recycling               |
+| Chemical recycling                 |
 | Incineration                       |
 | Landfilled                         |
 | Sorting                            |
@@ -24,9 +25,9 @@
 | Emissions                          |
 | Captured                           |
 | Atmosphere                         |
-| Other Reactants                    |
+| Other reactants                    |
 | Losses                             |
-| Auxiliary Recyclate Trade          |
-| Auxiliary Recycled Feedstock Trade |
+| Auxiliary recyclate trade          |
+| Auxiliary recycled feedstock trade |
 | Imports                            |
 | Exports                            |

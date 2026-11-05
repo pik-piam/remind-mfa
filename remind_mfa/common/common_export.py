@@ -4,10 +4,9 @@ import pickle
 import shutil
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, List, Literal, ClassVar
 
 import flodym as fd
-import flodym.export as fde
 from pydantic import PrivateAttr
 import pandas as pd
 
@@ -42,10 +41,10 @@ class IamcVariable(RemindMFABaseModel):
     """Given the future MFA system, returns the array to report, reduced to (t, r) or (t, r, <per-dim>)."""
     unit: str
     """Base unit of the array, e.g. "t/yr" or "t"."""
-    split_name: Optional[str] = None
-    """Display-column name to split into child variables (e.g. "End Use"). None = single variable."""
+    split_dims: Optional[List[str] | Literal["all"]] = None
+    """Dimension names or letters to split into child variables (e.g. "Good"). None = single variable. "all" = all non-(h, t, r) dimensions."""
     aggregate_parent: bool = True
-    """When this variable is split (``split_name`` set), whether its children are summed back
+    """When this variable is split (``split_dims`` set), whether its children are summed back
     into ``variable_name``. Set False for a second, orthogonal split of a variable whose parent
     total is already produced by another split, to avoid double-counting the parent. Exactly one
     split per parent may keep this True; a second aggregating split of the same parent raises at
@@ -71,7 +70,14 @@ class CommonDataExporter(RemindMFABaseModel):
     display_names: CommonDisplayNames
 
     # Datasets producing a single file: placed directly in the run folder, no subfolder.
-    FLAT_DATASETS: ClassVar[set[str]] = {"pickle", "iamc", "assumptions"}
+    FLAT_DATASETS: ClassVar[set[str]] = {"pickle", "iamc_reporting", "iamc_raw", "assumptions"}
+
+    _IAMC_RAW_PARAMETERS: ClassVar[dict[str, str]] = {
+        "lifetime_mean": "yr",
+        "lifetime_std": "yr",
+        "population": "cap",
+        "gdppc": "$/cap/yr",
+    }
 
     _model: Optional["CommonModel"] = PrivateAttr(default=None)
     _run_path: Optional[str] = PrivateAttr(default=None)
@@ -91,6 +97,8 @@ class CommonDataExporter(RemindMFABaseModel):
             self._clear_recomputable_caches()
             pickle.dump(self._model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
+            import flodym.export as fde  # deferred: pulls in plotly and matplotlib
+
             dir_out = self.export_path("csv", "flows")
             fde.export_mfa_flows_to_csv(mfa=mfa, export_directory=dir_out)
             fde.export_mfa_stocks_to_csv(mfa=mfa, export_directory=dir_out)
@@ -101,16 +109,22 @@ class CommonDataExporter(RemindMFABaseModel):
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
         if self.cfg.docs.do_export:
-            parameters_df = self.definition_to_markdown(self._model.definition_future)
+            self.definition_to_markdown(self._model.definition_future)
             self.merge_bibtex_files()
             self.assumptions_to_markdown()
-            self.merge_parameters_sources(params_df=parameters_df)
             self.cfg_to_markdown(cfg=self._model.cfg)
-        if self.cfg.iamc.do_export:
-            self.write_iamc()
+        if self.cfg.iamc_reporting.do_export:
+            self.write_iamc_reporting()
+        if self.cfg.iamc_raw.do_export:
+            self.write_iamc_raw()
 
     def export_custom(self):
         pass
+
+    @property
+    def iamc_raw_parameters(self) -> dict[str, str]:
+        """Parameters to include in the raw IAMC export, mapped to their units."""
+        return CommonDataExporter._IAMC_RAW_PARAMETERS | self._IAMC_RAW_PARAMETERS
 
     def _clear_recomputable_caches(self):
         """Drop lifetime-model sf/pdf caches from the historical and future MFA stocks before pickling
@@ -173,28 +187,129 @@ class CommonDataExporter(RemindMFABaseModel):
         """
         return []
 
-    def write_iamc(self):
+    def write_iamc_reporting(self):
+        """Export the selected variables from ``iamc_variables()`` in IAMC nomenclature."""
         iamc_vars = self.iamc_variables()
         if not iamc_vars:
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        self._warn_if_iamc_includes_historical()
+        time_items = self.cfg.iamc_reporting.time_items
+        self._warn_if_iamc_includes_historical(time_items, "IAMC reporting export")
 
+        constants = self.iamc_constants(self._model)
         mfa = self._model.future_mfa
-        constants = {"model": self.model_name, "scenario": self._model.cfg.model_switches.scenario}
 
         iamc_dataframe, split_parent_components, region_weights = self._build_all_iamc_df(
-            mfa, iamc_vars, constants
+            mfa, iamc_vars, constants, time_items
         )
 
         self._aggregate_iamc_variables(iamc_dataframe, split_parent_components)
         self._aggregate_iamc_regions(iamc_dataframe, region_weights)
         self._convert_iamc_units(iamc_dataframe)
 
-        iamc_dataframe.to_excel(self.export_path("iamc", "output_iamc.xlsx"))
+        iamc_dataframe.to_excel(self.export_path("iamc_reporting", "iamc_reporting.xlsx"))
 
-    def _warn_if_iamc_includes_historical(self):
+    def iamc_constants(self, model: "CommonModel") -> dict:
+        """IAMC constants to include in every exported variable."""
+        return {"model": self.model_name, "scenario": model.cfg.model_switches.scenario}
+
+    def write_iamc_raw(self):
+        """Export all flows, stocks, trades and selected parameters in IAMC format,
+        with variable names derived from the internal names. One file per configured detail level.
+        """
+        time_items = self.cfg.iamc_raw.time_items
+        self._warn_if_iamc_includes_historical(time_items, "Raw IAMC export")
+        for detail in self.cfg.iamc_raw.detail:
+            self._write_iamc_raw_file(detail, time_items)
+
+    def _write_iamc_raw_file(self, detail: Literal["aggregated", "complete"], time_items: list):
+        import pyam  # deferred: slow to import
+
+        mfa = self._model.future_mfa
+        vname_base = self._model.cfg.model.value
+        constants = self.iamc_constants(self._model)
+
+        df_list = []
+        self._iamc_raw_flows(mfa, vname_base, detail, time_items, df_list)
+        self._iamc_raw_stocks(mfa, vname_base, detail, time_items, df_list)
+        self._iamc_raw_trades(mfa, vname_base, detail, time_items, df_list)
+
+        df_out = pd.concat(df_list)
+        pyam_df = pyam.IamDataFrame(df_out, **constants)
+        self._aggregate_iamc_regions(pyam_df, region_weights={})
+
+        if detail == "complete":
+            df_list = []
+            self._iamc_raw_parameters(mfa, vname_base, time_items, df_list)
+            df_out = pd.concat(df_list)
+            pyam_df_prms = pyam.IamDataFrame(df_out, **constants)
+            pyam_df = pyam_df.append(pyam_df_prms)
+
+        self._convert_iamc_units(pyam_df)
+        pyam_df.to_csv(self.export_path("iamc_raw", f"iamc_raw_{detail}.csv"))
+
+    def _iamc_raw_flows(self, mfa: fd.MFASystem, vname_base, detail, time_items, df_list):
+        for flow in mfa.flows.values():
+            df = self._iamc_raw_df(f"{vname_base}|flows|{flow.name}", flow, detail, time_items)
+            df["unit"] = "t/yr"
+            df_list.append(df)
+
+    def _iamc_raw_stocks(self, mfa, vname_base, detail, time_items, df_list):
+        config = [
+            ("inflow", lambda stock: stock.inflow, "t/yr"),
+            ("outflow", lambda stock: stock.outflow, "t/yr"),
+            ("stock", lambda stock: stock.stock, "t"),
+        ]
+        for stock in mfa.stocks.values():
+            for name, array_func, unit in config:
+                df = self._iamc_raw_df(
+                    vname_base=f"{vname_base}|stocks|{stock.name}|{name}",
+                    array=array_func(stock),
+                    detail=detail,
+                    time_items=time_items,
+                )
+                df["unit"] = unit
+                df_list.append(df)
+
+    def _iamc_raw_trades(self, mfa, vname_base, detail, time_items, df_list):
+        config = [
+            ("export", lambda trade: trade.exports),
+            ("import", lambda trade: trade.imports),
+        ]
+        for name, trade in mfa.trade_set.markets.items():
+            for direction, array_func in config:
+                df = self._iamc_raw_df(
+                    vname_base=f"{vname_base}|trades|{name}|{direction}",
+                    array=array_func(trade),
+                    detail=detail,
+                    time_items=time_items,
+                )
+                df["unit"] = "t/yr"
+                df_list.append(df)
+
+    def _iamc_raw_parameters(self, mfa: fd.MFASystem, vname_base, time_items, df_list):
+        for name, unit in self.iamc_raw_parameters.items():
+            param = mfa.parameters[name]
+            if not isinstance(param, fd.FlodymArray):
+                logging.warning(
+                    f"Raw IAMC export: Skipping non-FlodymArray parameter {param.name} of type {type(param)}"
+                )
+                continue
+            if "h" in param.dims:
+                logging.warning(
+                    f"Raw IAMC export: Skipping parameter {param.name} with historical dim"
+                )
+                continue
+            dims = mfa.dims["t", "r"].union_with(mfa.parameters[name].dims)
+            param = param.cast_to(dims)
+            df = self._fd_array_to_df_for_iamc(
+                f"{vname_base}|parameters|{name}", param, time_items, split_dims="all"
+            )
+            df["unit"] = unit
+            df_list.append(df)
+
+    def _warn_if_iamc_includes_historical(self, time_items: list, export_name: str):
         """Warn if the configured IAMC export range covers historical years.
 
         Historical years derive partly from proprietary input data (e.g. WorldSteel), so
@@ -202,22 +317,26 @@ class CommonDataExporter(RemindMFABaseModel):
         taken per-material from the model's historical time dimension.
         """
         last_historical_year = self._model.dims["h"].items[-1]
-        historical = [y for y in self.cfg.iamc.time_items if y <= last_historical_year]
+        historical = [y for y in time_items if y <= last_historical_year]
         if historical:
             logging.warning(
-                f"IAMC export range includes historical years ({historical[0]}-{last_historical_year}), "
+                f"{export_name} range includes historical years ({historical[0]}-{last_historical_year}), "
                 "which may derive from proprietary input data (e.g. WorldSteel). "
                 "Verify you are permitted to share these years before distributing the output."
             )
 
     def _build_all_iamc_df(
-        self, mfa: "CommonMFASystem", iamc_vars: list[IamcVariable], constants: dict
+        self,
+        mfa: "CommonMFASystem",
+        iamc_vars: list[IamcVariable],
+        constants: dict,
+        time_items: list,
     ) -> tuple[pyam.IamDataFrame, dict[str, list[str]], dict[str, str]]:
         """Build one IamDataFrame per iamc variable and concatenate them.
 
         Also collects two side-tables consumed by the later aggregation steps:
 
-        - ``split_parent_components`` maps each ``split_name`` parent variable to the exact child
+        - ``split_parent_components`` maps each ``split_dims`` parent variable to the exact child
         variables produced by its split, so the parent is summed from those children
         only. Relying on pyam's default (all direct children of the parent path) would
         wrongly pull in sibling variables under the same path, e.g. "…|Plastics|Per Capita".
@@ -231,13 +350,13 @@ class CommonDataExporter(RemindMFABaseModel):
         split_parent_components: dict[str, list[str]] = {}
         region_weights: dict[str, str] = {}
         for iamc_var in iamc_vars:
-            iamc_df, variables = self._build_iamc_df(mfa, iamc_var, constants)
+            iamc_df, variables = self._iamc_var_to_iamc_df(mfa, iamc_var, constants, time_items)
             iamc_dataframes.append(iamc_df)
-            if iamc_var.split_name is not None and iamc_var.aggregate_parent:
+            if iamc_var.split_dims is not None and iamc_var.aggregate_parent:
                 if iamc_var.variable_name in split_parent_components:
                     raise ValueError(
                         f"'{iamc_var.variable_name}' is aggregated from more than one split "
-                        f"(latest via split_name='{iamc_var.split_name}'). Each split sums to the "
+                        f"(latest via split_dims='{iamc_var.split_dims}'). Each split sums to the "
                         f"full parent total, so aggregating from two would double-count it. Set "
                         f"aggregate_parent=False on all but one orthogonal split of this variable."
                     )
@@ -252,7 +371,7 @@ class CommonDataExporter(RemindMFABaseModel):
         """Sum child variables into their parents (variable-axis aggregation).
 
         Parents come from two sources:
-        - ``split_name`` variables were split into children on export, so each is summed back
+        - ``split_dims`` variables were split into children on export, so each is summed back
           to its parent from exactly the children it produced.
         - ``iamc_aggregates`` adds further parents whose children are separate iamc variables
           (e.g. summing sibling "…|Primary" and "…|Secondary" variables).
@@ -283,24 +402,87 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def _convert_iamc_units(self, iamc_dataframe: pyam.IamDataFrame):
         """Convert the model's base units to the reporting units used in IAMC output."""
-        iamc_dataframe.convert_unit(current="t/yr", to="Mt/yr", inplace=True)
-        iamc_dataframe.convert_unit(current="t", to="Mt", inplace=True)
-        iamc_dataframe.convert_unit(current="t/cap/yr", to="kg/cap/yr", factor=1000, inplace=True)
 
-    def _build_iamc_df(
-        self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict
+        # all units:
+        # {'-', 't', 't/sqm', 'm', 'cap', 'sqm', 'yr', '$/cap/yr', 't/yr', '1/yr'}
+
+        conversions = [
+            {"current": "t/yr", "to": "Mt/yr"},
+            {"current": "t", "to": "Mt"},
+            {"current": "t/cap/yr", "to": "kg/cap/yr", "factor": 1000},
+            {"current": "sqm", "to": "Gsqm", "factor": 1e-9},
+            {"current": "t/sqm", "to": "Mt/Gsqm", "factor": 1e3},
+        ]
+
+        for conv in conversions:
+            iamc_dataframe.convert_unit(**conv, inplace=True)
+
+    def _iamc_var_to_iamc_df(
+        self, mfa: CommonMFASystem, iamc_var: IamcVariable, constants: dict, time_items: list
     ) -> tuple[pyam.IamDataFrame, list[str]]:
         """Build the IamDataFrame for a iamc variable and return it with the variable names it produced."""
         import pyam  # deferred: slow to import
 
-        df = self.to_iamc_df(iamc_var.calculation_function(mfa))
-        df["variable"] = iamc_var.variable_name
-        if iamc_var.split_name is not None:
-            df["variable"] += "|" + df[iamc_var.split_name]
-            df = df.drop(columns=[iamc_var.split_name])
-
+        df = self._fd_array_to_df_for_iamc(
+            vname_base=iamc_var.variable_name,
+            array=iamc_var.calculation_function(mfa),
+            time_items=time_items,
+            split_dims=iamc_var.split_dims,
+        )
         variables = list(dict.fromkeys(df["variable"]))
         return pyam.IamDataFrame(df, unit=iamc_var.unit, **constants), variables
+
+    def _iamc_raw_df(
+        self,
+        vname_base: str,
+        array: fd.FlodymArray,
+        detail: Literal["aggregated", "complete"],
+        time_items: list,
+    ) -> pd.DataFrame:
+        """Aggregated variable, plus all split components if ``detail`` is "complete"."""
+        df_agg = self._fd_array_to_df_for_iamc(vname_base, array, time_items, split_dims=None)
+        if detail == "aggregated" or array.dims.letters == ("t", "r"):
+            return df_agg
+        df_complete = self._fd_array_to_df_for_iamc(vname_base, array, time_items, split_dims="all")
+        return pd.concat([df_agg, df_complete], ignore_index=True)
+
+    def _fd_array_to_df_for_iamc(
+        self,
+        vname_base: str,
+        array: fd.FlodymArray,
+        time_items: list,
+        split_dims: Optional[list[str] | Literal["all"]] = None,
+    ) -> pd.DataFrame:
+
+        require_dims_err_msg = (
+            f"Array {array.name} must include 't' or 'h' and 'r' dimensions for IAMC export"
+        )
+        if "r" not in array.dims:
+            raise ValueError(require_dims_err_msg)
+        if ("t" in array.dims) + ("h" in array.dims) != 1:
+            raise ValueError(require_dims_err_msg)
+        base_dims = ("t", "r") if "t" in array.dims else ("h", "r")
+
+        if split_dims is None:
+            split_dims = []
+        elif split_dims == "all":
+            split_dims = [dim.name for dim in array.dims if dim.letter not in ("h", "t", "r")]
+
+        array = array.sum_to(base_dims + tuple(split_dims))
+
+        df = self.to_iamc_df(array, time_items)
+        df = self._merge_index_columns(df, array.dims, vname_base)
+        return df
+
+    def _merge_index_columns(
+        self, df: "pd.DataFrame", dims: fd.DimensionSet, base_name: str
+    ) -> "pd.DataFrame":
+        names = [dim.name for dim in dims if dim.letter not in ("h", "t", "r")]
+        df["variable"] = base_name
+        for name in names:
+            df["variable"] += "|" + df[name].astype(str)
+            df = df.drop(columns=name)
+        return df
 
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         """Return the variables to export as REMIND input. Override in subclasses."""
@@ -328,6 +510,16 @@ class CommonDataExporter(RemindMFABaseModel):
 
         dfs = definition.to_dfs()
 
+        def dim_items_str(letter: str) -> str:
+            dim = self._model.dims[letter]
+            if dim.name == "Region":
+                return "*see region definition*"
+            if dim.dtype is int:
+                return f"{dim.items[0]} to {dim.items[-1]}"
+            return ", ".join(str(item) for item in dim.items)
+
+        dfs["dimensions"]["items"] = dfs["dimensions"]["letter"].map(dim_items_str)
+
         drop_columns = {
             "dimensions": ["dtype"],
             "stocks": ["solver", "time_letter"],
@@ -346,19 +538,18 @@ class CommonDataExporter(RemindMFABaseModel):
                 cell = ", ".join(cell)
             elif cell is None:
                 cell = ""
-            cell = self.display_names[str(cell)]
-            return cell.replace("<br>", " ")
+            return self._docs_cell_str(cell)
 
         for name, df in dfs.items():
             df.columns = [self.display_names[col] for col in df.columns]
-            df = df.map(convert_cell)
+            columns_to_convert = list(df.columns)
             if name == "parameters":
-                parameters_df = df
-            else:
-                write_docs_file(
-                    self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
-                )
-        return parameters_df
+                # sources are matched by internal parameter name, so before converting the names
+                df = self.merge_parameters_sources(params_df=df)
+            df[columns_to_convert] = df[columns_to_convert].map(convert_cell)
+            write_docs_file(
+                self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
+            )
 
     def merge_bibtex_files(self):
         """Compatibility wrapper used previously; merges two default files."""
@@ -367,16 +558,12 @@ class CommonDataExporter(RemindMFABaseModel):
         out = DOCS_PATH / "all_refs.bib"
         merge_bib_files([src1, src2], out)
 
-    def merge_parameters_sources(self, params_df: pd.DataFrame):
-
+    def merge_parameters_sources(self, params_df: pd.DataFrame) -> pd.DataFrame:
+        """Add a "Sources" column to the parameters table, matched by the "Name" column."""
         sources_df = pd.read_csv(self._model.data_reader.parameters_path / "mrmfa_sources.csv")
-
-        merged_df = merge_parameters_sources(
+        return merge_parameters_sources(
             sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
         )
-
-        output_file = self.model_docs_path / "definitions/parameters.md"
-        write_docs_file(output_file, merged_df.to_markdown(index=False))
 
     def assumptions_to_markdown(self):
 
@@ -392,14 +579,24 @@ class CommonDataExporter(RemindMFABaseModel):
             return
 
         schema_df = type(cfg).to_schema_df()
-        schema_df = schema_df.map(lambda cell: self.display_names[str(cell)])
+        schema_df.columns = [self.display_names[col] for col in schema_df.columns]
+        schema_df = schema_df.map(
+            lambda cell: "" if str(cell) == "PydanticUndefined" else self._docs_cell_str(cell)
+        )
         write_docs_file(
             self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
         )
 
-    def to_iamc_df(self, array: fd.FlodymArray):
-        time_out = fd.Dimension(name="Time Out", letter="O", items=self.cfg.iamc.time_items)
-        df = array[{"t": time_out}].to_df(dim_to_columns="Time Out", index=False)
+    def _docs_cell_str(self, cell: Any) -> str:
+        """String of a docs table cell, with internal names replaced by display names if configured."""
+        if not self.cfg.docs.apply_mappings:
+            return str(cell)
+        return self.display_names[str(cell)].replace("<br>", " ")
+
+    def to_iamc_df(self, array: fd.FlodymArray, time_items: list):
+        time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
+        time_letter = "t" if "t" in array.dims else "h"
+        df = array[{time_letter: time_out}].to_df(dim_to_columns="Time Out", index=False)
         df = df.rename(columns={"Region": "region"})
         return df
 

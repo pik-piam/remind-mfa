@@ -7,7 +7,7 @@ from typing import ClassVar, Literal, Optional
 from remind_mfa.common.trade import TradeSet, Trade
 from remind_mfa.common.common_config import CommonCfg
 from remind_mfa.common.helpers import clip_negative_arr
-from remind_mfa.common.data_blending import critically_damped_blend, FLOW_APPROACHING_TIME
+from remind_mfa.common.data_blending import critically_damped_blend
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
 
@@ -45,17 +45,18 @@ class CommonMFASystem(fd.MFASystem):
         self.stocks[use_stock_name].inflow[...] = inflow
         self.set_prms_and_compute(self.stocks[use_stock_name])
 
-    def set_prms_and_compute(self, stock: fd.Stock):
+    def set_prms_and_compute(self, stock: fd.DynamicStockModel):
         """Set the lifetime model parameters and compute the stock.
 
         Args:
-            stock (fd.Stock): Stock to set parameters for and compute.
+            stock (fd.DynamicStockModel): Stock to set parameters for and compute.
         """
-        stock.lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
-        stock.lifetime_model.set_prms(
-            mean=self.parameters["lifetime_mean"],
-            std=self.parameters["lifetime_std"],
-        )
+        lifetime_model = stock.lifetime_model
+        lifetime_model.n_pts_per_interval = self.lifetime_n_pts_per_interval
+        lifetime_model.mean = self.parameters["lifetime_mean"]
+        lifetime_model.std = self.parameters["lifetime_std"]
+        lifetime_model.lt_factor_by_year = self.parameters["lifetime_factor_nurture"]
+        lifetime_model.lt_factor_by_cohort = self.parameters["lifetime_factor_cohort"]
         stock.compute()
 
     def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
@@ -72,21 +73,39 @@ class CommonMFASystem(fd.MFASystem):
             inflow,
             n_historical=self.dims["h"].len,
             n_trend_years=self.parameters["n_trend_years"],
-            approaching_time=FLOW_APPROACHING_TIME,
+            approaching_time=self.parameters["flow_approaching_time"],
         )
         blended_inflow.name = "In-use stock inflow"
         add_assumption_doc(
             type="model assumption",
             name="Critically damped blend of in-use stock inflow",
-            value=FLOW_APPROACHING_TIME,
             description=(
                 "The in-use stock inflow resulting from the stock-driven model is blended smoothly "
                 "from historical trends to the future values with a critically damped blend. "
                 "The in-use stock is then recomputed from the blended inflow. "
-                "The value is the approaching time in years."
+                "The approaching time is set by the scenario parameter flow_approaching_time."
             ),
         )
         return clip_negative_arr(blended_inflow)
+
+    def compute_hibernation(self, outflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Compute the hibernating share of the in-use outflow and the hibernating stock.
+
+        Computes the stock ``hibernating``, which has no outflow, from the parameter
+        ``hibernation_share``. The flow ``use => hibernating`` is left to the caller.
+
+        Args:
+            outflow (fd.FlodymArray): Outflow of the in-use stock.
+
+        Returns:
+            fd.FlodymArray: Part of the outflow that hibernates.
+        """
+        hibernation_inflow = outflow * self.parameters["hibernation_share"]
+        self.stocks["hibernating"].inflow[
+            ...
+        ] = hibernation_inflow  # extra line in case of lower dimensionality of hibernation stock
+        self.stocks["hibernating"].compute()
+        return hibernation_inflow
 
     def fill_trade(self):
         """
@@ -132,54 +151,19 @@ class CommonMFASystem(fd.MFASystem):
         direction: Literal["imports", "exports"],
         warn: bool,
     ):
-        """Cap a trade's positive net flow in ``direction`` at ``limit`` and re-balance globally.
-
-        The capped side is reduced; ``balance`` then scales down the opposite side of the
-        regions that were not capped. This re-inflates the net flow of some regions and thereby
-        partially reintroduces the violation, so the cap and balance are iterated to
-        convergence.
+        """Cap a trade's positive net flow in ``direction`` at ``limit`` and re-balance globally
+        (see :meth:`Trade.cap_net`). If ``warn`` is set, warns where the cap was binding.
         """
-        trade_name = trade.name or "trade"
-        eps = sys.float_info.epsilon
         tolerance = 10 * self._absolute_float_precision
-        if direction == "exports":
-            capped_flow, opposite_flow = trade.exports, trade.imports
-        else:
-            capped_flow, opposite_flow = trade.imports, trade.exports
-        # Compare net trade and limit on the dimensions they share. The trade may be more
-        # granular than the limit (e.g. per-end use indirect exports vs. total manufacturing supply)
-        # or coarser (e.g. aggregate scrap exports vs. per-end use recovered scrap), so both are
-        # summed to their common dimensions before capping.
-        common_dims = tuple(
-            letter for letter in capped_flow.dims.letters if letter in limit.dims.letters
-        )
-        limit_total = limit.sum_to(common_dims).maximum(0)
-        for iteration in range(50):
-            net_flow = (capped_flow - opposite_flow).maximum(0)
-            net_flow_total = net_flow.sum_to(common_dims)
-            # sum of positive per-end use net trade may not exceed the limit
-            net_flow_excess = (net_flow_total - limit_total).maximum(0)
-            if not (net_flow_excess.values > tolerance).any():
-                break
-            if warn and iteration == 0:
-                self._warn_historical_net_trade_cap(
-                    trade_name,
-                    net_flow_excess,
-                    net_flow_total,
-                    tolerance,
-                    eps,
-                    direction=direction,
-                )
-            # reduce the capped flow of net-trade goods to bring positive net trade down to the
-            # limit, keeping the opposite flow (same-good stop-over) untouched; factor in [0, 1]
-            factor = (net_flow_total - net_flow_excess) / net_flow_total.maximum(eps)
-            capped_flow[...] = capped_flow - net_flow * (1 - factor)
-
-            scaled = net_flow_excess.cast_values_to(capped_flow.dims) == 0
-            trade.balance(to="minimum", mask_scaled=scaled)
-        else:
-            logging.warning(
-                f"'{trade_name}': positive-net-{direction} cap did not converge after 50 iterations."
+        excess, net_flow_total = trade.cap_net(limit, direction=direction, tolerance=tolerance)
+        if warn and (excess.values > tolerance).any():
+            self._warn_historical_net_trade_cap(
+                trade.name or "trade",
+                excess,
+                net_flow_total,
+                tolerance,
+                sys.float_info.epsilon,
+                direction=direction,
             )
 
     def redistribute_surplus(self, trade: Trade, supply: fd.FlodymArray, demand: fd.FlodymArray):
@@ -207,52 +191,78 @@ class CommonMFASystem(fd.MFASystem):
         """Cap a trade's net imports at domestic demand so downstream production / manufacturing
         flows cannot go negative.
 
-        Where an item's net imports exceed its demand, the excess is removed from its imports.
-        If ``category_dim`` is given (e.g. polymer 'p' for plastics primary trade), the excess is
-        first reassigned to the sibling items that share all *other* dimensions (for plastics: the
-        polymers of the same polymer type), as far as they still have headroom
-        (demand - net imports); only the part that cannot be reassigned is removed and warned about.
-
-        If no ``category_dim`` is given, the excess is removed directly.
+        If ``category_dim`` is given (e.g. polymer 'p' for plastics primary trade), the excess of
+        net imports over demand is first reassigned to the sibling categories (see
+        :meth:`_reassign_net_imports_within_category`).
+        The remaining excess is removed with :meth:`Trade.cap_net`, which re-balances globally
+        by reducing the exports of the other regions, and warned about.
 
         ``demand`` must carry all trade dimensions; additional dimensions (e.g. the element
         dimension 'e') are summed away.
         """
-        trade_name = trade.name or "trade"
-        eps = sys.float_info.epsilon
-        tolerance = 100 * self._absolute_float_precision
-
         imp = trade.imports
-        net = trade.net_imports
 
         # align demand to historical time 'h', then drop element / other non-trade dims
         if "t" in demand.dims and "h" in imp.dims:
             demand = demand[{"t": imp.dims["h"]}]
         assert set(imp.dims.letters) <= set(demand.dims.letters), (
-            f"'{trade_name}': demand must carry all trade dimensions; trade has "
+            f"'{trade.name or 'trade'}': demand must carry all trade dimensions; trade has "
             f"'{imp.dims.string}', demand has '{demand.dims.string}'."
         )
         demand = demand.sum_to(imp.dims.letters).maximum(0)
 
+        if category_dim:
+            self._reassign_net_imports_within_category(trade, demand, category_dim)
+
+        self._cap_net_trade(trade, limit=demand, direction="imports", warn=True)
+
+    @staticmethod
+    def _reassign_net_imports_within_category(
+        trade: Trade, demand: fd.FlodymArray, category_dim: str
+    ):
+        """Reassign net imports exceeding demand to sibling categories, on both trade sides.
+
+        A region's excess of net imports over demand is moved to the categories that share all
+        *other* dimensions (for plastics: the polymers of the same polymer type), as far as they
+        still have headroom (demand - net imports). The part that does not fit is left for the
+        cap.
+
+        Moving imports between categories changes the global imports per category, while the
+        changes cancel within each group. To keep the trade balanced, the exports are moved in
+        the same way: the exports of categories whose global imports decrease are reduced in the
+        regions that are net exporters of them, proportionally to their net exports, and these
+        regions export the same amount of the categories whose global imports increase instead.
+        A net exporter thus exports at most its net exports less, so it cannot become a net
+        importer, and its exports per group stay unchanged.
+
+        Args:
+            trade (Trade): Trade to modify in place. Assumed to be globally balanced.
+            demand (fd.FlodymArray): Domestic demand on the trade dimensions.
+            category_dim (str): Letter of the dimension to reassign within.
+        """
+        eps = sys.float_info.epsilon
+        net = trade.net_imports
         excess = (net - demand).maximum(0)
-        if not (excess.values > tolerance).any():
-            return
-
-        # excess and headroom are complementary: at most one of them is non-zero per item, so
-        # without a category_dim to sum over, `fill` is zero and the excess is simply removed
         headroom = (demand - net).maximum(0)
-        group_dim = category_dim if category_dim else ""
-        excess_group = excess.sum_over(group_dim)
-        headroom_group = headroom.sum_over(group_dim)
+        excess_group = excess.sum_over(category_dim)
+        headroom_group = headroom.sum_over(category_dim)
+        # move as much of the excess as the group's headroom allows, the rest is capped later
+        reassigned_group = excess_group.minimum(headroom_group)
+        removed = excess * (reassigned_group / excess_group.maximum(eps))
+        fill = headroom * (reassigned_group / headroom_group.maximum(eps))
+        trade.imports[...] = (trade.imports - removed + fill).maximum(0)
 
-        fill = headroom * (excess_group / headroom_group.maximum(eps)).minimum(1)
-        trade.imports[...] = (imp - excess + fill).maximum(0)
-
-        residual = (excess_group - headroom_group).maximum(0)
-        if (residual.values > tolerance).any():
-            self._warn_historical_net_trade_cap(
-                trade_name, residual, net, tolerance, eps, direction="imports"
-            )
+        # global change of imports per category, which sums to zero within each group
+        import_change = (fill - removed).sum_over("r")
+        import_decrease = (-import_change).maximum(0)
+        import_increase = import_change.maximum(0)
+        positive_net_exports = (-net).maximum(0)
+        export_decrease = positive_net_exports * (
+            import_decrease / positive_net_exports.sum_over("r").maximum(eps)
+        ).minimum(1)
+        increase_share = import_increase / import_increase.sum_over(category_dim).maximum(eps)
+        export_increase = export_decrease.sum_over(category_dim) * increase_share
+        trade.exports[...] = (trade.exports - export_decrease + export_increase).maximum(0)
 
     def _warn_historical_net_trade_cap(
         self,

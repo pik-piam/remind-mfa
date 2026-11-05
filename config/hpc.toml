@@ -1,0 +1,7 @@
+# Configuration layer for running on the PIK cluster (HPC)
+
+[base]
+    [base.visualization]
+        # Headless (never open a browser); figures are exported as static images instead
+        do_show_figs = false
+        do_save_figs = true

@@ -9,7 +9,7 @@ from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_blending import (
     blend,
     critically_damped_blend,
-    FLOW_APPROACHING_TIME,
+    DEFAULT_APPROACHING_TIME,
 )
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 
@@ -31,9 +31,12 @@ class TradeExtrapolator(RemindMFABaseModel):
     """future_dom_demand (FlodymArray): The domestic demand values to scale the historical imports by.
     Setting this means calculating trade in backward mode
     """
-    n_trend_years: fd.FlodymArray
-    """n_trend_years (FlodymArray): Number of most recent historical years used for the initial
-    slope of the critically damped blend of the extrapolated trade.
+    trade_factor: fd.FlodymArray | float = 1.0
+    """trade_factor (FlodymArray | float): Scenario factor on the extrapolated trade. Must only
+    contain dimensions of the future trade. Defaults to no scaling.
+    The factor multiplies both import and export flows (including stopover trade) after they have
+    been extrapolated and balanced without it. See :meth:`apply_trade_factor` for how the global
+    balance is restored for factors that differ between regions.
     """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
@@ -141,7 +144,9 @@ class TradeExtrapolator(RemindMFABaseModel):
         stopover_trade = self.add_stopover()
         self.scale_second(stopover_trade)
         self.blend_transition()
-        self.balance()
+        self.future_trade.balance(to="hmean")
+        self.apply_trade_factor()
+        self.clip_excess_trade()
 
     def scale_first(self):
         # scale "first" trade flow (imports in demand-driven mode)
@@ -226,13 +231,12 @@ class TradeExtrapolator(RemindMFABaseModel):
             future_flow[...] = critically_damped_blend(
                 future_flow,
                 n_historical=n_historical,
-                n_trend_years=self.n_trend_years,
-                approaching_time=FLOW_APPROACHING_TIME,
+                approaching_time=DEFAULT_APPROACHING_TIME,
             ).maximum(0)
         add_assumption_doc(
             type="model assumption",
             name="Critically damped blend of extrapolated trade",
-            value=FLOW_APPROACHING_TIME,
+            value=DEFAULT_APPROACHING_TIME,
             description=(
                 "Extrapolated imports and exports are blended smoothly from historical trends to the "
                 "extrapolated values with a critically damped blend, before they are balanced. "
@@ -240,35 +244,42 @@ class TradeExtrapolator(RemindMFABaseModel):
             ),
         )
 
-    def balance(self):
-        """We balance global imports and exports to their hmean
-        Balancing might result in a situation where imports exceed total demand or exports
-        exceed total supply, which would lead to a negative flow on one side of the trade
-        market. If this is the case, we scale down the trade flow which is too big.
-        We then balance trades again, which might lead to excess trade in further regions,
-        which is why we repeat the process iteratively until the excess is sufficiently small.
-        """
-        self.future_trade.balance(to="hmean")
-        tolerance = self.scaler_first
+    def apply_trade_factor(self):
+        """Multiply the balanced trade flows with the scenario trade factor and restore the global
+        balance.
 
+        A factor that is uniform across regions keeps imports and exports balanced, so it acts
+        exactly. A factor that differs between regions generally leaves global imports and exports
+        unequal. Since trade requires both a buyer and a seller, the global trade is then limited
+        to the smaller of both, and all flows of the larger side are scaled down proportionally.
+        The factor is thus exact on the smaller side and an upper bound on the larger side.
+        """
+        for future_flow in (self.future_trade.imports, self.future_trade.exports):
+            future_flow[...] = future_flow * self.trade_factor
+        self.future_trade.balance(to="minimum")
+        add_assumption_doc(
+            type="model assumption",
+            name="Balancing of scenario trade factor",
+            description=(
+                "The scenario trade factor multiplies extrapolated and balanced imports and "
+                "exports. If it differs between regions, global trade is limited to the smaller "
+                "of global imports and exports, and the larger side is scaled down "
+                "proportionally across all regions."
+            ),
+        )
+
+    def clip_excess_trade(self):
+        """Balancing might result in a situation where imports exceed total demand or exports
+        exceed total supply, which would lead to a negative flow on one side of the trade
+        market. The net flow of the first trade flow is therefore capped at its scaler
+        (see :meth:`Trade.cap_net`), which keeps the derived domestic quantity non-negative.
+        """
         max_value = self.scaler_first.values.max()
         epsilon = np.finfo(self.scaler_first.values.dtype).eps
         tolerance = epsilon * max_value * 10
-        for i in range(50):
-            scaler_second = self.scaler_first - self.future_first + self.future_second
-            excess_trade = -(scaler_second.minimum(0.0))
-            if excess_trade.values.max() < tolerance:
-                break
-            # Clamp such that future_first stays non-negative to avoid divergence.
-            # Negative values here only occur if scaler_first or future_second are negative,
-            # e.g. due to previous tolerances,
-            excess_trade = excess_trade.minimum(self.future_first)
-            self.future_first[...] = self.future_first - excess_trade
-
-            # only scale the items without excess trade,
-            # otherwise we would create new excess trade by scaling down the opposite flows
-            scaled = excess_trade.cast_values_to(self.future_first.dims) == 0
-            self.future_trade.balance(to="minimum", mask_scaled=scaled)
+        self.future_trade.cap_net(
+            limit=self.scaler_first, direction=self.scaled_first, tolerance=tolerance
+        )
 
         assert np.allclose(
             self.future_first.sum_over(

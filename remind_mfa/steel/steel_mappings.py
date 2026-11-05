@@ -17,6 +17,8 @@ class SteelDisplayNames(CommonDisplayNames):
         "use": "Use Phase",
         "hibernating": "Hibernating<br>stocks",
         "eol_management": "End-of-Life<br>Management",
+        "reuse": "Reuse",
+        "eol_waste": "End-of-Life<br>Waste",
         "scrap_market": "Old Scrap<br>Market",
         "scrap_pool": "Scrap<br>Pool",
         "excess_scrap": "Excess<br>Scrap",

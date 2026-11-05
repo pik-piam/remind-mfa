@@ -1,3 +1,6 @@
+from functools import cached_property
+from typing import TYPE_CHECKING
+
 import numpy as np
 import flodym as fd
 
@@ -8,29 +11,36 @@ from remind_mfa.steel.steel_mfa_system_historical import SteelMFASystemHistorica
 from remind_mfa.steel.steel_definition import get_steel_definition
 from remind_mfa.steel.steel_config import SteelCfg
 from remind_mfa.steel.steel_mappings import SteelDisplayNames
-from remind_mfa.steel.steel_visualization import SteelVisualizer
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
+
+if TYPE_CHECKING:
+    from remind_mfa.steel.steel_visualization import SteelVisualizer
 
 
 class SteelModel(CommonModel[SteelCfg]):
 
     ConfigCls = SteelCfg
     DataExporterCls = SteelDataExporter
-    VisualizerCls = SteelVisualizer
     DisplayNamesCls = SteelDisplayNames
     HistoricalMFASystemCls = SteelMFASystemHistorical
     FutureMFASystemCls = SteelMFASystem
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
 
+    @cached_property
+    def visualizer(self) -> SteelVisualizer:
+        from remind_mfa.steel.steel_visualization import SteelVisualizer
+
+        return SteelVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
+
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
 
         self.parameters["max_scrap_share"] = self.scenario_parameters["max_scrap_share"]
 
-        lifetime_factor = blend(
+        lifetime_calibration_factor = blend(
             target_dims=self.dims["t",],
             y_lower=0.9,
             y_upper=1.1,
@@ -48,37 +58,29 @@ class SteelModel(CommonModel[SteelCfg]):
                 "of 1.5 to smooth out unrealistic dips after rapid stock build-up"
             ),
         )
-        lifetime_factor_prm = fd.Parameter(dims=self.dims["t",])
-        lifetime_factor_prm[...] = lifetime_factor
-        self.parameters["lifetime_factor"] = lifetime_factor_prm
+        lifetime_calibration_prm = fd.Parameter(dims=self.dims["t",])
+        lifetime_calibration_prm[...] = lifetime_calibration_factor
+        self.parameters["lifetime_calibration_factor"] = lifetime_calibration_prm
 
         self.parameters["lifetime_mean"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_mean"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_mean"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values,
         )
         self.parameters["lifetime_std"] = fd.Parameter(
             dims=self.dims["t", "r", "u"],
-            values=(self.parameters["lifetime_factor"] * self.parameters["lifetime_std"])
+            values=(
+                self.parameters["lifetime_calibration_factor"] * self.parameters["lifetime_std"]
+            )
             .cast_to(self.dims["t", "r", "u"])
             .values
             * 1.5,
         )
 
-        hibernation_share_construction = 0.3
-        add_assumption_doc(
-            type="expert guess",
-            name="construction hibernation share",
-            value=hibernation_share_construction,
-            description=(
-                "Share of construction steel leaving the in-use stock that remains in place as "
-                "hibernating stock (no longer used, but not demolished or recovered). Hibernating "
-                "stock has no outflow. Other end uses have no hibernation."
-            ),
-        )
-        self.parameters["hibernation_share"] = fd.Parameter(dims=self.dims["u",])
-        self.parameters["hibernation_share"]["Construction"] = hibernation_share_construction
+        self.set_hibernation_share(0.3, dim_letter="u", items=["Construction"])
 
         add_assumption_doc(
             type="ad-hoc fix",
