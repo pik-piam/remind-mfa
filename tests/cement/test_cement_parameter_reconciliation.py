@@ -120,6 +120,23 @@ def test_nonlinear_case_reaches_constrained_optimum(output_dims_are_independent:
     )
 
 
+def test_stored_delta_rebuilds_output_parameters():
+    """The stored log-corrections match the closed-form optimum of the linear case, and the
+    corrected parameters can be rebuilt from them and the input parameters."""
+    prms = make_prms()
+    rec = ToyReconciliation(prms, REL_STDS, output_dims_are_independent=True, linear=True)
+    residual = mismatch(rec, prms)
+
+    out = rec.correct_parameters(**SOLVER_SETTINGS)
+
+    np.testing.assert_allclose(rec.delta["a"].values, -VAR_A * residual / (VAR_A + VAR_C))
+    assert rec.delta["a"].dims.letters == ("r",)
+    assert "fixed" not in rec.delta
+    rebuilt = rec.calc_output_parameters(rec.delta)
+    for prm_name in out:
+        np.testing.assert_allclose(rebuilt[prm_name].values, out[prm_name].values)
+
+
 def test_split_scaling_does_not_change_result():
     """The models only see shares, so scaling the input split must not change the result."""
     rec = ToyReconciliation(make_prms(), REL_STDS, output_dims_are_independent=True)
