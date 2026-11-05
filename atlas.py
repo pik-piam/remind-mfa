@@ -37,7 +37,9 @@ ConfigOption = Annotated[
 ]
 VariantOption = Annotated[AtlasVariant, typer.Option(help="ATLAS technology variant.")]
 ShareModeOption = Annotated[AtlasShareMode, typer.Option(help="ATLAS share mode.")]
-GreySupplySourceOption = Annotated[AtlasGreySupplySource, typer.Option(help="ATLAS grey-supply source.")]
+GreySupplySourceOption = Annotated[
+    AtlasGreySupplySource, typer.Option(help="ATLAS grey-supply source.")
+]
 Co2PriceOption = Annotated[AtlasCo2Price, typer.Option(help="ATLAS CO2-price option.")]
 ScenarioPkBudgOption = Annotated[
     AtlasScenarioPkBudg, typer.Option(help="ATLAS PkBudg scenario selection.")
@@ -134,7 +136,17 @@ def preprocess() -> None:
     """Run the ATLAS data-preprocessing Snakemake workflow."""
 
     execute_command(
-        ["pixi", "run", "snakemake", "--cores", "5", "--config", "steel_mfa={region_resolution: H12}", "--rerun-incomplete"], ATLAS_DATA_PIPELINE_ROOT
+        [
+            "pixi",
+            "run",
+            "snakemake",
+            "--cores",
+            "5",
+            "--config",
+            "steel_mfa={region_resolution: H12}",
+            "--rerun-incomplete",
+        ],
+        ATLAS_DATA_PIPELINE_ROOT,
     )
 
 
