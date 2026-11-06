@@ -53,6 +53,14 @@ class AtlasCouplingError(ValueError):
     """Raised when data does not satisfy the ATLAS coupling contract."""
 
 
+class AtlasGreySupplySource(Enum):
+    """Source of grey-supply curves for ATLAS-Trade."""
+
+    ATLAS_DEFAULT = "steel_iq"
+    MIC3_BASELINE = "steel_iq-mic3_baseline"
+    MIC3_POLICY = "steel_iq-mic3_policy"
+
+
 @dataclass(frozen=True)
 class ModelSpec:
     """The external interface of one REMIND-MFA model."""
@@ -69,7 +77,13 @@ MATERIAL_SPECS = {
     "steel": ModelSpec(
         name="steel",
         model=ModelNames.STEEL,
-        mfa_pipeline_mapping={"steel_demand.csv": "steel/ip_market__fabrication.csv"},
+        mfa_pipeline_mapping={
+            "steel_demand.csv": "steel/steel_market__manufacturing.csv",
+            "steel_scrap_production.csv": "steel/scrap_pool__steel_production_scrap_based.csv",
+            "steel_scrap_excess.csv": "steel/scrap_pool__excess_scrap.csv",
+            "steel_scrap_eol_pre_trade.csv": "steel/eol_management__scrap_market.csv",
+            "steel_scrap_eol_post_trade.csv": "steel/scrap_market__scrap_pool.csv",
+        },
         trade_market="steel",
         parameter_prefix="st",
     ),
@@ -197,7 +211,7 @@ def copy_mfa_output_to_atlas(
 def copy_demand_to_atlas(
     model: ModelNames, source: Path, target: Path, force: bool = False
 ) -> pd.DataFrame:
-    """Convert a model demand export for ATLAS preprocessing."""
+    """Convert a model demand (or, for steel, scrap) export for ATLAS preprocessing."""
     if not source.is_file():
         raise AtlasCouplingError(f"MFA demand export was not found: {source}")
 
@@ -207,7 +221,17 @@ def copy_demand_to_atlas(
         )
 
     if model == ModelNames.STEEL:
-        return copy_mfa_output_to_atlas(source, target, column_map={"steel_demand": "value"})
+        return copy_mfa_output_to_atlas(
+            source,
+            target,
+            column_map={
+                "steel_demand": "value",
+                "steel_scrap_production": "value",
+                "steel_scrap_excess": "value",
+                "steel_scrap_eol_pre_trade": "value",
+                "steel_scrap_eol_post_trade": "value",
+            },
+        )
     if model == ModelNames.PLASTICS:
         return copy_mfa_output_to_atlas(
             source,

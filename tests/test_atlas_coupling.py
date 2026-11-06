@@ -10,6 +10,7 @@ from remind_mfa.atlas_coupling import (
     aggregate_bilateral_trade,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
+    get_coupling_paths,
     get_model_spec,
     load_atlas_trade_projection,
     scenario_pkbudg_is_effective,
@@ -19,7 +20,7 @@ from remind_mfa.common.helpers import ModelNames
 
 def test_copy_steel_demand_converts_schema(tmp_path):
     source = tmp_path / "steel_demand.csv"
-    target = tmp_path / "REMIND_MFA" / "ip_market__fabrication.csv"
+    target = tmp_path / "REMIND_MFA" / "steel_market__manufacturing.csv"
     pd.DataFrame(
         {
             "Time": [2026, 2025],
@@ -33,6 +34,49 @@ def test_copy_steel_demand_converts_schema(tmp_path):
     expected = pd.DataFrame({"Time": [2026, 2025], "Region": ["B", "A"], "value": [2.5, 1.0]})
     pd.testing.assert_frame_equal(result, expected)
     pd.testing.assert_frame_equal(pd.read_csv(target), expected)
+
+
+def test_copy_steel_scrap_keeps_end_use(tmp_path):
+    source = tmp_path / "steel_scrap_eol_pre_trade.csv"
+    target = tmp_path / "REMIND_MFA" / "eol_management__scrap_market.csv"
+    pd.DataFrame(
+        {
+            "Time": [2025, 2025],
+            "Region": ["A", "A"],
+            "End Use": ["Construction", "Machinery"],
+            "steel_scrap_eol_pre_trade": [2.5, 1.0],
+        }
+    ).to_csv(source, index=False)
+
+    result = copy_demand_to_atlas(ModelNames.STEEL, source, target)
+
+    expected = pd.DataFrame(
+        {
+            "Time": [2025, 2025],
+            "Region": ["A", "A"],
+            "End Use": ["Construction", "Machinery"],
+            "value": [2.5, 1.0],
+        }
+    )
+    pd.testing.assert_frame_equal(result, expected)
+    pd.testing.assert_frame_equal(pd.read_csv(target), expected)
+
+
+def test_steel_coupling_paths_cover_atlas_scrap_inputs(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS_MFA_INPUT_DIRECTORY", str(tmp_path))
+
+    paths = get_coupling_paths(ModelNames.STEEL, ["default", "hpc", "atlas_run1"])
+
+    assert {
+        target.relative_to(tmp_path).as_posix() for target in paths.mfa_pipeline_mapping.values()
+    } == {
+        "steel/steel_market__manufacturing.csv",
+        "steel/scrap_pool__steel_production_scrap_based.csv",
+        "steel/scrap_pool__excess_scrap.csv",
+        "steel/eol_management__scrap_market.csv",
+        "steel/scrap_market__scrap_pool.csv",
+    }
+    assert {source.parent.name for source in paths.mfa_pipeline_mapping} == {"atlas"}
 
 
 def test_aggregate_bilateral_trade_excludes_domestic_flows():
