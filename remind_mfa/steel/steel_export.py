@@ -37,6 +37,26 @@ class SteelDataExporter(CommonDataExporter):
         return mfa.flows["steel_market => manufacturing"].sum_to(("t", "r"))
 
     @staticmethod
+    def _scrap_used_in_production(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """All scrap used in steelmaking: old scrap after trade plus home and new scrap."""
+        return mfa.flows["scrap_pool => steel_production_scrap_based"].sum_to(("t", "r"))
+
+    @staticmethod
+    def _excess_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Scrap not used in further production."""
+        return mfa.flows["scrap_pool => excess_scrap"].sum_to(("t", "r"))
+
+    @staticmethod
+    def _eol_scrap_pre_trade(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Recovered end-of-life scrap before scrap trade, per end use."""
+        return mfa.flows["eol_management => scrap_market"].sum_to(("t", "r", "u"))
+
+    @staticmethod
+    def _eol_scrap_post_trade(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """End-of-life scrap after scrap trade, entering the scrap pool."""
+        return mfa.flows["scrap_market => scrap_pool"].sum_to(("t", "r"))
+
+    @staticmethod
     def _total_available_scrap(mfa: fd.MFASystem) -> fd.FlodymArray:
         """Home and new scrap, plus old scrap after collection and trade, but before the model diverts any surplus to excess scrap."""
         return (
@@ -69,6 +89,26 @@ class SteelDataExporter(CommonDataExporter):
             RemindInputVariable(
                 name="steel_demand",
                 calculation_function=SteelDataExporter._steel_demand,
+                unit="t/yr",
+            ),
+            RemindInputVariable(
+                name="steel_scrap_production",
+                calculation_function=SteelDataExporter._scrap_used_in_production,
+                unit="t/yr",
+            ),
+            RemindInputVariable(
+                name="steel_scrap_excess",
+                calculation_function=SteelDataExporter._excess_scrap,
+                unit="t/yr",
+            ),
+            RemindInputVariable(
+                name="steel_scrap_eol_pre_trade",
+                calculation_function=SteelDataExporter._eol_scrap_pre_trade,
+                unit="t/yr",
+            ),
+            RemindInputVariable(
+                name="steel_scrap_eol_post_trade",
+                calculation_function=SteelDataExporter._eol_scrap_post_trade,
                 unit="t/yr",
             ),
         ]

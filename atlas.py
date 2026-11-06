@@ -83,7 +83,7 @@ def copy_demands(
         bool, typer.Option("--force", help="Overwrite existing ATLAS demand target.")
     ] = False,
 ) -> None:
-    """Convert an MFA demand export to the format and location ATLAS expects."""
+    """Convert the MFA demand (and, for steel, scrap) exports to the format and location ATLAS expects."""
 
     paths = get_coupling_paths(model, ["default", "hpc", "atlas_run1"])
     for demand_source, demand_target in paths.mfa_pipeline_mapping.items():
