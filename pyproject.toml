@@ -17,7 +17,7 @@ authors = [
 
 requires-python = ">= 3.14"
 dependencies = [
-    "matplotlib>=3.7.1,!=3.9.1",
+    "blicket>=0.1.0",
     "numpy>=1.25.0",
     "scipy>=1.11.0",
     "typer>=0.12.0",
@@ -27,7 +27,6 @@ dependencies = [
     "openpyxl>=3.1.2",
     "xlrd>=2.0.1",
     "xlwt>=1.3.0",
-    "plotly>=5.18.0",
     "pydantic>=2.8.2",
     "PyYAML>=6.0.2",
     "flodym>=1.1.0",
@@ -35,7 +34,6 @@ dependencies = [
     "ixmp4>=0.16.4",
     "tabulate>=0.9.0",
     "dotenv>=0.9.9",
-    "kaleido>=1.4.0",
 ]
 
 [project.scripts]
@@ -54,13 +52,20 @@ dev = [
     "marimo>=0.23.14",
     "nbformat>=5.10.4",
     "pytest>=9.1.1",
-    "questionary>=2.0.1",
     "ty>=0.0.88",
     { include-group = "docs" },
 ]
 
+[tool.uv]
+# ixmp4 (through scse-toolkit) pins polars below 2.0, which blicket needs
+override-dependencies = ["polars>=2.0"]
+
 # [tool.uv.sources]
 # flodym = { path = "../flodym", editable = true }
+# blicket = { path = "/home/tobias/code/blicket", editable = true }
+
+[tool.blicket]
+# See blicks/README.md.
 
 [tool.uv.build-backend]
 module-name = "remind_mfa"

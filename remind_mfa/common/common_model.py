@@ -2,7 +2,7 @@ import copy
 import logging
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 import flodym as fd
 import numpy as np
 
@@ -19,9 +19,6 @@ from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
 from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
-
-if TYPE_CHECKING:
-    from remind_mfa.common.common_visualization import CommonVisualizer
 
 
 class CommonModel[CfgT: CommonCfg]:
@@ -85,30 +82,15 @@ class CommonModel[CfgT: CommonCfg]:
     def export(self):
         self.data_writer.export(model=self)
 
-    def visualize(self):
-        if not self.cfg.visualization.do_visualize:
-            return
-        self.visualizer.visualize(model=self)
-
     @cached_property
     def display_names(self) -> CommonDisplayNames:
-        """Display names shared by the data exporter and the visualizer."""
+        """Display names of the model, used by the data exporter."""
         return self.DisplayNamesCls()
 
     @cached_property
     def data_writer(self) -> CommonDataExporter:
         """Data exporter of the model."""
         return self.DataExporterCls(cfg=self.cfg.export, display_names=self.display_names)
-
-    @cached_property
-    def visualizer(self) -> CommonVisualizer:
-        """Visualizer of the model. Overridden by each model.
-
-        Imported on first use, so plotting libraries are only loaded when visualizing.
-        """
-        from remind_mfa.common.common_visualization import CommonVisualizer
-
-        return CommonVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def set_definition(self):
         self.definition_historical = self.get_definition(self.cfg, historical=True)
@@ -331,7 +313,7 @@ class CommonModel[CfgT: CommonCfg]:
         # denormalize
         self.end_use_specific_sat_level = (
             end_use_specific_sat_level * time_factor
-        )  # to be used in visualization of extrapolation functions
+        )  # read by the stock extrapolation Blicks
         long_term_stock = self.stock_handler.stocks * self.end_use_specific_sat_level
 
         return long_term_stock

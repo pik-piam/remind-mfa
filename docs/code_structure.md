@@ -9,9 +9,9 @@ The basic structure of the source code is as follows:
     - Definitions of the dimensionalities of flows, stocks, and parameters, as well as the connections of flows and processes (*material*_definition.py)
     - Computing routines for the future MFA system (*material*_mfa_system_future.py)
     - A similar file for the historical system (*material*_mfa_system_historical.py)
-    - Model management: Initialisation of the MFA systems, calls to their compute routines, and to visualisation and export routines (*material*_model.py)
-    - Visualisation routines (*material*_visualization.py)
+    - Model management: Initialisation of the MFA systems, calls to their compute routines, and to the export routines (*material*_model.py)
     - Export routines for model outputs (*material*_export.py)
+* The figures of a run are [blicket](https://github.com/tobiasdiez/blicket) Blicks in the `blicks` folder at the repository root.
 
 ## Config Folder
 
@@ -21,4 +21,4 @@ Besides the source code, the repository contains another folder for configuratio
 
 The data folder is used to store the input and output data for each model.
 The input data is not part of the repository, but is available open source on Zenodo as detailed [here](input_data.md).
-The output data folder stores all model exports and visualizations.
+The output data folder stores all model exports.

@@ -11,28 +11,6 @@
         stock_extrapolation_class_name = "LogisticExtrapolation"
         lifetime_model_name = "LogNormalLifetime"
 
-    [base.visualization]
-        do_visualize = true
-        do_show_figs = true
-        do_save_figs = false
-        plotting_engine = "plotly"
-        use_stock.do_visualize = true
-        use_stock.over_gdp = true
-        use_stock.per_capita = true
-        use_stock.accumulate_gdp = false
-        gdp.do_visualize = false
-        gdp.per_capita = false
-        production.do_visualize = true
-        trade.do_visualize = true
-        consumption.do_visualize = true
-        consumption.per_capita = true
-        sankey.do_visualize = false
-        sankey.plotter_args.slice_dict = { "t" = 2050 }
-        sankey.plotter_args.exclude_processes = ["sysenv", "imports", "exports"]
-        sankey.plotter_args.exclude_flows = []
-        extrapolation.do_visualize = true
-        end_use_split.do_visualize = false
-
     [base.export]
         do_export = true
         path = "data_out"
@@ -47,27 +25,7 @@
         docs.do_export = false
         docs.apply_mappings = true
 
-[plastics]
-    [plastics.visualization]
-        sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
-        polymer_splits.do_visualize = false
-        flows.do_visualize = false
-        scenario_params.do_visualize = false
-
-[steel]
-    [steel.visualization]
-        scrap_demand_supply.do_visualize = false
-
 [cement]
     [cement.model_switches]
         carbonation = false
         parameter_reconciliation = false
-
-    [cement.visualization]
-        eol_stock.do_visualize = false
-        eol_stock.over_gdp = false
-        eol_stock.per_capita = false
-        clinker_production.do_visualize = false
-        cement_production.do_visualize = true
-        construction.do_visualize = false
-        carbonation.do_visualize = false

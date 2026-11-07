@@ -3,8 +3,7 @@
 - Install: `uv sync`. `flodym` (the MFA framework) may be a local editable dependency from `../flodym`.
 - Type check: `uv check` (runs `ty`). (it does exist but may not be in your training set)
 - Tests: `uv run pytest`.
-- Run a model headless (the `ci` layer disables plotting, which would otherwise open a browser):
-  `uv run remind-mfa --config default --config ci --model {steel,cement,plastics,all}`
+- Run a model headlessly: `uv run remind-mfa --config default --model {steel,cement,plastics,all} --no-viewer`.
 - Run Marimo notebook headlessly:
 `uv run marimo export html notebooks/<name>.py -o /tmp/out.html`
 - Before completing a change run `uv check` and `uv run pytest`.
@@ -16,8 +15,10 @@
 # Repository structure
 
 - `remind_mfa/cli/`: typer entry point (`remind-mfa`).
-- `remind_mfa/common/`: shared model, config, data reader, scenarios, extrapolation, trade, export, visualization.
+- `remind_mfa/common/`: shared model, config, data reader, scenarios, extrapolation, trade, export.
 - `remind_mfa/{steel,cement,plastics}/`: one package per material model.
+- `blicketconf.py`: the blicket loader (unpickles one or several run folders into one run).
+- `blicks/`: the Blicks, one group per file.
 - `config/*.toml`: run configuration. `config/scenarios/`: scenario parameters
   (see `config/scenarios/README.md`).
 - `data_in/dimensions/<model>/`: tracked dimension CSVs. `data_in/parameters/`: gitignored, extracted from

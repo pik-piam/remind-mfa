@@ -1,6 +1,3 @@
-from functools import cached_property
-from typing import TYPE_CHECKING
-
 import numpy as np
 import flodym as fd
 
@@ -15,9 +12,6 @@ from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.common_model import CommonModel
 from remind_mfa.steel.steel_definition import scenario_parameters as steel_scn_prm_def
 
-if TYPE_CHECKING:
-    from remind_mfa.steel.steel_visualization import SteelVisualizer
-
 
 class SteelModel(CommonModel[SteelCfg]):
 
@@ -28,12 +22,6 @@ class SteelModel(CommonModel[SteelCfg]):
     FutureMFASystemCls = SteelMFASystem
     get_definition = staticmethod(get_steel_definition)
     custom_scn_prm_def = steel_scn_prm_def
-
-    @cached_property
-    def visualizer(self) -> SteelVisualizer:
-        from remind_mfa.steel.steel_visualization import SteelVisualizer
-
-        return SteelVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""

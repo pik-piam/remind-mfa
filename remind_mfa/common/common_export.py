@@ -83,8 +83,6 @@ class CommonDataExporter(RemindMFABaseModel):
     _run_path: Optional[str] = PrivateAttr(default=None)
 
     def export(self, model: "CommonModel"):
-        # Always set the model as the visualizer needs it to determine the run folder
-        # even when data export is disabled.
         self._model = model
         if not self.cfg.do_export:
             return
@@ -187,27 +185,36 @@ class CommonDataExporter(RemindMFABaseModel):
         """
         return []
 
-    def write_iamc_reporting(self):
-        """Export the selected variables from ``iamc_variables()`` in IAMC nomenclature."""
+    def iamc_dataframe(self, model: "CommonModel") -> pyam.IamDataFrame | None:
+        """The selected variables of ``model`` in IAMC nomenclature, as the IAMC reporting export
+        writes them: aggregated over the split variables and to the world region, in the
+        reporting units; None for a model without IAMC variables. The Blicks read it as well.
+        """
+        self._model = model
         iamc_vars = self.iamc_variables()
         if not iamc_vars:
-            return
+            return None
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
         time_items = self.cfg.iamc_reporting.time_items
-        self._warn_if_iamc_includes_historical(time_items, "IAMC reporting export")
-
-        constants = self.iamc_constants(self._model)
-        mfa = self._model.future_mfa
+        constants = self.iamc_constants(model)
 
         iamc_dataframe, split_parent_components, region_weights = self._build_all_iamc_df(
-            mfa, iamc_vars, constants, time_items
+            model.future_mfa, iamc_vars, constants, time_items
         )
 
         self._aggregate_iamc_variables(iamc_dataframe, split_parent_components)
         self._aggregate_iamc_regions(iamc_dataframe, region_weights)
         self._convert_iamc_units(iamc_dataframe)
+        return iamc_dataframe
 
+    def write_iamc_reporting(self):
+        """Export the selected variables from ``iamc_variables()`` in IAMC nomenclature."""
+        iamc_dataframe = self.iamc_dataframe(self._model)
+        if iamc_dataframe is None:
+            return
+        time_items = self.cfg.iamc_reporting.time_items
+        self._warn_if_iamc_includes_historical(time_items, "IAMC reporting export")
         iamc_dataframe.to_excel(self.export_path("iamc_reporting", "iamc_reporting.xlsx"))
 
     def iamc_constants(self, model: "CommonModel") -> dict:
@@ -601,7 +608,7 @@ class CommonDataExporter(RemindMFABaseModel):
         return df
 
     def run_path(self) -> str:
-        """Per-model-run export folder, created once and shared by exporter and visualizer."""
+        """Per-model-run export folder, created once."""
         if self._run_path is None:
             if self.cfg.bundle_export:
                 self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
@@ -631,5 +638,5 @@ class CommonDataExporter(RemindMFABaseModel):
 
     @property
     def model_docs_path(self) -> str:
-        """Per-model-run export folder for docs, created once and shared by exporter and visualizer."""
+        """Folder of the generated documentation of this model."""
         return DOCS_PATH / self._model.name
