@@ -40,6 +40,14 @@ class TradeExtrapolator(RemindMFABaseModel):
     """
     _eps: float = 1e-6
     """Small value to avoid division by zero and to check for near-zero values in the data."""
+    _pseudo_activity: float = 1e-2
+    """Pseudo-observation of domestic activity, in the unit of the data (t), that trades at the
+    global share. It is added to every region's historical driver when its local trade share and
+    its relative growth are computed (see :meth:`scaling`). It regularizes regions whose
+    historical driver is zero up to round-off (e.g. pure re-exporters, whose net exports were
+    capped at their zero domestic supply), where the local share is otherwise undefined. Far
+    below the resolution of the trade data, so it does not alter informative local shares.
+    """
 
     @model_validator(mode="after")
     def validate_inputs(self):
@@ -302,20 +310,56 @@ class TradeExtrapolator(RemindMFABaseModel):
         Base method:
         - linear scaling (exports with production, imports with demand), constant local trade shares
         Modifications:
-        - for large relative increases of the scaler, global trade shares (e/p an i/d) slowly
+        - for large relative increases of the scaler, global trade shares (e/p and i/d) slowly
           replace local ones, as such large changes diminish the predictive power of local
           historical trade patterns. Phase-in of global shares is governed by the alpha parameter
         - no scaling for decreasing scaler in future_second
           Rationale:
           - if domestic demand decreases, the standing production might export more
           - if domestic supply (e.g. of EOL material) decreases, more might be imported
+
+        The local and global shares are blended geometrically, ``local**(1-alpha) * global**alpha``.
+        The local share is estimated with a pseudo-observation of ``_pseudo_activity`` domestic
+        activity trading at the global share (additive smoothing), which is also added to the
+        historical and future driver in the relative growth. Where the historical driver is zero
+        (up to round-off), the local share thus equals the global one and the growth is "infinite",
+        so the global share applies, for either sign of the round-off. Without the smoothing, the
+        power ``local**(1-alpha)`` is not Lipschitz continuous at zero: for ``alpha`` close to one,
+        a local share of zero yields zero trade, while a round-off sized positive share already
+        yields almost the full global-share trade.
+
+        All arrays have the dimensions of the future trade (``dims_out``). Negative values, which
+        can only be round-off, are clipped to zero.
+
+        Args:
+            trd_0: Historical base of the trade flow to scale: the weighted average
+                over the most recent historical years, with the stop-over (re-export) trade
+                removed. Constant along the time dimension.
+            dom_0: Historical domestic driver of that flow, averaged like ``trd_0``:
+                domestic demand for imports, domestic supply for exports. The local trade share
+                is ``trd_0 / dom_0`` (smoothed as described above).
+            dom: Future domestic driver per year. The extrapolated trade is ``dom``
+                times the blended share; the relative growth ``dom / dom_0`` sets ``alpha``.
+            reduced_linear: If False, the result is floored at ``trd_0``, so the flow does
+                not decrease when its driver shrinks (used for the second flow, see the rationale
+                above). Defaults to True.
+
+        Returns:
+            Extrapolated trade flow for all years.
         """
         assert np.min(dom.values) >= -1e-6 * np.max(np.abs(dom.values))
         assert np.min(dom_0.values) >= -1e-6 * np.max(np.abs(dom_0.values))
+        pseudo_activity = self._pseudo_activity
         trd_0 = trd_0.maximum(0)
         dom = dom.maximum(0)
-        dom_0 = dom_0.maximum(1)
-        dom_ratio = (dom / dom_0).maximum(1).apply(np.log) / np.log(50)
+        dom_0 = dom_0.maximum(0)
+        trd_share_glob_0 = (
+            trd_0.sum_over(("r",)) / dom_0.sum_over(("r",)).maximum(pseudo_activity)
+        ).cast_to(self.dims_out)
+        trd_share_loc_0 = (trd_0 + pseudo_activity * trd_share_glob_0) / (dom_0 + pseudo_activity)
+        dom_ratio = ((dom + pseudo_activity) / (dom_0 + pseudo_activity)).maximum(1).apply(
+            np.log
+        ) / np.log(50)
         alpha = blend(
             target_dims=self.dims_out,
             y_lower=0,
@@ -325,8 +369,7 @@ class TradeExtrapolator(RemindMFABaseModel):
             x_upper=1,
             type="quintic",
         )
-        trd_share_glob_0 = (trd_0.sum_over(("r",)) / dom_0.sum_over(("r",))).cast_to(self.dims_out)
-        trd = dom * (trd_0 / dom_0) ** (1 - alpha) * trd_share_glob_0**alpha
+        trd = dom * trd_share_loc_0 ** (1 - alpha) * trd_share_glob_0**alpha
 
         if reduced_linear:
             return trd
