@@ -96,6 +96,26 @@ class Extrapolation(RemindMFABaseModel):
         """gets either one-dimensional or multi-dimensional data, but always returns one scalar value per prm"""
         pass
 
+    def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
+        """Derivative of :meth:`func` with respect to the parameters.
+
+        Optional; subclasses that implement it return an array of shape ``x.shape + (n_prms,)``,
+        and :meth:`regress_common` fits with it instead of finite differences.
+
+        Args:
+            x (np.ndarray): Predictor values, a scalar or an array.
+            prms (np.ndarray): Parameters at which to evaluate the derivative.
+
+        Raises:
+            NotImplementedError: If the subclass has no analytic derivative.
+        """
+        raise NotImplementedError(f"{type(self).__name__} has no analytic jacobian.")
+
+    @classmethod
+    def has_jacobian(cls) -> bool:
+        """Whether the subclass implements :meth:`jacobian`."""
+        return cls.jacobian is not Extrapolation.jacobian
+
     def get_fitting_function(
         self,
         predictor_values: np.ndarray,
@@ -145,12 +165,12 @@ class Extrapolation(RemindMFABaseModel):
         Finds optimal fit of data through least squares. Weights and bounds are applied.
         Parameters with equal lower and upper bound are fixed to that value and not optimized,
         as scipy requires the lower bound to be strictly smaller than the upper bound.
+
+        Where the subclass implements :meth:`jacobian`, the derivative of the residuals is
+        passed to the solver analytically.
         """
-        fitting_function = self.get_fitting_function(
-            predictor[: self.n_historical, ...],
-            data,
-            weights,
-        )
+        historical_predictor = predictor[: self.n_historical, ...]
+        fitting_function = self.get_fitting_function(historical_predictor, data, weights)
         initial_guess = self.initial_guess(predictor, data)
         # correct initial guess
         initial_guess = self.correct_initial_guess_with_bounds(initial_guess, bounds)
@@ -165,9 +185,17 @@ class Extrapolation(RemindMFABaseModel):
             prms[free] = free_prms
             return fitting_function(prms)
 
+        def jacobian_free(free_prms: np.ndarray) -> np.ndarray:
+            """Jacobian of the flattened, weighted residuals with respect to the free parameters."""
+            prms = fit_prms.copy()
+            prms[free] = free_prms
+            weighted = weights[..., np.newaxis] * self.jacobian(historical_predictor, prms)
+            return weighted.reshape(-1, self.n_prms)[:, free]
+
         fit_prms[free] = least_squares(
             fitting_function_free,
             x0=fit_prms[free],
+            jac=jacobian_free if self.has_jacobian() else "2-point",
             gtol=1.0e-12,
             bounds=(lower[free], upper[free]),
         ).x
@@ -254,8 +282,6 @@ class LogisticExtrapolation(Extrapolation):
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
         f = self.func(x, prms)
-        if f == 0:
-            return np.zeros(3)
         da = f / a
         db = f * c * self.norm_c * (f / a - 1)
         dc = -f * (x - b) * (f / a - 1) * self.norm_c
@@ -298,8 +324,6 @@ class ArctanExtrapolation(Extrapolation):
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
         f = self.func(x, prms)
-        if f == 0:
-            return np.zeros(3)
         x_tilde = c * np.pi * (x - b)
         outer = 1 / (1 + x_tilde**2)
         da = f / a
@@ -350,10 +374,11 @@ class GompertzExtrapolation(Extrapolation):
     def jacobian(self, x: np.ndarray, prms: np.ndarray) -> np.ndarray:
         a, b, c = prms[:3]
         f = self.func(x, prms)
-        if f == 0:
-            return np.zeros(3)
-        # Use log(f/a) = -exp(-c_tilde*(x+b))*log(2) to avoid intermediate overflow
-        log_f_over_a = np.log(f / a)
+        # log(f/a) = -exp(inner) * log(2) is computed from the (clipped) inner exponent as in
+        # func, not as log(f / a): where f underflows to zero, log(f / a) is -inf and the
+        # derivatives below would be 0 * -inf = nan instead of their limit 0.
+        inner = np.clip(-c * self.norm_c * (x - b), -500, 500)
+        log_f_over_a = -np.exp(inner) * self.norm_b
         da = f / a
         db = f * c * self.norm_c * log_f_over_a
         dc = -f * (x - b) * log_f_over_a * self.norm_c
