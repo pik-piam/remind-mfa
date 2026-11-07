@@ -108,3 +108,90 @@ def test_single_region_factor_limits_global_trade_to_smaller_side():
     np.testing.assert_allclose(
         reduced.imports.values.sum(axis=1), reduced.exports.values.sum(axis=1)
     )
+
+
+def make_historical_trade(imports: np.ndarray, exports: np.ndarray) -> Trade:
+    """Historical trade with constant per-region imports and exports."""
+    historical_trade = Trade(
+        imports=fd.FlodymArray(dims=DIMS["h", "r"]),
+        exports=fd.FlodymArray(dims=DIMS["h", "r"]),
+    )
+    historical_trade.imports.values[...] = imports
+    historical_trade.exports.values[...] = exports
+    return historical_trade
+
+
+def run_re_exporter_case(import_offset: float = 0.0) -> Trade:
+    """Run a demand-driven extrapolation in which region C is a pure re-exporter.
+
+    Region C has no domestic supply: its historical imports cover its demand plus the amount it
+    re-exports, so its domestic supply derived from demand and trade is zero up to round-off.
+
+    Args:
+        import_offset: Added to C's historical imports, mimicking round-off of either sign in
+            the derived zero domestic supply.
+
+    Returns:
+        The extrapolated future trade.
+    """
+    demand = fd.FlodymArray(dims=DIMS["t", "r"])
+    growth = np.linspace(1.0, 1.5, T.len)[:, None]
+    demand.values[...] = growth * np.array([10_000.0, 5_000.0, 2_000.0])
+    historical_trade = make_historical_trade(
+        imports=np.array([1_000.0, 2_000.0, 0.0]), exports=np.array([1_500.0, 500.0, 500.0])
+    )
+    historical_trade.imports.values[:, 2] = demand.values[: H.len, 2] + 500.0 + import_offset
+    future_trade = Trade(
+        imports=fd.FlodymArray(dims=DIMS["t", "r"]),
+        exports=fd.FlodymArray(dims=DIMS["t", "r"]),
+    )
+    TradeExtrapolator(
+        historical_trade=historical_trade,
+        future_trade=future_trade,
+        future_dom_demand=demand,
+    ).run()
+    return future_trade
+
+
+@pytest.mark.parametrize("import_offset", [-1e-9, 1e-9])
+def test_zero_domestic_supply_is_insensitive_to_round_off(import_offset: float):
+    reference = run_re_exporter_case()
+    perturbed = run_re_exporter_case(import_offset)
+    for flow in ("imports", "exports"):
+        reference_values = getattr(reference, flow).values
+        np.testing.assert_allclose(
+            getattr(perturbed, flow).values,
+            reference_values,
+            rtol=1e-6,
+            atol=1e-9 * reference_values.max(),
+        )
+
+
+def test_scaling_applies_global_share_where_history_is_zero():
+    demand = fd.FlodymArray(dims=DIMS["t", "r"])
+    demand.values[...] = np.array([1_000.0, 500.0, 100.0])
+    extrapolator = TradeExtrapolator(
+        historical_trade=make_historical_trade(
+            imports=np.array([300.0, 100.0, 0.0]), exports=np.zeros(R.len)
+        ),
+        future_trade=Trade(
+            imports=fd.FlodymArray(dims=DIMS["t", "r"]),
+            exports=fd.FlodymArray(dims=DIMS["t", "r"]),
+        ),
+        future_dom_demand=demand,
+    )
+    extrapolator.set_direction()
+    extrapolator.extract_attributes()
+    extrapolator.broadcast_scaler()
+    trade_0 = fd.FlodymArray(dims=extrapolator.dims_out)
+    driver_0 = fd.FlodymArray(dims=extrapolator.dims_out)
+    global_share = (300.0 + 100.0) / (1_000.0 + 500.0)
+    for round_off in (-1e-9, 0.0, 1e-9):
+        # regions A and B keep their driver; region C grows from zero (up to round-off)
+        driver_0.values[...] = np.array([1_000.0, 500.0, round_off])
+        trade_0.values[...] = np.array([300.0, 100.0, round_off])
+        trade = extrapolator.scaling(trd_0=trade_0, dom_0=driver_0, dom=demand)
+        np.testing.assert_allclose(trade.values[:, 2], 100.0 * global_share, rtol=1e-6)
+        np.testing.assert_allclose(
+            trade.values[:, :2], np.broadcast_to([300.0, 100.0], (T.len, 2)), rtol=1e-4
+        )
