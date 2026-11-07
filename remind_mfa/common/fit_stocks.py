@@ -1,10 +1,11 @@
 import flodym as fd
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import Bounds, minimize
 from pydantic import model_validator
 from logging import warning
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.data_extrapolations import Extrapolation
+from remind_mfa.common.data_transformations import BoundList
 
 
 class OptimizationError(Exception):
@@ -18,6 +19,9 @@ class StockFitter(RemindMFABaseModel):
     penalty_weights: dict
     predictor: np.ndarray
     current_population: fd.FlodymArray
+    bound_list: BoundList = BoundList()
+    """Bounds of the regional parameters, with the region and end use dimensions as target_dims.
+    Defaults to no bounds."""
     _n_hist: int = None
 
     @model_validator(mode="after")
@@ -35,6 +39,11 @@ class StockFitter(RemindMFABaseModel):
             raise ValueError(
                 "The regression array must have the same 'r' and end use dimensions as historical_in."
             )
+        bound_dims = self.bound_list.target_dims.letters
+        if self.bound_list.bound_list and bound_dims != self.historical_stocks_pc.dims.letters[1:]:
+            raise ValueError(
+                "The bounds must have the same 'r' and end use dimensions as historical_in."
+            )
         return self
 
     @model_validator(mode="after")
@@ -50,13 +59,18 @@ class StockFitter(RemindMFABaseModel):
             raise ValueError("growth_rate not in prm_names.")
         return self
 
+    @model_validator(mode="after")
+    def set_n_hist(self):
+        self._n_hist = self.historical_stocks_pc.dims["h"].len
+        return self
+
     def fit(self):
         """prepare parameters for single fitting function
         loop over end use and regions, call single fitting function for each of them
         """
         hdims = self.historical_stocks_pc.dims
         prms = np.ndarray(shape=(hdims["r"].len, hdims["u"].len, self.extrapolation.n_prms))
-        self._n_hist = hdims["h"].len
+        bounds = self.bound_list.to_np_array(self.extrapolation.prm_names)
         ids_failed = []
         n_r = hdims["r"].len
         n_g = hdims["u"].len
@@ -66,6 +80,7 @@ class StockFitter(RemindMFABaseModel):
                     historical=self.historical_stocks_pc.values[:, ir, ig],
                     predictor=self.predictor[:, ir, ig],
                     prms_0=self.extrapolation.fit_prms[ig, :],
+                    bounds=None if bounds is None else bounds[ir, ig],
                 )
             except OptimizationError:
                 prms[ir, ig, :] = self.extrapolation.fit_prms[ig, :]
@@ -80,7 +95,11 @@ class StockFitter(RemindMFABaseModel):
         return stocks_pc_out
 
     def fit_single(
-        self, historical: np.ndarray, predictor: np.ndarray, prms_0: np.ndarray
+        self,
+        historical: np.ndarray,
+        predictor: np.ndarray,
+        prms_0: np.ndarray,
+        bounds: np.ndarray | None = None,
     ) -> np.ndarray:
         """Carry out the fitting for a single end use and region by minimizing the penalty function.
         Wraps/uses scipy's minimize function.
@@ -90,6 +109,8 @@ class StockFitter(RemindMFABaseModel):
             historical (np.ndarray): historical data
             predictor (np.ndarray): predictor, usually log(GDPpC)
             prms_0 (np.ndarray): initial guess for the parameters
+            bounds (np.ndarray, optional): lower and upper bounds of the parameters, shape
+              (2, n_prms). Defaults to no bounds.
 
         Returns:
             np.ndarray: fitted parameters fot that end use and region
@@ -111,7 +132,13 @@ class StockFitter(RemindMFABaseModel):
                 fun=lambda prms: self.penalty(historical, predictor, prms, prms_0),
                 jac=lambda prms: self.jacobian(historical, predictor, prms, prms_0),
                 x0=x0,
-                tol=0.001,
+                method="L-BFGS-B",
+                bounds=None if bounds is None else Bounds(*bounds),
+                # L-BFGS-B stops when the penalty decreases by less than ftol (relative to the penalty, but
+                # at least absolute) or the gradient is below gtol. With scipy's default ftol, it stops up to
+                # 1e-3 away from the minimum where the penalty is small; with ftol 1e-10, the parameters are
+                # within about 1e-4 of the minimum.
+                options={"ftol": 1e-10},
             )
         if result.success:
             return result.x
