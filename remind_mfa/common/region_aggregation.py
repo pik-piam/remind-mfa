@@ -5,12 +5,13 @@ from typing import Optional
 import pandas as pd
 
 # Region sets from finest to coarsest: each set is an aggregation of the previous ones.
-REGION_SETS = ("iso249", "eu21", "h12")
+REGION_SETS = ("iso249", "gtap155", "eu21", "h12")
 
 # piamMappings files mapping iso249 countries to the regions of the other sets.
 MAPPING_FILES = {
     "eu21": "regionmapping_21_EU11.csv",
     "h12": "regionmappingH12.csv",
+    "gtap155": "regionmappingGTAP12custom.csv",
 }
 
 
