@@ -7,7 +7,7 @@ from remind_mfa.common.data_blending import PDController
 from typing import Tuple, Union, Optional
 from pydantic import ConfigDict
 
-from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, BoundList
+from remind_mfa.common.data_transformations import broadcast_trailing_dimensions, Bound, BoundList
 from remind_mfa.common.assumptions_doc import add_assumption_doc
 from remind_mfa.common.helpers import RemindMFABaseModel
 from remind_mfa.common.common_config import ModelSwitches
@@ -24,13 +24,11 @@ class StockExtrapolation(RemindMFABaseModel):
     cfg: ModelSwitches
     """Configuration for the model."""
     historical_stocks: fd.FlodymArray
-    """Historical stock data."""
+    """Historical stock data, normalized to a target saturation level of 1."""
     dims: fd.DimensionSet
     """Dimension set for the data."""
     parameters: dict[str, fd.Parameter]
     """Parameters for the extrapolation."""
-    bound_list: BoundList = BoundList()
-    """bound_list (BoundList): List of bounds for the extrapolation. Defaults to an empty BoundList."""
     do_gdppc_accumulation: bool = True
     """do_gdppc_accumulation (bool): Flag to perform GDP per capita accumulation. Defaults to True."""
     transition_smoothing: str = "critically_damped"
@@ -113,11 +111,19 @@ class StockExtrapolation(RemindMFABaseModel):
         all_weights = (self.gdppc * self.pop).get_shares_over(("r",))
         historical_weights = all_weights[{"t": self.dims["h"]}]
         independent_dims = (self.historical_stocks_pc.dims.index("u"),)
+        # the stocks are normalized: the target saturation level is 1 across all regions and end uses
+        bound_list = BoundList(
+            target_dims=self.dims["u",],
+            bound_list=[
+                Bound.fixed(var_name="saturation_level", value=1),
+                Bound(var_name="growth_rate", lower_bound=0, upper_bound=np.inf),
+            ],
+        )
         self.extrapolation = self.cfg.stock_extrapolation_class(
             data_to_extrapolate=self.historical_stocks_pc.values,
             predictor_values=self.predictor,
             independent_dims=independent_dims,
-            bound_list=self.bound_list,
+            bound_list=bound_list,
             weights=historical_weights.values,
         )
         self.extrapolation.regress()
@@ -129,6 +135,23 @@ class StockExtrapolation(RemindMFABaseModel):
         historical data and keeping the regression parameters close to the pure regression.
         Details on the penalty function and the optimization can be found in the StockFitter class.
         """
+        # The regional fit keeps the non-negative growth rate of the common regression, but not its
+        # saturation level, from which it is meant to deviate.
+        bound_list = BoundList(
+            target_dims=self.dims[self.historical_dim_letters[1:]],
+            bound_list=[Bound(var_name="growth_rate", lower_bound=0, upper_bound=np.inf)],
+        )
+        add_assumption_doc(
+            type="model assumption",
+            name="Non-negative growth rate of the regional stock regression",
+            description=(
+                "Like the common regression, the region-specific adaptation of the stock "
+                "regression keeps the growth rate non-negative: the regional regression curves of "
+                "per-capita stocks do not decrease with growing GDP per capita. Where matching a "
+                "historical decline would need a negative growth rate, the regional curve is flat "
+                "instead."
+            ),
+        )
 
         # Note that the weights do not necessarily reflect the importance of different metrics during the optimization.
         # This is due to the fact that different metrics may operate on different regimes and have different units.
@@ -167,6 +190,7 @@ class StockExtrapolation(RemindMFABaseModel):
             dims_out=self.dims_out,
             penalty_weights=penalty_weights,
             current_population=self.pop[{"t": self.dims["h"].items[-1]}],
+            bound_list=bound_list,
         )
         self.fitted_regression = stock_fitter.fit()
 
