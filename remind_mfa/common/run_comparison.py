@@ -527,7 +527,7 @@ def frame_figures(
     items = {column: [str(item) for item in ordered_items(df[column])] for column in channels}
     x_items = [item for item in ordered_items(df[x]) if not pd.isna(item)]
     # as text, items a variable lacks the dimension of (NaN) stay in the groups as "nan"
-    df = df.assign(**{column: df[column].astype(str) for column in channels})
+    df = df.assign(**{column: df[column].map(str) for column in channels})
     totals = df.groupby([RUN_COLUMN, *channels, x], observed=True)[VALUE_COLUMN].sum()
     if shares:
         within = [RUN_COLUMN, *([facet] if facet else []), x]
