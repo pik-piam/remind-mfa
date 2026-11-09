@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from remind_mfa.common.config_loader import CONFIG_DIR, load_config
+from remind_mfa.common.config_loader import CONFIG_DIR, ConfigStack, load_config
 from remind_mfa.common.helpers import ModelNames
 
 
@@ -122,3 +122,51 @@ def test_unknown_nested_field_is_rejected(tmp_path):
 
     with pytest.raises(ValueError, match="misspelled"):
         load_config(["bad"], ModelNames.STEEL, config_dir=tmp_path)
+
+
+def test_overrides_take_precedence_over_model_sections(tmp_path):
+    copy_default_config(tmp_path)
+    (tmp_path / "model.toml").write_text(
+        '[steel.model_switches]\nscenario = "model-value"\n', encoding="utf-8"
+    )
+
+    config = ConfigStack.load(["default", "model"], tmp_path).resolve(
+        ModelNames.STEEL, {"model_switches": {"scenario": "override"}}
+    )
+
+    assert config["model_switches"]["scenario"] == "override"
+
+
+def test_later_overrides_take_precedence():
+    config = ConfigStack.load(["default"]).resolve(
+        ModelNames.STEEL,
+        {"model_switches": {"scenario": "first"}},
+        {"model_switches": {"scenario": "second"}},
+    )
+
+    assert config["model_switches"]["scenario"] == "second"
+
+
+def test_path_overrides_are_resolved():
+    config = ConfigStack.load(["default"]).resolve(ModelNames.STEEL, {"export": {"path": "out"}})
+
+    assert config["export"]["path"] == str(Path.cwd() / "out")
+
+
+def test_unknown_override_is_rejected():
+    with pytest.raises(ValueError, match="misspelled"):
+        ConfigStack.load(["default"]).resolve(ModelNames.STEEL, {"export": {"misspelled": True}})
+
+
+def test_sections_are_ordered_base_then_model(tmp_path):
+    copy_default_config(tmp_path)
+    (tmp_path / "extra.toml").write_text(
+        '[steel.model_switches]\nscenario = "x"\n', encoding="utf-8"
+    )
+
+    stack = ConfigStack.load(["default", "extra"], tmp_path)
+    sections = stack.sections(ModelNames.STEEL)
+
+    assert len(sections) == 4
+    assert sections[0] is stack.layers[0].section("base")
+    assert sections[3] == {"model_switches": {"scenario": "x"}}
