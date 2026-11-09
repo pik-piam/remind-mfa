@@ -1,9 +1,10 @@
 import shutil
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 
-from remind_mfa.common.config_loader import CONFIG_DIR, load_config
+from remind_mfa.common.config_loader import CONFIG_DIR, CONFIG_SECTIONS, load_config, merge_config
 from remind_mfa.common.helpers import ModelNames
 
 
@@ -59,15 +60,15 @@ def test_missing_input_path_is_rejected(tmp_path: Path):
 def test_model_overrides_all_base_layers(tmp_path):
     copy_default_config(tmp_path)
     (tmp_path / "first.toml").write_text(
-        '[steel.model_switches]\nscenario = "model-first"\n', encoding="utf-8"
+        '[steel.model_switches]\nscenarios = ["model-first"]\n', encoding="utf-8"
     )
     (tmp_path / "second.toml").write_text(
-        '[base.model_switches]\nscenario = "base-second"\n', encoding="utf-8"
+        '[base.model_switches]\nscenarios = ["base-second"]\n', encoding="utf-8"
     )
 
     config = load_config(["default", "first", "second"], ModelNames.STEEL, config_dir=tmp_path)
 
-    assert config["model_switches"]["scenario"] == "model-first"
+    assert config["model_switches"]["scenarios"] == ["model-first"]
 
 
 def test_later_layers_merge_mappings_and_replace_arrays(tmp_path):
@@ -122,3 +123,59 @@ def test_unknown_nested_field_is_rejected(tmp_path):
 
     with pytest.raises(ValueError, match="misspelled"):
         load_config(["bad"], ModelNames.STEEL, config_dir=tmp_path)
+
+
+def test_overrides_win_over_all_layers(tmp_path):
+    copy_default_config(tmp_path)
+    (tmp_path / "first.toml").write_text(
+        '[base.export]\nprefix = "base-file"\n\n'
+        '[steel.model_switches]\nscenarios = ["model-file"]\n',
+        encoding="utf-8",
+    )
+    overrides = {
+        "base": {"export": {"prefix": "base-override"}},
+        "steel": {"model_switches": {"scenarios": ["model-override"]}},
+    }
+
+    tables = load_config(["default", "first"], config_dir=tmp_path)
+    config = merge_config(tables, ModelNames.STEEL, overrides=overrides)
+
+    assert config["export"]["prefix"] == "base-override"
+    assert config["export"]["bundle_export"] is False
+    assert config["model_switches"]["scenarios"] == ["model-override"]
+
+
+def test_overrides_with_unknown_root_are_rejected():
+    with pytest.raises(ValueError, match="Unknown top-level.*overrides"):
+        merge_config(load_config(["default"]), ModelNames.STEEL, overrides={"aluminium": {}})
+
+
+def test_overrides_are_validated():
+    overrides = {"steel": {"model_switches": {"misspelled": True}}}
+
+    with pytest.raises(ValueError, match="misspelled"):
+        merge_config(load_config(["default"]), ModelNames.STEEL, overrides=overrides)
+
+
+def test_without_model_returns_tables_in_file_layout():
+    tables = load_config(["default"])
+
+    assert set(tables) <= CONFIG_SECTIONS
+    assert "model" not in tables
+    assert tables["base"]["input"]["input_data_path"] == "data_in"
+    assert merge_config(tables, ModelNames.STEEL) == load_config(["default"], ModelNames.STEEL)
+
+
+def test_merge_config_leaves_tables_unchanged():
+    tables = load_config(["default"])
+    pristine_tables = deepcopy(tables)
+    overrides = {"steel": {"model_switches": {"scenarios": ["override"]}, "export": {"bundle_export": True}}}
+
+    steel_config = merge_config(tables, ModelNames.STEEL, overrides=overrides)
+    cement_config = merge_config(tables, ModelNames.CEMENT)
+
+    assert steel_config["model_switches"]["scenarios"] == ["override"]
+    assert steel_config["export"]["bundle_export"] is True
+    assert cement_config["export"]["bundle_export"] is False
+    assert cement_config["export"]["path"] == str(Path.cwd() / "data_out")
+    assert tables == pristine_tables

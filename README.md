@@ -60,6 +60,12 @@ See the
 
 You can also simply run `remind_mfa` without arguments, in which case you will be prompted to select a configuration and a material.
 
+By default, each model runs the scenarios listed in `model_switches.scenarios` of the configuration.
+Use `--scenario` to run other scenarios instead: repeat it to run several scenarios, or pass `all`
+to run every scenario that has a parent in `config/scenarios/inheritance.csv`. Every selected model then runs once per scenario. Add
+`--bundle-export` to group the exports of all runs in one folder (or `--no-bundle-export` to keep
+one folder per run).
+
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
 
 The data required to run the models is planned to be made accessible in the near future.

@@ -1,14 +1,16 @@
-import os
 import ast
 import csv
 import itertools
 import logging
+import os
+from functools import cached_property
+from pathlib import Path
+from typing import Any
+
+import flodym as fd
 import numpy as np
 import yaml
-import flodym as fd
 from pydantic import Field, field_validator, model_validator
-from functools import cached_property
-from typing import Any, Dict, List, Optional
 
 from remind_mfa.common.common_definition import (
     ExtrapolationDefinition,
@@ -24,6 +26,9 @@ EXTRA_DTYPES = {"year": float, "type": "<U32"}
 
 VALID_TYPES = ("factor", "target")
 
+ALL_SCENARIOS = "all"
+"""Scenario selection that expands to every runnable scenario."""
+
 
 class ExtrapolationScenarioParameter(RemindMFABaseModel):
     """Scenario values and metadata for one parameter extrapolation.
@@ -35,10 +40,10 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
 
     definition: ExtrapolationDefinition
     value: fd.Parameter
-    is_set: Optional[fd.Parameter] = None
+    is_set: fd.Parameter | None = None
     """0/1 mask marking coordinates where a scenario row has set a value; distinguishes
     an explicit 0 from an untouched entry."""
-    extras: Dict[str, fd.Parameter] = Field(default_factory=dict)
+    extras: dict[str, fd.Parameter] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def init_is_set(self):
@@ -58,14 +63,14 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
             )
         return self
 
-    def set_value(self, value: float | str, index: Dict[str, Any]):
+    def set_value(self, value: float | str, index: dict[str, Any]):
         if value is None:
             raise ValueError(f"Scenario row for '{self.definition.name}' has an empty value.")
         self._check_index(index)
         self._set(self.value, value, index)
         self._set(self.is_set, 1.0, index)
 
-    def set_extra(self, name: str, value: float | str, index: Dict[str, Any]):
+    def set_extra(self, name: str, value: float | str, index: dict[str, Any]):
         self._check_index(index)
         if name not in self.extras:
             self.extras[name] = self._new_extra(name)
@@ -79,18 +84,18 @@ class ExtrapolationScenarioParameter(RemindMFABaseModel):
             name=f"{self.definition.name}_{name}", dims=self.value.dims, values=values
         )
 
-    def set_extras(self, extras: Dict[str, Any], index: Dict[str, Any]):
+    def set_extras(self, extras: dict[str, Any], index: dict[str, Any]):
         for name, value in extras.items():
             self.set_extra(name, value, index)
 
     @staticmethod
-    def _set(parameter: fd.Parameter, value: float | str, index: Dict[str, Any]):
+    def _set(parameter: fd.Parameter, value: float | str, index: dict[str, Any]):
         if index:
             parameter[index] = value
         else:
             parameter[...] = value
 
-    def _check_index(self, index: Dict[str, Any]):
+    def _check_index(self, index: dict[str, Any]):
         """Check that index keys are valid dimension names and index values are valid items."""
         valid_names = set(self.value.dims.names)
         invalid = [name for name in index if name not in valid_names]
@@ -146,15 +151,15 @@ class ScenarioReader(RemindMFABaseModel):
     base_path: str
     model: ModelNames
     dims: fd.DimensionSet
-    parameter_definitions: List[
+    parameter_definitions: list[
         ExtrapolationDefinition | RemindMFAParameterDefinition | PlainDataPointDefinition
     ]
-    region_mappings_path: Optional[str] = None
+    region_mappings_path: str | None = None
     """Directory of the piamMappings region mapping files, used to resolve aggregate regions."""
     inactive_parameters: set[str] = set()
     """Names of scenario parameters of inactive model modules. Scenario rows setting them are
     skipped, while rows setting parameters that are not defined at all still raise an error."""
-    _scenarios: List["Scenario"] = []
+    _scenarios: list[Scenario] = []
     _parameters: dict = {}
 
     def get_parameters(self) -> dict:
@@ -194,12 +199,12 @@ class ScenarioReader(RemindMFABaseModel):
             name = scenario.parent
 
     @cached_property
-    def _region_aggregations(self) -> Optional[RegionAggregations]:
+    def _region_aggregations(self) -> RegionAggregations | None:
         if self.region_mappings_path is None or "Region" not in self.dims.names:
             return None
         return RegionAggregations(self.region_mappings_path, self.dims["Region"].items)
 
-    def _resolve_regions(self, scenario: "Scenario") -> list:
+    def _resolve_regions(self, scenario: Scenario) -> list:
         """Replace regions not in the current region set by the regions they aggregate.
 
         Data points with a region that is neither in the current set nor in one of its
@@ -232,14 +237,14 @@ class ScenarioReader(RemindMFABaseModel):
             )
         return data_points
 
-    def read_single(self, name: str) -> "Scenario":
+    def read_single(self, name: str) -> Scenario:
         csv_file = os.path.join(self.base_path, f"{name}.csv")
         if os.path.exists(csv_file):
             return self._read_csv(name, csv_file)
         else:
             raise FileNotFoundError(f"No scenario file found for '{name}' (tried .csv)")
 
-    def _read_csv(self, name: str, file_name: str) -> "Scenario":
+    def _read_csv(self, name: str, file_name: str) -> Scenario:
         parent = self._read_parent_from_inheritance(name)
         with open(file_name, "r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(self._iter_active_csv_lines(f))
@@ -331,23 +336,58 @@ class ScenarioReader(RemindMFABaseModel):
         values_lists = [v if isinstance(v, list) else [v] for v in index.values()]
         return [dict(zip(keys, combo)) for combo in itertools.product(*values_lists)]
 
-    def _read_parent_from_inheritance(self, name: str) -> Optional[str]:
-        inheritance_file = os.path.join(self.base_path, "inheritance.csv")
-        if not os.path.exists(inheritance_file):
-            raise FileNotFoundError(f"inheritance.csv not found in {self.base_path}")
-        with open(inheritance_file, "r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(self._iter_active_csv_lines(f))
-            for row in reader:
-                if row["scenario"] == name:
-                    parent = row.get("parent", "").strip()
-                    return parent if parent else None
-        return None
+    def _read_parent_from_inheritance(self, name: str) -> str | None:
+        return read_scenario_inheritance(self.base_path).get(name)
+
+
+def read_scenario_inheritance(base_path: str | Path) -> dict[str, str | None]:
+    """Read the parent of every scenario listed in `inheritance.csv`.
+
+    Args:
+        base_path: Folder containing `inheritance.csv`.
+
+    Returns:
+        Mapping from scenario name to its parent, or `None` for root scenarios, in file order.
+        If a scenario is listed more than once, its first entry wins.
+
+    Raises:
+        FileNotFoundError: If `base_path` has no `inheritance.csv`.
+    """
+    inheritance_file = os.path.join(base_path, "inheritance.csv")
+    if not os.path.exists(inheritance_file):
+        raise FileNotFoundError(f"inheritance.csv not found in {base_path}")
+    inheritance: dict[str, str | None] = {}
+    with open(inheritance_file, "r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(ScenarioReader._iter_active_csv_lines(f))
+        for row in reader:
+            parent = (row.get("parent") or "").strip()
+            inheritance.setdefault(row["scenario"], parent if parent else None)
+    return inheritance
+
+
+def list_runnable_scenarios(base_path: str | Path) -> list[str]:
+    """List the scenarios that can be run, in the order of `inheritance.csv`.
+
+    Root scenarios (without a parent) only hold defaults for their descendants and are not
+    runnable.
+
+    Args:
+        base_path: Folder containing `inheritance.csv`.
+
+    Returns:
+        Names of all scenarios with a parent.
+
+    Raises:
+        FileNotFoundError: If `base_path` has no `inheritance.csv`.
+    """
+    inheritance = read_scenario_inheritance(base_path)
+    return [scenario for scenario, parent in inheritance.items() if parent is not None]
 
 
 class Scenario(RemindMFABaseModel):
     name: str
-    parent: Optional[str] = None
-    data: List["ScenarioDataPoint"] = []
+    parent: str | None = None
+    data: list[ScenarioDataPoint] = []
 
     def filter_data_by_model(self, model_name: ModelNames):
         self.data = [p for p in self.data if model_name in p.models]
@@ -368,10 +408,10 @@ class Scenario(RemindMFABaseModel):
 
 class ScenarioDataPoint(RemindMFABaseModel):
     parameter: str
-    models: List[ModelNames] | str = "all"
-    index: Dict[str, Any] = {}
+    models: list[ModelNames] | str = "all"
+    index: dict[str, Any] = {}
     value: Any
-    extra: Dict[str, Any] = {}
+    extra: dict[str, Any] = {}
 
     @field_validator("models", mode="before")
     @classmethod
