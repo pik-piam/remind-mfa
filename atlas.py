@@ -14,6 +14,7 @@ from remind_mfa.atlas_coupling import (
     AtlasCo2Price,
     AtlasScenarioPkBudg,
     AtlasShareMode,
+    AtlasGreySupplySource,
     AtlasVariant,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
@@ -36,6 +37,9 @@ ConfigOption = Annotated[
 ]
 VariantOption = Annotated[AtlasVariant, typer.Option(help="ATLAS technology variant.")]
 ShareModeOption = Annotated[AtlasShareMode, typer.Option(help="ATLAS share mode.")]
+GreySupplySourceOption = Annotated[
+    AtlasGreySupplySource, typer.Option(help="ATLAS grey-supply source.")
+]
 Co2PriceOption = Annotated[AtlasCo2Price, typer.Option(help="ATLAS CO2-price option.")]
 ScenarioPkBudgOption = Annotated[
     AtlasScenarioPkBudg, typer.Option(help="ATLAS PkBudg scenario selection.")
@@ -79,7 +83,7 @@ def copy_demands(
         bool, typer.Option("--force", help="Overwrite existing ATLAS demand target.")
     ] = False,
 ) -> None:
-    """Convert an MFA demand export to the format and location ATLAS expects."""
+    """Convert the MFA demand (and, for steel, scrap) exports to the format and location ATLAS expects."""
 
     paths = get_coupling_paths(model, ["default", "hpc", "atlas_run1"])
     for demand_source, demand_target in paths.mfa_pipeline_mapping.items():
@@ -132,7 +136,17 @@ def preprocess() -> None:
     """Run the ATLAS data-preprocessing Snakemake workflow."""
 
     execute_command(
-        ["pixi", "run", "snakemake", "--cores", "5", "--rerun-incomplete"], ATLAS_DATA_PIPELINE_ROOT
+        [
+            "pixi",
+            "run",
+            "snakemake",
+            "--cores",
+            "5",
+            "--config",
+            "steel_mfa={region_resolution: H12}",
+            "--rerun-incomplete",
+        ],
+        ATLAS_DATA_PIPELINE_ROOT,
     )
 
 
@@ -179,6 +193,7 @@ def future(
     model: ModelOption,
     variant: VariantOption = AtlasVariant.GREEN_GREY,
     share_mode: ShareModeOption = AtlasShareMode.SINGLE_FOSSIL,
+    grey_supply_source: GreySupplySourceOption = AtlasGreySupplySource.MIC3_BASELINE,
     co2price: Co2PriceOption = AtlasCo2Price.NONE,
     scenario_pkbudg: ScenarioPkBudgOption = AtlasScenarioPkBudg.BUDG_1000,
     projection_years: Annotated[
@@ -200,6 +215,8 @@ def future(
             variant.value,
             "--green-grey-share-mode",
             share_mode.value,
+            "--grey-supply-source",
+            grey_supply_source.value,
             "--model",
             "--region-set",
             "REMIND",

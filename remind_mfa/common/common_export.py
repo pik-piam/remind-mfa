@@ -309,7 +309,7 @@ class CommonDataExporter(RemindMFABaseModel):
         raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
 
     def get_atlas_variables(self) -> list[RemindInputVariable]:
-        """Return the material demand variables used as input to the ATLAS trade model.
+        """Return the material demand (and, for steel, scrap) variables used as input to the ATLAS trade model.
         Override in subclasses."""
         raise NotImplementedError("Subclasses must implement get_atlas_variables method")
 
@@ -318,7 +318,7 @@ class CommonDataExporter(RemindMFABaseModel):
         self.write_variable_csvs(self.get_mrindustry_variables(), "mrindustry")
 
     def write_atlas(self):
-        """Write the material demand needed as input to the ATLAS trade model."""
+        """Write the material demand (and, for steel, scrap flows) needed as input to the ATLAS trade model."""
         self.write_variable_csvs(self.get_atlas_variables(), "atlas")
 
     def write_variable_csvs(self, variables: list[RemindInputVariable], dataset: str):

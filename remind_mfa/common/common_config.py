@@ -88,7 +88,7 @@ class ExportCfg(BaseExportCfg):
     mrindustry: BaseExportCfg
     """Configuration of export of material flows for use as REMIND inputs."""
     atlas: BaseExportCfg = BaseExportCfg(do_export=False)
-    """Configuration of export of material demand for use as input to the ATLAS trade model."""
+    """Configuration of export of material demand (and, for steel, scrap flows) for use as input to the ATLAS trade model."""
     pickle: BaseExportCfg
     """Configuration of export to pickle files."""
     assumptions: BaseExportCfg
