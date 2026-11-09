@@ -111,7 +111,7 @@ def test_balancing_can_be_disabled():
     assert values(future_trade.exports[{"r": "B"}])[-1] == pytest.approx(2.0)
 
 
-def test_years_not_covered_by_the_data_are_warned_about(caplog):
+def test_years_after_the_data_are_held_constant_and_warned_about(caplog):
     future_trade = Trade(
         imports=fd.FlodymArray(dims=FUTURE_DIMS), exports=fd.FlodymArray(dims=FUTURE_DIMS)
     )
@@ -125,6 +125,59 @@ def test_years_not_covered_by_the_data_are_warned_about(caplog):
         set_trade_from_data(future_trade, imports, exports, make_historic_trade())
 
     assert any("2004" in record.message for record in caplog.records)
+    np.testing.assert_allclose(values(future_trade.imports[{"r": "A"}]), [1.0, 2.0, 3.0, 4.0, 4.0])
+    np.testing.assert_allclose(values(future_trade.exports[{"r": "B"}]), [1.0, 2.0, 3.0, 4.0, 4.0])
+
+
+def test_years_between_history_and_data_are_interpolated():
+    future_trade = Trade(
+        imports=fd.FlodymArray(dims=FUTURE_DIMS), exports=fd.FlodymArray(dims=FUTURE_DIMS)
+    )
+    # 2003 is not covered: interpolated between the last historic year (3) and 2004 (7)
+    imports, exports = make_data(
+        imports=[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [7.0, 0.0]],
+        exports=[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 7.0]],
+    )
+
+    set_trade_from_data(future_trade, imports, exports, make_historic_trade())
+
+    np.testing.assert_allclose(values(future_trade.imports[{"r": "A"}]), [1.0, 2.0, 3.0, 5.0, 7.0])
+    np.testing.assert_allclose(values(future_trade.exports[{"r": "B"}]), [1.0, 2.0, 3.0, 5.0, 7.0])
+
+
+def test_five_year_steps_are_interpolated():
+    # ATLAS outputs 5-year steps, e.g. 2005 and 2010 here
+    time = fd.Dimension(name="Time", letter="t", items=list(range(2000, 2011)))
+    # time not as the first dimension, to check that the interpolation is along the right axis
+    dims = fd.DimensionSet(dim_list=[R, time])
+    future_trade = Trade(imports=fd.FlodymArray(dims=dims), exports=fd.FlodymArray(dims=dims))
+    data = np.zeros((2, 11))
+    data[0, 5] = 6.0
+    data[0, 10] = 1.0
+    imports = fd.FlodymArray(dims=dims, values=data)
+    exports = fd.FlodymArray(dims=dims, values=data[::-1].copy())
+
+    set_trade_from_data(future_trade, imports, exports, make_historic_trade())
+
+    expected = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0]
+    np.testing.assert_allclose(values(future_trade.imports[{"r": "A"}]), expected)
+    np.testing.assert_allclose(values(future_trade.exports[{"r": "B"}]), expected)
+    np.testing.assert_allclose(values(future_trade.imports[{"r": "B"}]), 0.0)
+    np.testing.assert_allclose(values(future_trade.exports[{"r": "A"}]), 0.0)
+
+
+def test_data_without_future_years_raises():
+    future_trade = Trade(
+        imports=fd.FlodymArray(dims=FUTURE_DIMS), exports=fd.FlodymArray(dims=FUTURE_DIMS)
+    )
+    # the data only covers historic years
+    imports, exports = make_data(
+        imports=[[1.0, 0.0], [2.0, 0.0], [3.0, 0.0], [0.0, 0.0], [0.0, 0.0]],
+        exports=[[0.0, 1.0], [0.0, 2.0], [0.0, 3.0], [0.0, 0.0], [0.0, 0.0]],
+    )
+
+    with pytest.raises(ValueError, match="zero in all future years"):
+        set_trade_from_data(future_trade, imports, exports, make_historic_trade())
 
 
 def test_historic_years_without_data_are_not_warned_about(caplog):
