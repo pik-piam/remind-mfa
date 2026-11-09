@@ -26,6 +26,24 @@ with a different value.
 
 ---
 
+## Available Scenarios
+
+| Scenario | Parent | Description |
+|----------|--------|-------------|
+| `SSP1` to `SSP5` | `BASE` | Shared Socioeconomic Pathways: SSP drivers (`driver_scen`) and SSP-specific demand, lifetime and trade settings. |
+| `SSP1_CE`, `SSP2_CE` | `SSP1`, `SSP2` | Circular-economy variants. |
+| `SSP2_lowEn` | `SSP2` | Low energy demand: lower demand for new products (`inflow_factor`) in all regions. |
+| `SSP2_highDemDEU` | `SSP2` | Same material demand as `SSP2`. The REMIND scenario only differs in the final energy efficiency of Germany, which mrindustry applies. |
+| `SSP2IndiaHigh`, `SSP2IndiaMedium` | `SSP2` | `SSP2` with the high or medium Indian GDP path (mrdrivers scenario group `SSP2IndiaDEAs`). Requires these driver scenarios in the input data. |
+
+`SSP2_lowEn`, `SSP2_highDemDEU` and the `SSP2India*` variants are REMIND scenarios whose industry demand mrindustry used to derive from `SSP2` itself. The comments in their files state how each mrindustry setting maps to the MFA parameters. The REMIND scenario `SSP2_NAV_all` equals `SSP2` and is copied downstream.
+
+### Driver Scenarios
+
+`driver_scen` selects the scenario of population, GDP and floorspace (the dimension `Driver Scenario`, `S`). It must be listed in `data_in/dimensions/<model>/driver_scenario.csv`, and the input data must provide it (in mrmfa: `fullMFA(driverScenarios = ...)`). Otherwise the run stops with an error naming the missing driver scenario; it never falls back to another driver scenario.
+
+---
+
 ## Scenario CSV Files
 
 Each `<scenario>.csv` has one row per data point:

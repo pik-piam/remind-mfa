@@ -1,0 +1,15 @@
+parameter,models,value,extra,index,description
+# Variant of SSP2 with the high Indian GDP path of the IndiaDEAs projections (REMIND scenario
+# SSP2IndiaHigh, mrdrivers scenario group SSP2IndiaDEAs). GDP and population equal SSP2 except in
+# IND, where GDP is 53% above SSP2 in 2050 and population up to 4% below.
+#
+# In mrindustry, specific_material_relative.csv sets the factor 1 on SSP2's production per GDP for
+# all regions and subsectors, so production deviates from SSP2 in IND only, by the ratio of the
+# GDPs. (calcSteel_Projections also raises the Indian steel stock for these scenarios, but the
+# fixed-ratio step overwrites its result.) Here, the different drivers act through the stock
+# regression over GDP per capita.
+#
+# The input data must provide the driver scenario (mrmfa: fullMFA(driverScenarios = ...)), and it
+# must be listed in data_in/dimensions/<model>/driver_scenario.csv. Otherwise the run stops with
+# an error.
+driver_scen,all,SSP2IndiaHigh,,,"SSP2IndiaHigh population and GDP"
