@@ -131,7 +131,9 @@ class BatchRun:
 
     @property
     def description(self) -> str:
-        values = ", ".join(f"{_format_path(path)}={value}" for path, value in self.grid_values.items())
+        values = ", ".join(
+            f"{_format_path(path)}={value}" for path, value in self.grid_values.items()
+        )
         return f"{self.model.value}" + (f" ({values})" if values else "")
 
     @property
@@ -194,7 +196,9 @@ class Batch:
         suffixes = _folder_suffixes([values for _, values in combinations], configs)
         # second pass: bundle the export and name the run folders
         runs = [
-            BatchRun(model, stack.resolve(model, _nested_dict(values), _batch_export(suffix)), values)
+            BatchRun(
+                model, stack.resolve(model, _nested_dict(values), _batch_export(suffix)), values
+            )
             for (model, values), suffix in zip(combinations, suffixes)
         ]
         cls._check_unique_folders(runs)
@@ -207,9 +211,7 @@ class Batch:
             runs_by_folder.setdefault(run.folder_key, []).append(run)
         duplicates = [runs for runs in runs_by_folder.values() if len(runs) > 1]
         if duplicates:
-            listing = "\n".join(
-                " / ".join(run.description for run in runs) for runs in duplicates
-            )
+            listing = "\n".join(" / ".join(run.description for run in runs) for runs in duplicates)
             raise ValueError(f"Several batch runs would be written to the same folder:\n{listing}")
 
     def input_cfgs(self) -> list[InputCfg]:

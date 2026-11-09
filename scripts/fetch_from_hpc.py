@@ -273,7 +273,9 @@ def copy_mfa_archive(
     ] = None,
     model: Annotated[
         Literal["all", "plastics", "steel", "cement"] | None,
-        typer.Option("--model", help="Restrict [[batch_grid]] tables to this model (default: all)."),
+        typer.Option(
+            "--model", help="Restrict [[batch_grid]] tables to this model (default: all)."
+        ),
     ] = None,
 ) -> None:
     """Copy the config-selected MFA archives, one per input data selection of the runs."""
