@@ -60,17 +60,20 @@ class CommonMFASystem(fd.MFASystem):
         stock.compute()
 
     def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
-        """Smooth the transition of the in-use stock inflow from historical to future years
-        with a critically damped blend, and correct any negative inflows to zero.
+        """Scale the in-use stock inflow by the scenario parameter ``inflow_factor``, smooth its
+        transition from historical to future years with a critically damped blend, and correct
+        any negative inflows to zero.
 
         Args:
             inflow (fd.FlodymArray): Inflow resulting from a StockDrivenDSM computation.
 
         Returns:
-            fd.FlodymArray: Blended and non-negative inflow.
+            fd.FlodymArray: Scaled, blended and non-negative inflow.
         """
+        # applied before the blend, so the scaled projection is also approached smoothly
+        scaled_inflow = inflow * self.parameters["inflow_factor"]
         blended_inflow = critically_damped_blend(
-            inflow,
+            scaled_inflow,
             n_historical=self.dims["h"].len,
             n_trend_years=self.parameters["n_trend_years"],
             approaching_time=self.parameters["flow_approaching_time"],
@@ -80,8 +83,9 @@ class CommonMFASystem(fd.MFASystem):
             type="model assumption",
             name="Critically damped blend of in-use stock inflow",
             description=(
-                "The in-use stock inflow resulting from the stock-driven model is blended smoothly "
-                "from historical trends to the future values with a critically damped blend. "
+                "The in-use stock inflow resulting from the stock-driven model, scaled by the "
+                "scenario parameter inflow_factor, is blended smoothly from historical trends to "
+                "the future values with a critically damped blend. "
                 "The in-use stock is then recomputed from the blended inflow. "
                 "The approaching time is set by the scenario parameter flow_approaching_time."
             ),

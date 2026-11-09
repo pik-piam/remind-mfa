@@ -139,6 +139,16 @@ scenario_parameters = [
         create_new=True,
     ),
     ExtrapolationDefinition(
+        name="inflow_factor",
+        dim_letters=("r",),
+        create_new=True,
+        blending_function="converge_quadratic",
+        description=(
+            "Scaling factor on the future in-use stock inflow (demand for new products), per "
+            "region. The in-use stock follows from the scaled inflow."
+        ),
+    ),
+    ExtrapolationDefinition(
         name="trade_factor",
         dim_letters=("r",),
         create_new=True,

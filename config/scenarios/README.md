@@ -82,3 +82,14 @@ The definition in the code holds some modelling decisions, like the blending fun
 Each parameter has a single type. Declaring it on one row (e.g. in `BASE`) covers all rows, including inherited ones. Mixed types, or `year` without any declared type, raise an error. Without any scenario rows, the parameter keeps its baseline, e.g. `polymer_shares_use_inflow`.
 
 Instead of a number, `value` can name another parameter, whose values serve as endpoint at the same coordinates. E.g. a structure split can converge to a world-average split read from mrmfa. The referenced parameter must not have the dimension `h` or dimensions the extrapolated parameter lacks. If it is itself extrapolated, it is extrapolated first; circular references raise an error.
+
+### Demand Levels: `stock_factor` and `inflow_factor`
+
+Two common factors scale the demand of a region relative to its parent scenario, both of type `factor`:
+
+| Parameter | Blend | Acts on |
+|-----------|-------|---------|
+| `stock_factor` | `linear` | Extrapolated in-use stock per capita. The inflow follows from the stock. |
+| `inflow_factor` | `converge_quadratic` | In-use stock inflow (demand for new products) of the stock-driven model, before it is blended from the historical trend. The in-use stock follows from the inflow. |
+
+A lower stock cuts the inflow while the stock is drawn down. In saturated regions, the inflow then returns close to the outflow of the cohorts built before, and a strong cut can call for negative inflows, which are set to zero. `stock_factor` therefore suits a lower level of material services. `inflow_factor` suits a lasting reduction of material demand, e.g. through material efficiency of new products, as in `SSP2_lowEn`. Its blend is front-loaded: the factor changes fastest right after the historical period.
