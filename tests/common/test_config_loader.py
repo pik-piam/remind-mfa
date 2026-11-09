@@ -169,7 +169,9 @@ def test_without_model_returns_tables_in_file_layout():
 def test_merge_config_leaves_tables_unchanged():
     tables = load_config(["default"])
     pristine_tables = deepcopy(tables)
-    overrides = {"steel": {"model_switches": {"scenarios": ["override"]}, "export": {"bundle_export": True}}}
+    overrides = {
+        "steel": {"model_switches": {"scenarios": ["override"]}, "export": {"bundle_export": True}}
+    }
 
     steel_config = merge_config(tables, ModelNames.STEEL, overrides=overrides)
     cement_config = merge_config(tables, ModelNames.CEMENT)

@@ -88,7 +88,9 @@ def test_mrindustry_config_runs_bundled_basic_ssp_scenarios(recorded_runs):
     batch.run_batch(["default", "mrindustry"], [ModelNames.STEEL])
 
     assert recorded_runs == [("steel", f"SSP{number}", True) for number in range(1, 6)]
-    assert load_config(["default", "mrindustry"], ModelNames.STEEL)["export"]["prefix"] == "mrindustry"
+    assert (
+        load_config(["default", "mrindustry"], ModelNames.STEEL)["export"]["prefix"] == "mrindustry"
+    )
 
 
 def test_configuration_files_are_read_once(monkeypatch, recorded_runs):
