@@ -21,4 +21,5 @@ config/*.toml
 !config/ci.toml
 !config/mrindustry.toml
 !config/hpc.toml
+!config/ssp_regions.batch.toml
 notebooks/__marimo__/session/*

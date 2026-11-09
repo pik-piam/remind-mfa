@@ -146,13 +146,13 @@ jobs:
         echo "label=$label" >> "$GITHUB_OUTPUT"
 
     - name: Stage for deployment
-      # The above run exports all figures as HTML into data_out/ci_series/
+      # The above run exports all figures as HTML into data_out/ci_batch/
       # Copy only the HTML pages and plotly.min.js; pickles etc. may exceed Cloudflare's file size limit.
       run: |
         set -eu
         rm -rf site
         rsync -am --include='*/' --include='*.html' --include='*.js' --exclude='*' \
-          data_out/ci_series/ site/
+          data_out/ci_batch/ site/
         test -f site/index.html
         du -sh site
 
@@ -175,8 +175,10 @@ jobs:
         mkdir -p site/comparison "$SUMMARY_DIR"
         status=0
         for model in steel cement plastics; do
-          baseline=$(ls baseline/data_out/ci_series/ci_${model}_*/model.pickle 2>/dev/null | head -n 1)
-          run=$(ls data_out/ci_series/ci_${model}_*/model.pickle 2>/dev/null | head -n 1)
+          # TODO: remove ci_series/ once the baseline branch writes ci_batch/ (renamed from ci_series/)
+          baseline=$(ls baseline/data_out/ci_batch/ci_${model}_*/model.pickle \
+            baseline/data_out/ci_series/ci_${model}_*/model.pickle 2>/dev/null | head -n 1)
+          run=$(ls data_out/ci_batch/ci_${model}_*/model.pickle 2>/dev/null | head -n 1)
           if [ -z "$baseline" ] || [ -z "$run" ]; then
             echo "No pickle for $model (baseline: '$baseline', run: '$run')" >&2
             status=1

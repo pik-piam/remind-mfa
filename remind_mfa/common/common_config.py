@@ -98,9 +98,11 @@ class ExportCfg(BaseExportCfg):
     path: str = None
     """Path to export base folder where a subdirectory is created for each run"""
     bundle_export: bool = False
-    """Whether to group all model outputs from one run into a shared <prefix>_series folder."""
+    """Whether to group all model outputs from one run into a shared <prefix>_batch folder."""
     prefix: str | None = None
     """Optional fixed prefix for export file and folder names. Defaults to a timestamp."""
+    run_suffix: str | None = None
+    """Optional suffix of the run folder name, set by batch runs to distinguish runs that share model, scenario and region."""
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
     mrindustry: BaseExportCfg

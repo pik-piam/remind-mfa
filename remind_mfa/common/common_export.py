@@ -22,7 +22,7 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.helpers import (
     DOCS_PATH,
     RemindMFABaseModel,
-    series_export_path,
+    batch_export_path,
     export_dir_prefix,
 )
 
@@ -604,11 +604,13 @@ class CommonDataExporter(RemindMFABaseModel):
         """Per-model-run export folder, created once and shared by exporter and visualizer."""
         if self._run_path is None:
             if self.cfg.bundle_export:
-                self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
+                self.cfg.path = batch_export_path(self.cfg.path, self.cfg.prefix)
             name = (
                 f"{export_dir_prefix(self._model.cfg.export.prefix)}_{self._model.name}_"
                 f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}"
             )
+            if self.cfg.run_suffix:
+                name = f"{name}_{self.cfg.run_suffix}"
             self._run_path = os.path.join(self.cfg.path, name)
             Path(self._run_path).mkdir(parents=True, exist_ok=True)
         return self._run_path

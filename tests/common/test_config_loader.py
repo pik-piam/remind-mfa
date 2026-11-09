@@ -170,3 +170,12 @@ def test_sections_are_ordered_base_then_model(tmp_path):
     assert len(sections) == 4
     assert sections[0] is stack.layers[0].section("base")
     assert sections[3] == {"model_switches": {"scenario": "x"}}
+
+
+def test_grid_is_not_part_of_the_config(tmp_path):
+    copy_default_config(tmp_path)
+    (tmp_path / "test.batch.toml").write_text('[[batch_grid]]\nmodel = ["steel"]\n', encoding="utf-8")
+
+    config = load_config(["default", "test.batch"], ModelNames.STEEL, config_dir=tmp_path)
+
+    assert "batch_grid" not in config

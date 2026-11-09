@@ -23,6 +23,58 @@ for the selected material. The resulting material configuration is then applied 
 the resulting base configuration. Consequently, material-specific values always win
 over base values, even if a base value came from a later file.
 
+## Batch runs
+
+A batch layer, i.e. a configuration file named `config/<name>.batch.toml`, may contain
+`[[batch_grid]]` tables in addition to the usual `[base]` and material tables. Each `[[batch_grid]]`
+table defines a full Cartesian product of runs. Its keys have the same structure as the merged
+configuration, i.e. without a `base` or material level, and every value is a list of the values
+to run. The key `model` selects the materials:
+
+```toml
+[base]
+    [base.export]
+        prefix = "ssp_regions"
+
+[[batch_grid]]
+model = ["steel", "cement", "plastics"]
+model_switches.scenario = ["SSP1", "SSP2", "SSP3", "SSP4", "SSP5"]
+input.region_mapping = ["h12"]
+
+[[batch_grid]]
+model = ["steel", "cement", "plastics"]
+model_switches.scenario = ["SSP2"]
+input.region_mapping = ["iso249"]
+```
+
+The batch layer is passed like any other layer, and the grid values are applied on top of the
+merged configuration of all layers:
+
+```shell
+uv run remind_mfa --config default --config ssp_regions.batch
+```
+
+Rules:
+
+- `[[batch_grid]]` tables are only allowed in files named `<name>.batch.toml`. A batch layer without
+  grids acts as a normal layer.
+- At most one batch layer may be given.
+- Values that are lists themselves are given as a list of lists, e.g.
+  `visualization.sankey.plotter_args.exclude_processes = [["sysenv"], []]`.
+- `--model` restricts the grids to the given model. Grids without a `model` key run the models
+  given with `--model` (prompted for if missing).
+- All runs are configured and validated before the first run starts.
+
+The outputs of all runs of a batch are bundled into one folder,
+`<export.path>/<prefix>_batch/<prefix>_<model>_<scenario>_<region_mapping>[_<suffix>]`.
+The suffix contains the values of grid keys other than model, scenario and region mapping that
+differ between the runs, so that every run has its own folder.
+
+`scripts/fetch_from_hpc.py mfa-archive` accepts batch layers as well and copies the input data
+archive of every region mapping and data revision used in the batch.
+
+## Settings
+
 The following table lists the available settings with their types, default values, and descriptions:
 
 {% include-markdown "plastics/config_schema.md" %}

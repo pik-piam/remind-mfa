@@ -58,6 +58,10 @@ uv run remind_mfa --config default --config local --model all
 See the
 [configuration documentation](docs/config.md) for the file layout and merge rules.
 
+To run several configurations at once, e.g. all SSP scenarios, pass a batch layer
+(`config/<name>.batch.toml`) with `[[batch_grid]]` tables; see the
+[batch run documentation](docs/config.md#batch-runs).
+
 You can also simply run `remind_mfa` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
