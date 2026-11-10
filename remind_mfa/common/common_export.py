@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, List, Literal, ClassVar
 
 import flodym as fd
+import numpy as np
 from pydantic import PrivateAttr
 import pandas as pd
 
@@ -496,12 +497,36 @@ class CommonDataExporter(RemindMFABaseModel):
         export_dir.mkdir(parents=True, exist_ok=True)
 
         for variable in self.get_mrindustry_variables():
-            df = (
-                variable.calculation_function(self._model.future_mfa)
-                .to_df()
-                .rename(columns={"value": variable.name})
-            )
+            array = variable.calculation_function(self._model.future_mfa)
+            self._check_mrindustry_values(variable.name, array)
+            df = array.to_df().rename(columns={"value": variable.name})
             df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
+
+    @staticmethod
+    def _check_mrindustry_values(name: str, array: fd.FlodymArray, n_items_shown: int = 5):
+        """Check that a REMIND input variable is free of NaN and negative values.
+
+        Args:
+            name (str): Name of the variable, used in the error message.
+            array (fd.FlodymArray): Values of the variable.
+            n_items_shown (int): Number of offending dimension items listed in the error message.
+
+        Raises:
+            ValueError: If the variable contains NaN or negative values.
+        """
+        for problem, condition in (
+            ("NaN", np.isnan),
+            ("negative", lambda values: values < 0),
+        ):
+            items = array.items_where(condition)
+            if len(items):
+                shown = ", ".join(
+                    f"({', '.join(str(value) for value in item)})" for item in items[:n_items_shown]
+                )
+                raise ValueError(
+                    f"mrindustry variable '{name}' has {len(items)} {problem} values, "
+                    f"e.g. at ({', '.join(array.dims.names)}) = {shown}."
+                )
 
     def definition_to_markdown(self, definition: RemindMFADefinition):
 
