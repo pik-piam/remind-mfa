@@ -13,18 +13,25 @@ import pandas as pd
 from remind_mfa.common.docs_export_helpers import merge_parameters_sources
 from remind_mfa.common.docs_export_helpers import merge_bib_files
 from remind_mfa.common.docs_export_helpers import write_docs_file
+from remind_mfa.common.docs_export_helpers import scenario_parameters_markdown
+from remind_mfa.common.docs_export_helpers import update_generated_sections
 
 from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
 from remind_mfa.common.common_config import CommonCfg, ExportCfg
 from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.common_definition import scenario_parameters as common_scn_prm_def
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.helpers import (
     DOCS_PATH,
+    ModelNames,
     RemindMFABaseModel,
     series_export_path,
     export_dir_prefix,
 )
+
+SCENARIO_README_PATH = DOCS_PATH.parent / "config" / "scenarios" / "README.md"
+"""Scenario README, whose generated sections list the scenario parameters."""
 
 if TYPE_CHECKING:
     import pyam
@@ -113,6 +120,7 @@ class CommonDataExporter(RemindMFABaseModel):
             self.merge_bibtex_files()
             self.assumptions_to_markdown()
             self.cfg_to_markdown(cfg=self._model.cfg)
+            self.scenario_parameters_to_markdown()
         if self.cfg.iamc_reporting.do_export:
             self.write_iamc_reporting()
         if self.cfg.iamc_raw.do_export:
@@ -586,6 +594,28 @@ class CommonDataExporter(RemindMFABaseModel):
         write_docs_file(
             self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
         )
+
+    def scenario_parameters_to_markdown(self):
+        """Write the lists of common and model-specific scenario parameter definitions to the docs
+        folders, and update the corresponding generated sections of the scenario README.
+
+        Names are kept internal (no display names), since they are used in the scenario CSVs.
+        """
+
+        if not self.cfg.docs.do_export:
+            return
+
+        sections = {
+            "common": (DOCS_PATH / "common", {"Common": common_scn_prm_def}),
+            self._model.name: (self.model_docs_path, self._model.scenario_parameter_doc_groups()),
+        }
+        texts = {}
+        for key, (folder, groups) in sections.items():
+            texts[key] = scenario_parameters_markdown(groups)
+            folder.mkdir(exist_ok=True)
+            write_docs_file(folder / "scenario_parameters.md", texts[key])
+        order = ["common"] + [model.value for model in ModelNames]
+        update_generated_sections(SCENARIO_README_PATH, sections=texts, order=order)
 
     def _docs_cell_str(self, cell: Any) -> str:
         """String of a docs table cell, with internal names replaced by display names if configured."""
