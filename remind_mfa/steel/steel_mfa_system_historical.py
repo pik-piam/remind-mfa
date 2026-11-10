@@ -44,7 +44,7 @@ class SteelMFASystemHistorical(CommonMFASystem):
         flw["steel_market => sysenv"][...] = trd["steel"].exports
         flw["sysenv => steel_market"][...] = trd["steel"].imports
 
-        flw["steel_market => manufacturing"][...] = flw["forming => steel_market"] + trd["steel"].net_imports
+        flw["steel_market => manufacturing"][...] = self._remove_negative_round_off(flw["forming => steel_market"] + trd["steel"].net_imports)
 
         # get approximate manufacturing yield with consumption end-use split
         # We don't know the end use distribution yet, so we just calculate the total, and the flow later
