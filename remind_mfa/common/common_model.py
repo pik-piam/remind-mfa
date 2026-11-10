@@ -151,12 +151,39 @@ class CommonModel[CfgT: CommonCfg]:
             logging.info("Success - No NaN or negative values found in parameters.")
 
     def select_driver_scen(self):
-        """Slice every parameter carrying a driver scenario (`S`) dimension to the selected scenario."""
+        """Slice every parameter carrying a driver scenario (`S`) dimension to the selected scenario.
+
+        Raises:
+            ValueError: If the scenario sets no `driver_scen`, if the driver scenario is not an item
+                of the driver scenario dimension, or if the input data holds no values for it.
+        """
         scen_name = self.scenario_parameters["driver_scen"]
+        scenario = self.cfg.model_switches.scenario
+        if scen_name is None:
+            raise ValueError(
+                f"Scenario '{scenario}' sets no 'driver_scen'. Set it in the scenario file or "
+                "inherit it from a parent scenario."
+            )
+        if "S" in self.dims.letters and scen_name not in self.dims["S"].items:
+            raise ValueError(
+                f"Driver scenario '{scen_name}' (driver_scen of scenario '{scenario}') is not "
+                f"available for the {self.name} model; available driver scenarios: "
+                f"{self.dims['S'].items}. Add it to data_in/dimensions/{self.name}/"
+                "driver_scenario.csv together with input data providing its population and GDP "
+                "(mrmfa: fullMFA(driverScenarios = ...))."
+            )
         for prm_name, prm in list(self.parameters.items()):
             if "S" not in prm.dims.letters:
                 continue
             slice = prm[{"S": scen_name}]
+            # missing input values are read as zero, so all-zero values mean no data
+            if not np.any(slice.values):
+                raise ValueError(
+                    f"The input data holds no values of parameter '{prm_name}' for driver "
+                    f"scenario '{scen_name}' (driver_scen of scenario '{scenario}'). Use an input "
+                    "data revision that provides this driver scenario (mrmfa: "
+                    "fullMFA(driverScenarios = ...))."
+                )
             self.parameters[prm_name] = fd.Parameter(dims=prm.dims.drop("S"))
             self.parameters[prm_name][...] = slice
 

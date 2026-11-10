@@ -1,0 +1,49 @@
+parameter,models,value,extra,index,description
+# Low-energy-demand variant of SSP2 (REMIND scenario SSP2_lowEn): SSP2 drivers, lower demand for
+# steel, cement and plastics in all regions.
+#
+# Derived from mrindustry (calcFeDemandIndustry with inst/extdata/specific_material_alpha.csv):
+# production per unit GDP is fixed to its SSP2 value of the fixing year 2025 and then declines by
+# `alpha` per year, with alpha converging linearly to zero over `convergence.time` = 50 years.
+# As production per GDP also changes in SSP2, the deviation from SSP2 grows until about 2060 and
+# then shrinks again; by 2100 it turns positive in some regions (e.g. steel IND, LAM; cement CHA).
+#
+# Here, the in-use stock inflow (demand for new products) is scaled relative to SSP2 by
+# `inflow_factor`, and the in-use stocks follow from the scaled inflows. A `stock_factor` of a
+# similar size would cut the demand only temporarily in saturated regions (with negative inflows
+# clipped while the stock is drawn down): once the lower stock is reached, the inflow again
+# replaces the outflow of the cohorts built at SSP2 levels.
+#
+# Mapping of the mrindustry rows (region NA = all regions without an own row):
+# - `value` = 1 + the largest reduction of mrindustry's SSP2_lowEn production relative to SSP2
+#   in 2030-2075, for the regions of the row (REMIND input data rev8.14, f_fedemandInd.cs4r, EU21
+#   regions), rounded to 0.05. alpha is relative to the production per GDP of 2025, not to the
+#   SSP2 trajectory, so the realized reduction does not follow the order of the alphas
+#   (e.g. SSA steel, where SSP2 production grows fastest).
+# - `year` = 2060, around which the reduction peaks in mrindustry (2045-2075, depending on the
+#   row). The front-loaded blend of inflow_factor (converge_quadratic) follows the linearly
+#   converging alpha. Afterwards the reduction is kept instead of shrinking.
+# - As the scaled inflow is blended from the historical trend, the reduction starts more slowly
+#   than in mrindustry (2030, world: steel -17% instead of -23%, cement -3% instead of -7%).
+# - steel_primary and steel_secondary carry identical values and map to steel. chemicals maps to
+#   plastics, its closest analogue (in mrindustry an activity in value added, not in tonnes of
+#   HVC). otherInd has no counterpart in the MFA.
+
+# --- Steel (mrindustry steel_primary, steel_secondary) ---
+inflow_factor,steel,0.35,"{year: 2060}",,"NA: alpha 0.06; largest reduction -64% (2065)"
+inflow_factor,steel,0.25,"{year: 2060}","{Region: CHA}","CHA: alpha 0.10; largest reduction -75% (2070)"
+inflow_factor,steel,0.2,"{year: 2060}","{Region: SSA}","SSA: alpha -0.02; largest reduction -81% (2065)"
+inflow_factor,steel,0.5,"{year: 2060}","{Region: LAM}","LAM: alpha 0.03; largest reduction -50% (2045)"
+inflow_factor,steel,0.7,"{year: 2060}","{Region: IND}","IND: alpha 0.03; largest reduction -31% (2045)"
+
+# --- Cement (mrindustry cement) ---
+inflow_factor,cement,0.8,"{year: 2060}",,"NA: alpha 0.03; largest reduction -19% (2055)"
+inflow_factor,cement,0.7,"{year: 2060}","{Region: CHA}","CHA: alpha 0.065; largest reduction -31% (2050)"
+inflow_factor,cement,0.7,"{year: 2060}","{Region: SSA}","SSA: alpha 0.01; largest reduction -32% (2060)"
+
+# --- Plastics (mrindustry chemicals) ---
+inflow_factor,plastics,0.35,"{year: 2060}",,"NA: alpha 0.04; largest reduction -66% (2070)"
+inflow_factor,plastics,0.4,"{year: 2060}","{Region: CHA}","CHA: alpha 0.06; largest reduction -62% (2065)"
+inflow_factor,plastics,0.5,"{year: 2060}","{Region: SSA}","SSA: alpha 0.0; largest reduction -52% (2065)"
+inflow_factor,plastics,0.55,"{year: 2060}","{Region: IND}","IND: alpha 0.03; largest reduction -47% (2065)"
+inflow_factor,plastics,0.35,"{year: 2060}","{Region: OAS}","OAS: alpha 0.03; largest reduction -65% (2075)"

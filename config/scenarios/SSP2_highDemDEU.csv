@@ -1,0 +1,9 @@
+parameter,models,value,extra,index,description
+# High-demand variant of SSP2 for Germany (REMIND scenario SSP2_highDemDEU): same material demand
+# as SSP2.
+#
+# In mrindustry, specific_material_relative.csv sets the factor 1 on SSP2's production per GDP for
+# all regions and subsectors, and the scenario uses SSP2's GDP, so steel, cement and chemicals
+# production equal SSP2 (also in the REMIND input data rev8.14). The scenario differs only in final
+# energy: specific_FE.csv sets no efficiency improvement (alpha 0) for DEU. That is applied by
+# mrindustry, not by the MFA.
