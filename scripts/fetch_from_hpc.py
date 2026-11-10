@@ -123,8 +123,7 @@ def select_unique_archive_per_region(archives_by_region: dict[str, list[str]]) -
             f"mapping(s) {', '.join(ambiguous_regions)}. Matches: {ambiguous_regions}"
         )
     return [
-        region_archive_paths[0]
-        for _, region_archive_paths in sorted(archives_by_region.items())
+        region_archive_paths[0] for _, region_archive_paths in sorted(archives_by_region.items())
     ]
 
 
@@ -160,9 +159,7 @@ def build_remind_tgz_pattern(remind_revision: str) -> str:
     return f"rev{remind_revision}_*_remind.tgz"
 
 
-def copy_archives(
-    remote_host: str, remote_archive_paths: list[str], destination_dir: Path
-) -> None:
+def copy_archives(remote_host: str, remote_archive_paths: list[str], destination_dir: Path) -> None:
     remote_sources = [f"{remote_host}:{archive_path}" for archive_path in remote_archive_paths]
     subprocess.run(["scp", *remote_sources, str(destination_dir)], check=True)
 
