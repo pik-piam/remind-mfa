@@ -190,7 +190,13 @@ def read_config_scenario(name: str, model: ModelNames, regions: list[str]) -> di
     dim_list = [fd.Dimension(name="Region", letter="r", items=regions)]
     for letter in sorted(letters):
         dim_name = SCENARIO_DIMENSION_NAMES[letter]
-        path = REPO_PATH / "data_in" / "dimensions" / model.value / f"{dim_name.lower().replace(' ', '_')}.csv"
+        path = (
+            REPO_PATH
+            / "data_in"
+            / "dimensions"
+            / model.value
+            / f"{dim_name.lower().replace(' ', '_')}.csv"
+        )
         items = path.read_text(encoding="utf-8").split()
         dim_list.append(fd.Dimension(name=dim_name, letter=letter, items=items))
     reader = ScenarioReader(
