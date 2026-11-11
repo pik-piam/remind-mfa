@@ -24,7 +24,7 @@ def main(
             "--config",
             help=(
                 "Configuration name under config/. Repeat to stack configurations. "
-                "At most one may be a batch layer (<name>.batch) with [[batch_grid]] tables."
+                "At most one may contain [[batch_matrix]] tables, which define a batch of runs."
             ),
         ),
     ] = None,
@@ -32,7 +32,10 @@ def main(
         Literal["all", "plastics", "steel", "cement"] | None,
         typer.Option(
             "--model",
-            help="Model to run, or all. With [[batch_grid]] tables, restricts the grids to this model.",
+            help=(
+                "Model to run, or all. With [[batch_matrix]] tables, restricts the matrices "
+                "to this model."
+            ),
         ),
     ] = None,
 ) -> None:

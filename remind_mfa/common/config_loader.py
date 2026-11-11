@@ -9,9 +9,8 @@ from remind_mfa.common.helpers import ModelNames, get_model_class
 
 CONFIG_DIR = Path.cwd() / "config"
 CONFIG_SECTIONS = {"base", *(model.value for model in ModelNames)}
-GRID_SECTION = "batch_grid"
-BATCH_SUFFIX = ".batch"
-"""Suffix of the file stem of batch layers, i.e. layers that may contain `[[batch_grid]]` tables."""
+MATRIX_SECTION = "batch_matrix"
+"""Name of the array of tables that defines the runs of a batch."""
 
 
 def get_config_paths(config_dir: Path = CONFIG_DIR) -> list[Path]:
@@ -31,42 +30,22 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
-def is_batch_layer(name: str | Path) -> bool:
-    """Whether a configuration name or path refers to a batch layer (`<name>.batch.toml`)."""
-    file_name = Path(name).name
-    return file_name.endswith(BATCH_SUFFIX) or file_name.endswith(f"{BATCH_SUFFIX}.toml")
-
-
-def _check_batch_layers(config_names: list[str | Path]) -> None:
-    """Raise an error if more than one batch layer is given."""
-    batch_layers = [str(name) for name in config_names if is_batch_layer(name)]
-    if len(batch_layers) > 1:
-        raise ValueError(
-            f"At most one batch layer (*{BATCH_SUFFIX}.toml) may be given, "
-            f"but got {', '.join(batch_layers)}."
-        )
-
-
 def _validate_config(config: dict, path: Path) -> None:
     """Validate the basic structure of a configuration dictionary.
 
-    Batch layers (`<name>.batch.toml`) may additionally contain an array of `[[batch_grid]]` tables.
+    Besides the `base` and model tables, a configuration may contain an array of
+    `[[batch_matrix]]` tables.
     """
-    allowed_sections = CONFIG_SECTIONS | ({GRID_SECTION} if is_batch_layer(path) else set())
-    unknown_sections = set(config) - allowed_sections
-    if GRID_SECTION in unknown_sections:
-        raise ValueError(
-            f"[[{GRID_SECTION}]] tables in {path} are only allowed in batch layers, "
-            f"i.e. files named <name>{BATCH_SUFFIX}.toml."
-        )
+    unknown_sections = set(config) - CONFIG_SECTIONS - {MATRIX_SECTION}
     if unknown_sections:
         unknown = ", ".join(sorted(unknown_sections))
         raise ValueError(f"Unknown top-level configuration table(s) in {path}: {unknown}.")
     for root, value in config.items():
-        if root == GRID_SECTION:
-            if not isinstance(value, list) or not all(isinstance(grid, dict) for grid in value):
+        if root == MATRIX_SECTION:
+            if not isinstance(value, list) or not all(isinstance(table, dict) for table in value):
                 raise ValueError(
-                    f"{GRID_SECTION!r} in {path} must be an array of tables ([[{GRID_SECTION}]])."
+                    f"{MATRIX_SECTION!r} in {path} must be an array of tables "
+                    f"([[{MATRIX_SECTION}]])."
                 )
         elif not isinstance(value, dict):
             raise ValueError(f"Top-level configuration key {root!r} in {path} must be a table.")
@@ -134,14 +113,16 @@ class ConfigLayer:
 
 
 class ConfigStack:
-    """An ordered stack of configuration layers, at most one of which is a batch layer.
+    """An ordered stack of configuration layers.
+
+    At most one layer may contain `[[batch_matrix]]` tables.
 
     The configuration of a model is the merge of an ordered list of sections, all with the
     structure of the final configuration, with later sections taking precedence:
 
         base(layer 1) ... base(layer n) < model(layer 1) ... model(layer n) < overrides
 
-    Overrides are used by batch runs to apply the values of one `[[batch_grid]]` combination.
+    Overrides are used by batch runs to apply the values of one `[[batch_matrix]]` combination.
     """
 
     def __init__(self, layers: list[ConfigLayer], root_dir: Path | None = None):
@@ -152,7 +133,12 @@ class ConfigStack:
             root_dir: Directory against which relative paths are resolved (default: current
                 working directory).
         """
-        _check_batch_layers([layer.path for layer in layers])
+        matrix_layers = [str(layer.path) for layer in layers if MATRIX_SECTION in layer.data]
+        if len(matrix_layers) > 1:
+            raise ValueError(
+                f"At most one configuration layer may contain [[{MATRIX_SECTION}]] tables, "
+                f"but got {', '.join(matrix_layers)}."
+            )
         self.layers = layers
         self.root_dir = root_dir if root_dir is not None else Path.cwd()
 
@@ -163,15 +149,14 @@ class ConfigStack:
         config_dir: Path = CONFIG_DIR,
         root_dir: Path | None = None,
     ) -> "ConfigStack":
-        """Load the given configuration layers, as names in `config_dir` or paths, in merge order."""
-        _check_batch_layers(config_names)
+        """Load the configuration layers, as names in `config_dir` or paths, in merge order."""
         return cls([ConfigLayer.load(name, config_dir) for name in config_names], root_dir)
 
     @property
-    def batch_grids(self) -> list[dict] | None:
-        """The raw `[[batch_grid]]` tables of the batch layer, or None if there are none."""
-        grids = [grid for layer in self.layers for grid in layer.data.get(GRID_SECTION, [])]
-        return grids or None
+    def batch_matrices(self) -> list[dict] | None:
+        """The raw `[[batch_matrix]]` tables, or None if there are none."""
+        matrices = [table for layer in self.layers for table in layer.data.get(MATRIX_SECTION, [])]
+        return matrices or None
 
     def sections(self, model: ModelNames | None) -> list[dict]:
         """The sections to merge for the given model, in merge order."""
@@ -209,7 +194,7 @@ def load_config(
     """Load and merge the specified configuration, and return the resulting, validated model configuration.
 
     Shorthand for `ConfigStack.load(...).resolve(model)`. Relative paths in the configuration are
-    resolved against `root_dir` (default: current working directory). `[[batch_grid]]` tables of
-    batch layers are not applied.
+    resolved against `root_dir` (default: current working directory). `[[batch_matrix]]` tables are
+    not applied.
     """
     return ConfigStack.load(config_names, config_dir, root_dir).resolve(model)

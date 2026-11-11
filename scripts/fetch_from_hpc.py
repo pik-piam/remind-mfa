@@ -18,17 +18,15 @@ import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 from dotenv import load_dotenv
 
 from remind_mfa.cli.helpers import prompt_for_config_names
 from remind_mfa.common.common_config import InputCfg
-from remind_mfa.common.batch import Batch
 from remind_mfa.common.common_data_reader import CommonDataReader
-from remind_mfa.common.config_loader import ConfigStack
-from remind_mfa.common.helpers import ModelNames
+from remind_mfa.common.config_loader import load_config
 
 app = typer.Typer(add_completion=False)
 
@@ -37,20 +35,15 @@ DEFAULT_ARCHIVE_DIRECTORY = DEFAULT_REMOTE_REPOSITORY / "output"
 SOURCE_LIST = Path(__file__).resolve().parents[1] / "docs" / "mrmfa_sources.csv"
 
 
-def read_input_cfgs(config_names: list[str], model: str | None = None) -> list[InputCfg]:
-    """Distinct input data selections of all runs of the configuration stack.
+def read_input_cfg(config_names: list[str]) -> InputCfg:
+    config = load_config(config_names)
 
-    With [[batch_grid]] tables, these may be several (e.g. one per region mapping). If not all models are
-    determined by the configuration or `model`, all models are considered.
-    """
-    stack = ConfigStack.load(config_names)
-    if model is not None:
-        models = list(ModelNames) if model == "all" else [ModelNames(model)]
-    elif Batch.requires_model_selection(stack):
-        models = list(ModelNames)
-    else:
-        models = None
-    return Batch.from_stack(stack, models).input_cfgs()
+    if "input" not in config:
+        raise ValueError(
+            f"Configuration {', '.join(config_names)} does not contain an 'input' section."
+        )
+
+    return InputCfg.model_validate(config["input"])
 
 
 def resolve_destination_path(input_cfg: InputCfg) -> Path:
@@ -62,13 +55,7 @@ def resolve_destination_path(input_cfg: InputCfg) -> Path:
 def get_archive_destination(config_names: list[str] | None) -> Path:
     if not config_names:
         config_names = prompt_for_config_names()
-    input_cfgs = read_input_cfgs(config_names)
-    destinations = {input_cfg.resolved_madrat_output_path for input_cfg in input_cfgs}
-    if len(destinations) > 1:
-        raise ValueError(
-            f"The configuration uses several madrat output paths: {', '.join(sorted(destinations))}."
-        )
-    return resolve_destination_path(input_cfgs[0])
+    return resolve_destination_path(read_input_cfg(config_names))
 
 
 def find_remote_archive(
@@ -271,29 +258,23 @@ def copy_mfa_archive(
             help="Configuration name under config/. Repeat to stack configurations.",
         ),
     ] = None,
-    model: Annotated[
-        Literal["all", "plastics", "steel", "cement"] | None,
-        typer.Option(
-            "--model", help="Restrict [[batch_grid]] tables to this model (default: all)."
-        ),
-    ] = None,
 ) -> None:
-    """Copy the config-selected MFA archives, one per input data selection of the runs."""
+    """Copy the config-selected MFA archive."""
     if not config_names:
         config_names = prompt_for_config_names()
-    for input_cfg in read_input_cfgs(config_names, model):
-        destination_dir = resolve_destination_path(input_cfg)
-        mfa_pattern = CommonDataReader.build_target_tgz_pattern(
-            input_cfg.input_data_revision, input_cfg.region_mapping
-        )
-        typer.echo(f"Looking for MFA archive on {remote_host}:{remote_dir}")
-        mfa_remote_archive_path = find_remote_archive(remote_host, remote_dir, mfa_pattern)
-        typer.echo(f"Selected MFA archive: {mfa_remote_archive_path}")
-        typer.echo(f"Destination directory: {destination_dir}")
-        if dry_run:
-            continue
-        copy_archive(remote_host, mfa_remote_archive_path, destination_dir)
-        typer.echo("Archive copy completed.")
+    input_cfg = read_input_cfg(config_names)
+    destination_dir = resolve_destination_path(input_cfg)
+    mfa_pattern = CommonDataReader.build_target_tgz_pattern(
+        input_cfg.input_data_revision, input_cfg.region_mapping
+    )
+    typer.echo(f"Looking for MFA archive on {remote_host}:{remote_dir}")
+    mfa_remote_archive_path = find_remote_archive(remote_host, remote_dir, mfa_pattern)
+    typer.echo(f"Selected MFA archive: {mfa_remote_archive_path}")
+    typer.echo(f"Destination directory: {destination_dir}")
+    if dry_run:
+        return
+    copy_archive(remote_host, mfa_remote_archive_path, destination_dir)
+    typer.echo("Archive copy completed.")
 
 
 @app.command("remind-archive")

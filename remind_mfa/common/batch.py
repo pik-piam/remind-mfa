@@ -1,9 +1,9 @@
-"""Batch runs: one or more model runs defined by `[[batch_grid]]` tables of a batch layer.
+"""Batch runs: one or more model runs defined by `[[batch_matrix]]` tables.
 
-A batch layer (`config/<name>.batch.toml`) may contain an array of `[[batch_grid]]` tables. Each grid
-maps configuration keys, in the merged structure without `base`/model sections, to lists of
-values, and defines the Cartesian product of these values as runs. The key `model` selects the
-models. Without grids, a batch consists of one run per selected model.
+One configuration layer may contain an array of `[[batch_matrix]]` tables. Each matrix maps
+configuration keys, in the merged structure without `base`/model sections, to lists of values,
+and defines the Cartesian product of these values as runs. The key `model` selects the
+models. Without matrices, a batch consists of one run per selected model.
 """
 
 import itertools
@@ -13,8 +13,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
-from remind_mfa.common.common_config import InputCfg
-from remind_mfa.common.config_loader import GRID_SECTION, ConfigStack
+from remind_mfa.common.config_loader import MATRIX_SECTION, ConfigStack
 from remind_mfa.common.helpers import ModelNames, init_model
 
 type ConfigPath = tuple[str, ...]
@@ -53,15 +52,17 @@ def _get_nested(config: dict, path: ConfigPath) -> Any:
 
 
 @dataclass(frozen=True)
-class BatchGrid:
-    """One `[[batch_grid]]` table: candidate values per configuration key path."""
+class BatchMatrix:
+    """One `[[batch_matrix]]` table: candidate values per configuration key path."""
 
     values: dict[ConfigPath, list]
     """Candidate values by key path, in the order of the table."""
 
     @classmethod
-    def from_dict(cls, table: dict, name: str = GRID_SECTION) -> "BatchGrid":
-        """Create a grid from a `[[batch_grid]]` table, checking that every leaf is a non-empty list.
+    def from_dict(cls, table: dict, name: str = MATRIX_SECTION) -> "BatchMatrix":
+        """Create a matrix from a `[[batch_matrix]]` table.
+
+        Every leaf of the table must be a non-empty list of values.
 
         Args:
             table: The parsed table.
@@ -93,28 +94,29 @@ class BatchGrid:
 
     @property
     def models(self) -> list[ModelNames] | None:
-        """Models given in the grid, or None if the grid does not define `model`."""
+        """Models given in the matrix, or None if the matrix does not define `model`."""
         return self.values.get(MODEL_PATH)
 
     def combinations(
         self, models: list[ModelNames] | None
     ) -> Iterator[tuple[ModelNames, dict[ConfigPath, Any]]]:
-        """Yield all combinations of the grid values as (model, values by key path).
+        """Yield all combinations of the matrix values as (model, values by key path).
 
         Args:
-            models: Selected models. Grids without `model` run these models; grids with `model`
-                are restricted to them. None means no restriction.
+            models: Selected models. Matrices without `model` run these models; matrices with
+                `model` are restricted to them. None means no restriction.
         """
         if self.models is None:
             if models is None:
                 raise ValueError(
-                    f"A [[{GRID_SECTION}]] table does not define 'model'; select models with --model."
+                    f"A [[{MATRIX_SECTION}]] table does not define 'model'; "
+                    "select models with --model."
                 )
-            grid_models = models
+            matrix_models = models
         else:
-            grid_models = [model for model in self.models if models is None or model in models]
+            matrix_models = [model for model in self.models if models is None or model in models]
         paths = [path for path in self.values if path != MODEL_PATH]
-        for model in grid_models:
+        for model in matrix_models:
             for combination in itertools.product(*(self.values[path] for path in paths)):
                 yield model, dict(zip(paths, combination))
 
@@ -126,13 +128,13 @@ class BatchRun:
     model: ModelNames
     config: dict
     """Merged and validated configuration of the run."""
-    grid_values: dict[ConfigPath, Any]
-    """Values set by the grid (empty for runs without grids)."""
+    matrix_values: dict[ConfigPath, Any]
+    """Values set by the matrix (empty for runs without matrices)."""
 
     @property
     def description(self) -> str:
         values = ", ".join(
-            f"{_format_path(path)}={value}" for path, value in self.grid_values.items()
+            f"{_format_path(path)}={value}" for path, value in self.matrix_values.items()
         )
         return f"{self.model.value}" + (f" ({values})" if values else "")
 
@@ -150,44 +152,44 @@ class BatchRun:
 
 
 class Batch:
-    """A list of model runs, created from a configuration stack, which may contain grids."""
+    """A list of model runs, created from a configuration stack, which may contain matrices."""
 
     def __init__(self, runs: list[BatchRun]):
         self.runs = runs
 
     @staticmethod
     def requires_model_selection(stack: ConfigStack) -> bool:
-        """Whether the models must be selected by the user, i.e. not every grid defines `model`."""
-        grids = stack.batch_grids
-        if grids is None:
+        """Whether the user must select models, i.e. not every matrix defines `model`."""
+        matrices = stack.batch_matrices
+        if matrices is None:
             return True
-        return any(MODEL_PATH[0] not in grid for grid in grids)
+        return any(MODEL_PATH[0] not in matrix for matrix in matrices)
 
     @classmethod
     def from_stack(cls, stack: ConfigStack, models: list[ModelNames] | None) -> "Batch":
         """Create and validate all runs of a configuration stack.
 
         Args:
-            stack: Configuration layers, at most one of which is a batch layer.
-            models: Selected models (see `BatchGrid.combinations`). Required if the stack does
-                not contain grids. None means no restriction.
+            stack: Configuration layers, at most one of which contains matrices.
+            models: Selected models (see `BatchMatrix.combinations`). Required if the stack does
+                not contain matrices. None means no restriction.
 
         Raises:
             ValueError: If no run remains, if a configuration is invalid, or if two runs would
                 be written to the same folder.
         """
-        raw_grids = stack.batch_grids
-        if raw_grids is None:
+        raw_matrices = stack.batch_matrices
+        if raw_matrices is None:
             if models is None:
                 raise ValueError("Select models with --model.")
             return cls([BatchRun(model, stack.resolve(model), {}) for model in models])
 
-        grids = [
-            BatchGrid.from_dict(grid, name=f"{GRID_SECTION}[{index}]")
-            for index, grid in enumerate(raw_grids)
+        matrices = [
+            BatchMatrix.from_dict(matrix, name=f"{MATRIX_SECTION}[{index}]")
+            for index, matrix in enumerate(raw_matrices)
         ]
         combinations = [
-            (model, values) for grid in grids for model, values in grid.combinations(models)
+            (model, values) for matrix in matrices for model, values in matrix.combinations(models)
         ]
         if not combinations:
             raise ValueError("The selected models do not leave any run of the batch.")
@@ -214,19 +216,6 @@ class Batch:
             listing = "\n".join(" / ".join(run.description for run in runs) for runs in duplicates)
             raise ValueError(f"Several batch runs would be written to the same folder:\n{listing}")
 
-    def input_cfgs(self) -> list[InputCfg]:
-        """Distinct input data selections (madrat path, revision, region mapping) of all runs."""
-        input_cfgs: dict[tuple, InputCfg] = {}
-        for run in self.runs:
-            input_cfg = InputCfg.model_validate(run.config["input"])
-            key = (
-                input_cfg.madrat_output_path,
-                input_cfg.input_data_revision,
-                input_cfg.region_mapping,
-            )
-            input_cfgs.setdefault(key, input_cfg)
-        return list(input_cfgs.values())
-
     def run(self) -> None:
         """Run, export and visualize all runs in order."""
         for index, batch_run in enumerate(self.runs, start=1):
@@ -248,16 +237,16 @@ def _batch_export(run_suffix: str | None) -> dict:
 
 
 def _folder_suffixes(
-    grid_values: list[dict[ConfigPath, Any]], configs: list[dict]
+    matrix_values: list[dict[ConfigPath, Any]], configs: list[dict]
 ) -> list[str | None]:
-    """Run folder suffixes: the values of grid keys that differ between the runs.
+    """Run folder suffixes: the values of matrix keys that differ between the runs.
 
     Keys whose values are part of the folder name anyway (model, scenario, region mapping) are
-    left out. Values are compared in the effective configurations, so a key set in one grid
+    left out. Values are compared in the effective configurations, so a key set in one matrix
     only is appended if its value differs from the one the other runs get from the layers.
     """
     paths = dict.fromkeys(
-        path for values in grid_values for path in values if path not in NAMED_PATHS
+        path for values in matrix_values for path in values if path not in NAMED_PATHS
     )
     varied_paths = [
         path for path in paths if len({repr(_get_nested(config, path)) for config in configs}) > 1
