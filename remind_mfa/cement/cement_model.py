@@ -77,37 +77,6 @@ def apply_min_share(split: fd.Parameter, dim_letter: str, min_share: float) -> f
     return adjusted_split
 
 
-def replace_unspecified_structure_split(
-    structure_split: fd.Parameter,
-    weights: fd.FlodymArray,
-    unspecified: str = "Unspecified Structure",
-) -> fd.Parameter:
-    """Replace the structure split where only the unspecified structure type is known by the
-    weighted global mean of the regions with known structure types.
-
-    Args:
-        structure_split: Split over structures (s), with dimensions (r, b, s).
-        weights: Weights of the regional splits in the global mean, with dimensions (r, b).
-        unspecified: Item of the structure dimension without information on the structure.
-
-    Returns:
-        Structure split in which no region and building type has only unspecified structures.
-    """
-    only_unspecified = structure_split[{"s": unspecified}].apply(
-        lambda x: (x > 1.0 - 1e-9).astype(float)
-    )
-    known_weights = weights * (1.0 - only_unspecified)
-    global_mean = (structure_split * known_weights).sum_over("r") / known_weights.sum_over(
-        "r"
-    ).maximum(1e-12)
-
-    adjusted_split = fd.Parameter(dims=structure_split.dims, name=structure_split.name)
-    adjusted_split[...] = structure_split * (1.0 - only_unspecified) + (
-        global_mean * only_unspecified
-    ).cast_to(structure_split.dims)
-    return adjusted_split
-
-
 class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
@@ -153,20 +122,13 @@ class CementModel(CommonModel[CementCfg]):
     def correct_bottom_up_input_data(self):
         """Quick fixes of bottom-up input data with zero concrete stock in single regions.
 
-        TODO: move to mrmfa (calcCeResidentialTypeSplit, calcCeStructureSplit).
+        TODO: move to mrmfa (calcCeResidentialTypeSplit).
         """
         prm = self.parameters
 
         # residential types with zero share (e.g. no multi-family homes in CRI)
         prm["residential_type_split"] = apply_min_share(
             prm["residential_type_split"], dim_letter="d", min_share=0.01
-        )
-
-        # building types with only unspecified structures (zero concrete intensity, e.g. SGP
-        # single-family homes): use the global mean of the regions with known structures
-        floorspace = BU.calc_gross_floorspace(prm)[{"t": self.dims["h"].items[-1]}]
-        prm["structure_split"] = replace_unspecified_structure_split(
-            prm["structure_split"], weights=expand_common_to_bu(floorspace, prm)
         )
 
     def calc_development_weight(self) -> fd.Parameter:
@@ -239,7 +201,7 @@ class CementModel(CommonModel[CementCfg]):
             name="residential_type_split_mean",
         )
 
-        # structure split target: global weighted mean without unknown structures,
+        # structure split target: global weighted mean without other structures,
         # with a floor on the timber share
         bu_floorspace = expand_common_to_bu(floorspace, prm)
         structure_split_mean = blend_regional_with_global_mean(
@@ -249,15 +211,16 @@ class CementModel(CommonModel[CementCfg]):
             name="structure_split_mean",
         )
         prm["structure_split_mean"] = self.set_structure_share(
-            structure_split_mean, "Unspecified Structure", 0.0
+            structure_split_mean, "Other Structure", 0.0
         )
         add_assumption_doc(
             type="model switch",
-            name="No unknown structure type in target",
+            name="No other structure type in target",
             value="0",
             description=(
-                "The structure split converges to a target without the unknown structure type. "
-                "Its share is redistributed to the other structure types proportionally."
+                "The structure split converges to a target without the other structure type "
+                "(earth, metal except steel, informal and other materials). Its share is "
+                "redistributed to the remaining structure types proportionally."
             ),
         )
 
