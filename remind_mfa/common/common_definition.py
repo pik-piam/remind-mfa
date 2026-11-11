@@ -137,6 +137,7 @@ scenario_parameters = [
         name="stock_factor",
         dim_letters=("r",),
         create_new=True,
+        description="Scaling factor on the extrapolated in-use stock per capita, per region.",
     ),
     ExtrapolationDefinition(
         name="trade_factor",

@@ -164,6 +164,11 @@ class CommonModel[CfgT: CommonCfg]:
         """Definitions of the scenario parameters of the active model modules."""
         return common_scn_prm_def + self.custom_scn_prm_def
 
+    def scenario_parameter_doc_groups(self) -> dict[str, list]:
+        """Model-specific scenario parameter definitions for the docs, by subsection title.
+        Includes the definitions of inactive model modules."""
+        return {self.name.capitalize(): self.custom_scn_prm_def}
+
     def get_inactive_scenario_parameter_names(self) -> set[str]:
         """Names of scenario parameters of inactive model modules, whose scenario rows are skipped."""
         return set()

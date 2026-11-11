@@ -86,6 +86,7 @@ To update them locally, run
 ```
 uv run remind_mfa --config default --config update_docs --model all
 ```
+This also updates the list of scenario parameters at the end of `config/scenarios/README.md`.
 
 
 ## Questions / Problems
