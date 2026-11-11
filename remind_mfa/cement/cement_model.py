@@ -61,22 +61,6 @@ def converge_lifetime_factor(
     return lifetime_factor.to_class(fd.Parameter)
 
 
-def apply_min_share(split: fd.Parameter, dim_letter: str, min_share: float) -> fd.Parameter:
-    """Raise all shares of a split to at least `min_share` and renormalize them to sum to one.
-
-    Args:
-        split: Split over the dimension `dim_letter`, summing to one.
-        dim_letter: Letter of the split dimension.
-        min_share: Minimum share before renormalization.
-
-    Returns:
-        Split without shares below `min_share` (up to renormalization), summing to one.
-    """
-    adjusted_split = fd.Parameter(dims=split.dims, name=split.name)
-    adjusted_split[...] = split.maximum(min_share).get_shares_over((dim_letter,))
-    return adjusted_split
-
-
 class CementModel(CommonModel[CementCfg]):
 
     ConfigCls = CementCfg
@@ -115,21 +99,6 @@ class CementModel(CommonModel[CementCfg]):
 
         # development weight for gdp-dependent parameters/scenarios
         self.parameters["development_weight"] = self.calc_development_weight()
-
-        if self.bottom_up_active:
-            self.correct_bottom_up_input_data()
-
-    def correct_bottom_up_input_data(self):
-        """Quick fixes of bottom-up input data with zero concrete stock in single regions.
-
-        TODO: move to mrmfa (calcCeResidentialTypeSplit).
-        """
-        prm = self.parameters
-
-        # residential types with zero share (e.g. no multi-family homes in CRI)
-        prm["residential_type_split"] = apply_min_share(
-            prm["residential_type_split"], dim_letter="d", min_share=0.01
-        )
 
     def calc_development_weight(self) -> fd.Parameter:
         """Development weight per region from GDP per capita at the last historical year:
