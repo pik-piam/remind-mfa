@@ -212,7 +212,9 @@ def _(chart_picker, df, dimensions, mo, rc):
         if not is_bar or column != "Time":
             return items
         # a bar chart with 200 year positions is unreadable, so start from a few milestones
-        return [year for year in (2020, 2030, 2050, 2100) if year in items] or items[-1:]
+        milestones = [year for year in (2020, 2030, 2050, 2100) if year in items]
+        # and the last year
+        return milestones + [year for year in items[-1:] if year not in milestones]
 
     filter_controls = mo.ui.dictionary(
         {

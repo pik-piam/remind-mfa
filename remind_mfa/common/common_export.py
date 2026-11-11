@@ -194,7 +194,8 @@ class CommonDataExporter(RemindMFABaseModel):
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        time_items = self.cfg.iamc_reporting.time_items
+        end_future = self._model.dims["t"].items[-1]
+        time_items = list(self.cfg.iamc_reporting.years(end_future))
         self._warn_if_iamc_includes_historical(time_items, "IAMC reporting export")
 
         constants = self.iamc_constants(self._model)
@@ -218,7 +219,8 @@ class CommonDataExporter(RemindMFABaseModel):
         """Export all flows, stocks, trades and selected parameters in IAMC format,
         with variable names derived from the internal names. One file per configured detail level.
         """
-        time_items = self.cfg.iamc_raw.time_items
+        end_future = self._model.dims["t"].items[-1]
+        time_items = list(self.cfg.iamc_raw.years(end_future))
         self._warn_if_iamc_includes_historical(time_items, "Raw IAMC export")
         for detail in self.cfg.iamc_raw.detail:
             self._write_iamc_raw_file(detail, time_items)
