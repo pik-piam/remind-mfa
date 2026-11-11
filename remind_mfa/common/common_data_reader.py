@@ -270,7 +270,10 @@ class CommonDataReader(fd.CompoundDataReader):
         else:
             return super().read_dimension(definition)
         return fd.Dimension(
-            name=definition.name, letter=definition.letter, items=list(years), dtype=definition.dtype
+            name=definition.name,
+            letter=definition.letter,
+            items=list(years),
+            dtype=definition.dtype,
         )
 
     def read_parameters(

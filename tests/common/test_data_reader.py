@@ -99,7 +99,9 @@ def time_dims(horizon: TimeHorizon, letter: str = "t") -> fd.DimensionSet:
     if letter == "t":
         time = fd.Dimension(name="Time", letter="t", items=list(horizon.years))
     else:
-        time = fd.Dimension(name="Historical Time", letter="h", items=list(horizon.historical_years))
+        time = fd.Dimension(
+            name="Historical Time", letter="h", items=list(horizon.historical_years)
+        )
     return fd.DimensionSet(dim_list=[time, R])
 
 

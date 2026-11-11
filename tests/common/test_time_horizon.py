@@ -167,7 +167,11 @@ def test_historical_period_starting_before_the_input_data_fails(tmp_path: Path):
     ("configs", "end_future"), [(["default"], 2100), (["default", "mrindustry"], 2150)]
 )
 def test_time_horizon_of_shipped_configs(
-    model: ModelNames, start_historical: int, end_historical: int, configs: list[str], end_future: int
+    model: ModelNames,
+    start_historical: int,
+    end_historical: int,
+    configs: list[str],
+    end_future: int,
 ):
     config = load_config(configs, model)
 
