@@ -40,8 +40,11 @@ class CommonMFASystem(fd.MFASystem):
             lifetime_model=self.cfg.model_switches.lifetime_model,
         )
         self.set_prms_and_compute(stock)
+        stock_driven_inflow = stock.inflow
+        # Free unnecessary data stored in the stock-driven model to lower memory consumption
+        del stock
 
-        inflow = self.adjust_inflow(stock.inflow)
+        inflow = self.adjust_inflow(stock_driven_inflow)
         self.stocks[use_stock_name].inflow[...] = inflow
         self.set_prms_and_compute(self.stocks[use_stock_name])
 
