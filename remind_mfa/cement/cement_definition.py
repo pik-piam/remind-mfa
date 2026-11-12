@@ -173,8 +173,8 @@ def get_cement_definition(
     # 5) Parameters
     parameters = [
         # historical + future parameters: if time-dependent (h), they will have to be projected to (t)
-        RemindMFAParameterDefinition(name="end_use_split", dim_letters=("r", "u",),
-                                     description="Split of cement production into different end uses."),
+        RemindMFAParameterDefinition(name="end_use_split", dim_letters=("h", "r", "u",),
+                                     description="Historical split of cement production into different end uses."),
         RemindMFAParameterDefinition(name="cement_production", dim_letters=("h", "r"),
                                      description="Historical cement production volume for each region and year."),
         RemindMFAParameterDefinition(name="clinker_ratio", dim_letters=("h", "r"),

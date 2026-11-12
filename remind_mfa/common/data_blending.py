@@ -147,7 +147,7 @@ def prepare_array(value: Any, target_dims: fd.DimensionSet) -> fd.FlodymArray:
 
 
 def blend_regional_with_global_mean(
-    regional_values: fd.Parameter,
+    regional_values: fd.FlodymArray,
     mean_weights: fd.FlodymArray,
     global_share: fd.FlodymArray,
     name: Optional[str] = None,

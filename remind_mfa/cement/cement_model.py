@@ -144,13 +144,26 @@ class CementModel(CommonModel[CementCfg]):
 
     def calculate_derived_parameters(self):
 
-        # copy/rename for use in common model
-        self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
+        # split at saturation: the (reconciled) split of the last historical year, blended with
+        # its GDP-weighted global mean by the development weight (low-GDP regions converge to the
+        # global mean, high-GDP regions keep their own split)
+        prm = self.parameters
+        last_historical_year = self.dims["h"].items[-1]
+        gdp = (
+            prm["gdppc"][{"t": last_historical_year}]
+            * prm["population"][{"t": last_historical_year}]
+        )
+        prm["end_use_split_limit"] = blend_regional_with_global_mean(
+            regional_values=prm["end_use_split"][{"h": last_historical_year}],
+            mean_weights=gdp,
+            global_share=prm["development_weight"],
+            name="end_use_split_limit",
+        )
 
         # construct lifetime std from (reconciled) mean and relative std
-        lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims, name="lifetime_std")
-        lifetime_std[...] = self.parameters["lifetime_mean"] * self.parameters["lifetime_rel_std"]
-        self.parameters["lifetime_std"] = lifetime_std
+        lifetime_std = fd.Parameter(dims=prm["lifetime_mean"].dims, name="lifetime_std")
+        lifetime_std[...] = prm["lifetime_mean"] * prm["lifetime_rel_std"]
+        prm["lifetime_std"] = lifetime_std
 
         if self.bottom_up_active:
             self.calculate_bottom_up_scenario_parameters()
