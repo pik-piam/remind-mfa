@@ -74,6 +74,7 @@ bottom_up_scenario_parameters = [
     ExtrapolationDefinition(
         name="unoccupied_residential_stock_share",
         dim_letters=("r",),
+        description="Share of residential stock that is not permanently occupied (vacant dwellings and second homes).",
     ),
     ExtrapolationDefinition(
         name="residential_type_split",
@@ -81,6 +82,7 @@ bottom_up_scenario_parameters = [
         blending_function="poly_mix",
         split_dimension_letter="d",
         split_balancing_item="Residential Multi-Family",
+        description="Split of residential floor area into single-family and multi-family homes.",
     ),
     ExtrapolationDefinition(
         name="structure_split",
@@ -88,6 +90,7 @@ bottom_up_scenario_parameters = [
         blending_function="poly_mix",
         split_dimension_letter="s",
         split_balancing_item="Reinforced Concrete Structure",
+        description="Split of building end uses into structure types, per region.",
     ),
     RemindMFAParameterDefinition(
         name="min_timber_share",
@@ -97,6 +100,7 @@ bottom_up_scenario_parameters = [
     ExtrapolationDefinition(
         name="concrete_building_mi",
         dim_letters=("r", "b", "s"),
+        description="Material intensity of concrete (t/m2), per region, building end use and structure.",
     ),
 ]
 

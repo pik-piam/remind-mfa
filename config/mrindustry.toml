@@ -1,6 +1,6 @@
 [base]
     [base.input]
-        region_mapping = "eu21"
+        region_mapping = "iso249"
 
     [base.visualization]
         do_visualize = false
@@ -12,3 +12,7 @@
 
     [base.model_switches]
         end_future = 2150
+
+[plastics]
+    [plastics.input]
+        region_mapping = "eu21"

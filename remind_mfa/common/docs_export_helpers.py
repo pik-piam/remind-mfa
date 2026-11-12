@@ -12,6 +12,8 @@ import re
 
 import pandas as pd
 
+from remind_mfa.common.common_definition import ExtrapolationDefinition, PlainDataPointDefinition
+
 # A citation list such as "[@Andrews2019], [@Kaufmann2024]" may be split on commas.
 # Free-text sources may contain commas themselves and are kept as one opaque token.
 CITATION_LIST_PATTERN = re.compile(r"\[@[^\]]+\](\s*,\s*\[@[^\]]+\])*")
@@ -156,3 +158,74 @@ def _combine_sources(existing, custom):
         if token not in tokens:
             tokens.append(token)
     return ", ".join(tokens)
+
+
+def scenario_parameters_markdown(groups: Dict[str, list]) -> str:
+    """Markdown list of scenario parameter definitions for the docs, one subsection per group.
+
+    Args:
+        groups: Subsection title (e.g. "Cement (bottom-up module)") mapped to the list of
+            scenario parameter definitions of that model or module.
+    """
+    blocks = []
+    for title, definitions in groups.items():
+        items = "\n".join(_scenario_parameter_item(definition) for definition in definitions)
+        blocks.append(f"### {title}\n\n{items}")
+    return "\n\n".join(blocks)
+
+
+def _scenario_parameter_item(definition) -> str:
+    """List item with name, metadata and description on separate lines.
+
+    Uses backslash line breaks, since the pre-commit hooks remove trailing double spaces.
+    """
+    # ExtrapolationDefinition subclasses RemindMFAParameterDefinition, so check it first
+    if isinstance(definition, ExtrapolationDefinition):
+        prm_type = f"extrapolation ({definition.blending_function})"
+    elif isinstance(definition, PlainDataPointDefinition):
+        prm_type = "plain"
+    else:
+        prm_type = "array"
+    metadata = [f"Type: {prm_type}"]
+    dim_letters = getattr(definition, "dim_letters", ())
+    if dim_letters:
+        metadata.append(f"Dimensions: {', '.join(dim_letters)}")
+    lines = [f"**`{definition.name}`**", f"*{'; '.join(metadata)}*"]
+    if definition.description:
+        lines.append(definition.description)
+    return "- " + "\\\n  ".join(lines)
+
+
+GENERATED_SECTION_MARKER = (
+    "<!-- GENERATED SECTION {key}. DO NOT EDIT BY HAND: THE DOCS EXPORT OVERWRITES IT. -->"
+)
+GENERATED_SECTION_PATTERN = re.compile(
+    r"^<!-- GENERATED SECTION ([A-Z_]+)\. DO NOT EDIT BY HAND: THE DOCS EXPORT OVERWRITES IT\. -->$",
+    re.MULTILINE,
+)
+
+
+def update_generated_sections(path: Path, sections: Dict[str, str], order: List[str]):
+    """Replace generated sections at the end of a markdown file, keeping all other sections.
+
+    Generated sections follow the hand-written part of the file. Each starts with a marker
+    line and ends at the next marker or the end of the file. Sections are sorted by `order`.
+
+    Args:
+        path: Markdown file to update.
+        sections: Section key (e.g. "common", "steel") mapped to the new section text.
+        order: All valid section keys, in the order of the sections in the file.
+    """
+    parts = GENERATED_SECTION_PATTERN.split(path.read_text(encoding="utf-8"))
+    manual_part = parts[0].rstrip()
+    existing = {key.lower(): text.strip() for key, text in zip(parts[1::2], parts[2::2])}
+    all_sections = existing | sections
+    unknown = set(all_sections) - set(order)
+    if unknown:
+        raise ValueError(f"Unknown generated sections {sorted(unknown)} in {path}.")
+    blocks = [manual_part] + [
+        f"{GENERATED_SECTION_MARKER.format(key=key.upper())}\n\n{all_sections[key]}"
+        for key in order
+        if key in all_sections
+    ]
+    write_docs_file(path, "\n\n".join(blocks))
