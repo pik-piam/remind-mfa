@@ -1,6 +1,6 @@
 # Scope
 
-REMIND-MFA features models for three basic material categories: steel, plastics, and cement. It projects future scenarios of social metabolisms of basic materials in 12 regions covering the whole world until the year 2100, in single-year time steps. There is also a model variant, which further refines the two European regions, resulting in a total of 21 world regions.
+REMIND-MFA features models for three basic material categories: steel, plastics, and cement. It projects future scenarios of social metabolisms of basic materials in 12 regions covering the whole world at least until the year 2100, in single-year time steps. There is also a model variant, which further refines the two European regions, resulting in a total of 21 world regions.
 
 The region definitions are given in the following table:
 

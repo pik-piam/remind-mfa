@@ -271,5 +271,6 @@ scenario_parameters = [
         name="reuse_share",
         dim_letters=("r", "u"),
         create_new=True,
+        description="Share of end-of-life products that is reused, per region and end use.",
     ),
 ]

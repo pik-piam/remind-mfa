@@ -89,6 +89,11 @@ class CementModel(CommonModel[CementCfg]):
             definitions = definitions + bottom_up_scenario_parameters
         return definitions
 
+    def scenario_parameter_doc_groups(self) -> dict[str, list]:
+        return super().scenario_parameter_doc_groups() | {
+            f"{self.name.capitalize()} (bottom-up module)": bottom_up_scenario_parameters
+        }
+
     def get_inactive_scenario_parameter_names(self) -> set[str]:
         if self.bottom_up_active:
             return set()

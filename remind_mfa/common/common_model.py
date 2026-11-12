@@ -17,7 +17,6 @@ from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.trade import TradeSet
 from remind_mfa.common.parameter_extrapolation import ParameterExtrapolationManager
-from remind_mfa.common.data_transformations import Bound, BoundList
 from remind_mfa.common.stock_extrapolation import StockExtrapolation
 
 if TYPE_CHECKING:
@@ -173,6 +172,11 @@ class CommonModel[CfgT: CommonCfg]:
         """Definitions of the scenario parameters of the active model modules."""
         return common_scn_prm_def + self.custom_scn_prm_def
 
+    def scenario_parameter_doc_groups(self) -> dict[str, list]:
+        """Model-specific scenario parameter definitions for the docs, by subsection title.
+        Includes the definitions of inactive model modules."""
+        return {self.name.capitalize(): self.custom_scn_prm_def}
+
     def get_inactive_scenario_parameter_names(self) -> set[str]:
         """Names of scenario parameters of inactive model modules, whose scenario rows are skipped."""
         return set()
@@ -313,25 +317,12 @@ class CommonModel[CfgT: CommonCfg]:
             end_use_specific_sat_level * time_factor[{"t": self.dims["h"]}]
         )
 
-        # after normalization, target saturation level is 1 across all regions and end-uses.
-        sat_level_bound = Bound.fixed(var_name="saturation_level", value=1)
-        growth_rate_bound = Bound(
-            var_name="growth_rate",
-            lower_bound=0,
-            upper_bound=np.inf,
-        )
-        bound_list_obj = BoundList(
-            target_dims=self.dims["u",],
-            bound_list=[sat_level_bound, growth_rate_bound],
-        )
-
         self.stock_handler = StockExtrapolation(
             cfg=self.cfg.model_switches,
             historical_stocks=normalized_historical_stock,
             dims=self.dims,
             parameters=self.parameters,
             target_dim_letters="all",
-            bound_list=bound_list_obj,
             lifetime=self.parameters["lifetime_mean"],
         )
         self.stock_handler.extrapolate()

@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from functools import cached_property
 from typing import Literal
 
@@ -25,6 +26,35 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
+@dataclass(frozen=True)
+class TimeHorizon:
+    """Years of a model run: the historical period, known from input data, and the modelled future."""
+
+    start_historical: int
+    """First year of the historical period."""
+    end_historical: int
+    """Last year of the historical period."""
+    end_future: int
+    """Last modelled year."""
+
+    def __post_init__(self):
+        if not self.start_historical < self.end_historical < self.end_future:
+            raise ValueError(
+                "The time horizon needs start_historical < end_historical < end_future, but got "
+                f"{self.start_historical}, {self.end_historical} and {self.end_future}."
+            )
+
+    @property
+    def historical_years(self) -> range:
+        """Years of the historical time dimension `h`."""
+        return range(self.start_historical, self.end_historical + 1)
+
+    @property
+    def years(self) -> range:
+        """Years of the time dimension `t`: the historical period, followed by the future."""
+        return range(self.start_historical, self.end_future + 1)
+
+
 class ModelSwitches(RemindMFABaseModel):
 
     scenario: str
@@ -33,6 +63,28 @@ class ModelSwitches(RemindMFABaseModel):
     """Class name of the extrapolation subclass to use for stock extrapolation."""
     lifetime_model_name: str
     """Class name of the lifetime model subclass to use for the in-use stock."""
+    start_historical: int
+    """First model year, with which the historical period starts. Earlier input data is dropped."""
+    end_historical: int
+    """Last year of the historical period, which is given by input data. Later years are modelled
+    and later historical input data is dropped."""
+    end_future: int
+    """Last model year. Input parameters with future years, like population and GDP per capita,
+    must cover it."""
+
+    @model_validator(mode="after")
+    def validate_time_horizon(self):
+        self.time_horizon
+        return self
+
+    @property
+    def time_horizon(self) -> TimeHorizon:
+        """Years of the time dimensions `h` (historical period) and `t` (whole model run)."""
+        return TimeHorizon(
+            start_historical=self.start_historical,
+            end_historical=self.end_historical,
+            end_future=self.end_future,
+        )
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:
@@ -57,30 +109,40 @@ class DocsExportCfg(BaseExportCfg):
 class IamcExportCfg(BaseExportCfg):
     """Common configuration of exports in IAMC format."""
 
-    t: str = "1950:2100"
-    """Inclusive "start:stop" year range to export in IAMC format (e.g. "1950:2100")."""
-
-    @property
-    def time_items(self) -> list[int]:
-        start, stop = self._parse_range()
-        return list(range(start, stop + 1))  # inclusive of stop
-
-    def _parse_range(self) -> tuple[int, int]:
-        parts = str(self.t).split(":")
-        if len(parts) != 2:
-            raise ValueError(f"t must be a 'start:stop' year range, got {self.t!r}")
-        try:
-            start, stop = int(parts[0]), int(parts[1])
-        except ValueError:
-            raise ValueError(f"t must be a 'start:stop' year range, got {self.t!r}")
-        if start > stop:
-            raise ValueError(f"t start must not be after stop, got {self.t!r}")
-        return start, stop
+    start_year: int = 1950
+    """First year to export in IAMC format."""
+    end_year: int | None = 2100
+    """Last year to export in IAMC format."""
 
     @model_validator(mode="after")
-    def validate_time_range(self):
-        self._parse_range()
+    def validate_years(self):
+        if self.end_year is not None and self.start_year > self.end_year:
+            raise ValueError(
+                f"IAMC export start_year {self.start_year} is after end_year {self.end_year}."
+            )
         return self
+
+    def years(self, end_future: int) -> range:
+        """Years to export, from `start_year` to `end_year` inclusive.
+
+        Args:
+            end_future: Last model year, used if `end_year` is not set.
+
+        Raises:
+            ValueError: If the years to export end after `end_future` or start after it.
+        """
+        end_year = end_future if self.end_year is None else self.end_year
+        if end_year > end_future:
+            raise ValueError(
+                f"IAMC export end_year {end_year} is after the last model year {end_future} "
+                "(model_switches.end_future). Lower it or leave it unset to export until the last "
+                "model year."
+            )
+        if self.start_year > end_year:
+            raise ValueError(
+                f"IAMC export start_year {self.start_year} is after the last model year {end_future}."
+            )
+        return range(self.start_year, end_year + 1)
 
 
 class IamcReportingExportCfg(IamcExportCfg):

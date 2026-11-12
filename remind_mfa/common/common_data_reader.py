@@ -8,9 +8,14 @@ from pathlib import Path
 import flodym as fd
 import pandas as pd
 
-from remind_mfa.common.common_config import CommonCfg
+from remind_mfa.common.common_config import CommonCfg, TimeHorizon
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.helpers import prefix_from_module
+
+TIME_LETTER = "t"
+HISTORICAL_TIME_LETTER = "h"
+TIME_LETTERS = (TIME_LETTER, HISTORICAL_TIME_LETTER)
+"""Letters of the time dimensions, which follow from the configured time horizon."""
 
 
 class CommonDataReader(fd.CompoundDataReader):
@@ -19,6 +24,8 @@ class CommonDataReader(fd.CompoundDataReader):
     # the main input-data archive and the (optional) validation-data archive.
     MFA_SUFFIX = "_mfa"
     VALIDATION_SUFFIX = "_validationmfa"
+
+    parameter_reader: "MadratParameterReader"
 
     def __init__(
         self,
@@ -33,6 +40,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.input_data_revision = cfg.input.input_data_revision
         self.region_mapping = cfg.input.region_mapping
         self.force_extract = cfg.input.force_extract_tgz
+        self.time_horizon = cfg.model_switches.time_horizon
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
@@ -84,8 +92,11 @@ class CommonDataReader(fd.CompoundDataReader):
 
         # parameters
         parameter_files = self.get_parameter_files()
+        input_label = f"revision {self.input_data_revision}, region mapping {self.region_mapping}"
         parameter_reader = MadratParameterReader(
             parameter_files,
+            time_horizon=self.time_horizon,
+            input_label=input_label,
             allow_extra_values=self.allow_extra_values,
             allow_missing_values=self.allow_missing_values,
         )
@@ -250,10 +261,35 @@ class CommonDataReader(fd.CompoundDataReader):
                 f"'{self.model_class.value}': { [f'{name} -> {path!r}' for name, path in missing.items()]}"
             )
 
+    def read_dimension(self, definition: fd.DimensionDefinition) -> fd.Dimension:
+        """Build the time dimensions from the configured time horizon, read the others from files."""
+        if definition.letter == TIME_LETTER:
+            years = self.time_horizon.years
+        elif definition.letter == HISTORICAL_TIME_LETTER:
+            years = self.time_horizon.historical_years
+        else:
+            return super().read_dimension(definition)
+        return fd.Dimension(
+            name=definition.name,
+            letter=definition.letter,
+            items=list(years),
+            dtype=definition.dtype,
+        )
+
+    def read_parameters(
+        self, parameter_definitions: list[fd.ParameterDefinition], dims: fd.DimensionSet
+    ) -> dict[str, fd.Parameter]:
+        parameters = super().read_parameters(parameter_definitions, dims)
+        self.parameter_reader.check_start_of_time_horizon()
+        return parameters
+
     def get_dimension_files(self) -> dict[str, str | os.PathLike[str]]:
         dimension_files: dict[str, str | os.PathLike[str]] = {}
         for dimension in self.definition.dimensions:
-            if dimension.name == "Region":
+            if dimension.letter in TIME_LETTERS:
+                # The time dimensions have no file, they follow from the configured time horizon
+                continue
+            elif dimension.name == "Region":
                 # Special case for Region: it is read from the parameters folder, not the dimensions folder
                 dimension_path = self.parameters_path / "regionmapping.csv"
             else:
@@ -304,23 +340,164 @@ class CommonDimensionReader(fd.CSVDimensionReader):
             return super().read_dimension(definition)
 
 
+class InputHorizonError(ValueError):
+    """The input data does not cover the configured time horizon."""
+
+
 class MadratParameterReader(fd.CSVParameterReader):
     """
     Custom parameter reader for .cs4r files that extracts header and skiprows information from the file.
+
+    Parameters with a time dimension are fitted to the configured time horizon: years outside of
+    their time dimension are dropped, so that input data covering a longer period can be used.
+    The data must however reach the end of the time dimension without gaps after the historical
+    period, as the reader does not extrapolate.
     Everything else inherited from flodym.CSVParameterReader.
+
+    Args:
+        parameter_files: Mapping of parameter names to file paths.
+        time_horizon: Configured time horizon.
+        input_label: Description of the configured input data, used in error messages.
+        allow_missing_values: Whether to allow missing values in the data.
+        allow_extra_values: Whether to allow rows with items not present in the dimensions.
     """
 
-    def read_parameter_values(self, parameter_name: str, dims):
-        self.pre_read_parameter_values(parameter_name)
-        return super().read_parameter_values(parameter_name, dims)
+    TIME_COLUMN = "Time"
+    """Column of the years in .cs4r files, also of parameters on the historical time dimension."""
 
-    def pre_read_parameter_values(self, parameter_name: str):
-        """Extract header and skiprows from .cs4r file and set read_csv_kwargs accordingly."""
+    def __init__(
+        self,
+        parameter_files: dict[str, str | os.PathLike[str]],
+        time_horizon: TimeHorizon,
+        input_label: str | None = None,
+        allow_missing_values: bool = False,
+        allow_extra_values: bool = False,
+    ):
+        super().__init__(
+            parameter_files,
+            allow_missing_values=allow_missing_values,
+            allow_extra_values=allow_extra_values,
+        )
+        self.time_horizon = time_horizon
+        self.input_label = input_label
+        self.first_years: dict[str, int] = {}
+        """First year of the data of each parameter with a time dimension read so far."""
+
+    def read_parameter_values(self, parameter_name: str, dims: fd.DimensionSet) -> fd.Parameter:
         if self.parameter_filenames is None:
             raise ValueError("No parameter files specified.")
-        datasets_path = self.parameter_filenames[parameter_name]
-        header, skiprows = self.extract_cs4r_info(datasets_path)
-        self.read_csv_kwargs = {"names": header, "skiprows": skiprows}
+        path = self.parameter_filenames[parameter_name]
+        header, skiprows = self.extract_cs4r_info(path)
+        data = pd.read_csv(path, names=header, skiprows=skiprows)
+        time = self.time_dimension(dims)
+        if time is not None:
+            data = self.fit_to_time_dimension(parameter_name, data, time)
+        return fd.Parameter.from_df(
+            dims=dims,
+            name=parameter_name,
+            df=data,
+            allow_missing_values=self.allow_missing_values,
+            allow_extra_values=self.allow_extra_values,
+        )
+
+    def time_dimension(self, dims: fd.DimensionSet) -> fd.Dimension | None:
+        """Time dimension among the given dimensions, if any."""
+        letters = [letter for letter in TIME_LETTERS if letter in dims.letters]
+        return dims[letters[0]] if letters else None
+
+    def fit_to_time_dimension(
+        self, parameter_name: str, data: pd.DataFrame, time: fd.Dimension
+    ) -> pd.DataFrame:
+        """Check that the data reaches the end of its time dimension and drop the years outside.
+
+        Args:
+            parameter_name: Name of the parameter, used in error messages.
+            data: Parameter data in long format, with one column per dimension.
+            time: Time dimension of the parameter.
+
+        Returns:
+            The data of the years of the time dimension, with the year column named after it.
+
+        Raises:
+            InputHorizonError: If the data misses a year between the last historical year and the
+                end of the time dimension.
+        """
+        year_column = next(
+            (c for c in data.columns if c in (time.name, time.letter, self.TIME_COLUMN)), None
+        )
+        if year_column is None:
+            # nothing to fit, flodym reports the missing dimension column
+            return data
+        data = data.rename(columns={year_column: time.name})
+        years = data[time.name]
+        required_years = {year for year in time.items if year >= self.time_horizon.end_historical}
+        missing_years = sorted(required_years - set(years))
+        if missing_years:
+            raise InputHorizonError(
+                self._end_error_message(parameter_name, int(years.max()), time, missing_years)
+            )
+        data = data[years.isin(time.items)]
+        self.first_years[parameter_name] = int(data[time.name].min())
+        return data
+
+    def check_start_of_time_horizon(self):
+        """Check that the input data read so far starts with the historical period.
+
+        Single parameters may start later, but not all of them: the model would take the years
+        without any data as years of zero production, population etc.
+
+        Raises:
+            InputHorizonError: If no parameter has data for the first year of the time horizon.
+        """
+        if not self.first_years:
+            return
+        first_year = min(self.first_years.values())
+        if first_year > self.time_horizon.start_historical:
+            raise InputHorizonError(
+                "The historical period starts in model_switches.start_historical = "
+                f"{self.time_horizon.start_historical}, but no input parameter has data before "
+                f"{first_year}. Raise model_switches.start_historical to {first_year}, or use "
+                f"input data that starts earlier{self._current_input}."
+            )
+
+    @property
+    def _current_input(self) -> str:
+        return f" (currently {self.input_label})" if self.input_label else ""
+
+    def _end_error_message(
+        self, parameter_name: str, last_year: int, time: fd.Dimension, missing_years: list[int]
+    ) -> str:
+        end_year = time.items[-1]
+        if time.letter == HISTORICAL_TIME_LETTER:
+            switch = "model_switches.end_historical"
+            expectation = (
+                f"the historical period ends in {switch} = {end_year}. The future is modelled "
+                "from the last historical year on, so historical inputs must reach it"
+            )
+            remedy = "Use input data with a longer historical period"
+        else:
+            switch = "model_switches.end_future"
+            expectation = (
+                f"the model runs until {switch} = {end_year}. Inputs on the time dimension must "
+                "cover the future, remind-mfa does not extrapolate them"
+            )
+            remedy = (
+                f"Build the input archive with mrmfa fullMFA(end_future = {end_year}) and select "
+                "it via input.input_data_revision"
+            )
+        if last_year < end_year:
+            problem = f"ends in {last_year}"
+            alternative = f", or lower {switch} to {last_year}"
+        else:
+            shown = ", ".join(str(year) for year in missing_years[:10])
+            more = f" and {len(missing_years) - 10} more" if len(missing_years) > 10 else ""
+            problem = f"misses the years {shown}{more}"
+            alternative = ""
+        return (
+            f"Input parameter '{parameter_name}' {problem}, but {expectation}. "
+            f"{remedy}{self._current_input}{alternative}. "
+            f"File: {self.parameter_filenames[parameter_name]}"
+        )
 
     @staticmethod
     def extract_cs4r_info(filepath: str | PathLike[str]) -> tuple[list[str], int]:

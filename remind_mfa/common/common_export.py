@@ -4,23 +4,19 @@ import pickle
 import shutil
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, List, Literal, ClassVar
+from typing import TYPE_CHECKING, Callable, Optional, List, Literal, ClassVar
 
 import flodym as fd
+import numpy as np
 from pydantic import PrivateAttr
 import pandas as pd
 
-from remind_mfa.common.docs_export_helpers import merge_parameters_sources
-from remind_mfa.common.docs_export_helpers import merge_bib_files
-from remind_mfa.common.docs_export_helpers import write_docs_file
-
-from remind_mfa.common.assumptions_doc import assumptions_df, assumptions_str
-from remind_mfa.common.common_config import CommonCfg, ExportCfg
-from remind_mfa.common.common_definition import RemindMFADefinition
+from remind_mfa.common.assumptions_doc import assumptions_str
+from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
+from remind_mfa.common.docs_export import DocumentationExporter
 from remind_mfa.common.helpers import (
-    DOCS_PATH,
     RemindMFABaseModel,
     series_export_path,
     export_dir_prefix,
@@ -108,11 +104,9 @@ class CommonDataExporter(RemindMFABaseModel):
             file_out = self.export_path("assumptions", "assumptions.txt")
             with open(file_out, "w") as f:
                 f.write(assumptions_str())
-        if self.cfg.docs.do_export:
-            self.definition_to_markdown(self._model.definition_future)
-            self.merge_bibtex_files()
-            self.assumptions_to_markdown()
-            self.cfg_to_markdown(cfg=self._model.cfg)
+        DocumentationExporter(cfg=self.cfg.docs, display_names=self.display_names).export(
+            self._model
+        )
         if self.cfg.iamc_reporting.do_export:
             self.write_iamc_reporting()
         if self.cfg.iamc_raw.do_export:
@@ -194,7 +188,8 @@ class CommonDataExporter(RemindMFABaseModel):
             return
         iamc_vars = self.common_iamc_variables() + iamc_vars
 
-        time_items = self.cfg.iamc_reporting.time_items
+        end_future = self._model.dims["t"].items[-1]
+        time_items = list(self.cfg.iamc_reporting.years(end_future))
         self._warn_if_iamc_includes_historical(time_items, "IAMC reporting export")
 
         constants = self.iamc_constants(self._model)
@@ -218,7 +213,8 @@ class CommonDataExporter(RemindMFABaseModel):
         """Export all flows, stocks, trades and selected parameters in IAMC format,
         with variable names derived from the internal names. One file per configured detail level.
         """
-        time_items = self.cfg.iamc_raw.time_items
+        end_future = self._model.dims["t"].items[-1]
+        time_items = list(self.cfg.iamc_raw.years(end_future))
         self._warn_if_iamc_includes_historical(time_items, "Raw IAMC export")
         for detail in self.cfg.iamc_raw.detail:
             self._write_iamc_raw_file(detail, time_items)
@@ -496,102 +492,36 @@ class CommonDataExporter(RemindMFABaseModel):
         export_dir.mkdir(parents=True, exist_ok=True)
 
         for variable in self.get_mrindustry_variables():
-            df = (
-                variable.calculation_function(self._model.future_mfa)
-                .to_df()
-                .rename(columns={"value": variable.name})
-            )
+            array = variable.calculation_function(self._model.future_mfa)
+            self._check_mrindustry_values(variable.name, array)
+            df = array.to_df().rename(columns={"value": variable.name})
             df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
 
-    def definition_to_markdown(self, definition: RemindMFADefinition):
+    @staticmethod
+    def _check_mrindustry_values(name: str, array: fd.FlodymArray, n_items_shown: int = 5):
+        """Check that a REMIND input variable is free of NaN and negative values.
 
-        if not self.cfg.docs.do_export:
-            return
+        Args:
+            name (str): Name of the variable, used in the error message.
+            array (fd.FlodymArray): Values of the variable.
+            n_items_shown (int): Number of offending dimension items listed in the error message.
 
-        dfs = definition.to_dfs()
-
-        def dim_items_str(letter: str) -> str:
-            dim = self._model.dims[letter]
-            if dim.name == "Region":
-                return "*see region definition*"
-            if dim.dtype is int:
-                return f"{dim.items[0]} to {dim.items[-1]}"
-            return ", ".join(str(item) for item in dim.items)
-
-        dfs["dimensions"]["items"] = dfs["dimensions"]["letter"].map(dim_items_str)
-
-        drop_columns = {
-            "dimensions": ["dtype"],
-            "stocks": ["solver", "time_letter"],
-            "flows": ["name_override"],
-        }
-        for name, cols in drop_columns.items():
-            if name in dfs:
-                for col in cols:
-                    if col in dfs[name].columns:
-                        dfs[name] = dfs[name].drop(columns=col, inplace=False)
-
-        def convert_cell(cell: Any) -> str:
-            if isinstance(cell, type):
-                cell = cell.__name__
-            elif isinstance(cell, tuple):
-                cell = ", ".join(cell)
-            elif cell is None:
-                cell = ""
-            return self._docs_cell_str(cell)
-
-        for name, df in dfs.items():
-            df.columns = [self.display_names[col] for col in df.columns]
-            columns_to_convert = list(df.columns)
-            if name == "parameters":
-                # sources are matched by internal parameter name, so before converting the names
-                df = self.merge_parameters_sources(params_df=df)
-            df[columns_to_convert] = df[columns_to_convert].map(convert_cell)
-            write_docs_file(
-                self.model_docs_path / f"definitions/{name}.md", df.to_markdown(index=False)
-            )
-
-    def merge_bibtex_files(self):
-        """Compatibility wrapper used previously; merges two default files."""
-        src1 = self._model.data_reader.parameters_path / "mrmfa_sources.bib"
-        src2 = DOCS_PATH / "custom_refs.bib"
-        out = DOCS_PATH / "all_refs.bib"
-        merge_bib_files([src1, src2], out)
-
-    def merge_parameters_sources(self, params_df: pd.DataFrame) -> pd.DataFrame:
-        """Add a "Sources" column to the parameters table, matched by the "Name" column."""
-        sources_df = pd.read_csv(self._model.data_reader.parameters_path / "mrmfa_sources.csv")
-        return merge_parameters_sources(
-            sources_df=sources_df, params_df=params_df, prefix=self._model.name[:2]
-        )
-
-    def assumptions_to_markdown(self):
-
-        if not self.cfg.docs.do_export:
-            return
-
-        df = assumptions_df()
-        write_docs_file(self.model_docs_path / "assumptions.md", df.to_markdown(index=False))
-
-    def cfg_to_markdown(self, cfg: "CommonCfg"):
-
-        if not self.cfg.docs.do_export:
-            return
-
-        schema_df = type(cfg).to_schema_df()
-        schema_df.columns = [self.display_names[col] for col in schema_df.columns]
-        schema_df = schema_df.map(
-            lambda cell: "" if str(cell) == "PydanticUndefined" else self._docs_cell_str(cell)
-        )
-        write_docs_file(
-            self.model_docs_path / "config_schema.md", schema_df.to_markdown(index=False)
-        )
-
-    def _docs_cell_str(self, cell: Any) -> str:
-        """String of a docs table cell, with internal names replaced by display names if configured."""
-        if not self.cfg.docs.apply_mappings:
-            return str(cell)
-        return self.display_names[str(cell)].replace("<br>", " ")
+        Raises:
+            ValueError: If the variable contains NaN or negative values.
+        """
+        for problem, condition in (
+            ("NaN", np.isnan),
+            ("negative", lambda values: values < 0),
+        ):
+            items = array.items_where(condition)
+            if len(items):
+                shown = ", ".join(
+                    f"({', '.join(str(value) for value in item)})" for item in items[:n_items_shown]
+                )
+                raise ValueError(
+                    f"mrindustry variable '{name}' has {len(items)} {problem} values, "
+                    f"e.g. at ({', '.join(array.dims.names)}) = {shown}."
+                )
 
     def to_iamc_df(self, array: fd.FlodymArray, time_items: list):
         time_out = fd.Dimension(name="Time Out", letter="O", items=time_items)
@@ -628,8 +558,3 @@ class CommonDataExporter(RemindMFABaseModel):
         if filename is None:
             return base_dir
         return os.path.join(base_dir, filename)
-
-    @property
-    def model_docs_path(self) -> str:
-        """Per-model-run export folder for docs, created once and shared by exporter and visualizer."""
-        return DOCS_PATH / self._model.name
