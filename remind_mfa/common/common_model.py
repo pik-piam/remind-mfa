@@ -55,7 +55,13 @@ class CommonModel[CfgT: CommonCfg]:
         self.modify_parameters()
         self.calculate_derived_parameters()
 
-    def run(self):
+    def run(self, future: bool = True):
+        """Run the historical MFA and, optionally, the future MFA.
+
+        Args:
+            future: If False, stop after the historical MFA and the snapshot of the historical
+                parameters, e.g. when a subclass computes the future MFA itself.
+        """
         logging.info("Running historical MFA system...")
         self.historical_mfa = self.make_mfa(historical=True)
         self.historical_mfa.compute()
@@ -67,6 +73,8 @@ class CommonModel[CfgT: CommonCfg]:
 
         # snapshot parameters before extrapolation, then extend them into the future
         self.historical_parameters = copy.deepcopy(self.parameters)
+        if not future:
+            return
         self.extrapolate_parameters()
         self.check_parameters()
 

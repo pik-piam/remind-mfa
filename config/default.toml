@@ -2,8 +2,8 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "data_in"
-        input_data_revision = "2.9.2"
-        region_mapping = "h12"
+        input_data_revision = "2.9.2_cement"
+        region_mapping = "gtap155"
         scenarios_path = "config/scenarios"
 
     [base.model_switches]
