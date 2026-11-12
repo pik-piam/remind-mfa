@@ -76,7 +76,7 @@ The definition in the code holds some modelling decisions, like the blending fun
 
 | Key    | Description |
 |--------|-------------|
-| `year` | Year by which the endpoint is reached. Must lie after the last historical year, else an error is raised. Values without `year` have no effect and trigger a warning. |
+| `year` | Year by which the endpoint is reached; afterwards the value is held constant. Must lie after the last historical year, else an error is raised. Values without `year` have no effect and trigger a warning. |
 | `type` | `target`: blend from the last historical value to `value` (an existing future trajectory is ignored). `factor`: multiply the baseline by a factor that blends from 1 to `value`. |
 
 Each parameter has a single type. Declaring it on one row (e.g. in `BASE`) covers all rows, including inherited ones. Mixed types, or `year` without any declared type, raise an error. Without any scenario rows, the parameter keeps its baseline, e.g. `polymer_shares_use_inflow`.

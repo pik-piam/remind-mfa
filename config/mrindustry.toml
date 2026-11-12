@@ -10,6 +10,9 @@
         mrindustry.do_export = true
         pickle.do_export = true
 
+    [base.model_switches]
+        end_future = 2150
+
 [plastics]
     [plastics.input]
         region_mapping = "eu21"
