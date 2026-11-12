@@ -8,7 +8,12 @@ from pathlib import Path
 import flodym as fd
 import pandas as pd
 
-from remind_mfa.common.common_config import CommonCfg, TimeHorizon
+from remind_mfa.common.common_config import (
+    CommonCfg,
+    InputHorizonError,
+    ModelSwitches,
+    TimeHorizon,
+)
 from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.helpers import prefix_from_module
 
@@ -40,7 +45,7 @@ class CommonDataReader(fd.CompoundDataReader):
         self.input_data_revision = cfg.input.input_data_revision
         self.region_mapping = cfg.input.region_mapping
         self.force_extract = cfg.input.force_extract_tgz
-        self.time_horizon = cfg.model_switches.time_horizon
+        self.model_switches: ModelSwitches = cfg.model_switches
         self.definition = definition
         self.allow_missing_values = allow_missing_values
         self.allow_extra_values = allow_extra_values
@@ -85,6 +90,8 @@ class CommonDataReader(fd.CompoundDataReader):
         # extract the matching validation archive (optional; warns if not found)
         if self.extraction_needed(self.validation_path):
             self.extract_validation_tar_file(self.validation_path)
+
+        self.time_horizon = self.model_switches.resolve_time_horizon(self.read_input_time_horizon())
 
         # dimensions
         dimension_files = self.get_dimension_files()
@@ -301,6 +308,31 @@ class CommonDataReader(fd.CompoundDataReader):
         self._validate_files("dimension", dimension_files)
         return dimension_files
 
+    @property
+    def time_range_path(self) -> Path:
+        return self.parameters_path / f"{prefix_from_module(self.model_class)}_time_range.cs4r"
+
+    def read_input_time_horizon(self) -> TimeHorizon | None:
+        """Time horizon of the input data, from the time range file written by mrmfa.
+
+        Returns:
+            None if the input data has no time range file, as in archives of older mrmfa versions.
+
+        Raises:
+            InputHorizonError: If the time range file lacks one of the time horizon boundaries.
+        """
+        path = self.time_range_path
+        if not path.exists():
+            return None
+        header, skiprows = MadratParameterReader.extract_cs4r_info(path)
+        data = pd.read_csv(path, names=header, skiprows=skiprows)
+        years = dict(zip(data[header[0]], data[header[-1]].astype(int)))
+        boundaries = ("start_historical", "end_historical", "end_future")
+        missing = [name for name in boundaries if name not in years]
+        if missing:
+            raise InputHorizonError(f"Time range file {path} lacks {', '.join(missing)}.")
+        return TimeHorizon(**{name: years[name] for name in boundaries})
+
     def get_parameter_files(self) -> dict[str, str | os.PathLike[str]]:
         model_prefix = prefix_from_module(self.model_class)
         parameter_files: dict[str, str | os.PathLike[str]] = {}
@@ -338,10 +370,6 @@ class CommonDimensionReader(fd.CSVDimensionReader):
             return fd.Dimension.from_np(unique_regions, definition)
         else:
             return super().read_dimension(definition)
-
-
-class InputHorizonError(ValueError):
-    """The input data does not cover the configured time horizon."""
 
 
 class MadratParameterReader(fd.CSVParameterReader):

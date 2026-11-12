@@ -26,6 +26,10 @@ def choose_subclass_by_name(name: str, parent: type) -> type:
     return subclasses[name]
 
 
+class InputHorizonError(ValueError):
+    """The input data does not cover the configured time horizon."""
+
+
 @dataclass(frozen=True)
 class TimeHorizon:
     """Years of a model run: the historical period, known from input data, and the modelled future."""
@@ -63,27 +67,73 @@ class ModelSwitches(RemindMFABaseModel):
     """Class name of the extrapolation subclass to use for stock extrapolation."""
     lifetime_model_name: str
     """Class name of the lifetime model subclass to use for the in-use stock."""
-    start_historical: int
-    """First model year, with which the historical period starts. Earlier input data is dropped."""
-    end_historical: int
+    start_historical: int | None = None
+    """First model year, with which the historical period starts. Earlier input data is dropped.
+    Defaults to the first year of the input data and can only be later."""
+    end_historical: int | None = None
     """Last year of the historical period, which is given by input data. Later years are modelled
-    and later historical input data is dropped."""
-    end_future: int
-    """Last model year. Input parameters with future years, like population and GDP per capita,
-    must cover it."""
+    and later historical input data is dropped. Defaults to the last historical year of the input
+    data and can only be earlier."""
+    end_future: int | None = None
+    """Last model year. Defaults to the last year of the input data and can only be earlier."""
 
     @model_validator(mode="after")
-    def validate_time_horizon(self):
-        self.time_horizon
+    def validate_time_switch_order(self):
+        years = [self.start_historical, self.end_historical, self.end_future]
+        set_years = [year for year in years if year is not None]
+        if any(earlier >= later for earlier, later in zip(set_years, set_years[1:])):
+            raise ValueError(
+                "The time horizon needs start_historical < end_historical < end_future, but got "
+                f"{', '.join(str(year) for year in years)}."
+            )
         return self
 
-    @property
-    def time_horizon(self) -> TimeHorizon:
-        """Years of the time dimensions `h` (historical period) and `t` (whole model run)."""
+    def resolve_time_horizon(self, input_horizon: TimeHorizon | None) -> TimeHorizon:
+        """Years of the time dimensions `h` (historical period) and `t` (whole model run).
+
+        Args:
+            input_horizon: Time horizon of the input data. If None, the input data does not state
+                it, and all three time switches must be set.
+
+        Raises:
+            InputHorizonError: If a switch is unset and the input data does not state its value, or
+                if a switch extends the time horizon of the input data.
+        """
+        switches = {
+            "start_historical": self.start_historical,
+            "end_historical": self.end_historical,
+            "end_future": self.end_future,
+        }
+        if input_horizon is None:
+            unset = [name for name, year in switches.items() if year is None]
+            if unset:
+                raise InputHorizonError(
+                    "The input data does not state its time horizon (no *_time_range.cs4r file), so the "
+                    f"model switches {', '.join(unset)} must be set. Alternatively, use input data "
+                    "built with a recent version of mrmfa."
+                )
+            return TimeHorizon(**switches)
+        exceeding = []
+        if self.start_historical is not None and self.start_historical < input_horizon.start_historical:
+            exceeding.append(
+                f"start_historical = {self.start_historical} is before "
+                f"{input_horizon.start_historical}"
+            )
+        for name in ("end_historical", "end_future"):
+            year, input_year = switches[name], getattr(input_horizon, name)
+            if year is not None and year > input_year:
+                exceeding.append(f"{name} = {year} is after {input_year}")
+        if exceeding:
+            raise InputHorizonError(
+                f"The model switches can only shorten the time horizon of the input data, but "
+                f"{' and '.join(exceeding)} in the input data. Change or remove these switches, or use input data "
+                "with a longer time horizon."
+            )
         return TimeHorizon(
-            start_historical=self.start_historical,
-            end_historical=self.end_historical,
-            end_future=self.end_future,
+            **{
+                name: getattr(input_horizon, name) if year is None else year
+                for name, year in switches.items()
+            }
         )
 
     @property
