@@ -308,10 +308,6 @@ class CommonDataReader(fd.CompoundDataReader):
         self._validate_files("dimension", dimension_files)
         return dimension_files
 
-    @property
-    def time_range_path(self) -> Path:
-        return self.parameters_path / f"{prefix_from_module(self.model_class)}_time_range.cs4r"
-
     def read_input_time_horizon(self) -> TimeHorizon | None:
         """Time horizon of the input data, from the time range file written by mrmfa.
 
@@ -321,7 +317,7 @@ class CommonDataReader(fd.CompoundDataReader):
         Raises:
             InputHorizonError: If the time range file lacks one of the time horizon boundaries.
         """
-        path = self.time_range_path
+        path = self.parameters_path / f"{prefix_from_module(self.model_class)}_time_range.cs4r"
         if not path.exists():
             return None
         header, skiprows = MadratParameterReader.extract_cs4r_info(path)

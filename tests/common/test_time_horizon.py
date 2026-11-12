@@ -233,7 +233,7 @@ def test_time_horizon_of_shipped_configs(model: ModelNames, configs: list[str], 
     ("start_historical", "end_historical", "end_future"),
     [(1900, 2022, 2020), (None, 2022, 2022), (2100, None, 2100), (2030, 2022, None)],
 )
-def test_config_with_unordered_time_switches_is_rejected(
+def test_unordered_time_switches_are_rejected(
     start_historical: int | None, end_historical: int | None, end_future: int | None
 ):
     config = load_config(["default"], ModelNames.STEEL)
@@ -242,9 +242,11 @@ def test_config_with_unordered_time_switches_is_rejected(
         "end_historical": end_historical,
         "end_future": end_future,
     }
+    model_switches = get_model_class(ModelNames.STEEL).ConfigCls(**config).model_switches
+    input_horizon = TimeHorizon(start_historical=1900, end_historical=2022, end_future=2150)
 
     with pytest.raises(ValueError, match="start_historical < end_historical < end_future"):
-        get_model_class(ModelNames.STEEL).ConfigCls(**config)
+        model_switches.resolve_time_horizon(input_horizon)
 
 
 @pytest.mark.parametrize(

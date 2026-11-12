@@ -77,17 +77,6 @@ class ModelSwitches(RemindMFABaseModel):
     end_future: int | None = None
     """Last model year. Defaults to the last year of the input data and can only be earlier."""
 
-    @model_validator(mode="after")
-    def validate_time_switch_order(self):
-        years = [self.start_historical, self.end_historical, self.end_future]
-        set_years = [year for year in years if year is not None]
-        if any(earlier >= later for earlier, later in zip(set_years, set_years[1:])):
-            raise ValueError(
-                "The time horizon needs start_historical < end_historical < end_future, but got "
-                f"{', '.join(str(year) for year in years)}."
-            )
-        return self
-
     def resolve_time_horizon(self, input_horizon: TimeHorizon | None) -> TimeHorizon:
         """Years of the time dimensions `h` (historical period) and `t` (whole model run).
 
