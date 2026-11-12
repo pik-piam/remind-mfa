@@ -103,7 +103,10 @@ class ModelSwitches(RemindMFABaseModel):
                 )
             return TimeHorizon(**switches)
         exceeding = []
-        if self.start_historical is not None and self.start_historical < input_horizon.start_historical:
+        if (
+            self.start_historical is not None
+            and self.start_historical < input_horizon.start_historical
+        ):
             exceeding.append(
                 f"start_historical = {self.start_historical} is before "
                 f"{input_horizon.start_historical}"
