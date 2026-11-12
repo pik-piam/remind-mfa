@@ -53,6 +53,19 @@ class SteelDataExporter(CommonDataExporter):
             + mfa.flows["scrap_market => scrap_pool"]
         )
 
+    @staticmethod
+    def _max_scrap_share(mfa: fd.MFASystem) -> fd.FlodymArray:
+        """Maximal possible share of scrap in the metallic input to steel production.
+
+        With the total metallic input ``scrap input + extraction => steel_production_ore_based`` of both
+        production routes::
+
+            scrap input <= steel_max_scrap_share * total metallic input
+
+        with equality up to the last historical year.
+        """
+        return mfa.parameters["max_scrap_share"].cast_to(mfa.dims["t", "r"])
+
     def get_mrindustry_variables(self) -> list[RemindInputVariable]:
         return [
             RemindInputVariable(
@@ -69,6 +82,11 @@ class SteelDataExporter(CommonDataExporter):
                 name="steel_scrap",
                 calculation_function=SteelDataExporter._total_available_scrap,
                 unit="t/yr",
+            ),
+            RemindInputVariable(
+                name="steel_max_scrap_share",
+                calculation_function=SteelDataExporter._max_scrap_share,
+                unit="-",
             ),
         ]
 

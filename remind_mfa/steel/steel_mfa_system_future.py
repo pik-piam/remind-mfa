@@ -178,6 +178,39 @@ class SteelMFASystem(CommonMFASystem):
         flw["sysenv => extraction"][...] = flw["extraction => steel_production_ore_based"]
         # fmt: on
 
+    def check_historical_scrap_input(self, historical_max_scrap_share: float):
+        """Check that the maximum scrap share in the future system is the scrap share for historical years.
+
+        In historical years, ``max_scrap_share`` is the scrap share that the historical system
+        computes with ``historical_max_scrap_share`` as maximum. The maximum scrap input must thus be the scrap
+        input of this system with ``historical_max_scrap_share`` as maximum. Else, the two systems
+        compute the scrap differently, and the maximum scrap share changes historical results or
+        starts from a different scrap share.
+
+        Args:
+            historical_max_scrap_share (float): Maximum share of scrap in the metallic input to
+                steel production in historical years.
+
+        Raises:
+            ValueError: If the maximum scrap input differs in a historical year.
+        """
+        flw = self.flows
+        historical = {"t": self.dims["h"]}
+        scrap_input = flw["scrap_pool => steel_production_scrap_based"][historical]
+        available_scrap = scrap_input + flw["scrap_pool => excess_scrap"][historical]
+        metallic_input = scrap_input + flw["extraction => steel_production_ore_based"][historical]
+        max_scrap_input = metallic_input * self.parameters["max_scrap_share"][historical]
+        expected = available_scrap.minimum(metallic_input * historical_max_scrap_share)
+        if not np.allclose(
+            max_scrap_input.values, expected.cast_values_to(max_scrap_input.dims), rtol=1e-6
+        ):
+            raise ValueError(
+                "In historical years, the maximum scrap input of the future steel system differs "
+                "from its scrap input with the historical maximum scrap share. Most likely, "
+                "SteelMFASystemHistorical.scrap_share and SteelMFASystem.compute_flows compute "
+                "the scrap differently."
+            )
+
     def cap_scrap_imports_to_usable_scrap(
         self, max_scrap_production: fd.FlodymArray, domestic_scrap: fd.FlodymArray
     ):
