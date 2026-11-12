@@ -29,15 +29,30 @@ from dotenv import load_dotenv
 from remind_mfa.cli.helpers import prompt_for_config_names
 from remind_mfa.common.common_config import InputCfg
 from remind_mfa.common.common_data_reader import CommonDataReader
+from remind_mfa.common.common_definition import RemindMFADefinition
 from remind_mfa.common.config_loader import load_config
+from remind_mfa.common.helpers import ModelNames, get_model_class
 
 app = typer.Typer(add_completion=False)
 
 DEFAULT_REMOTE_REPOSITORY = Path("/p/projects/rd3mod/inputdata")
-SOURCE_LIST = Path(__file__).resolve().parents[1] / "docs" / "mrmfa_sources.csv"
 MRINDUSTRY_SOURCE_LIST_URL = (
     "https://raw.githubusercontent.com/pik-piam/mrindustry/refs/heads/main/"
     "inst/mrindustry_sources.csv"
+)
+# The mrindustry source list comes from madrat's static analysis of the call graph, which also
+# follows code paths that never run. These sources are listed there, but mrindustry does not read
+# them: the first three are not on the cluster at all, the land-use ones together are about 900 GB.
+MRINDUSTRY_EXCLUDED_SOURCES = frozenset(
+    {
+        "COFFEE",
+        "TransportPurchasePriceSubsidies",
+        "WITCH",
+        "LPJmL_new",
+        "LandInG",
+        "LUH2v2h",
+        "LUH3",
+    }
 )
 REMIND_DEFAULT_CFG_URL = (
     "https://raw.githubusercontent.com/remindmodel/pre-processing/refs/heads/master/"
@@ -199,6 +214,22 @@ def parse_sources(lines: Iterable[str], origin: str) -> list[str]:
     return sources
 
 
+def extract_mfa_archive() -> Path:
+    """Extract the MFA archive of the default configuration, as a model run does, if needed.
+
+    Returns:
+        The folder the archive is extracted into.
+    """
+    # The archive does not depend on the model, and with an empty definition the data reader only
+    # extracts it, without reading any data
+    model = ModelNames.STEEL
+    cfg = get_model_class(model).ConfigCls(**load_config(["default"], model))
+    definition = RemindMFADefinition(
+        dimensions=[], processes=[], flows=[], stocks=[], parameters=[], trades=[]
+    )
+    return CommonDataReader(cfg, definition).parameters_path
+
+
 def read_sources(source_list: Path) -> list[str]:
     """Read unique source directory names from a source list, such as the mrmfa one."""
     with source_list.open(encoding="utf-8", newline="") as source_file:
@@ -221,6 +252,9 @@ def copy_files(remote_files: list[str], destination_dir: Path, dry_run: bool) ->
         ".Rhistory",
         "--exclude",
         ".venv",
+        # Lock files of LibreOffice
+        "--exclude",
+        ".~lock.*#",
         *remote_files,
         str(destination_dir),
     ]
@@ -405,8 +439,9 @@ def copy_mrmfa_sources(
     ),
 ) -> None:
     """Copy mrmfa sources and mappings into `MADRAT_MAINFOLDER`."""
-    sources = read_sources(SOURCE_LIST)
-    typer.echo(f"Found {len(sources)} sources in {SOURCE_LIST}")
+    source_list = extract_mfa_archive() / "mrmfa_sources.csv"
+    sources = read_sources(source_list)
+    typer.echo(f"Found {len(sources)} sources in {source_list}")
     copy_sources_and_mappings(remote_host, remote_dir, sources, dry_run)
 
 
@@ -432,12 +467,21 @@ def copy_mrindustry_sources(
     """
     if source_list is None:
         typer.echo(f"Downloading the mrindustry source list from {MRINDUSTRY_SOURCE_LIST_URL}")
-        sources = parse_sources(
+        listed_sources = parse_sources(
             fetch_text(MRINDUSTRY_SOURCE_LIST_URL).splitlines(), MRINDUSTRY_SOURCE_LIST_URL
         )
     else:
-        sources = read_sources(source_list)
-    typer.echo(f"Found {len(sources)} sources used by mrindustry")
+        listed_sources = read_sources(source_list)
+    typer.echo(f"Found {len(listed_sources)} sources used by mrindustry")
+    sources = [source for source in listed_sources if source not in MRINDUSTRY_EXCLUDED_SOURCES]
+    excluded_sources = [
+        source for source in listed_sources if source in MRINDUSTRY_EXCLUDED_SOURCES
+    ]
+    if excluded_sources:
+        typer.echo(
+            f"Skipping {len(excluded_sources)} sources that mrindustry does not read: "
+            f"{', '.join(excluded_sources)}"
+        )
     copy_sources_and_mappings(remote_host, remote_dir, sources, dry_run)
 
 
