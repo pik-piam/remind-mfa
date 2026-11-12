@@ -114,7 +114,8 @@ class SteelMFASystemHistorical(CommonMFASystem):
         assert self.trade_set is not None, "The historical steel system needs a trade set."
 
         forming_scrap = (
-            flw["forming => sysenv"] - flw["sysenv => forming"] * prm["forming_loss_rate"][historical]
+            flw["forming => sysenv"]
+            - flw["sysenv => forming"] * prm["forming_loss_rate"][historical]
         )
         manufacturing_scrap = flw["manufacturing => sysenv"] * (
             1 - prm["manufacturing_losses"][historical]
