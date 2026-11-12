@@ -10,6 +10,8 @@
         scenario = "SSP2"
         stock_extrapolation_class_name = "LogisticExtrapolation"
         lifetime_model_name = "LogNormalLifetime"
+        # start_historical = 1900
+        # end_historical = 2020
         end_future = 2100
 
     [base.visualization]
