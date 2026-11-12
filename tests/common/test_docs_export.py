@@ -5,7 +5,7 @@ from remind_mfa.common.common_definition import (
     PlainDataPointDefinition,
     RemindMFAParameterDefinition,
 )
-from remind_mfa.common.docs_export_helpers import (
+from remind_mfa.common.docs_export import (
     GENERATED_SECTION_MARKER,
     scenario_parameters_markdown,
     update_generated_sections,
