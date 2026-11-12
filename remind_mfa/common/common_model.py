@@ -59,6 +59,7 @@ class CommonModel[CfgT: CommonCfg]:
         logging.info("Running historical MFA system...")
         self.historical_mfa = self.make_mfa(historical=True)
         self.historical_mfa.compute()
+        self.historical_mfa.clear_recomputable_caches()
 
         logging.info("Extrapolating parameters...")
         self.transfer_historical_parameters()
@@ -76,6 +77,7 @@ class CommonModel[CfgT: CommonCfg]:
         logging.info("Running future MFA system...")
         self.future_mfa = self.make_mfa(historical=False)
         self.future_mfa.compute(stock_projection, historical_trade)
+        self.future_mfa.clear_recomputable_caches()
 
     @property
     def name(self) -> str:
