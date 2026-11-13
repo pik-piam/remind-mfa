@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import flodym as fd
@@ -35,10 +35,38 @@ class SteelModel(CommonModel[SteelCfg]):
 
         return SteelVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
+    historical_max_scrap_share: ClassVar[float] = 0.7
+    """Maximum share of scrap in the metallic input to steel production in historical years."""
+
+    def run(self):
+        super().run()
+        assert isinstance(self.future_mfa, SteelMFASystem)
+        self.future_mfa.check_historical_scrap_input(self.historical_max_scrap_share)
+
+    def transfer_historical_parameters(self):
+        """Set the historical values of ``max_scrap_share`` to the scrap share of the historical
+        MFA system (see `SteelMFASystemHistorical.scrap_share`).
+
+        The scenario extrapolation blends from them to the scenario target.
+        """
+        add_assumption_doc(
+            type="expert guess",
+            name="historical maximum scrap share",
+            value=str(self.historical_max_scrap_share),
+            description=(
+                "Maximum share of scrap in the metallic input to steel production in historical "
+                "years. Available scrap beyond it becomes excess scrap. The resulting scrap share "
+                "is the starting point of the scenario parameter max_scrap_share, and this value "
+                "where a region has no steel production."
+            ),
+        )
+        assert isinstance(self.historical_mfa, SteelMFASystemHistorical)
+        self.parameters["max_scrap_share"] = self.historical_mfa.scrap_share(
+            self.historical_max_scrap_share
+        )
+
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
-
-        self.parameters["max_scrap_share"] = self.scenario_parameters["max_scrap_share"]
 
         lifetime_calibration_factor = blend(
             target_dims=self.dims["t",],

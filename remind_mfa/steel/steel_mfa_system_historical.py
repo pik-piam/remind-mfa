@@ -78,7 +78,64 @@ class SteelMFASystemHistorical(CommonMFASystem):
         stk["use"].compute()  # gives stocks and outflows corresponding to inflow
 
         flw["use => sysenv"][...] = stk["use"].outflow
-        aux["recovered_scrap"] = flw["use => sysenv"] * (1 - prm["hibernation_share"]) * prm["recovery_rate"][{"t": self.dims["h"]}]
+        aux["recovered_scrap"] = self.recovered_scrap()
         trd["scrap"].exports[...] = trd["scrap"].exports.minimum(aux["recovered_scrap"])
         trd["scrap"].balance(to="minimum")
         # fmt: on
+
+    def recovered_scrap(self) -> fd.FlodymArray:
+        """End-of-life scrap after hibernation and recovery, before trade."""
+        prm = self.parameters
+        return (
+            self.flows["use => sysenv"]
+            * (1 - prm["hibernation_share"])
+            * prm["recovery_rate"][{"t": self.dims["h"]}]
+        )
+
+    def scrap_share(self, max_share: float) -> fd.Parameter:
+        """Share of scrap in the metallic input to steel production, per historical year and
+        region.
+
+        This system has no scrap flows, so the scrap input is computed as the future system
+        computes it: the available scrap (recovered end-of-life
+        scrap, scrap net imports, and new scrap from forming and manufacturing), up to
+        ``max_share`` of the metallic input of both production routes. Where a region has no
+        steel production in a year, the share is ``max_share``.
+
+        Args:
+            max_share (float): Maximum share of scrap in the metallic input.
+
+        Returns:
+            fd.Parameter: Scrap share over historical time and region.
+        """
+        prm = self.parameters
+        flw = self.flows
+        historical = {"t": self.dims["h"]}
+        assert self.trade_set is not None, "The historical steel system needs a trade set."
+
+        forming_scrap = (
+            flw["forming => sysenv"]
+            - flw["sysenv => forming"] * prm["forming_loss_rate"][historical]
+        )
+        manufacturing_scrap = flw["manufacturing => sysenv"] * (
+            1 - prm["manufacturing_losses"][historical]
+        )
+        available_scrap = (
+            self.recovered_scrap().sum_over(("u",))
+            + self.trade_set["scrap"].net_imports
+            + forming_scrap
+            + manufacturing_scrap
+        )
+        metallic_input = flw["sysenv => forming"] / (1 - prm["steel_production_loss_rate"])
+        scrap_input = available_scrap.minimum(metallic_input * max_share)
+
+        dims = self.dims["h", "r"]
+        share = fd.Parameter(dims=dims, name="max_scrap_share")
+        share[...] = max_share
+        np.divide(
+            scrap_input.cast_values_to(dims),
+            metallic_input.cast_values_to(dims),
+            out=share.values,
+            where=metallic_input.cast_values_to(dims) > 0,
+        )
+        return share

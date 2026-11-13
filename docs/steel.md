@@ -17,6 +17,10 @@ We read historical scrap use from literature data, but our model also predicts s
 We use the literature data on scrap use to manually calibrate the parameters of the model, such that out model aligns with the dataset in historical years.
 Since we only have reliable scrap use data for some world regions, we perform this calibration on a global scale, and for some selected regions individually.
 
+### Maximum scrap share
+Steel production can only take a limited share of scrap in its metallic input. Available scrap beyond it becomes excess scrap.
+From the scrap share in production of the last historical year, the maximum scrap share blends linearly to the scenario target, which it reaches in the target year and keeps afterwards: by default 0.7 in 2050.
+
 ### Scrap trade
 Future scrap trade is extrapolated from historical trade patterns like the other trades.
 Since steel production can only take a limited share of scrap as input, a region's future scrap net imports are capped at the amount of scrap it can still use in addition to its domestic scrap.

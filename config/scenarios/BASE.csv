@@ -13,7 +13,7 @@ reuse_share,all,0.0,"{year: 2100, type: target}",,Share of the (non-hibernating)
 saturation_level,steel,10,,,
 n_trend_years,steel,2,,"{Region: CHA}",
 flow_approaching_time,steel,30,,"{Region: CHA}",
-max_scrap_share,steel,0.7,,,Maximum share of scrap in the metallic input to steel production
+max_scrap_share,steel,0.7,"{year: 2050, type: target}",,Maximum share of scrap in the metallic input to steel production
 
 # --- Plastics ---
 saturation_level,plastics,2,,,Corresponds to about 217 kg/capita/yr steady-state consumption at the global end-use split and lifetimes
