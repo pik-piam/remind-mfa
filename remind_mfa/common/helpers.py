@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from remind_mfa.common.common_model import CommonModel
 
-_SERIES_EXPORT_PATH = None
+_BATCH_EXPORT_PATH = None
 
 DOCS_PATH = Path(__file__).parents[2] / "docs"
 
@@ -24,12 +24,12 @@ def export_dir_prefix(prescribed_prefix: str | None = None) -> str:
     return prescribed_prefix if prescribed_prefix is not None else _timestamp_prefix()
 
 
-def series_export_path(base_path: str, prefix: str | None = None) -> str:
-    """Return the series prefix, creating it once and reusing it across model runs."""
-    global _SERIES_EXPORT_PATH
-    if _SERIES_EXPORT_PATH is None:
-        _SERIES_EXPORT_PATH = Path(base_path) / (export_dir_prefix(prefix) + "_series")
-    return _SERIES_EXPORT_PATH
+def batch_export_path(base_path: str, prefix: str | None = None) -> str:
+    """Return the batch export folder, creating its name once and reusing it across model runs."""
+    global _BATCH_EXPORT_PATH
+    if _BATCH_EXPORT_PATH is None:
+        _BATCH_EXPORT_PATH = Path(base_path) / (export_dir_prefix(prefix) + "_batch")
+    return _BATCH_EXPORT_PATH
 
 
 class ModelNames(str, Enum):
