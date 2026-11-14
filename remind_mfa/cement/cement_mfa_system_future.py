@@ -153,7 +153,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["imports => cement_market"][...] = trd["cement"].imports
 
         # cement production
-        flw["cement_production => cement_market"][...] = (
+        flw["cement_production => cement_market"][...] = self._remove_negative_round_off(
             flw["cement_market => construction"] + trd["cement"].net_exports
         )
         flw["clinker_market => cement_production"][...] = (
@@ -179,7 +179,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["clinker_market => exports"][...] = trd["clinker"].exports
 
         # clinker production
-        flw["clinker_production => clinker_market"][...] = (
+        flw["clinker_production => clinker_market"][...] = self._remove_negative_round_off(
             flw["clinker_market => cement_production"] + trd["clinker"].net_exports
         )
         # net cement kiln dust generation

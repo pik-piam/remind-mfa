@@ -100,7 +100,7 @@ class SteelMFASystem(CommonMFASystem):
         flw["imports => manufactured_products_market"][...] = trd["manufactured_products"].imports
         flw["manufactured_products_market => exports"][...] = trd["manufactured_products"].exports
 
-        flw["manufacturing => manufactured_products_market"][...] = flw["manufactured_products_market => use"][...] - trd["manufactured_products"].net_imports
+        flw["manufacturing => manufactured_products_market"][...] = self._remove_negative_round_off(flw["manufactured_products_market => use"] - trd["manufactured_products"].net_imports)
 
         flw["steel_market => manufacturing"][...] = flw["manufacturing => manufactured_products_market"] / prm["aggregate_manufacturing_yield"]
         flw["manufacturing => scrap_pool"][...] = (flw["steel_market => manufacturing"][...] - flw["manufacturing => manufactured_products_market"]) * (1. - prm["manufacturing_losses"])
@@ -117,7 +117,7 @@ class SteelMFASystem(CommonMFASystem):
         flw["imports => steel_market"][...] = trd["steel"].imports
         flw["steel_market => exports"][...] = trd["steel"].exports
 
-        flw["forming => steel_market"][...] = flw["steel_market => manufacturing"] - trd["steel"].net_imports
+        flw["forming => steel_market"][...] = self._remove_negative_round_off(flw["steel_market => manufacturing"] - trd["steel"].net_imports)
         aux["steel_production"][...] = flw["forming => steel_market"] / prm["forming_yield"]
         flw["forming => losses"][...] = aux["steel_production"] * prm["forming_loss_rate"]
         flw["forming => scrap_pool"][...] = aux["steel_production"] - flw["forming => steel_market"] - flw["forming => losses"]
@@ -153,7 +153,7 @@ class SteelMFASystem(CommonMFASystem):
         flw["imports => scrap_market"][...] = trd["scrap"].imports
         flw["scrap_market => exports"][...] = trd["scrap"].exports
 
-        flw["scrap_market => scrap_pool"][...] = flw["eol_management => scrap_market"] + trd["scrap"].net_imports
+        flw["scrap_market => scrap_pool"][...] = self._remove_negative_round_off(flw["eol_management => scrap_market"] + trd["scrap"].net_imports)
 
         # PRODUCTION
 

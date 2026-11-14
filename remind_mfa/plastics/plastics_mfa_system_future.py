@@ -66,7 +66,6 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             "total_waste_collected": self.get_new_array(dim_letters=("t", "e", "r", "p")),
             "not_reused": self.get_new_array(dim_letters=("t", "e", "r", "p", "u")),
             "reclmech_loss": self.get_new_array(dim_letters=("t", "e", "r", "p")),
-            "hvc_input_clipped": self.get_new_array(dim_letters=("t", "e", "r")),
             "hvc_c_content": self.get_new_array(dim_letters=("t", "e", "r")),
             "hvc_ratio_nonc_to_c": self.get_new_array(dim_letters=("t", "r")),
         }
@@ -105,7 +104,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
 
         flw["sorting => landfill"][...] = aux["total_waste_collected"] * prm["landfill_rate"]
 
-        flw["sorting => incineration"][...] = (
+        flw["sorting => incineration"][...] = self._remove_negative_round_off(
             aux["total_waste_collected"]
             - flw["sorting => reclmech"]
             - flw["sorting => reclchem"]
@@ -135,7 +134,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["imports => manufactured_products_market"][...] = (
             trd["manufactured_products"].imports * self.parameters["carbon_content_polymers"]
         )
-        flw["manufacturing => manufactured_products_market"][...] = flw["manufactured_products_market => use"] - flw["imports => manufactured_products_market"] + flw["manufactured_products_market => exports"]
+        flw["manufacturing => manufactured_products_market"][...] = self._remove_negative_round_off(flw["manufactured_products_market => use"] - flw["imports => manufactured_products_market"] + flw["manufactured_products_market => exports"])
 
         # a polymer's net imports above its manufacturing demand would make its primary production
         # negative; reassign that excess to the other polymers of the same polymer type (headroom),
@@ -170,7 +169,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         # exceeds it, the surplus is redistributed to regions that still make virgin plastic
         # instead of forcing local virgin production negative (which happens for net-importer /
         # high-recycling countries, especially at fine spatial resolution).
-        dom_supply = (
+        dom_supply = self._remove_negative_round_off(
             flw["primary_market => manufacturing"]
             - flw["imports => primary_market"]
             + flw["primary_market => exports"]
@@ -181,7 +180,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             demand=dom_supply,
         )
         flw["aux_recyclate_market => primary_market"][...] = flw["reclmech => aux_recyclate_market"] - trd["aux_recyclate"].exports + trd["aux_recyclate"].imports
-        flw["polymerization => primary_market"][...] = (
+        flw["polymerization => primary_market"][...] = self._remove_negative_round_off(
             dom_supply - flw["aux_recyclate_market => primary_market"]
         )
 
@@ -195,10 +194,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         flw["losses => sysenv"][...] = flw["polymerization => losses"]
         # guard against 0/0 in region-years with no HVC input (e.g. countries that never
         # polymerize at iso resolution): the numerator is also 0 there, so the share is 0.
-        # The HVC input is clipped at 0 first: where recyclate covers (almost) all demand, it is only
-        # float noise of mixed sign, which would give element shares outside [0, 1].
-        aux["hvc_input_clipped"][...] = flw["hvc_production => polymerization"].maximum(0)
-        aux["hvc_c_content"][...] = aux["hvc_input_clipped"] / aux["hvc_input_clipped"].sum_to(("t", "r")).maximum(sys.float_info.epsilon)
+        aux["hvc_c_content"][...] = flw["hvc_production => polymerization"] / flw["hvc_production => polymerization"].sum_to(("t", "r")).maximum(sys.float_info.epsilon)
 
         # chemical recycling: chem-recycled HVC is redistributed between regions the same way as
         # mechanical recyclate, so a region's chemical recycling above its virgin HVC demand feeds
@@ -211,7 +207,7 @@ class PlasticsMFASystemFuture(CommonMFASystem):
             demand=flw["hvc_production => polymerization"],
         )
         flw["aux_recl_feedstock_market => hvc_production"][...] = flw["reclchem => aux_recl_feedstock_market"] - trd["aux_recl_feedstock"].exports + trd["aux_recl_feedstock"].imports
-        aux["total_primary_hvc"][...] = flw["hvc_production => polymerization"] - flw["aux_recl_feedstock_market => hvc_production"]
+        aux["total_primary_hvc"][...] = self._remove_negative_round_off(flw["hvc_production => polymerization"] - flw["aux_recl_feedstock_market => hvc_production"])
 
         # carbon cycles via bio daccu feedstocks
         flw["feeddaccu => hvc_production"][...] = aux["total_primary_hvc"] * prm["daccu_production_rate"]

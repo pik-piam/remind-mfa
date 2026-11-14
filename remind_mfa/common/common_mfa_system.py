@@ -124,6 +124,27 @@ class CommonMFASystem(fd.MFASystem):
         self.stocks["hibernating"].compute()
         return hibernation_inflow
 
+    def _remove_negative_round_off(self, residual: fd.FlodymArray) -> fd.FlodymArray:
+        """Set negative round-off errors of a residual flow to zero.
+
+        Some flows are the difference of other flows, e.g. domestic production is domestic demand
+        minus net imports. The model keeps them non-negative, e.g. by capping the net trade or by
+        redistributing surpluses between regions. Where they vanish, e.g. for countries without
+        production, floating-point cancellation leaves round-off errors of either sign instead of
+        an exact zero. Negative values within the tolerance of :meth:`check_flows` are set to
+        zero. Larger negative values are kept, so that :meth:`check_flows` reports them.
+
+        Args:
+            residual (fd.FlodymArray): Flow computed as a difference of other flows.
+
+        Returns:
+            fd.FlodymArray: Copy of the residual flow, without negative round-off errors.
+        """
+        tolerance = 100 * self._absolute_float_precision
+        result = residual.copy()
+        result.values[(result.values < 0) & (result.values >= -tolerance)] = 0.0
+        return result
+
     def fill_trade(self):
         """
         Fill trade from parameters named after the scheme [market_name]_imports and [market_name]_exports.
@@ -361,7 +382,9 @@ class CommonMFASystem(fd.MFASystem):
         manufacturing_domestic_excess_total = manufacturing_domestic_excess.sum_over(split_dims)
         # scale down such that the sum of the domestic manufacturing is reduced by the sum of the excess imports
         # i.e. domestic manufacturing for those categories where the target consumption exceeds imports
-        # is reduced by the factor that imports exceed the target consumption for the other categories
-        manufacturing_domestic = manufacturing_domestic_excess * (manufacturing_domestic_excess_total - imports_excess_total) / manufacturing_domestic_excess_total.maximum(sys.float_info.epsilon)
+        # is reduced by the factor that imports exceed the target consumption for the other categories.
+        # The total is the supply minus the positive net exports, which are capped at the supply.
+        manufacturing_domestic_total = self._remove_negative_round_off(manufacturing_domestic_excess_total - imports_excess_total)
+        manufacturing_domestic = manufacturing_domestic_excess * manufacturing_domestic_total / manufacturing_domestic_excess_total.maximum(sys.float_info.epsilon)
         # fmt: on
         return min_imports + manufacturing_domestic
