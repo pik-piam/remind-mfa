@@ -37,14 +37,14 @@ SOURCE_LIST = Path(__file__).resolve().parents[1] / "docs" / "mrmfa_sources.csv"
 
 
 def read_input_cfg(config_names: list[str]) -> InputCfg:
-    config = load_config(config_names)
+    base_config = load_config(config_names).get("base", {})
 
-    if "input" not in config:
+    if "input" not in base_config:
         raise ValueError(
-            f"Configuration {', '.join(config_names)} does not contain an 'input' section."
+            f"Configuration {', '.join(config_names)} does not contain a 'base.input' section."
         )
 
-    return InputCfg.model_validate(config["input"])
+    return InputCfg.model_validate(base_config["input"])
 
 
 def resolve_destination_path(input_cfg: InputCfg) -> Path:

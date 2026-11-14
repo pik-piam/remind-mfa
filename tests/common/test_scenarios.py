@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import flodym as fd
 import pytest
@@ -6,7 +7,11 @@ import pytest
 from remind_mfa.common.common_definition import RemindMFAParameterDefinition
 from remind_mfa.common.helpers import ModelNames
 from remind_mfa.common.region_aggregation import RegionAggregations
-from remind_mfa.common.scenarios import ScenarioReader
+from remind_mfa.common.scenarios import (
+    ScenarioReader,
+    list_runnable_scenarios,
+    read_scenario_inheritance,
+)
 
 # (iso249, eu21, h12) rows of the region mapping test files
 REGION_MAPPING = [
@@ -138,3 +143,24 @@ def test_scenario_reader_skips_inactive_parameters(tmp_path):
 
     with pytest.raises(ValueError, match="undefined scenario parameter 'module_share'"):
         make_reader(set()).get_parameters()
+
+
+def test_inheritance_is_read_in_file_order(scenarios_path: Path):
+    inheritance = read_scenario_inheritance(scenarios_path)
+
+    assert list(inheritance.items()) == [
+        ("ROOT", None),
+        ("B", "ROOT"),
+        ("A", "ROOT"),
+        ("A_CHILD", "A"),
+    ]
+    assert inheritance.get("UNLISTED") is None
+
+
+def test_runnable_scenarios_exclude_roots_and_keep_file_order(scenarios_path: Path):
+    assert list_runnable_scenarios(scenarios_path) == ["B", "A", "A_CHILD"]
+
+
+def test_missing_inheritance_file_is_rejected(tmp_path: Path):
+    with pytest.raises(FileNotFoundError, match="inheritance.csv"):
+        list_runnable_scenarios(tmp_path)

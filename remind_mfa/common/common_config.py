@@ -5,7 +5,7 @@ from typing import Literal
 
 import flodym as fd
 import pandas as pd
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from remind_mfa.common.data_extrapolations import Extrapolation
 from remind_mfa.common.helpers import ModelNames, RemindMFABaseModel
@@ -57,8 +57,9 @@ class TimeHorizon:
 
 class ModelSwitches(RemindMFABaseModel):
 
-    scenario: str
-    """Name of the scenario to use."""
+    scenarios: list[str] = Field(min_length=1)
+    """Scenarios to run one after another, each in its own model run. `all` selects every scenario
+    that has a parent in `inheritance.csv`."""
     stock_extrapolation_class_name: str
     """Class name of the extrapolation subclass to use for stock extrapolation."""
     lifetime_model_name: str
@@ -85,6 +86,16 @@ class ModelSwitches(RemindMFABaseModel):
             end_historical=self.end_historical,
             end_future=self.end_future,
         )
+
+    @property
+    def scenario(self) -> str:
+        """Scenario of this model run, which requires exactly one selected scenario."""
+        if len(self.scenarios) != 1:
+            raise ValueError(
+                f"A model run needs exactly one scenario, but {self.scenarios} are selected. "
+                "Run several scenarios with the remind_mfa command."
+            )
+        return self.scenarios[0]
 
     @property
     def lifetime_model(self) -> type[fd.LifetimeModel]:

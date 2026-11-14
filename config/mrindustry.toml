@@ -2,11 +2,16 @@
     [base.input]
         region_mapping = "iso249"
 
+    [base.model_switches]
+        scenarios = ["SSP1", "SSP2", "SSP3", "SSP4", "SSP5"]
+
     [base.visualization]
         do_visualize = false
 
     [base.export]
         do_export = true
+        bundle_export = true
+        prefix = "mrindustry"
         mrindustry.do_export = true
         pickle.do_export = true
 

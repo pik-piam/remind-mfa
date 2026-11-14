@@ -26,15 +26,20 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
-def _validate_config(config: dict, path: Path) -> None:
-    """Validate the basic structure of a configuration dictionary."""
+def _validate_config(config: dict, source: str | Path) -> None:
+    """Validate the basic structure of a configuration dictionary.
+
+    Args:
+        config: Configuration layer to validate.
+        source: Where the layer comes from (file path or a label), used in error messages.
+    """
     unknown_sections = set(config) - CONFIG_SECTIONS
     if unknown_sections:
         unknown = ", ".join(sorted(unknown_sections))
-        raise ValueError(f"Unknown top-level configuration table(s) in {path}: {unknown}.")
+        raise ValueError(f"Unknown top-level configuration table(s) in {source}: {unknown}.")
     for root, value in config.items():
         if not isinstance(value, dict):
-            raise ValueError(f"Top-level configuration key {root!r} in {path} must be a table.")
+            raise ValueError(f"Top-level configuration key {root!r} in {source} must be a table.")
 
 
 def _resolve_paths(config: dict, root_dir: Path) -> None:
@@ -84,30 +89,55 @@ def _load_config_file(name: str | Path, config_dir: Path = CONFIG_DIR) -> dict:
     return data
 
 
+def merge_config(
+    tables: dict,
+    model: ModelNames,
+    root_dir: Path | None = None,
+    overrides: dict | None = None,
+) -> dict:
+    """Fold the table of one model onto the base table and return its validated configuration.
+
+    Relative paths in the configuration are resolved against `root_dir` (default: current working directory).
+
+    Args:
+        tables: Configuration in file layout (`base` and model tables), as returned by
+            `load_config` without a model.
+        model: Model whose table is merged over the base table.
+        root_dir: Directory against which relative paths are resolved.
+        overrides: In-memory layer in the same layout as a configuration file (e.g.
+            `{"steel": {"model_switches": {"scenarios": ["SSP1"]}}}`), applied on top of `tables`.
+    """
+    if overrides is not None:
+        _validate_config(overrides, "configuration overrides")
+        tables = _deep_merge(tables, overrides)
+    config = _deep_merge(tables.get("base", {}), tables.get(model.value, {}))
+    _resolve_paths(config, root_dir if root_dir is not None else Path.cwd())
+    config["model"] = model.value
+    get_model_class(model).ConfigCls.model_validate(config)
+    return config
+
+
 def load_config(
     config_names: list[str | Path],
     model: ModelNames | None = None,
     config_dir: Path = CONFIG_DIR,
     root_dir: Path | None = None,
 ) -> dict:
-    """Load and merge the specified configuration, and return the resulting, validated model configuration.
+    """Load and merge the specified configuration files, later files overriding earlier ones.
 
-    Relative paths in the configuration are resolved against `root_dir` (default: current working directory).
+    Without a model, the merged tables are returned in the layout of the files (`base` and model
+    tables, paths as written). With a model, its validated configuration is folded from them with
+    `merge_config`, which can also fold the tables for further models without reading the files again.
+
+    Args:
+        config_names: Configuration layers to stack, as names in `config_dir` or file paths.
+        model: Model whose table is merged over the base table.
+        config_dir: Folder in which configuration names are looked up.
+        root_dir: Directory against which relative paths are resolved when folding for a model.
     """
-    layers = [_load_config_file(name, config_dir) for name in config_names]
-
-    # Merge the base and model-specific configurations from all layers
-    base_config: dict = {}
-    model_config: dict = {}
-    for layer in layers:
-        base_config = _deep_merge(base_config, layer.get("base", {}))
-        if model is not None:
-            model_config = _deep_merge(model_config, layer.get(model.value, {}))
-
-    # Merge the model-specific configuration into the base configuration
-    config = _deep_merge(base_config, model_config)
-    _resolve_paths(config, root_dir if root_dir is not None else Path.cwd())
-    if model is not None:
-        config["model"] = model.value
-        get_model_class(model).ConfigCls.model_validate(config)
-    return config
+    tables: dict = {}
+    for name in config_names:
+        tables = _deep_merge(tables, _load_config_file(name, config_dir))
+    if model is None:
+        return tables
+    return merge_config(tables, model, root_dir)
