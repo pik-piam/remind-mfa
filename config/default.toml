@@ -2,7 +2,7 @@
     [base.input]
         force_extract_tgz = false
         input_data_path = "data_in"
-        input_data_revision = "2.9.2"
+        input_data_revision = "2.11.0"
         region_mapping = "h12"
         scenarios_path = "config/scenarios"
 
@@ -10,6 +10,8 @@
         scenario = "SSP2"
         stock_extrapolation_class_name = "LogisticExtrapolation"
         lifetime_model_name = "LogNormalLifetime"
+        # start_historical = 1900
+        # end_historical = 2020
         end_future = 2100
 
     [base.visualization]
@@ -49,10 +51,6 @@
         docs.apply_mappings = true
 
 [plastics]
-    [plastics.model_switches]
-        start_historical = 1950
-        end_historical = 2024
-
     [plastics.visualization]
         sankey.plotter_args.slice_dict = { "t" = 2050, "e" = "C" }
         polymer_splits.do_visualize = false
@@ -60,17 +58,11 @@
         scenario_params.do_visualize = false
 
 [steel]
-    [steel.model_switches]
-        start_historical = 1900
-        end_historical = 2022
-
     [steel.visualization]
         scrap_demand_supply.do_visualize = false
 
 [cement]
     [cement.model_switches]
-        start_historical = 1880
-        end_historical = 2025
         carbonation = false
         parameter_reconciliation = false
 

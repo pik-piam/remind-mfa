@@ -1,4 +1,4 @@
-"""Tests for the time horizon configured by `model_switches`, on synthetic input data."""
+"""Tests for the time horizon, given by the input data and shortened by `model_switches`."""
 
 import tarfile
 from pathlib import Path
@@ -45,10 +45,19 @@ def cs4r(header: str, years: range) -> str:
     return f"* description: synthetic\n* note: dimensions: ({header},value)\n" + "\n".join(rows)
 
 
-def write_archive(madrat_output: Path, end_future: int) -> None:
-    """Write a minimal input archive, as built by mrmfa `fullMFA(end_future = end_future)`."""
+def write_archive(madrat_output: Path, end_future: int, with_time_range: bool = True) -> None:
+    """Write a minimal input archive, as built by mrmfa `fullMFA(end_future = end_future)`.
+
+    Without time range file, it is an archive of an mrmfa version that did not write it yet.
+    """
     content = madrat_output / f"content_{end_future}"
     content.mkdir(parents=True)
+    if with_time_range:
+        (content / "st_time_range.cs4r").write_text(
+            "* description: synthetic\n* unit: year\n* note: dimensions: (scalar,value)\n"
+            f"start_historical,{ARCHIVE_START}\nend_historical,{ARCHIVE_END_HISTORICAL}\n"
+            f"end_future,{end_future}\n"
+        )
     (content / "regionmapping.csv").write_text(
         "X;CountryCode;RegionCode\nGermany;DEU;EUR\nUnited States;USA;USA\n"
     )
@@ -65,13 +74,14 @@ def write_archive(madrat_output: Path, end_future: int) -> None:
 def make_data_reader(
     tmp_path: Path,
     archive_end: int,
-    end_future: int,
-    start_historical: int = ARCHIVE_START,
-    end_historical: int = ARCHIVE_END_HISTORICAL,
+    end_future: int | None,
+    start_historical: int | None = None,
+    end_historical: int | None = None,
+    with_time_range: bool = True,
 ) -> CommonDataReader:
-    """Data reader of a steel model with the given time horizon on a synthetic input archive."""
+    """Data reader of a steel model with the given time switches on a synthetic input archive."""
     madrat_output = tmp_path / "madrat_output"
-    write_archive(madrat_output, archive_end)
+    write_archive(madrat_output, archive_end, with_time_range)
 
     config = load_config([CONFIG_DIR / "default.toml"], ModelNames.STEEL)
     config["input"] |= {
@@ -107,8 +117,44 @@ def test_inputs_are_read_until_the_configured_end_future(
     np.testing.assert_allclose(population[{"r": "EUR"}].values, 1000.0 * np.array(dims["t"].items))
 
 
+def test_time_horizon_defaults_to_the_one_of_the_input_data(tmp_path: Path):
+    dims, _ = read(make_data_reader(tmp_path, archive_end=2150, end_future=None))
+
+    assert dims["h"].items == list(range(ARCHIVE_START, ARCHIVE_END_HISTORICAL + 1))
+    assert dims["t"].items == list(range(ARCHIVE_START, 2151))
+
+
+@pytest.mark.parametrize(
+    ("switch", "year", "expected_error"),
+    [
+        ("start_historical", 1990, "start_historical = 1990 is before 2000"),
+        ("end_historical", 2030, "end_historical = 2030 is after 2022"),
+        ("end_future", 2200, "end_future = 2200 is after 2150"),
+    ],
+)
+def test_switches_extending_the_time_horizon_of_the_input_data_are_rejected(
+    tmp_path: Path, switch: str, year: int, expected_error: str
+):
+    switches: dict[str, int | None] = {"end_future": None} | {switch: year}
+
+    with pytest.raises(InputHorizonError, match=expected_error):
+        make_data_reader(tmp_path, archive_end=2150, **switches)
+
+
+def test_input_without_time_range_needs_all_time_switches(tmp_path: Path):
+    with pytest.raises(InputHorizonError, match="start_historical, end_historical must be set"):
+        make_data_reader(tmp_path, archive_end=2100, end_future=2100, with_time_range=False)
+
+
 def test_input_ending_before_end_future_fails_before_any_computation(tmp_path: Path):
-    reader = make_data_reader(tmp_path, archive_end=2100, end_future=2150)
+    reader = make_data_reader(
+        tmp_path,
+        archive_end=2100,
+        end_future=2150,
+        start_historical=ARCHIVE_START,
+        end_historical=ARCHIVE_END_HISTORICAL,
+        with_time_range=False,
+    )
 
     with pytest.raises(InputHorizonError) as error:
         read(reader)
@@ -134,7 +180,14 @@ def test_historical_period_can_be_shorter_than_the_input_data(tmp_path: Path):
 
 
 def test_historical_period_ending_after_the_input_data_fails(tmp_path: Path):
-    reader = make_data_reader(tmp_path, archive_end=2100, end_future=2100, end_historical=2030)
+    reader = make_data_reader(
+        tmp_path,
+        archive_end=2100,
+        end_future=2100,
+        start_historical=ARCHIVE_START,
+        end_historical=2030,
+        with_time_range=False,
+    )
 
     with pytest.raises(InputHorizonError) as error:
         read(reader)
@@ -145,7 +198,14 @@ def test_historical_period_ending_after_the_input_data_fails(tmp_path: Path):
 
 
 def test_historical_period_starting_before_the_input_data_fails(tmp_path: Path):
-    reader = make_data_reader(tmp_path, archive_end=2100, end_future=2100, start_historical=1990)
+    reader = make_data_reader(
+        tmp_path,
+        archive_end=2100,
+        end_future=2100,
+        start_historical=1990,
+        end_historical=ARCHIVE_END_HISTORICAL,
+        with_time_range=False,
+    )
 
     with pytest.raises(InputHorizonError) as error:
         read(reader)
@@ -155,37 +215,38 @@ def test_historical_period_starting_before_the_input_data_fails(tmp_path: Path):
     assert "no input parameter has data before 2000" in message
 
 
-@pytest.mark.parametrize(
-    ("model", "start_historical", "end_historical"),
-    [
-        (ModelNames.STEEL, 1900, 2022),
-        (ModelNames.CEMENT, 1880, 2025),
-        (ModelNames.PLASTICS, 1950, 2024),
-    ],
-)
+@pytest.mark.parametrize("model", list(ModelNames))
 @pytest.mark.parametrize(
     ("configs", "end_future"), [(["default"], 2100), (["default", "mrindustry"], 2150)]
 )
-def test_time_horizon_of_shipped_configs(
-    model: ModelNames,
-    start_historical: int,
-    end_historical: int,
-    configs: list[str],
-    end_future: int,
-):
+def test_time_horizon_of_shipped_configs(model: ModelNames, configs: list[str], end_future: int):
     config = load_config(configs, model)
+    input_horizon = TimeHorizon(start_historical=1900, end_historical=2022, end_future=2150)
 
-    time_horizon = get_model_class(model).ConfigCls(**config).model_switches.time_horizon
+    model_switches = get_model_class(model).ConfigCls(**config).model_switches
+    time_horizon = model_switches.resolve_time_horizon(input_horizon)
 
-    assert time_horizon == TimeHorizon(start_historical, end_historical, end_future)
+    assert time_horizon == TimeHorizon(1900, 2022, end_future)
 
 
-def test_config_with_end_future_within_the_historical_period_is_rejected():
+@pytest.mark.parametrize(
+    ("start_historical", "end_historical", "end_future"),
+    [(1900, 2022, 2020), (None, 2022, 2022), (2100, None, 2100), (2030, 2022, None)],
+)
+def test_unordered_time_switches_are_rejected(
+    start_historical: int | None, end_historical: int | None, end_future: int | None
+):
     config = load_config(["default"], ModelNames.STEEL)
-    config["model_switches"]["end_future"] = 2020
+    config["model_switches"] |= {
+        "start_historical": start_historical,
+        "end_historical": end_historical,
+        "end_future": end_future,
+    }
+    model_switches = get_model_class(ModelNames.STEEL).ConfigCls(**config).model_switches
+    input_horizon = TimeHorizon(start_historical=1900, end_historical=2022, end_future=2150)
 
     with pytest.raises(ValueError, match="start_historical < end_historical < end_future"):
-        get_model_class(ModelNames.STEEL).ConfigCls(**config)
+        model_switches.resolve_time_horizon(input_horizon)
 
 
 @pytest.mark.parametrize(
