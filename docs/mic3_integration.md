@@ -114,6 +114,12 @@ A few more details on the coupling:
     `* note: dimensions: (Time,Region,value)` for steel and
     `* note: dimensions: (Time,Region,Polymer,value)` for plastics.
 
+    ATLAS trades primary plastics as a single good, so it only gives the total imports and exports
+    of each region. These are split into polymers with the polymer shares of the region in the
+    latest historic year, and then adjusted by a RAS (iterative proportional fitting): the region
+    totals of ATLAS are kept, and global imports and exports of each polymer are made equal. The
+    notebook `notebooks/plastics_trade_ras.py` shows the trade before and after this adjustment.
+
 3. `uv run remind-mfa --config default --config atlas_run2 --model steel` reads those files
    instead of extrapolating trade (`trade.source = "data"`). Historic years still use the trade of
    the historic MFA, so only future years come from ATLAS. Global imports and exports of the data
