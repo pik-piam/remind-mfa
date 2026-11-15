@@ -10,6 +10,7 @@ from remind_mfa.atlas_coupling import (
     aggregate_bilateral_trade,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
+    find_missing_pipeline_inputs,
     get_coupling_paths,
     get_model_spec,
     load_atlas_trade_projection,
@@ -77,6 +78,22 @@ def test_steel_coupling_paths_cover_atlas_scrap_inputs(tmp_path, monkeypatch):
         "steel/scrap_market__scrap_pool.csv",
     }
     assert {source.parent.name for source in paths.mfa_pipeline_mapping} == {"atlas"}
+
+
+def test_pipeline_inputs_of_steel_are_required_for_plastics(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS_MFA_INPUT_DIRECTORY", str(tmp_path))
+    config_names = ["default", "hpc", "atlas_run1"]
+    plastics_paths = get_coupling_paths(ModelNames.PLASTICS, config_names)
+    for target in plastics_paths.mfa_pipeline_mapping.values():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("Time,Region,value\n")
+
+    missing_inputs = find_missing_pipeline_inputs(config_names)
+
+    steel_paths = get_coupling_paths(ModelNames.STEEL, config_names)
+    assert missing_inputs == {
+        ModelNames.STEEL: list(steel_paths.mfa_pipeline_mapping.values()),
+    }
 
 
 def test_aggregate_bilateral_trade_excludes_domestic_flows():

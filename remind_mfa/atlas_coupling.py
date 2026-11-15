@@ -104,6 +104,12 @@ MATERIAL_SPECS = {
     ),
 }
 
+# The default target of the ATLAS data pipeline builds the input tables of all goods at once, so it
+# reads the MFA exports of every model with a pipeline mapping, whichever model is coupled.
+PIPELINE_INPUT_MODELS: tuple[ModelNames, ...] = tuple(
+    spec.model for spec in MATERIAL_SPECS.values()
+)
+
 
 @dataclass(frozen=True)
 class CouplingPaths:
@@ -184,6 +190,24 @@ def get_coupling_paths(
         region_dimension_path=input_data_path / "parameters" / "regionmapping.csv",
         time_dimension_path=dimensions_path / "time.csv",
     )
+
+
+def find_missing_pipeline_inputs(config_names: Sequence[str]) -> dict[ModelNames, list[Path]]:
+    """Find the MFA exports that the ATLAS data pipeline reads but that have not been copied yet.
+
+    Args:
+        config_names: Configuration layers of the first MFA run, used to resolve the paths.
+
+    Returns:
+        The missing pipeline input files per model. Models with all files present are left out.
+    """
+    missing_inputs: dict[ModelNames, list[Path]] = {}
+    for model in PIPELINE_INPUT_MODELS:
+        targets = get_coupling_paths(model, config_names).mfa_pipeline_mapping.values()
+        missing_targets = [target for target in targets if not target.is_file()]
+        if missing_targets:
+            missing_inputs[model] = missing_targets
+    return missing_inputs
 
 
 def _atomic_write_text(path: Path, content: str) -> None:

@@ -71,13 +71,19 @@ uv run atlas.py couple --model steel
 `couple` runs MFA with `default,atlas_run1`, copies demand to the data pipeline, runs the ATLAS data pipeline, calibration, validation, and the ATLAS future model, transfers the resulting trade, then runs MFA
 with `default,atlas_run2`.
 
+The ATLAS data pipeline builds the inputs of steel and plastics together, so it always needs the
+current MFA exports of both models. `couple` therefore runs the first MFA stage and copies the
+demand for both models, whichever model is coupled.
+
 Each stage can also be retried or run independently:
 
 ```bash
-# Run the first MFA stage
+# Run the first MFA stage, for both models
 uv run atlas.py run-mfa --model steel --stage one
-# Copy the generated demand trajectories to the ATLAS data pipeline
+uv run atlas.py run-mfa --model plastics --stage one
+# Copy the generated demand trajectories of both models to the ATLAS data pipeline
 uv run atlas.py copy-demands --model steel
+uv run atlas.py copy-demands --model plastics
 # Run the ATLAS data pipeline to generate trade flows
 uv run atlas.py preprocess
 uv run atlas.py calibrate
