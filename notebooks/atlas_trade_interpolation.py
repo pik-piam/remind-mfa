@@ -11,17 +11,18 @@ def _(mo):
 
     In the second MFA run of the ATLAS coupling (`config/atlas_run2.toml`), future trade of the
     primary market is read from the ATLAS output instead of being extrapolated. ATLAS projects in
-    5-year steps, so the MFA interpolates linearly in between, starting from the last historic year
+    5-year steps, so the MFA interpolates linearly in between, starting from the last historical year
     (`set_trade_from_data` in `remind_mfa/common/trade.py`).
 
     This notebook shows, per region:
 
-    - the **historic trade**, i.e. the historic trade parameter, balanced as in the historic MFA,
+    - the **historical trade**, i.e. the historical trade parameter, balanced as in the historical
+      MFA,
     - the **ATLAS projection**, as written by `atlas.py copy-trade`,
     - the **interpolated trade** that the MFA uses in the future, computed with the same function.
 
-    The future MFA may adjust the historic trade further before use (e.g. capping net imports at
-    the domestic demand), so its historic values can differ slightly.
+    The future MFA may adjust the historical trade further before use (e.g. capping net imports at
+    the domestic demand), so its historical values can differ slightly.
 
     Run `atlas.py future` and `atlas.py copy-trade` first. The input data folder is taken from the
     configuration; a different one can be passed with `-- --input-data-path <path>`.
@@ -108,32 +109,30 @@ def _(PROJECT_ROOT, Path, get_model_class, get_model_spec, load_config, mo, mode
     parameters_path = input_data_path / "parameters"
     dimensions_path = input_data_path / "dimensions" / model.value
 
-    # names of the historic trade parameters of the primary market, without prefix and flow
-    HISTORIC_MARKET = {"steel": "steel", "plastics": "primary_his"}
-
     def parameter_path(name: str, flow: str) -> Path:
         return parameters_path / f"{spec.parameter_prefix}_{name}_{flow}.cs4r"
 
-    historic_paths = {
-        flow: parameter_path(HISTORIC_MARKET[model.value], flow) for flow in ("imports", "exports")
+    # the historical trade parameters are named after the market
+    historical_paths = {
+        flow: parameter_path(spec.trade_market, flow) for flow in ("imports", "exports")
     }
     atlas_paths = {
         flow: parameter_path(f"trade_{spec.trade_market}", flow) for flow in ("imports", "exports")
     }
-    return atlas_paths, cfg, dimensions_path, historic_paths, model, spec
+    return atlas_paths, cfg, dimensions_path, historical_paths, model, spec
 
 
 @app.cell
-def _(MadratParameterReader, Path, atlas_paths, historic_paths, mo, pd):
+def _(MadratParameterReader, Path, atlas_paths, historical_paths, mo, pd):
     missing = [
-        path for path in [*historic_paths.values(), *atlas_paths.values()] if not path.exists()
+        path for path in [*historical_paths.values(), *atlas_paths.values()] if not path.exists()
     ]
     mo.stop(
         bool(missing),
         mo.md(
             "Missing input files:\n\n"
             + "\n".join(f"- `{path}`" for path in missing)
-            + "\n\nHistoric parameters are extracted by any MFA run, the ATLAS projection is "
+            + "\n\nHistorical parameters are extracted by any MFA run, the ATLAS projection is "
             "written by `uv run atlas.py copy-trade --model <model>`."
         ).callout(kind="warn"),
     )
@@ -143,38 +142,41 @@ def _(MadratParameterReader, Path, atlas_paths, historic_paths, mo, pd):
         header, skiprows = MadratParameterReader.extract_cs4r_info(path)
         return pd.read_csv(path, names=header, skiprows=skiprows)
 
-    historic_data = {flow: read_cs4r(path) for flow, path in historic_paths.items()}
+    historical_data = {flow: read_cs4r(path) for flow, path in historical_paths.items()}
     atlas_data = {flow: read_cs4r(path) for flow, path in atlas_paths.items()}
-    return atlas_data, historic_data
+    return atlas_data, historical_data
 
 
 @app.cell
-def _(dimensions_path, fd, historic_data):
+def _(dimensions_path, fd, historical_data):
     def read_years(filename: str) -> list[int]:
         return [int(year) for year in (dimensions_path / filename).read_text().split()]
 
     # dimension letters as in the MFA definitions
-    LETTERS = {"Region": "r", "Type": "p", "Material": "m"}
+    LETTERS = {"Region": "r", "Polymer Type": "P", "Polymer": "p"}
     category_dims = [
         fd.Dimension(
-            name=name, letter=letter, items=sorted(historic_data["imports"][name].unique())
+            name=name, letter=letter, items=sorted(historical_data["imports"][name].unique())
         )
         for name, letter in LETTERS.items()
-        if name in historic_data["imports"].columns
+        if name in historical_data["imports"].columns
     ]
-    historic_dims = fd.DimensionSet(
+    historical_dims = fd.DimensionSet(
         dim_list=[
-            fd.Dimension(name="Historic Time", letter="h", items=read_years("historic_years.csv")),
+            fd.Dimension(
+                name="Historical Time", letter="h", items=read_years("historical_time.csv")
+            ),
             *category_dims,
         ]
     )
+    # the future MFA does not resolve the polymer type
     future_dims = fd.DimensionSet(
         dim_list=[
-            fd.Dimension(name="Time", letter="t", items=read_years("time_in_years.csv")),
-            *category_dims,
+            fd.Dimension(name="Time", letter="t", items=read_years("time.csv")),
+            *[dim for dim in category_dims if dim.letter != "P"],
         ]
     )
-    return future_dims, historic_dims
+    return future_dims, historical_dims
 
 
 @app.cell
@@ -185,8 +187,8 @@ def _(
     cfg,
     fd,
     future_dims,
-    historic_data,
-    historic_dims,
+    historical_data,
+    historical_dims,
     set_trade_from_data,
     spec,
 ):
@@ -199,8 +201,11 @@ def _(
             }
         )
 
-    historic_trade = to_trade(historic_data, historic_dims)
-    historic_trade.balance(to="maximum")  # as in the historic MFA
+    historical_trade = to_trade(historical_data, historical_dims)
+    historical_trade.balance(to="maximum")  # as in the historical MFA
+    if "P" in historical_dims.letters:
+        # summed away as in the future MFA
+        historical_trade = historical_trade.sum_over("P")
     atlas_trade = to_trade(atlas_data, future_dims)
     future_trade = Trade(
         imports=fd.FlodymArray(dims=future_dims), exports=fd.FlodymArray(dims=future_dims)
@@ -209,15 +214,15 @@ def _(
         future_trade,
         atlas_trade.imports,
         atlas_trade.exports,
-        historic_trade,
+        historical_trade,
         balance_to=cfg.trade.balance if balance_switch.value else None,
         market_name=spec.trade_market,
     )
-    return future_trade, historic_trade
+    return future_trade, historical_trade
 
 
 @app.cell
-def _(atlas_data, fd, flow_picker, future_trade, historic_dims, historic_trade, pd):
+def _(atlas_data, fd, flow_picker, future_trade, historical_dims, historical_trade, pd):
     def by_region(array: fd.FlodymArray, time_letter: str) -> pd.DataFrame:
         """Values of the given array per year and region, in Mt."""
         df = array.sum_to((time_letter, "r")).to_df().reset_index()
@@ -225,8 +230,8 @@ def _(atlas_data, fd, flow_picker, future_trade, historic_dims, historic_trade, 
         return df.assign(value=df["value"] / 1e6)
 
     flow = flow_picker.value
-    last_historic_year = max(historic_dims["h"].items)
-    historic_series = by_region(getattr(historic_trade, flow), "h")
+    last_historical_year = max(historical_dims["h"].items)
+    historical_series = by_region(getattr(historical_trade, flow), "h")
     # only the years actually contained in the ATLAS output
     atlas_series = (
         atlas_data[flow]
@@ -236,19 +241,19 @@ def _(atlas_data, fd, flow_picker, future_trade, historic_dims, historic_trade, 
         .assign(value=lambda df: df["value"] / 1e6)
     )
     interpolated_series = by_region(getattr(future_trade, flow), "t").query(
-        "Year >= @last_historic_year"
+        "Year >= @last_historical_year"
     )
-    return atlas_series, flow, historic_series, interpolated_series, last_historic_year
+    return atlas_series, flow, historical_series, interpolated_series, last_historical_year
 
 
 @app.cell
-def _(atlas_series, flow, interpolated_series, last_historic_year, mo, model):
+def _(atlas_series, flow, interpolated_series, last_historical_year, mo, model):
     atlas_years = sorted(atlas_series["Year"].unique())
     interpolated_years = sorted(
-        set(interpolated_series["Year"]) - set(atlas_years) - {last_historic_year}
+        set(interpolated_series["Year"]) - set(atlas_years) - {last_historical_year}
     )
     mo.md(f"""
-    **{model.value}, {flow}:** historic data ends in {last_historic_year}. ATLAS covers the years
+    **{model.value}, {flow}:** historical data ends in {last_historical_year}. ATLAS covers the years
     {", ".join(map(str, atlas_years))}; the MFA interpolates the other
     {len(interpolated_years)} future years.
     """)
@@ -260,7 +265,7 @@ def _(
     atlas_series,
     flow,
     go,
-    historic_series,
+    historical_series,
     interpolated_series,
     make_subplots,
     model,
@@ -268,13 +273,13 @@ def _(
 ):
     # categorical slots 1-3 of the dataviz reference palette
     SERIES = {
-        "Historic": dict(data=historic_series, color="#2a78d6", mode="lines", dash="solid"),
+        "Historical": dict(data=historical_series, color="#2a78d6", mode="lines", dash="solid"),
         "Interpolated (MFA)": dict(
             data=interpolated_series, color="#1baf7a", mode="lines", dash="dash"
         ),
         "ATLAS": dict(data=atlas_series, color="#eb6834", mode="markers", dash=None),
     }
-    regions = sorted(historic_series["Region"].unique())
+    regions = sorted(historical_series["Region"].unique())
     n_columns = 4
     n_rows = -(-len(regions) // n_columns)
     figure = make_subplots(
