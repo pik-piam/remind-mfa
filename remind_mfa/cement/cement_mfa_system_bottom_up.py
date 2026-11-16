@@ -100,7 +100,7 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         prm = self.parameters
         stk = self.stocks
 
-        stock = prm["floorspace"]  # TODO remove once mrmfa is fixed
+        stock = self.calc_gross_floorspace(prm)
         stock[{"t": [y for y in stock.dims["t"].items if y < 2000]}] = (
             0  # TODO remove once mrmfa is fixed
         )
@@ -292,6 +292,14 @@ class StockDrivenBottomUpCementMFASystem(StockDrivenCementMFASystem):
         lifetime_model.lt_factor_by_year = lifetime_prms["lifetime_factor_nurture"]
         lifetime_model.lt_factor_by_cohort = lifetime_prms["lifetime_factor_cohort"]
         stock.compute()
+
+    @staticmethod
+    def calc_gross_floorspace(prm: dict[str, fd.FlodymArray]) -> fd.FlodymArray:
+        """Total gross floorspace (m2) by common end use (c) from the net floorspace per capita,
+        the population and the net-to-gross ratio."""
+        floorspace_pc = prm["floorspace_pc"]
+        floorspace = floorspace_pc * prm["population"] * prm["floorspace_net_to_gross"]
+        return floorspace.cast_to(floorspace_pc.dims)
 
     @staticmethod
     def concrete_from_floorspace(

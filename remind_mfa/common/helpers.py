@@ -69,7 +69,7 @@ def clip_negative_arr(arr: fd.FlodymArray) -> fd.FlodymArray:
 
     Args:
         arr: Array to clip. If it has a region dimension (r), the warning lists the regions with
-            negative values.
+            values below a small negative threshold.
 
     Returns:
         The array with negative values set to 0.
@@ -81,7 +81,9 @@ def clip_negative_arr(arr: fd.FlodymArray) -> fd.FlodymArray:
     if min_value < small_negative_threshold:
         message = f"{arr.name} <0 (smallest: {min_value})"
         if "r" in arr.dims:
-            negative_regions = [r for r in arr.dims["r"].items if arr[r].values.min() < 0]
+            negative_regions = [
+                r for r in arr.dims["r"].items if arr[r].values.min() < small_negative_threshold
+            ]
             message += f" in regions {negative_regions}"
         logging.warning(f"{message}! Correcting negative values to 0.")
     return arr.maximum(0)
