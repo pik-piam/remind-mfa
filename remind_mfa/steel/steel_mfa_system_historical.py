@@ -79,6 +79,5 @@ class SteelMFASystemHistorical(CommonMFASystem):
 
         flw["use => sysenv"][...] = stk["use"].outflow
         aux["recovered_scrap"] = flw["use => sysenv"] * (1 - prm["hibernation_share"]) * prm["recovery_rate"][{"t": self.dims["h"]}]
-        trd["scrap"].exports[...] = trd["scrap"].exports.minimum(aux["recovered_scrap"])
-        trd["scrap"].balance(to="minimum")
+        self.cap_historical_net_exports_to_supply(trd["scrap"], aux["recovered_scrap"])
         # fmt: on
