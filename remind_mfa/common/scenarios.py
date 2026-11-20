@@ -151,6 +151,9 @@ class ScenarioReader(RemindMFABaseModel):
     ]
     region_mappings_path: Optional[str] = None
     """Directory of the piamMappings region mapping files, used to resolve aggregate regions."""
+    inactive_parameters: set[str] = set()
+    """Names of scenario parameters of inactive model modules. Scenario rows setting them are
+    skipped, while rows setting parameters that are not defined at all still raise an error."""
     _scenarios: List["Scenario"] = []
     _parameters: dict = {}
 
@@ -183,6 +186,7 @@ class ScenarioReader(RemindMFABaseModel):
         while True:
             scenario = self.read_single(name)
             scenario.filter_data_by_model(self.model)
+            scenario.drop_parameters(self.inactive_parameters)
             scenario.data = self._resolve_regions(scenario)
             self._scenarios.insert(0, scenario)
             if scenario.parent is None:
@@ -347,6 +351,15 @@ class Scenario(RemindMFABaseModel):
 
     def filter_data_by_model(self, model_name: ModelNames):
         self.data = [p for p in self.data if model_name in p.models]
+
+    def drop_parameters(self, names: set[str]):
+        """Remove the data points setting any of the given parameters."""
+        dropped = sorted({p.parameter for p in self.data if p.parameter in names})
+        if dropped:
+            logging.debug(
+                f"Scenario '{self.name}': skipping inactive scenario parameters {dropped}."
+            )
+        self.data = [p for p in self.data if p.parameter not in names]
 
     def apply(self, parameters: dict):
         for data_point in self.data:

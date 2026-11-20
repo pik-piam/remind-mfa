@@ -5,6 +5,7 @@ import numpy as np
 import flodym as fd
 
 from remind_mfa.cement.cement_config import CementCfg
+from remind_mfa.cement.cement_bottom_up_definition import bottom_up_scenario_parameters
 from remind_mfa.cement.cement_definition import get_cement_definition
 from remind_mfa.cement.cement_mfa_system_bottom_up import (
     StockDrivenBottomUpCementMFASystem,
@@ -68,6 +69,22 @@ class CementModel(CommonModel[CementCfg]):
     custom_scn_prm_def = cement_scn_prm_def
     get_definition = staticmethod(get_cement_definition)
 
+    @property
+    def bottom_up_active(self) -> bool:
+        """Whether the bottom-up module is active, which is only used for parameter reconciliation."""
+        return self.cfg.model_switches.parameter_reconciliation
+
+    def get_scenario_parameter_definitions(self) -> list:
+        definitions = super().get_scenario_parameter_definitions()
+        if self.bottom_up_active:
+            definitions = definitions + bottom_up_scenario_parameters
+        return definitions
+
+    def get_inactive_scenario_parameter_names(self) -> set[str]:
+        if self.bottom_up_active:
+            return set()
+        return {definition.name for definition in bottom_up_scenario_parameters}
+
     def modify_parameters(self):
         # construct lifetime std from mean and relative std
         lifetime_std = fd.Parameter(dims=self.parameters["lifetime_mean"].dims)
@@ -126,9 +143,10 @@ class CementModel(CommonModel[CementCfg]):
         # copy/rename for use in common model
         self.parameters["end_use_split_limit"] = self.parameters["end_use_split"]
 
-        self.calculate_scenario_parameters()
+        if self.bottom_up_active:
+            self.calculate_bottom_up_scenario_parameters()
 
-    def calculate_scenario_parameters(self):
+    def calculate_bottom_up_scenario_parameters(self):
 
         # derive mean residential type and structure splits from global weighted average
         prm = self.parameters
@@ -151,6 +169,26 @@ class CementModel(CommonModel[CementCfg]):
             mean_weights=bu_floorspace,
             global_share=prm["development_weight"],
             name="structure_split_mean",
+        )
+        # where no structure type is known, the regional split carries no information:
+        # fall back to the global mean
+        global_structure_split_mean = (prm["structure_split"] * bu_floorspace).sum_over(
+            "r"
+        ) / bu_floorspace.sum_over("r")
+        only_unspecified = structure_split_mean[{"s": "Unspecified Structure"}].apply(
+            lambda x: (x > 1.0 - 1e-9).astype(float)
+        )
+        structure_split_mean[...] = (
+            structure_split_mean * (1.0 - only_unspecified)
+            + global_structure_split_mean * only_unspecified
+        )
+        add_assumption_doc(
+            type="model switch",
+            name="Global mean structure split for unknown structures",
+            description=(
+                "Where the historical structure split contains only the unknown structure type, "
+                "the structure split converges to the global weighted mean."
+            ),
         )
         prm["structure_split_mean"] = self.set_structure_share(
             structure_split_mean, "Unspecified Structure", 0.0
