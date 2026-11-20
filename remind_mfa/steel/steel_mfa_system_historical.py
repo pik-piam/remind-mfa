@@ -38,8 +38,8 @@ class SteelMFASystemHistorical(CommonMFASystem):
         }
 
         # fmt: off
-        flw["forming => steel_market"][...] = prm["steel_production"] * prm["forming_yield"][{'t': self.dims['h']}]
-        flw["forming => sysenv"][...] = prm["steel_production"] * prm["forming_loss_rate"][{"t": self.dims["h"]}]
+        flw["forming => steel_market"][...] = prm["steel_production"] * prm["forming_yield"]
+        flw["forming => sysenv"][...] = prm["steel_production"] * prm["forming_loss_rate"]
         flw["forming => scrap_pool"][...] = prm["steel_production"] - flw["forming => steel_market"] - flw["forming => sysenv"]
 
         self.cap_historical_net_exports_to_supply(trd["steel"], flw["forming => steel_market"])
@@ -51,10 +51,10 @@ class SteelMFASystemHistorical(CommonMFASystem):
 
         # get approximate manufacturing yield with consumption end-use split
         # We don't know the end use distribution yet, so we just calculate the total, and the flow later
-        aux["manufacturing_to_manufactured_products_market_total"][...] = flw["steel_market => manufacturing"] * prm["aggregate_manufacturing_yield"][{'t': self.dims['h']}]
+        aux["manufacturing_to_manufactured_products_market_total"][...] = flw["steel_market => manufacturing"] * prm["aggregate_manufacturing_yield"]
         manufacturing_scrap = flw["steel_market => manufacturing"] - aux["manufacturing_to_manufactured_products_market_total"]
-        flw["manufacturing => scrap_pool"][...] = manufacturing_scrap * (1 - prm["manufacturing_losses"][{"t": self.dims["h"]}])
-        flw["manufacturing => sysenv"][...] = manufacturing_scrap * prm["manufacturing_losses"][{"t": self.dims["h"]}]
+        flw["manufacturing => scrap_pool"][...] = manufacturing_scrap * (1 - prm["manufacturing_losses"])
+        flw["manufacturing => sysenv"][...] = manufacturing_scrap * prm["manufacturing_losses"]
 
         # manufactured_products net exports are capped to not exceed available manufacturing inflow, else use inflow goes negative
         self.cap_historical_net_exports_to_supply(trd["manufactured_products"], aux["manufacturing_to_manufactured_products_market_total"])
@@ -66,7 +66,7 @@ class SteelMFASystemHistorical(CommonMFASystem):
         flw["manufactured_products_market => use"][...] = self.get_historical_use_inflow_by_trade_adjusted_split(
             "manufactured_products",
             aux["manufacturing_to_manufactured_products_market_total"],
-            prm["end_use_split"][{"t": self.dims["h"]}],
+            prm["end_use_split"],
             ("u",),
         )
 
@@ -76,13 +76,13 @@ class SteelMFASystemHistorical(CommonMFASystem):
         stk["use"].inflow[...] = flw["manufactured_products_market => use"]
 
         stk["use"].lifetime_model.set_prms(
-            mean=prm["lifetime_mean"][{"t": self.dims["h"]}],
-            std=prm["lifetime_std"][{"t": self.dims["h"]}],
+            mean=prm["lifetime_mean"],
+            std=prm["lifetime_std"],
         )
 
         stk["use"].compute()  # gives stocks and outflows corresponding to inflow
 
-        flw["use => scrap_market"][...] = stk["use"].outflow * (1 - prm["hibernation_share"]) * prm["recovery_rate"][{"t": self.dims["h"]}]
+        flw["use => scrap_market"][...] = stk["use"].outflow * (1 - prm["hibernation_share"]) * prm["recovery_rate"]
         flw["use => sysenv"][...] = stk["use"].outflow - flw["use => scrap_market"]
 
         trd["scrap"].exports[...] = trd["scrap"].exports.minimum(flw["use => scrap_market"])
