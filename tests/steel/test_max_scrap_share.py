@@ -79,18 +79,25 @@ def test_historical_scrap_input_is_the_available_scrap_up_to_the_maximum_scrap_s
     system.compute_steel_production()
 
     flw = system.flows
-    np.testing.assert_allclose(flw["scrap_pool => steel_production_scrap_based"].values, [[30, 70, 0]] * 2)
+    np.testing.assert_allclose(
+        flw["scrap_pool => steel_production_scrap_based"].values, [[30, 70, 0]] * 2
+    )
     np.testing.assert_allclose(flw["scrap_pool => sysenv"].values, [[0, 20, 5]] * 2)
-    np.testing.assert_allclose(flw["sysenv => steel_production_ore_based"].values, [[70, 30, 0]] * 2)
+    np.testing.assert_allclose(
+        flw["sysenv => steel_production_ore_based"].values, [[70, 30, 0]] * 2
+    )
     forming_input = (
-        flw["steel_production_scrap_based => forming"] + flw["steel_production_ore_based => forming"]
+        flw["steel_production_scrap_based => forming"]
+        + flw["steel_production_ore_based => forming"]
     )
     np.testing.assert_allclose(forming_input.values, [STEEL_PRODUCTION] * 2)
     # the share falls back to the maximum where a region has no steel production
     np.testing.assert_allclose(system.scrap_share().values, [[0.3, 0.7, 0.7]] * 2)
 
 
-def make_future_system(available_scrap: list[float], max_scrap_share: list[float]) -> SteelMFASystem:
+def make_future_system(
+    available_scrap: list[float], max_scrap_share: list[float]
+) -> SteelMFASystem:
     """Future steel system with the production flows of the given available scrap and maximum
     scrap share per region, the same in all years."""
     available = np.array(available_scrap)

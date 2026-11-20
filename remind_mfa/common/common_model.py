@@ -311,7 +311,9 @@ class CommonModel[CfgT: CommonCfg]:
         for name, parameter in self.parameters.items():
             if "t" in parameter.dims.letters:
                 sliced = parameter[{"t": historical_time}]
-                parameter = fd.Parameter(dims=sliced.dims, values=sliced.values, name=parameter.name)
+                parameter = fd.Parameter(
+                    dims=sliced.dims, values=sliced.values, name=parameter.name
+                )
             parameters[name] = parameter
         return parameters
 
