@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from remind_mfa.atlas_coupling import (
     ATLAS_DATA_PIPELINE_ROOT,
     ATLAS_TRADE_ROOT,
+    PIPELINE_INPUT_MODELS,
     AtlasCo2Price,
     AtlasScenarioPkBudg,
     AtlasShareMode,
@@ -18,8 +19,11 @@ from remind_mfa.atlas_coupling import (
     AtlasVariant,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
+    default_atlas_trade_source,
     execute_command,
+    find_missing_pipeline_inputs,
     get_coupling_paths,
+    get_model_spec,
     scenario_pkbudg_is_effective,
 )
 from remind_mfa.common.config_loader import load_config
@@ -110,17 +114,7 @@ def copy_trade(
     _warn_if_scenario_pkbudg_ignored(model, scenario_pkbudg)
     paths = get_coupling_paths(model, ["default", "hpc", "atlas_run2"])
     if not source:
-        variant_value = variant.value.replace("-", "_")
-        model_folder = "future" if model == ModelNames.STEEL else "future_plastics"
-        source = (
-            ATLAS_TRADE_ROOT
-            / "outputs"
-            / "output_no_cet"
-            / model_folder
-            / variant_value
-            / "cache"
-            / f"future_projections_summary_{variant_value}.xlsx"
-        )
+        source = default_atlas_trade_source(model, variant)
     imports_path, exports_path = copy_trade_to_mfa(
         model,
         source,
@@ -133,7 +127,29 @@ def copy_trade(
 
 @app.command()
 def preprocess() -> None:
-    """Run the ATLAS data-preprocessing Snakemake workflow."""
+    """Run the ATLAS data-preprocessing Snakemake workflow.
+
+    The workflow builds the inputs of all goods at once, so it needs the copied MFA exports of all
+    models, not only of the one that is coupled.
+    """
+
+    missing_inputs = find_missing_pipeline_inputs(["default", "hpc", "atlas_run1"])
+    if missing_inputs:
+        missing_files = "\n".join(
+            f"  {path}" for paths in missing_inputs.values() for path in paths
+        )
+        commands = "\n".join(
+            f"  uv run atlas.py run-mfa --model {model.value} --stage one"
+            f" && uv run atlas.py copy-demands --model {model.value}"
+            for model in missing_inputs
+        )
+        typer.echo(
+            "[ERROR] The ATLAS data pipeline reads the MFA exports of "
+            f"{', '.join(model.value for model in PIPELINE_INPUT_MODELS)}, "
+            f"but these files are missing:\n{missing_files}\nCreate them with:\n{commands}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
     execute_command(
         [
@@ -240,10 +256,16 @@ def couple(
     scenario_pkbudg: ScenarioPkBudgOption = AtlasScenarioPkBudg.BUDG_1000,
     force: Annotated[bool, typer.Option("--force", help="Overwrite existing files.")] = False,
 ) -> None:
-    """Run MFA, preprocessing, ATLAS, and MFA again."""
+    """Run MFA, preprocessing, ATLAS, and MFA again.
 
-    run_mfa(model, stage="one")
-    copy_demands(model, force=force)
+    The first MFA stage runs for all models that the ATLAS data pipeline reads, so that their
+    exports are current, not only for the model that is coupled.
+    """
+
+    get_model_spec(model)
+    for pipeline_model in PIPELINE_INPUT_MODELS:
+        run_mfa(pipeline_model, stage="one")
+        copy_demands(pipeline_model, force=force)
     preprocess()
     calibrate(model)
     validate(model)

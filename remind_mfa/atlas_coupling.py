@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from remind_mfa.common.config_loader import load_config
@@ -104,6 +105,12 @@ MATERIAL_SPECS = {
     ),
 }
 
+# The default target of the ATLAS data pipeline builds the input tables of all goods at once, so it
+# reads the MFA exports of every model with a pipeline mapping, whichever model is coupled.
+PIPELINE_INPUT_MODELS: tuple[ModelNames, ...] = tuple(
+    spec.model for spec in MATERIAL_SPECS.values()
+)
+
 
 @dataclass(frozen=True)
 class CouplingPaths:
@@ -183,6 +190,39 @@ def get_coupling_paths(
         input_data_path=input_data_path,
         region_dimension_path=input_data_path / "parameters" / "regionmapping.csv",
         time_dimension_path=dimensions_path / "time.csv",
+    )
+
+
+def find_missing_pipeline_inputs(config_names: Sequence[str]) -> dict[ModelNames, list[Path]]:
+    """Find the MFA exports that the ATLAS data pipeline reads but that have not been copied yet.
+
+    Args:
+        config_names: Configuration layers of the first MFA run, used to resolve the paths.
+
+    Returns:
+        The missing pipeline input files per model. Models with all files present are left out.
+    """
+    missing_inputs: dict[ModelNames, list[Path]] = {}
+    for model in PIPELINE_INPUT_MODELS:
+        targets = get_coupling_paths(model, config_names).mfa_pipeline_mapping.values()
+        missing_targets = [target for target in targets if not target.is_file()]
+        if missing_targets:
+            missing_inputs[model] = missing_targets
+    return missing_inputs
+
+
+def default_atlas_trade_source(model: ModelNames, variant: AtlasVariant) -> Path:
+    """Trade projection written by the ATLAS future model for the given model and variant."""
+    variant_value = variant.value.replace("-", "_")
+    model_folder = "future" if model == ModelNames.STEEL else "future_plastics"
+    return (
+        ATLAS_TRADE_ROOT
+        / "outputs"
+        / "output_no_cet"
+        / model_folder
+        / variant_value
+        / "cache"
+        / f"future_projections_summary_{variant_value}.xlsx"
     )
 
 
@@ -358,56 +398,185 @@ def _write_cs4r(path: Path, data: pd.DataFrame) -> None:
     )
 
 
+def _load_historic_plastics_trade(flow: str) -> pd.DataFrame:
+    """Historic plastics trade per region and polymer in the latest historic year."""
+    historic_path = PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_{flow}.cs4r"
+    if not historic_path.is_file():
+        raise AtlasCouplingError(
+            f"Historic plastics {flow} trade parameter was not found: {historic_path}"
+        )
+
+    historic_trade = pd.read_csv(
+        historic_path,
+        comment="*",
+        header=None,
+        names=["historic_year", "region", "type", "material", "quantity"],
+    )
+    if historic_trade.empty:
+        raise AtlasCouplingError(f"Historic plastics {flow} trade parameter is empty.")
+
+    historic_trade["historic_year"] = pd.to_numeric(
+        historic_trade["historic_year"], errors="coerce"
+    )
+    historic_trade["quantity"] = pd.to_numeric(historic_trade["quantity"], errors="coerce")
+    if historic_trade[["historic_year", "quantity"]].isna().any().any():
+        raise AtlasCouplingError(
+            f"Historic plastics {flow} trade parameter contains invalid values."
+        )
+    if (historic_trade["quantity"] < 0).any():
+        raise AtlasCouplingError(
+            f"Historic plastics {flow} trade parameter contains negative values."
+        )
+
+    latest_year = historic_trade["historic_year"].max()
+    latest_trade = historic_trade.loc[historic_trade["historic_year"] == latest_year]
+    return latest_trade.groupby(["region", "material"], as_index=False)["quantity"].sum()
+
+
+def _ras_balance(
+    imports: np.ndarray,
+    exports: np.ndarray,
+    tolerance: float = 1e-8,
+    max_iterations: int = 1000,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Balance trade of several goods by a RAS (iterative proportional fitting).
+
+    Imports and exports are arrays with dimensions (year, region, good). They are rescaled such that
+    the region totals (summed over goods) are kept, and that global imports equal global exports for
+    each year and good. Each iteration sets the global imports and exports of each good to their
+    geometric mean and then restores the region totals. This converges to the solution closest to
+    the given arrays (in the sense of the Kullback-Leibler divergence), so it keeps the given shares
+    of the goods as far as possible. Zeros remain zero.
+    """
+    region_imports = imports.sum(axis=2, keepdims=True)
+    region_exports = exports.sum(axis=2, keepdims=True)
+    imports = imports.astype(float)
+    exports = exports.astype(float)
+    for _ in range(max_iterations):
+        global_imports = imports.sum(axis=1, keepdims=True)
+        global_exports = exports.sum(axis=1, keepdims=True)
+        global_target = np.sqrt(global_imports * global_exports)
+        imports *= _divide_or_zero(global_target, global_imports)
+        exports *= _divide_or_zero(global_target, global_exports)
+        imports *= _divide_or_zero(region_imports, imports.sum(axis=2, keepdims=True))
+        exports *= _divide_or_zero(region_exports, exports.sum(axis=2, keepdims=True))
+
+        if (
+            np.allclose(imports.sum(axis=1), exports.sum(axis=1), rtol=tolerance, atol=0.0)
+            and np.allclose(
+                imports.sum(axis=2, keepdims=True), region_imports, rtol=tolerance, atol=0.0
+            )
+            and np.allclose(
+                exports.sum(axis=2, keepdims=True), region_exports, rtol=tolerance, atol=0.0
+            )
+        ):
+            return imports, exports
+
+    raise AtlasCouplingError(
+        f"RAS did not converge within {max_iterations} iterations. The region totals can probably "
+        "not be met, given which goods each region trades and the global trade balance."
+    )
+
+
+def _divide_or_zero(numerator: np.ndarray, denominator: np.ndarray) -> np.ndarray:
+    return np.divide(
+        numerator,
+        denominator,
+        out=np.zeros(np.broadcast_shapes(numerator.shape, denominator.shape)),
+        where=denominator > 0,
+    )
+
+
+POLYMER_TRADE_INDEX = ["year", "region", "material"]
+
+
+def _polymer_trade_index(
+    years: list[int], regions: list[str], polymers: list[str]
+) -> pd.MultiIndex:
+    return pd.MultiIndex.from_product([years, regions, polymers], names=POLYMER_TRADE_INDEX)
+
+
+def _polymer_trade_frame(values: np.ndarray, index: pd.MultiIndex) -> pd.DataFrame:
+    return pd.DataFrame({"quantity": values.ravel()}, index=index).reset_index()
+
+
+def split_plastics_trade(
+    imports: pd.DataFrame, exports: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split future plastics trade into polymers with the latest historic polymer shares.
+
+    ATLAS trades plastics as a single good, so it only gives the total imports and exports of each
+    region. These are split with the polymer shares of the same region in the latest historic year.
+    The global imports and exports of a polymer then generally differ, see
+    :func:`balance_polymer_trade`.
+    """
+    future_trade = {"imports": imports, "exports": exports}
+    historic_trade = {flow: _load_historic_plastics_trade(flow) for flow in future_trade}
+
+    years = sorted(set(imports["year"]) | set(exports["year"]))
+    regions = sorted(set(imports["region"]) | set(exports["region"]))
+    polymers = sorted(set().union(*(trade["material"] for trade in historic_trade.values())))
+
+    seeds = []
+    for flow, trade in future_trade.items():
+        region_totals = trade.pivot_table(
+            index="year", columns="region", values="quantity", aggfunc="sum", fill_value=0.0
+        ).reindex(index=years, columns=regions, fill_value=0.0)
+        historic = historic_trade[flow].pivot_table(
+            index="region", columns="material", values="quantity", aggfunc="sum"
+        )
+        historic = historic.reindex(index=regions, columns=polymers).fillna(0.0)
+        historic_totals = historic.sum(axis=1)
+
+        missing = [
+            region
+            for region in regions
+            if historic_totals[region] == 0 and (region_totals[region] > 0).any()
+        ]
+        if missing:
+            raise AtlasCouplingError(
+                f"Historic plastics {flow} trade has no polymer shares for regions with future "
+                f"{flow}: {missing}."
+            )
+
+        shares = historic.div(historic_totals.where(historic_totals > 0, 1.0), axis=0)
+        seeds.append(region_totals.to_numpy()[:, :, None] * shares.to_numpy()[None, :, :])
+
+    index = _polymer_trade_index(years, regions, polymers)
+    return tuple(_polymer_trade_frame(seed, index) for seed in seeds)
+
+
+def balance_polymer_trade(
+    imports: pd.DataFrame, exports: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Balance polymer trade with a RAS (see :func:`_ras_balance`).
+
+    The region totals (summed over polymers) are kept, and the trade of each polymer clears
+    globally. Both frames have the columns year, region, material and quantity.
+    """
+    trade = pd.concat([imports, exports])
+    years = sorted(set(trade["year"]))
+    regions = sorted(set(trade["region"]))
+    polymers = sorted(set(trade["material"]))
+    index = _polymer_trade_index(years, regions, polymers)
+
+    arrays = [
+        flow.groupby(POLYMER_TRADE_INDEX)["quantity"]
+        .sum()
+        .reindex(index, fill_value=0.0)
+        .to_numpy()
+        .reshape(len(years), len(regions), len(polymers))
+        for flow in (imports, exports)
+    ]
+    return tuple(_polymer_trade_frame(balanced, index) for balanced in _ras_balance(*arrays))
+
+
 def _adjust_plastics_trade(
     imports: pd.DataFrame, exports: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split future plastics trade with the latest historic material shares."""
-
-    adjusted_flows = []
-    for flow, future_trade in (("imports", imports), ("exports", exports)):
-        historic_path = PROJECT_ROOT / "data_in" / "parameters" / f"pl_primary_{flow}.cs4r"
-        if not historic_path.is_file():
-            raise AtlasCouplingError(
-                f"Historic plastics {flow} trade parameter was not found: {historic_path}"
-            )
-
-        historic_trade = pd.read_csv(
-            historic_path,
-            comment="*",
-            header=None,
-            names=["historic_year", "region", "type", "material", "quantity"],
-        )
-        if historic_trade.empty:
-            raise AtlasCouplingError(f"Historic plastics {flow} trade parameter is empty.")
-
-        historic_trade["historic_year"] = pd.to_numeric(
-            historic_trade["historic_year"], errors="coerce"
-        )
-        historic_trade["quantity"] = pd.to_numeric(historic_trade["quantity"], errors="coerce")
-        if historic_trade[["historic_year", "quantity"]].isna().any().any():
-            raise AtlasCouplingError(
-                f"Historic plastics {flow} trade parameter contains invalid values."
-            )
-
-        latest_year = historic_trade["historic_year"].max()
-        latest_trade = historic_trade.loc[historic_trade["historic_year"] == latest_year]
-        material_shares = latest_trade.groupby(["region", "material"], as_index=False)[
-            "quantity"
-        ].sum()
-        material_shares["share"] = material_shares["quantity"] / material_shares.groupby("region")[
-            "quantity"
-        ].transform("sum")
-
-        adjusted = future_trade.merge(
-            material_shares.loc[:, ["region", "material", "share"]],
-            how="outer",
-            on=["region"],
-        )
-        print(adjusted)
-        adjusted["quantity"] = adjusted["quantity"] * adjusted.pop("share")
-        adjusted_flows.append(adjusted.loc[:, ["year", "region", "material", "quantity"]])
-
-    return tuple(adjusted_flows)
+    """Split future plastics trade into polymers, keeping the regional ATLAS totals and clearing
+    the trade of each polymer globally."""
+    return balance_polymer_trade(*split_plastics_trade(imports, exports))
 
 
 def copy_trade_to_mfa(

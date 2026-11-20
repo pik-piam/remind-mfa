@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -7,9 +8,11 @@ from remind_mfa.atlas_coupling import (
     AtlasCouplingError,
     AtlasScenarioPkBudg,
     _adjust_plastics_trade,
+    _ras_balance,
     aggregate_bilateral_trade,
     copy_demand_to_atlas,
     copy_trade_to_mfa,
+    find_missing_pipeline_inputs,
     get_coupling_paths,
     get_model_spec,
     load_atlas_trade_projection,
@@ -79,6 +82,22 @@ def test_steel_coupling_paths_cover_atlas_scrap_inputs(tmp_path, monkeypatch):
     assert {source.parent.name for source in paths.mfa_pipeline_mapping} == {"atlas"}
 
 
+def test_pipeline_inputs_of_steel_are_required_for_plastics(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS_MFA_INPUT_DIRECTORY", str(tmp_path))
+    config_names = ["default", "hpc", "atlas_run1"]
+    plastics_paths = get_coupling_paths(ModelNames.PLASTICS, config_names)
+    for target in plastics_paths.mfa_pipeline_mapping.values():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("Time,Region,value\n")
+
+    missing_inputs = find_missing_pipeline_inputs(config_names)
+
+    steel_paths = get_coupling_paths(ModelNames.STEEL, config_names)
+    assert missing_inputs == {
+        ModelNames.STEEL: list(steel_paths.mfa_pipeline_mapping.values()),
+    }
+
+
 def test_aggregate_bilateral_trade_excludes_domestic_flows():
     bilateral = pd.DataFrame(
         {
@@ -117,39 +136,106 @@ def test_aggregate_bilateral_trade_sums_flows():
     assert exports.to_dict("records") == [{"year": 2025, "region": "A", "quantity": 5.0}]
 
 
-def test_adjust_plastics_trade_extrapolates_latest_historic_material_shares(tmp_path, monkeypatch):
+def _write_historic_plastics_trade(tmp_path: Path, monkeypatch, imports: str, exports: str) -> None:
     parameters_path = tmp_path / "data_in" / "parameters"
     parameters_path.mkdir(parents=True)
-    (parameters_path / "pl_primary_imports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
-        "2023,EUR,Plastics,LDPE,100\n"
+    header = "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
+    for flow, rows in (("imports", imports), ("exports", exports)):
+        (parameters_path / f"pl_primary_{flow}.cs4r").write_text(header + rows, encoding="utf-8")
+    monkeypatch.setattr("remind_mfa.atlas_coupling.PROJECT_ROOT", tmp_path)
+
+
+def test_adjust_plastics_trade_keeps_latest_historic_shares_if_balanced(tmp_path, monkeypatch):
+    _write_historic_plastics_trade(
+        tmp_path,
+        monkeypatch,
+        imports="2023,EUR,Plastics,LDPE,100\n"
         "2024,EUR,Plastics,HDPE,3\n"
         "2024,EUR,Plastics,LDPE,1\n"
         "2024,CAN,Plastics,LDPE,1\n",
-        encoding="utf-8",
+        exports="2024,EUR,Plastics,HDPE,1\n2024,EUR,Plastics,LDPE,1\n2024,CAN,Plastics,LDPE,1\n",
     )
-    (parameters_path / "pl_primary_exports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
-        "2024,EUR,Plastics,HDPE,1\n"
-        "2024,CAN,Plastics,LDPE,3\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr("remind_mfa.atlas_coupling.PROJECT_ROOT", tmp_path)
 
     imports, exports = _adjust_plastics_trade(
         pd.DataFrame({"year": [2025, 2025], "region": ["EUR", "CAN"], "quantity": [40.0, 60.0]}),
-        pd.DataFrame({"year": [2025, 2025], "region": ["EUR", "CAN"], "quantity": [20.0, 30.0]}),
+        pd.DataFrame({"year": [2025, 2025], "region": ["EUR", "CAN"], "quantity": [60.0, 40.0]}),
     )
 
     assert imports.to_dict("records") == [
+        {"year": 2025, "region": "CAN", "material": "HDPE", "quantity": 0.0},
         {"year": 2025, "region": "CAN", "material": "LDPE", "quantity": 60.0},
         {"year": 2025, "region": "EUR", "material": "HDPE", "quantity": 30.0},
         {"year": 2025, "region": "EUR", "material": "LDPE", "quantity": 10.0},
     ]
     assert exports.to_dict("records") == [
-        {"year": 2025, "region": "CAN", "material": "LDPE", "quantity": 30.0},
-        {"year": 2025, "region": "EUR", "material": "HDPE", "quantity": 20.0},
+        {"year": 2025, "region": "CAN", "material": "HDPE", "quantity": 0.0},
+        {"year": 2025, "region": "CAN", "material": "LDPE", "quantity": 40.0},
+        {"year": 2025, "region": "EUR", "material": "HDPE", "quantity": 30.0},
+        {"year": 2025, "region": "EUR", "material": "LDPE", "quantity": 30.0},
     ]
+
+
+def test_adjust_plastics_trade_balances_polymers_and_keeps_region_totals(tmp_path, monkeypatch):
+    # Historic shares imply HDPE:LDPE odds of 1 for imports and 3 for exports. RAS settles on
+    # their geometric mean sqrt(3) for both flows.
+    _write_historic_plastics_trade(
+        tmp_path,
+        monkeypatch,
+        imports="2024,A,Plastics,HDPE,1\n2024,A,Plastics,LDPE,1\n"
+        "2024,B,Plastics,HDPE,2\n2024,B,Plastics,LDPE,2\n",
+        exports="2024,A,Plastics,HDPE,3\n2024,A,Plastics,LDPE,1\n"
+        "2024,B,Plastics,HDPE,6\n2024,B,Plastics,LDPE,2\n",
+    )
+
+    imports, exports = _adjust_plastics_trade(
+        pd.DataFrame({"year": [2025, 2025], "region": ["A", "B"], "quantity": [1.0, 3.0]}),
+        pd.DataFrame({"year": [2025, 2025], "region": ["A", "B"], "quantity": [2.5, 1.5]}),
+    )
+
+    for flow, totals in ((imports, [1.0, 3.0]), (exports, [2.5, 1.5])):
+        assert flow.groupby("region")["quantity"].sum().tolist() == pytest.approx(totals)
+        hdpe_share = flow.loc[flow["material"] == "HDPE", "quantity"].sum() / 4.0
+        assert hdpe_share == pytest.approx(3**0.5 / (1 + 3**0.5))
+    assert imports.groupby("material")["quantity"].sum().tolist() == pytest.approx(
+        exports.groupby("material")["quantity"].sum().tolist()
+    )
+
+
+def test_ras_balance_clears_global_trade_per_good():
+    rng = np.random.default_rng(0)
+    imports = rng.uniform(size=(3, 4, 5))
+    exports = rng.uniform(size=(3, 4, 5))
+    exports *= imports.sum(axis=(1, 2), keepdims=True) / exports.sum(axis=(1, 2), keepdims=True)
+
+    balanced_imports, balanced_exports = _ras_balance(imports, exports)
+
+    np.testing.assert_allclose(balanced_imports.sum(axis=2), imports.sum(axis=2))
+    np.testing.assert_allclose(balanced_exports.sum(axis=2), exports.sum(axis=2))
+    np.testing.assert_allclose(balanced_imports.sum(axis=1), balanced_exports.sum(axis=1))
+
+
+def test_ras_balance_rejects_infeasible_zero_pattern():
+    # A only imports HDPE and B only exports LDPE, so polymer trade can never clear.
+    imports = np.array([[[1.0, 0.0], [0.0, 0.0]]])
+    exports = np.array([[[0.0, 0.0], [0.0, 1.0]]])
+
+    with pytest.raises(AtlasCouplingError, match="did not converge"):
+        _ras_balance(imports, exports)
+
+
+def test_adjust_plastics_trade_rejects_regions_without_historic_shares(tmp_path, monkeypatch):
+    _write_historic_plastics_trade(
+        tmp_path,
+        monkeypatch,
+        imports="2024,A,Plastics,LDPE,1\n",
+        exports="2024,A,Plastics,LDPE,1\n2024,B,Plastics,LDPE,1\n",
+    )
+
+    with pytest.raises(AtlasCouplingError, match=r"no polymer shares .*\['B'\]"):
+        _adjust_plastics_trade(
+            pd.DataFrame({"year": [2025, 2025], "region": ["A", "B"], "quantity": [1.0, 1.0]}),
+            pd.DataFrame({"year": [2025, 2025], "region": ["A", "B"], "quantity": [1.0, 1.0]}),
+        )
 
 
 def _write_dimensions(tmp_path: Path) -> tuple[Path, Path]:
@@ -246,21 +332,12 @@ def test_load_atlas_trade_projection_uses_baseline_sheet_for_plastics(tmp_path):
 
 
 def test_copy_trade_writes_cs4r_files_for_plastics(tmp_path, monkeypatch):
-    parameters_path = tmp_path / "data_in" / "parameters"
-    parameters_path.mkdir(parents=True)
-    (parameters_path / "pl_primary_imports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
-        "2024,A,Plastics,LDPE,1\n"
-        "2024,B,Plastics,LDPE,1\n",
-        encoding="utf-8",
+    _write_historic_plastics_trade(
+        tmp_path,
+        monkeypatch,
+        imports="2024,A,Plastics,LDPE,1\n2024,B,Plastics,LDPE,1\n",
+        exports="2024,A,Plastics,LDPE,1\n2024,B,Plastics,LDPE,1\n",
     )
-    (parameters_path / "pl_primary_exports.cs4r").write_text(
-        "* note: dimensions: (Historical Time,Region,Polymer Type,Polymer,value)\n"
-        "2024,A,Plastics,LDPE,1\n"
-        "2024,B,Plastics,LDPE,1\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr("remind_mfa.atlas_coupling.PROJECT_ROOT", tmp_path)
 
     regions, _ = _write_dimensions(tmp_path)
     projection = tmp_path / "future.xlsx"
@@ -284,11 +361,11 @@ def test_copy_trade_writes_cs4r_files_for_plastics(tmp_path, monkeypatch):
 
     assert imports_path.read_text(encoding="utf-8") == (
         "* note: dimensions: (Time,Region,Polymer,value)\n"
-        "2025,A,LDPE,3.0\n2026,A,LDPE,3.0\n"
-        "2025,B,LDPE,2.0\n2026,B,LDPE,2.0\n"
+        "2025,A,LDPE,3.0\n2025,B,LDPE,2.0\n"
+        "2026,A,LDPE,3.0\n2026,B,LDPE,2.0\n"
     )
     assert exports_path.read_text(encoding="utf-8") == (
         "* note: dimensions: (Time,Region,Polymer,value)\n"
-        "2025,A,LDPE,2.0\n2026,A,LDPE,2.0\n"
-        "2025,B,LDPE,3.0\n2026,B,LDPE,3.0\n"
+        "2025,A,LDPE,2.0\n2025,B,LDPE,3.0\n"
+        "2026,A,LDPE,2.0\n2026,B,LDPE,3.0\n"
     )
