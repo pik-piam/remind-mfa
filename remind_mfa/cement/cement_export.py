@@ -40,12 +40,12 @@ class CementDataExporter(CommonDataExporter):
         """Clinker output before trade"""
         return (
             mfa.flows["clinker_production => clinker_market"]
-            + mfa.flows["clinker_production => sysenv"]
+            + mfa.flows["clinker_production => losses"]
         ).sum_to(("t", "r"))
 
     @staticmethod
     def _cement_demand(mfa: fd.MFASystem) -> fd.FlodymArray:
-        """Cement delivered to construction, by end use"""
+        """Cement inflow to construction (including construction losses), by end use"""
         return _sum_to_end_use_split(mfa.flows["cement_market => construction"])
 
     @staticmethod

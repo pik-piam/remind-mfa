@@ -108,3 +108,33 @@ def test_scenario_reader_resolves_aggregate_regions(mappings_path, tmp_path, cap
     assert parameters["share"].values.tolist() == [3.0, 2.0, 2.0, 1.0]
     assert "aggregate region 'EUR'" in caplog.text
     assert any(r.levelno == logging.WARNING and "'XYZ'" in r.message for r in caplog.records)
+
+
+def test_scenario_reader_skips_inactive_parameters(tmp_path):
+    scenarios_path = tmp_path / "scenarios"
+    scenarios_path.mkdir()
+    (scenarios_path / "inheritance.csv").write_text("scenario,parent,\nBASE,\n", encoding="utf-8")
+    (scenarios_path / "BASE.csv").write_text(
+        "parameter,models,value,extra,index,description\n"
+        "share,all,1.0,,,\n"
+        "module_share,all,2.0,,{Structure: Timber},\n",
+        encoding="utf-8",
+    )
+    dims = fd.DimensionSet(dim_list=[fd.Dimension(name="Region", letter="r", items=EU21_REGIONS)])
+
+    def make_reader(inactive_parameters: set[str]) -> ScenarioReader:
+        return ScenarioReader(
+            name="BASE",
+            base_path=str(scenarios_path),
+            model=ModelNames.CEMENT,
+            dims=dims,
+            parameter_definitions=[RemindMFAParameterDefinition(name="share", dim_letters=("r",))],
+            inactive_parameters=inactive_parameters,
+        )
+
+    parameters = make_reader({"module_share"}).get_parameters()
+    assert parameters["share"].values.tolist() == [1.0] * len(EU21_REGIONS)
+    assert "module_share" not in parameters
+
+    with pytest.raises(ValueError, match="undefined scenario parameter 'module_share'"):
+        make_reader(set()).get_parameters()
