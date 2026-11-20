@@ -18,11 +18,15 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
     if historical:
         processes = [
             "sysenv",
+            "steel_production_ore_based",
+            "steel_production_scrap_based",
             "forming",
             "steel_market",
             "manufactured_products_market",
             "manufacturing",
             "use",
+            "scrap_market",
+            "scrap_pool",
         ]
     else:
         processes = [
@@ -50,18 +54,30 @@ def get_steel_definition(cfg: SteelCfg, historical: bool) -> RemindMFADefinition
     # fmt: off
     if historical:
         flows = [
-            fd.FlowDefinition(from_process="sysenv", to_process="forming", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="steel_production_ore_based", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="steel_production_ore_based", to_process="forming", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="steel_production_ore_based", to_process="sysenv", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="scrap_pool", to_process="steel_production_scrap_based", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="steel_production_scrap_based", to_process="forming", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="steel_production_scrap_based", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="forming", to_process="steel_market", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="forming", to_process="scrap_pool", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="forming", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="steel_market", to_process="manufacturing", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="steel_market", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="sysenv", to_process="steel_market", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="manufacturing", to_process="manufactured_products_market", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="manufacturing", to_process="scrap_pool", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="manufacturing", to_process="sysenv", dim_letters=("h", "r")),
             fd.FlowDefinition(from_process="manufactured_products_market", to_process="sysenv", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="sysenv", to_process="manufactured_products_market", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="manufactured_products_market", to_process="use", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="use", to_process="scrap_market", dim_letters=("h", "r", "u")),
             fd.FlowDefinition(from_process="use", to_process="sysenv", dim_letters=("h", "r", "u")),
+            fd.FlowDefinition(from_process="scrap_market", to_process="scrap_pool", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="scrap_market", to_process="sysenv", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="sysenv", to_process="scrap_market", dim_letters=("h", "r")),
+            fd.FlowDefinition(from_process="scrap_pool", to_process="sysenv", dim_letters=("h", "r")),
         ]
     else:
         flows = [
