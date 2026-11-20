@@ -337,6 +337,7 @@ class CementModel(CommonModel[CementCfg]):
         # compute reconciled historical top-down mfa
         self.td_hist_mfa_reconciled = self.make_mfa(historical=True)
         self.td_hist_mfa_reconciled.compute()
+        self.td_hist_mfa_reconciled.clear_recomputable_caches()
 
         # save reconciled top-down historical mfa for reconciled stock extrapolation
         self.historical_mfa = self.td_hist_mfa_reconciled
@@ -350,12 +351,14 @@ class CementModel(CommonModel[CementCfg]):
         self.td_mfa_reconciled.compute(
             self.td_stock_reconciled, self.td_hist_mfa_reconciled.trade_set
         )
+        self.td_mfa_reconciled.clear_recomputable_caches()
 
         # compute reconciled future bottom-up mfa
         self.bu_mfa_reconciled = self.make_bottom_up_mfa()
         self.bu_mfa_reconciled.compute(
             self.td_mfa_reconciled.stocks["use"], self.td_hist_mfa_reconciled.trade_set
         )
+        self.bu_mfa_reconciled.clear_recomputable_caches()
 
         # overwrite future_mfa with update
         self.future_mfa = self.bu_mfa_reconciled

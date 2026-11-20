@@ -90,7 +90,6 @@ class CommonDataExporter(RemindMFABaseModel):
     def export_common(self):
         mfa = self._model.future_mfa
         if self.cfg.pickle.do_export:
-            self._clear_recomputable_caches()
             pickle.dump(self._model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
             import flodym.export as fde  # deferred: pulls in plotly and matplotlib
@@ -119,21 +118,6 @@ class CommonDataExporter(RemindMFABaseModel):
     def iamc_raw_parameters(self) -> dict[str, str]:
         """Parameters to include in the raw IAMC export, mapped to their units."""
         return CommonDataExporter._IAMC_RAW_PARAMETERS | self._IAMC_RAW_PARAMETERS
-
-    def _clear_recomputable_caches(self):
-        """Drop lifetime-model sf/pdf caches from the historical and future MFA stocks before pickling
-        to save memory.
-
-        These arrays (shape ``(n_t, n_t, ...)``) are read only through the ``sf``/``pdf``
-        properties, which lazily recompute when the backing attribute is ``None`` -- so clearing
-        them here is transparent: the next access (including any later ``stock.compute()``)
-        rebuilds them from the stored lifetime parameters.
-        """
-        for mfa in (self._model.historical_mfa, self._model.future_mfa):
-            for stock in mfa.stocks.values():
-                lifetime_model: fd.LifetimeModel | None = getattr(stock, "lifetime_model", None)
-                if lifetime_model is not None:
-                    lifetime_model.reset_cached_arrays()
 
     @property
     def model_name(self) -> str:

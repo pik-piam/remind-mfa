@@ -48,6 +48,20 @@ class CommonMFASystem(fd.MFASystem):
         self.stocks[use_stock_name].inflow[...] = inflow
         self.set_prms_and_compute(self.stocks[use_stock_name])
 
+    def clear_recomputable_caches(self):
+        """Drop the survival and outflow probability caches of the lifetime models of all stocks.
+
+        These arrays (shape ``(n_t, n_t, ...)``) dominate memory use at fine regional resolution
+        but are only needed while a stock is computed. They are read only through the ``sf`` and
+        ``pdf`` properties, which recompute them from the stored lifetime parameters when the
+        cache is empty, so clearing them is transparent: the next access (including a later
+        ``stock.compute()``) rebuilds them.
+        """
+        for stock in self.stocks.values():
+            lifetime_model = getattr(stock, "lifetime_model", None)
+            if isinstance(lifetime_model, fd.LifetimeModel):
+                lifetime_model.reset_cached_arrays()
+
     def set_prms_and_compute(self, stock: fd.DynamicStockModel):
         """Set the lifetime model parameters and compute the stock.
 
