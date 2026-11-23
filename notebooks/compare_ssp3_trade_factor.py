@@ -77,7 +77,7 @@ def _(model_picker, repo_root):
             config_dir=repo_root / "config",
             root_dir=repo_root,
         )
-        cfg["model_switches"]["scenario"] = "SSP3"
+        cfg["model_switches"]["scenarios"] = ["SSP3"]
         model = init_model(cfg=cfg)
         if not use_trade_factor:
             extrapolate_parameters = model.extrapolate_parameters

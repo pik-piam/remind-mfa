@@ -2,10 +2,10 @@
 
 A scenario parameter only affects the future. Anything that influences the historical years is a model assumption, set in the model code and documented with `add_assumption_doc`.
 
-The scenario is selected in the TOML config:
+The scenarios are selected in the TOML config (unless overridden on the command line). Several scenarios run one after another, and `all` selects every scenario that has a parent in `inheritance.csv`:
 
     [base.model_switches]
-    scenario = "SSP1"
+    scenarios = ["SSP1", "SSP2"]
 
 ---
 
