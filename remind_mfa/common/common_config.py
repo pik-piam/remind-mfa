@@ -166,7 +166,7 @@ class ExportCfg(BaseExportCfg):
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
     mrindustry: BaseExportCfg
-    """Configuration of export of material flows for use as REMIND inputs."""
+    """Configuration of export of results for use as REMIND inputs."""
     pickle: BaseExportCfg
     """Configuration of export to pickle files."""
     assumptions: BaseExportCfg

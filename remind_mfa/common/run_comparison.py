@@ -180,7 +180,7 @@ class RunInfo:
     """A run on disk, described by what its path tells without reading the (large) file.
 
     Model, scenario and region mapping are taken from the name of the run directory,
-    ``<prefix>_<model>_<scenario>_<region mapping>``, and are ``None`` if it is named otherwise.
+    ``[<prefix>_]<model>_<scenario>_<region mapping>``, and are ``None`` if it is named otherwise.
     """
 
     path: Path
@@ -235,14 +235,10 @@ class RunInfo:
         run_dir = path if path.is_dir() else path.parent
         parts = run_dir.name.split("_")
         # the prefix and the scenario may contain underscores, the model name does not
-        model_index = next(
-            (
-                index
-                for index, part in enumerate(parts)
-                if part in {model.value for model in ModelNames} and 0 < index < len(parts) - 2
-            ),
-            None,
-        )
+        model_names = {model.value for model in ModelNames}
+        model_indices = [index for index, part in enumerate(parts[:-2]) if part in model_names]
+        # a model name at the start is only the model if no other one follows: it may be the prefix
+        model_index = min(model_indices, key=lambda index: (index == 0, index), default=None)
         return cls(
             path=path,
             _label=label,

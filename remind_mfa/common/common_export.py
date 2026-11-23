@@ -1,7 +1,8 @@
+import json
 import logging
 import os
 import pickle
-import shutil
+from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional, List, Literal, ClassVar
@@ -16,6 +17,7 @@ from remind_mfa.common.common_config import ExportCfg
 from remind_mfa.common.common_mappings import CommonDisplayNames
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.common.docs_export import DocumentationExporter
+from remind_mfa.common.code_version import UNKNOWN, CodeVersion
 from remind_mfa.common.helpers import (
     RemindMFABaseModel,
     series_export_path,
@@ -66,7 +68,14 @@ class CommonDataExporter(RemindMFABaseModel):
     display_names: CommonDisplayNames
 
     # Datasets producing a single file: placed directly in the run folder, no subfolder.
-    FLAT_DATASETS: ClassVar[set[str]] = {"pickle", "iamc_reporting", "iamc_raw", "assumptions"}
+    FLAT_DATASETS: ClassVar[set[str]] = {
+        "pickle",
+        "iamc_reporting",
+        "iamc_raw",
+        "assumptions",
+        # Several files, but the mrindustry series folder already identifies them
+        "mrindustry",
+    }
 
     _IAMC_RAW_PARAMETERS: ClassVar[dict[str, str]] = {
         "lifetime_mean": "yr",
@@ -74,6 +83,8 @@ class CommonDataExporter(RemindMFABaseModel):
         "population": "cap",
         "gdppc": "$/cap/yr",
     }
+
+    MRINDUSTRY_METADATA_FILENAME: ClassVar[str] = "metadata.json"
 
     _model: Optional["CommonModel"] = PrivateAttr(default=None)
     _run_path: Optional[str] = PrivateAttr(default=None)
@@ -469,17 +480,24 @@ class CommonDataExporter(RemindMFABaseModel):
         raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
 
     def write_mrindustry(self):
-        """Write material flows needed as inputs to REMIND."""
-        export_dir = Path(self.export_path("mrindustry"))
-        if export_dir.exists() and export_dir.is_dir():
-            shutil.rmtree(export_dir)
-        export_dir.mkdir(parents=True, exist_ok=True)
-
+        """Write the results needed as inputs to REMIND, and the metadata of the version."""
         for variable in self.get_mrindustry_variables():
             array = variable.calculation_function(self._model.future_mfa)
             self._check_mrindustry_values(variable.name, array)
             df = array.to_df().rename(columns={"value": variable.name})
             df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
+
+        code_version = CodeVersion.detect()
+        metadata = {
+            "remind_mfa_version": code_version.remind_mfa_version,
+            "git_sha": code_version.git_sha or UNKNOWN,
+            "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "input_data_revision": self._model.cfg.input.input_data_revision,
+        }
+        metadata_path = Path(self.run_path()).parent / self.MRINDUSTRY_METADATA_FILENAME
+        with open(metadata_path, "w", encoding="utf-8") as file:
+            json.dump(metadata, file, indent=2)
+            file.write("\n")
 
     @staticmethod
     def _check_mrindustry_values(name: str, array: fd.FlodymArray, n_items_shown: int = 5):
@@ -520,11 +538,19 @@ class CommonDataExporter(RemindMFABaseModel):
             if self.cfg.bundle_export:
                 self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
             name = (
-                f"{export_dir_prefix(self._model.cfg.export.prefix)}_{self._model.name}_"
-                f"{self._model.cfg.model_switches.scenario}_{self._model.cfg.input.region_mapping}"
+                f"{self._model.name}_{self._model.cfg.model_switches.scenario}_"
+                f"{self._model.cfg.input.region_mapping}"
             )
-            self._run_path = os.path.join(self.cfg.path, name)
-            Path(self._run_path).mkdir(parents=True, exist_ok=True)
+            if self.cfg.do_export and self.cfg.mrindustry.do_export:
+                # Special handling of mrindustry exports (have versioned folder)
+                code = CodeVersion.detect()
+                version_folder = f"{code.remind_mfa_version}-{code.short_sha}"
+                run_path = Path(self.cfg.path) / version_folder / name
+            else:
+                prefix = export_dir_prefix(self._model.cfg.export.prefix)
+                run_path = Path(self.cfg.path) / f"{prefix}_{name}"
+            run_path.mkdir(parents=True, exist_ok=True)
+            self._run_path = str(run_path)
         return self._run_path
 
     def export_path(self, dataset: str, filename: str | None = None) -> str:
