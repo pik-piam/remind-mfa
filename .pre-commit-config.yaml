@@ -11,3 +11,10 @@ repos:
       - id: check-case-conflict
       - id: end-of-file-fixer
       - id: trailing-whitespace
+  - repo: local
+    hooks:
+      - id: no-docstring-raises
+        name: forbid Raises sections in docstrings
+        language: pygrep
+        entry: '^\s*Raises:\s*$'
+        types: [python]

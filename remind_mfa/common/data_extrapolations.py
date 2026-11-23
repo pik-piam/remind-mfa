@@ -105,9 +105,6 @@ class Extrapolation(RemindMFABaseModel):
         Args:
             x (np.ndarray): Predictor values, a scalar or an array.
             prms (np.ndarray): Parameters at which to evaluate the derivative.
-
-        Raises:
-            NotImplementedError: If the subclass has no analytic derivative.
         """
         raise NotImplementedError(f"{type(self).__name__} has no analytic jacobian.")
 
