@@ -7,6 +7,7 @@ from remind_mfa.common.trade_extrapolation import TradeExtrapolator
 from remind_mfa.common.price_driven_trade import PriceDrivenTrade
 from remind_mfa.common.common_mfa_system import CommonMFASystem
 from remind_mfa.steel.steel_config import SteelCfg
+from remind_mfa.steel.steel_mfa_system_historical import SteelMFASystemHistorical
 
 
 class SteelMFASystem(CommonMFASystem):
@@ -177,6 +178,51 @@ class SteelMFASystem(CommonMFASystem):
         flw["losses => sysenv"][...] = flw["forming => losses"] + flw["manufacturing => losses"] + flw["steel_production_ore_based => losses"] + flw["steel_production_scrap_based => losses"]
         flw["sysenv => extraction"][...] = flw["extraction => steel_production_ore_based"]
         # fmt: on
+
+    def check_historical_scrap_flows(self, historical_mfa: SteelMFASystemHistorical):
+        """Check that in historical years, this system computes the scrap flows of the historical
+        system.
+
+        In historical years, ``max_scrap_share`` is the scrap share of the historical system
+        (see `SteelMFASystemHistorical.scrap_share`). With it, this system must compute the
+        metallic input, available scrap and scrap input of the historical system. Else, the two
+        systems compute the scrap differently, and the maximum scrap share changes historical
+        results or starts from a different scrap share.
+
+        Args:
+            historical_mfa (SteelMFASystemHistorical): The computed historical steel system.
+
+        Raises:
+            ValueError: If one of them differs in a historical year.
+        """
+        historical = {"t": self.dims["h"]}
+        flw = self.flows
+        historical_flw = historical_mfa.flows
+        scrap_input = flw["scrap_pool => steel_production_scrap_based"][historical]
+        historical_scrap_input = historical_flw["scrap_pool => steel_production_scrap_based"]
+        compared = {
+            "scrap input": (scrap_input, historical_scrap_input),
+            "available scrap": (
+                scrap_input + flw["scrap_pool => excess_scrap"][historical],
+                historical_scrap_input + historical_flw["scrap_pool => sysenv"],
+            ),
+            "metallic input": (
+                scrap_input + flw["extraction => steel_production_ore_based"][historical],
+                historical_scrap_input + historical_flw["sysenv => steel_production_ore_based"],
+            ),
+        }
+        differing = [
+            name
+            for name, (future, past) in compared.items()
+            if not np.allclose(future.values, past.cast_values_to(future.dims), rtol=1e-6)
+        ]
+        if differing:
+            raise ValueError(
+                f"In historical years, the {', '.join(differing)} of the future steel system "
+                "differ from the historical steel system. Most likely, "
+                "SteelMFASystemHistorical.compute_flows and SteelMFASystem.compute_flows compute "
+                "the scrap differently."
+            )
 
     def cap_scrap_imports_to_usable_scrap(
         self, max_scrap_production: fd.FlodymArray, domestic_scrap: fd.FlodymArray
