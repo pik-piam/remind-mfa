@@ -49,6 +49,10 @@ Co2PriceOption = Annotated[AtlasCo2Price, typer.Option(help="ATLAS CO2-price opt
 ScenarioPkBudgOption = Annotated[
     AtlasScenarioPkBudg, typer.Option(help="ATLAS PkBudg scenario selection.")
 ]
+RunLabelOption = Annotated[
+    str | None,
+    typer.Option(help="Suffix of the MFA run folder name, to keep coupling runs apart."),
+]
 
 
 def _warn_if_scenario_pkbudg_ignored(
@@ -66,6 +70,7 @@ def _warn_if_scenario_pkbudg_ignored(
 def run_mfa(
     model: ModelOption,
     stage: Annotated[Literal["one", "two"], typer.Option(help="MFA stage to run.")],
+    run_label: RunLabelOption = None,
 ) -> None:
     """Run one model of the MFA: either to produce the demand (stage one) or the actual results (stage two)."""
 
@@ -74,6 +79,8 @@ def run_mfa(
     )
     typer.echo(f"Run MFA with model={model} and config={','.join(config_names)}")
     config = load_config(list(config_names), model)
+    if run_label:
+        config["export"]["run_suffix"] = run_label
     model_instance = init_model(cfg=config)
     model_instance.run()
     model_instance.export()
@@ -87,10 +94,11 @@ def copy_demands(
     force: Annotated[
         bool, typer.Option("--force", help="Overwrite existing ATLAS demand target.")
     ] = False,
+    run_label: RunLabelOption = None,
 ) -> None:
     """Convert the MFA demand (and, for steel, scrap) exports to the format and location ATLAS expects."""
 
-    paths = get_coupling_paths(model, ["default", "hpc", "atlas_run1"])
+    paths = get_coupling_paths(model, ["default", "hpc", "atlas_run1"], run_label=run_label)
     for demand_source, demand_target in paths.mfa_pipeline_mapping.items():
         result = copy_demand_to_atlas(model, demand_source, demand_target, force)
         typer.echo(f"Wrote {len(result)} demand rows to {demand_target}")
@@ -253,6 +261,8 @@ def future(
 def couple(
     model: ModelOption,
     variant: VariantOption = AtlasVariant.GREEN_GREY,
+    share_mode: ShareModeOption = AtlasShareMode.SINGLE_FOSSIL,
+    grey_supply_source: GreySupplySourceOption = AtlasGreySupplySource.MIC3_BASELINE,
     co2price: Co2PriceOption = AtlasCo2Price.NONE,
     scenario_pkbudg: ScenarioPkBudgOption = AtlasScenarioPkBudg.BUDG_1000,
     force: Annotated[bool, typer.Option("--force", help="Overwrite existing files.")] = False,
@@ -264,15 +274,26 @@ def couple(
     """
 
     get_model_spec(model)
+    run_label = "_".join(
+        option.value
+        for option in (variant, share_mode, grey_supply_source, co2price, scenario_pkbudg)
+    )
     for pipeline_model in PIPELINE_INPUT_MODELS:
-        run_mfa(pipeline_model, stage="one")
-        copy_demands(pipeline_model, force=force)
+        run_mfa(pipeline_model, stage="one", run_label=run_label)
+        copy_demands(pipeline_model, force=force, run_label=run_label)
     preprocess()
     calibrate(model)
     validate(model)
-    future(model=model, variant=variant, co2price=co2price, scenario_pkbudg=scenario_pkbudg)
+    future(
+        model=model,
+        variant=variant,
+        share_mode=share_mode,
+        grey_supply_source=grey_supply_source,
+        co2price=co2price,
+        scenario_pkbudg=scenario_pkbudg,
+    )
     copy_trade(model, variant=variant, co2price=co2price, scenario_pkbudg=scenario_pkbudg)
-    run_mfa(model, stage="two")
+    run_mfa(model, stage="two", run_label=run_label)
 
 
 if __name__ == "__main__":

@@ -82,6 +82,25 @@ def test_steel_coupling_paths_cover_atlas_scrap_inputs(tmp_path, monkeypatch):
     assert {source.parent.name for source in paths.mfa_pipeline_mapping} == {"atlas"}
 
 
+def test_coupling_paths_read_from_run_folder_with_label_suffix(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS_MFA_INPUT_DIRECTORY", str(tmp_path))
+    config_names = ["default", "hpc", "atlas_run1"]
+
+    unlabelled = get_coupling_paths(ModelNames.STEEL, config_names)
+    labelled = get_coupling_paths(ModelNames.STEEL, config_names, run_label="my_label")
+
+    sources = list(unlabelled.mfa_pipeline_mapping)
+    labelled_sources = list(labelled.mfa_pipeline_mapping)
+    run_folder = sources[0].parents[1]
+    labelled_run_folder = run_folder.with_name(f"{run_folder.name}_my_label")
+    assert labelled_sources == [
+        labelled_run_folder / source.relative_to(run_folder) for source in sources
+    ]
+    assert list(labelled.mfa_pipeline_mapping.values()) == list(
+        unlabelled.mfa_pipeline_mapping.values()
+    )
+
+
 def test_pipeline_inputs_of_steel_are_required_for_plastics(tmp_path, monkeypatch):
     monkeypatch.setenv("ATLAS_MFA_INPUT_DIRECTORY", str(tmp_path))
     config_names = ["default", "hpc", "atlas_run1"]
