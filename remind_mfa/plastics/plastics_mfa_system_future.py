@@ -37,18 +37,21 @@ class PlasticsMFASystemFuture(CommonMFASystem):
         )
         self.trade_set.balance(to="maximum")
 
-    def compute_use_stock(self, stock_projection):
-        super().compute_use_stock(stock_projection, use_stock_name="use_dsm")
+    def adjust_inflow(self, inflow: fd.FlodymArray) -> fd.FlodymArray:
+        """Blend the inflow (see ``CommonMFASystem.adjust_inflow``) and split it into elements
+        and polymers.
 
-        # We use an auxiliary stock for the prediction step to save dimensions and computation time
-        # Therefore, we have to transfer the result to the higher-dimensional stock in the MFA system
+        Args:
+            inflow (fd.FlodymArray): Inflow resulting from a StockDrivenDSM computation.
+
+        Returns:
+            fd.FlodymArray: Adjusted inflow, with the element and polymer dimensions.
+        """
         split = (
             self.parameters["polymer_shares_use_inflow"]
             * self.parameters["carbon_content_polymers"]
         )
-        self.stocks["use"].stock[...] = self.stocks["use_dsm"].stock * split
-        self.stocks["use"].inflow[...] = self.stocks["use_dsm"].inflow * split
-        self.stocks["use"].outflow[...] = self.stocks["use_dsm"].outflow * split
+        return super().adjust_inflow(inflow) * split
 
     def compute_flows(self, historical_trade: TradeSet):
 

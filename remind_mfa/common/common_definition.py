@@ -33,6 +33,7 @@ class RemindMFADefinition(fd.MFADefinition):
         merged = {
             name: [item for part in parts for item in getattr(part, name)]
             for name in cls.model_fields
+            if name != "check_parameter_names"
         }
         return cls(**merged)
 
@@ -45,10 +46,11 @@ class RemindMFAPartialDefinition(RemindMFADefinition):
     @model_validator(mode="before")
     @classmethod
     def default_to_empty(cls, data: dict) -> dict:
-        return {name: [] for name in cls.model_fields} | data
+        empty_lists = {name: [] for name in cls.model_fields if name != "check_parameter_names"}
+        return empty_lists | {"check_parameter_names": False} | data
 
     @model_validator(mode="after")
-    def check_dimension_letters(self):
+    def _check_dimension_letters(self):
         return self
 
 
