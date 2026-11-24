@@ -431,6 +431,8 @@ class CommonDataExporter(RemindMFABaseModel):
             )
             if self._model.cfg.transience.open_gem_alignment:
                 name += "_OPEN-GEM"
+            if self.cfg.run_suffix:
+                name += f"_{self.cfg.run_suffix}"
             self._run_path = os.path.join(self.cfg.path, name)
             Path(self._run_path).mkdir(parents=True, exist_ok=True)
         return self._run_path

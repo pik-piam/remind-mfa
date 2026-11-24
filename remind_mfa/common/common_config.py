@@ -83,6 +83,8 @@ class ExportCfg(BaseExportCfg):
     """Whether to group all model outputs from one run into a shared <prefix>_series folder."""
     prefix: str | None = None
     """Optional fixed prefix for export file and folder names. Defaults to a timestamp."""
+    run_suffix: str | None = None
+    """Optional suffix of the run folder name, e.g. to separate coupling runs with different settings."""
     csv: BaseExportCfg
     """Configuration of export to CSV files"""
     mrindustry: BaseExportCfg

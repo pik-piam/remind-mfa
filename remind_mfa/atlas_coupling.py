@@ -150,8 +150,20 @@ def get_coupling_paths(
     config_names: Sequence[str],
     config_dir: Path = PROJECT_ROOT / "config",
     root: Path = PROJECT_ROOT,
+    run_label: str | None = None,
 ) -> CouplingPaths:
-    """Resolve export, input, and dimensions paths from layered MFA configuration."""
+    """Resolve export, input, and dimensions paths from layered MFA configuration.
+
+    Args:
+        model: MFA model.
+        config_names: Configuration layers of the MFA run.
+        config_dir: Directory of the configuration files.
+        root: Root against which relative paths are resolved.
+        run_label: Suffix of the run folder name that the MFA run exported into, if any.
+
+    Returns:
+        The resolved coupling paths.
+    """
     spec = get_model_spec(model)
     config = load_config(list(config_names), spec.model, config_dir=config_dir)
     export_cfg = config["export"]
@@ -164,6 +176,9 @@ def get_coupling_paths(
     if open_gem_alignment:
         # same suffix as CommonDataExporter.run_path
         run_name += "_OPEN-GEM"
+    if run_label:
+        # same suffix as CommonDataExporter.run_path with export.run_suffix
+        run_name += f"_{run_label}"
     export_path = _resolve_path(export_cfg["path"], root)
     atlas_export_path = export_path / f"{export_cfg['prefix']}_series" / run_name / "atlas"
     input_data_path = _resolve_path(config["input"]["input_data_path"], root)
