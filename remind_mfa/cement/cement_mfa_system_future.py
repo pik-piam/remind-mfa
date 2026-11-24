@@ -126,11 +126,11 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         flw["construction => use"][...] = stk["use"].inflow - flw["reuse => use"]
         # construction losses are relative to total cement use
         flw["cement_market => construction"][...] = flw["construction => use"][{"k": "Cement"}] / (
-            1 - prm["cement_losses"]
+            1 - prm["cement_loss_rate"]
         )
         flw["sysenv => construction"][...] = flw["construction => use"][{"k": "Non-Cement"}]
         flw["construction => losses"][...] = (
-            flw["cement_market => construction"] * prm["cement_losses"]
+            flw["cement_market => construction"] * prm["cement_loss_rate"]
         )
 
         # disposal: the non-reused demolished material accumulates in the eol waste stock
@@ -184,7 +184,7 @@ class StockDrivenCementMFASystem(CommonMFASystem):
         )
         # net cement kiln dust generation
         flw["clinker_production => losses"][...] = (
-            flw["clinker_production => clinker_market"] * prm["clinker_losses"]
+            flw["clinker_production => clinker_market"] * prm["clinker_loss_rate"]
         )
         flw["sysenv => clinker_production"][...] = (
             flw["clinker_production => clinker_market"] + flw["clinker_production => losses"]

@@ -20,8 +20,10 @@ def get_bottom_up_data_definition() -> RemindMFAPartialDefinition:
     ]
 
     parameters = [
-        RemindMFAParameterDefinition(name="floorspace", dim_letters=("t", "r", "S", "c"),
-                                     description="Historical and projected total buildings floorspace per region and common end use (Residential/Commercial)."),
+        RemindMFAParameterDefinition(name="floorspace_pc", dim_letters=("t", "r", "S", "c"),
+                                     description="Historical and projected net buildings floorspace per capita (m2/cap) per region and common end use (Residential/Commercial)."),
+        RemindMFAParameterDefinition(name="floorspace_net_to_gross", dim_letters=("r", "c"),
+                                     description="Ratio of gross to net floorspace."),
         RemindMFAParameterDefinition(name="residential_type_split", dim_letters=("r", "d"),
                                      description="Split of residential floor area into single-family and multi-family homes."),
         RemindMFAParameterDefinition(name="structure_split", dim_letters=("r", "b", "s"),

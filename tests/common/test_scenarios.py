@@ -8,14 +8,15 @@ from remind_mfa.common.helpers import ModelNames
 from remind_mfa.common.region_aggregation import RegionAggregations
 from remind_mfa.common.scenarios import ScenarioReader
 
-# (iso249, eu21, h12) rows of the region mapping test files
+# (iso249, gtap155, eu21, h12) rows of the region mapping test files
+# TODO: gtap155 currently has some regions that are the same as iso249, which stays the default
 REGION_MAPPING = [
-    ("DEU", "DEU", "EUR"),
-    ("FRA", "FRA", "EUR"),
-    ("ITA", "ECS", "EUR"),
-    ("NOR", "NEN", "NEU"),
-    ("CHN", "CHA", "CHA"),
-    ("USA", "USA", "USA"),
+    ("DEU", "DEU", "DEU", "EUR"),
+    ("FRA", "FRA", "FRA", "EUR"),
+    ("ITA", "ITA", "ECS", "EUR"),
+    ("NOR", "NOR", "NEN", "NEU"),
+    ("CHN", "CHN", "CHA", "CHA"),
+    ("USA", "USA", "USA", "USA"),
 ]
 EU21_REGIONS = ["CHA", "DEU", "FRA", "NEN"]
 
@@ -50,8 +51,12 @@ def test_parse_dict_column_rejects_non_mappings():
 def mappings_path(tmp_path):
     path = tmp_path / "regional"
     path.mkdir()
-    eu21 = [f"Name;{iso};{eu21};rest" for iso, eu21, _ in REGION_MAPPING]
-    h12 = [f"{i};Name;{iso};{h12}" for i, (iso, _, h12) in enumerate(REGION_MAPPING)]
+    gtap = [f"Name;{iso};{gtap}" for iso, gtap, _, _ in REGION_MAPPING]
+    eu21 = [f"Name;{iso};{eu21};rest" for iso, _, eu21, _ in REGION_MAPPING]
+    h12 = [f"{i};Name;{iso};{h12}" for i, (iso, _, _, h12) in enumerate(REGION_MAPPING)]
+    (path / "regionmappingGTAP12custom.csv").write_text(
+        "\n".join(["X;CountryCode;RegionCode", *gtap]) + "\n", encoding="utf-8"
+    )
     (path / "regionmapping_21_EU11.csv").write_text(
         "\n".join(["X;CountryCode;RegionCode;missingH12", *eu21]) + "\n", encoding="utf-8"
     )
