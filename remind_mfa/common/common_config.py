@@ -127,9 +127,6 @@ class IamcExportCfg(BaseExportCfg):
 
         Args:
             end_future: Last model year, used if `end_year` is not set.
-
-        Raises:
-            ValueError: If the years to export end after `end_future` or start after it.
         """
         end_year = end_future if self.end_year is None else self.end_year
         if end_year > end_future:

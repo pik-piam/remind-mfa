@@ -224,9 +224,6 @@ class RunInfo:
             path: ``model.pickle`` of a run or the run directory holding it, or an IAMC
                 ``.xlsx`` workbook.
             label: Name to show the run under; defaults to the name of the run directory.
-
-        Raises:
-            FileNotFoundError: If there is no file at ``path``.
         """
         path = Path(path)
         if (path / "model.pickle").is_file():
@@ -289,9 +286,6 @@ def load_run(path: Path, label: str) -> LoadedRun:
     Args:
         path: ``model.pickle`` of a run, or an IAMC ``.xlsx`` workbook.
         label: Label to show the run under.
-
-    Raises:
-        RuntimeError: If a pickle was written by an incompatible version of the model code.
     """
     path = Path(path)
     data = _load_model(path) if path.suffix == ".pickle" else pyam.IamDataFrame(str(path))
@@ -512,9 +506,6 @@ def frame_figures(
 
     Returns:
         The figures by run label, in the order of the runs.
-
-    Raises:
-        ValueError: If a column is mapped to several channels, or there is nothing to plot.
     """
     channels = [column for column in (facet, color) if column is not None]
     if len({x, *channels}) <= len(channels):

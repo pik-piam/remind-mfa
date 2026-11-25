@@ -489,9 +489,6 @@ class CommonDataExporter(RemindMFABaseModel):
             name (str): Name of the variable, used in the error message.
             array (fd.FlodymArray): Values of the variable.
             n_items_shown (int): Number of offending dimension items listed in the error message.
-
-        Raises:
-            ValueError: If the variable contains NaN or negative values.
         """
         for problem, condition in (
             ("NaN", np.isnan),

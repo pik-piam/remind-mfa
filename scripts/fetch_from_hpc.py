@@ -144,11 +144,7 @@ def group_mfa_archives_by_region(
 
 
 def select_unique_archive_per_region(archives_by_region: dict[str, list[str]]) -> list[str]:
-    """Return the single archive of each region mapping, sorted by region mapping.
-
-    Raises:
-        ValueError: If any region mapping has more than one archive.
-    """
+    """Return the single archive of each region mapping, sorted by region mapping."""
     ambiguous_regions = {
         region_mapping: region_archive_paths
         for region_mapping, region_archive_paths in sorted(archives_by_region.items())
