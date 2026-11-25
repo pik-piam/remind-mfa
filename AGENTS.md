@@ -40,6 +40,8 @@
   `input.input_data_revision` and `input.region_mapping` in the config and extracted into
   `data_in/parameters/` on first run.
 - The archive location comes from `input.madrat_output_path` or the `MADRAT_OUTPUTFOLDER` env var.
+  If the archive is missing there, fetch it with
+  `uv run scripts/fetch_from_hpc.py mfa-archive --config <config> <hpc>`.
 - Parameter files are prefixed by the first two letters of the model (`st_`, `ce_`, `pl_`).
 - Dimension files are mapped by name in `<model>_mappings.py`.
 
