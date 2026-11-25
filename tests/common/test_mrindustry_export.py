@@ -1,4 +1,4 @@
-"""Tests for the versioned mrindustry export: folder layout and metadata."""
+"""Tests for the versioned mrindustry export and the metadata of every export."""
 
 import json
 from pathlib import Path
@@ -138,11 +138,22 @@ def test_export_without_git_records_unknown_sha(tmp_path: Path, monkeypatch: pyt
     assert metadata_path(exporter).parent.name == "1.0.1-unknown"
 
 
-def test_export_without_mrindustry_has_no_version_folder(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("bundle_export", "metadata_file"),
+    [
+        (True, "mrindustry_batch/metadata.json"),
+        (False, "mrindustry_steel_SSP2_iso249/metadata.json"),
+    ],
+    ids=["bundled", "not bundled"],
+)
+def test_export_without_mrindustry_writes_metadata_without_version_folder(
+    tmp_path: Path, bundle_export: bool, metadata_file: str
+):
     exporter, run = make_run(tmp_path, export_mrindustry=False)
+    exporter.cfg.bundle_export = bundle_export
 
     exporter.export(run)
 
-    assert exporter.run_path() == str(
-        tmp_path / "mrindustry_batch" / "mrindustry_steel_SSP2_iso249"
-    )
+    files = [path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*.*")]
+    assert files == [metadata_file]
+    assert json.loads((tmp_path / metadata_file).read_text(encoding="utf-8"))["git_sha"] == SHA

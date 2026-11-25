@@ -84,7 +84,7 @@ class CommonDataExporter(RemindMFABaseModel):
         "gdppc": "$/cap/yr",
     }
 
-    MRINDUSTRY_METADATA_FILENAME: ClassVar[str] = "metadata.json"
+    METADATA_FILENAME: ClassVar[str] = "metadata.json"
 
     _model: Optional["CommonModel"] = PrivateAttr(default=None)
     _run_path: Optional[str] = PrivateAttr(default=None)
@@ -100,6 +100,7 @@ class CommonDataExporter(RemindMFABaseModel):
 
     def export_common(self):
         mfa = self._model.future_mfa
+        self.write_metadata()
         if self.cfg.pickle.do_export:
             pickle.dump(self._model, open(self.export_path("pickle", "model.pickle"), "wb"))
         if self.cfg.csv.do_export:
@@ -479,14 +480,12 @@ class CommonDataExporter(RemindMFABaseModel):
         """Return the variables to export as REMIND input. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement get_mrindustry_variables method")
 
-    def write_mrindustry(self):
-        """Write the results needed as inputs to REMIND, and the metadata of the version."""
-        for variable in self.get_mrindustry_variables():
-            array = variable.calculation_function(self._model.future_mfa)
-            self._check_mrindustry_values(variable.name, array)
-            df = array.to_df().rename(columns={"value": variable.name})
-            df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
+    def write_metadata(self):
+        """Write the code version and input data revision of the export.
 
+        A bundled export writes it into the folder that holds its run folders, other exports write
+        it into the run folder.
+        """
         code_version = CodeVersion.detect()
         metadata = {
             "remind_mfa_version": code_version.remind_mfa_version,
@@ -494,10 +493,19 @@ class CommonDataExporter(RemindMFABaseModel):
             "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "input_data_revision": self._model.cfg.input.input_data_revision,
         }
-        metadata_path = Path(self.run_path()).parent / self.MRINDUSTRY_METADATA_FILENAME
-        with open(metadata_path, "w", encoding="utf-8") as file:
+        run_path = Path(self.run_path())
+        folder = run_path.parent if self.cfg.bundle_export else run_path
+        with open(folder / self.METADATA_FILENAME, "w", encoding="utf-8") as file:
             json.dump(metadata, file, indent=2)
             file.write("\n")
+
+    def write_mrindustry(self):
+        """Write the results needed as inputs to REMIND."""
+        for variable in self.get_mrindustry_variables():
+            array = variable.calculation_function(self._model.future_mfa)
+            self._check_mrindustry_values(variable.name, array)
+            df = array.to_df().rename(columns={"value": variable.name})
+            df.to_csv(self.export_path("mrindustry", f"{variable.name}.csv"))
 
     @staticmethod
     def _check_mrindustry_values(name: str, array: fd.FlodymArray, n_items_shown: int = 5):
