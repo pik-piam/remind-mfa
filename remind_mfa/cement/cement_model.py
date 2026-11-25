@@ -285,6 +285,7 @@ class CementModel(CommonModel[CementCfg]):
             "lifetime_factor_cohort",
         )
         bu_mfa = self.make_mfa(
+            historical=False,
             definition=self.get_definition(self.cfg, historical=False, bottom_up=True),
             mfasystem_class=self.BottomUpMFASystemCls,
         )
@@ -378,6 +379,9 @@ class CementModel(CommonModel[CementCfg]):
         logging.info(f"Starting parameter reconciliation (max_iter={max_iter}, tol={tol})...")
 
         ref_mfa = self.make_mfa(historical=True)
+        # The reconciliation also needs the bottom-up parameters over the full time (e.g.
+        # floorspace), and returns the corrected parameters as the new model parameters.
+        ref_mfa.parameters = self.parameters
         ref_mfa.trade_set = (
             self.historical_mfa.trade_set
         )  # trade is not altered during reconciliation, so we can just take it from the already computed historical MFA

@@ -40,7 +40,7 @@ class Exporter(CommonDataExporter):
 def fixed_code_version(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the exports independent of the state of this checkout and of earlier tests."""
     monkeypatch.setattr(CodeVersion, "detect", lambda: VERSION)
-    monkeypatch.setattr(helpers, "_SERIES_EXPORT_PATH", None)
+    monkeypatch.setattr(helpers, "_BATCH_EXPORT_PATH", None)
 
 
 def make_run(
@@ -80,10 +80,10 @@ def test_export_is_written_into_a_version_folder(tmp_path: Path):
     run_folder = "steel_SSP2_iso249"
     files = (path for path in tmp_path.rglob("*") if path.is_file())
     assert sorted(path.relative_to(tmp_path).as_posix() for path in files) == [
-        f"mrindustry_series/{VERSION_FOLDER}/metadata.json",
-        f"mrindustry_series/{VERSION_FOLDER}/{run_folder}/flow.csv",
+        f"mrindustry_batch/{VERSION_FOLDER}/metadata.json",
+        f"mrindustry_batch/{VERSION_FOLDER}/{run_folder}/flow.csv",
     ]
-    csv_path = tmp_path / "mrindustry_series" / VERSION_FOLDER / run_folder / "flow.csv"
+    csv_path = tmp_path / "mrindustry_batch" / VERSION_FOLDER / run_folder / "flow.csv"
     assert csv_path.read_text(encoding="utf-8").splitlines() == [
         "Time,Region,flow",
         "2020,EUR,1.0",
@@ -117,7 +117,7 @@ def test_models_and_scenarios_share_the_version_folder(tmp_path: Path):
     for exporter, run in runs:
         exporter.export(run)
 
-    (version_folder,) = (tmp_path / "mrindustry_series").iterdir()
+    (version_folder,) = (tmp_path / "mrindustry_batch").iterdir()
     assert sorted(path.name for path in version_folder.iterdir()) == [
         "cement_SSP2_iso249",
         "metadata.json",
@@ -144,5 +144,5 @@ def test_export_without_mrindustry_has_no_version_folder(tmp_path: Path):
     exporter.export(run)
 
     assert exporter.run_path() == str(
-        tmp_path / "mrindustry_series" / "mrindustry_steel_SSP2_iso249"
+        tmp_path / "mrindustry_batch" / "mrindustry_steel_SSP2_iso249"
     )

@@ -261,11 +261,17 @@ class CommonModel[CfgT: CommonCfg]:
         mfasystem_class: Optional[type[CommonMFASystem]] = None,
     ) -> CommonMFASystem:
         """Build an MFA system. `definition` and `mfasystem_class` default to the
-        historical/future ones selected by `historical` when not given explicitly."""
+        historical/future ones selected by `historical` when not given explicitly.
+
+        A historical system gets the parameters restricted to historical years.
+        """
         if definition is None:
             definition = self.definition_historical if historical else self.definition_future
         if mfasystem_class is None:
             mfasystem_class = self.HistoricalMFASystemCls if historical else self.FutureMFASystemCls
+        parameters = (
+            self._restrict_parameters_to_historical_time() if historical else self.parameters
+        )
 
         processes = fd.make_processes(definition.processes)
         flows = fd.make_empty_flows(
@@ -285,13 +291,31 @@ class CommonModel[CfgT: CommonCfg]:
 
         return mfasystem_class(
             cfg=self.cfg,
-            parameters=self.parameters,
+            parameters=parameters,
             processes=processes,
             dims=self.dims,
             flows=flows,
             stocks=stocks,
             trade_set=trade_set,
         )
+
+    def _restrict_parameters_to_historical_time(self) -> dict[str, fd.Parameter]:
+        """The parameters, with those over time ``t`` restricted to historical time ``h``.
+
+        Returns:
+            dict[str, fd.Parameter]: A new dictionary. Parameters without a time dimension are
+                the same objects as in `parameters`, the others are copies over ``h``.
+        """
+        historical_time = self.dims["h"]
+        parameters = {}
+        for name, parameter in self.parameters.items():
+            if "t" in parameter.dims.letters:
+                sliced = parameter[{"t": historical_time}]
+                parameter = fd.Parameter(
+                    dims=sliced.dims, values=sliced.values, name=parameter.name
+                )
+            parameters[name] = parameter
+        return parameters
 
     def get_stock_end_use_split_limit(self):
         prm = self.parameters

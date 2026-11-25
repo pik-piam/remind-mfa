@@ -35,10 +35,23 @@ class SteelModel(CommonModel[SteelCfg]):
 
         return SteelVisualizer(cfg=self.cfg.visualization, display_names=self.display_names)
 
+    def run(self):
+        super().run()
+        assert isinstance(self.future_mfa, SteelMFASystem)
+        assert isinstance(self.historical_mfa, SteelMFASystemHistorical)
+        self.future_mfa.check_historical_scrap_flows(self.historical_mfa)
+
+    def transfer_historical_parameters(self):
+        """Set the historical values of ``max_scrap_share`` to the scrap share of the historical
+        MFA system (see `SteelMFASystemHistorical.scrap_share`).
+
+        The scenario extrapolation blends from them to the scenario target.
+        """
+        assert isinstance(self.historical_mfa, SteelMFASystemHistorical)
+        self.parameters["max_scrap_share"] = self.historical_mfa.scrap_share()
+
     def modify_parameters(self):
         """Manual changes to parameters in order to match historical scrap consumption."""
-
-        self.parameters["max_scrap_share"] = self.scenario_parameters["max_scrap_share"]
 
         lifetime_calibration_factor = blend(
             target_dims=self.dims["t",],

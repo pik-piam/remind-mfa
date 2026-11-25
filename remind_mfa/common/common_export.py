@@ -20,7 +20,7 @@ from remind_mfa.common.docs_export import DocumentationExporter
 from remind_mfa.common.code_version import UNKNOWN, CodeVersion
 from remind_mfa.common.helpers import (
     RemindMFABaseModel,
-    series_export_path,
+    batch_export_path,
     export_dir_prefix,
 )
 
@@ -536,11 +536,13 @@ class CommonDataExporter(RemindMFABaseModel):
         """Per-model-run export folder, created once and shared by exporter and visualizer."""
         if self._run_path is None:
             if self.cfg.bundle_export:
-                self.cfg.path = series_export_path(self.cfg.path, self.cfg.prefix)
+                self.cfg.path = batch_export_path(self.cfg.path, self.cfg.prefix)
             name = (
                 f"{self._model.name}_{self._model.cfg.model_switches.scenario}_"
                 f"{self._model.cfg.input.region_mapping}"
             )
+            if self.cfg.run_suffix:
+                name = f"{name}_{self.cfg.run_suffix}"
             if self.cfg.do_export and self.cfg.mrindustry.do_export:
                 # Special handling of mrindustry exports (have versioned folder)
                 code = CodeVersion.detect()
