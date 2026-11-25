@@ -73,7 +73,7 @@ class CommonDataExporter(RemindMFABaseModel):
         "iamc_reporting",
         "iamc_raw",
         "assumptions",
-        # Several files, but the mrindustry series folder already identifies them
+        # Several files, but the mrindustry batch folder already identifies them
         "mrindustry",
     }
 
