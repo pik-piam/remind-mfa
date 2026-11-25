@@ -191,9 +191,6 @@ class SteelMFASystem(CommonMFASystem):
 
         Args:
             historical_mfa (SteelMFASystemHistorical): The computed historical steel system.
-
-        Raises:
-            ValueError: If one of them differs in a historical year.
         """
         historical = {"t": self.dims["h"]}
         flw = self.flows

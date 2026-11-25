@@ -85,8 +85,7 @@ class SteelMFASystemHistorical(CommonMFASystem):
         flw["use => scrap_market"][...] = stk["use"].outflow * (1 - prm["hibernation_share"]) * prm["recovery_rate"]
         flw["use => sysenv"][...] = stk["use"].outflow - flw["use => scrap_market"]
 
-        trd["scrap"].exports[...] = trd["scrap"].exports.minimum(flw["use => scrap_market"])
-        trd["scrap"].balance(to="minimum")
+        self.cap_historical_net_exports_to_supply(trd["scrap"], flw["use => scrap_market"])
         flw["scrap_market => sysenv"][...] = trd["scrap"].exports
         flw["sysenv => scrap_market"][...] = trd["scrap"].imports
         flw["scrap_market => scrap_pool"][...] = flw["use => scrap_market"] + trd["scrap"].net_imports

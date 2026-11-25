@@ -168,10 +168,6 @@ class Batch:
             stack: Configuration layers, at most one of which contains matrices.
             models: Selected models (see `BatchMatrix.combinations`). Required if the stack does
                 not contain matrices. None means no restriction.
-
-        Raises:
-            ValueError: If no run remains, if a configuration is invalid, or if two runs would
-                be written to the same folder.
         """
         raw_matrices = stack.batch_matrices
         if raw_matrices is None:
