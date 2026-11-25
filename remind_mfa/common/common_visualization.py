@@ -150,8 +150,8 @@ class CommonVisualizer(RemindMFABaseModel):
     def write_figure_index(self) -> Path | None:
         """Write the index page listing all HTML figures of this run.
 
-        With bundled export the index covers the whole series, i.e. all models run so
-        far and thus is written into the parent series folder;
+        With bundled export the index covers the whole batch, i.e. all models run so
+        far and thus is written into the parent batch folder;
         otherwise it is written into the run folder.
         """
         if not self.cfg.do_save_figs_html:

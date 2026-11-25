@@ -93,7 +93,7 @@ def find_latest_iamc(material: str, search_root: Path) -> Path:
     """Newest IAMC export below ``search_root`` whose run folder belongs to ``material``.
 
     The search is recursive, so nested export roots (``data_out/transience/<run>/``) and the
-    series folders of a bundled export are covered as well. Run folders are named
+    batch folders of a bundled export are covered as well. Run folders are named
     ``<prefix>_<model>_<scenario>_<region_mapping>``, which is what the material is matched
     against.
     """
