@@ -176,6 +176,15 @@ def test_discover_runs_orders_runs_written_at_the_same_time(tmp_path):
     assert [run.path for run in discover_runs(tmp_path)] == [second, first]
 
 
+def test_run_info_of_a_run_without_prefix(tmp_path):
+    versioned = _touch(tmp_path / "1.0.1-01234567" / "steel_SSP2_high_h12" / "model.pickle", 1e9)
+    run = RunInfo.from_path(versioned)
+    assert (run.model, run.scenario, run.region_mapping) == ("steel", "SSP2_high", "h12")
+    # a prefix that is a model name is not mistaken for the model
+    prefixed = _touch(tmp_path / "steel_cement_SSP1_eu21" / "model.pickle", 1e9)
+    assert RunInfo.from_path(prefixed).model == "cement"
+
+
 def test_run_info_of_a_run_elsewhere(tmp_path):
     workbook = _touch(tmp_path / "my_prefix_plastics_SSP2_high_h12" / "iamc_reporting.xlsx", 1e9)
     run = RunInfo.from_path(workbook, label="custom")

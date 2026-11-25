@@ -7,6 +7,8 @@
 
     [base.export]
         do_export = true
+        bundle_export = true
+        prefix = "mrindustry"
         mrindustry.do_export = true
         pickle.do_export = true
 
