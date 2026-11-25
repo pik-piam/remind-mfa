@@ -26,10 +26,6 @@ NAMED_PATHS: frozenset[ConfigPath] = frozenset(
 """Paths whose values are already part of the run folder name."""
 
 
-def _format_path(path: ConfigPath) -> str:
-    return ".".join(path)
-
-
 def _nested_dict(values: dict[ConfigPath, Any]) -> dict:
     """Turn a mapping of key paths to values into a nested dictionary."""
     nested: dict = {}
@@ -77,11 +73,10 @@ class BatchMatrix:
                     collect(value, path)
                 elif not isinstance(value, list):
                     raise ValueError(
-                        f"{name}.{_format_path(path)} must be a list of values, "
-                        f"but got {value!r}."
+                        f"{name}.{'.'.join(path)} must be a list of values, but got {value!r}."
                     )
                 elif not value:
-                    raise ValueError(f"{name}.{_format_path(path)} must not be empty.")
+                    raise ValueError(f"{name}.{'.'.join(path)} must not be empty.")
                 else:
                     values[path] = value
 
@@ -134,7 +129,7 @@ class BatchRun:
     @property
     def description(self) -> str:
         values = ", ".join(
-            f"{_format_path(path)}={value}" for path, value in self.matrix_values.items()
+            f"{'.'.join(path)}={value}" for path, value in self.matrix_values.items()
         )
         return f"{self.model.value}" + (f" ({values})" if values else "")
 

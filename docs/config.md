@@ -61,7 +61,6 @@ Rules:
   `visualization.sankey.plotter_args.exclude_processes = [["sysenv"], []]`.
 - `--model` restricts the matrices to the given model. Matrices without a `model` key run the
   models given with `--model` (prompted for if missing).
-- All runs are configured and validated before the first run starts.
 
 The outputs of all runs of a batch are bundled into one folder,
 `<export.path>/<prefix>_batch/<prefix>_<model>_<scenario>_<region_mapping>[_<suffix>]`.
