@@ -417,10 +417,6 @@ class MadratParameterReader(fd.CSVParameterReader):
 
         Returns:
             The data of the years of the time dimension, with the year column named after it.
-
-        Raises:
-            InputHorizonError: If the data misses a year between the last historical year and the
-                end of the time dimension.
         """
         year_column = next(
             (c for c in data.columns if c in (time.name, time.letter, self.TIME_COLUMN)), None
@@ -445,9 +441,6 @@ class MadratParameterReader(fd.CSVParameterReader):
 
         Single parameters may start later, but not all of them: the model would take the years
         without any data as years of zero production, population etc.
-
-        Raises:
-            InputHorizonError: If no parameter has data for the first year of the time horizon.
         """
         if not self.first_years:
             return

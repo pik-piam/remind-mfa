@@ -595,10 +595,6 @@ class PDController:
 
         Returns:
             np.ndarray: Array of slopes with the same shape as ``y.shape[1:]``.
-
-        Raises:
-            ValueError: If any entry of ``window_size`` is smaller than ``deg``.
-            ValueError: If ``window_size`` is an array whose shape does not match the spatial shape of ``y``.
         """
 
         if not np.all(window_size >= deg):

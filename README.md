@@ -58,6 +58,10 @@ uv run remind_mfa --config default --config local --model all
 See the
 [configuration documentation](docs/config.md) for the file layout and merge rules.
 
+To run several configurations at once, e.g. all SSP scenarios, add `[[batch_matrix]]` tables to
+a configuration file; see the
+[batch run documentation](docs/config.md#batch-runs).
+
 You can also simply run `remind_mfa` without arguments, in which case you will be prompted to select a configuration and a material.
 
 Currently, all implemented models require data which is not part of the repository, such that running the models will yield an error.
@@ -76,6 +80,7 @@ uv run scripts/fetch_from_hpc.py mfa-archive --config default <hpc>
 ```
 where `<hpc>` is the ssh address/alias of the PIK cluster, e.g., `username@hpc.pik-potsdam.de` (with your PIK user name).
 Alternatively, you can also use `uv run scripts/fetch_from_hpc.py mrmfa-sources <hpc>` to copy the input data for `mrmfa` from the cluster to your local machine, and then run `mrmfa` locally to generate the madrat output data.
+Similarly, `uv run scripts/fetch_from_hpc.py mrindustry-sources <hpc>` copies the input data for `mrindustry`, as listed in [`inst/mrindustry_sources.csv`](https://github.com/pik-piam/mrindustry/blob/main/inst/mrindustry_sources.csv) of `mrindustry`.
 
 The auto-generated documentation markdown files are updated automatically in each pull request.
 To update them locally, run
