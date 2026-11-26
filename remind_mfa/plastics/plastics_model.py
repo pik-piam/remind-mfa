@@ -124,46 +124,43 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
             self.dims["n"].items,
             self.dims["f"].items,
         )
-        self.parameters["collection_rate_EU-MFA"] = fd.Parameter(
-            dims=self.dims["v", "n", "f"],
-            values=(
-                self.parameters["collected_eol_EU-MFA"] / self.parameters["stock_outflow_EU-MFA"]
-            )[{"r": EU_MFA_REGION}].values,
-        )
-        self.parameters["mechanical_recycling_rate_EU-MFA"] = fd.Parameter(
-            dims=self.dims["v", "n"],
-            values=(
-                self.parameters["sorted_eol_EU-MFA"].sum_to(("v", "r", "n"))
-                / self.parameters["collected_eol_EU-MFA"].sum_to(("v", "r", "n"))
-            )[{"r": EU_MFA_REGION}].values,
-        )
-        self.parameters["mechanical_recycling_yield_EU-MFA"] = fd.Parameter(
-            dims=self.dims["v", "n"],
-            values=(
-                self.parameters["recycled_eol_EU-MFA"].sum_to(("v", "r", "n"))
-                / self.parameters["sorted_eol_EU-MFA"].sum_to(("v", "r", "n"))
-            )[{"r": EU_MFA_REGION}].values,
-        )
+        # zero denominators (no EU-MFA flows) give NaN/Inf, which are replaced by REMIND-MFA values below
+        with np.errstate(divide="ignore", invalid="ignore"):
+            self.parameters["collection_rate_EU-MFA"] = fd.Parameter(
+                dims=self.dims["v", "n", "f"],
+                values=(
+                    self.parameters["collected_eol_EU-MFA"]
+                    / self.parameters["stock_outflow_EU-MFA"]
+                )[{"r": EU_MFA_REGION}].values,
+            )
+            self.parameters["mechanical_recycling_rate_EU-MFA"] = fd.Parameter(
+                dims=self.dims["v", "n"],
+                values=(
+                    self.parameters["sorted_eol_EU-MFA"].sum_to(("v", "r", "n"))
+                    / self.parameters["collected_eol_EU-MFA"].sum_to(("v", "r", "n"))
+                )[{"r": EU_MFA_REGION}].values,
+            )
+            self.parameters["mechanical_recycling_yield_EU-MFA"] = fd.Parameter(
+                dims=self.dims["v", "n"],
+                values=(
+                    self.parameters["recycled_eol_EU-MFA"].sum_to(("v", "r", "n"))
+                    / self.parameters["sorted_eol_EU-MFA"].sum_to(("v", "r", "n"))
+                )[{"r": EU_MFA_REGION}].values,
+            )
         # adjust dimensions of REMIND-MFA rates and replace EU region with EU-MFA rates
         self.parameters["collection_rate"] = fd.Parameter(
             name="collection_rate",
             dims=self.dims["t", "r", "p", "u"],
             values=self.parameters["collection_rate"].cast_to(self.dims["t", "r", "p", "u"]).values,
         )
-        eu_mfa_collection_rate = self.parameters["collection_rate_EU-MFA"].values
-        nan_mask = ~np.isfinite(eu_mfa_collection_rate)
-        if nan_mask.any():
-            nan_indices = np.argwhere(nan_mask)
-            nan_combos = [(v_items[i[0]], n_items[i[1]], f_items[i[2]]) for i in nan_indices[:20]]
-            logging.warning(
-                f"NaN/Inf values in collection_rate_EU-MFA for {nan_mask.sum()} combinations "
-                f"(EU-MFA_Time, EU-MFA_Material, EU-MFA_Good) — keeping existing REMIND-MFA values. "
-                f"First occurrences: {nan_combos}"
-            )
-            existing = self.parameters["collection_rate"][
+        eu_mfa_collection_rate = _fill_non_finite(
+            "collection_rate_EU-MFA",
+            self.parameters["collection_rate_EU-MFA"].values,
+            self.parameters["collection_rate"][
                 {"r": EU_MFA_REGION, "p": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
-            ].values
-            eu_mfa_collection_rate = np.where(nan_mask, existing, eu_mfa_collection_rate)
+            ].values,
+            [v_items, n_items, f_items],
+        )
         self.parameters["collection_rate"][
             {"r": EU_MFA_REGION, "p": self.dims["n"], "u": self.dims["f"], "t": self.dims["v"]}
         ] = fd.Parameter(dims=self.dims["v", "n", "f"], values=eu_mfa_collection_rate)
@@ -174,20 +171,14 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
             .cast_to(self.dims["t", "r", "p"])
             .values,
         )
-        eu_mfa_mech_rate = self.parameters["mechanical_recycling_rate_EU-MFA"].values
-        nan_mask = ~np.isfinite(eu_mfa_mech_rate)
-        if nan_mask.any():
-            nan_indices = np.argwhere(nan_mask)
-            nan_combos = [(v_items[i[0]], n_items[i[1]]) for i in nan_indices[:20]]
-            logging.warning(
-                f"NaN/Inf values in mechanical_recycling_rate_EU-MFA for {nan_mask.sum()} combinations "
-                f"(EU-MFA_Time, EU-MFA_Material) — keeping existing REMIND-MFA values. "
-                f"First occurrences: {nan_combos}"
-            )
-            existing = self.parameters["mechanical_recycling_rate"][
+        eu_mfa_mech_rate = _fill_non_finite(
+            "mechanical_recycling_rate_EU-MFA",
+            self.parameters["mechanical_recycling_rate_EU-MFA"].values,
+            self.parameters["mechanical_recycling_rate"][
                 {"r": EU_MFA_REGION, "p": self.dims["n"], "t": self.dims["v"]}
-            ].values
-            eu_mfa_mech_rate = np.where(nan_mask, existing, eu_mfa_mech_rate)
+            ].values,
+            [v_items, n_items],
+        )
         self.parameters["mechanical_recycling_rate"][
             {"r": EU_MFA_REGION, "p": self.dims["n"], "t": self.dims["v"]}
         ] = fd.Parameter(dims=self.dims["v", "n"], values=eu_mfa_mech_rate)
@@ -198,20 +189,63 @@ class PlasticsModel(CommonModel[PlasticsCfg]):
             .cast_to(self.dims["t", "r", "p"])
             .values,
         )
-        eu_mfa_mech_yield = self.parameters["mechanical_recycling_yield_EU-MFA"].values
-        nan_mask = ~np.isfinite(eu_mfa_mech_yield)
-        if nan_mask.any():
-            nan_indices = np.argwhere(nan_mask)
-            nan_combos = [(v_items[i[0]], n_items[i[1]]) for i in nan_indices[:20]]
-            logging.warning(
-                f"NaN/Inf values in mechanical_recycling_yield_EU-MFA for {nan_mask.sum()} combinations "
-                f"(EU-MFA_Time, EU-MFA_Material) — keeping existing REMIND-MFA values. "
-                f"First occurrences: {nan_combos}"
-            )
-            existing = self.parameters["mechanical_recycling_yield"][
+        eu_mfa_mech_yield = _fill_non_finite(
+            "mechanical_recycling_yield_EU-MFA",
+            self.parameters["mechanical_recycling_yield_EU-MFA"].values,
+            self.parameters["mechanical_recycling_yield"][
                 {"r": EU_MFA_REGION, "p": self.dims["n"], "t": self.dims["v"]}
-            ].values
-            eu_mfa_mech_yield = np.where(nan_mask, existing, eu_mfa_mech_yield)
+            ].values,
+            [v_items, n_items],
+        )
         self.parameters["mechanical_recycling_yield"][
             {"r": EU_MFA_REGION, "p": self.dims["n"], "t": self.dims["v"]}
         ] = fd.Parameter(dims=self.dims["v", "n"], values=eu_mfa_mech_yield)
+
+
+def _year_ranges(years: list[int]) -> str:
+    """Compress a sorted list of years into ranges, e.g. [1950, 1951, 1952, 1990] -> '1950-1952, 1990'."""
+    if not years:
+        return "none"
+    ranges = []
+    start = prev = years[0]
+    for y in years[1:]:
+        if y != prev + 1:
+            ranges.append((start, prev))
+            start = y
+        prev = y
+    ranges.append((start, prev))
+    return ", ".join(str(a) if a == b else f"{a}-{b}" for a, b in ranges)
+
+
+def _fill_non_finite(
+    name: str, new: np.ndarray, existing: np.ndarray, items: list[list]
+) -> np.ndarray:
+    """Replace non-finite entries of new by existing and log a summary: years in which all cells
+    are non-finite, and, for the remaining years, each set of non-finite cells with its years.
+    The first axis of new must be time; items holds the item lists of all axes."""
+    mask = ~np.isfinite(new)
+    if not mask.any():
+        return new
+    years = items[0]
+    n_cells = mask[0].size
+    full = []
+    partial: dict[tuple, list[int]] = {}
+    for i, y in enumerate(years):
+        if mask[i].all():
+            full.append(y)
+        elif mask[i].any():
+            cells = tuple(
+                tuple(item_list[j] for item_list, j in zip(items[1:], idx))
+                for idx in np.argwhere(mask[i])
+            )
+            partial.setdefault(cells, []).append(y)
+    partial_str = "".join(
+        f"\n  {len(cells)}/{n_cells} cells in {_year_ranges(ys)}: {list(cells)}"
+        for cells, ys in partial.items()
+    )
+    logging.warning(
+        f"{name}: {mask.sum()}/{mask.size} non-finite values replaced by REMIND-MFA values "
+        f"(of which Inf (x/0): {np.isinf(new).sum()}). Fully missing years: {_year_ranges(full)}. "
+        f"Partially missing:{partial_str or ' none'}"
+    )
+    return np.where(mask, existing, new)
