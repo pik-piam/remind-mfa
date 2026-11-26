@@ -33,7 +33,7 @@ class PlasticsMFASystemHistorical(CommonMFASystem):
             trd["primary"], flw["polymerization => primary_market"]
         )
 
-        flw["primary_market => manufacturing"][...] = (
+        flw["primary_market => manufacturing"][...] = self._remove_negative_round_off(
             flw["polymerization => primary_market"] + trd["primary"].net_imports
         )
         flw["manufacturing => manufactured_products_market"][...] = flw[
